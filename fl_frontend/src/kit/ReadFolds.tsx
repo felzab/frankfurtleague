@@ -60,7 +60,7 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
  * The open card of `ReadFolds`' `column` while it is read: its title, its chevron turned as an open card's, a bar where
  * its count stands, and its table's placeholder.
  */
-export function OpenFoldPlaceholder({ title, head, rows, plain }: { title: Copy; head: TableHead; rows: number; plain?: number }) {
+export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: TableHead; rows: number }) {
   const s = cardLook({ body: "rows", fold: true });
   return (
     <div className={s.root()}>
@@ -82,7 +82,6 @@ export function OpenFoldPlaceholder({ title, head, rows, plain }: { title: Copy;
         <TablePlaceholder
           head={head}
           rows={rows}
-          plain={plain}
           bare
         />
       </div>

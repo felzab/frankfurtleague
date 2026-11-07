@@ -17,7 +17,7 @@ import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
-import { PageWait, PageWaitOnceRead } from "./PageFade";
+import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { RowActs } from "./RowActs";
 import { Placeholder, Waiting } from "./Skeleton";
@@ -106,8 +106,6 @@ type ListContent =
       kind: "folds";
       /** The cards while they wait, `OpenFoldPlaceholder`, which the page places as it places the cards. */
       wait: ReactElement;
-      /** The wait as the reader will see the cards, where a first read knows: `wait` stands until it answers. */
-      waitOnceRead?: Promise<ReactElement>;
       /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
       content: Promise<ReactElement>;
     }
@@ -299,12 +297,11 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
-/**
- * A toolbar act the read decides, as Administratoren's are: its words, which its wait draws at their width, and the act,
- * `null` for a reader whose role never holds it, or `locked` while the list as read shuts it. `held` is whether this
- * reader's role holds it at all, a first read ahead of the act's own, so a reader who never holds it sees no wait for it.
- */
-export type ListActOnceRead = { label: Copy; act: Promise<ListCreate | null>; held?: Promise<boolean> };
+/** A toolbar act the read words: its words, which its wait draws at their width, and the act, `locked` while the list as read shuts it. */
+export type ListActOnceRead = { label: Copy; act: Promise<ListCreate> };
+
+/** The toolbar's acts where the reader's role decides them, each `null` for a reader who does not hold it. */
+export type ListRoleActs = { side: ListCreate | null; create: ListCreate | null };
 
 /**
  * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height.
@@ -349,39 +346,41 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
   );
 }
 
-/** A toolbar act once what it makes is read, absent for a reader who never holds it. */
-async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate | null>; side?: boolean }) {
-  const read = await act;
+/** A toolbar act once what it makes is read. */
+async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
+  return <ToolbarAct act={await act} />;
+}
+
+/** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
+const TOOLBAR = "flex flex-wrap items-center gap-3";
+
+/** The acts at the toolbar row's end, where focus lands when an act takes the control it was on with it. */
+function ToolbarActs({ children }: { children: ReactNode }) {
   return (
-    read !== null && (
-      <ToolbarAct
-        act={read}
-        side={side}
-      />
-    )
+    <div
+      data-kit-focus="home"
+      className="ms-auto flex flex-wrap items-center justify-end gap-3">
+      {children}
+    </div>
   );
 }
 
-async function HeldOnceRead({ held, children }: { held: Promise<boolean>; children: ReactNode }) {
-  return (await held) && children;
-}
-
-/** The toolbar's act and its wait, which the first read takes away from a reader whose role never holds it. */
-function ToolbarWait({ act: { act, held }, wait, side }: { act: ListActOnceRead; wait: ReactElement; side?: boolean }) {
-  const waiting = (
-    <Suspense fallback={wait}>
-      <ToolbarActOnceRead
-        act={act}
-        side={side}
-      />
-    </Suspense>
-  );
-  return held === undefined ? (
-    waiting
-  ) : (
-    <Suspense fallback={wait}>
-      <HeldOnceRead held={held}>{waiting}</HeldOnceRead>
-    </Suspense>
+/** The toolbar of a reader the role's acts reach, and no row for any other, whose empty row would hold the page's gap. */
+async function RoleActsOnceRead({ acts }: { acts: Promise<ListRoleActs> }) {
+  const { side, create } = await acts;
+  if (side === null && create === null) return null;
+  return (
+    <div className={TOOLBAR}>
+      <ToolbarActs>
+        {side !== null && (
+          <ToolbarAct
+            act={side}
+            side
+          />
+        )}
+        {create !== null && <ToolbarAct act={create} />}
+      </ToolbarActs>
+    </div>
   );
 }
 
@@ -526,7 +525,7 @@ export function ListPage({
   filters,
   filterCount = 1,
   create,
-  sideAct,
+  acts,
   link,
   notice,
   list,
@@ -545,16 +544,21 @@ export function ListPage({
    * it waits in a boundary of its own and stands in the toolbar once read.
    */
   create?: ListCreate | ListActOnceRead;
-  /** A second act on the list as a whole, such as Administratoren's handover: a secondary button before the create act. */
-  sideAct?: ListActOnceRead;
+  /**
+   * The acts one role alone holds, read with the list, as Administratoren's: the create act, and before it a second act
+   * on the list as a whole, a secondary button. No wait draws them. What a reader sees of an ordinary load's wait is the
+   * static shell's (`PageWaitOnceRead`), which knows no reader, so a placeholder would show every other role an act it
+   * does not hold and then lift its list. Every role waits alike, and the toolbar arrives with the list for the role
+   * holding it, moving the list down by its own height.
+   */
+  acts?: Promise<ListRoleActs>;
   link?: ListLink;
   /** What holds of the list as read and no row says, standing between the toolbar and the list. */
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
-  const hasActs = create !== undefined || sideAct !== undefined;
-  const hasToolbar = search !== undefined || filters !== undefined || hasActs || link !== undefined;
+  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || link !== undefined;
 
   return (
     <RailPage {...head}>
@@ -562,38 +566,23 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          // Left out where the read leaves a reader no act: an empty row would still hold the page's gap.
-          <div className="flex flex-wrap items-center gap-3 has-[>:only-child:empty]:hidden">
+          <div className={TOOLBAR}>
             {search !== undefined && <ListSearchField {...search} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
-            {hasActs && (
-              <div
-                data-kit-focus="home"
-                className="ms-auto flex flex-wrap items-center justify-end gap-3">
-                {sideAct !== undefined && (
-                  <ToolbarWait
-                    act={sideAct}
-                    wait={
-                      <Placeholder>
-                        <span className={buttonPlaceholder()}>{sideAct.label}</span>
-                      </Placeholder>
-                    }
-                    side
-                  />
-                )}
-                {create === undefined ? null : "label" in create ? (
-                  <ToolbarWait
-                    act={create}
-                    wait={<CreatePlaceholder label={create.label} />}
-                  />
+            {create !== undefined && (
+              <ToolbarActs>
+                {"label" in create ? (
+                  <Suspense fallback={<CreatePlaceholder label={create.label} />}>
+                    <ToolbarActOnceRead act={create.act} />
+                  </Suspense>
                 ) : (
                   <ToolbarAct act={create} />
                 )}
-              </div>
+              </ToolbarActs>
             )}
             {link !== undefined && (
               <div className="ms-auto">
@@ -609,29 +598,24 @@ export function ListPage({
             )}
           </div>
         )}
+        {acts !== undefined && (
+          <Suspense fallback={null}>
+            <RoleActsOnceRead acts={acts} />
+          </Suspense>
+        )}
         {notice !== undefined && (
           <Suspense fallback={null}>
             <NoticeOnceRead notice={notice} />
           </Suspense>
         )}
-        {list.kind === "folds" && list.waitOnceRead !== undefined ? (
-          <PageWaitOnceRead
-            fallback={<ListWait>{list.wait}</ListWait>}
-            wait={list.waitOnceRead.then((wait) => (
-              <ListWait>{wait}</ListWait>
-            ))}>
-            <ListBody list={list} />
-          </PageWaitOnceRead>
-        ) : (
-          <PageWait
-            fallback={
-              <ListWait>
-                <ListPlaceholder list={list} />
-              </ListWait>
-            }>
-            <ListBody list={list} />
-          </PageWait>
-        )}
+        <PageWait
+          fallback={
+            <ListWait>
+              <ListPlaceholder list={list} />
+            </ListWait>
+          }>
+          <ListBody list={list} />
+        </PageWait>
       </ListQueryScope>
     </RailPage>
   );

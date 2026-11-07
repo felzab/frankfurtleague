@@ -122,15 +122,13 @@ describe("the toolbar's acts the read decides", () => {
     content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } as const }),
   } as const;
   const HEAD = { scope: "saison", title: { route: "spielplan" } } as const;
-  const ACT = { verb: "create", object: COPY.page.spielplan } as const;
-  const SIDE = { verb: "handOver", object: COPY.page.spielplan } as const;
 
-  /** The page once every boundary holding an act has resolved, as the server streams it. */
-  async function toolbar(props: Pick<ComponentProps<typeof ListPage>, "create" | "sideAct">) {
+  // The harm: an empty toolbar row holds the page's gap over an administrator's list, which then stands lower than its wait.
+  it("draws no row for a reader holding neither act, as the wait draws none", async () => {
     const { prelude } = await prerender(
       <ListPage
         head={HEAD}
-        {...props}
+        acts={Promise.resolve({ side: null, create: null })}
         list={LIST}
       />,
       // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
@@ -138,40 +136,8 @@ describe("the toolbar's acts the read decides", () => {
     );
     const page = document.createElement("div");
     page.innerHTML = await new Response(prelude).text();
-    return page.querySelector("[class*='only-child']");
-  }
 
-  // The harm: an administrator would see, and press, an act the server refuses them (section 6's R3: absent by role).
-  it("draws neither where the read says the reader holds none", async () => {
-    const bar = await toolbar({
-      create: { label: actLabel(ACT), act: Promise.resolve(null) },
-      sideAct: { label: actLabel(SIDE), act: Promise.resolve(null) },
-    });
-    expect(bar?.querySelector("button")).toBe(null);
-    expect(bar?.className).toContain("has-[>:only-child:empty]:hidden");
-    expect(bar?.firstElementChild?.children).toHaveLength(0);
-  });
-});
-
-describe("the toolbar's wait", () => {
-  // The harm: the buttons' wait going with the read lifts the list under them for an administrator, who never holds them.
-  it("draws nothing for an act the first read says the reader never holds, whatever the act's own read does", async () => {
-    const { prelude } = await prerender(
-      <ListPage
-        head={{ scope: "saison", title: { route: "spielplan" } }}
-        create={{ label: COPY.page.spielplan, act: new Promise(() => undefined), held: Promise.resolve(false) }}
-        list={{
-          kind: "spieltage",
-          wait: { tabs: 1, matches: 1 },
-          content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } }),
-        }}
-      />,
-      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
-    );
-    const page = document.createElement("div");
-    page.innerHTML = await new Response(prelude).text();
-
-    expect(page.querySelector("[class*='only-child']")?.firstElementChild?.children).toHaveLength(0);
+    expect(page.querySelector("[class*='flex-wrap']")).toBe(null);
   });
 });
 
