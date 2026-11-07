@@ -1231,9 +1231,11 @@ export interface FLBanData {
 }
 
 /**
- * One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.
+ * One ban, as `ban_list` stores it and as the list serves it.
  */
-export interface FLBanListRow {
+export interface FLBanListEntry {
+  /** @minLength 1 */
+  address: string;
   /** @minLength 1 */
   ban_reason: string;
   /**
@@ -1243,8 +1245,8 @@ export interface FLBanListRow {
   barred_until_saison_id: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  created_by: string | null;
-  created_by_barred: boolean;
+  /** @minLength 1 */
+  created_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
 }
@@ -1256,7 +1258,7 @@ export interface FLBanListRow {
  * person barred by a row nobody can reach.
  */
 export interface FLBanListResponse {
-  ban_list: FLBanListRow[];
+  ban_list: FLBanListEntry[];
   /** @minimum 0 */
   count_total: number;
 }

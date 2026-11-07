@@ -3037,32 +3037,14 @@
         "title": "FLBanData",
         "type": "object"
       },
-      "FLBanListResponse": {
-        "description": "The bans, newest first, and how many there are.\n\n`count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
+      "FLBanListEntry": {
+        "description": "One ban, as `ban_list` stores it and as the list serves it.",
         "properties": {
-          "ban_list": {
-            "items": {
-              "$ref": "#/components/schemas/FLBanListRow"
-            },
-            "title": "Ban List",
-            "type": "array"
+          "address": {
+            "minLength": 1,
+            "title": "Address",
+            "type": "string"
           },
-          "count_total": {
-            "minimum": 0.0,
-            "title": "Count Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "ban_list",
-          "count_total"
-        ],
-        "title": "FLBanListResponse",
-        "type": "object"
-      },
-      "FLBanListRow": {
-        "description": "One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.",
-        "properties": {
           "ban_reason": {
             "minLength": 1,
             "title": "Ban Reason",
@@ -3080,20 +3062,9 @@
             "type": "string"
           },
           "created_by": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
-          "created_by_barred": {
-            "title": "Created By Barred",
-            "type": "boolean"
+            "minLength": 1,
+            "title": "Created By",
+            "type": "string"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -3103,13 +3074,36 @@
         },
         "required": [
           "id",
+          "address",
           "ban_reason",
           "created_by",
           "created_at",
-          "barred_until_saison_id",
-          "created_by_barred"
+          "barred_until_saison_id"
         ],
-        "title": "FLBanListRow",
+        "title": "FLBanListEntry",
+        "type": "object"
+      },
+      "FLBanListResponse": {
+        "description": "The bans, newest first, and how many there are.\n\n`count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
+        "properties": {
+          "ban_list": {
+            "items": {
+              "$ref": "#/components/schemas/FLBanListEntry"
+            },
+            "title": "Ban List",
+            "type": "array"
+          },
+          "count_total": {
+            "minimum": 0.0,
+            "title": "Count Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ban_list",
+          "count_total"
+        ],
+        "title": "FLBanListResponse",
         "type": "object"
       },
       "FLBanListWriteResponse": {
@@ -20536,7 +20530,7 @@
     },
     "/api/v0/ban_list": {
       "get": {
-        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `created_by` is the administrator who entered the\nrow, and is an address — `null` beside `created_by_barred` where the ban list holds that\nadministrator's address too, as no barred address is served in plain. **The rows are capped at\n`LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows\nserved, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.",
+        "description": "List the bans, newest first: the address, why, by whom, on which day and the last season covered, with how many the list holds.\n\n**The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the\nrows served, bans are enforced that this answer does not show, and a ban nobody can see is one nobody can lift.",
         "operationId": "ban_list_get_ban_list_entries",
         "responses": {
           "200": {
@@ -20601,7 +20595,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.\n\nRefused where the list already holds the address (`duplicate_key`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and\nwhere the address is an administrator's (`ban_list_admin`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed\nthat names the address loses it in the same transaction, and where `notify` is set the ban's\nown notice is owed to it there too, the one mail a ban does not stop.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
+        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting (`ban_list_admin`). The ban covers the fifth season after the one running now,\nthe last one it covers answered as `barred_until_saison_id`, and it survives that person's erasure. Where `notify` is\nset the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
         "operationId": "ban_list_post_ban_list_entry",
         "requestBody": {
           "content": {
@@ -20678,7 +20672,7 @@
     },
     "/api/v0/ban_list/{ban_list_entry_id}": {
       "delete": {
-        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\nthe rule gives every log row. The lifted ban is therefore readable\nat `GET /action_log` for that period and enforced by nothing from the moment this answers.",
+        "description": "Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.",
         "operationId": "ban_list_delete_ban_list_entry",
         "parameters": [
           {
@@ -23153,7 +23147,7 @@
     },
     "/api/v0/outbox/handout": {
       "post": {
-        "description": "Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nThe sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline\nis given up rather than handed out, and counted in `abandoned`. A mail to an address a standing ban holds is stopped\nas `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to\nthe record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer\nholding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is\nanswered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every\noutcome, with `lease`, to `POST /outbox/result`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
+        "description": "Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nThe sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline\nis given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as\n`barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to\nthe record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer\nholding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is\nanswered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every\noutcome, with `lease`, to `POST /outbox/result`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
         "operationId": "outbox_post_handout",
         "responses": {
           "200": {

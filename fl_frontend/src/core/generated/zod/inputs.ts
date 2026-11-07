@@ -344,15 +344,13 @@ export const AddressChangeInviteAddressChangeParams = zod.object({
 });
 
 /**
- * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
+ * Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
  *
- * Refused where the list already holds the address (`duplicate_key`), while no season is
- * running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and
- * where the address is an administrator's (`ban_list_admin`). The ban covers the
- * fifth season after the one running now — the last one it covers is answered as
- * `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
- * that names the address loses it in the same transaction, and where `notify` is set the ban's
- * own notice is owed to it there too, the one mail a ban does not stop.
+ * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
+ * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
+ * a row in `grants`, in effect or waiting (`ban_list_admin`). The ban covers the fifth season after the one running now,
+ * the last one it covers answered as `barred_until_saison_id`, and it survives that person's erasure. Where `notify` is
+ * set the ban's own notice is owed to the address in the same transaction.
  *
  * `ban_reason` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address
@@ -369,15 +367,7 @@ export const BanListPostBanListEntryBody = zod.object({
 });
 
 /**
- * Lift a ban before it lapses, removing the row. HARD, no soft form.
- *
- * Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
- * hash, so re-entering the ban means being told the address again. 404 where no row holds the id.
- *
- * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
- * administrator who entered it, and no address of the person it barred — for the twelve months
- * the rule gives every log row. The lifted ban is therefore readable
- * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
+ * Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.
  * @summary Lift a ban
  */
 export const banListDeleteBanListEntryPathBanListEntryIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
