@@ -36,7 +36,6 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import JSONFormatter
 from app.core.security import PASSKEY_FACTOR
@@ -645,7 +644,17 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
 
 def action_log_row(row_id: ObjectId, *, by: str) -> dict[str, Any]:
-    return {"_id": row_id, "at": NOW, "by": by, "team": None, "action": "ban.added", "record_id": None, "label": None, "count": None, "trace_id": "t"}
+    return {
+        "_id": row_id,
+        "at": NOW,
+        "by": by,
+        "team": None,
+        "action": "ban.added",
+        "record_id": None,
+        "label": None,
+        "count": None,
+        "trace_id": "t",
+    }
 
 
 def journal_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
@@ -916,25 +925,8 @@ class TestOneTransaction:
         assert code == DOCUMENT_VALIDATION_FAILED
         assert counts == {"grants": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4}
         assert (seat, pending, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 0)
-        # And no line nor warning: an erasure rolled back is no erasure a restore's step may repeat.
+        # And no line: an erasure rolled back is no erasure a restore's step may repeat.
         assert not journal_records(caplog)
-        assert NO_OWNER not in [record.getMessage() for record in caplog.records]
-
-
-class TestTheGrantsLeftBehind:
-    def test_an_loeschung_taking_a_grant_names_what_is_left_once_it_commits(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The floor of two holds against no erasure, so the boot's own warning names what is left: here a list holding no owner."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-
-            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["grants"]
-
-        with caplog.at_level(logging.WARNING):
-            removed = on_a_league(mongo_replica_set_url, body)
-
-        assert removed == 1
-        assert [record.getMessage() for record in caplog.records].count(NO_OWNER) == 1
 
 
 class TestTheMail:
@@ -997,7 +989,9 @@ class TestTheJournal:
         assert len(line["records"]) == len(records)
         assert not [value for value in THEIR_VALUES if value.lower() in JSONFormatter().format(record).lower()]
 
-    def test_an_address_holding_no_record_of_its_own_still_names_where_it_stood(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_an_address_holding_no_record_of_its_own_still_names_where_it_stood(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """Catches the line left empty: a former administrator's address comes back with a restore, and no replay would know it."""
 
         former = "ehemals.verwaltung@example.org"
@@ -1005,7 +999,9 @@ class TestTheJournal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ACTION_LOG].insert_one(action_log_row(log_row, by=former))
-            await database[Collection.BAN_LIST].insert_one(ban_document("gebannt-drei@beispiel.de", until="2199", _id=ban_row, created_by=former))
+            await database[Collection.BAN_LIST].insert_one(
+                ban_document("gebannt-drei@beispiel.de", until="2199", _id=ban_row, created_by=former)
+            )
 
             return (await erased_over_http(mongo_replica_set_url, email=former)).status_code
 

@@ -309,7 +309,9 @@ class TestTheNotices:
                 )
             }
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]]]:
+        async def body(
+            database: AsyncDatabase, client: AsyncMongoClient
+        ) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]]]:
             before = await stored(database)
             await erase(database, client)
 

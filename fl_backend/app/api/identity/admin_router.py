@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.address_change.crud import others_naming
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
+from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureResponse, FLErasureViewResponse
 from app.api.identity.services import (
     address_change_viewable_denied,
@@ -47,6 +47,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
+from app.core.journal import Journal
 from app.core.recording import record_act
 from app.core.routing import SAFE
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
@@ -187,8 +188,9 @@ async def post_erasure(
     # Before the transaction: who asks is known from the token alone.
     refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
-    journal = ErasureJournal(grants_collection=grants_collection)
+    journal = Journal()
 
+    @journal.attempted
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
         grants = await read_grants(grants_collection=grants_collection, session=session)
         refuse(find_admin_address_refusal(identifier=identifier, actor=actor_identifier, grants=grants))
@@ -237,8 +239,9 @@ async def post_erasure(
             session=session,
         )
         await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
+        journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-        return journal.took(erasure)
+        return FLErasureResponse(**erasure.counts.model_dump())
 
     async with journal, transaction_session(db) as session:
         return await session.with_transaction(erase_the_address)

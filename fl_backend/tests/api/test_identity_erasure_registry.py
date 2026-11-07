@@ -1,12 +1,11 @@
 """
 API · the erasure registry's decisions a database need not answer
 
-Collections standing in for the reads each decision makes: `app/api/identity/crud.py :: ErasureJournal`'s
-one `find` after the commit, and the aggregates `:: resolve_subject` sends.
+Collections standing in for the reads each decision makes: the aggregates `app/api/identity/crud.py :: resolve_subject`
+sends.
 """
 
 import asyncio
-import logging
 from dataclasses import fields
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -14,55 +13,12 @@ from typing import Any, cast
 import pytest
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import NetworkTimeout
 
-from app.api.identity.crud import Erasure, ErasureJournal, Subject, resolve_subject
-from app.api.identity.schemas import FLErasure, FLErasureResponse
+from app.api.identity.crud import Subject, resolve_subject
 from app.api.outbox.schemas import FLAddressChangeEffectiveData, FLDeletionNoticeData
 from app.api.outbox.services import DELIVERY_DEADLINE, OwedMail, row_of
-from app.core.codes import Code
 
 IDENTIFIER = "zorbanax.quillfeather@example.org"
-
-# One grant taken, so the journal reads the grants once the erasure committed.
-A_GRANT_TAKEN = Erasure(
-    counts=FLErasure(spieler=0, saison_spieler=0, schiedsrichter=0, spiele=0, kontakt_seats=0, registrierungen=0, address_change=0, grants=1),
-    records=["grants/6890a1b2c3d4e5f607b00071"],
-    seats=[],
-    rows=[],
-)
-
-
-class _DeadlinePassed:
-    async def to_list(self, length: int | None) -> list[Any]:
-        raise NetworkTimeout("the request's deadline passed")
-
-
-class _GrantsUnread:
-    """`grants` as the request's deadline leaves it once the commit has landed."""
-
-    def find(self, *args: Any, **kwargs: Any) -> _DeadlinePassed:
-        return _DeadlinePassed()
-
-
-def test_a_committed_loeschung_whose_grant_warning_fails_answers_and_journals(caplog: pytest.LogCaptureFixture):
-    """Catches the warning's read raising out of the journal: the person is answered an error for an erasure that landed."""
-
-    async def erase() -> FLErasureResponse:
-        journal = ErasureJournal(grants_collection=cast(AsyncCollection, _GrantsUnread()))
-        async with journal:
-            return journal.took(A_GRANT_TAKEN)
-
-    with caplog.at_level(logging.INFO):
-        answer = asyncio.run(erase())
-
-    messages = [record.getMessage() for record in caplog.records]
-
-    assert answer.grants == 1
-    assert "journal.act" in messages
-    assert [getattr(record, "error_code", None) for record in caplog.records].count(Code.DATABASE_FAILED) == 1
-    assert [message for message in messages if IDENTIFIER in message] == []
-
 
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=UTC)
 

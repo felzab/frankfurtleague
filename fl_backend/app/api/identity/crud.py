@@ -2,13 +2,11 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from types import TracebackType
 from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import PyMongoError
 
 from app.api.action_log.crud import reattribute_administrator_in_session
 from app.api.address_change.crud import (
@@ -22,7 +20,7 @@ from app.api.address_change.services import build_owed_carry_filter
 from app.api.grants.crud import read_grants
 from app.api.grants.erasure import erase_grants_and_authorship_in_session
 from app.api.identity.lookup import RecordCollections
-from app.api.identity.schemas import FLErasure, FLErasureResponse, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
+from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
     EntryKind,
     awaits_confirmation,
@@ -71,12 +69,8 @@ from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_refer
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
-from app.core.db import warn_about_the_grants
-from app.core.journal import lost_its_answer, privacy_line
-from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
 from app.shared.einwilligung import is_confirmed
@@ -564,8 +558,8 @@ async def erase_everything(
 ) -> Erasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, so a retry after a conflict re-reads it. A request's route runs its transaction inside an
-    `ErasureJournal`, which writes the erasure's line once it commits.
+    The subject is read HERE, so a retry after a conflict re-reads it. A request's route notes the answer's `records`,
+    `seats` and `rows` in its `Journal`, which writes the erasure's line once it commits.
     """
 
     subject = await resolve_subject(
@@ -719,50 +713,6 @@ async def erase_everything(
         # One row twice where a withheld notice was also a mail to the address.
         rows=list(dict.fromkeys(named)),
     )
-
-
-class ErasureJournal:
-    """Entered around a request's transaction block: the erasure's line and the warnings follow its commit.
-
-    Outside the block, whose abort a failure meets first; the callback hands each attempt's erasure to `took`, so a lost
-    answer still has the last attempt's records to name.
-    """
-
-    def __init__(self, *, grants_collection: AsyncCollection) -> None:
-        self._grants_collection = grants_collection
-        self._erasure: Erasure | None = None
-
-    async def __aenter__(self) -> ErasureJournal:
-        return self
-
-    def took(self, erasure: Erasure) -> FLErasureResponse:
-        """The attempt's erasure, answered as its route answers it."""
-
-        self._erasure = erasure
-
-        return FLErasureResponse(**erasure.counts.model_dump())
-
-    async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
-        # A lost answer writes its line too, never a refusal, which raises before any commit: the erasure may have landed.
-        if failure is not None and not lost_its_answer(failure):
-            return
-        if self._erasure is None:
-            raise RuntimeError("an erasure route left its journal without handing it the transaction's erasure")
-
-        privacy_line("erasure", self._erasure.records, seats=self._erasure.seats, rows=self._erasure.rows)
-        # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
-        # grant short: the ended grant's queued notice is what tells the other administrators. Unwarned on a
-        # lost answer: the warning's read would meet the deadline that lost the answer.
-        if failure is None and self._erasure.counts.grants:
-            await self._warn_about_the_grants()
-
-    async def _warn_about_the_grants(self) -> None:
-        # Logged, never raised: the erasure committed, and an error answered here, a read meeting the deadline
-        # say, keeps the person's sign-in account until they ask again.
-        try:
-            await warn_about_the_grants(self._grants_collection)
-        except PyMongoError as failure:
-            fl_logger.error("identity.grants_unchecked", extra={"error_code": Code.DATABASE_FAILED, "exception": type(failure).__name__})
 
 
 async def unreferenced_of(

@@ -37,7 +37,7 @@ def privacy_line(
     )
 
 
-def lost_its_answer(failure: BaseException | None) -> bool:
+def _lost_its_answer(failure: BaseException | None) -> bool:
     """Whether a transaction's failure is a commit whose answer never came: it may have landed."""
 
     return isinstance(failure, PyMongoError) and failure.has_error_label(UNKNOWN_COMMIT_RESULT)
@@ -73,6 +73,6 @@ class Journal:
 
     async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
         # A lost answer writes too: the act may have landed, and repeating what its person asked for wrongs nobody.
-        if failure is None or lost_its_answer(failure):
+        if failure is None or _lost_its_answer(failure):
             for noted in self._noted:
                 privacy_line(*noted)
