@@ -9,7 +9,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { requireAccountSession } from "@/features/account/account";
-import { getAccountAddressChange, getErasureView } from "@/features/account/queries";
+import { getAccountAddressChange } from "@/features/account/queries";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -40,18 +40,13 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 /** The address and the deletion, read for the session the page is drawn for. */
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
-  const [change, held, lastOwner] = await Promise.all([
-    getAccountAddressChange(),
-    passkeysOf(served.user.id).then((rows) => rows.length > 0),
-    // Read for an owner alone, the one tier that can be the last; the deletion's own page refuses it again.
-    subject.records.admin_tier === "owner" ? getErasureView().then((view) => view.last_owner) : false,
-  ]);
+  const [change, held] = await Promise.all([getAccountAddressChange(), passkeysOf(served.user.id).then((rows) => rows.length > 0)]);
   return (
     <SignInBoxes
       email={subject.email}
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
-      lastOwner={lastOwner ? SERVER_COPY.refusalLine.last_owner_erasure : undefined}
+      lastOwner={subject.records.admin_tier === "owner" ? SERVER_COPY.refusalLine.last_owner_erasure : undefined}
       addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );

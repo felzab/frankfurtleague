@@ -49,16 +49,17 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.logging import fl_logger
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.security import verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 
-# System tier and the system actor: the key is held by the frontend process alone, which is exactly
-# who may ask which records a mailbox matches, and no session stands behind the caller.
+# System tier: the key is held by the frontend process alone, which is exactly who may ask which
+# records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identity",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
 
@@ -179,12 +180,13 @@ async def _erase_one(
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     db: AsyncMongoClient,
+    saison_id: str | None,
     now: datetime,
 ) -> FLErasure | None:
     """One pupil in a transaction of their own: a conflict on one takes back nobody already erased."""
 
     async def erase_the_pupil_if_still_due(session: AsyncClientSession) -> FLErasure | None:
-        return await erase_if_still_due(
+        erased = await erase_if_still_due(
             spieler_id,
             saisons_collection=saisons_collection,
             spieler_collection=spieler_collection,
@@ -205,6 +207,18 @@ async def _erase_one(
             now=now,
             session=session,
         )
+        # In the pupil's transaction, so no deletion stands without its row.
+        if erased is not None:
+            await record_act(
+                collection=spieler_collection,
+                action="retention.spieler",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=erased.spieler,
+                session=session,
+            )
+
+        return erased
 
     async with transaction_session(db) as session:
         return await session.with_transaction(erase_the_pupil_if_still_due)
@@ -305,6 +319,7 @@ async def sweep_erasure(
                 ban_list_collection=ban_list_collection,
                 address_changes_collection=address_changes_collection,
                 db=db,
+                saison_id=completed_saison_id(statuses),
                 now=germany_now,
             )
         # Any class, or the next pass stops at this pupil again and holds back everyone behind them;

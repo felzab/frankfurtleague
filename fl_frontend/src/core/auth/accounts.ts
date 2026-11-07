@@ -8,6 +8,7 @@ import { asSignInIdentifier } from "../emailAddress";
 import { APIBadStatusError, RolledBackError } from "../errors";
 import { deleteEndedSessions } from "./accountSessions";
 import { auth, ownErasure } from "./library";
+import { notifyAccountDeleted } from "./mails";
 import { SESSIONS_ENDED_FIELD } from "./sessionStamps";
 import { DELETE_TOKEN_ROW_PREFIX, deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
 
@@ -131,12 +132,13 @@ export async function deleteOwnAccount(
 
 /**
  * Every sign-in-store row of the account `identifier` names, in one transaction, and the address's pending
- * rows; answers whether an account was there. Its callers first establish the league holds nothing of the
- * address, erased or unreferenced.
+ * rows; answers whether an account was there, whose person is told once it has gone. Its callers first establish
+ * the league holds nothing of the address, erased or unreferenced.
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
   // Set once the callback has returned, for `removePasskey`'s reason: a throw after it came from the commit.
   let committing = false;
+  let deleted: boolean;
 
   try {
     // Inside the `try`: a failure reading the store's context comes before any write, and its caller tells a
@@ -144,7 +146,7 @@ export async function deleteAccountFor(identifier: string): Promise<boolean> {
     const folded = asSignInIdentifier(identifier);
     const { adapter, secret } = await auth.$context;
 
-    return await adapter.transaction(async (held) => {
+    deleted = await adapter.transaction(async (held) => {
       // Cleared on every run, for `removePasskey`'s reason: the adapter runs this again after a transient
       // commit failure, and a throw from that run rolled back like the first run's would.
       committing = false;
@@ -167,6 +169,9 @@ export async function deleteAccountFor(identifier: string): Promise<boolean> {
   } catch (failed) {
     throw committing ? failed : new RolledBackError(failed);
   }
+
+  if (deleted) await notifyAccountDeleted(identifier);
+  return deleted;
 }
 
 /** Every account's folded address, for the account sweep: by `EVERY_ROW`, past the library's default page of 100. */

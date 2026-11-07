@@ -454,14 +454,14 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
     return any(grant["address"] == identifier and grant["admin_tier"] == OWNER for grant in grants)
 
 
-def find_last_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`last_owner_erasure`: the owner erases their address only after a handover, nobody else being able to name an owner."""
+def find_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`owner_erasure`: the owner erases their address only after a handover, nobody else being able to name an owner."""
 
     if not holds_an_owner_grant(identifier, grants):
         return None
 
     return WriteRefusal(
-        error_code=Code.LAST_OWNER_ERASURE,
+        error_code=Code.OWNER_ERASURE,
         status=HTTPStatus.CONFLICT,
     )
 

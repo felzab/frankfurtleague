@@ -47,7 +47,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
-from app.core.recording import erasure_reason_var
+from app.core.recording import record_act
 from app.core.routing import SAFE
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -214,39 +214,31 @@ async def post_erasure(
             )
         )
 
-        return journal.took(
-            await erase_everything(
-                identifier,
-                scope=EACH_PERSON_GROUP,
-                spieler_collection=spieler_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                spiele_collection=spiele_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                spielberichte_collection=spielberichte_collection,
-                registrierungen_collection=registrierungen_collection,
-                action_log_collection=action_log_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                invitations_collection=invitations_collection,
-                ban_list_collection=ban_list_collection,
-                address_changes_collection=address_changes_collection,
-                changed_by=operator,
-                now=germany_now,
-                session=session,
-            )
+        erasure = await erase_everything(
+            identifier,
+            scope=EACH_PERSON_GROUP,
+            spieler_collection=spieler_collection,
+            saison_spieler_collection=saison_spieler_collection,
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+            spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            spielberichte_collection=spielberichte_collection,
+            registrierungen_collection=registrierungen_collection,
+            action_log_collection=action_log_collection,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            address_changes_collection=address_changes_collection,
+            changed_by=operator,
+            now=germany_now,
+            session=session,
         )
+        await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
 
-    async with journal:
-        # Around the whole transaction, every retry inside it, and reset in a `finally`: a value left
-        # standing would land on whatever this context records next.
-        reason = erasure_reason_var.set(erasure_data.reason)
-        try:
-            async with transaction_session(db) as session:
-                answer = await session.with_transaction(erase_the_address)
-        finally:
-            erasure_reason_var.reset(reason)
+        return journal.took(erasure)
 
-    return answer
+    async with journal, transaction_session(db) as session:
+        return await session.with_transaction(erase_the_address)

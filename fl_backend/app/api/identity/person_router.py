@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.grants.crud import read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
-from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_last_owner_erasure_refusal
+from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -30,13 +29,14 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.security import verify_access_admin
+from app.core.recording import ACT_BY_PERSON, record_act
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 
-# `kontakt` bound, as the account page's router binds it: a person erases themselves holding no Funktion at all.
+# No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identity/account",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 
@@ -46,7 +46,7 @@ router = APIRouter(
     summary="Erase every record the signed-in address holds",
 )
 async def post_account_erasure(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -68,7 +68,7 @@ async def post_account_erasure(
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
-    PERSON TIER. The owner is refused until a handover (`last_owner_erasure`), since nobody else could name an owner, and a
+    PERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a
     person holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a
     pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the
     person's day.
@@ -98,39 +98,37 @@ async def post_account_erasure(
         grants = await read_grants(grants_collection=grants_collection, session=session)
         # Before any write. A handover finishing meanwhile writes the row this erasure deletes, so the two conflict and the
         # retry reads the new owner.
-        refuse(find_last_owner_erasure_refusal(identifier=identifier, grants=grants))
+        refuse(find_owner_erasure_refusal(identifier=identifier, grants=grants))
 
-        return journal.took(
-            await erase_everything(
-                identifier,
-                scope=EACH_PERSON_GROUP,
-                spieler_collection=spieler_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                spiele_collection=spiele_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                spielberichte_collection=spielberichte_collection,
-                registrierungen_collection=registrierungen_collection,
-                action_log_collection=action_log_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                invitations_collection=invitations_collection,
-                ban_list_collection=ban_list_collection,
-                address_changes_collection=address_changes_collection,
-                changed_by=identifier,
-                for_the_person=True,
-                now=germany_now,
-                session=session,
-            )
+        erasure = await erase_everything(
+            identifier,
+            scope=EACH_PERSON_GROUP,
+            spieler_collection=spieler_collection,
+            saison_spieler_collection=saison_spieler_collection,
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+            spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            spielberichte_collection=spielberichte_collection,
+            registrierungen_collection=registrierungen_collection,
+            action_log_collection=action_log_collection,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            address_changes_collection=address_changes_collection,
+            changed_by=identifier,
+            for_the_person=True,
+            now=germany_now,
+            session=session,
         )
+        await record_act(collection=action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
 
-    async with journal:
-        async with transaction_session(db) as session:
-            answer = await session.with_transaction(erase_the_address)
+        return journal.took(erasure)
 
-    return answer
+    async with journal, transaction_session(db) as session:
+        return await session.with_transaction(erase_the_address)
 
 
 @router.get(
@@ -139,7 +137,7 @@ async def post_account_erasure(
     summary="Show what an erasure of the signed-in address would remove",
 )
 async def get_account_erasure_view(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,

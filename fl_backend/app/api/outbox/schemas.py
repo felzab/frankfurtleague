@@ -34,7 +34,15 @@ class FLAccountErasureData(BaseModel):
     kind: Literal["account_erasure"]
 
 
-FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData, Field(discriminator="kind")]
+class FLDeletionNoticeData(BaseModel):
+    """The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here."""
+
+    kind: Literal["deletion_notice"]
+    # The season of the application that went; null where the person's account went.
+    saison_id: str | None
+
+
+FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData | FLDeletionNoticeData, Field(discriminator="kind")]
 
 # --- The league's mails.
 
@@ -300,14 +308,6 @@ class FLBewerbungAbsageData(BaseModel):
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     reason: str
-
-
-class FLDeletionNoticeData(BaseModel):
-    """The one deletion notice, to a person who confirmed what went, owed in the deletion's own write."""
-
-    kind: Literal["deletion_notice"]
-    # The season of the application that went; null where the person's account went.
-    saison_id: str | None
 
 
 class FLBewerbungObjectionData(BaseModel):
