@@ -103,4 +103,3 @@ describe("a seat's write", () => {
     expect(await writeSeat(person)).toMatchObject({ ok: false, fieldErrors: { [box]: COPY.shared.field.taken } });
   });
 });
-

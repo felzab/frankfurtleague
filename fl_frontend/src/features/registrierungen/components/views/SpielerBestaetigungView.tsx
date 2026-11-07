@@ -140,7 +140,6 @@ export function SpielerBestaetigungView({
   const [stand, setStand] = useState<Stand>(() => anfang(start, fassung));
   const { ergebnisRef, answered } = useLinkSeite(stand.state);
 
-
   // Off the CURRENT state and never the one the page opened on: a link the write found dead is
   // answered by a panel that names nobody, and the banner beside it would name the team anyway.
   const ansicht = stand.state === "valid" || stand.state === "erfolg" ? stand.ansicht : null;
