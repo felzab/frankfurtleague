@@ -38,7 +38,7 @@ export function readingDirectionHref(search: URLSearchParams, target: ReadingDir
   return `?${next.toString()}`;
 }
 
-/** The same off a Server Component's `searchParams`, the shape `readFacetSelectionFromRoute` takes. */
+/** The same off a Server Component's `searchParams`. */
 export function readingDirectionHrefFromRoute(
   params: Readonly<Record<string, string | string[] | undefined>>,
   target: ReadingDirection,
