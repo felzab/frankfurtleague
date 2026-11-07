@@ -723,19 +723,15 @@ export function TablePlaceholder({
   rows,
   plaques = false,
   bare = false,
-  linked = head.linked !== false && head.acts === undefined,
-  stack = head.stack === true,
 }: {
   head: TableHead;
   rows: number;
   /** Whether each row holds a plaque before its name. */
   plaques?: boolean;
   bare?: boolean;
-  /** Whether the rows lead on, each ending in its chevron. */
-  linked?: boolean;
-  stack?: boolean;
 }) {
-  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts } = head;
+  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts, stack = false } = head;
+  const linked = head.linked !== false && acts === undefined;
   const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   const tableActs = acts === undefined ? undefined : "table";
   const rowActs = acts === undefined ? undefined : "row";
