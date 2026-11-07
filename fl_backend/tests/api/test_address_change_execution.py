@@ -18,6 +18,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.account.person_router import post_address_change
+from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.address_change.admin_router import post_address_change_admin
 from app.api.address_change.schemas import FLAddressChangeAddressPayload, FLAddressChangeAdminPayload
 from app.api.address_change.services import (
@@ -42,7 +44,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import actor_var
 from app.main import create_app
-from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -673,7 +675,10 @@ class TestTheConfirmation:
         started, confirmed, waiting, early, late, after, (notices, owed_carries) = on_a_person(mongo_replica_set_url, body)
 
         assert started.way == "waiting_period"
-        assert (confirmed.effective, confirmed.effective_from is not None) == (False, True)
+        assert (confirmed.effective, confirmed.effective_from) == (
+            False,
+            (NOW + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)).astimezone(UTC),
+        )
         assert (waiting["pupil"]["email"], waiting["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert (early.removed, early.discarded, early.effective) == (0, 0, 0)
         assert late.effective == 1
@@ -820,14 +825,17 @@ HELD_BY_ANOTHER = [
 
 
 class TestTheNewAddressesOwnRecords:
-    @pytest.mark.parametrize("what", HELD_BY_ANOTHER)
-    def test_the_press_onto_them_is_refused_and_moves_nothing(self, mongo_replica_set_url: str, what: str):
+    @pytest.mark.parametrize(("what", "holder"), [*((what, False) for what in HELD_BY_ANOTHER), ("an-unconfirmed-seat", True)])
+    def test_the_press_onto_them_is_refused_and_moves_nothing(self, mongo_replica_set_url: str, what: str, holder: bool):
         """The takeover it closes: joined to the starter's, their holder's records would sign in with the starter's passkey.
 
-        The start judged nothing of the new address; its link's page offers no confirmation, and nothing is owed a mailbox.
+        The start judged nothing of the new address; its link's page offers no confirmation, and nothing is owed a mailbox. A
+        holder's press meets this rule too: only the pass weighs a holder's change by what a person confirmed.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if holder:
+                await granted(database)
             await held_by_another(database, what)
             minted = await start(database, client)
             seen = (await view(database, client, minted.token)).view.state
@@ -873,6 +881,22 @@ class TestTheNewAddressesOwnRecords:
             return [mail.data.kind for mail in late.mails], late.abandoned
 
         assert on_a_person(mongo_replica_set_url, body) == (["address_change_notice"], 1)
+
+    def test_a_question_the_drain_reaches_past_its_link_is_given_up(self, mongo_replica_set_url: str):
+        """The person's own notice asks what its link answers, so sent late it asks a question nobody can answer any more."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call(post_address_change, database, client, address_change_data=FLAccountAddressChangePayload(email=NEW_EMAIL))
+            late = await post_handout(
+                outbox_collection=database[Collection.OUTBOX],
+                ban_list_collection=database[Collection.BAN_LIST],
+                db=database,
+                db_client=client,
+                now=AFTER_THE_DEADLINE,
+            )
+            return late.mails, late.abandoned
+
+        assert on_a_person(mongo_replica_set_url, body) == ([], 1)
 
     def test_a_pupil_there_refuses_a_starter_holding_no_pupil_of_their_own(self, mongo_replica_set_url: str):
         """A starter holding a pupil is refused `address_change_taken` first, so a seat-only starter is the one this kind reaches."""
@@ -1414,6 +1438,26 @@ class TestTheTool:
         assert after["valid_until"] > before["valid_until"]
         # The replaced link opens nothing: its hash is gone from the record.
         assert old == Code.LINK_INVALID
+
+    @pytest.mark.parametrize("press", ["a re-send", "the address on file's confirmation"])
+    def test_a_fresh_link_s_mail_ends_with_that_link(self, mongo_replica_set_url: str, press: str):
+        """Ending at the old deadline, the row is abandoned at the next claim, a lapsed link's re-send included, and no mail goes."""
+
+        later = NOW + timedelta(hours=2)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client, released=press == "a re-send")
+            if press == "a re-send":
+                await resend(database, client, minted.id, germany_now=later)
+            else:
+                await answer(database, client, minted.stop_token, germany_now=later)
+            mail = await database[Collection.OUTBOX].find_one({"kind": "address_change_link"}, sort=[("recorded_at", -1)])
+            assert mail is not None
+            return mail["deadline"], (await change(database, minted.id))["valid_until"]
+
+        fresh = (later + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)).astimezone(UTC).replace(tzinfo=None)
+
+        assert on_a_person(mongo_replica_set_url, body) == (fresh, fresh)
 
     def test_a_confirmed_change_is_sent_no_fresh_link(self, mongo_replica_set_url: str):
         """A deadline set again on a change waiting out its time would make the pass end it lapsed rather than let it take effect."""
