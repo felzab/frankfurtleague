@@ -1189,6 +1189,7 @@ async def delete_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
     invitations_collection: InvitationsCollection,
+    teams_collection: TeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationWriteResponse:
@@ -1210,8 +1211,10 @@ async def delete_invitation(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
+        # The club's own document: a season's junction row can be handed to another club, and the link stays revocable.
+        club = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name"], session=session)
         await record_act(
-            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=saison_id, session=session
+            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=str(club["name"]), session=session
         )
 
         return before
