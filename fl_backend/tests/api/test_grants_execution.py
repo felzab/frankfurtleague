@@ -308,7 +308,6 @@ class TestAnAddition:
             "admin_tier": "administration",
             "granted_by": OWNER,
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
-            "version": 0,
         }
         assert notices == [("granted", "started", NEU, OWNER, sorted([*EVERY_HOLDER, NEU]))]
 
