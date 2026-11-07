@@ -169,22 +169,6 @@ class TestTheCheckASignInAsks:
 
 
 class TestWhatTheListServes:
-    def test_a_row_is_served_with_its_folded_address(self, mongo_replica_set_url: str):
-        """The page's row is what an administrator lifts by, so a row served without its address is one nobody can tell apart."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client)
-
-            return await listed(database)
-
-        served = on_a_clean_list(mongo_replica_set_url, body)
-
-        assert len(served.ban_list) == 1
-        assert served.ban_list[0].address == BANNED_RETYPED
-        assert served.ban_list[0].ban_reason == BAN_REASON
-        assert served.ban_list[0].created_by == ADMIN
-        assert served.ban_list[0].created_at == TODAY
-
     def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
         """A ban past the cap is enforced and not rendered, so the count is what says one is there to lift.
 
@@ -230,6 +214,25 @@ class TestLiftingABan:
             return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
+
+
+class TestTheLogOfABan:
+    def test_a_ban_and_its_lift_each_write_one_row_with_no_label_and_the_address_nowhere(self, mongo_replica_set_url: str):
+        """The log keeps a row twelve months and holds an address only on a grant act: a banned person's is no administrator's."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            created = await ban(database, client)
+            await lift(database, client, ObjectId(created.created_id))
+
+            return ObjectId(created.created_id), await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(None)
+
+        created_id, rows = on_a_clean_list(mongo_replica_set_url, body)
+
+        assert [(row["action"], row["by"], row["record_id"], row["label"]) for row in rows] == [
+            ("ban.added", ADMIN, created_id, None),
+            ("ban.removed", ADMIN, created_id, None),
+        ]
+        assert BANNED_RETYPED not in str(rows)
 
 
 class TestAnLoeschungLeavesTheListStanding:
