@@ -78,6 +78,18 @@ export async function expectAccountPageOf(page: Page, address: string): Promise<
   await expect(page.getByRole("main").getByText(address, { exact: true })).toBeVisible();
 }
 
+/** The relying party the local `AUTH_URL` names. */
+const RELYING_PARTY = "localhost";
+
+/**
+ * The assertions the browser's authenticator has signed for the site: its signature counter rises by one on each
+ * (https://playwright.dev/docs/api/class-credentials#credentials-create-option-sign-count), so a press behind the touch
+ * moves it by exactly one, and an act whose end shows ran past the touch that moved it.
+ */
+export async function assertionsSigned(context: BrowserContext): Promise<number> {
+  return (await context.credentials.get({ rpId: RELYING_PARTY })).reduce((signed, passkey) => signed + passkey.signCount, 0);
+}
+
 /** An administrator's first passkey, set up where a code-borne sign-in lands. */
 export async function enrolPasskey(page: Page, context: BrowserContext): Promise<void> {
   // The code alone does not open the Verwaltung: an administrator's first sign-in sets up a passkey.
