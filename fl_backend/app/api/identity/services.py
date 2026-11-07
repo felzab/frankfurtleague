@@ -8,13 +8,13 @@ arguments, so a judgement left beside a handle is one that can grow a read of it
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from typing import Any, Literal
 
 from bson import ObjectId
 
 from app.api.bewerbungen.services import build_own_bewerbung_filter
 from app.api.grants.services import OWNER, admin_tier_of, holds_an_owners_power
-from app.api.identity.schemas import FLAccountErasureView, FLErasureView, FLSubject, FLSubjectSeat
+from app.api.identity.schemas import FLAccountErasureView, FLErasureViewResponse, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.schiedsrichter.services import (
@@ -27,7 +27,7 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLAdminTier, FLSaisonStatus
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLSaisonStatus
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
@@ -150,6 +150,12 @@ def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, A
     ]
 
 
+def build_erasure_grant_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """A grant by its id: the one record an administrator's erasure may take alone."""
+
+    return [{"$match": {"address": identifier}}, {"$project": {"_id": 1}}]
+
+
 def build_season_team_pipeline(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """The season rows naming each of these registrations' or squad rows' team that season.
 
@@ -172,29 +178,13 @@ def pupil_address(row: Mapping[str, Any]) -> Any:
     return row.get("email")
 
 
-def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
-    """Each season with a fixture still to be played that one of these referees is booked on, by `schiedsrichter_still_assigned`'s filter."""
+def build_unplayed_count_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+    """How many fixtures still to be played book one of these referees, by `schiedsrichter_still_assigned`'s filter."""
 
-    return [
-        {"$match": build_unplayed_assignment_filter({"$in": list(schiedsrichter_ids)})},
-        {"$group": {"_id": {"schiedsrichter_id": "$schiedsrichter.schiedsrichter_id", "saison_id": "$saison_id"}}},
-        {"$replaceWith": "$_id"},
-        {"$sort": {"saison_id": 1}},
-    ]
+    return [{"$match": build_unplayed_assignment_filter({"$in": list(schiedsrichter_ids)})}, {"$count": "count"}]
 
 
-def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
-    """Every squad row of these pupils, a retired one included, as the pupil's step selects what it removes."""
-
-    return [
-        {"$match": {"spieler_id": {"$in": list(spieler_ids)}}},
-        {"$project": {"spieler_id": 1, "saison_id": 1, "team_id": 1, "inactive_since": 1}},
-        {"$sort": {"saison_id": 1, "team_id": 1, "_id": 1}},
-    ]
-
-
-# One entry per kind, named alike in both previews: the person's own and the administrator's, which
-# adds the ids its links need, can then never name one record two ways.
+# One entry per kind, for the person's own preview.
 
 
 def _pupil_entry(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -222,15 +212,6 @@ def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, 
 
 def _team_names(team_rows: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
     return {(row["saison_id"], row["team_id"]): row.get("name") for row in team_rows}
-
-
-def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
-    return {
-        "saison_id": row["saison_id"],
-        "team_id": row["team_id"],
-        "team_name": team_names.get((row["saison_id"], row["team_id"])),
-        "inactive_since": row.get("inactive_since"),
-    }
 
 
 def compose_account_erasure_view(
@@ -269,64 +250,20 @@ def compose_erasure_view(
     pupil_rows: Sequence[Mapping[str, Any]],
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
-    # Each address the tool refuses this reader, and why; one absent opens.
-    denied: Mapping[str, FLAddressChangeViewableDenied],
-    own_address_change: Mapping[str, Any] | None,
-    approval_request_rows: Sequence[Mapping[str, Any]],
-    kader_rows: Sequence[Mapping[str, Any]],
-    team_rows: Sequence[Mapping[str, Any]],
-    unplayed_rows: Sequence[Mapping[str, Any]],
-) -> FLErasureView:
-    """The administrator's reveal, from the rows the erasure's own subject read holds, by the ids the page links each record by.
+    grant_rows: Sequence[Mapping[str, Any]],
+    spiele: int,
+) -> FLErasureViewResponse:
+    """The administrator's counts, from the rows the erasure's own subject read holds: per seat, as `FLErasure` counts one."""
 
-    The pending changes are named, never counted: the page links each row to the tool acting on it.
-    """
-
-    team_names = _team_names(team_rows)
-
-    return FLErasureView.model_validate(
-        {
-            "spieler": [
-                {
-                    **_pupil_entry(row),
-                    "spieler_id": row["_id"],
-                    "kader": [_kader_entry(kader, team_names) for kader in kader_rows if kader["spieler_id"] == row["_id"]],
-                }
-                for row in pupil_rows
-            ],
-            "schiedsrichter": [
-                {
-                    **_referee_entry(row),
-                    "schiedsrichter_id": row["_id"],
-                    "inactive_since": row.get("inactive_since"),
-                    "spiele_without_ergebnis_saison_ids": [
-                        unplayed["saison_id"] for unplayed in unplayed_rows if unplayed["schiedsrichter_id"] == row["_id"]
-                    ],
-                }
-                for row in referee_rows
-            ],
-            "seats": [
-                {**_seat_entry(row, slot), "team_name": row.get("name"), "team_id": row["team_id"]}
-                for row, slot in seats_naming(saison_team_rows, identifier)
-            ],
-            "bewerbungen": [{**_seat_entry(row, slot), "bewerbung_id": row["_id"]} for row, slot in seats_naming(bewerbung_rows, identifier)],
-            "registrierungen": [
-                {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
-                for row in registrierung_rows
-            ],
-            "address_change": [
-                {"address_change_id": row["_id"], "viewable_denied": denied.get(str(row.get("address")))} for row in address_change_rows
-            ],
-            "own_address_change": None if own_address_change is None else {"address_change_id": own_address_change["_id"]},
-            "approval_requests": [
-                {
-                    "approval_request_id": row["_id"],
-                    "admin_tier": row["approval"]["admin_tier"],
-                    "party": "target" if row["address"] == identifier else "requester",
-                }
-                for row in approval_request_rows
-            ],
-        }
+    return FLErasureViewResponse(
+        spieler=len(pupil_rows),
+        schiedsrichter=len(referee_rows),
+        kontakt_seats=len(seats_naming(saison_team_rows, identifier)),
+        bewerbung_seats=len(seats_naming(bewerbung_rows, identifier)),
+        registrierungen=len(registrierung_rows),
+        spiele=spiele,
+        address_change=len(address_change_rows),
+        grants=len(grant_rows),
     )
 
 
@@ -517,18 +454,14 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
     return any(grant["address"] == identifier and grant["admin_tier"] == OWNER for grant in grants)
 
 
-def find_last_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]) -> WriteRefusal | None:
-    """`last_owner_erasure`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
+def find_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`owner_erasure`: the owner erases their address only after a handover, nobody else being able to name an owner."""
 
-    `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
-    """
-
-    owners = {str(grant["address"]) for grant in grants if grant["admin_tier"] == OWNER} - set(barred)
-    if owners != {identifier}:
+    if not holds_an_owner_grant(identifier, grants):
         return None
 
     return WriteRefusal(
-        error_code=Code.LAST_OWNER_ERASURE,
+        error_code=Code.OWNER_ERASURE,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -551,50 +484,19 @@ def find_own_address_refusal(*, identifier: str, actor: str) -> WriteRefusal | N
     )
 
 
-# The erasure's and its reveal's: the one ends the grant, the other opens the holder's records.
-EACH_ADMIN: Final[frozenset[str]] = frozenset(get_args(FLAdminTier.__value__))
-# The sign-out's: an ended session is repaired by signing in again, so only an owner's is held back.
-OWNER_ONLY: Final[frozenset[str]] = frozenset({OWNER})
+def admin_address_denied(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> bool:
+    """`admin_address`'s judgement: the address holds a grant and the actor no owner's power."""
+
+    return admin_tier_of(identifier, grants) is not None and not holds_an_owners_power(actor=actor, grants=grants)
 
 
-# The tiers whose holder's pending change an erasure ends only for an actor holding an owner's power: every one, the set
-# the erasure's preview withholds from anyone else, as only an owner discards an administrator's change.
-ADDRESS_CHANGE_PROTECTED: Final[frozenset[str]] = EACH_ADMIN
+def find_admin_address_refusal(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`admin_address`: an address holding a grant is acted on only by an actor holding an owner's power.
 
-
-def admin_address_denied(
-    *,
-    identifier: str,
-    actor: str,
-    auth_time: int,
-    grants: Sequence[Mapping[str, Any]],
-    announced: Sequence[Mapping[str, Any]],
-    protected: frozenset[str],
-) -> bool:
-    """`admin_address`'s judgement: the address holds a live grant of a `protected` tier and the actor no owner's power."""
-
-    return admin_tier_of(identifier, grants) in protected and not holds_an_owners_power(
-        actor=actor, auth_time=auth_time, grants=grants, announced=announced
-    )
-
-
-def find_admin_address_refusal(
-    *,
-    identifier: str,
-    actor: str,
-    auth_time: int,
-    grants: Sequence[Mapping[str, Any]],
-    announced: Sequence[Mapping[str, Any]],
-    protected: frozenset[str],
-) -> WriteRefusal | None:
-    """`admin_address`: an address holding a live grant of a `protected` tier is acted on only by an actor holding an owner's power.
-
-    `grants` and `announced` as stored, read where the caller judges, so a retry judges them afresh.
+    `grants` as stored, read where the caller judges, so a retry judges them afresh.
     """
 
-    if not admin_address_denied(
-        identifier=identifier, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=protected
-    ):
+    if not admin_address_denied(identifier=identifier, actor=actor, grants=grants):
         return None
 
     return WriteRefusal(
@@ -603,26 +505,13 @@ def find_admin_address_refusal(
     )
 
 
-def find_foreign_address_change_refusal(
-    *,
-    addresses: Iterable[str],
-    actor: str,
-    auth_time: int,
-    grants: Sequence[Mapping[str, Any]],
-    announced: Sequence[Mapping[str, Any]],
-) -> WriteRefusal | None:
-    """`foreign_address_change`: without an owner's power, an erasure ends no pending change of an address holding a protected grant.
+def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`foreign_address_change`: without an owner's power, an erasure ends no pending change of an address holding a grant.
 
-    A protected grant is one `ADDRESS_CHANGE_PROTECTED` names. `addresses` are the changes' own addresses, never the one erased; the
-    message names none of them.
+    `addresses` are the changes' own addresses, never the one erased; the message names none of them.
     """
 
-    if not any(
-        admin_address_denied(
-            identifier=address, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=ADDRESS_CHANGE_PROTECTED
-        )
-        for address in addresses
-    ):
+    if not any(admin_address_denied(identifier=address, actor=actor, grants=grants) for address in addresses):
         return None
 
     return WriteRefusal(
@@ -631,9 +520,7 @@ def find_foreign_address_change_refusal(
     )
 
 
-def address_change_viewable_denied(
-    identifier: str, *, actor: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> FLAddressChangeViewableDenied | None:
+def address_change_viewable_denied(identifier: str, *, actor: str, grants: Sequence[Mapping[str, Any]]) -> FLAddressChangeViewableDenied | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
     Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
@@ -641,7 +528,7 @@ def address_change_viewable_denied(
 
     if is_own_address(identifier=identifier, actor=actor):
         return "own_address"
-    if admin_address_denied(identifier=identifier, actor=actor, auth_time=auth_time, grants=grants, announced=announced, protected=EACH_ADMIN):
+    if admin_address_denied(identifier=identifier, actor=actor, grants=grants):
         return "admin_address"
 
     return None
@@ -727,18 +614,6 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
     return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
-def find_no_owner_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`no_owner`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
-
-    if any(grant.get("admin_tier") == OWNER for grant in grant_rows):
-        return None
-
-    return WriteRefusal(
-        error_code=Code.NO_OWNER,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 # --- The SEASON-AFTER RULE, keyed on the stored statuses and never
 # on a next season's id, which a skipped year leaves naming no season at all.
 
@@ -764,18 +639,6 @@ def kept_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str] | 
         return None
 
     return frozenset(saison_id for saison_id, status in statuses.items() if saison_id >= completed or status == "active")
-
-
-def statuses_after_activating(statuses: Mapping[str, FLSaisonStatus], saison_id: str) -> dict[str, FLSaisonStatus]:
-    """The statuses `POST /saisons/{saison_id}/activate` leaves, its refusals unjudged: the incumbent `past`, the target `active`."""
-
-    return {other: "active" if other == saison_id else "past" if status == "active" else status for other, status in statuses.items()}
-
-
-def closed_by(statuses: Mapping[str, FLSaisonStatus], saison_id: str) -> str | None:
-    """The season activating `saison_id` turns `past`: the `active` one, unless it is the target itself."""
-
-    return next((other for other, status in statuses.items() if status == "active" and other != saison_id), None)
 
 
 def build_open_registrierungen_pipeline() -> list[Mapping[str, Any]]:
@@ -834,7 +697,3 @@ def build_erasure_due_page_pipeline(
         *build_erasure_due_pipeline(kept=kept, pending_addresses=pending_addresses),
         {"$facet": {"page": page if after is None else [{"$match": {"_id": {"$gt": after}}}, *page], "count": [{"$count": "count"}]}},
     ]
-
-
-def build_erasure_due_count_pipeline(*, kept: frozenset[str], pending_addresses: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    return [*build_erasure_due_pipeline(kept=kept, pending_addresses=pending_addresses), {"$count": "count"}]

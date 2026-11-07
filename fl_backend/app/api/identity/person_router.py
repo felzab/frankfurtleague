@@ -1,22 +1,14 @@
 from datetime import datetime
-from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.ban_list.lookup import BanListLookup, barred_addresses
-from app.api.grants.crud import pull_the_list_to_judge, read_grants
+from app.api.grants.crud import read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
-from app.api.identity.services import (
-    build_season_team_pipeline,
-    compose_account_erasure_view,
-    find_last_owner_erasure_refusal,
-    holds_an_owner_grant,
-)
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -24,8 +16,6 @@ from app.core.dependencies import (
     BanListCollection,
     BewerbungenCollection,
     DBClient,
-    GrantApprovalRequestsCollection,
-    GrantsAnnouncedCollection,
     GrantsCollection,
     InvitationsCollection,
     OutboxCollection,
@@ -39,15 +29,14 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.recording import log_stamp
-from app.core.security import verify_access_admin
+from app.core.recording import ACT_BY_PERSON, record_act
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 
-# `kontakt` bound, as the account page's router binds it: a person erases themselves holding no
-# Funktion at all, and the erasure's own log rows lose this actor to the marker before it commits.
+# No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identity/account",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 
@@ -57,7 +46,7 @@ router = APIRouter(
     summary="Erase every record the signed-in address holds",
 )
 async def post_account_erasure(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -69,39 +58,33 @@ async def post_account_erasure(
     registrierungen_collection: RegistrierungenCollection,
     action_log_collection: ActionLogCollection,
     grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
     address_changes_collection: AddressChangeCollection,
-    grant_approval_requests_collection: GrantApprovalRequestsCollection,
-    ban_list: BanListLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLErasureResponse:
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
-    PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
-    (`last_owner_erasure`), since nobody else could ever make an owner again, and a person holding a live grant erases it with
-    the rest. No other precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
-    to be played included. Nothing is counted against the person's day.
+    PERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a
+    person holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a
+    pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the
+    person's day.
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
     every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
     confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
     address's pending change naming this one as its new address, every record it would move standing at its own; every
-    grant the address holds, an `owner` grant and the last two among them, every administrator being told it ended.
+    grant the address holds, every administrator being told it ended.
     Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
     and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
-    Every reason the person typed answering a match confirmation, from any seat they held, goes from its row and its log
-    images, the answer standing. Every match report the referee record sent stands, its remarks and entries included,
-    naming the row that holds no person in its place, in its log images too. Every record the person made as an
-    administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's
-    decision -- and every log row they wrote name a fixed marker in their place, this erasure's own rows included. The
-    log images of the removed records are emptied, and every other image holding the address loses it, the people beside
-    them keeping theirs.
+    Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
+    standing. Every match report the referee record sent stands, its remarks and entries included, naming the row that
+    holds no person in its place. Every record the person made as an administrator or decided as a seat holder -- a grant,
+    a ban, an invitation, an application's or a registration's decision -- and every log row naming their address name a
+    fixed marker in their place.
 
     An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
     changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
@@ -109,17 +92,15 @@ async def post_account_erasure(
     touched here: deleting it is the caller's, once this has answered.
     """
 
+    journal = ErasureJournal(grants_collection=grants_collection)
+
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
         grants = await read_grants(grants_collection=grants_collection, session=session)
-        # Before any write, and for an owner alone: no other erasure can leave the administration without one.
-        if holds_an_owner_grant(identifier, grants):
-            # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
-            # the one retried finds itself the last.
-            await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-            barred = await barred_addresses(ban_list, [str(grant["address"]) for grant in grants], session=session)
-            refuse(find_last_owner_erasure_refusal(identifier=identifier, grants=grants, barred=barred))
+        # Before any write. A handover finishing meanwhile writes the row this erasure deletes, so the two conflict and the
+        # retry reads the new owner.
+        refuse(find_owner_erasure_refusal(identifier=identifier, grants=grants))
 
-        erased = await erase_everything(
+        erasure = await erase_everything(
             identifier,
             scope=EACH_PERSON_GROUP,
             spieler_collection=spieler_collection,
@@ -133,29 +114,21 @@ async def post_account_erasure(
             registrierungen_collection=registrierungen_collection,
             action_log_collection=action_log_collection,
             grants_collection=grants_collection,
-            grants_announced_collection=grants_announced_collection,
             outbox_collection=outbox_collection,
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             address_changes_collection=address_changes_collection,
-            grant_approval_requests_collection=grant_approval_requests_collection,
-            ban_list=ban_list,
             changed_by=identifier,
             for_the_person=True,
-            key=config.sperrliste_key,
-            stamp=log_stamp(germany_now),
             now=germany_now,
             session=session,
         )
+        await record_act(collection=action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
 
-        return FLErasureResponse(**erased.model_dump())
+        return journal.took(erasure)
 
-    journal = ErasureJournal[FLErasureResponse](identifier, key=config.sperrliste_key, grants_collection=grants_collection)
-    async with journal:
-        async with transaction_session(db) as session:
-            answer = journal.took(await session.with_transaction(erase_the_address))
-
-    return answer
+    async with journal, transaction_session(db) as session:
+        return await session.with_transaction(erase_the_address)
 
 
 @router.get(
@@ -164,7 +137,7 @@ async def post_account_erasure(
     summary="Show what an erasure of the signed-in address would remove",
 )
 async def get_account_erasure_view(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -172,9 +145,7 @@ async def get_account_erasure_view(
     registrierungen_collection: RegistrierungenCollection,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
-    ban_list: BanListLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLAccountErasureViewResponse:
     """
     Answer what `POST /identity/account/erasure` would remove for the signed-in address, by kind and by name.
@@ -182,24 +153,14 @@ async def get_account_erasure_view(
     Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
     and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
-    has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking
-    their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
-    confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
-    the match reports their referee record sent, which stand naming the ghost, in their log images too;
-    the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
-    answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
-    they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
-    answer standing; what the person made or decided for others, which names a marker in their place; every
-    request for a grant about their address or made by it, which goes; their rows in the
-    log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
-    other log image holding the address; each grant's announced row, and an announced row holding the address under
-    another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their
-    grant ended, which every administrator is sent. `admin_tier` is the tier of the live grant the address holds, or
-    null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
-
-    `last_owner` says whether the press would be refused `last_owner_erasure` as the grants stand at this read: the address
-    holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
-    the press judges again, and its answer alone decides.
+    has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
+    booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
+    the match reports their referee record sent, which stand naming the ghost; the links their contact seats were mailed on
+    their teams' match confirmations, which stop answering; every reason they typed answering a match confirmation, from any
+    seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
+    marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which
+    every administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the
+    address, which admits nobody, goes with the erasure unnamed.
     """
 
     # A snapshot, so the preview names the records of one moment; never a transaction, a read
@@ -213,7 +174,7 @@ async def get_account_erasure_view(
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
             address_changes_collection=address_changes_collection,
-            key=config.sperrliste_key,
+            grants_collection=grants_collection,
             session=session,
         )
         # A registration holds its team's id alone, and the season row is what names the club that season.
@@ -224,18 +185,9 @@ async def get_account_erasure_view(
             if subject.registrierungen
             else []
         )
-        # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
         grants = await read_grants(grants_collection=grants_collection, session=session)
         # A live row is its own fold, so equality is the fold's judgement.
         own = next((grant for grant in grants if grant["address"] == identifier), None)
-        last_owner = holds_an_owner_grant(identifier, grants) and (
-            find_last_owner_erasure_refusal(
-                identifier=identifier,
-                grants=grants,
-                barred=await barred_addresses(ban_list, [str(grant["address"]) for grant in grants], session=session),
-            )
-            is not None
-        )
 
     view = compose_account_erasure_view(
         identifier,
@@ -249,4 +201,4 @@ async def get_account_erasure_view(
         team_rows=team_rows,
     )
 
-    return FLAccountErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"], last_owner=last_owner)
+    return FLAccountErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"])

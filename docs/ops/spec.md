@@ -91,9 +91,7 @@ destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy ca
 those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
 host files rather than a container stream (§1.2), holding every line that names a visitor
 — to eight, through an hourly `logrotate`
-([`runbooks.md`](runbooks.md) §7). An hourly timer there copies the backend's erasure-journal lines
-into a host file per day under the same thirty days (`scripts/ops/export_journal.sh`), since a
-restore reads them after the stream holding them is gone.
+([`runbooks.md`](runbooks.md) §7).
 
 **Every service drops every capability and runs under `no-new-privileges:true`, and `nginx` alone
 adds any back**: four, each one its master, starting as root, fails to start without.

@@ -3518,43 +3518,6 @@
         "title": "FLBewerbungEntryOffer",
         "type": "object"
       },
-      "FLBewerbungErasureData": {
-        "description": "The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.",
-        "properties": {
-          "kind": {
-            "const": "bewerbung_erasure",
-            "title": "Kind",
-            "type": "string"
-          },
-          "pending": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbungPerson"
-            },
-            "title": "Pending",
-            "type": "array"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "saison_id",
-          "rollen",
-          "pending"
-        ],
-        "title": "FLBewerbungErasureData",
-        "type": "object"
-      },
       "FLBewerbungFormResponse": {
         "description": "What one season's application form shows, whichever state its page takes.",
         "properties": {
@@ -5000,6 +4963,33 @@
           "id"
         ],
         "title": "FLDeclineBewerbungResponse",
+        "type": "object"
+      },
+      "FLDeletionNoticeData": {
+        "description": "The one deletion notice, to a person who confirmed what went, owed in the deletion's own write.",
+        "properties": {
+          "kind": {
+            "const": "deletion_notice",
+            "title": "Kind",
+            "type": "string"
+          },
+          "saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saison Id"
+          }
+        },
+        "required": [
+          "kind",
+          "saison_id"
+        ],
+        "title": "FLDeletionNoticeData",
         "type": "object"
       },
       "FLEinwilligung": {
@@ -7710,11 +7700,11 @@
                 "ban": "#/components/schemas/FLBanData",
                 "bewerbung_absage": "#/components/schemas/FLBewerbungAbsageData",
                 "bewerbung_confirmation": "#/components/schemas/FLBewerbungLinkData",
-                "bewerbung_erasure": "#/components/schemas/FLBewerbungErasureData",
                 "bewerbung_objection": "#/components/schemas/FLBewerbungObjectionData",
                 "bewerbung_received": "#/components/schemas/FLBewerbungReceivedData",
                 "bewerbung_reminder": "#/components/schemas/FLBewerbungLinkData",
                 "bewerbung_zusage": "#/components/schemas/FLBewerbungZusageData",
+                "deletion_notice": "#/components/schemas/FLDeletionNoticeData",
                 "grant": "#/components/schemas/FLGrantData",
                 "invitation": "#/components/schemas/FLInvitationData",
                 "kontakt_confirmation": "#/components/schemas/FLKontaktLinkData",
@@ -7809,7 +7799,7 @@
                 "$ref": "#/components/schemas/FLBewerbungAbsageData"
               },
               {
-                "$ref": "#/components/schemas/FLBewerbungErasureData"
+                "$ref": "#/components/schemas/FLDeletionNoticeData"
               },
               {
                 "$ref": "#/components/schemas/FLBewerbungObjectionData"

@@ -2653,6 +2653,8 @@ describe("an account deleted for its address, and the list of every account", ()
     const person = await seedAccount("konto-weg@example.org");
 
     expect(await deleteAccountFor("Konto-Weg@Example.org")).toBe(true);
+    // Mailed nowhere, a person would never learn their account went.
+    expect(owed.at(-1)).toMatchObject({ to: "konto-weg@example.org", data: { kind: "deletion_notice", saison_id: null } });
 
     expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });

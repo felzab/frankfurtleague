@@ -53,6 +53,21 @@ export async function notifyPasskeyRemoved(email: string): Promise<void> {
 }
 
 /**
+ * Tells a person their account went. Owed after the deletion and never holding it up: a failed notice leaves the
+ * deletion standing, whichever of the two roots owed it.
+ */
+export async function notifyAccountDeleted(email: string): Promise<void> {
+  try {
+    await oweSignInMail(email, { kind: "deletion_notice", saison_id: null });
+  } catch (failed) {
+    // Name only, for `notifyPasskey`'s reason.
+    logger.error("auth.deletion_notice_failed", undefined, {
+      name: failed instanceof Error ? failed.name : "unknown",
+    });
+  }
+}
+
+/**
  * Owes the interstitial's link, which the drain spells from the token: the library's own `url` deletes on a GET. The
  * token is the library's verification token and completes the deletion, so it travels sealed, as the code does. The
  * library swallows a throw from here, logging it.

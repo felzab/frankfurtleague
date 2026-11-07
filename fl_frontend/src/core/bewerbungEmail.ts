@@ -11,12 +11,12 @@ import { rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 import type { Mail, Sentence } from "./emailShell";
 import type {
   FLBewerbungAbsageData,
-  FLBewerbungErasureData,
   FLBewerbungLinkData,
   FLBewerbungObjectionData,
   FLBewerbungPerson,
   FLBewerbungReceivedData,
   FLBewerbungZusageData,
+  FLDeletionNoticeData,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
@@ -179,11 +179,21 @@ export function buildBewerbungReceivedEmail(
 }
 
 /**
- * What the Ansprechperson is told as the application goes: owed in the erasure's own write and worded in the present.
- * `pending` names the people it still held, the one thing a school needs before applying again.
+ * The one deletion notice, the application's arm where it names a season and the account's where it names none. A plain
+ * stand-in on the catalogue's standing words: its own words, `SERVER_COPY.mail.deletion`, replace these with the mail lane.
  */
-export function buildBewerbungErasureEmail({ saison_id, rollen, pending }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
+export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
+
+  if (saison_id === null) {
+    return {
+      kind: "notice",
+      subjectLine: SERVER_COPY.accountErasure.done,
+      origin: site,
+      firstName: "",
+      paragraphs: [[COPY.account.erasure.description]],
+    };
+  }
 
   return {
     kind: "notice",
@@ -191,14 +201,6 @@ export function buildBewerbungErasureEmail({ saison_id, rollen, pending }: FLBew
     origin: site,
     firstName: "",
     paragraphs: [[WORDS.erasure.lead, WORDS.erasure.deleted], [WORDS.erasure.again]],
-    block: {
-      title: WORDS.status,
-      facts: [
-        { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.registeredAs, value: rollenText(rollen) },
-        { label: WORDS.erasure.pending, value: formatList(pending.map(personName)) },
-      ],
-    },
     button: toBewerbung(site, saison_id),
   };
 }

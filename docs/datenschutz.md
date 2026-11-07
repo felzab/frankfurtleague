@@ -182,12 +182,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     (`fl_backend/app/api/ban_list/services.py :: address_hash`), its free-text reason, the
     entering administrator's address (`created_by`) and the last season it covers.
   - Recipients: administrators.
-- **The action log and the erasure journal** (`action_log`; the journal lines).
-  - Purpose and basis: who did what, and replaying what a restore would undo; Art. 6(1)(f).
-  - Data: each write's actor, an administrator by address and a person by pseudonym
-    (`fl_backend/app/core/recording.py :: PersonActor`), the full prior document of the record it
-    changed, and an erasure's request (`erasure_reason`); each journal line's keyed hashes of an address
-    (`fl_backend/app/core/journal.py :: RECORDS`).
+- **The action log and the privacy lines** (`action_log`; the `journal.act` lines).
+  - Purpose and basis: who did what, and repeating what a restore would undo; Art. 6(1)(f).
+  - Data: each act's who, an administrator by address and anyone else by role and team, the record's
+    id and a label of league data, and an erasure's typed reference; each line's act and record ids, a withdrawal's
+    choices and an objection's slots, and no value (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
 - **Mail** (`outbox`; mail to the league; WhatsApp).
   - Purpose and basis: telling people what concerns them, and answering them; Art. 6(1)(f),
@@ -275,19 +274,18 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), which also ends their engagement,
   a fixture played or called off keeping its booking and `payment`; a pupil's goals and cards
   repointed at `:: GHOST_SPIELER_ID`
-  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`); their values in
-  the action log's images, and the marker naming nobody in place of their address or pseudonym on
-  every row they wrote under that address; every reason typed in a fixture answer from a seat they
+  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`); the marker naming
+  nobody in place of their address wherever the action log names it; every reason typed in a fixture answer from a seat they
   hold, found by team, season and role (`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`),
   with their seats' links; every mail owed or sent to them but the deletion link
-  that asked for the erasure
+  that asked for the erasure and the notice telling them of it
   (`fl_backend/app/api/identity/crud.py :: erase_the_mails_in_session`); a pending address change of theirs; every grant the address
   holds; and the sign-in account at the address, an account at an earlier address going with the
   account sweep (section 6).
 - **What outlives an erasure:**
   - the database's snapshots, about 8 days, taken daily (the provider's console, read 2026-09-01);
-    a restore runs every erasure since its snapshot again, found by the keyed hashes the journal
-    left ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot));
+    a restore runs every erasure since its snapshot again, found by the record ids its line names
+    ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot));
   - Resend's copies of every message and Cloudflare's record of every message to the league, for
     their own periods (section 7), and the copies in the organisers' mailboxes, deleted on request,
     their providers' backups beyond reach;
@@ -299,12 +297,12 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     name search would take a namesake's text with it: a fixture's note, an application's wished
     opponent and decision reason, a team's leaving reason, a registration's decision reason, a club's
     description, a reason another seat's holder or an administrator typed in a fixture answer, a
-    report's remarks naming a pupil by name or by shirt number, and an erasure's request (`erasure_reason`);
+    report's remarks naming a pupil by name or by shirt number, and an erasure's typed reference;
   - the deletion link's Postausgang row, until its secret lapses with the link, 24 hours after it was
     minted (`fl_backend/app/api/outbox/services.py :: row_of`,
-    `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`);
-  - a registration link's entry, which names no subject, and the action log's rows written under an
-    earlier address's pseudonym, until the log's twelve months;
+    `fl_frontend/src/core/erasureEmail.ts :: ERASURE_LINK_VALID_HOURS`), and the row of the deletion
+    notice, and of the notice to an address a change replaced, until the row's two-day deadline;
+  - a registration link's entry, which names no subject, until the log's twelve months;
   - a mailbox's keyed hash in `mailbox_anchors`, for its hour (section 6).
 - **A retired row is never removed because of its age**: a confirmed referee who stopped, a club
   that left and a past season keep their rows; a person's row goes only by an erasure or by section
@@ -342,7 +340,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | The action log                               | 12 months a row                                                                                                                                                                       | `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS`                                                                                          |
 | The edge's access and error logs             | 8 days, host files                                                                                                                                                                    | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
 | The application logs                         | The runtime's size rotation while they run; 30 days as each deploy's copy                                                                                                             | `scripts/ops/deploy.sh :: LOG_DIR`                                                                                                                                       |
-| The erasure journal                          | As the application log, and a file per day deleted 30 days after its last change                                                                                                      | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
+| The privacy lines                            | As the application log                                                                                                                                                                | [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                                                         |
 
 - **A seat an erasure emptied holds no day**, so it takes nobody else: its application goes once no
   seat's link runs (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), and an empty
@@ -352,9 +350,6 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 - **No delivery state has a clock of its own**: each goes with what holds it, the Postausgang row
   its message was sent from or the link entry it went out for. No open or click tracking is
   subscribed ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard)).
-- **The action log keeps the full prior document on every write**, since a restore over the log
-  replays it; its twelve months answer the accumulation, and an erasure takes its person's values out
-  at once.
 - **A registration's deadline is stored at the mint**, so a raised bound never moves a link already
   in somebody's inbox. Every link asking a person to confirm being named or registered is ruled to
   live 14 days, and every unconfirmed or declined item to go 14 days after, which the notice states
@@ -403,13 +398,13 @@ the host's, which rests on its signed agreement.
   only the records under their own address.
 - **The origin.** A remotely managed tunnel is the only route to the origin, so every request
   passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
-- **Pseudonymisation.** A ban, a mailbox's document, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
+- **Pseudonymisation.** A ban and a mailbox's document hold a keyed hash of an address rather than the address, each under a key derived from
   one master secret by its own label (`fl_backend/app/api/ban_list/services.py :: address_hash`;
   [`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a
   withheld person's seasons; an access line holds no credential and no search query.
-- **Integrity and recovery.** Daily snapshots; the action log's prior documents and the journal's
-  replay after a restore ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot));
+- **Integrity and recovery.** Daily snapshots; the privacy lines naming what a restore undid
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot));
   the breach procedure in [`ops/runbooks.md`](ops/runbooks.md#6-when-personal-data-has-been-exposed).
 - **A local copy of production refuses to be reused after 7 days**: ruled, and not performed, since
   `scripts/ops/local.sh :: fetch_copy` reuses a copy at any age, its marker file being the whole of
@@ -538,7 +533,7 @@ procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
     separately from any other information“ under Art. 21(4).
 21. **A Widerspruch and naming the person again**: after one, an administrator can seat the same
     person and a new application can name them, which mails them again; nothing checks it and only
-    a keyed hash stays in the journal. Whether a Widerspruch must prevent that, and whether a mark
+    a record id stays in a line. Whether a Widerspruch must prevent that, and whether a mark
     may be kept to do so.
 22. **An adult contact person's birthdate**: whether the one age check carries storing the date
     until the end of the following season, or a note of the check is enough (Art. 5(1)(c), (e)).

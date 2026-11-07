@@ -50,6 +50,13 @@ RETENTION: Final = timedelta(days=30)
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
 SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
 
+# The kinds an erasure leaves in place: the deletion link, which asks for that erasure, and whatever tells the person of it.
+ERASURE_SPARED_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"account_erasure", "deletion_notice"})
+
+# The kinds whose address no erasure reaches once owed, so the row goes at its deadline rather than a retention later:
+# the notice an erasure spares, and the mail to a replaced address.
+SHORT_LIVED_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"deletion_notice", "address_change_effective"})
+
 # The one kind of mail a ban does not stop: the ban's own notice.
 UNBARRED: Final[frozenset[FLOutboxKind]] = frozenset({"ban"})
 
@@ -163,7 +170,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "deadline": deadline,
         # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
         # state brings forward (`final_update`).
-        "erase_at": deadline if secret is not None else deadline + RETENTION,
+        "erase_at": deadline if secret is not None or mail.data.kind in SHORT_LIVED_KINDS else deadline + RETENTION,
         "lease": None,
         "leased_until": None,
         "attempts": 0,

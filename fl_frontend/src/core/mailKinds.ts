@@ -11,11 +11,11 @@ import { buildBanEmail } from "./banListEmail";
 import {
   buildBewerbungAbsageEmail,
   buildBewerbungConfirmationEmail,
-  buildBewerbungErasureEmail,
   buildBewerbungObjectionEmail,
   buildBewerbungReceivedEmail,
   buildBewerbungReminderEmail,
   buildBewerbungZusageEmail,
+  buildDeletionNoticeEmail,
 } from "./bewerbungEmail";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
@@ -119,7 +119,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_reminder: (data, handout) => buildBewerbungReminderEmail(data, minted(handout)),
   bewerbung_zusage: buildBewerbungZusageEmail,
   bewerbung_absage: buildBewerbungAbsageEmail,
-  bewerbung_erasure: buildBewerbungErasureEmail,
+  deletion_notice: buildDeletionNoticeEmail,
   bewerbung_objection: buildBewerbungObjectionEmail,
 };
 
