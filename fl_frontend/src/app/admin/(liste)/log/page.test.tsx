@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { actionLogGetActionLogQueryQOneMax } from "@/core/generated/zod/inputs";
+
 import ActionLogPage from "./page";
 
 import type { ActionLogGetActionLogParams, FLActionLogListResponse } from "@/core/generated/client/types";
-import type { ListMore } from "@/kit/ListTable";
+import type { ListMore, ListSearch } from "@/kit/ListTable";
 import type { TableBody } from "@/kit/Table";
 
 const state = vi.hoisted(() => ({ asked: [] as ActionLogGetActionLogParams[], answer: null as unknown }));
@@ -24,10 +26,20 @@ const answer = (overrides: Partial<FLActionLogListResponse>): FLActionLogListRes
   ...overrides,
 });
 
-async function read(searchParams: Record<string, string | string[]>) {
-  const page = ActionLogPage({ params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) } as Parameters<
+type Drawn = {
+  props: {
+    filters: Promise<unknown>;
+    list: { search: ListSearch; content: Promise<{ table: TableBody; more: ListMore }> };
+  };
+};
+
+const pageOf = (searchParams: Record<string, string | string[]>) =>
+  ActionLogPage({ params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) } as Parameters<
     typeof ActionLogPage
-  >[0]) as { props: { filters: Promise<unknown>; list: { content: Promise<{ table: TableBody; more: ListMore }> } } };
+  >[0]) as Drawn;
+
+async function read(searchParams: Record<string, string | string[]>) {
+  const page = pageOf(searchParams);
   // Both, as the page's two boundaries await both: the toolbar's filters and the list come of one read.
   const [, content] = await Promise.all([page.props.filters, page.props.list.content]);
   return content;
@@ -52,6 +64,12 @@ describe("the Protokoll's reads", () => {
     expect(state.asked.map(({ by }) => by)).toStrictEqual(["gone@example.de", null]);
     expect(more.carry).toStrictEqual({});
     expect(table.empty.kind).toBe("none");
+  });
+
+  /* A paste past the bound would reach the read, which refuses it with the shared failure line and no word of why. */
+  it("stops the search at the bound the read holds", () => {
+    state.answer = answer({});
+    expect(pageOf({}).props.list.search.maxLength).toBe(actionLogGetActionLogQueryQOneMax);
   });
 
   /* An outage answering „Noch keine Einträge.“ would read as a log with nothing in it. */

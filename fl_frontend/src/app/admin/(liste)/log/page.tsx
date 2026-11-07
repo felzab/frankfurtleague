@@ -2,6 +2,7 @@ import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
+import { actionLogGetActionLogQueryQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { loadActionLog } from "@/features/action-log/actions";
@@ -65,7 +66,7 @@ export default function ActionLogPage({ searchParams }: Props) {
       filterCount={3}
       list={{
         kind: "table",
-        search: { label: WORDS.search },
+        search: { label: WORDS.search, maxLength: actionLogGetActionLogQueryQOneMax },
         head: HEAD,
         wait: 50,
         content: log.then(({ filters, page }) => {
