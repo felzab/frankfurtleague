@@ -53,8 +53,6 @@ export async function readAfterAnsweredWrite<T>(routeName: string, read: () => P
 /**
  * The spine every UNAUTHENTICATED route handler shares. **Nothing here authorizes anything**: the
  * backend endpoint's own guard decides whether a write may happen.
- *
- * Deliberately not `runAdminMutation`, whose name says a session was checked.
  */
 export async function handlePublicRequest<T extends { success: boolean }>(
   request: NextRequest,

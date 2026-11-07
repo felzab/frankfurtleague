@@ -1,7 +1,7 @@
 import "server-only";
 
 import { now } from "../clock";
-import { isWithinStepUpWindow, PASSKEY_TOUCH_SECONDS, PERSON_LIFETIME } from "../sessionLifetimes";
+import { PASSKEY_TOUCH_SECONDS, PERSON_LIFETIME } from "../sessionLifetimes";
 
 import type { Lifetime } from "../sessionLifetimes";
 
@@ -25,24 +25,6 @@ export const SESSIONS_ENDED_FIELD = "sessionsEndedAt";
 
 /** As much of a session as the passkey touch judges: when it was made, and by which factor. */
 export type SessionStamps = { readonly createdAt: Date | string; readonly authFactor?: unknown };
-
-/** As much of a served session as the step-up judges, beside whether its address holds a grant. */
-type StepUpCaller = {
-  readonly user: { readonly email: string };
-  readonly session: SessionStamps;
-  readonly isAdmin: boolean;
-};
-
-// Redesign: goes with its last importer.
-/**
- * Whether a session was signed in -- or confirmed, which mints a new one -- recently enough to change
- * passkeys and sign-ins: by either factor for a person, by the passkey for an administrator.
- */
-export function isFreshlySignedIn(served: StepUpCaller): boolean {
-  if (!isWithinStepUpWindow(served.session.createdAt)) return false;
-
-  return !served.isAdmin || served.session.authFactor === PASSKEY_FACTOR;
-}
 
 /**
  * Whether a session is the passkey touch as of `at`, now unless a caller judges an earlier moment: made by a passkey

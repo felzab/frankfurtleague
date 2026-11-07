@@ -54,51 +54,6 @@
       "count": 4
     }
   },
-  "src/app/area/admin/administratoren/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/administratoren/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/aktionen/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/aktionen/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
-  "src/app/area/admin/layout.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/not-found.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/sperrliste/loading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/area/admin/sperrliste/page.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    }
-  },
   "src/app/area/team/[team_id]/[saison_id]/layout.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -158,78 +113,9 @@
       "count": 3
     }
   },
-  "src/core/sessionLifetimes.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/teamVocabulary.ts": {
     "no-restricted-syntax": {
       "count": 24
-    }
-  },
-  "src/features/address-change/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    }
-  },
-  "src/features/address-change/components/forms/AdminAdresswechselForm/FormAdresswechselSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 18
-    },
-    "react/forbid-component-props": {
-      "count": 9
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/address-change/components/forms/AdresswechselBeantragen.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 16
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 5
-    }
-  },
-  "src/features/address-change/components/forms/AdresswechselWartet.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "no-restricted-syntax": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 4
-    }
-  },
-  "src/features/address-change/components/views/AdminAdresswechselView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/features/address-change/components/views/AdresswechselLinkView.tsx": {
@@ -246,215 +132,8 @@
       "count": 19
     }
   },
-  "src/features/address-change/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "src/features/admin/actions.ts": {
-    "fl/server-action": {
-      "count": 1
-    }
-  },
-  "src/features/admin/components/providers/AdminStepUpProvider.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "src/features/admin/components/ui/AdminShell.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/admin/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 17
-    },
-    "no-restricted-syntax": {
-      "count": 28
-    }
-  },
-  "src/features/aktionen/components/collections/AdminAktionenTable.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 35
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 12
-    }
-  },
-  "src/features/aktionen/components/views/AdminAktionenView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 10
-    }
-  },
-  "src/features/aktionen/constants.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/aktionen/facets.ts": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/aktionen/utils.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "src/features/berechtigungen/actions.ts": {
-    "fl/server-action": {
-      "count": 5
-    }
-  },
-  "src/features/berechtigungen/components/collections/AdminBerechtigungAntraegeList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 13
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/collections/AdminBerechtigungenList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 17
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/forms/AdminBerechtigungAntragAblehnenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/forms/AdminBerechtigungAntragGenehmigenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/forms/AdminBerechtigungGenehmigenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 8
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 6
-    }
-  },
-  "src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 2
-    }
-  },
-  "src/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/modals/AdminCreateBerechtigungModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/ui/VonOderGesperrt.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/berechtigungen/components/views/AdminBerechtigungenView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/features/berechtigungen/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/bewerbungen/components/ui/Filled.tsx": {
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/components/ui/LinkStateDetails.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
       "count": 1
     }
   },
@@ -485,11 +164,6 @@
       "count": 3
     }
   },
-  "src/features/bewerbungen/deliveryState.ts": {
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
   "src/features/dashboard/components/ui/DashboardError.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 5
@@ -499,70 +173,6 @@
     },
     "react/forbid-component-props": {
       "count": 2
-    }
-  },
-  "src/features/funktionen/actions.ts": {
-    "fl/server-action": {
-      "count": 3
-    }
-  },
-  "src/features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 11
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/funktionen/components/forms/AdminLoeschungForm/FormLoeschungAnsicht.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 12
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "check-file/folder-naming-convention": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    },
-    "react/forbid-component-props": {
-      "count": 8
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/features/funktionen/components/ui/AdminFunktionSwitcher.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
     }
   },
   "src/features/funktionen/components/ui/PersonLaneFunktionSwitcher.tsx": {
@@ -594,14 +204,6 @@
   "src/features/funktionen/components/ui/TeamShell.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 4
-    }
-  },
-  "src/features/funktionen/components/views/AdminLoeschungView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/features/funktionen/components/views/FunktionenView.tsx": {
@@ -739,23 +341,6 @@
       "count": 2
     }
   },
-  "src/features/saisons/components/ui/SaisonSelector.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 7
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    },
-    "react/forbid-component-props": {
-      "count": 6
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
   "src/features/saisons/components/ui/runningDot.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 2
@@ -781,93 +366,6 @@
     },
     "react/jsx-no-literals": {
       "count": 3
-    }
-  },
-  "src/features/sperrliste/actions.ts": {
-    "fl/server-action": {
-      "count": 3
-    }
-  },
-  "src/features/sperrliste/components/collections/AdminSperreAnsichtList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 16
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/sperrliste/components/collections/AdminSperrlisteList.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 15
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/features/sperrliste/components/forms/AdminCreateSperreForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 14
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 9
-    },
-    "react/forbid-component-props": {
-      "count": 9
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/features/sperrliste/components/modals/AdminCreateSperreModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/sperrliste/components/views/AdminSperrlisteView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 3
-    }
-  },
-  "src/features/sperrliste/constants.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/sperrliste/refusals.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/features/spielberichte/components/forms/SpielberichtForm/AuswahlSelect.tsx": {
@@ -1508,60 +1006,6 @@
       "count": 3
     }
   },
-  "src/shared/components/ui/AdminCrudEmpty.tsx": {
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "src/shared/components/ui/AdminCrudFallback.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 9
-    },
-    "no-restricted-syntax": {
-      "count": 34
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
-  "src/shared/components/ui/AdminCrudLoading.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    },
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/shared/components/ui/AdminCrudSearch.tsx": {
-    "react/forbid-component-props": {
-      "count": 1
-    }
-  },
-  "src/shared/components/ui/AdminCrudShell.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
-  "src/shared/components/ui/AdminCrudView.tsx": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "src/shared/components/ui/Angabe.tsx": {
     "no-restricted-syntax": {
       "count": 4
@@ -1662,17 +1106,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/ConfirmTypedAddress.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/ContentLoader.tsx": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 9
@@ -1690,17 +1123,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/CreateModal.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 2
     }
   },
   "src/shared/components/ui/DateTimeFields.tsx": {
@@ -1781,23 +1203,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/EntityForm.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 3
-    },
-    "react/jsx-no-literals": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/FLLogo.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1815,40 +1220,6 @@
     },
     "react/forbid-component-props": {
       "count": 2
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/shared/components/ui/FilterLeiste.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 9
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 17
-    },
-    "no-restricted-syntax": {
-      "count": 14
-    },
-    "react/forbid-component-props": {
-      "count": 12
-    },
-    "react/jsx-no-literals": {
-      "count": 2
-    }
-  },
-  "src/shared/components/ui/FilterPanel.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 5
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 13
-    },
-    "no-restricted-syntax": {
-      "count": 10
-    },
-    "react/forbid-component-props": {
-      "count": 10
     },
     "react/jsx-no-literals": {
       "count": 2
@@ -1965,7 +1336,7 @@
   },
   "src/shared/components/ui/RowActions.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 3
+      "count": 1
     },
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
@@ -1974,7 +1345,7 @@
       "count": 1
     },
     "react/forbid-component-props": {
-      "count": 3
+      "count": 1
     }
   },
   "src/shared/components/ui/SaisonSlotSkeleton.tsx": {
@@ -1986,20 +1357,6 @@
     },
     "react/jsx-no-literals": {
       "count": 1
-    }
-  },
-  "src/shared/components/ui/SearchBar.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 5
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    },
-    "react/forbid-component-props": {
-      "count": 4
     }
   },
   "src/shared/components/ui/Select.tsx": {
@@ -2076,7 +1433,7 @@
   },
   "src/shared/components/ui/formButtons.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 9
+      "count": 7
     }
   },
   "src/shared/components/ui/formFieldStyles.ts": {
@@ -2111,17 +1468,7 @@
   },
   "src/shared/components/ui/overlayPanel.ts": {
     "better-tailwindcss/no-restricted-classes": {
-      "count": 2
-    }
-  },
-  "src/shared/components/ui/pickedOption.ts": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    }
-  },
-  "src/shared/components/ui/placeholderBox.ts": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 6
+      "count": 1
     }
   },
   "src/shared/components/ui/refusableOption.ts": {
@@ -2132,14 +1479,6 @@
   "src/shared/components/ui/textLink.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 1
-    }
-  },
-  "src/shared/hooks/useConfirmationWindows.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/shared/hooks/useDraftFieldErrors.ts": {
@@ -2173,11 +1512,6 @@
       "count": 4
     }
   },
-  "src/shared/utils/adminMutation.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/shared/utils/appToast.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
@@ -2191,11 +1525,6 @@
   "src/shared/utils/format.ts": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "src/shared/utils/kontoMutation.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/shared/utils/reopenLink.ts": {

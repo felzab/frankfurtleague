@@ -127,18 +127,18 @@ describe("the administrator's session across one render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
   itOpensAScopeThatMemoizes();
 
-  /* The admin layout's hold, season slot and switcher each read the session, all in one render pass:
-     `fl_frontend/src/app/area/admin/layout.tsx :: AdminLayout`. */
-  it("reads the store once for the frame's three readers", async () => {
+  /* The frame and every read of the page each judge the session, all in one render pass:
+     `fl_frontend/src/app/admin/AdminFrame.tsx :: AdminFrame`, `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`. */
+  it("reads the store once for the frame's and the page's readers", async () => {
     requestHeaders = await signInAsAdministrator();
 
     beginRenderPass();
     const before = sessionReads.length;
-    const [hold, slot, switcher] = await Promise.all([judgeAdminRequest(), getAdminSession(), getAdminSession()]);
+    const [frame, firstRead, secondRead] = await Promise.all([judgeAdminRequest(), getAdminSession(), getAdminSession()]);
 
-    assert.ok("session" in hold, "the hold refused the administrator, so the count below counts a refusal");
-    expect(slot?.user.email).toBe(ADMIN_EMAIL);
-    expect(switcher?.user.email).toBe(ADMIN_EMAIL);
+    assert.ok("session" in frame, "the frame refused the administrator, so the count below counts a refusal");
+    expect(firstRead?.user.email).toBe(ADMIN_EMAIL);
+    expect(secondRead?.user.email).toBe(ADMIN_EMAIL);
     expect(sessionReads.length - before, "the frame's readers of one render pass each read the session store").toBe(1);
 
     // The control: the next request is a new pass and reads again, so the counter counts reads.

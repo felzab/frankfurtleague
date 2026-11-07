@@ -713,12 +713,10 @@ const SOURCE_BANS = [
     {
       only: [
         "account",
-        "aktionen",
         "bewerbungen",
         "funktionen",
         "registrierungen",
         "schiedsrichter",
-        "sperrliste",
         "spielberichte",
         "spielbestaetigungen",
         "spielorte",

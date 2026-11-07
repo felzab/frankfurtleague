@@ -12,6 +12,7 @@
   // loads (`fl_frontend/src/core/db.db.test.ts`).
   "project": [
     "**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+    "src/app/globals.css!",
     "!src/test-support/**!",
     "!e2e/**!",
     "!eslint-rules/**!",

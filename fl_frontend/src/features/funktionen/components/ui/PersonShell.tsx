@@ -12,7 +12,7 @@ import type React from "react";
 import type { PersonIconName } from "../../constants";
 
 /**
- * A client wrapper for `AdminShell`'s reason: the icons and the sign-out cross no server
+ * A client wrapper: the icons and the sign-out cross no server
  * boundary as props. What the person's Funktionen decide arrives as slots, each streamed on its own.
  */
 export function PersonShell({

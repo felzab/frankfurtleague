@@ -14,9 +14,3 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
-
-/**
- * The one sentence under every failed copy: the browser's refusal is the same wherever the press is,
- * while the title names the thing that press was after and is written at the press.
- */
-export const CLIPBOARD_ERROR_DETAIL = "Dieser Browser gibt die Zwischenablage nicht frei.";
