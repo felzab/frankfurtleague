@@ -11,7 +11,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.action_log.admin_router import get_action_log
 from app.api.action_log.crud import reattribute_administrator_in_session
-from app.api.action_log.schemas import FLActionLogFilterParams, FLActionLogRecord
+from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogRecord
 from app.api.schiedsrichter.admin_router import delete_schiedsrichter, reactivate_schiedsrichter
 from app.api.spieler.admin_router import delete_saison_spieler, reactivate_saison_spieler
 from app.api.spielorte.admin_router import delete_spielort, reactivate_spielort
@@ -159,7 +159,7 @@ def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_s
         cursor: str | None = None
         # Bounded, so a cursor that never ends fails here rather than running for ever.
         for _ in range(3):
-            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterParams.model_validate({"cursor": cursor}))
+            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterPayload.model_validate({"cursor": cursor}))
             pages.append([row.id for row in page.action_log])
             if page.cursor is None:
                 break

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.recording import FLAction, FLActionType
 from app.shared.schemas.bounds import ACTION_LOG_SEARCH_MAX_LENGTH
@@ -22,8 +22,12 @@ class FLActionLogRecord(BaseModel):
     trace_id: str
 
 
-class FLActionLogFilterParams(BaseModel):
-    # The last row of the page before. A malformed one answers 422, as every query id does.
+class FLActionLogFilterPayload(BaseModel):
+    """What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The last row of the page before. A malformed one answers 422, as every payload's id does.
     cursor: CustomObjectId | None = None
     # A case-blind search over the team and the label: German action words are reached by `type`.
     q: str | None = Field(default=None, max_length=ACTION_LOG_SEARCH_MAX_LENGTH)

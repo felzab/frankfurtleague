@@ -11,7 +11,6 @@ import {
 } from "@/core/transport";
 
 import type {
-  ActionLogGetActionLogParams,
   AddressChangeSweepAddressChangeParams,
   BewerbungenGetBewerbungenAdminParams,
   CheckIsLiveResponse,
@@ -23,6 +22,7 @@ import type {
   FLAccountEinwilligungenResponse,
   FLAccountEinwilligungPayload,
   FLAccountErasureViewResponse,
+  FLActionLogFilterPayload,
   FLActionLogListResponse,
   FLActivateSaisonResponse,
   FLAddressChangeAddressPayload,
@@ -316,26 +316,41 @@ export const accountGetEinwilligungen = async (options?: Parameters<typeof admin
   });
 };
 
-export const getActionLogGetActionLogUrl = (params?: ActionLogGetActionLogParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/action_log?${stringifiedParams}` : `/api/v0/action_log`;
+export const getActionLogGetActionLogUrl = () => {
+  return `/api/v0/action_log/view`;
 };
 
 /**
  * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
+ *
+ * A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
+ * `http.answered` line, where the log's scrubber reads no `%40`.
  *
  * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
  * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
  * @summary List recorded acts
  */
 export const actionLogGetActionLog = async (
-  params?: ActionLogGetActionLogParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  fLActionLogFilterPayload: FLActionLogFilterPayload,
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLActionLogListResponse> => {
-  return adminKeyTransport<FLActionLogListResponse>(getActionLogGetActionLogUrl(params), {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyReadTransport<FLActionLogListResponse>(getActionLogGetActionLogUrl(), {
     ...options,
-    method: "GET",
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLActionLogFilterPayload),
   });
 };
 

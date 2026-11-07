@@ -627,12 +627,6 @@ export interface FLActionLogEntry {
   team: string | null;
 }
 
-export interface FLActionLogListResponse {
-  action_log: FLActionLogEntry[];
-  by_options: string[];
-  cursor: string | null;
-}
-
 export type FLActionType = (typeof FLActionType)[keyof typeof FLActionType];
 
 export const FLActionType = {
@@ -653,6 +647,24 @@ export const FLActionType = {
   erasure: "erasure",
   retention: "retention",
 } as const;
+
+/**
+ * What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.
+ */
+export interface FLActionLogFilterPayload {
+  by?: string | null;
+  cursor?: string | null;
+  from_day?: string | null;
+  q?: string | null;
+  type?: FLActionType[] | null;
+  until_day?: string | null;
+}
+
+export interface FLActionLogListResponse {
+  action_log: FLActionLogEntry[];
+  by_options: string[];
+  cursor: string | null;
+}
 
 /**
  * How many seasons the activation moved off `active` -- normally exactly one.
@@ -6152,15 +6164,6 @@ export type N500Response = FLFailureBody;
  * Service Unavailable
  */
 export type N503Response = FLFailureBody;
-
-export type ActionLogGetActionLogParams = {
-  cursor?: string | null;
-  q?: string | null;
-  by?: string | null;
-  type?: FLActionType[] | null;
-  from_day?: string | null;
-  until_day?: string | null;
-};
 
 export type AddressChangeSweepAddressChangeParams = {
   after?: string | null;

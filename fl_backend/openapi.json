@@ -1291,6 +1291,87 @@
         "title": "FLActionLogEntry",
         "type": "object"
       },
+      "FLActionLogFilterPayload": {
+        "additionalProperties": false,
+        "description": "What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
+          "from_day": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Day"
+          },
+          "q": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Q"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FLActionType"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "until_day": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until Day"
+          }
+        },
+        "title": "FLActionLogFilterPayload",
+        "type": "object"
+      },
       "FLActionLogListResponse": {
         "properties": {
           "action_log": {
@@ -17975,115 +18056,20 @@
         ]
       }
     },
-    "/api/v0/action_log": {
-      "get": {
-        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
+    "/api/v0/action_log/view": {
+      "post": {
+        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\nA POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every\n`http.answered` line, where the log's scrubber reads no `%40`.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
         "operationId": "action_log_get_action_log",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "cursor",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Cursor"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLActionLogFilterPayload"
+              }
             }
           },
-          {
-            "in": "query",
-            "name": "q",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 200,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
-            }
-          },
-          {
-            "in": "query",
-            "name": "by",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "By"
-            }
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLActionType"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Type"
-            }
-          },
-          {
-            "in": "query",
-            "name": "from_day",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "From Day"
-            }
-          },
-          {
-            "in": "query",
-            "name": "until_day",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Until Day"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -18144,7 +18130,8 @@
         "summary": "List recorded acts",
         "tags": [
           "action_log"
-        ]
+        ],
+        "x-safe": true
       }
     },
     "/api/v0/address_change": {
