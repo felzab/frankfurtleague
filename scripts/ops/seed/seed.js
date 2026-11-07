@@ -497,12 +497,12 @@ running.saison.registrierung = { open: true, end: day(-36) };
 let seatedPeople = 0;
 
 /** A person as the form or the league seats them, nobody having answered (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`). */
-function seated(firstName, lastName, enteredOn, enteredBy, email = `${firstName}.${lastName}@example.com`.toLowerCase()) {
+function seated(firstName, lastName, enteredOn, enteredBy) {
   seatedPeople += 1;
   return {
     first_name: firstName,
     last_name: lastName,
-    email,
+    email: `${firstName}.${lastName}@example.com`.toLowerCase(),
     phone: `+49 170 ${2000000 + seatedPeople}`,
     birth_date: null,
     einwilligung: { scope: "kontakt_data", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
@@ -544,8 +544,8 @@ function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn =
 
 // Each state a seat stands in, as the pair of its slot and its entry, built from the `mail` `seats` hands it.
 const openSeat =
-  (firstName, lastName, { remindedOn, email } = {}) =>
-  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy, email), seatLink(mail, { remindedOn })];
+  (firstName, lastName, { remindedOn } = {}) =>
+  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy), seatLink(mail, { remindedOn })];
 const confirmedSeat = (firstName, lastName) => (mail) => [
   confirmedPerson(seated(firstName, lastName, mail.sentOn, mail.enteredBy), mail.sentOn + 1),
   seatLink(mail),
@@ -985,8 +985,8 @@ const APPLICATIONS = [
     },
   }),
   BOUNCED,
-  // Past its deadline: the first pass, a minute after the frontend starts, erases it and mails the Ansprechperson, the
-  // one deletion a journey can read.
+  // Past its deadline: the first pass, a minute after the frontend starts, erases it and tells the Trainerin, the one
+  // seat that confirmed, the one deletion a journey can read.
   application({
     school: clubRow("Lärche", 6),
     owner: "laerche",
@@ -994,7 +994,7 @@ const APPLICATIONS = [
     wunschfarbe: "braun",
     states: {
       trainer: confirmedSeat("Lea", "Lehmann"),
-      ansprechperson: openSeat("Lutz", "Lehmann", { remindedOn: -13, email: "ansprechperson.laerche@example.com" }),
+      ansprechperson: openSeat("Lutz", "Lehmann", { remindedOn: -13 }),
       stellvertretung: openSeat("Lisa", "Lehmann", { remindedOn: -13 }),
     },
   }),
