@@ -236,20 +236,16 @@ async def stored(database: AsyncDatabase) -> list[dict[str, Any]]:
 
 class TestTheReportNeverWritesTheSpiel:
     def test_the_spiel_and_the_tie_it_feeds_stay_as_stored(self, mongo_replica_set_url: str):
-        """A knockout feeder: a report written into the result would resolve the quarter-final's side and log the fixtures."""
+        """A knockout feeder: a report written into the result would resolve the quarter-final's side."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELE].find({}).sort("_id").to_list()
             await put(database, client, bericht(2, 1, [tor("team1", LINA), tor("team1", None), tor("team2", MIA)]))
             after = await database[Collection.SPIELE].find({}).sort("_id").to_list()
-            logged = await database[Collection.ACTION_LOG].distinct("collection")
 
-            return before == after, logged
+            return before == after
 
-        unchanged, logged = on_the_league(mongo_replica_set_url, body)
-
-        assert unchanged
-        assert logged == ["spielberichte"]
+        assert on_the_league(mongo_replica_set_url, body)
 
 
 class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:

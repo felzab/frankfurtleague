@@ -29,22 +29,19 @@ class TestWhatALeakedLinkLearns:
         }
 
     @pytest.mark.parametrize(
-        ("einwilligung", "declined_at", "barred", "answered_at"),
+        ("einwilligung", "declined_at", "answered_at"),
         [
-            ({"confirmed_at": "2026-03-02"}, None, False, "2026-03-02"),
-            (None, "2026-03-03", False, "2026-03-03"),
-            ({"confirmed_at": "2026-03-02"}, None, True, None),
-            (None, None, False, None),
+            ({"confirmed_at": "2026-03-02"}, None, "2026-03-02"),
+            (None, "2026-03-03", "2026-03-03"),
+            (None, None, None),
         ],
-        ids=["confirmed", "declined", "barred", "unanswered"],
+        ids=["confirmed", "declined", "unanswered"],
     )
     def test_the_view_names_the_day_of_the_answer_its_state_shows_and_no_other(
-        self, einwilligung: Mapping[str, str] | None, declined_at: str | None, barred: bool, answered_at: str | None
+        self, einwilligung: Mapping[str, str] | None, declined_at: str | None, answered_at: str | None
     ):
-        """Served beside `barred`, the day would tell a stranger holding the token that the person answered, which the state withholds."""
-
         confirmation = {"deadline": "2026-04-15", "declined_at": declined_at}
-        state = state_of(einwilligung=einwilligung, confirmation=confirmation, today="2026-04-01", barred=barred)
+        state = state_of(einwilligung=einwilligung, confirmation=confirmation, today="2026-04-01")
 
         assert answered_at_of(state=state, einwilligung=einwilligung, confirmation=confirmation) == answered_at
 

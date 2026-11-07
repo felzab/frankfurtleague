@@ -81,7 +81,7 @@ export const writeSeat = action({
     trainer_is_also: blankIsNull(TeamsPutKontaktSeatBody.shape.trainer_is_also),
     version: numberBox(TeamsPutKontaktSeatBody.shape.version),
   }),
-  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "kontakt_seat_barred", "email_not_accepted"],
+  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted"],
   paths: { email: "email", phone: "phone" },
   examples: SEAT_EXAMPLES,
   run: async ({ team_id, saison_id, seat, ...person }) => {
@@ -91,14 +91,12 @@ export const writeSeat = action({
 });
 
 /**
- * Mails a seat waiting on its answer a fresh link from its row, its old link void and its 14 days starting again. An
- * address on the ban list, which the page cannot know, is refused in the list's own sentence.
+ * Mails a seat waiting on its answer a fresh link from its row, its old link void and its 14 days starting again.
  */
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
   input: z.object(TeamsInviteKontaktParams.shape),
-  ownWords: ["kontakt_seat_barred"],
   run: async ({ team_id, saison_id, seat }) => {
     await teamsInviteKontakt(team_id, saison_id, seat);
     return { ok: true, value: undefined };

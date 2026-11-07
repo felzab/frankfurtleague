@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import VIEW_SPIEL_FIELDS, verein_fields
+from app.api.spielbestaetigungen.crud import VEREIN_FIELDS, VIEW_SPIEL_FIELDS
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAppointment,
@@ -16,7 +16,6 @@ from app.api.spielbestaetigungen.services import (
     compose_ansetzung,
     find_spent_link_refusal,
     proposal_payload,
-    seat_address,
     view_ansetzung_of,
     zustand_of,
 )
@@ -146,7 +145,7 @@ def loaded_by(projection: Mapping[str, Any], path: str) -> bool:
 class TestTheProjectionsHoldEverythingTheJudgesRead:
     """A path a judge reads that a projection drops reads as null.
 
-    So a decided fixture would show `valid`, or a seat's address read as empty pass the ban, with nothing failing.
+    So a decided fixture would show `valid`, with nothing failing.
     """
 
     def test_the_view_reads_nothing_its_projections_leave_out(self):
@@ -158,15 +157,13 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
 
-        assert zustand_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, barred=False, vorschlag_open=None) == "valid"
+        assert zustand_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, vorschlag_open=None) == "valid"
         view_ansetzung_of(situation.spiel)
-        seat_address(ansetzung_state=situation, spielbestaetigung_raw=row(), seat="trainer")
 
         # The premise: `decision_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(VIEW_SPIEL_FIELDS, path)] == []
-        projection = verein_fields(team_id=TEAM1, seat="trainer")
-        assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
+        assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
 
     def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
@@ -177,11 +174,9 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         )
 
         assert find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
-        seat_address(ansetzung_state=situation, spielbestaetigung_raw=row(), seat="trainer")
 
-        assert {"austritt.date", "kontakte.trainer.email"} <= vereine_seen
-        projection = verein_fields(team_id=TEAM1, seat="trainer")
-        assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
+        assert "austritt.date" in vereine_seen
+        assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:

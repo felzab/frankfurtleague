@@ -63,6 +63,7 @@ from app.api.spiele.services import (
     reopens,
     resolve_bracket,
     slots_booked_against,
+    spiel_label,
     stored_in_slice,
     voided_results_of,
 )
@@ -86,6 +87,7 @@ from app.core.crud import (
     refuse,
 )
 from app.core.readonly import ReadCollection
+from app.core.recording import FLAction, record_act
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSpielSide
@@ -834,6 +836,8 @@ async def save_spiel_in_session(
     collections: SpielSaveCollections,
     adopts_bericht: int | None,
     now: datetime,
+    # The act another route saves a fixture under, which records this one save; `None` for the save's own.
+    act: FLAction | None = None,
     # REQUIRED: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
     session: AsyncClientSession,
 ) -> FLPatchSpielDataResponse:
@@ -856,6 +860,15 @@ async def save_spiel_in_session(
         expected_version=payload.version,
         session=session,
         return_document=ReturnDocument.BEFORE,
+    )
+    # Split on the stored result, so the Protokoll tells a result from a re-dating without holding either value.
+    ergebnis_moved = judged.patched.ergebnis != stored_in_slice(spiel_id, judged.season).ergebnis
+    await record_act(
+        collection=collections.spiele,
+        action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
+        record_id=spiel_id,
+        label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
+        session=session,
     )
 
     # Before the resolution: a slot this release opens can be refilled by that same resolution, and the reverse order

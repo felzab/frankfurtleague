@@ -168,7 +168,6 @@ class Code(StrEnum):
     # rather than a 409, whatever the team's own state.
     ROLE_NOT_HELD = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
-    KONTAKT_SEAT_BARRED = auto()
     KONTAKT_EMAIL_TAKEN = auto()
     KONTAKT_PHONE_TAKEN = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()
@@ -247,7 +246,6 @@ class Code(StrEnum):
     SCHIEDSRICHTER_NO_ADDRESS = auto()
     # Its own code and never `duplicate_key`, which the ban list's client words as a second ban of one
     # address: two conditions under one code are two a frontend cannot part.
-    SCHIEDSRICHTER_ADDRESS_BARRED = auto()
     SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()

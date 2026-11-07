@@ -239,10 +239,6 @@ async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[s
     return found
 
 
-async def junction_log(database: AsyncDatabase) -> list[dict[str, Any]]:
-    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
-
-
 @pytest.mark.db
 class TestTheBlockIsWritten:
     def test_the_stored_block_is_the_one_sent(self, mongo_replica_set_url: str):
@@ -363,24 +359,6 @@ class TestNothingElseOnTheRowMoves:
 
 
 @pytest.mark.db
-class TestTheWriteIsRecorded:
-    def test_one_action_row_carries_the_block_this_write_replaced(self, mongo_replica_set_url: str):
-        """The log's pre-image is the only copy of three people's details a mistake overwrote."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, NEW_KONTAKTE)
-
-            return await row_now(database), await junction_log(database)
-
-        stored, log = on_a_league(mongo_replica_set_url, body)
-
-        assert len(log) == 1
-        assert log[0]["operation"] == "patch_one"
-        assert log[0]["document_id"] == stored["_id"]
-        assert log[0]["before"]["kontakte"] == SEEDED_KONTAKTE
-
-
-@pytest.mark.db
 class TestAnErasureLandingMidSaveIsNotUndone:
     """Two administrators on one row: an erasure empties a seat while the editor holds the block it rendered.
 
@@ -412,20 +390,19 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
 @pytest.mark.db
 class TestASaveComposedAgainstAnotherBlockIsRefused:
-    def test_the_row_keeps_what_it_held_and_records_nothing(self, mongo_replica_set_url: str):
-        """A refusal has to stop the write rather than accompany it: the pre-image is the only copy of the block."""
+    def test_the_row_keeps_what_it_held(self, mongo_replica_set_url: str):
+        """A refusal has to stop the write rather than accompany it."""
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as refused:
                 await write_kontakte(database, NEW_KONTAKTE, version=1)
 
-            return refused.value, await row_now(database), await junction_log(database)
+            return refused.value, await row_now(database)
 
-        refusal, stored, log = on_a_league(mongo_replica_set_url, body)
+        refusal, stored = on_a_league(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.VERSION_STALE
         assert stored["kontakte"] == SEEDED_KONTAKTE
-        assert log == []
 
 
 class TestWhatThePayloadRefuses:

@@ -11,7 +11,6 @@ from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLSaisonAdminRes
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spiel_document, spielbericht_document
 from tests.worker import worker_database
@@ -35,7 +34,6 @@ async def read(database: AsyncDatabase) -> FLSaisonAdminResponse:
         teams_collection=database[Collection.TEAMS],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         invitations_collection=database[Collection.INVITATIONS],
-        ban_list=ban_list(database),
         today=TODAY,
     )
 

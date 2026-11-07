@@ -31,7 +31,7 @@ export type SpielbestaetigungAnsicht =
   // The date the league kept, which its sentence points at: the link's mail named it already.
   | { state: "discarded"; appointment: FLSpielbestaetigungAppointment }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
-  | { state: "expired" | "termin-vorbei" | "invalid" | "cancelled" | "barred" };
+  | { state: "expired" | "termin-vorbei" | "invalid" | "cancelled" };
 
 /** Every state a link opens on once no press can spend it. */
 export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["state"], "valid" | "vorschlag">;
@@ -89,9 +89,6 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
     case "ansetzung_deadline_past":
     case "ansetzung_decided":
       return { nachlesen: true };
-    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "link_barred":
-      return { state: "barred" };
     // The proposal's refusals spend nothing: each lands on the box that caused it, and the typed
     // proposal survives it.
     case "ansetzung_vorschlag_past":

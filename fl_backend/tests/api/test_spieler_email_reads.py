@@ -10,7 +10,6 @@ from app.api.registrierungen.public_router import get_confirmation_view
 from app.core.collections import Collection
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.plans import plans_of_sent_reads
@@ -92,7 +91,6 @@ async def the_confirmation_view(database: AsyncDatabase) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
-        ban_list=ban_list(database),
         today=TODAY,
     )
 

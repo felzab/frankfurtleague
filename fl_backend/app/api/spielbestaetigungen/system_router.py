@@ -9,7 +9,6 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLOutboxData, FLOutboxStatus, FLSpielEinteilungData, FLSpielMailAppointment, FLSpielRequestData
@@ -75,7 +74,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.security import verify_access_system
 from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
@@ -85,12 +84,11 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 # holds no session, and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
-# Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
-# loses; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S` together, each step's mails owed
-# in two commands of its own.
+# Each close costs three commands; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S`
+# together, each step's mails owed in two commands of its own.
 CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole.
@@ -171,48 +169,24 @@ async def _referee_addresses(
     return {referee["_id"]: (referee.get("kontakt") or {}).get("email") or None for referee in referees}
 
 
-async def _barred(
-    *,
-    ban_list: BanListLookup,
-    junctions: Mapping[Any, Mapping[str, Any]],
-    governing_saison_id: str | None,
-    session: AsyncClientSession,
-) -> set[str]:
-    """Every seat address of these clubs the ban list holds, asked before a share is cut so it never fills with barred seats."""
-
-    addresses = [
-        address
-        for junction in junctions.values()
-        for seat in KONTAKT_ROLLEN
-        if (address := kontakt_address(kontakte=junction.get("kontakte"), seat=seat))
-    ]
-
-    return await barred_addresses(ban_list, addresses, governing_saison_id=governing_saison_id, session=session)
-
-
 @dataclass
 class _Links:
     """The links one mint or reminder owes a team row's seats: each person's address and the seats one link answers."""
 
     groups: list[tuple[str, list[FLKontaktRolle]]] = field(default_factory=list)
-    withheld: int = 0
 
     @property
     def emails(self) -> dict[str, str]:
         return {seat: address for address, seats in self.groups for seat in seats}
 
 
-def _links_of(*, kontakte: Any, seats: Iterable[FLKontaktRolle], barred: set[str]) -> _Links:
-    """One link per person over the occupied `seats` no ban holds; a barred seat is counted and written nothing, so it stays due."""
+def _links_of(*, kontakte: Any, seats: Iterable[FLKontaktRolle]) -> _Links:
+    """One link per person over the occupied `seats`."""
 
     occupied: list[FLKontaktRolle] = [seat for seat in seats if kontakt_address(kontakte=kontakte, seat=seat) is not None]
-    reachable: list[FLKontaktRolle] = [seat for seat in occupied if kontakt_address(kontakte=kontakte, seat=seat) not in barred]
 
     return _Links(
-        groups=[
-            (str(kontakt_address(kontakte=kontakte, seat=gruppe[0])), gruppe) for gruppe in link_groups(kontakte=kontakte, seats=reachable)
-        ],
-        withheld=len(occupied) - len(reachable),
+        groups=[(str(kontakt_address(kontakte=kontakte, seat=gruppe[0])), gruppe) for gruppe in link_groups(kontakte=kontakte, seats=occupied)]
     )
 
 
@@ -327,7 +301,6 @@ async def sweep_spielbestaetigungen(
     saisons_collection: SaisonsCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -361,7 +334,7 @@ async def sweep_spielbestaetigungen(
     (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
     Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
     mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
-    occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
+    occupied seat holding no link -- its holder replaced or newly seated -- is owed one too. A
     party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
     transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
     the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
@@ -376,9 +349,6 @@ async def sweep_spielbestaetigungen(
     this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
     other seats are reminded beside it.
 
-    A seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks
-    it once the ban is lifted.
-
     Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
     and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
 
@@ -391,9 +361,6 @@ async def sweep_spielbestaetigungen(
     # between the listing and this call, mails nobody and writes nothing.
     if saison_raw.get("status") != "active":
         return FLSpielbestaetigungSweepResponse(saison_id=saison_id, closed=0, asked=0, reminded=0, mails=0, failed=0)
-
-    # Outside the transactions, whose callbacks may run again, as the application sweep reads it.
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def close(session: AsyncClientSession, batch: Batch) -> _Closed:
         """Judge every row holding its question against its fixture as it stands, then close a share, owing each notice.
@@ -575,7 +542,6 @@ async def sweep_spielbestaetigungen(
             ids=[party["schiedsrichter_id"] for spiel in spiele for party in parties_of(spiel) if party["kind"] == "schiedsrichter"],
             session=session,
         )
-        barred = await _barred(ban_list=ban_list, junctions=junctions, governing_saison_id=governing_saison_id, session=session)
 
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
@@ -642,7 +608,7 @@ async def sweep_spielbestaetigungen(
                 else:
                     seats = []
 
-                links = _links_of(kontakte=kontakte, seats=seats, barred=barred)
+                links = _links_of(kontakte=kontakte, seats=seats)
                 if links.groups:
                     plan.seated.add(party["team_id"])
                 row: Mapping[str, Any]
@@ -767,7 +733,6 @@ async def sweep_spielbestaetigungen(
             session=session,
         )
         austritte = _austritte(junctions)
-        barred = await _barred(ban_list=ban_list, junctions=junctions, governing_saison_id=governing_saison_id, session=session)
         states = await states_of(
             outbox_collection=outbox_collection,
             collection=Collection.SPIELBESTAETIGUNGEN,
@@ -791,14 +756,12 @@ async def sweep_spielbestaetigungen(
                 kontakte=junctions[row["party"]["team_id"]].get("kontakte"),
                 # Only a seat already holding a link, one without being the mint's to ask.
                 seats=[seat for seat in KONTAKT_ROLLEN if entries.get(seat) is not None and seat not in fresh],
-                barred=barred,
             )
             # Never a person whose last mail did not arrive: a corrected address voids their seat for the mint to ask afresh.
             links.groups = [(address, seats) for address, seats in links.groups if reached(states.get((row["_id"], seats[0])))]
             if not links.groups:
-                # Every seat that could be reminded was just asked, so the day is marked and a later pass sends it no reminder;
-                # a barred seat keeps the row unmarked, due once its ban lifts.
-                return _Owed(marked=bool(fresh) and not links.withheld)
+                # Every seat that could be reminded was just asked, so the day is marked and a later pass sends it no reminder.
+                return _Owed(marked=bool(fresh))
 
             mails = _request(
                 row=row,
