@@ -173,12 +173,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     per-address code counts under a keyed hash; an address change's two addresses until it ends,
     and the reason an administrators' change for a lost mailbox records, until the same end.
   - Recipients: the person.
-- **Administration access and the ban list** (`grants`, `berechtigungen_angekuendigt`,
-  `berechtigungen_antraege`, `ban_list`).
+- **Administration access and the ban list** (`grants`, `ban_list`).
   - Purpose and basis: who may administer the league, and refusing an address the league declined;
     Art. 6(1)(f).
-  - People and data: a grant's address, tier and granter (`granted_by`), in plain; a pending
-    request's address and its requester's; a ban's keyed hash of the barred address
+  - People and data: a grant's address, tier and granter (`granted_by`), in plain, a waiting
+    addition's or handover's date among them; a ban's keyed hash of the barred address
     (`fl_backend/app/api/ban_list/services.py :: address_hash`), its free-text reason, the
     entering administrator's address (`created_by`) and the last season it covers.
   - Recipients: administrators.
@@ -256,7 +255,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 
 - **Anyone can have their data erased, with the least asymmetry between roles**: a signed-in person
   by `fl_backend/app/api/identity/person_router.py :: post_account_erasure`, which refuses only the
-  administration's last live owner, and anyone else by mail, through an administrator's
+  owner, who hands over first, and anyone else by mail, through an administrator's
   `fl_backend/app/api/identity/admin_router.py :: post_erasure`. Both run
   `fl_backend/app/api/identity/crud.py :: erase_everything`, and each lists the records it
   reaches for confirmation first, read through the erasure's own selection.
@@ -332,8 +331,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link, its log images redacted with it                                                         | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
 | A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                                                                            | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                                |
 | A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                                                               | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                        |
-| A grant                                      | Until revoked or erased                                                                                                                                                               | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                                              |
-| A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                                                                  | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                          |
+| A grant                                      | Until removed or erased, a waiting addition until withdrawn too                                                                                                                       | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                                              |
 | An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end                                              | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                              |
 | A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none, with no message                                                                                 | `fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`                                                                                                        |
 | A session                                    | A person's 14 days unused, 30 at most; an administrator's 1 hour unused, 24 at most                                                                                                   | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                       |

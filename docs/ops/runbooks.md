@@ -284,54 +284,42 @@ that name, nothing rebuilds it and the retry needs only the rows.
 
 One thing admits an administrator: a grant in the `grants` collection, which the backend
 reads on every admin-tier request and the frontend on every request, through the lookup its sign-in
-gate and its guards share. A grant or a revoke takes hold on the next request of both, and nothing
+gate and its guards share. A removal takes hold on the next request of both, an addition at its date, and nothing
 restarts ([`spec.md`](spec.md) §4). A backend that cannot answer admits nobody, so the
 administration is shut while it is down. Each of these is easy to get wrong:
 
-- **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
-  its revoke there**. Both ask a passkey confirmation of the last
-  five minutes, a grant outliving the session making it.
-- **A grant waits as a request wherever another administrator could approve it, and a promotion
-  wherever another owner could**: it takes effect once that person
-  approves it on the same page, someone who held their own grant since before the request. Only an administrator, or an owner, nobody else could stand beside acts alone. Tell the
-  colleague: a request nobody decides lapses after the days
-  `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS` counts,
-  and one whose requester was revoked, demoted or barred since is approved by nobody and waits for a
-  refusal.
-- **An `owner` is made, and steps down, only through the tier change an `owner` makes**
-  (`PATCH /grants/{grant_id}`): it mails every
-  administrator and is logged, and the last live, unbarred `owner` is demoted by nobody. The person made an owner signs in once more before acting as
-  one: an older sign-in keeps administering and is offered no owner's control. A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
-  the application only an `owner` revokes; an erasure of the
-  holder's own data removes the grant whatever its tier, the last
-  live owner's own erasure refused (`last_owner_erasure`).
+- **Only the `owner` adds an administrator, removes one or hands the role over, on the
+  „Administratoren“ page, each behind the passkey touch.** An addition holds
+  `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after it, a removal at once,
+  and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
+  and the person named are mailed when a wait starts, stops or completes and at any removal, and only
+  the `owner` stops a wait, on the same page: the mail tells the others to reach the owner elsewhere.
+- **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
+  never a row still waiting, and one at a time; the pass demotes then promotes in one transaction.
+  The owner stays the owner until then. The new owner signs in once more before acting: a session
+  older than the handover holds nothing. An erasure removes an administrator's grant; the owner's
+  own erasure is refused until a handover (`last_owner_erasure`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
-  in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
+  in, and recovery when the owner cannot sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `grants` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds five fields: `address`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   which the application then reads as typed; `admin_tier`, `owner` or `administration`; `granted_by`, a marker naming the
-  paste, such as `PLAYGROUND`; `granted_at`, a date rather than a string; and `version: 0`, which
-  the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
-  folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
+  paste, such as `PLAYGROUND`; `effective_from`, `new Date()`, which any sign-in after the paste passes; and `version: 0`.
+  A recovery demotes any other `owner` row first, which `uniq_grant_owner` otherwise refuses, and
+  writes a new row rather than repointing the old one, whose sign-in account stays at the old address. Removing the row by its
+  folded address removes the grant. A paste mails nobody, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `grants` has reached.** That
-  boot creates the unique index; a paste before it creates the collection without it, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
+  boot creates the unique indexes; a paste before it creates the collection without them, and a duplicate in it then fails the next boot's index build (`db.indexes_failed`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
-- **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
+- **Keep the `owner` grant standing.** The application removes it by no route, and the Playground refuses nothing: the boot warns with
   `grants.no_grant` where no grant is left and `grants.no_owner` where no owner is, and serves the public
-  site either way. An erasure refuses neither short of the last owner's own, and the same two
-  warnings follow its commit; nothing warns where one grant is left.
-- **A barred address is granted nothing, and a granted one is banned by nothing**: lift the ban first, or revoke the grant first. A grant the
-  Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
-  site nor to the admin tier while the ban stands, and the reconciliation flags it.
-- **Every change is announced, a Playground one naming no administrator**. A Playground change undone again before the next claim is
-  announced by nothing, and deleting a row of `berechtigungen_angekuendigt` by hand announces that
-  grant again as new; deleting its owed `outbox` row silences its notice.
-  The first also shuts its holder out until the pass finds the grant again, and asks them to sign in
-  once more after it.
+  site either way.
+- **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**: lift the ban, or withdraw or remove the grant, first. A grant the
+  Playground writes onto a banned address is refused by nothing and admits nobody, the sign-in refusing it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
@@ -341,25 +329,12 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   already spelled in punycode (`xn--`) is taken as typed.
 - **A grant admits every passkey the address already holds.** A person enrols a first passkey with a
   mailed code and every later one with a passkey sign-in of the last minute, or brings them along
-  on an address change the new mailbox confirmed while nothing named it
-  and no grant was asked for it, the same authority an
+  on an address change the new mailbox confirmed while nothing named it,
+  the same authority an
   administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted, though only on a passkey sign-in made after the grant: a
   session older than the grant administers nothing. Grant an
   address only where its mailbox is trusted as an administrator's.
-- **A Playground grant is dated twice, so whoever it admits signs in once more.** Until the
-  reconciliation's next pass finds the row, hourly and first a minute after the frontend starts
-  (`fl_frontend/src/instrumentationNode.ts`'s `PASS_INTERVAL_MS` and `FIRST_PASS_DELAY_MS`), it is
-  dated by its own `granted_at`, or by the moment its `_id` was generated where that is later — so leave `_id` to the Playground, write `new Date()` for
-  `granted_at`, and any sign-in after the paste admits. Once found, it is dated by that moment instead: a session signed in between the paste and the find is sent back to
-  the sign-in, and the next passkey sign-in admits.
-- **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the
-  edit**, and then only on a sign-in after the find. That holds for
-  an address changed in place and a removed row put back with its `_id`; the pass marks every row it reads `seen_at`, so leave that field
-  as it stands. To hand a grant to another mailbox at once, paste a new row and remove the old one.
-- **A promotion to `owner` written in the Playground holds once the pass finds it, and then on a
-  sign-in after the find**: until then its holder is answered as the
-  administrator they were. A demotion written there takes the tier at once.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.

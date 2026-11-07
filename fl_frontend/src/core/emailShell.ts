@@ -29,7 +29,7 @@ const SENDER: Readonly<Record<MailKind, MailSender>> = {
  * One run of a sentence. Every run is folded to one line and escaped by the shell alone, so a value typed
  * outside the league reaches neither version as markup or as a line of its own.
  */
-export type Run = string | { readonly strong: string } | { readonly address: string } | { readonly url: string };
+type Run = string | { readonly strong: string } | { readonly address: string } | { readonly url: string };
 
 /** One sentence, a plain string or its runs. */
 export type Sentence = string | readonly Run[];

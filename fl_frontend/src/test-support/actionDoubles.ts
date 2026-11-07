@@ -85,7 +85,7 @@ const logAt =
   };
 const SILENT_LOGGER = { logger: { debug: logAt("debug"), info: logAt("info"), warn: logAt("warn"), error: logAt("error") } };
 
-/** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
+/** What the doubled sign-in store's `judgeAdminRequest` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
 
 /** What the doubled `getSubjectSession` answers: a person's records, no person signed in, or a lookup that threw this. */
@@ -128,7 +128,7 @@ const answering = (answer: unknown): Promise<unknown> => (answer instanceof Erro
 
 /**
  * The session, recorded as the request's actor where it is an administrator's, as the real
- * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
+ * `judgeAdminRequest` records it. Imported at the call, so the scope is the one the code under test loaded.
  */
 async function administratorOf({ session, served }: SignInAnswers): Promise<unknown> {
   if (session !== null && !(session instanceof Error)) {
@@ -172,7 +172,6 @@ const servedOf = (session: AdminSessionDouble): unknown => {
  */
 const signInStore = (answers: SignInAnswers) => ({
   guards: {
-    getAdminSession: () => administratorOf(answers),
     judgeAdminRequest: () => verdictOf(answers),
     // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
     getAccountSession: () => answering(answers.served),

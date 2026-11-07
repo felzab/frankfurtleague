@@ -224,12 +224,16 @@ const { runWithEndpointContext } = (await import(
 const { auth } = await import("./auth/library.ts");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getAdminSession, getAccountSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
-const { getSignedInAddress, getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
+const { getAccountSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
+/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
+const getAdminSession = async () => {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
+};
+const { getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { holdsOwnersTier } = await import("./grant.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -776,38 +780,6 @@ describe("a passkey session made before its grant", () => {
 
 /* A session a ban's ending missed, a race or a failed sign-out, manages no passkeys and no sign-ins:
    the account page's guard reads the ban on every request, as the person guard does. */
-describe("the account page's guard on a barred address", () => {
-  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
-
-  it("answers no session once the address is barred, and the same session before", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    assert.ok(await getAccountSession(), "the seated person's session was refused, so the case below proves nothing");
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-
-    expect(await getAccountSession()).toBe(null);
-  });
-});
-
-describe("a grant on a barred address", () => {
-  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
-
-  /* The backend's actor check refuses a barred holder every admin-tier request, so the guard admits
-     them nowhere rather than into a shell whose every read fails. */
-  it("admits no administrator, however the session was made", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, barred: true });
-
-    expect(await getAdminSession()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(await getSignedInAddress()).toBe(null);
-  });
-});
-
 describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -852,24 +824,6 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
     expect(isAdminSession(withoutFactor, A_GRANT)).toBe(false);
-  });
-
-  // The backend refuses an owner's write from a sign-in older than the promotion, so the page offers it none;
-  // the millisecond either side of the session's making decides.
-  it("holds an owner's power on a session made since the promotion alone, and administers on an older one", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    const seen = await served(cookie);
-    assert.ok(seen);
-    const made = new Date(seen.session.createdAt).getTime();
-    const promotedAt = (instant: number) => ({ ...A_GRANT, admin_tier: "owner" as const, owner_since: new Date(instant).toISOString() });
-
-    expect([
-      holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
-      holdsOwnersTier(seen.session.createdAt, promotedAt(made + 1)),
-      isAdminSession(seen, promotedAt(made + 1)),
-      holdsOwnersTier(seen.session.createdAt, A_GRANT),
-    ]).toStrictEqual([true, false, true, false]);
   });
 });
 

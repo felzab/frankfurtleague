@@ -59,10 +59,6 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   const records = await subjectOrNull(served.user.email);
   if (records === null) return { destination: "/area", served, subject: null };
 
-  // The ban itself, never read through the grant: every guard behind `/area` refuses a barred session,
-  // and one left standing serves again on the ban's lift with no sign-in.
-  if (records.barred) return ended(read);
-
   // As the person guard builds it (`fl_frontend/src/core/subject.ts`), off this one lookup.
   const subject = { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records };
   return { destination: await destinationOf(served, records), served, subject };
@@ -126,15 +122,14 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const served = await readRequestSession();
   if (!served) return null;
 
-  // An unread read offers no card, for the landing's reason; a barred subject none either, its
-  // enrolment being refused.
+  // An unread read offers no card, for the landing's reason.
   const subject = await subjectOrNull(served.user.email);
-  if (subject === null || subject.barred) return null;
+  if (subject === null) return null;
 
   const step = await passkeyStepOf(served, subject.admin_tier !== null);
   if (step === null) return null;
 
-  // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own
+  // Folded as `judgeAdminRequest` folds the actor it records: the stored row is the library's own
   // spelling, and this is the one address of this slice a person reads.
   return { step, email: asSignInIdentifier(served.user.email) };
 }

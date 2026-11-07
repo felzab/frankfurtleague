@@ -186,14 +186,9 @@
           "grant_exists",
           "grant_owner",
           "grant_barred",
-          "grant_minimum_count",
           "grant_only_owner",
-          "grant_last_owner",
-          "grant_approval_request_open",
-          "grant_approval_denied",
-          "grant_approval_owner",
-          "grant_approval_younger",
-          "grant_approval_request_lapsed",
+          "grant_handover_waiting",
+          "grant_not_in_effect",
           "bericht_not_played",
           "bericht_not_officiated",
           "bericht_not_in_kader",
@@ -2789,15 +2784,6 @@
         "enum": [
           "owner",
           "administration"
-        ],
-        "type": "string"
-      },
-      "FLApprovalDenied": {
-        "enum": [
-          "own",
-          "started",
-          "owner",
-          "younger"
         ],
         "type": "string"
       },
@@ -6227,121 +6213,8 @@
         "title": "FLGenerateSpielplanResponse",
         "type": "object"
       },
-      "FLGrantAddressChange": {
-        "description": "The change of this grant's address that waits on an administrator's approval.",
-        "properties": {
-          "change_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Change Reason"
-          },
-          "confirmed": {
-            "title": "Confirmed",
-            "type": "boolean"
-          },
-          "denied": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLApprovalDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "email_barred": {
-            "title": "Email Barred",
-            "type": "boolean"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "started_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started By"
-          },
-          "started_by_barred": {
-            "title": "Started By Barred",
-            "type": "boolean"
-          },
-          "until": {
-            "format": "date-time",
-            "title": "Until",
-            "type": "string"
-          },
-          "viewable_denied": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeViewableDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "way": {
-            "$ref": "#/components/schemas/FLAddressChangeWay"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "email_barred",
-          "way",
-          "started_by",
-          "started_by_barred",
-          "change_reason",
-          "confirmed",
-          "until",
-          "denied",
-          "viewable_denied"
-        ],
-        "title": "FLGrantAddressChange",
-        "type": "object"
-      },
-      "FLGrantApprovalRequestDeclinedResponse": {
-        "description": "The request a refusal or a withdrawal removed: a removal is hard, so the id is all there is to answer with.",
-        "properties": {
-          "approval_request_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Approval Request Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "approval_request_id"
-        ],
-        "title": "FLGrantApprovalRequestDeclinedResponse",
-        "type": "object"
-      },
-      "FLGrantApprovalRequestRow": {
-        "description": "One request as the list serves it, while it may still be decided.",
+      "FLGrantData": {
+        "description": "One step of what changes who holds the administration, as every holder in effect and the person named are told it.",
         "properties": {
           "address": {
             "anyOf": [
@@ -6354,128 +6227,20 @@
             ],
             "title": "Address"
           },
-          "admin_tier": {
-            "$ref": "#/components/schemas/FLAdminTier"
-          },
-          "asked_at": {
-            "format": "date-time",
-            "title": "Asked At",
-            "type": "string"
-          },
-          "barred": {
-            "title": "Barred",
-            "type": "boolean"
-          },
-          "denied": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLApprovalDenied"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "grant_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grant Id"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "stands": {
-            "title": "Stands",
-            "type": "boolean"
-          },
-          "started_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started By"
-          },
-          "started_by_barred": {
-            "title": "Started By Barred",
-            "type": "boolean"
-          },
-          "until": {
-            "format": "date-time",
-            "title": "Until",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "address",
-          "barred",
-          "grant_id",
-          "admin_tier",
-          "started_by",
-          "started_by_barred",
-          "asked_at",
-          "until",
-          "stands",
-          "denied"
-        ],
-        "title": "FLGrantApprovalRequestRow",
-        "type": "object"
-      },
-      "FLGrantData": {
-        "description": "A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.",
-        "properties": {
-          "author": {
-            "enum": [
-              "anwendung",
-              "datenbank"
-            ],
-            "title": "Author",
-            "type": "string"
-          },
-          "before": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLGrantSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "change": {
             "enum": [
               "granted",
               "revoked",
-              "changed",
-              "requested"
+              "handover",
+              "address"
             ],
             "title": "Change",
             "type": "string"
           },
           "changed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Changed At"
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
           },
           "changed_by": {
             "anyOf": [
@@ -6488,186 +6253,125 @@
             ],
             "title": "Changed By"
           },
-          "current": {
+          "effective_from": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLGrantSnapshot"
+                "format": "date-time",
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Effective From"
           },
           "kind": {
             "const": "grant",
             "title": "Kind",
             "type": "string"
           },
-          "withheld": {
+          "new_address": {
             "anyOf": [
               {
-                "enum": [
-                  "barred",
-                  "erased"
-                ],
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Withheld"
+            "title": "New Address"
+          },
+          "stage": {
+            "enum": [
+              "started",
+              "withdrawn",
+              "completed"
+            ],
+            "title": "Stage",
+            "type": "string"
           }
         },
         "required": [
           "kind",
           "change",
-          "author",
-          "current",
-          "before",
+          "stage",
+          "address",
+          "new_address",
           "changed_by",
           "changed_at",
-          "withheld"
+          "effective_from"
         ],
         "title": "FLGrantData",
         "type": "object"
       },
-      "FLGrantReconciliationResponse": {
+      "FLGrantHandoverPassResponse": {
         "properties": {
-          "changes": {
+          "handed_over": {
             "minimum": 0.0,
-            "title": "Changes",
+            "title": "Handed Over",
             "type": "integer"
           }
         },
         "required": [
-          "changes"
+          "handed_over"
         ],
-        "title": "FLGrantReconciliationResponse",
+        "title": "FLGrantHandoverPassResponse",
         "type": "object"
       },
       "FLGrantRow": {
         "description": "One grant as the list serves it.",
         "properties": {
           "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "address_change": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLGrantAddressChange"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "title": "Address",
+            "type": "string"
           },
           "admin_tier": {
             "$ref": "#/components/schemas/FLAdminTier"
           },
-          "barred": {
-            "title": "Barred",
-            "type": "boolean"
-          },
-          "granted_at": {
+          "effective_from": {
             "format": "date-time",
-            "title": "Granted At",
+            "title": "Effective From",
             "type": "string"
           },
           "granted_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Granted By"
-          },
-          "granted_by_barred": {
-            "title": "Granted By Barred",
-            "type": "boolean"
+            "title": "Granted By",
+            "type": "string"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
             "type": "string"
           },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "address",
-          "barred",
-          "admin_tier",
-          "granted_by",
-          "granted_by_barred",
-          "granted_at",
-          "address_change",
-          "version"
-        ],
-        "title": "FLGrantRow",
-        "type": "object"
-      },
-      "FLGrantSnapshot": {
-        "description": "One grant's address and tier at one moment.",
-        "properties": {
-          "address": {
+          "owner_from": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Address"
-          },
-          "admin_tier": {
-            "$ref": "#/components/schemas/FLAdminTier"
+            "title": "Owner From"
           }
         },
         "required": [
+          "id",
           "address",
-          "admin_tier"
+          "admin_tier",
+          "granted_by",
+          "effective_from",
+          "owner_from"
         ],
-        "title": "FLGrantSnapshot",
+        "title": "FLGrantRow",
         "type": "object"
       },
-      "FLGrantTierResponse": {
-        "description": "The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect.",
-        "properties": {
-          "grant_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Grant Id",
-            "type": "string"
-          },
-          "requested": {
-            "title": "Requested",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "grant_id",
-          "requested"
-        ],
-        "title": "FLGrantTierResponse",
-        "type": "object"
+      "FLGrantWaitHours": {
+        "const": 24,
+        "type": "integer"
       },
       "FLGrantWriteResponse": {
-        "description": "The grant a revoke removed or an approval wrote or promoted.",
+        "description": "The grant an act named: a removal is hard, so the id is all there is to answer with.",
         "properties": {
           "grant_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6682,15 +6386,8 @@
         "type": "object"
       },
       "FLGrantsListResponse": {
-        "description": "Every grant, never in part, and every request still waiting.",
+        "description": "Every grant, never in part, a waiting addition among them.",
         "properties": {
-          "approval_requests": {
-            "items": {
-              "$ref": "#/components/schemas/FLGrantApprovalRequestRow"
-            },
-            "title": "Approval Requests",
-            "type": "array"
-          },
           "grants": {
             "items": {
               "$ref": "#/components/schemas/FLGrantRow"
@@ -6700,8 +6397,7 @@
           }
         },
         "required": [
-          "grants",
-          "approval_requests"
+          "grants"
         ],
         "title": "FLGrantsListResponse",
         "type": "object"
@@ -8997,6 +8693,10 @@
         "title": "FLOverviewVorschlagRow",
         "type": "object"
       },
+      "FLOwnerWaitDays": {
+        "const": 7,
+        "type": "integer"
+      },
       "FLPasskeyData": {
         "properties": {
           "account": {
@@ -9025,30 +8725,6 @@
           "account"
         ],
         "title": "FLPasskeyData",
-        "type": "object"
-      },
-      "FLPatchGrantPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "admin_tier": {
-            "$ref": "#/components/schemas/FLAdminTier"
-          },
-          "version": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version"
-          }
-        },
-        "required": [
-          "admin_tier"
-        ],
-        "title": "FLPatchGrantPayload",
         "type": "object"
       },
       "FLPatchKaderRowPayload": {
@@ -9894,25 +9570,6 @@
           "email"
         ],
         "title": "FLPostGrantPayload",
-        "type": "object"
-      },
-      "FLPostGrantResponse": {
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          },
-          "requested": {
-            "title": "Requested",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "created_id",
-          "requested"
-        ],
-        "title": "FLPostGrantResponse",
         "type": "object"
       },
       "FLPostRegistrierungPayload": {
@@ -21857,7 +21514,7 @@
     },
     "/api/v0/grants": {
       "get": {
-        "description": "List every grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. An address on the ban list is answered as `null` beside `barred`,\nnever in plain, and so is a barred `granted_by`, beside `granted_by_barred`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`address_change` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`way`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /address_change/{address_change_id}/approval`); and why the address tool refuses it them (`viewable_denied`). An\nowner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an\nowner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is\nleft out: its approval is refused, and the next hourly pass ends it.\n\n`approval_requests` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`stands`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
+        "description": "List every grant by address: its tier, who granted it, when it holds, and when a handover to it completes.\n\nUncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
         "operationId": "grants_get_grants",
         "responses": {
           "200": {
@@ -21922,7 +21579,7 @@
         ]
       },
       "post": {
-        "description": "Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.\n\n**Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator\nnor the address -- the grant is not made: a request is, answered with `requested` set and its id, and the grant takes effect\nonly on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone administrator grants alone.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`grant_exists`), where the ban list\nholds it (`grant_barred`), and where a request about it waits already (`grant_approval_request_open`). The grant takes effect on\nthe next request, for a session signed in after it alone -- an older one is refused `session_refused` on every admin-tier route -- and\nits announcement is owed to every administrator in the same transaction. Like a revoke and a tier\nchange, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `confirmation_required` otherwise.",
+        "description": "Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.\n\nOnly the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier\nrequest is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban\nlist holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant\nto an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date\nit holds from.",
         "operationId": "grants_post_grant",
         "requestBody": {
           "content": {
@@ -21936,164 +21593,6 @@
         },
         "responses": {
           "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLPostGrantResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Grant access to the administration",
-        "tags": [
-          "grants"
-        ]
-      }
-    },
-    "/api/v0/grants/approval_requests/{approval_request_id}": {
-      "delete": {
-        "description": "Refuse a request, or withdraw one's own: it is removed, and nothing it asked for happens. HARD, no soft form.\n\nDecided by whoever may approve it, refused with the approval's own codes otherwise (`grant_approval_denied`,\n`grant_approval_owner`, `grant_approval_younger`), and withdrawn by the administrator who made it, whatever their tier\nnow. 404 for an id naming no request, a request decided, withdrawn or lapsed among them. A restore from a snapshot taken before it brings\nthe request back only until the replay of its journal line.\n\nA refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and\nnobody who refused it, for `POST /grants/reconciliation` to hand out; a withdrawal tells nobody.",
-        "operationId": "grants_delete_approval_request",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "approval_request_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Approval Request Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLGrantApprovalRequestDeclinedResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Refuse a grant or a promotion another administrator asked for, or withdraw one's own",
-        "tags": [
-          "grants"
-        ]
-      }
-    },
-    "/api/v0/grants/approval_requests/{approval_request_id}/approval": {
-      "post": {
-        "description": "Approve a request, the second pair of eyes a grant or a promotion waits on.\n\nThe grant is made, or the tier moved, and the request removed, in one transaction, the change announced to every\nadministrator as one made directly is, under this administrator's name.\n\nRefused to the address the request is about and to the administrator who made it (`grant_approval_denied`), to anyone but an\nowner, signed in since becoming one, for a promotion (`grant_approval_owner`), to an administrator whose grant, or owner's tier,\ntook effect after the request (`grant_approval_younger`), and where the requester does not hold that tier since before it,\nrevoked, demoted or barred since (`grant_approval_request_lapsed`); and, as the direct act would be, where the address holds a grant by now\n(`grant_exists`) or is on the ban list (`grant_barred`). 404 for an id naming no request, a request decided, withdrawn or\nlapsed among them, and for a promotion whose grant has gone. A promotion whose grant is an owner's already removes the request and changes\nnothing. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.",
-        "operationId": "grants_post_approval_request_approval",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "approval_request_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Approval Request Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
             "content": {
               "application/json": {
                 "schema": {
@@ -22149,22 +21648,22 @@
             "AdminKey": []
           }
         ],
-        "summary": "Approve a grant or a promotion another administrator asked for",
+        "summary": "Add an administrator",
         "tags": [
           "grants"
         ]
       }
     },
-    "/api/v0/grants/reconciliation": {
+    "/api/v0/grants/handover": {
       "post": {
-        "description": "Compare the grants with what the administrators were last told, and owe each change made in the database to every one of them.\n\nA change found here names nobody (`author` is `datenbank`), and no barred address is named in it. A write through the\napplication owes its own notice in its own transaction, so only an edit in the database is found here, once: the record\nit is compared with moves in the same transaction.",
-        "operationId": "grants_post_grants_reconciliation",
+        "description": "Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.\n\nLate rather than early where a pass is missed: nothing moves until one runs, and a quiet pass writes nothing.",
+        "operationId": "grants_post_handover_pass",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLGrantReconciliationResponse"
+                  "$ref": "#/components/schemas/FLGrantHandoverPassResponse"
                 }
               }
             },
@@ -22216,7 +21715,7 @@
             "SystemKey": []
           }
         ],
-        "summary": "Owe a notice of every change to the grants made in the database",
+        "summary": "Complete a handover whose wait has ended",
         "tags": [
           "grants"
         ]
@@ -22224,7 +21723,7 @@
     },
     "/api/v0/grants/{grant_id}": {
       "delete": {
-        "description": "Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `actor_not_admin` on its next request.\n\nOnly an `owner` revokes (`grant_only_owner`), judged on the actor's own grant inside the transaction, and before anything\nabout the target is answered; an owner's sign-in older than the moment they became one is refused the same. 404 where no grant\nhas the id. Refused for an `owner` row (`grant_owner`), which is made an\nadministrator first, and where fewer than two live, unbarred grants would remain (`grant_minimum_count`). The removal's\nannouncement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in\nor confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as the grant's is.",
+        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it. Every holder in effect and the person named are told in the same transaction.",
         "operationId": "grants_delete_grant",
         "parameters": [
           {
@@ -22295,14 +21794,16 @@
             "AdminKey": []
           }
         ],
-        "summary": "Revoke access to the administration",
+        "summary": "Remove an administrator, or withdraw a waiting addition",
         "tags": [
           "grants"
         ]
-      },
-      "patch": {
-        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`grant_only_owner`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.\n\n**Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this\nowner nor the promoted address -- the tier is not moved: a request is, answered with `requested` set, and the promotion takes\neffect only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone owner promotes alone. A demotion\nand a step-down take effect at once.\n\nA promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's\nstep until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A\npromotion of an address on the ban list is refused (`grant_barred`), one whose request waits already\n(`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant\nholds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after\nany change to the row made in the database and not yet announced, and a grant found that way is stamped `found_at` as\n`POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused\n`confirmation_required`, as the grant's is.",
-        "operationId": "grants_patch_grant",
+      }
+    },
+    "/api/v0/grants/{grant_id}/handover": {
+      "delete": {
+        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.\nEvery holder in effect is told in the same transaction.",
+        "operationId": "grants_delete_handover",
         "parameters": [
           {
             "in": "path",
@@ -22315,22 +21816,12 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPatchGrantPayload"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLGrantTierResponse"
+                  "$ref": "#/components/schemas/FLGrantWriteResponse"
                 }
               }
             },
@@ -22382,7 +21873,84 @@
             "AdminKey": []
           }
         ],
-        "summary": "Change a grant between administrator and owner",
+        "summary": "Stop a waiting handover",
+        "tags": [
+          "grants"
+        ]
+      },
+      "post": {
+        "description": "Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.\n\nOnly the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.\nRefused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait\nstill runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in\nthe same transaction, and told what date it completes on.",
+        "operationId": "grants_post_handover",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLGrantWriteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Hand the owner role over to an administrator",
         "tags": [
           "grants"
         ]
