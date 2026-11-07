@@ -38,6 +38,7 @@ from app.api.address_change.services import (
     compose_link_update,
     compose_record,
     find_ended_refusal,
+    find_new_taken_refusal,
     find_nothing_refusal,
     find_occupied_refusal,
     find_taken_refusal,
@@ -358,8 +359,8 @@ async def invite_address_change(
     nothing.
 
     Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
-    pending address (`address_change_taken`), where an entry has come to name it, confirmed or not
-    (`address_change_occupied`), and where the change ended (`address_change_ended`). 404 for an id naming no change, and
+    pending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change
+    ended (`address_change_ended`). 404 for an id naming no change, and
     unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
     re-send.
     """
@@ -375,17 +376,13 @@ async def invite_address_change(
         taken = holdings.spieler is not None and await another_pupil_holds(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session
         )
-        refuse(find_taken_refusal(taken=taken))
-        refuse(
-            find_occupied_refusal(
-                occupied=await address_taken(
-                    email,
-                    records=records,
-                    occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
-                    session=session,
-                )
-            )
+        occupied = await address_taken(
+            email,
+            records=records,
+            occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+            session=session,
         )
+        refuse(find_new_taken_refusal(taken=taken or occupied))
         # The filter is the judgement: a change confirmed is the 404 here.
         updated = await patch_one_in_db(
             collection=address_changes_collection,

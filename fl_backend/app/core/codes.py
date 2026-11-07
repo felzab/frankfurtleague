@@ -51,6 +51,8 @@ class Code(StrEnum):
     # 403: this caller is the barred person, and nothing they change lifts it.
     LINK_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
+    # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
+    ADDRESS_CHANGE_NEW_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
     # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
     # hold, a server action reaching the start from any page.

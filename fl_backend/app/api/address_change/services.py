@@ -412,6 +412,18 @@ def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
     )
 
 
+def find_new_taken_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`address_change_new_taken`: a re-send's new address has come to be another pupil's or to hold an entry, on a page with no box to mark."""
+
+    if not taken:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.ADDRESS_CHANGE_NEW_TAKEN,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
 def find_new_granted_refusal(*, granted: bool) -> WriteRefusal | None:
     """`address_change_new_granted`: the new address holds a grant already, and one address holds one grant."""
 
