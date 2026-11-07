@@ -320,7 +320,11 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     mails = []
     while (
         claim := await post_handout(
-            outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
+            outbox_collection=database[Collection.OUTBOX],
+            ban_list_collection=database[Collection.BAN_LIST],
+            db=database,
+            db_client=client,
+            now=claimable(now),
         )
     ).mails:
         mails += claim.mails
