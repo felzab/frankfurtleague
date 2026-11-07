@@ -8,10 +8,20 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.action_log.crud import reattribute_administrator_in_session
 from app.api.action_log.schemas import FLActionLogRecord, FLAktionRecord
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.recording import ACT_BY_KONTAKT, Operation, build_redaction_filter, build_redaction_update, log_stamp, record_act
+from app.core.recording import (
+    ACT_BY_KONTAKT,
+    ACT_BY_SYSTEM,
+    ERASED_ACTOR_MARKER,
+    Operation,
+    build_redaction_filter,
+    build_redaction_update,
+    log_stamp,
+    record_act,
+)
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -35,6 +45,9 @@ REFUSED_COMMIT_APP = "act-refused-commit"
 WRITE_CONFLICT = 112
 TRANSIENT = "TransientTransactionError"
 
+ERASED_ADDRESS = "former@example.invalid"
+OTHER_ADDRESS = "other@example.invalid"
+
 
 def team_document() -> dict[str, Any]:
     return documents.team_document(TEAM_OID, SEEDED_NAME, "LEX", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "city": CITY})
@@ -57,6 +70,56 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
             return await body(database, client)
 
     return on_the_seed_loop(_run())
+
+
+class _ActFailed(Exception):
+    """Raised inside the transaction, after the row, as a refused act is."""
+
+
+def test_a_failed_act_leaves_no_row(mongo_replica_set_url: str):
+    """A row outside the transaction would state an act that never happened, and the page would read as any other."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[dict[str, Any]]:
+        async def act(session: AsyncClientSession) -> None:
+            await record_act(collection=database[Collection.TEAMS], action="team.retired", by=ACT_BY_SYSTEM, session=session)
+            raise _ActFailed
+
+        async with client.start_session() as session:
+            with pytest.raises(_ActFailed):
+                await session.with_transaction(act)
+
+        return [row async for row in database[Collection.ACTION_LOG].find()]
+
+    assert on_a_replica_set(mongo_replica_set_url, body) == []
+
+
+def test_an_erased_address_leaves_the_log_as_who_acted_and_as_a_grantee(mongo_replica_set_url: str):
+    """The log outlives the person for twelve months, so a grant act's label left standing would name them for that long."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None]]:
+        async def rows_and_erasure(session: AsyncClientSession) -> None:
+            teams = database[Collection.TEAMS]
+            await record_act(collection=teams, action="team.retired", by=ERASED_ADDRESS, label=SEEDED_NAME, session=session)
+            await record_act(collection=teams, action="grant.added", by=OTHER_ADDRESS, label=ERASED_ADDRESS, session=session)
+            await record_act(collection=teams, action="team.reactivated", by=OTHER_ADDRESS, label=OTHER_ADDRESS, session=session)
+            await reattribute_administrator_in_session(
+                action_log_collection=database[Collection.ACTION_LOG],
+                # A spelling the erasure was handed, which the log's fold must still meet.
+                identifier=ERASED_ADDRESS.upper(),
+                value=ERASED_ACTOR_MARKER,
+                session=session,
+            )
+
+        async with client.start_session() as session:
+            await session.with_transaction(rows_and_erasure)
+
+        return [(row["by"], row["label"]) async for row in database[Collection.ACTION_LOG].find().sort("_id", 1)]
+
+    assert on_a_replica_set(mongo_replica_set_url, body) == [
+        (ERASED_ACTOR_MARKER, SEEDED_NAME),
+        (OTHER_ADDRESS, ERASED_ACTOR_MARKER),
+        (OTHER_ADDRESS, OTHER_ADDRESS),
+    ]
 
 
 def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(mongo_replica_set_url: str):

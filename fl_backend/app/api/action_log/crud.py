@@ -123,29 +123,22 @@ async def redact_address_in_images(
 async def reattribute_administrator_in_session(
     *, action_log_collection: AsyncCollection, identifier: str, value: str, session: AsyncClientSession
 ) -> int:
-    """Put `value` where this folded address stood as the administrator writing a log row, answering how many rows changed.
+    """Put `value` where this address stands in the log, as who acted or as a grant act's grantee, answering how many rows changed.
 
-    The erasure's marker, or the address an effect moved the administrator to.
+    The erasure's marker, or the address a switch moved an administrator to: the one write the log takes after the fact.
     """
 
-    # Read first and written by id, so the update walks the `_id` index: nothing indexes `actor.email`, which every
-    # recorded write would pay for. Folded, as `app/core/security.py :: bind_actor` stores every actor's address.
-    candidates = await aggregate_many_from_db(
-        collection=action_log_collection,
-        pipeline=[{"$match": {"actor.email": sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
-        session=session,
-    )
-    if not candidates:
-        return 0
+    # Folded, as `app/core/security.py :: bind_actor` binds an address and a grant's stored address is.
+    address = sign_in_identifier(identifier)
 
-    marked = await patch_many_in_db(
-        collection=action_log_collection,
-        db_filter={"_id": {"$in": [row["_id"] for row in candidates]}},
-        update={"$set": {"actor.email": value}},
-        session=session,
-    )
+    changed = 0
+    for field in ("by", "label"):
+        result = await patch_many_in_db(
+            collection=action_log_collection, db_filter={field: address}, update={"$set": {field: value}}, session=session
+        )
+        changed += result.modified_count
 
-    return marked.modified_count
+    return changed
 
 
 async def carry_the_replaced_address_in_images(
