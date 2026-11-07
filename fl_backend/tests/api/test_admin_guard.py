@@ -13,7 +13,7 @@ from app.api.spieler import schemas as spieler_schemas
 from app.api.spieler.public_router import router as spieler_public_router
 from app.core.codes import Code
 from app.core.routing import SAFE
-from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import bind_actor, get_person_identifier, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
@@ -295,7 +295,11 @@ def test_every_person_operation_binds_a_person_after_the_key():
     for operation in sorted(PERSON_OPERATIONS):
         route = ROUTES_BY_OPERATION.get(operation)
         calls = [dependency.call for dependency in route.dependant.dependencies] if route else []
-        binders = [index for index, call in enumerate(calls) if any(call is binder for binder in PERSON_ACTOR_BINDERS.values())]
+        binders = [
+            index
+            for index, call in enumerate(calls)
+            if any(call is binder for binder in (*PERSON_ACTOR_BINDERS.values(), get_person_identifier))
+        ]
         if verify_access_admin not in calls or not binders or binders[0] < calls.index(verify_access_admin):
             unearned.append(operation)
 
