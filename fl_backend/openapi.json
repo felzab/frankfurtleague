@@ -5620,13 +5620,6 @@
             "title": "Has Link",
             "type": "boolean"
           },
-          "recipient": {
-            "items": {
-              "$ref": "#/components/schemas/FLInvitationRecipient"
-            },
-            "title": "Recipient",
-            "type": "array"
-          },
           "sent_at": {
             "anyOf": [
               {
@@ -5663,7 +5656,6 @@
         "required": [
           "team_id",
           "team_name",
-          "recipient",
           "skipped",
           "has_link",
           "sent_at"
@@ -5688,24 +5680,22 @@
         "type": "object"
       },
       "FLInvitationMailResponse": {
-        "description": "Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed.",
+        "description": "How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Invitation Id",
             "type": "string"
           },
-          "recipient": {
-            "items": {
-              "$ref": "#/components/schemas/FLInvitationRecipient"
-            },
-            "title": "Recipient",
-            "type": "array"
+          "mailed": {
+            "minimum": 0.0,
+            "title": "Mailed",
+            "type": "integer"
           }
         },
         "required": [
           "invitation_id",
-          "recipient"
+          "mailed"
         ],
         "title": "FLInvitationMailResponse",
         "type": "object"
@@ -5753,31 +5743,6 @@
           "created_by"
         ],
         "title": "FLInvitationMintResponse",
-        "type": "object"
-      },
-      "FLInvitationRecipient": {
-        "description": "One mailbox a link goes to, and the seat it is addressed as.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          }
-        },
-        "required": [
-          "rolle",
-          "first_name",
-          "email"
-        ],
-        "title": "FLInvitationRecipient",
         "type": "object"
       },
       "FLInvitationRow": {
@@ -29334,7 +29299,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation/dispatch": {
       "post": {
-        "description": "Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.\n\nThe write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint\nstays valid beside the mailed ones. `recipient` names who is owed it, one entry per stored address, and is empty where nobody has\nconfirmed a seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed\ntwice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail\nis handed out.\n\n404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among\nthem, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.",
+        "description": "Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.\n\nThe write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint\nstays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a\nseat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed\ntwice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail\nis handed out.\n\n404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among\nthem, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.",
         "operationId": "teams_post_invitation_dispatch",
         "parameters": [
           {

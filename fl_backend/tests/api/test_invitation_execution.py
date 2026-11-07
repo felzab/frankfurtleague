@@ -144,7 +144,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str)
                 invitation_id=invitation_id,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
-                recipient=[FLInvitationRecipient(rolle="trainer", first_name="Fendrick", email=to)],
+                recipient=[FLInvitationRecipient(rolle="trainer", email=to)],
                 occasion="dispatch",
             ),
             now=MAIL_NOW,
@@ -260,12 +260,6 @@ def as_collection(stub: _InsertFailsForOneTeam) -> AsyncCollection:
     """`tests/core/test_crud.py :: as_collection`'s shape: the fake stands where a driver handle is declared."""
 
     return cast(AsyncCollection, stub)
-
-
-def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any]]:
-    """One row per team as both readers describe it: the team, the mailboxes and the skip."""
-
-    return [(str(row.team_id), tuple(entry.email for entry in row.recipient), row.skipped) for row in rows]
 
 
 class TestWhatAMintStores:
@@ -502,11 +496,12 @@ class TestTheTeamsMailPress:
             await mail(database, TWO_SEATS, minted.invitation_id)
             copied = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token(minted.token))))
 
-            return [entry.email for entry in first.recipient], await owed_for(database, TWO_SEATS), copied is not None
+            return first.mailed, await owed_for(database, TWO_SEATS), copied is not None
 
-        named, owed, opens = on_a_league(mongo_replica_set_url, body)
+        mailed, owed, opens = on_a_league(mongo_replica_set_url, body)
 
-        assert named == owed == ["bramblewick@example.com", "quillhilde@example.com"]
+        assert mailed == 2
+        assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
         assert opens
 
     def test_a_row_whose_exit_stands_owes_its_confirmed_seat_nothing(self, mongo_replica_set_url: str):
