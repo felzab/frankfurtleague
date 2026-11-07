@@ -36,7 +36,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import transaction_session
 from app.main import create_app
 from app.shared.tokens import hash_token
@@ -770,7 +769,6 @@ class TestWhoTheDecisionNames:
 
         assert status_code == 200, "the served acceptance did not succeed, so what it stored proves nothing"
         assert entscheidung["by"] == ADMIN_EMAIL
-        assert entscheidung["by"] != SYSTEM_ACTOR_EMAIL
         # The injected clock reached it too, so the date is the request's rather than the wall's.
         assert (entscheidung["made_at"], entscheidung["reason"]) == (TODAY, None)
 
@@ -805,7 +803,6 @@ class TestWhoTheDecisionNames:
 
         assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
         assert entscheidung["by"] == ADMIN_EMAIL
-        assert entscheidung["by"] != SYSTEM_ACTOR_EMAIL
         assert entscheidung["made_at"] == TODAY
 
 

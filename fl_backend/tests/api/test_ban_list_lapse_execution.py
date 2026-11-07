@@ -107,17 +107,17 @@ async def activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id:
 
 
 class TestWhatTheWriteRecords:
-    def test_the_row_and_the_response_name_the_same_last_covered_season(self, mongo_replica_set_url: str):
-        """Computed on the SERVER and answered once: the action builds the person's mail from this, and a second read would race the sweep."""
+    def test_the_row_names_the_last_covered_season(self, mongo_replica_set_url: str):
+        """Computed on the server, and what the lapse and the person's mail each read."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, Any]:
-            created = await ban(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await ban(database, client)
             stored = await database[Collection.BAN_LIST].find_one({})
 
             assert stored is not None
-            return str(stored["barred_until_saison_id"]), created.barred_until_saison_id
+            return str(stored["barred_until_saison_id"])
 
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (LAST_COVERED, LAST_COVERED)
+        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == LAST_COVERED
 
 
 class TestTheSeasonTheBanIsCountedFrom:

@@ -15,26 +15,24 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.address_change.services import masked_address
 from app.api.grants.crud import OPEN_NOTICE, owe_in_session, pull_the_list_to_judge
-from app.api.grants.services import Notice, compose_notice
+from app.api.grants.services import Notice, compose_handover_end, compose_notice
 from app.api.kontakte.services import same_address
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db
+from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
-# The sites of a grant notice naming an address in full: a change's masked new address matches nobody's.
+# The sites of a grant notice naming an address in full.
 _QUEUED_SITES = ("data.address", "data.changed_by")
 
 
 @dataclass(frozen=True)
 class ErasedGrantsAndAuthorship:
     removed_grants: int
-    # The notices this erasure owes, its own grant's ending among them, before each is owed to every holder.
-    queued_outbox: int
-    # The notices owed before it and not yet sent that named the person.
-    withheld_outbox: int
-    # The records whose author now reads `ERASED_ACTOR_MARKER`, the five fields together.
-    marked: int
+    # Each row this step took the person off, as `collection/id`: for the journal's line, which holds no value.
+    rows: list[str]
 
 
 def _names(value: Any, identifier: str) -> bool:
@@ -72,13 +70,21 @@ async def _rows_naming(
 
 
 def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
-    """What takes this person out of one notice's facts: the address emptied, the actor given the marker."""
+    """What takes this person out of one notice's facts: the address emptied, the actor given the marker.
+
+    A change's new address is stored masked, so it is matched as masked: another person's mask reading alike loses a word
+    from a mail and no more. A completed change's old address was this person's own, which the erasure's fold cannot find.
+    """
 
     update: dict[str, Any] = {}
     if _names(data.get("address"), identifier):
         update["address"] = None
     if _names(data.get("changed_by"), identifier):
         update["changed_by"] = ERASED_ACTOR_MARKER
+    if data.get("change") == "address" and data.get("new_address") == masked_address(identifier):
+        update["new_address"] = None
+        if data.get("stage") == "completed":
+            update["address"] = None
 
     return update
 
@@ -89,10 +95,16 @@ def _withheld(notice: Notice, identifier: str) -> Notice:
     return Notice(grant_id=notice.grant_id, data={**notice.data, **_withholding(notice.data, identifier)})
 
 
-async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
-    """Every grant notice still owed naming this person, written by id and grouped by what each loses."""
+async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
+    """Every grant notice still owed naming this person, written by id and grouped by what each loses, answering each."""
 
-    rows = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OPEN_NOTICE)
+    masked = await aggregate_many_from_db(
+        collection=outbox_collection,
+        pipeline=[{"$match": {**OPEN_NOTICE, "data.new_address": masked_address(identifier)}}, {"$project": {"data": 1}}],
+        session=session,
+    )
+    named = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OPEN_NOTICE, whole=True)
+    rows = list({row["_id"]: row for row in [*named, *masked]}.values())
 
     by_update: dict[tuple[tuple[str, Any], ...], list[ObjectId]] = {}
     for row in rows:
@@ -102,7 +114,7 @@ async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, 
     for update, ids in by_update.items():
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session)
 
-    return len(rows)
+    return [f"{outbox_collection.name}/{row['_id']}" for row in rows]
 
 
 async def carry_authorship_in_session(
@@ -112,40 +124,40 @@ async def carry_authorship_in_session(
     registrierungen_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
-    # Both folded (`app/shared/folding.py :: sign_in_identifier`).
+    # Folded (`app/shared/folding.py :: sign_in_identifier`).
     old: str,
+    # The person's folded new address, or an erasure's `ERASED_ACTOR_MARKER`.
     new_address: str,
     session: AsyncClientSession,
-) -> int:
-    """Re-key every record the person made to the new address, whatever they hold now.
+) -> list[str]:
+    """Re-key every record the person made to `new_address`, whatever they hold now, answering each as `collection/id`.
 
     Each collection named by its own parameter, as the erasure names them, so the traces resolve every write.
     """
 
-    carried = await _set_authored(grants_collection, "granted_by", old, new_address, session)
-    carried += await _set_authored(bewerbungen_collection, "decision.by", old, new_address, session)
-    carried += await _set_authored(registrierungen_collection, "decision.by", old, new_address, session)
-    carried += await _set_authored(ban_list_collection, "created_by", old, new_address, session)
-    carried += await _set_authored(invitations_collection, "created_by", old, new_address, session)
+    return [
+        *await _set_authored(grants_collection, "granted_by", old, new_address, session),
+        *await _set_authored(bewerbungen_collection, "decision.by", old, new_address, session),
+        *await _set_authored(registrierungen_collection, "decision.by", old, new_address, session),
+        *await _set_authored(ban_list_collection, "created_by", old, new_address, session),
+        *await _set_authored(invitations_collection, "created_by", old, new_address, session),
+    ]
 
-    return carried
 
-
-async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> int:
-    """Put `value` in `field` of every record this person made, by id."""
+async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> list[str]:
+    """Put `value` in `field` of every record this person made, by id, answering each."""
 
     ids = [row["_id"] for row in await _rows_naming(collection, (field,), identifier, session)]
-    if not ids:
-        return 0
+    if ids:
+        await patch_many_in_db(collection=collection, db_filter={"_id": {"$in": ids}}, update={"$set": {field: value}}, session=session)
 
-    marked = await patch_many_in_db(collection=collection, db_filter={"_id": {"$in": ids}}, update={"$set": {field: value}}, session=session)
-
-    return marked.modified_count
+    return [f"{collection.name}/{row_id}" for row_id in ids]
 
 
 async def erase_grants_and_authorship_in_session(
     *,
     grants_collection: AsyncCollection,
+    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
@@ -175,19 +187,19 @@ async def erase_grants_and_authorship_in_session(
     grant_ids = [grant["_id"] for grant in grants]
 
     notices = [
-        _withheld(
+        _withheld(notice, identifier)
+        for grant in grants
+        for notice in (
             compose_notice(
                 grant_id=grant["_id"], change="revoked", stage="completed", address=str(grant["address"]), changed_by=changed_by, now=now
             ),
-            identifier,
+            *compose_handover_end(grant, changed_by=changed_by, now=now),
         )
-        for grant in grants
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
     withheld = await _withhold_queued(outbox_collection, identifier, session)
 
-    # No image: a grant's image is the address itself.
     if grant_ids:
         await delete_many_from_db(collection=grants_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
 
@@ -196,20 +208,20 @@ async def erase_grants_and_authorship_in_session(
         notices,
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
+        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )
 
-    # Fields an address change's effect carries too (`fl_backend/app/api/grants/erasure.py :: carry_authorship_in_session`).
-    marked = await _set_authored(grants_collection, "granted_by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(bewerbungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(registrierungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(ban_list_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(invitations_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
-
-    return ErasedGrantsAndAuthorship(
-        removed_grants=len(grant_ids),
-        queued_outbox=len(notices),
-        withheld_outbox=withheld,
-        marked=marked,
+    authored = await carry_authorship_in_session(
+        grants_collection=grants_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        registrierungen_collection=registrierungen_collection,
+        invitations_collection=invitations_collection,
+        ban_list_collection=ban_list_collection,
+        old=identifier,
+        new_address=ERASED_ACTOR_MARKER,
+        session=session,
     )
+
+    return ErasedGrantsAndAuthorship(removed_grants=len(grant_ids), rows=[*withheld, *authored])

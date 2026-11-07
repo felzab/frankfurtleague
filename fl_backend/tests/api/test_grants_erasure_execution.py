@@ -16,6 +16,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.address_change.services import masked_address
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.grants.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.grants.services import compose_notice
@@ -213,6 +214,7 @@ async def erase(
     async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
         return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -311,20 +313,58 @@ class TestTheNotices:
 
         async def body(
             database: AsyncDatabase, client: AsyncMongoClient
-        ) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]], int]:
+        ) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]]]:
             before = await stored(database)
-            result = await erase(database, client)
+            await erase(database, client)
 
-            return before, await stored(database), result.withheld_outbox
+            return before, await stored(database)
 
-        before, after, withheld = on_a_league(mongo_replica_set_url, body)
+        before, after = on_a_league(mongo_replica_set_url, body)
 
         assert after[NAMING_HER_GRANT] == (None, DORA)
         assert after[MADE_BY_HER] == (BERND, ERASED_ACTOR_MARKER)
         assert after[NOT_HERS] == before[NOT_HERS]
         assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
-        # The notice made at her local part elsewhere is counted nowhere: the fold drops it before any write is sent.
-        assert withheld == 2
+
+    @pytest.mark.parametrize(
+        ("stage", "left"),
+        [
+            pytest.param("completed", (None, None), id="a completed change's old address was hers"),
+            pytest.param("withdrawn", (BERND, None), id="a change that never reached her keeps its own holder"),
+        ],
+    )
+    def test_a_queued_address_notice_masking_her_keeps_neither_her_mask_nor_her_old_address(
+        self, mongo_replica_set_url: str, stage: str, left: tuple[str | None, str | None]
+    ):
+        """A completion names the address before the move, which no fold of her erased address finds."""
+
+        row_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
+            row = notice(row_id, BERND_ID, "address", BERND, DORA)
+            data = {**row["data"], "stage": stage, "changed_by": None, "new_address": masked_address(ERIKA)}
+            await database[Collection.OUTBOX].insert_one({**row, "data": data})
+            await erase(database, client)
+            stored = await database[Collection.OUTBOX].find_one({"_id": row_id})
+            assert stored is not None
+
+            return stored["data"]["address"], stored["data"]["new_address"]
+
+        assert on_a_league(mongo_replica_set_url, body) == left
+
+    def test_a_handover_waiting_on_her_row_is_withdrawn_naming_nobody(self, mongo_replica_set_url: str):
+        """The holders hold a date for it, and the grant it waited on is gone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+            await database[Collection.GRANTS].update_one({"_id": ERIKA_ID}, {"$set": {"owner_from": NOW}})
+            await erase(database, client)
+
+            return await queued_for(database, ERIKA_ID)
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            {"change": "revoked", "stage": "completed", "address": None, "changed_by": DORA},
+            {"change": "handover", "stage": "withdrawn", "address": None, "changed_by": DORA},
+        ]
 
 
 class TestTheRecordsSheMade:
@@ -359,15 +399,12 @@ class TestTheRecordsSheMade:
         return value
 
     def test_every_record_she_made_reads_the_marker_whatever_spelling_stored_her(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Any], int]:
-            result = await erase(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            await erase(database, client)
 
-            return [await self.author(database, collection, row_id, path) for collection, row_id, path in self.AUTHORS], result.marked
+            return [await self.author(database, collection, row_id, path) for collection, row_id, path in self.AUTHORS]
 
-        authors, marked = on_a_league(mongo_replica_set_url, body)
-
-        assert authors == [ERASED_ACTOR_MARKER] * len(self.AUTHORS)
-        assert marked == len(self.AUTHORS)
+        assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER] * len(self.AUTHORS)
 
     def test_another_administrators_records_keep_their_author_a_similar_address_included(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:

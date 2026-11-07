@@ -30,8 +30,6 @@ class FLGrantRecord(Anchored):
     effective_from: datetime
     # When a waiting handover makes this row the owner's, stored only while one waits.
     owner_from: datetime | None = None
-    # 0 until a write raises it, as the grant's insert stamps it.
-    version: int = 0
 
 
 class FLGrantRow(BaseModel):
@@ -40,7 +38,6 @@ class FLGrantRow(BaseModel):
     id: CustomObjectId
     address: str
     admin_tier: FLAdminTier
-    granted_by: str
     # A future one is an addition still waiting.
     effective_from: FLUtcInstant
     # Set exactly while a handover to this row waits.

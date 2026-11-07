@@ -109,6 +109,9 @@ export const SERVER_COPY = catalogue({
     kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,
     grant_exists: COPY.shared.field.taken,
+    // The address tool's new address: another pupil signs in on it, or an entry names it.
+    address_change_taken: COPY.shared.field.taken,
+    address_change_occupied: COPY.shared.field.taken,
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -143,8 +146,8 @@ export const SERVER_COPY = catalogue({
     foreign_address_change: ADDRESS_OF_ADMINISTRATION,
     /** A ban's last season counts from the running one. */
     ban_list_no_saison: "Es läuft keine Saison.",
-    /** A person's own address change to the address they already sign in with. */
-    address_change_unchanged: COPY.account.address.unchanged,
+    /** The address on file typed again, on Konto's start and on the address tool's alike, so it names nobody's. */
+    address_change_unchanged: "Diese Adresse ist schon hinterlegt.",
     /** An address change's start, for an address holding no record. */
     address_change_nothing: COPY.admin.nothingAtAddress,
     /** The re-send's own, which holds no box to set the field's phrase on. */
@@ -529,6 +532,8 @@ export const SERVER_COPY = catalogue({
         completed: {
           handover: (address: string) => `${address} leitet jetzt die Verwaltung.`,
           address: (previous: string, next: string) => `Die Adresse ${previous} heißt jetzt ${next}.`,
+          /** A completion queued when its person was erased: both its addresses are theirs. */
+          unnamedAddress: "Eine nicht genannte Adresse hat gewechselt.",
         },
       },
       /** Who acted and when, by the act. */
@@ -543,7 +548,9 @@ export const SERVER_COPY = catalogue({
       button: "Zur Verwaltung",
       /** An erased person's address, in the subject's place. */
       unnamedAddress: "Eine nicht genannte Adresse",
-      /** An erased actor, after „von“. */
+      /** The same, as a lead's object after „an“ or „heißt jetzt“. */
+      unnamedTarget: "eine nicht genannte Adresse",
+      /** An erased actor, after „von“, and an erased new address, after „zu“. */
       unnamedActor: "einer nicht genannten Adresse",
     },
 

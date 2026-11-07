@@ -11,7 +11,7 @@ import { enterBan } from "./banActs";
 import { BanFields } from "./BanFields";
 import { LiftBan } from "./LiftBan";
 
-import type { FLBanDurationSaisons, FLBanListEntry } from "@/core/generated/client/types";
+import type { FLBanDurationSaisons, FLBanListRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -47,7 +47,7 @@ async function readHolder() {
 }
 
 /** One ban's row, opening nothing: its address, the Grund cut at its column, the last season it covers, and its lift. */
-const rowOf = (ban: FLBanListEntry, holder: string): TableRow => ({
+const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
   id: ban.id,
   name: { record: ban.address },
   words: `${ban.address} ${ban.ban_reason}`,
@@ -67,9 +67,8 @@ const rowOf = (ban: FLBanListEntry, holder: string): TableRow => ({
 });
 
 async function readBans(holder: Promise<string>) {
-  const [{ ban_list, count_total }, address] = await Promise.all([getBanList(), holder]);
+  const [{ ban_list }, address] = await Promise.all([getBanList(), holder]);
   return {
-    cut: count_total > ban_list.length ? WORDS.cut : null,
     table: {
       label: ROUTES.adminBanList.title,
       rows: ban_list.map((ban) => rowOf(ban, address)),
@@ -97,7 +96,6 @@ export default function BanListPage() {
           children: <BanFields />,
         })),
       }}
-      notice={bans.then(({ cut }) => cut)}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 3, content: bans }}
     />
   );

@@ -33,7 +33,6 @@ const grant = (address: string, overrides: Partial<FLGrantRow> = {}) =>
     id: address,
     address,
     admin_tier: "administration",
-    granted_by: OWNER,
     effective_from: PAST,
     owner_from: null,
     ...overrides,
