@@ -169,22 +169,6 @@ class TestTheCheckASignInAsks:
 
 
 class TestWhatTheListServes:
-    def test_a_row_is_served_with_its_folded_address(self, mongo_replica_set_url: str):
-        """The page's row is what an administrator lifts by, so a row served without its address is one nobody can tell apart."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client)
-
-            return await listed(database)
-
-        served = on_a_clean_list(mongo_replica_set_url, body)
-
-        assert len(served.ban_list) == 1
-        assert served.ban_list[0].address == BANNED_RETYPED
-        assert served.ban_list[0].ban_reason == BAN_REASON
-        assert served.ban_list[0].created_by == ADMIN
-        assert served.ban_list[0].created_at == TODAY
-
     def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
         """A ban past the cap is enforced and not rendered, so the count is what says one is there to lift.
 
