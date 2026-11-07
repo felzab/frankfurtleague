@@ -43,7 +43,7 @@ class _DeadlinePassed:
 
 
 class _GrantsUnread:
-    """`berechtigungen` as the request's deadline leaves it once the commit has landed."""
+    """`grants` as the request's deadline leaves it once the commit has landed."""
 
     def find(self, *args: Any, **kwargs: Any) -> _DeadlinePassed:
         return _DeadlinePassed()

@@ -184,7 +184,7 @@ def test_a_dry_run_moving_the_bracket_leaves_every_collection_as_it_was(seeded_u
     """Alpha now winning the quarter-final.
 
     The same request without `dry_run` rewrites both fixtures, stamps the report adopted and logs the save, so each of
-    `spiele`, `spielberichte` and `aktionen` holds what the preview must leave alone.
+    `spiele`, `spielberichte` and `action_log` holds what the preview must leave alone.
     """
 
     (stored,) = [spiel for spiel in bracket() if spiel["_id"] == VIERTELFINALE]

@@ -14,10 +14,10 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.action_log.crud import redact_address_in_images
+from app.api.action_log.services import IMAGE_ADDRESSES, address_image_edits
 from app.api.address_change.services import compose_approval, compose_end_update
-from app.api.aktionen.crud import redact_address_in_images
-from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits
-from app.api.berechtigungen.antraege import compose_approval_request
+from app.api.grants.antraege import compose_approval_request
 from app.api.invitations.services import compose_invitation, compose_revocation_update
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
@@ -258,7 +258,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     (theirs,) = image_of(log, Collection.GRANTS, THEIR_GRANT)["before"]
     assert (theirs["address"], theirs["granted_by"]) == (GRANTEE, ERASED_ACTOR_MARKER)
     (ban,) = next(row for row in log if row["collection"] == str(Collection.BAN_LIST))["before"]
-    assert (ban["created_by"], ban["grund"]) == (ERASED_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
+    assert (ban["created_by"], ban["ban_reason"]) == (ERASED_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
     invitation = image_of(log, Collection.INVITATIONS, INVITATION)["before"]
     assert (invitation["created_by"], invitation["token_hashes"]) == (ERASED_ACTOR_MARKER, ["h" * 64])
     for collection, document_id in ((Collection.BEWERBUNGEN, BEWERBUNG), (Collection.REGISTRIERUNGEN, REGISTRIERUNG)):

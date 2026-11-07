@@ -65,7 +65,7 @@ TYPED = "Lenore.Quastenbach@Schule.example"
 NEW_EMAIL = "lenore.q@neupost.example.org"
 OTHER_EMAIL = "jonte.wirbelauer@schule.example"
 FOREIGN_EMAIL = "fremd@anderswo.example"
-GRUND = "Postfach gelöscht, telefonisch bestätigt am 21.10.2026"
+CHANGE_REASON = "Postfach gelöscht, telefonisch bestätigt am 21.10.2026"
 
 # The suite's owner and three administrators (`tests/config.py :: grants_for_the_suite`).
 OWNER, ADMIN, SECOND_ADMIN, THIRD_ADMIN = ADMINISTRATORS
@@ -365,9 +365,9 @@ def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -
 
 
 async def administrator_starts(
-    database: AsyncDatabase, client: AsyncMongoClient, *, grund: str, address: str = EMAIL, email: str = NEW_EMAIL, **given: Any
+    database: AsyncDatabase, client: AsyncMongoClient, *, change_reason: str, address: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
-    payload = FLAddressChangeAdminPayload.model_validate({"address": address, "email": email, "grund": grund})
+    payload = FLAddressChangeAdminPayload.model_validate({"address": address, "email": email, "change_reason": change_reason})
     return await handed_out(
         database,
         client,

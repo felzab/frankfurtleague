@@ -37,7 +37,7 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 _BAN_LIST_KEY = "test-ban-list-key".ljust(BAN_LIST_KEY_MIN_LENGTH, "0")
 
 # Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
-# `app/api/berechtigungen/guard.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
+# `app/api/grants/guard.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
 # it is about. Folded, as a grant is stored.
 ADMINISTRATORS = ("admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com")
 
@@ -71,7 +71,7 @@ def build_test_config() -> BackendConfig:
 
 
 def grants_for_the_suite() -> list[dict[str, Any]]:
-    """`ADMINISTRATORS` as the `berechtigungen` rows a suite seeds before an admin-tier request, the first as an `owner`.
+    """`ADMINISTRATORS` as the `grants` rows a suite seeds before an admin-tier request, the first as an `owner`.
 
     Written straight to the collection, as the Playground writes a grant: no route writes a first owner.
     """

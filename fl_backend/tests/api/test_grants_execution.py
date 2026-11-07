@@ -22,24 +22,24 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.admin_router import (
+from app.api.ban_list.admin_router import delete_ban_list_entry
+from app.api.ban_list.services import compose_barred_until_saison_id
+from app.api.grants.admin_router import (
     delete_grant,
     get_grants,
     patch_grant,
     post_approval_request_approval,
     post_grant,
 )
-from app.api.berechtigungen.crud import owe_in_session
-from app.api.berechtigungen.loeschung import erase_grants_and_authorship_in_session
-from app.api.berechtigungen.schemas import (
+from app.api.grants.crud import owe_in_session
+from app.api.grants.erasure import erase_grants_and_authorship_in_session
+from app.api.grants.schemas import (
     FLGrantSnapshot,
     FLPatchGrantPayload,
     FLPostGrantPayload,
 )
-from app.api.berechtigungen.services import compose_notice
-from app.api.berechtigungen.system_router import post_grants_reconciliation
-from app.api.sperrliste.admin_router import delete_sperrliste_entry
-from app.api.sperrliste.services import compose_barred_until_saison_id
+from app.api.grants.services import compose_notice
+from app.api.grants.system_router import post_grants_reconciliation
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -60,7 +60,7 @@ from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_berechtigungen_test")
+DATABASE_NAME = worker_database("fl_grants_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
@@ -81,7 +81,7 @@ BERND = "bernd.admin@frankfurtleague.de"
 NEU_TYPED = "Nora.Neu@Beispielschule.de"
 NEU = "nora.neu@beispielschule.de"
 
-GRUND = "Wiederholt gemeldet"
+BAN_REASON = "Wiederholt gemeldet"
 
 RUNNING = "2026"
 
@@ -280,7 +280,7 @@ async def a_second_owner(database: AsyncDatabase) -> None:
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, als: str = ANNA, grants: Any = None) -> Any:
     async def call() -> Any:
-        return await ban_through_the_route(database, client, email=email, grund=GRUND, by=als, today=TODAY, grants=grants)
+        return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=als, today=TODAY, grants=grants)
 
     return await administering(als, call)
 
@@ -722,7 +722,7 @@ class TestAnOwnerChangesATier:
         )
 
     def test_the_tier_already_held_changes_and_queues_nothing(self, mongo_replica_set_url: str):
-        """A second press of the same control writes nothing at all: no notice, no anchor on the grants, no `aktionen` row."""
+        """A second press of the same control writes nothing at all: no notice, no anchor on the grants, no `action_log` row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[str, str], list[Mapping[str, Any]], bool, int]:
             await told(database, client)
@@ -803,8 +803,8 @@ class TestAGrantToABarredAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, list[str]]:
             banned = await ban(database, client)
             refused = await refusal_of(grant(database, client))
-            await delete_sperrliste_entry(
-                sperrliste_id=ObjectId(banned.created_id), ban_list_collection=database[Collection.BAN_LIST], db=client
+            await delete_ban_list_entry(
+                ban_list_entry_id=ObjectId(banned.created_id), ban_list_collection=database[Collection.BAN_LIST], db=client
             )
             await grant(database, client)
 
@@ -1380,7 +1380,7 @@ async def granted_and_revoked_here_then_put_back(database: AsyncDatabase, client
 
 
 class TestTheMountedRouteReadsTheGrants:
-    """`app/api/berechtigungen/guard.py :: verify_actor_is_admin` against a real collection: every other case calls the handler past it."""
+    """`app/api/grants/guard.py :: verify_actor_is_admin` against a real collection: every other case calls the handler past it."""
 
     @pytest.mark.parametrize(
         ("granted_s_ago", "status", "error_code"),

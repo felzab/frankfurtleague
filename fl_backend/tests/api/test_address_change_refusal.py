@@ -20,7 +20,7 @@ from app.api.address_change.schemas import (
     FLAddressChangeViewPrevious,
 )
 from app.api.address_change.services import masked_address
-from app.api.berechtigungen.services import approval_denied, approval_stands
+from app.api.grants.services import approval_denied, approval_stands
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION

@@ -409,7 +409,7 @@ class TestTheBanFlag:
 
 @pytest.mark.db
 class TestTheGrant:
-    """`admin_tier`: the one stored answer, read off `berechtigungen` on the folded identifier."""
+    """`admin_tier`: the one stored answer, read off `grants` on the folded identifier."""
 
     def test_a_mailbox_holding_records_and_no_grant_is_answered_null(self, mongo_replica_set_url: str):
         """A lookup answering a tier for every address would hand this mailbox the administration."""
