@@ -35,14 +35,14 @@ reads like a constant of this league is nearly always one some season chose for 
 - **Drawn** — the matchdays and the fixtures (`spieltage`, `spiele`), composed by one operation from a
   season's rules and the clubs entered into it.
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
-  to play it (`registrierungen`), one minted registration link (`einladungen`), one party's answer about one
+  to play it (`registrierungen`), one minted registration link (`invitations`), one party's answer about one
   fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee or an administrator (`spielberichte`),
   one change of the address a person signs in on (`address_changes`), one barred address
-  (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
+  (`ban_list`), one address's access to the administration (`grants`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
   second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
   recipient (`outbox`), one mailbox a public form named (`mailbox_anchors`), and one recorded write
-  (`aktionen`).
+  (`action_log`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.
@@ -85,7 +85,7 @@ alone, one open row per party per Ansetzung.
 **A boundary is what must be true together; what must not outlive a person is a different question**, and it
 is that one which reaches into the log. A row keeps an image of the document a write replaced, so a person's
 own details sit in the log too, and a write destroying them redacts the rows holding them in the same
-transaction. `aktionen.document_id` is a copied id that **nothing
+transaction. `action_log.document_id` is a copied id that **nothing
 maintains**: the document it names may since have been edited, retired or removed outright, with no row here
 brought up to date.
 

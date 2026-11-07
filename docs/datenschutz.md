@@ -133,7 +133,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     taken from a third party (Art. 14).
   - Recipients: administrators; an application's Ansprechperson, who is told the other seats' first
     names and roles and who objected, at an address that may be unconfirmed.
-- **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `einladungen`).
+- **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `invitations`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.
   - People and data: pupils from 16, with name, address, birthdate, shirt number, position, Stufe,
@@ -173,16 +173,16 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     per-address code counts under a keyed hash; an address change's two addresses until it ends,
     and the reason an administrators' change for a lost mailbox records, until the same end.
   - Recipients: the person.
-- **Administration access and the ban list** (`berechtigungen`, `berechtigungen_angekuendigt`,
-  `berechtigungen_antraege`, `sperrliste`).
+- **Administration access and the ban list** (`grants`, `berechtigungen_angekuendigt`,
+  `berechtigungen_antraege`, `ban_list`).
   - Purpose and basis: who may administer the league, and refusing an address the league declined;
     Art. 6(1)(f).
   - People and data: a grant's address, tier and granter (`granted_by`), in plain; a pending
     request's address and its requester's; a ban's keyed hash of the barred address
-    (`fl_backend/app/api/sperrliste/services.py :: address_hash`), its free-text reason, the
+    (`fl_backend/app/api/ban_list/services.py :: address_hash`), its free-text reason, the
     entering administrator's address (`created_by`) and the last season it covers.
   - Recipients: administrators.
-- **The action log and the erasure journal** (`aktionen`; the journal lines).
+- **The action log and the erasure journal** (`action_log`; the journal lines).
   - Purpose and basis: who did what, and replaying what a restore would undo; Art. 6(1)(f).
   - Data: each write's actor, an administrator by address and a person by pseudonym
     (`fl_backend/app/core/recording.py :: PersonActor`), the full prior document of the record it
@@ -332,7 +332,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link, its log images redacted with it                                                         | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
 | A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                                                                            | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                                |
 | A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                                                               | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                        |
-| A grant                                      | Until revoked or erased                                                                                                                                                               | `fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`                                                                                                      |
+| A grant                                      | Until revoked or erased                                                                                                                                                               | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                                              |
 | A pending grant request                      | A week after it was asked, unless decided, withdrawn or ended sooner                                                                                                                  | `fl_backend/app/shared/schemas/bounds.py :: APPROVAL_DAYS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                                          |
 | An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end                                              | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                              |
 | A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none, with no message                                                                                 | `fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`                                                                                                        |
@@ -363,7 +363,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
   application or registration for the calendar month the rows above name.
 - **A ban removes itself on the league's calendar rather than a count of days**: somebody too young
   stays barred until too old. Its row keeps only a keyed hash of the address, so no second message
-  can be sent about it; the one sent at the ban (`fl_frontend/src/core/sperrlisteEmail.ts`) names
+  can be sent about it; the one sent at the ban (`fl_frontend/src/core/banListEmail.ts`) names
   its season, its reason, what is kept and how to object.
 - **A sign-in account is deleted with no message until session 7 builds the one deletion notice**
   (ruled 2026-10-25), which tells its person once a confirmed account or application is deleted,
@@ -405,7 +405,7 @@ the host's, which rests on its signed agreement.
 - **The origin.** A remotely managed tunnel is the only route to the origin, so every request
   passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
 - **Pseudonymisation.** A ban, a mailbox's document, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
-  one master secret by its own label (`fl_backend/app/api/sperrliste/services.py :: address_hash`;
+  one master secret by its own label (`fl_backend/app/api/ban_list/services.py :: address_hash`;
   [`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a
   withheld person's seasons; an access line holds no credential and no search query.
