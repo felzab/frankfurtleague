@@ -66,7 +66,6 @@ export function buildGrantEmail(data: FLGrantData, { origin: rawOrigin }: MailOr
     kind: data.change === "granted" && data.stage === "started" ? "firstContact" : "notice",
     subjectLine: subjectOf(data),
     origin,
-    firstName: "",
     paragraphs: [[leadOf(data)], ...(facts === null ? [] : [facts]), [WORDS.warn]],
     ...(data.stage === "started" ? { button: { label: WORDS.button, href: `${origin}${ROUTES.adminAdministrators.path()}` } } : {}),
   };

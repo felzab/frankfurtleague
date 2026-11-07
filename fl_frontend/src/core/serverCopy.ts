@@ -275,8 +275,7 @@ export const SERVER_COPY = catalogue({
    * every other mail's sentences are its template's until its area's session rewrites them.
    */
   mail: {
-    /** The one greeting: the first name where it is known. */
-    greeting: (firstName: string) => (firstName === "" ? "Hallo," : `Hallo ${firstName},`),
+    greeting: "Hallo,",
     /** Under the button, above its link printed to copy. */
     buttonLink: "Falls der Knopf nicht geht, öffne diesen Link:",
     /**

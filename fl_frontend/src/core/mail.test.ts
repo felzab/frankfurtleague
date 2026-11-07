@@ -52,7 +52,6 @@ const KINDS_DOUBLE = {
     kind: "notice",
     subjectLine: "Sperre",
     origin,
-    firstName: "",
     paragraphs: [[data.ban_reason], ...(secret === null ? [] : [[secret]])],
   }),
 };

@@ -34,8 +34,8 @@ const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADDRESS_CHANGE_VALI
 const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
 
 /**
- * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
- * mistyped address its reader is a stranger. It names no record, the change moving every one.
+ * The link to the new address, asking only whether the mailbox is theirs. It names no record, the change moving every
+ * one.
  */
 export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
@@ -48,7 +48,6 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
       kind: "security",
       subjectLine,
       origin: site,
-      firstName: "",
       paragraphs: [
         holder === null ? [WORDS.new.question] : [WORDS.new.question, COPY.account.address.holderWait(HOLDER_WAIT[holder])],
         LINK_VALID,
@@ -61,7 +60,6 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
     kind: "security",
     subjectLine,
     origin: site,
-    firstName: "",
     paragraphs: [[SERVER_COPY.mail.addressChange.administrator.lead, WORDS.new.waits(LOST_MAILBOX_WAIT)], LINK_VALID],
     button,
   };
@@ -71,10 +69,7 @@ export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData
  * The mail to the address on file. It names no new address, which the page its link opens shows: the change may be
  * somebody else's mistake or a pretext, and a mail travels further than the page it links.
  */
-export function buildAddressChangeNoticeEmail(
-  { way, first_name: firstName, holder }: FLAddressChangeNoticeData,
-  { origin, token: stopToken }: MailLink,
-): Mail {
+export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNoticeData, { origin, token: stopToken }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   // The person's own change asks the address on file first: its link confirms or declines the change.
@@ -83,7 +78,6 @@ export function buildAddressChangeNoticeEmail(
       kind: "security",
       subjectLine: COPY.page.addressChangeConfirmation,
       origin: site,
-      firstName: firstName ?? "",
       paragraphs: [
         [
           WORDS.previous.question,
@@ -101,7 +95,6 @@ export function buildAddressChangeNoticeEmail(
     // Telling of the change and asking nothing: a real holder refuses a pretext by the stop alone.
     subjectLine: noticeSubject,
     origin: site,
-    firstName: firstName ?? "",
     paragraphs: [[noticeLead, noticeWait(LOST_MAILBOX_WAIT), noticeStop]],
     // The stop: no link approves anything.
     button: { label: COPY.account.address.stop, href: addressChangeLink(site, stopToken) },
@@ -112,24 +105,20 @@ export function buildAddressChangeNoticeEmail(
  * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
  * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
  */
-export function buildAddressChangeEffectiveEmail(
-  { first_name: firstName, instant }: FLAddressChangeEffectiveData,
-  { origin }: MailOrigin,
-): Mail {
+export function buildAddressChangeEffectiveEmail({ instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
   const { subject, lead } = SERVER_COPY.mail.addressChange.effective;
   return {
     kind: "security",
     subjectLine: subject,
     origin: mailOrigin(origin),
-    firstName: firstName ?? "",
     // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
     paragraphs: [[[`${lead.before} `, { strong: formatInstant(instant) }, ` ${lead.after}`]]],
   };
 }
 
 /**
- * The new mailbox's notice that a confirmed change did not take effect at its time. No name, no reason: the holder of
- * the address may be a stranger.
+ * The new mailbox's notice that a confirmed change did not take effect at its time. No reason: the holder of the
+ * address may be a stranger.
  */
 export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscardedData, { origin }: MailOrigin): Mail {
   const { subject, lead } = SERVER_COPY.mail.addressChange.discarded;
@@ -137,7 +126,6 @@ export function buildAddressChangeDiscardedEmail(_data: FLAddressChangeDiscarded
     kind: "security",
     subjectLine: subject,
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [[lead]],
   };
 }
