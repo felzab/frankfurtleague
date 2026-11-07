@@ -161,11 +161,13 @@ async def add(
     return (await administering(als, call)).grant_id
 
 
-async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, *, als: str = OWNER, outbox: Any = None) -> None:
+async def remove(
+    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, *, als: str = OWNER, grants: Any = None, outbox: Any = None
+) -> None:
     async def call() -> Any:
         return await delete_grant(
             grant_id=grant_id,
-            grants_collection=database[Collection.GRANTS],
+            grants_collection=grants if grants is not None else database[Collection.GRANTS],
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
@@ -677,6 +679,19 @@ class TestTheAnchorClosesEachRace:
             return racing.rival_outcome, outcome, await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.BAN_LIST_ADMIN, 0)
+
+    def test_a_removal_landing_beside_the_pass_is_refused(self, mongo_replica_set_url: str):
+        """The pass demotes the owner under the removal's first read: unanchored, a former owner still removes an administrator."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, bool]:
+            await hand_over(database, client)
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], lambda: pass_at(database, client))
+            outcome = await outcome_of(remove(database, client, BERND_ID, grants=racing))
+            racing.assert_landed_inside(serially=1)
+
+            return racing.rival_outcome, outcome, BERND in await addresses(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.GRANT_ONLY_OWNER, True)
 
 
 class TestAMove:
