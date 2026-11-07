@@ -543,7 +543,8 @@ async def delete_team(
         refuse(find_retire_refusal(str(row["status"]) for row in saison_rows))
 
         retired = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today, session=session)
-        await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
+        if retired is not None:
+            await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
 
     # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
     # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
@@ -565,7 +566,10 @@ async def reactivate_team(
 
     async def bring_the_club_back(session: AsyncClientSession) -> None:
         revived = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
-        await record_act(collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session)
+        if revived is not None:
+            await record_act(
+                collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_club_back)

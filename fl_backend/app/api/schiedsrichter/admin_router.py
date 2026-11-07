@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -330,7 +329,7 @@ async def delete_schiedsrichter(
     those fixtures' `spiel_nrs` and their `count` as its bounds.
     """
 
-    async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def retire_the_referee(session: AsyncClientSession) -> None:
         """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
 
         # The row FIRST: the ghost is not a referee this endpoint addresses, and judging its
@@ -358,9 +357,10 @@ async def delete_schiedsrichter(
             when=today,
             session=session,
         )
-        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.retired", record_id=schiedsrichter_id, session=session)
-
-        return retired
+        if retired is not None:
+            await record_act(
+                collection=schiedsrichter_collection, action="schiedsrichter.retired", record_id=schiedsrichter_id, session=session
+            )
 
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen
@@ -393,7 +393,7 @@ async def reactivate_schiedsrichter(
     person behind it.
     """
 
-    async def reactivate_and_ask(session: AsyncClientSession) -> tuple[Mapping[str, Any], str | None]:
+    async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
         """Judged on the row as the transaction reads it, so a retry re-judges it."""
 
         stored = await pull_one_from_db(
@@ -402,6 +402,10 @@ async def reactivate_schiedsrichter(
             projection=dict(INVITE_FIELDS),
             session=session,
         )
+        # A second press finds the referee back: nothing moves, so nothing is recorded.
+        if stored.get("inactive_since") is None:
+            return None
+
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
         # ONE write, the mint riding the revival's `$set`: the press is one action.
@@ -428,11 +432,11 @@ async def reactivate_schiedsrichter(
                 session=session,
             )
 
-        return updated, email
+        return email
 
     # One transaction, so a row never comes back without the link it was owed.
     async with transaction_session(db) as session:
-        _, minted_for = await session.with_transaction(reactivate_and_ask)
+        minted_for = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
         confirmation=None if minted_for is None else FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for),
