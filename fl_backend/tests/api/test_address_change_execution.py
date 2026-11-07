@@ -10,7 +10,7 @@ address holds in one write. The pass's share and failures are
 import asyncio
 import json
 from collections.abc import Awaitable, Mapping
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
@@ -42,7 +42,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import actor_var
 from app.main import create_app
-from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -266,6 +266,11 @@ async def everything_but_the_pupil(database: AsyncDatabase) -> dict[str, Mapping
     }
 
 
+# The deadline a link reads at the harness's instant, and when a confirmation at that instant ends an administrator's wait.
+A_LINK_S_DEADLINE = (NOW + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)).astimezone(UTC)
+A_HOLDER_S_WAIT_ENDS = (NOW + timedelta(hours=GRANT_WAIT_HOURS)).astimezone(UTC)
+
+
 class TestTheLinks:
     @pytest.mark.parametrize(
         ("cause", "refused"),
@@ -293,17 +298,24 @@ class TestTheLinks:
         assert on_a_person(mongo_replica_set_url, body) == ("not_confirmable", None, refused)
 
     @pytest.mark.parametrize(
-        ("step", "waits_on", "bisherig", "email"),
+        ("step", "waits_on", "bisherig", "email", "deadline", "wait_ends"),
         [
-            ("an administrator's start", "new_address", "open", MASKED_NEW_EMAIL),
-            ("previous_address", "previous_address", "release_open", NEW_EMAIL),
-            ("a holder's wait", "waiting_period", "waiting_period", NEW_EMAIL),
+            ("an administrator's start", "new_address", "open", MASKED_NEW_EMAIL, A_LINK_S_DEADLINE, None),
+            ("previous_address", "previous_address", "release_open", NEW_EMAIL, A_LINK_S_DEADLINE, None),
+            ("a holder's wait", "waiting_period", "waiting_period", NEW_EMAIL, None, A_HOLDER_S_WAIT_ENDS),
         ],
     )
     def test_the_step_a_change_waits_on_reads_on_the_account_page_and_the_stop_link(
-        self, mongo_replica_set_url: str, step: str, waits_on: str, bisherig: str, email: str | None
+        self,
+        mongo_replica_set_url: str,
+        step: str,
+        waits_on: str,
+        bisherig: str,
+        email: str | None,
+        deadline: datetime | None,
+        wait_ends: datetime | None,
     ):
-        """The account page and the address on file's link name each step alike.
+        """The account page and the address on file's link name each step alike, the page beside it the day that step ends.
 
         The new address whole on the person's own change, which that address confirmed: an administrator's start may be a
         pretext whose target that address's holder must not learn.
@@ -321,9 +333,9 @@ class TestTheLinks:
             open = (await read(database, client)).open
             assert open is not None
             seen = (await view(database, client, minted.stop_token)).view
-            return open.waits_on, seen.state, seen.email
+            return open.waits_on, seen.state, seen.email, open.valid_until, open.effective_from
 
-        assert on_a_person(mongo_replica_set_url, body) == (waits_on, bisherig, email)
+        assert on_a_person(mongo_replica_set_url, body) == (waits_on, bisherig, email, deadline, wait_ends)
 
     def test_the_address_on_file_s_lapsed_question_names_no_address(self, mongo_replica_set_url: str):
         """Past its deadline the page offers no confirmation the press refuses `link_expired`, as the new mailbox's link does."""
@@ -883,12 +895,22 @@ async def unreferenced(database: AsyncDatabase, *addresses: str) -> list[str]:
     )
 
 
-async def told(database: AsyncDatabase) -> list[tuple[str, str, str | None, str | None]]:
-    """The holders' notices owed, in order: their stage, recipient, named old address and masked new one."""
+async def told(database: AsyncDatabase) -> list[tuple[str, str, str | None, str | None, str | None, Any]]:
+    """The holders' notices owed, in order: their stage, recipient, named old address, masked new one, actor and the wait's end."""
 
     rows = database[Collection.OUTBOX].find({"kind": "grant"}, sort=[("recorded_at", 1), ("to", 1)])
 
-    return [(row["data"]["stage"], row["to"], row["data"]["address"], row["data"]["new_address"]) async for row in rows]
+    return [
+        (
+            row["data"]["stage"],
+            row["to"],
+            row["data"]["address"],
+            row["data"]["new_address"],
+            row["data"]["changed_by"],
+            row["data"]["effective_from"],
+        )
+        async for row in rows
+    ]
 
 
 class TestAHoldersOwnChange:
@@ -942,6 +964,19 @@ class TestAHoldersOwnChange:
 
         assert (answered.effective, addresses) == (False, [EMAIL])
 
+    def test_the_press_onto_another_holder_s_address_is_refused_and_confirms_nothing(self, mongo_replica_set_url: str):
+        """Unrefused, the wait runs to a pass that must end it, and the holders are told of a move no grant can make."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            await granted(database, NEW_EMAIL)
+            minted = await start(database, client)
+            seen = (await view(database, client, minted.token)).view.state
+            refused = await refused_code(answer(database, client, minted.token))
+            return seen, refused, (await change(database, minted.id))["confirmed_at"], await told(database)
+
+        assert on_a_person(mongo_replica_set_url, body) == ("not_confirmable", Code.ADDRESS_CHANGE_NEW_GRANTED, None, [])
+
     def test_every_holder_is_told_at_the_second_confirmation_and_when_it_completes_the_new_address_masked(self, mongo_replica_set_url: str):
         """The first mail's reader may be the one person who can reach the owner in time; whole, it hands the league a private mailbox."""
 
@@ -962,13 +997,24 @@ class TestAHoldersOwnChange:
 
         assert (unconfirmed, first) == ([], [])
         masked = "l•••@n•••.org"
-        assert started == [("started", address, EMAIL, masked) for address in sorted((*ADMINISTRATORS, EMAIL))]
+        # The date is the mail's one sentence on when it lands, and the holder its reader asks.
+        ends = "2126-04-02T10:30:00Z"
+        assert started == [("started", address, EMAIL, masked, EMAIL, ends) for address in sorted((*ADMINISTRATORS, EMAIL))]
         # The moved row is a holder at its new address. The old address has its short-lived effective mail alone: this row
         # would keep it 30 days past an erasure.
-        assert completed == [("completed", address, EMAIL, masked) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
+        assert completed == [("completed", address, EMAIL, masked, None, None) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
 
-    @pytest.mark.parametrize("ended_by", ["the stop link", "the account page", "the owner's discard", "a new start", "the pass refusing it"])
-    def test_every_ending_of_its_wait_tells_every_holder(self, mongo_replica_set_url: str, ended_by: str):
+    @pytest.mark.parametrize(
+        ("ended_by", "actor"),
+        [
+            ("the stop link", EMAIL),
+            ("the account page", EMAIL),
+            ("the owner's discard", OWNER),
+            ("a new start", EMAIL),
+            ("the pass refusing it", None),
+        ],
+    )
+    def test_every_ending_of_its_wait_tells_every_holder(self, mongo_replica_set_url: str, ended_by: str, actor: str | None):
         """Told it would happen and not told it stopped, a holder reports a threat that passed, or trusts one that came back."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -991,7 +1037,7 @@ class TestAHoldersOwnChange:
             return await told(database)
 
         assert on_a_person(mongo_replica_set_url, body) == [
-            ("withdrawn", address, EMAIL, "l•••@n•••.org") for address in sorted((*ADMINISTRATORS, EMAIL))
+            ("withdrawn", address, EMAIL, "l•••@n•••.org", actor, None) for address in sorted((*ADMINISTRATORS, EMAIL))
         ]
 
     @pytest.mark.parametrize("way", ["account", "waiting_period"])
@@ -1028,7 +1074,7 @@ class TestAHoldersOwnChange:
             await erase(database, client, erased)
             return [notice for notice in await told(database) if notice[0] == "withdrawn"]
 
-        assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None) for address in sorted(recipients)]
+        assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None, None, None) for address in sorted(recipients)]
 
     @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link", "a lost-mailbox start replacing a waiting change"])
     def test_a_lost_mailbox_hears_nothing_of_any_holder_notice_and_none_names_an_actor(self, mongo_replica_set_url: str, ended_by: str):
@@ -1189,6 +1235,7 @@ class TestTheRunningChanges:
             person = await start(database, client)
             admin = await start(database, client, identifier=ADMIN, email="verwaltung.neu@anderswo.example")
             second = await start(database, client, identifier=SECOND_ADMIN, email=FOREIGN_EMAIL)
+            await answer(database, client, second.token)
             ended = await start(database, client, identifier=OTHER_EMAIL, email="jonte.neu@anderswo.example")
             await stop_by_link(database, client, ended.stop_token)
             own = await start(database, client, identifier=OWNER, email="inhaber.neu@anderswo.example")
@@ -1208,6 +1255,9 @@ class TestTheRunningChanges:
             NEW_EMAIL,
             "new_address",
         )
+        # Each row the end of the step it waits on: the page dates a link by the one and a wait by the other.
+        assert (seen[OWNER][2].valid_until, seen[OWNER][2].effective_from) == (A_LINK_S_DEADLINE, None)
+        assert (seen[OWNER][0].valid_until, seen[OWNER][0].effective_from) == (None, A_HOLDER_S_WAIT_ENDS)
 
     def test_an_administrator_s_start_and_discard_each_write_their_row(self, mongo_replica_set_url: str):
         """The two acts the page records, neither with a label: a typed reason would outlive the record's own clearing."""
@@ -1362,6 +1412,23 @@ class TestTheTool:
             return (await change(database, started.id))["valid_until"]
 
         assert on_a_person(mongo_replica_set_url, body) is None
+
+    @pytest.mark.parametrize(("way", "holders"), [("account", ["owner", "owner"]), ("waiting_period", [None, None])])
+    def test_a_re_send_words_the_wait_the_first_link_worded(self, mongo_replica_set_url: str, way: str, holders: list[str | None]):
+        """The link's mail words the wait: a holder's own change serves their tier's, and a lost-mailbox change the league's, whatever it moves."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            grant = await granted(database)
+            await database[Collection.GRANTS].update_one({"_id": grant}, {"$set": {"owner_from": NOW + timedelta(days=1)}})
+            minted = await (
+                start(database, client)
+                if way == "account"
+                else administrator_starts(database, client, change_reason=CHANGE_REASON, operator=OWNER)
+            )
+            await resend(database, client, minted.id, operator=OWNER, germany_now=NOW + timedelta(hours=2))
+            return [row["data"]["holder"] async for row in database[Collection.OUTBOX].find({"kind": "address_change_link"})]
+
+        assert on_a_person(mongo_replica_set_url, body) == holders
 
     @pytest.mark.parametrize("what", ["a-pupil", "a-seat"])
     def test_a_re_send_to_an_address_taken_since_answers_the_one_code_its_page_words(self, mongo_replica_set_url: str, what: str):
