@@ -6,7 +6,7 @@ refuses a read anywhere else. A request reads it through `app/core/dependencies.
 which a test substitutes.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
 from zoneinfo import ZoneInfo
 
@@ -23,3 +23,13 @@ def german_day(instant: datetime) -> str:
     """The German day `instant` falls on, as every stored and served day is spelled: a link's send, an act's day."""
 
     return instant.astimezone(GERMANY).strftime("%Y-%m-%d")
+
+
+def utc_stamp(moment: datetime) -> str:
+    """The instant a person's evidence is stamped with, spelled one way everywhere.
+
+    UTC with an offset, never German local time: a local-time string carrying no offset sorts October's two identical
+    clock hours the wrong way.
+    """
+
+    return moment.astimezone(UTC).isoformat(timespec="seconds")

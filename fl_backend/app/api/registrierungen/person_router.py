@@ -46,6 +46,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.saisons.services import entry_is_a_nominee
 from app.api.spieler.crud import refuse_a_full_squad
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -67,7 +68,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import ACT_BY_KONTAKT, log_stamp, record_act
+from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -455,7 +456,7 @@ async def patch_einwilligung(
 
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
     # One instant for every attempt, as `app/api/spieler/person_router.py :: patch_einwilligung` stamps its own.
-    at = log_stamp(germany_now)
+    at = utc_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted

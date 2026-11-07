@@ -19,6 +19,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelfResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
@@ -29,7 +30,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -98,7 +98,7 @@ async def patch_einwilligung(
 
     own_entry = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    at = log_stamp(germany_now)
+    at = utc_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted

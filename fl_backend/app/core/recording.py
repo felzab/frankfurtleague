@@ -8,7 +8,6 @@ but `app/api/action_log/crud.py :: reattribute_administrator_in_session`.
 """
 
 from contextvars import ContextVar
-from datetime import UTC, datetime
 from typing import Final, Literal
 
 from bson import ObjectId
@@ -174,13 +173,3 @@ def _bound_administrator() -> str:
         raise LookupError("an act on a route binding no administrator states who acted")
 
     return address
-
-
-def log_stamp(moment: datetime) -> str:
-    """The instant a person's evidence is stamped with, spelled one way everywhere.
-
-    UTC with an offset, never German local time: a local-time string carrying no offset sorts October's two identical
-    clock hours the wrong way.
-    """
-
-    return moment.astimezone(UTC).isoformat(timespec="seconds")
