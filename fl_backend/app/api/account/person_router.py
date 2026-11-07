@@ -41,7 +41,6 @@ from app.api.address_change.services import (
     waits_on,
 )
 from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.ban_list.lookup import BanListLookup
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
@@ -163,7 +162,8 @@ async def get_address_change(
     `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
     the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
-    mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+    mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,
+    whose press is refused until the hourly pass ends the change.
     """
 
     return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=None)
@@ -181,7 +181,6 @@ async def post_address_change(
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeMintResponse:
@@ -191,10 +190,10 @@ async def post_address_change(
     **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
     second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
     `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
-    from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the hourly
-    pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
-    **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
-    answers alike whatever the new address holds.
+    from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the
+    hourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on
+    file proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it
+    holds -- so this start answers alike whatever the new address holds.
 
     Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
     live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the

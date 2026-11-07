@@ -48,16 +48,13 @@ class Code(StrEnum):
     # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
     # another token.
     LINK_EXPIRED = auto()
-    # 403 where `address_change_barred` is 409: this caller is the barred person, and nothing they change lifts it.
+    # 403: this caller is the barred person, and nothing they change lifts it.
     LINK_BARRED = auto()
-    # Its own code and never `link_barred`'s: the barred address here is the one on file, which the caller may not even hold.
-    ADDRESS_CHANGE_REPLACED_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
     # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
     # hold, a server action reaching the start from any page.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
-    ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
     ADDRESS_CHANGE_NEW_GRANTED = auto()
     ADDRESS_CHANGE_OCCUPIED = auto()

@@ -34,7 +34,6 @@ from app.api.address_change.services import (
     build_resendable_terms,
     compose_link_update,
     compose_record,
-    find_barred_refusal,
     find_ended_refusal,
     find_nothing_refusal,
     find_occupied_refusal,
@@ -43,7 +42,6 @@ from app.api.address_change.services import (
     is_expired,
     waits_on,
 )
-from app.api.ban_list.lookup import BanListLookup, ban_list_saison, hash_barred
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.lookup import SubjectLookup
@@ -80,7 +78,7 @@ router = APIRouter(
 
 
 async def _refuse_the_address(identifier: str, *, actor: str, grants_collection: ReadCollection, session: AsyncClientSession) -> None:
-    """The erasure tool's two refusals about who asks: the administrator's own address (`own_address`), and a holder's unless the owner asks (`admin_address`)."""
+    """The tool's refusals about who asks: the administrator's own address (`own_address`), a holder's but for the owner (`admin_address`)."""
 
     refuse(find_own_address_refusal(identifier=identifier, actor=actor))
     grants = await read_grants(grants_collection=grants_collection, session=session)
@@ -190,7 +188,6 @@ async def post_address_change_admin(
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
@@ -205,9 +202,10 @@ async def post_address_change_admin(
     answered. The address's live change ends replaced.
 
     Refused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),
-    the address on file typed again (`address_change_unchanged`), a new address the ban list holds
-    (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
-    where the change moves a pupil (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`).
+    the address on file typed again (`address_change_unchanged`), an address holding nothing a change moves
+    (`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil
+    (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new
+    address is refused nothing: its link stops at the hand-out.
     """
 
     identifier, email, change_reason = (
@@ -217,14 +215,10 @@ async def post_address_change_admin(
     )
     actor_identifier = sign_in_identifier(operator)
     way: FLAddressChangeWay = "waiting_period"
-    hashed = ban_list.hash_of(email)
-    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
-        refuse(find_barred_refusal(barred=await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)))
 
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
@@ -296,7 +290,6 @@ async def invite_address_change(
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
@@ -309,26 +302,20 @@ async def invite_address_change(
     next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
     nothing.
 
-    Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
-    (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
-    confirmed or not (`address_change_occupied`), and where the change ended (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
-    file's confirmation, or confirmed, has no link to re-send.
+    Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
+    pending address (`address_change_taken`), where an entry has come to name it, confirmed or not
+    (`address_change_occupied`), and where the change ended (`address_change_ended`). 404 for an id naming no change, and
+    unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
+    re-send.
     """
 
     actor_identifier = sign_in_identifier(operator)
-    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
         await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
         email = str(record["email"])
-        refuse(
-            find_barred_refusal(
-                barred=await hash_barred(ban_list, ban_list.hash_of(email), governing_saison_id=governing_saison_id, session=session)
-            )
-        )
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         taken = holdings.spieler is not None and await another_pupil_holds(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session

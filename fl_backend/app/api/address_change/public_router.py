@@ -46,7 +46,6 @@ from app.api.address_change.services import (
     side_of,
     wait_after_confirmation,
 )
-from app.api.ban_list.lookup import BanListLookup, ban_list_saison
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
 from app.core.config import API_VERSION
@@ -97,7 +96,7 @@ _FIELDS: Mapping[str, int] = {
 }
 
 # Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable.
-_NOT_CONFIRMABLE = frozenset({"replaced_barred", "taken", "new_granted", "occupied"})
+_NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 
 
 @router.post(
@@ -112,7 +111,6 @@ async def get_address_change_view(
     records: SubjectLookup,
     spieler_collection: SpielerReadCollection,
     grants_collection: GrantsReadCollection,
-    ban_list: BanListLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:
     """
@@ -123,8 +121,8 @@ async def get_address_change_view(
     so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
     links answer `ended`, how it ended and on which day, for as long as its record is kept.
 
-    The new mailbox's side is served in a state: once pressed, `confirmed`; else `barred` wherever the ban list holds the
-    address the link was mailed to, then `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+    The new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever
+    the press would be refused for the address on file's sake or would
     find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
     the proxy routes no public call to this service. The address on file's side answers the step the change waits on
@@ -173,7 +171,7 @@ async def get_address_change_view(
             )
         )
 
-    barred, not_confirmable = False, False
+    not_confirmable = False
     if record.get("confirmed_at") is None:
         # Every judgement the press makes, read here too, so the page never offers a confirmation the press refuses.
         holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=None)
@@ -183,17 +181,14 @@ async def get_address_change_view(
             records=records,
             spieler_collection=spieler_collection,
             grants_collection=grants_collection,
-            ban_list=ban_list,
-            governing_saison_id=await ban_list_saison(ban_list),
             occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
             expired=False,
             session=None,
         )
-        barred = verdict.cause == "new_barred"
         # An address left holding nothing to move too: the press refuses `address_change_nothing`, and the link lapses.
         not_confirmable = verdict.cause in _NOT_CONFIRMABLE or verdict.empty
 
-    state = new_state(record, now=germany_now, barred=barred, not_confirmable=not_confirmable)
+    state = new_state(record, now=germany_now, not_confirmable=not_confirmable)
 
     return FLAddressChangeViewResponse(
         view=FLAddressChangeViewNew(
@@ -228,7 +223,6 @@ async def post_address_change_answer(
     outbox_collection: OutboxCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
@@ -251,15 +245,15 @@ async def post_address_change_answer(
     Either answer spends the link, which keeps answering what became of the change.
 
     Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
-    (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
-    an address the ban list holds now (`link_barred`), one past its deadline (`link_expired`), one whose change would replace an address
-    the ban list holds now (`address_change_replaced_barred`), so a barred person cannot move their records off the address the ban keys on,
-    one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a grant onto an address holding one
-    (`address_change_new_granted`), and one whose new address any entry names, confirmed or not (`address_change_occupied`): moving the person
-    onto it would join two people's records. **A decline is refused none of these**: it removes an address nobody proved.
+    (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline
+    (`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a
+    grant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed
+    or not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused
+    none of these**: it removes an address nobody proved.
 
-    A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and the change lapses
-    with its link. The codes past `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
+    A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and
+    the change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps
+    alike; only the edge keeps them from the link's holder.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -301,9 +295,6 @@ async def post_address_change_answer(
             records=records,
             spieler_collection=spieler_collection,
             grants_collection=grants_collection,
-            ban_list=ban_list,
-            # In the session, read by the confirmation alone: the address on file's answer and a decline judge no ban.
-            governing_saison_id=await ban_list_saison(ban_list, session=session),
             occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
             expired=is_expired(record, now=germany_now),
             session=session,
@@ -429,13 +420,13 @@ async def post_address_change_stop(
     """
     Stop the change the address on file was mailed about: its new address goes.
 
-    **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
-    confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
-    the change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The
-    person's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as
-    the unknown token does, the page offering no stop then: the question's decline is the one way that link ends it
-    before, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way. A holder's
-    change in its wait tells every holder.
+    **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on
+    file confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no
+    change holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this
+    link no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page
+    offering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.
+    From that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells
+    every holder.
     """
 
     stop_hash = hash_token(stop_data.token)

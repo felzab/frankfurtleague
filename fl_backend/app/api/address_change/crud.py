@@ -26,15 +26,12 @@ from app.api.address_change.services import (
     build_address_filter,
     build_owed_carry_filter,
     compose_end_update,
-    find_confirmation_barred_refusal,
     find_expired_refusal,
     find_new_granted_refusal,
     find_occupied_refusal,
-    find_replaced_barred_refusal,
     find_taken_refusal,
     masked_address,
 )
-from app.api.ban_list.lookup import BanList, Saison, barred_addresses
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, read_grants
 from app.api.grants.erasure import carry_authorship_in_session
 from app.api.grants.services import compose_notice
@@ -259,7 +256,7 @@ async def start_the_change_in_session(
 
 
 # Why the effect is refused, in the order the link's view ranks its states.
-FLAddressChangeCause = Literal["new_barred", "expired", "replaced_barred", "taken", "new_granted", "occupied"]
+FLAddressChangeCause = Literal["expired", "taken", "new_granted", "occupied"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -445,10 +442,8 @@ async def judge_the_effect_in_session(
     records: RecordCollections,
     spieler_collection: ReadCollection,
     grants_collection: ReadCollection,
-    ban_list: BanList,
-    governing_saison_id: Saison,
     occupancy: Occupancy,
-    # The link's own deadline, judged second: a press on a lapsed link to a barred address names the ban.
+    # The link's own deadline, judged first.
     expired: bool,
     session: AsyncClientSession | None,
 ) -> Verdict:
@@ -457,16 +452,9 @@ async def judge_the_effect_in_session(
     The confirmation, the hourly pass and the link's view all ask it, so none of them parts on what refuses.
     """
 
-    new_address, old = str(record["email"]), str(record["address"])
-    barred = await barred_addresses(ban_list, [new_address, old], governing_saison_id=governing_saison_id, session=session)
-    first: list[tuple[FLAddressChangeCause, bool]] = [
-        ("new_barred", new_address in barred),
-        ("expired", expired),
-        ("replaced_barred", old in barred),
-    ]
-    for cause, applies in first:
-        if applies:
-            return Verdict(cause=cause, empty=False)
+    new_address = str(record["email"])
+    if expired:
+        return Verdict(cause="expired", empty=False)
 
     if holdings.empty:
         return Verdict(cause=None, empty=True)
@@ -495,12 +483,8 @@ def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
     match cause:
         case None:
             return None
-        case "new_barred":
-            return find_confirmation_barred_refusal(barred=True)
         case "expired":
             return find_expired_refusal(expired=True)
-        case "replaced_barred":
-            return find_replaced_barred_refusal(barred=True)
         case "taken":
             return find_taken_refusal(taken=True)
         case "new_granted":

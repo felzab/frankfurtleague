@@ -31,7 +31,7 @@ ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__valu
 FLAddressChangePreviousState = Literal["release_open", "release_expired", "open", "waiting_period"]
 
 # What the new mailbox's link shows while the change stands.
-FLAddressChangeNewState = Literal["valid", "expired", "barred", "not_confirmable", "confirmed"]
+FLAddressChangeNewState = Literal["valid", "expired", "not_confirmable", "confirmed"]
 
 ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndKind.__value__)
 
@@ -255,7 +255,7 @@ def previous_state(record: Mapping[str, Any], *, now: datetime) -> FLAddressChan
     return _PREVIOUS[waits]
 
 
-def new_state(record: Mapping[str, Any], *, now: datetime, barred: bool, not_confirmable: bool) -> FLAddressChangeNewState:
+def new_state(record: Mapping[str, Any], *, now: datetime, not_confirmable: bool) -> FLAddressChangeNewState:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
     The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
@@ -263,9 +263,6 @@ def new_state(record: Mapping[str, Any], *, now: datetime, barred: bool, not_con
 
     if record.get("confirmed_at") is not None:
         return "confirmed"
-
-    if barred:
-        return "barred"
 
     if is_expired(record, now=now):
         return "expired"
@@ -336,30 +333,6 @@ def find_expired_refusal(*, expired: bool) -> WriteRefusal | None:
     )
 
 
-def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: the ban list holds the address the link was mailed to, however long ago it was minted."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
-    )
-
-
-def find_replaced_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`address_change_replaced_barred`: the ban list holds the address the change replaces, so moving would carry the ban's person off it."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_REPLACED_BARRED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
     """`address_change_taken`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
 
@@ -408,18 +381,6 @@ def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
     # Naming neither address: the message reaches the refusal's log line.
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_UNCHANGED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`address_change_barred`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_BARRED,
         status=HTTPStatus.CONFLICT,
     )
 

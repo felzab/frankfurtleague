@@ -28,7 +28,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeSweepResponse,
 )
 from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, is_expired
-from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.core.codes import Code
 from app.core.config import API_VERSION
@@ -113,8 +112,6 @@ async def _make_the_due_change_take_effect(
     row: Mapping[str, Any],
     *,
     records: RecordCollections,
-    ban_list: BanList,
-    governing_saison_id: str | None,
     address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
@@ -146,8 +143,6 @@ async def _make_the_due_change_take_effect(
             records=records,
             spieler_collection=spieler_collection,
             grants_collection=grants_collection,
-            ban_list=ban_list,
-            governing_saison_id=governing_saison_id,
             occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
             expired=False,
             session=session,
@@ -215,7 +210,6 @@ async def sweep_address_change(
     outbox_collection: OutboxCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
-    ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
@@ -223,12 +217,12 @@ async def sweep_address_change(
     """
     End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
 
-    **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`: its
-    address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged again as
-    its confirmation was: a ban on either address, another pupil signing in on the new one, a grant at the new address, or
-    nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
-    effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
-    it, its completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
+    **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
+    its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
+    again as its confirmation was: another pupil signing in on the new address, a grant at it, or nothing left to move
+    ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take effect and never
+    why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts it, its
+    completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
     this answer.
 
     Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
@@ -248,9 +242,6 @@ async def sweep_address_change(
     # The lapse and the due terms are disjoint, so the lapse's own judgement parts them.
     page = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["page"]]
     count = sum(row["count"] for row in read["count"])
-    # Outside every change's transaction (`app/api/ban_list/crud.py :: address_is_barred`), and only where a due change
-    # asks the ban list: a page of lapses reads no season.
-    governing_saison_id = await ban_list_saison(ban_list) if any(row["due"] for row in page[:ADDRESS_CHANGE_PER_PASS]) else None
 
     removed, skipped = 0, 0
     discarded, effective = 0, 0
@@ -265,8 +256,6 @@ async def sweep_address_change(
                 ergebnis = await _make_the_due_change_take_effect(
                     row,
                     records=records,
-                    ban_list=ban_list,
-                    governing_saison_id=governing_saison_id,
                     address_changes_collection=address_changes_collection,
                     spieler_collection=spieler_collection,
                     schiedsrichter_collection=schiedsrichter_collection,
