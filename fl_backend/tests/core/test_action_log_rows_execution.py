@@ -8,7 +8,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.aktionen.schemas import FLAktionRecord
+from app.api.action_log.schemas import FLAktionRecord
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp

@@ -14,10 +14,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.ban_list.crud import address_is_barred
+from app.api.ban_list.services import address_hash
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_governing_saison_id
-from app.api.sperrliste.crud import address_is_barred
-from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -29,7 +29,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_sperrliste_lapse_test")
+DATABASE_NAME = worker_database("fl_ban_list_lapse_test")
 
 CONFIG = build_test_config()
 
@@ -40,7 +40,7 @@ ADMIN = "admin@frankfurtleague.de"
 BANNED = "Zorbanax@Beispielschule.de"
 OTHER = "quillhilde@beispielschule.de"
 
-GRUND = "Falsches Geburtsdatum bei der Anmeldung"
+BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 
 # The season a ban entered under 2026 covers through, and the one after it. Spelled rather than
 # computed: a case reading the arithmetic it exists to pin would follow the code wherever it went.
@@ -96,7 +96,7 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund=GRUND, by=ADMIN, today=TODAY)
+    return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=ADMIN, today=TODAY)
 
 
 async def is_barred(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
@@ -256,7 +256,7 @@ class TestTheSweepAtAnActivation:
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 0
 
     def test_the_lapse_is_recorded_and_keeps_no_image_of_the_row_it_removed(self, mongo_replica_set_url: str):
-        """An ERASURE, because the bound ran out: `grund` may name the person barred, and an image would keep that a year past the ban.
+        """An ERASURE, because the bound ran out: `ban_reason` may name the person barred, and an image would keep that a year past the ban.
 
         WHO the row names is not asserted: the actor is a router dependency's, unrun here.
         """
@@ -265,7 +265,7 @@ class TestTheSweepAtAnActivation:
             await ban(database, client)
             await a_drawn_target(database, "2040")
             await activate(database, client, "2040")
-            recorded = await database[Collection.ACTION_LOG].find_one({"collection": "sperrliste"})
+            recorded = await database[Collection.ACTION_LOG].find_one({"collection": "ban_list"})
 
             assert recorded is not None
             return recorded
@@ -277,6 +277,6 @@ class TestTheSweepAtAnActivation:
         assert recorded["operation"] == "erase_many"
         assert recorded["modified_count"] == 1
         assert recorded.get("before") is None
-        assert GRUND not in repr(recorded)
+        assert BAN_REASON not in repr(recorded)
         # The address the ban was taken from survives nowhere, the filter's own values included.
         assert BANNED.split("@")[0].lower() not in repr(recorded).lower()

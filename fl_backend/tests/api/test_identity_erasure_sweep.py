@@ -425,9 +425,9 @@ class TestThePupilsOwnDataAlone:
         }
         assert held == {
             "Pupillensloot": [],
-            "Sitzsloot": ["aktionen", "saison_teams"],
-            "Schiedssloot": ["aktionen", "schiedsrichter"],
-            ADDRESS: ["aktionen", "berechtigungen", "saison_teams", "schiedsrichter"],
+            "Sitzsloot": ["action_log", "saison_teams"],
+            "Schiedssloot": ["action_log", "schiedsrichter"],
+            ADDRESS: ["action_log", "grants", "saison_teams", "schiedsrichter"],
         }
         assert unredacted == []
 

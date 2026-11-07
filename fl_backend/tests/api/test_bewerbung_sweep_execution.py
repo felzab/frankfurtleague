@@ -16,6 +16,7 @@ from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.admin_router import resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
@@ -29,7 +30,6 @@ from app.api.bewerbungen.system_router import (
 from app.api.outbox.schemas import FLOutboxEventPayload
 from app.api.outbox.system_router import post_event
 from app.api.saisons.admin_router import activate_saison
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION

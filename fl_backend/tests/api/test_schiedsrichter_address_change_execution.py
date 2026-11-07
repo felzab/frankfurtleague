@@ -48,7 +48,7 @@ NAME = "Ortwin Pfeiffenberger"
 EMAIL = "ortwin.pfeiffenberger@example.com"
 NEW_EMAIL = "o.pfeiffenberger@neuepost.example.org"
 PHONE = "+49 69 5550303"
-GRUND = "Postfach gelöscht, telefonisch unter der hinterlegten Nummer bestätigt am 21.10.2026"
+CHANGE_REASON = "Postfach gelöscht, telefonisch unter der hinterlegten Nummer bestätigt am 21.10.2026"
 
 
 def referee_document(**overrides: Any) -> dict[str, Any]:
@@ -137,7 +137,7 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """An administrator's start through the address tool, with a reason, so the new mailbox is owed its link at once."""
 
     return await post_address_change_admin(
-        address_change_data=FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
+        address_change_data=FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL, "change_reason": CHANGE_REASON}),
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],

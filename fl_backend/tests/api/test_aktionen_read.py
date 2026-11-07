@@ -9,9 +9,9 @@ from bson import ObjectId
 from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.admin_router import get_action_log
-from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore, FLAktionenFilterParams
-from app.api.aktionen.services import actor_addresses, mit_vorenthaltenem_akteur
+from app.api.action_log.admin_router import get_action_log
+from app.api.action_log.schemas import FLActionLogEntry, FLActionLogEntryWithBefore, FLAktionenFilterParams
+from app.api.action_log.services import actor_addresses, mit_vorenthaltenem_akteur
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.bans import ban_list
@@ -202,7 +202,7 @@ class TestATruncatedPageSaysSo:
 class TestTheListNarrowsOnOneDocument:
     """`action_log_target`'s first purpose: one document's history, asked for in the STORED spelling.
 
-    The term is compiled rather than dumped (`app/api/aktionen/services.py :: document_id_term`).
+    The term is compiled rather than dumped (`app/api/action_log/services.py :: document_id_term`).
     """
 
     @pytest.mark.parametrize(

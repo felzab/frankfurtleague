@@ -862,7 +862,7 @@ class TestADiscardedChange:
             ),
             "_id": PUPIL_CHANGE_OID,
             "valid_until": None,
-            "grund": "Postfach gelöscht, telefonisch bestätigt",
+            "change_reason": "Postfach gelöscht, telefonisch bestätigt",
             "confirmed_at": datetime(2126, 10, 3, 9, 30, tzinfo=UTC),
             "effective_from": datetime(2126, 10, 10, 9, 30, tzinfo=UTC),
         }

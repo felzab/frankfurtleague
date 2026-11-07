@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.sperrliste.admin_router import post_sperrliste_entry
-from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.schemas import FLPostSperrlistePayload, FLPostSperrlisteResponse
+from app.api.ban_list.admin_router import post_ban_list_entry
+from app.api.ban_list.lookup import BanList
+from app.api.ban_list.schemas import FLPostBanListEntryPayload, FLPostBanListEntryResponse
 from app.core.collections import Collection
 from tests.config import build_test_config
 
@@ -30,17 +30,17 @@ async def ban_through_the_route(
     client: AsyncMongoClient,
     *,
     email: str,
-    grund: str,
+    ban_reason: str,
     by: str,
     today: str,
     saisons: Any = None,
     grants: Any = None,
     notify: bool = False,
-) -> FLPostSperrlisteResponse:
+) -> FLPostBanListEntryResponse:
     """A ban as an administrator enters it: its own transaction and the anchors it writes, where `ban_document` seeds the row alone."""
 
-    return await post_sperrliste_entry(
-        ban_list_data=FLPostSperrlistePayload(email=email, grund=grund, notify=notify),
+    return await post_ban_list_entry(
+        ban_list_data=FLPostBanListEntryPayload(email=email, ban_reason=ban_reason, notify=notify),
         ban_list_collection=database[Collection.BAN_LIST],
         ban_list=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,

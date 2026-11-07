@@ -14,6 +14,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.admin_router import (
     accept_bewerbung,
     decline_bewerbung,
@@ -29,7 +30,6 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import compose_new_club, confirmation_deadline_from
 from app.api.outbox.crud import states_of
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.crud import found_a_club
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -751,7 +751,7 @@ class TestTheCodeAnAcceptanceIsSent:
 
 @pytest.mark.db
 class TestWhoTheDecisionNames:
-    """`decision.by` is the request's bound actor, so it and the `aktionen` row cannot disagree.
+    """`decision.by` is the request's bound actor, so it and the `action_log` row cannot disagree.
 
     Served rather than called: calling the endpoint directly would resolve neither
     `bind_actor` nor `get_actor_email`, proving nothing about their order.
@@ -1003,7 +1003,7 @@ class TestTwoDeclinesAtOnce:
 
 
 # The four collections the acceptance JUDGES, which are the reads that have to sit in the
-# transaction. `aktionen` is written rather than judged, so a read of it would not belong here.
+# transaction. `action_log` is written rather than judged, so a read of it would not belong here.
 JUDGED_COLLECTIONS = frozenset({Collection.BEWERBUNGEN, Collection.SAISONS, Collection.TEAMS, Collection.SAISON_TEAMS})
 
 

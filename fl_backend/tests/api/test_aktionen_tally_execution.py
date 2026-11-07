@@ -4,8 +4,8 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.aktionen.admin_router import get_action_log
-from app.api.aktionen.schemas import FLActionLogListResponse, FLAktionenFilterParams
+from app.api.action_log.admin_router import get_action_log
+from app.api.action_log.schemas import FLActionLogListResponse, FLAktionenFilterParams
 from app.core.collections import Collection
 from app.core.recording import PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR_EMAIL
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -15,7 +15,7 @@ from tests.worker import worker_database
 
 # The whole module's reason for a server: the double in `tests/api/test_aktionen_read.py` answers
 # cells of the shape the reader reads, so only MongoDB's own `$group` proves the pipeline's keys and
-# its accumulator are the names `app/api/aktionen/admin_router.py :: _tally` takes them by.
+# its accumulator are the names `app/api/action_log/admin_router.py :: _tally` takes them by.
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_aktionen_tally_test")

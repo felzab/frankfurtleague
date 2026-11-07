@@ -20,8 +20,8 @@ from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
-from app.api.sperrliste.services import address_hash
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS
+from app.api.ban_list.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_CHALLENGE, APIError
@@ -143,8 +143,8 @@ GRANT_WRITES = [
 STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
     pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
-    pytest.param("post", "/api/v0/sperrliste", id="a ban"),
-    pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
+    pytest.param("post", "/api/v0/ban_list", id="a ban"),
+    pytest.param("delete", "/api/v0/ban_list/{ban_list_entry_id}", id="a ban's lift"),
     pytest.param("post", "/api/v0/address_change", id="an address change asked"),
     pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
     pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
@@ -253,7 +253,7 @@ async def through(binder: AsyncIterator[Any], inside: Callable[[], Awaitable[Any
 
 
 def test_the_administrator_is_bound_folded_under_the_route_s_template_for_the_request_alone():
-    """Folded, so one administrator is one spelling in `aktionen`; the template, so the page reads one row per kind of action."""
+    """Folded, so one administrator is one spelling in `action_log`; the template, so the page reads one row per kind of action."""
 
     attribution = attribute_the_administrator(verified_actor(ACTOR.upper()))
     _, during, after = asyncio.run(through(bind_actor(request_for("PATCH"), attribution)))

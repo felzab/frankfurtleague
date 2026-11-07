@@ -1,7 +1,7 @@
 """
 API · one grant notice's facts as they are composed, apart from any database
 
-`app/api/berechtigungen/services.py :: compose_notice` writes what every administrator is mailed, so a barred
+`app/api/grants/services.py :: compose_notice` writes what every administrator is mailed, so a barred
 address it lets through reaches each of them in plain.
 """
 
@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLGrantSnapshot
-from app.api.berechtigungen.services import compose_notice
+from app.api.grants.schemas import FLGrantSnapshot
+from app.api.grants.services import compose_notice
 
 GRANT = ObjectId("6890a1b2c3d4e5f607920011")
 NOW = datetime(2026, 4, 1, 10, 30, tzinfo=UTC)

@@ -8,6 +8,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.registrierungen.public_router import get_confirmation_view, post_confirmation
 from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload
 from app.api.registrierungen.services import (
@@ -15,7 +16,6 @@ from app.api.registrierungen.services import (
     PAGE_RETURNING,
     compose_bestaetigung,
 )
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
