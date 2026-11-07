@@ -573,7 +573,7 @@ async def erase_everything(
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
     The subject is read HERE, so a retry after a conflict re-reads it. A request's route notes the answer's `records`,
-    `seats` and `rows` in its `Journal`, which writes the erasure's line once it commits.
+    `seats` and `rows` in its `Journal`, which writes the erasure's lines once it commits.
     """
 
     subject = await resolve_subject(

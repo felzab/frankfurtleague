@@ -1241,7 +1241,7 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
-own rows about it included. Every erasure a person or an administrator asked for left one line in the
+own rows about it included. Every erasure a person or an administrator asked for left its line in the
 backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
 seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no value, address or name, where its person stood:
 `records`, each record one address alone holds, as `collection/id`; `seats`, a Widerspruch's slots by
@@ -1251,7 +1251,10 @@ other field that named the address, as `collection/id/path`, so a row naming two
 of them this is; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
 
 **List the lines between the two moments**, from the running backend and the deploys' copies (§7),
-each in the `journal.act` message, every value in a field of its own:
+each in the `journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so
+an act naming more than a line holds, as a former owner's can, takes several: each carries the same
+`act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one line.
+A part the two commands do not find leaves that act's list short, so read the mail thread for it:
 
 ```bash
 docker compose logs --since 2026-10-15T03:00:00Z --until 2026-10-15T09:40:00Z backend | grep '"journal.act"'

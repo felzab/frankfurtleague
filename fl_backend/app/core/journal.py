@@ -1,5 +1,5 @@
 """
-CORE · the journal: one line for each erasure, withdrawal and objection, the acts a restore undoes
+CORE · the journal: a line for each erasure, withdrawal and objection, the acts a restore undoes
 
 A restore rolls the database and its action log back together, so what must be done again stands in the backend's
 stream instead (`docs/ops/runbooks.md` §13). A line names the act and where its person stands by id, never a value, an
@@ -8,9 +8,11 @@ address or a name, since it outlives the erasure it reports.
 Invariant: a line is written once its transaction committed or lost its answer, never by an attempt that rolled back.
 """
 
+import secrets
 from collections.abc import Awaitable, Callable, Sequence
+from itertools import batched
 from types import TracebackType
-from typing import Literal
+from typing import Final, Literal
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import PyMongoError
@@ -20,23 +22,40 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 
 PrivacyAct = Literal["erasure", "withdrawal", "objection"]
 
+# Docker cuts a line at 16 KiB (moby's `daemon/logger/copier.go :: defaultBufSize`), and a `grep` for the message misses
+# everything past a cut. The longest entry, a seat's, is 67 bytes once quoted, so a part stays near 8 KiB.
+PART_ENTRIES_MAX: Final = 120
+
 
 def privacy_line(
     act: PrivacyAct, records: Sequence[str], choices: Sequence[str] = (), seats: Sequence[str] = (), rows: Sequence[str] = ()
 ) -> None:
-    """One INFO line naming the act and each record as `collection/id`, with a withdrawal's choices and an objection's slots by name.
+    """INFO lines naming the act and each record as `collection/id`, with a withdrawal's choices and an objection's slots by name.
 
-    Every key stands on every line, so a reader can rely on it. An erasure's `records` hold one person each, a seat's row
-    holds three, so its `seats` read `collection/id/slot`, a confirmed slot's confirmation day after them, which tells its
-    sitter apart on a restored row; its `rows` are every other field that named the address, as
-    `collection/id/path`, which is how an address holding no record of its own is found again, and how a row naming two
-    people says which of them this is.
+    One line, or as many as `PART_ENTRIES_MAX` asks of a former owner's hundreds of rows, each carrying the same `act_id` and
+    its `part` of `parts`. Every key stands on every line, so a reader can rely on it.
+
+    An erasure's `records` hold one person each, a seat's row holds three, so its `seats` read `collection/id/slot`, a
+    confirmed slot's confirmation day after them, which tells its sitter apart on a restored row; its `rows` are every other
+    field that named the address, as `collection/id/path`, which is how an address holding no record of its own is found
+    again, and how a row naming two people says which of them this is.
     """
 
-    fl_logger.info(
-        "journal.act",
-        extra={"act": act, "records": list(records), "choices": list(choices), "seats": list(seats), "rows": list(rows)},
-    )
+    held = {"records": records, "choices": choices, "seats": seats, "rows": rows}
+    entries = [(key, entry) for key, values in held.items() for entry in values]
+    parts = list(batched(entries, PART_ENTRIES_MAX, strict=False)) or [()]
+    act_id = secrets.token_hex(8)
+    for part, chunk in enumerate(parts, start=1):
+        fl_logger.info(
+            "journal.act",
+            extra={
+                "act": act,
+                "act_id": act_id,
+                "part": part,
+                "parts": len(parts),
+                **{key: [entry for owner, entry in chunk if owner == key] for key in held},
+            },
+        )
 
 
 def _lost_its_answer(failure: BaseException | None) -> bool:
