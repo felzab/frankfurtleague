@@ -61,7 +61,7 @@ from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
-from app.shared.schemas.bounds import ADDRESS_CHANGE_BOUNDS, CONSENT_BOUNDS, FLTeamShorthandLength
+from app.shared.schemas.bounds import ADDRESS_CHANGE_BOUNDS, CONSENT_BOUNDS, GRANT_BOUNDS, FLTeamShorthandLength
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
@@ -143,7 +143,7 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 # address change's and the consents' bounds, which the pages state, the Kürzel's length, which a control caps a code
 # at, and the domain rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused
 # field's `kind` is one of Pydantic's own error types as often.
-MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS, FLTeamShorthandLength, Rule)
+MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *GRANT_BOUNDS, *CONSENT_BOUNDS, FLTeamShorthandLength, Rule)
 
 
 def with_mirrored_constants(document: Mapping[str, Any]) -> dict[str, Any]:
