@@ -1,11 +1,9 @@
 from collections.abc import Mapping
-from datetime import date, timedelta
 from typing import Any
 
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.services import latest_decision_due
 from app.api.registrierungen.services import (
     bestaetigung_loeschung_is_due,
     build_decline_filter,
@@ -144,17 +142,16 @@ class TestTheDeadlineClock:
         assert not bestaetigung_loeschung_is_due(registrierung_raw=registrierung(confirmation=None), today=TODAY)
 
 
-class TestTheOneMonthClock:
+class TestTheDeclineClock:
     @pytest.mark.parametrize(
         ("made_at", "due"),
         [
-            pytest.param("2026-03-02", False, id="a day short of the month"),
-            pytest.param("2026-03-01", True, id="the month, to the day"),
-            pytest.param("2026-02-15", True, id="past the month"),
-            pytest.param("2026-01-31", True, id="clamped to February, and past it"),
+            pytest.param("2026-03-19", False, id="a day short of the fourteen"),
+            pytest.param("2026-03-18", True, id="the fourteenth day"),
+            pytest.param("2026-02-15", True, id="past them"),
         ],
     )
-    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
+    def test_each_boundary_falls_fourteen_days_after_the_decision(self, made_at: str, due: bool):
         declined = registrierung(status="declined", decision={"made_at": made_at, "by": "admin", "reason": "kein Platz"})
 
         assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
@@ -215,37 +212,14 @@ class TestWhatEachClockReads:
             "confirmation.sent_at": {"$lte": THE_MARK},
         }
 
-    def test_the_decline_clock_reads_the_decisions_whose_month_is_behind_them(self):
-        """Narrowed to the due ones, so a page of decisions still inside their month cannot fill the read ahead of one that is due."""
+    def test_the_decline_clock_reads_the_decisions_whose_days_are_behind_them(self):
+        """Narrowed to the due ones, so a page of decisions still inside their days cannot fill the read ahead of one that is due."""
 
         assert CLOCK_FILTERS["decline"] == {
             "saison_id": SAISON_ID,
             "status": "declined",
-            "decision.made_at": {"$lte": "2026-03-01"},
+            "decision.made_at": {"$lte": "2026-03-18"},
         }
-
-    @pytest.mark.parametrize(
-        ("today", "latest"),
-        [
-            pytest.param("2026-04-01", "2026-03-01", id="a plain month"),
-            # The clamp a month counted back from today gets wrong: the 29th to the 31st of January are
-            # due on the 28th of February, which counting back lands on the 28th of January.
-            pytest.param("2026-02-28", "2026-01-31", id="the end of a short month"),
-            pytest.param("2028-02-29", "2028-01-31", id="the end of a leap February"),
-            pytest.param("2026-03-30", "2026-02-28", id="past a short month's end"),
-        ],
-    )
-    def test_the_last_decision_due_agrees_with_the_clock_at_every_month_end(self, today: str, latest: str):
-        """Both sides of the cutoff, judged by the clock's own predicate: the query and the predicate must take the same rows."""
-
-        def due(made_at: str) -> bool:
-            declined = {"status": "declined", "decision": {"made_at": made_at}}
-            return decline_loeschung_is_due(registrierung_raw=declined, today=today)
-
-        day_after = (date.fromisoformat(latest) + timedelta(days=1)).isoformat()
-
-        assert latest_decision_due(today=today) == latest
-        assert (due(latest), due(day_after)) == (True, False)
 
     @pytest.mark.parametrize("clock", sorted(CLOCK_FILTERS))
     def test_every_clock_reads_one_season(self, clock: str):

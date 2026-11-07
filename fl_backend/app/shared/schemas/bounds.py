@@ -54,6 +54,9 @@ BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays]
 # than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
 
+# A declined application or registration goes as an unconfirmed one does: the privacy notice states one figure for both.
+DECLINED_RETENTION_DAYS: Final = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
+
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
 # one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
 # ceiling all the same: an anonymous caller posts it.

@@ -114,8 +114,6 @@ class Code(StrEnum):
     BEWERBUNG_KONTAKT_REPEATED = auto()
     TRIKOT_FARBE_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
-    BEWERBUNG_ADDRESS_BARRED = auto()
-    BEWERBUNG_KONTAKT_BARRED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()
@@ -198,7 +196,6 @@ class Code(StrEnum):
     # Its own code beside `duplicate_key`, which words an administrator's duplicate ban: the name says
     # the flow that refuses rather than the collection consulted, and one rule keeps one code and one
     # German sentence.
-    REGISTRIERUNG_ADDRESS_BARRED = auto()
     REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()

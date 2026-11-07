@@ -38,7 +38,7 @@ export type RegistrierungFormDraft = {
  * What a link is once the backend has looked it up. `abgelaufen` and `ungueltig` render one wording:
  * telling them apart would tell a guessed link that a record once existed.
  */
-export type SpielerLinkZustand = "confirmed" | "expired" | "invalid" | "barred";
+export type SpielerLinkZustand = "confirmed" | "expired" | "invalid";
 
 export type SpielerBestaetigungAnsicht = { state: "valid"; ansicht: FLRegistrierungConfirmationViewResponse } | { state: SpielerLinkZustand };
 

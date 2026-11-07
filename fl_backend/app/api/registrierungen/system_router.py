@@ -26,9 +26,8 @@ from app.api.registrierungen.services import (
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db, redact_log_rows_in_db
+from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
-    ActionLogCollection,
     DBClient,
     OutboxCollection,
     RegistrierungenCollection,
@@ -38,17 +37,13 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.recording import log_stamp
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.recording import ACT_BY_SYSTEM, log_stamp, record_act
+from app.core.security import verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 
-# System tier and the system actor, as the application sweep's own router is: this pass holds no
-# session, so `bind_actor` would refuse it.
-router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/sweep",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
-)
+# System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=[Depends(verify_access_system)])
 
 _TEAM_UNBEKANNT = ""
 
@@ -69,7 +64,6 @@ async def sweep_registrierungen(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     teams_collection: TeamsCollection,
-    action_log_collection: ActionLogCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -78,7 +72,7 @@ async def sweep_registrierungen(
     """
     Run the four registration retention clocks over one season, as of today in Europe/Berlin.
 
-    A declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a
+    A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
     decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
     below do not run for a `past` season, whose own end takes every row they read.
 
@@ -86,7 +80,7 @@ async def sweep_registrierungen(
     named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
     `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
     inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
-    removal names this season alone, is made inside a transaction and takes its log rows with it.
+    removal names this season alone and is made inside a transaction.
 
     A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
     its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
@@ -102,8 +96,25 @@ async def sweep_registrierungen(
 
     stamp = log_stamp(germany_now)
 
+    async def erase_page(ids: list[Any], session: AsyncClientSession) -> int:
+        """One page of one clock gone, its one row in the page's transaction, so no deletion stands without its row."""
+
+        result = await erase_many_from_db(
+            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
+        )
+        await record_act(
+            collection=registrierungen_collection,
+            action="retention.registrierungen",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=result.deleted_count,
+            session=session,
+        )
+
+        return result.deleted_count
+
     async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
+        """The season's own end. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -129,17 +140,11 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
-        redacted = await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
-        )
 
-        return len(rows), result.deleted_count, redacted
+        return len(rows), await erase_page(ids, session), 0
 
     async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The deadline clock: erase, then redact. Read in-session, so a retry re-judges."""
+        """The deadline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -159,16 +164,8 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        # The filter names the season and the ids and nothing else: it is stored as text, and any
-        # other key would preserve what this call destroys.
-        result = await erase_many_from_db(
-            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
-        redacted = await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
-        )
 
-        return len(rows), result.deleted_count, redacted
+        return len(rows), await erase_page(ids, session), 0
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each reminder and owe its mail in one transaction, a share a pass. Read in-session, so a retry re-judges."""
@@ -237,7 +234,7 @@ async def sweep_registrierungen(
         return len(taken)
 
     async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The one-month clock: erase, then redact. Read in-session, so a retry re-judges."""
+        """The decline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -254,16 +251,10 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
-        redacted = await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
-        )
 
-        return len(rows), result.deleted_count, redacted
+        return len(rows), await erase_page(ids, session), 0
 
-    abgelehnte, redacted_declined, passed = await drain(
+    abgelehnte, _, passed = await drain(
         db=db,
         page_of=loeschen_declined,
         page=SWEEP_PAGE,
@@ -273,12 +264,11 @@ async def sweep_registrierungen(
     failed = len(passed)
 
     reminded_count = 0
-    ohne_entscheidung, redacted_undecided = 0, 0
-    unconfirmed, redacted_unconfirmed = 0, 0
+    ohne_entscheidung, unconfirmed = 0, 0
     # The season's end takes every row the two clocks in the other arm read, so a link minted
     # for one of them would be a credential nobody can spend.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, redacted_undecided, passed = await drain(
+        ohne_entscheidung, _, passed = await drain(
             db=db,
             page_of=loeschen_the_undecided,
             page=SWEEP_PAGE,
@@ -287,7 +277,7 @@ async def sweep_registrierungen(
         )
         failed += len(passed)
     else:
-        unconfirmed, redacted_unconfirmed, passed = await drain(
+        unconfirmed, _, passed = await drain(
             db=db,
             page_of=loeschen_the_unconfirmed,
             page=SWEEP_PAGE,
@@ -314,6 +304,5 @@ async def sweep_registrierungen(
         erased_unconfirmed=unconfirmed,
         erased_without_decision=ohne_entscheidung,
         erased_declined=abgelehnte,
-        redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,
         failed=failed,
     )

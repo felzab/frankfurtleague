@@ -13,9 +13,9 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 def same_address(identifier: str) -> Mapping[str, Any]:
     """A case-blind pre-filter, the sign-in fold deciding.
 
-    For a grant's rows and images alone, which an erasure and an address change's effect read: a grant is pasted through the
-    Playground, folded by the runbook's hand and checked folded only at a deploy's preflight, and a log image keeps the
-    spelling its grant had for the log's twelve months; every other record stores the fold its write made.
+    For a grant's rows alone, which an erasure and an address change's effect read: a grant is pasted through the Playground,
+    folded by the runbook's hand and checked folded only at a deploy's preflight; every other record stores the fold its
+    write made.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
@@ -77,8 +77,8 @@ def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
 def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, ...]:
     """Which of this row's slots name the asker, each stored address on the sign-in fold the identifier was taken on."""
 
-    # Every shape checked before it is read: a log image is whatever a row held when its write ran,
-    # and a person's Widerspruch must not answer 500 over an older one.
+    # Every shape checked before it is read: a block or a seat may stand emptied, and a person's Widerspruch must not
+    # answer 500 over one.
     kontakte = row.get("kontakte")
     seats = [kontakte.get(slot) for slot in KONTAKT_ROLLEN] if isinstance(kontakte, Mapping) else [None] * len(KONTAKT_ROLLEN)
     emails = [seat.get("email") if isinstance(seat, Mapping) else None for seat in seats]
@@ -150,7 +150,7 @@ def departing_names(rows: Iterable[Mapping[str, Any]], identifiers: Set[str]) ->
 
 
 def departing_slots(row: Mapping[str, Any], identifiers: Iterable[str], names: Set[PersonName] = frozenset()) -> tuple[str, ...]:
-    """The slots these people hold in one row or log image, by address on the fold and by any name handed in."""
+    """The slots these people hold in one row, by address on the fold and by any name handed in."""
 
     slots = {slot for identifier in identifiers for slot in find_matching_slots(row, identifier)}
 

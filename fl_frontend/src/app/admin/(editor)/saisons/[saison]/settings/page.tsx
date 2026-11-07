@@ -98,7 +98,6 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 /** A team's registration link as its row states it: the club gone, the press passing it over, or its link's state. */
 function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): Words {
   if (team?.austritt != null) return COPY.shared.austritt[team.austritt.type].state;
-  if (row.skipped === "kontakte_barred") return WORDS.addressBarred;
   if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
   if (!row.has_link) return WORDS.noLinkYet;
   return row.sent_at === null ? WORDS.linkNotSent : WORDS.linkSentOn(dayOf(row.sent_at));

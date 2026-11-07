@@ -327,7 +327,7 @@
   },
   "src/features/registrierungen/utils.ts": {
     "no-restricted-syntax": {
-      "count": 12
+      "count": 11
     }
   },
   "src/features/saisons/components/ui/SaisonChip.tsx": {

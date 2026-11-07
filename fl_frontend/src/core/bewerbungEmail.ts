@@ -89,13 +89,22 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+export function buildBewerbungAbsageEmail(
+  { team, saison_id, rollen, reason, deletion_days }: FLBewerbungAbsageData,
+  { origin }: MailOrigin,
+): Mail {
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
     origin: mailOrigin(origin),
     firstName: "",
-    paragraphs: [[[WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)], WORDS.absage.decision]],
+    paragraphs: [
+      [
+        [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
+        WORDS.absage.decision,
+        WORDS.absage.deletion(deletion_days),
+      ],
+    ],
     block: {
       title: WORDS.absage.title,
       facts: [
@@ -178,10 +187,7 @@ export function buildBewerbungReceivedEmail(
   };
 }
 
-/**
- * The one deletion notice, the application's arm where it names a season and the account's where it names none. A plain
- * stand-in on the catalogue's standing words: its own words, `SERVER_COPY.mail.deletion`, replace these with the mail lane.
- */
+/** The one deletion notice, the application's arm where it names a season and the account's where it names none. */
 export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
 
@@ -191,7 +197,7 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
       subjectLine: SERVER_COPY.accountErasure.done,
       origin: site,
       firstName: "",
-      paragraphs: [[COPY.account.erasure.description]],
+      paragraphs: [[SERVER_COPY.mail.deletion.account]],
     };
   }
 
@@ -200,7 +206,7 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
     subjectLine: WORDS.erasure.subject(saison_id),
     origin: site,
     firstName: "",
-    paragraphs: [[WORDS.erasure.lead, WORDS.erasure.deleted], [WORDS.erasure.again]],
+    paragraphs: [[SERVER_COPY.mail.deletion.bewerbung.lead(saison_id), SERVER_COPY.mail.deletion.bewerbung.deleted], [WORDS.erasure.again]],
     button: toBewerbung(site, saison_id),
   };
 }

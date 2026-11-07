@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
 from bson import ObjectId
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -43,6 +44,11 @@ UNVERSIONED = Collection.INVITATIONS
 
 # A stand-in for the caller's session, outside a transaction: what is proved is that the row travels inside whatever the caller passed.
 SESSION = cast(AsyncClientSession, SimpleNamespace(in_transaction=False))
+
+
+@pytest.fixture
+def an_administrator_bound() -> None:
+    """Overrides the suite's own: these cases read what a binder binds and what it leaves behind, so nothing is bound ahead of it."""
 
 
 class _FakeCollection:

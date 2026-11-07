@@ -10,9 +10,8 @@ from app.api.teams.schemas import FLKontaktSeatPayload, FLKontaktSeatResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document, saison_document, saison_team_document
+from tests.documents import kontaktperson_document, saison_document, saison_team_document
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
@@ -95,7 +94,6 @@ async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -280,16 +278,6 @@ class TestTheRefusals:
 
         assert answer == Code.VERSION_STALE
         assert row["kontakte"] == seated
-
-    def test_a_barred_address_is_refused_before_it_is_seated(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Code:
-            await database[Collection.BAN_LIST].insert_one(ban_document("lea@example.com", until="2030"))
-            with pytest.raises(APIError) as refusal:
-                await write_seat(database, "trainer", sent_person("Lea"))
-
-            return refusal.value.error_code
-
-        assert on_a_row(mongo_replica_set_url, body, kontakte=block()) == Code.KONTAKT_SEAT_BARRED
 
     def test_a_path_naming_no_seat_is_a_miss(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> None:

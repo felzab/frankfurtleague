@@ -17,8 +17,6 @@ from app.core.exceptions import APIError
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
-from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
@@ -106,12 +104,9 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        action_log_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
-        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
@@ -124,20 +119,16 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
     return found
 
 
-async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).sort("_id", 1).to_list(length=None)
-
-
 class TestAPairedDecline:
-    def test_both_slots_are_emptied_both_days_recorded_and_the_log_redacted_once(self, mongo_replica_set_url: str):
+    def test_both_slots_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
         """One person, two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await answer(database, client, RAW["ansprechperson"], answer="declined")
 
-            return response, await stored(database), await log_rows(database)
+            return response, await stored(database)
 
-        response, document, rows = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document()])
+        response, document = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document()])
 
         assert (document["kontakte"]["trainer"], document["kontakte"]["ansprechperson"]) == (None, None)
         assert document["confirmations"]["trainer"]["declined_at"] == TODAY
@@ -145,11 +136,6 @@ class TestAPairedDecline:
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
         assert response.ergebnis == "declined"
-        assert len(rows) == 1
-        image = rows[0]["before"]["kontakte"]
-        assert (image["trainer"], image["ansprechperson"], rows[0]["redacted_at"]) == (None, None, "2026-04-01T10:30:00+00:00")
-        # The third seat's person, who refused nothing, keeps their state in the log as on the application.
-        assert image["stellvertretung"] == document["kontakte"]["stellvertretung"]
 
     def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
@@ -189,10 +175,9 @@ class TestTheFloorIsThePersons:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW["trainer"], birth_date=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
-            return conflict.value.error_code, await stored(database), await log_rows(database)
+            return conflict.value.error_code, await stored(database)
 
-        code, document, rows = on_a_league(mongo_replica_set_url, body, documents=[paired])
+        code, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
         assert code == Code.CONFIRMATION_AGE
         assert document == paired
-        assert rows == []

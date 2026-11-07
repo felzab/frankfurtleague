@@ -57,7 +57,6 @@ const bewerbungPass = (saisonId: string, failed = 0) => ({
   erased_accepted: 0,
   erased_without_decision: 0,
   kontakt_blocks_emptied: 0,
-  redacted_action_log: 0,
   failed,
 });
 const registrierungPass = (saisonId: string, failed = 0) => ({
@@ -66,7 +65,6 @@ const registrierungPass = (saisonId: string, failed = 0) => ({
   erased_unconfirmed: 0,
   erased_without_decision: 0,
   erased_declined: 0,
-  redacted_action_log: 0,
   failed,
 });
 

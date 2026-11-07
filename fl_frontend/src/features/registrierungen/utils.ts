@@ -105,14 +105,6 @@ export function mapRegistrierungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
-    // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and
-    // the person it does concern already knows why.
-    case "registrierung_address_barred":
-      return {
-        fieldErrors: {
-          email: `Mit dieser E-Mail-Adresse ist keine Registrierung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
-        },
-      };
     default:
       return null;
   }
@@ -180,16 +172,11 @@ export async function mapBestaetigungRefusal(
       return { error: ANTWORT_NEU_OEFFNEN };
     case "link_invalid":
       return { state: "invalid" };
-    // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,
-    // or an address barred since, reads as a reload shows it.
+    // Judged ahead of a confirmation: a link confirmed in another window reads as a reload shows it.
     case "link_expired":
       return { state: await stand("expired") };
-    // Judged ahead of the ban, which the view ranks first.
     case "confirmation_exists":
       return { state: await stand("confirmed") };
-    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "link_barred":
-      return { state: "barred" };
     // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
     // a `state` here would swap a live form for a dead-link panel.
     case "confirmation_age": {
@@ -227,7 +214,7 @@ export const REGISTRIERUNG_SCHON_ENTSCHIEDEN = buildRefusal({
 
 /**
  * A refused admission as the registrations page words it to a seat holder, or `null` for a code the
- * person spine answers. **The ban's refusal is neutral**: a team is never told that a pupil's address is barred.
+ * person spine answers.
  */
 export function mapAufnahmeRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
@@ -241,8 +228,6 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
         reason: "Diese Registrierung ist noch nicht bestätigt",
         repair: "Nimm sie auf, sobald die Person ihren Link bestätigt hat",
       });
-    case "registrierung_address_barred":
-      return buildRefusal({ reason: "Diese Registrierung kann nicht aufgenommen werden", repair: "Wende Dich an die Liga" });
     case "registrierung_stufe_not_allowed":
       return buildRefusal({
         reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
