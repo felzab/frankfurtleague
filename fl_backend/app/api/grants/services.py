@@ -134,7 +134,7 @@ def compose_notice(
     effective_from: datetime | None = None,
     now: datetime,
 ) -> Notice:
-    """One notice; `changed_by` null is a pass completing it.
+    """One notice; `changed_by` null is a pass completing it, or a change whose actor no reader is told.
 
     The actor stored folded, the spelling a later erasure matches queued notices by.
     """
@@ -152,3 +152,16 @@ def compose_notice(
             "effective_from": effective_from,
         },
     )
+
+
+def compose_handover_end(grant: Mapping[str, Any], *, changed_by: str | None, now: datetime) -> list[Notice]:
+    """The withdrawal's notice of a handover a row's end takes with it, whose holders hold a date; none where none waits."""
+
+    if grant.get("owner_from") is None:
+        return []
+
+    return [
+        compose_notice(
+            grant_id=grant["_id"], change="handover", stage="withdrawn", address=str(grant["address"]), changed_by=changed_by, now=now
+        )
+    ]

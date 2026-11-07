@@ -2,13 +2,11 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from types import TracebackType
 from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import PyMongoError
 
 from app.api.action_log.crud import reattribute_administrator_in_session
 from app.api.address_change.crud import (
@@ -22,7 +20,7 @@ from app.api.address_change.services import build_owed_carry_filter
 from app.api.grants.crud import read_grants
 from app.api.grants.erasure import erase_grants_and_authorship_in_session
 from app.api.identity.lookup import RecordCollections
-from app.api.identity.schemas import FLErasure, FLErasureResponse, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
+from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
     EntryKind,
     awaits_confirmation,
@@ -71,14 +69,10 @@ from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_refer
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
-from app.core.db import warn_about_the_grants
-from app.core.journal import lost_its_answer, privacy_line
-from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
-from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLSaisonStatus
@@ -337,19 +331,32 @@ class Subject:
         return _read(self._grants, "grants")
 
     def records(self) -> list[str]:
-        """Each top-level record of the address as `collection/id`, in the full scope alone: what repeats its erasure after a restore."""
+        """Each record this address alone holds as `collection/id`, in the full scope alone: what repeats its erasure after a restore.
+
+        A seat's row holds up to three people and another address's change names a second one, so neither stands here.
+        """
 
         kinds: tuple[tuple[Collection, Rows], ...] = (
-            (Collection.SAISON_TEAMS, self.saison_teams),
-            (Collection.BEWERBUNGEN, self.bewerbungen),
             (Collection.SCHIEDSRICHTER, self.schiedsrichter),
             (Collection.SPIELER, self.spieler),
             (Collection.REGISTRIERUNGEN, self.registrierungen),
-            (Collection.ADDRESS_CHANGES, self.address_change),
+            (Collection.ADDRESS_CHANGES, [row for row in self.address_change if row["address"] == self.identifier]),
             (Collection.GRANTS, self.grants),
         )
 
         return [f"{collection}/{row['_id']}" for collection, rows in kinds for row in rows]
+
+    def seats(self) -> list[str]:
+        """Each slot the address sits in as `collection/id/slot`, in the full scope alone, so a restore's replay reads this person's address."""
+
+        kinds: tuple[tuple[Collection, Rows], ...] = ((Collection.SAISON_TEAMS, self.saison_teams), (Collection.BEWERBUNGEN, self.bewerbungen))
+
+        return [f"{collection}/{row['_id']}/{slot}" for collection, rows in kinds for row, slot in seats_naming(rows, self.identifier)]
+
+    def changes_naming_it(self) -> list[str]:
+        """Each other address's change whose new address this is, as `collection/id`."""
+
+        return [f"{Collection.ADDRESS_CHANGES}/{row['_id']}" for row in others_naming(self.address_change, self.identifier)]
 
 
 async def resolve_subject(
@@ -411,12 +418,12 @@ async def resolve_subject(
     )
 
 
-async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
+async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
     """Every mail to this folded address removed, owed or settled, every kind but those `ERASURE_SPARED_KINDS` names.
 
     A settled row's retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index
     serves the read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its
-    mail was owed.
+    mail was owed. Answers each as `collection/id`.
     """
 
     rows = await aggregate_many_from_db(
@@ -428,15 +435,30 @@ async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, iden
     if ids:
         await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
-    return len(ids)
+    return [f"{outbox_collection.name}/{row_id}" for row_id in ids]
+
+
+async def log_rows_naming(*, action_log_collection: ReadCollection, identifier: str, session: AsyncClientSession) -> list[str]:
+    """The log rows `reattribute_administrator_in_session` takes this folded address off, as `collection/id`, read ahead of it."""
+
+    rows = await aggregate_many_from_db(
+        collection=action_log_collection,
+        pipeline=[{"$match": {"$or": [{"by": identifier}, {"label": identifier}]}}, {"$project": {"_id": 1}}],
+        session=session,
+    )
+
+    return [f"{Collection.ACTION_LOG}/{row['_id']}" for row in rows]
 
 
 @dataclass(frozen=True)
 class Erasure:
-    """What one erasure took: the counts its route answers, and each top-level record for its line, empty in a narrower scope."""
+    """What one erasure took: the counts its route answers, and where the person stood for its line, by id, all empty in a narrower scope."""
 
     counts: FLErasure
     records: list[str]
+    seats: list[str]
+    # Every other row that named the address, so an address holding no record of its own still replays after a restore.
+    rows: list[str]
 
 
 @dataclass(frozen=True)
@@ -523,12 +545,12 @@ async def erase_everything(
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
-    # Whom the grant notice names as ending the person's grant: the person on their own request, the
-    # administrator on theirs.
-    changed_by: str,
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
+    # Whom the grant notice names as ending the person's grant: the person on their own request, the administrator on
+    # theirs. Read by the grants step alone, which the pupil scope never runs.
+    changed_by: str = ERASED_ACTOR_MARKER,
     # The person's own request, whose answer counts no change whose link has not reached this mailbox, as their preview
     # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
     # typed their address. Every change naming it ends all the same.
@@ -536,8 +558,8 @@ async def erase_everything(
 ) -> Erasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, so a retry after a conflict re-reads it. A request's route runs its transaction inside an
-    `ErasureJournal`, which writes the erasure's line once it commits.
+    The subject is read HERE, so a retry after a conflict re-reads it. A request's route notes the answer's `records`,
+    `seats` and `rows` in its `Journal`, which writes the erasure's line once it commits.
     """
 
     subject = await resolve_subject(
@@ -576,6 +598,7 @@ async def erase_everything(
     if _runs(end_the_address_changes_in_session, scope):
         address_change = await end_the_address_changes_in_session(
             address_changes_collection=address_changes_collection,
+            grants_collection=grants_collection,
             outbox_collection=outbox_collection,
             identifier=identifier,
             rows=subject.address_change,
@@ -649,26 +672,29 @@ async def erase_everything(
         )
 
     grants = 0
+    named: list[str] = []
     if _runs(erase_grants_and_authorship_in_session, scope):
-        grants = (
-            await erase_grants_and_authorship_in_session(
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                invitations_collection=invitations_collection,
-                ban_list_collection=ban_list_collection,
-                identifier=identifier,
-                changed_by=changed_by,
-                now=now,
-                session=session,
-            )
-        ).removed_grants
+        erased_grants = await erase_grants_and_authorship_in_session(
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            registrierungen_collection=registrierungen_collection,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            identifier=identifier,
+            address_changes_collection=address_changes_collection,
+            changed_by=changed_by,
+            now=now,
+            session=session,
+        )
+        grants = erased_grants.removed_grants
+        named += [*subject.changes_naming_it(), *erased_grants.rows]
 
     if _runs(erase_the_mails_in_session, scope):
-        await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
+        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
 
     if _runs(reattribute_administrator_in_session, scope):
+        named += await log_rows_naming(action_log_collection=action_log_collection, identifier=identifier, session=session)
         await reattribute_administrator_in_session(
             action_log_collection=action_log_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
         )
@@ -685,51 +711,10 @@ async def erase_everything(
             grants=grants,
         ),
         records=subject.records() if scope == EACH_PERSON_GROUP else [],
+        seats=subject.seats() if scope == EACH_PERSON_GROUP else [],
+        # One row twice where a withheld notice was also a mail to the address.
+        rows=list(dict.fromkeys(named)),
     )
-
-
-class ErasureJournal:
-    """Entered around a request's transaction block: the erasure's line and the warnings follow its commit.
-
-    Outside the block, whose abort a failure meets first; the callback hands each attempt's erasure to `took`, so a lost
-    answer still has the last attempt's records to name.
-    """
-
-    def __init__(self, *, grants_collection: AsyncCollection) -> None:
-        self._grants_collection = grants_collection
-        self._erasure: Erasure | None = None
-
-    async def __aenter__(self) -> ErasureJournal:
-        return self
-
-    def took(self, erasure: Erasure) -> FLErasureResponse:
-        """The attempt's erasure, answered as its route answers it."""
-
-        self._erasure = erasure
-
-        return FLErasureResponse(**erasure.counts.model_dump())
-
-    async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
-        # A lost answer writes its line too, never a refusal, which raises before any commit: the erasure may have landed.
-        if failure is not None and not lost_its_answer(failure):
-            return
-        if self._erasure is None:
-            raise RuntimeError("an erasure route left its journal without handing it the transaction's erasure")
-
-        privacy_line("erasure", self._erasure.records)
-        # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
-        # grant short: the ended grant's queued notice is what tells the other administrators. Unwarned on a
-        # lost answer: the warning's read would meet the deadline that lost the answer.
-        if failure is None and self._erasure.counts.grants:
-            await self._warn_about_the_grants()
-
-    async def _warn_about_the_grants(self) -> None:
-        # Logged, never raised: the erasure committed, and an error answered here, a read meeting the deadline
-        # say, keeps the person's sign-in account until they ask again.
-        try:
-            await warn_about_the_grants(self._grants_collection)
-        except PyMongoError as failure:
-            fl_logger.error("identity.grants_unchecked", extra={"error_code": Code.DATABASE_FAILED, "exception": type(failure).__name__})
 
 
 async def unreferenced_of(
@@ -906,8 +891,6 @@ async def erase_if_still_due(
         invitations_collection=invitations_collection,
         ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
-        # Read by the grants step alone, which this scope never runs.
-        changed_by=SYSTEM_ACTOR_EMAIL,
         now=now,
         session=session,
     )

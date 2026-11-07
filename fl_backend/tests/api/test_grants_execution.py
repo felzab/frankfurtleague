@@ -166,6 +166,7 @@ async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
         return await delete_grant(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
             revoked_by=als,
@@ -189,6 +190,7 @@ async def hand_over(
             grant_id=grant_id,
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             ban_list_collection=database[Collection.BAN_LIST],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             started_by=als,
@@ -203,6 +205,7 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
         return await delete_handover(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             stopped_by=als,
@@ -222,6 +225,7 @@ async def pass_at(
 ) -> int:
     answer = await post_handover_pass(
         grants_collection=grants if grants is not None else database[Collection.GRANTS],
+        address_changes_collection=database[Collection.ADDRESS_CHANGES],
         outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
         db=client,
         now=now,
@@ -304,7 +308,6 @@ class TestAnAddition:
             "admin_tier": "administration",
             "granted_by": OWNER,
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
-            "version": 0,
         }
         assert notices == [("granted", "started", NEU, OWNER, sorted([*EVERY_HOLDER, NEU]))]
 
@@ -366,6 +369,7 @@ class TestAnAddition:
                     [notice],
                     outbox_collection=database[Collection.OUTBOX],
                     grants_collection=database[Collection.GRANTS],
+                    address_changes_collection=database[Collection.ADDRESS_CHANGES],
                     now=NOW,
                     session=session,
                 )
@@ -377,6 +381,17 @@ class TestAnAddition:
             return await database[Collection.OUTBOX].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body) == len(EVERY_HOLDER)
+
+    def test_an_addition_that_aborts_at_its_notice_leaves_neither(self, mongo_replica_set_url: str):
+        """A row written outside the transaction would stand with nobody told, and telling the holders is what the wait is for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            with pytest.raises(RuntimeError):
+                await add(database, client, outbox=cast(AsyncCollection, Aborting(database[Collection.OUTBOX], "insert_many")))
+
+            return await database[Collection.GRANTS].count_documents({"address": NEU}), await database[Collection.OUTBOX].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (0, 0)
 
 
 class TestAWaitCountsHours:
@@ -440,6 +455,21 @@ class TestARemoval:
 
         assert notices == [("granted", "withdrawn", NEU, OWNER, sorted([*EVERY_HOLDER, NEU]))]
         assert logged == 1
+
+    def test_a_handover_waiting_on_the_row_is_withdrawn_in_words(self, mongo_replica_set_url: str):
+        """The holders hold a date for the handover, and a removal's own mail says nothing of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await hand_over(database, client)
+            await database[Collection.OUTBOX].delete_many({})
+            await remove(database, client, ANNA_ID)
+
+            return await owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            ("revoked", "completed", ANNA, OWNER, EVERY_HOLDER),
+            ("handover", "withdrawn", ANNA, OWNER, EVERY_HOLDER),
+        ]
 
     def test_the_owners_row_goes_by_no_removal(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -628,6 +658,18 @@ class TestTheAnchorClosesEachRace:
             return racing.rival_outcome, outcome, await addresses(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.GRANT_BARRED, EVERY_HOLDER)
+
+    def test_an_addition_landing_beside_a_ban_of_its_address_refuses_the_ban(self, mongo_replica_set_url: str):
+        """The ban's retry judges again inside its callback: judged once outside it, the address ends up both banned and added."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], lambda: add(database, client))
+            outcome = await outcome_of(ban(database, client, grants=racing))
+            racing.assert_landed_inside(serially=1)
+
+            return racing.rival_outcome, outcome, await database[Collection.BAN_LIST].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.BAN_LIST_ADMIN, 0)
 
 
 class TestAMove:

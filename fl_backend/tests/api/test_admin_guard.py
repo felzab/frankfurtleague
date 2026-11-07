@@ -348,6 +348,9 @@ def test_a_system_write_is_system_tier(path: str, method: str):
     assert (path, method) in ROUTES_BY_OPERATION, f"{method.upper()} {path} is not mounted -- SYSTEM_WRITES names a route that moved"
 
     assert guards_of(ROUTES_BY_OPERATION[(path, method)]) == {verify_access_system}, f"{method.upper()} {path} is not system-tier"
+    # The pass holds no session: the binder would refuse it every hour, and the wrong keys would stay refused.
+    calls = [dependency.call for dependency in ROUTES_BY_OPERATION[(path, method)].dependant.dependencies]
+    assert bind_actor not in calls, f"{method.upper()} {path} refuses the pass it serves"
 
 
 @pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)

@@ -1,0 +1,56 @@
+from datetime import UTC, datetime
+from typing import Any
+
+import pytest
+from bson import ObjectId
+
+from app.api.action_log.schemas import FLActionLogFilterParams
+from app.api.action_log.services import build_action_log_query
+
+CURSOR = ObjectId("6890a1b2c3d4e5f607600001")
+
+# Escaped, so a typed bracket finds a bracket: left raw it is a group that matches rows it should not, or a pattern the server refuses.
+ADLER_U17: dict[str, Any] = {"$regex": r"Adler\ \(U17\)", "$options": "i"}
+
+
+def utc(month: int, day: int, hour: int) -> datetime:
+    return datetime(2026, month, day, hour, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("filters", "query"),
+    [
+        pytest.param(
+            {"from_day": "2026-07-01", "until_day": "2026-07-01"},
+            {"at": {"$gte": utc(6, 30, 22), "$lt": utc(7, 1, 22)}},
+            id="a summer day, two hours ahead of UTC",
+        ),
+        pytest.param(
+            {"from_day": "2026-01-15", "until_day": "2026-01-15"},
+            {"at": {"$gte": utc(1, 14, 23), "$lt": utc(1, 15, 23)}},
+            id="a winter day, one hour ahead",
+        ),
+        pytest.param(
+            {"from_day": "2026-03-29", "until_day": "2026-03-29"},
+            {"at": {"$gte": utc(3, 28, 23), "$lt": utc(3, 29, 22)}},
+            id="the day the clock moves, 23 hours long",
+        ),
+        pytest.param(
+            {"q": " Adler (U17) "},
+            {"$or": [{"team": ADLER_U17}, {"label": ADLER_U17}]},
+            id="a metacharacter in the search",
+        ),
+        pytest.param({"q": "   "}, {}, id="a blank search, which is none"),
+        pytest.param(
+            {"type": ["ban", "address_change"]},
+            {"action": {"$in": ["ban.added", "ban.removed", "address_change.started", "address_change.discarded"]}},
+            id="the type's expansion",
+        ),
+        pytest.param({"cursor": str(CURSOR)}, {"_id": {"$lt": CURSOR}}, id="the cursor"),
+        pytest.param({"by": "kontakt"}, {"by": "kontakt"}, id="who, an equality"),
+    ],
+)
+def test_a_filter_compiles_to_what_the_store_compares(filters: dict[str, Any], query: dict[str, Any]):
+    """A wrong term hides rows and nothing fails: the page reads as a shorter log."""
+
+    assert build_action_log_query(FLActionLogFilterParams.model_validate(filters)) == query

@@ -344,7 +344,7 @@ export const getAddressChangeGetAddressChangesUrl = () => {
 };
 
 /**
- * Answer every running change, newest first: its two addresses, its way and the step it waits on.
+ * Answer every running change, newest first: its two addresses and the step it waits on.
  *
  * ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
  * their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
@@ -546,8 +546,9 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 /**
  * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
- * **Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new
- * mailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,
+ * **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
+ * it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
+ * A POST that reads,
  * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
  * links answer `ended`, how it ended and on which day, for as long as its record is kept.
  *
@@ -555,8 +556,8 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
  * the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
- * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
- * and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+ * the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
+ * `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
  * never whether the new mailbox could confirm, and the day it confirmed once it has.
  * @summary What one address link opens
  */
@@ -595,11 +596,12 @@ export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSwee
  *
  * **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
  * its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
- * again as its confirmation was: another pupil signing in on the new address, a grant at it, or nothing left to move
- * ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take effect and never
- * why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts it, its
- * completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
- * this answer.
+ * again as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or
+ * nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
+ * effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
+ * it, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an
+ * application nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is
+ * owed in the Postausgang in its change's own transaction, so none rides on this answer.
  *
  * A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
  * its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
@@ -733,10 +735,9 @@ export const getBanListGetBanListEntriesUrl = () => {
 };
 
 /**
- * List the bans, newest first: the address, why, by whom, on which day and the last season covered, with how many the list holds.
+ * List every ban, newest first: the address, why, on which day and the last season covered.
  *
- * **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the
- * rows served, bans are enforced that this answer does not show, and a ban nobody can see is one nobody can lift.
+ * Read whole: the list holds few rows, and a ban left out is one nobody can lift.
  * @summary List the banned addresses
  */
 export const banListGetBanListEntries = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBanListResponse> => {
@@ -756,7 +757,7 @@ export const getBanListPostBanListEntryUrl = () => {
  * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
  * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
  * a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
- * fifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives
+ * fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
  * that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
  *
  * `ban_reason` is served, mailed to the address and kept past that person's erasure.
@@ -1221,7 +1222,7 @@ export const getGrantsGetGrantsUrl = () => {
 };
 
 /**
- * List every grant by address: its tier, who granted it, when it holds, and when a handover to it completes.
+ * List every grant by address: its tier, when it holds, and when a handover to it completes.
  *
  * Uncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
  * @summary List who may enter the administration
@@ -1297,7 +1298,9 @@ export const getGrantsDeleteGrantUrl = (grantId: string) => {
  *
  * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
  * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
- * and a handover waiting on the row ends with it. Every holder in effect and the person named are told in the same transaction.
+ * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
+ * transaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a
+ * change of an address holding no grant.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
 export const grantsDeleteGrant = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGrantWriteResponse> => {
@@ -1314,8 +1317,8 @@ export const getGrantsDeleteHandoverUrl = (grantId: string) => {
 /**
  * Stop a waiting handover, the role staying with the owner.
  *
- * Only the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.
- * Every holder in effect is told in the same transaction.
+ * Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
+ * no handover. Every holder in effect is told in the same transaction.
  * @summary Stop a waiting handover
  */
 export const grantsDeleteHandover = async (
@@ -1693,7 +1696,8 @@ export const getOutboxPostHandoutUrl = () => {
  * Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
  *
  * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
- * is given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as
+ * is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
+ * hold every claim until its deadline. A mail to an address a ban holds is stopped as
  * `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
  * the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
  * holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is

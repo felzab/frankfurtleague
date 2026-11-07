@@ -1,9 +1,9 @@
 // SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
 // Three seasons, ten clubs, five venues, four referees the fixtures book and the journeys' own people, an
-// owner and four administrators, every one of them invented, so no machine needs production's personal
+// owner and the administrators, every one of them invented, so no machine needs production's personal
 // data to show a page in each of its states. The states are the ones the Spielplan, the sign-in, the
-// match editor, the Spielorte table and the applications, teams and players pages draw:
+// match editor, the Spielorte table, the applications, teams and players pages and the access pages draw:
 //
 // - a finished season: every fixture played, the match for third place among them, the final decided on
 //   penalties;
@@ -17,7 +17,8 @@
 //   referees, every one with the address both referee payloads require, one retired and one unanswered;
 // - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the
 //   Übersicht for „Übernehmen“ and „Verwerfen“;
-// - an owner and four administrators;
+// - an owner and administrators in effect, an addition and a handover waiting, since a wait cannot be slept through;
+// - a ban, a running change of a person's address and of a holder's, and a log row of each who;
 // - a retired club, and clubs still in the league the planned season has not entered.
 //
 // Every journey that writes signs in as a person no other journey signs in as, since one journey's
@@ -25,9 +26,10 @@
 // end-to-end project (`fl_frontend/playwright.config.ts`), the third the desktop journey's whose save
 // meets the proxy signed out (`fl_frontend/e2e/desktop/signedOutSave.spec.ts`), and the fourth the
 // administration's journeys' one session, set up once (`fl_frontend/e2e/support/administrator.setup.ts`): each sets up
-// its own passkey, which no other journey could then answer. The referees `journeyPerson` writes, each one
-// journey's, are the account acts' three per project and the desktop passkey journeys' two. The owner's
-// code is asked for and never typed (`fl_frontend/e2e/signin.spec.ts`).
+// its own passkey, which no other journey could then answer. The owner is `fl_frontend/e2e/desktop/owner.spec.ts`'s
+// alone, and `banned.spec.ts` and `access.spec.ts` beside it hold an administrator each. The referees `journeyPerson`
+// writes, each one journey's, are the account acts' three per project, the desktop passkey journeys' two and the
+// access journeys' own.
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
@@ -219,15 +221,23 @@ const REFEREES = [
   // The desktop passkey journeys' (`fl_frontend/e2e/desktop/accountPasskeys.spec.ts`), one each.
   journeyPerson("Emil Ernst", "emil.ernst@example.com"),
   journeyPerson("Jana Jansen", "jana.jansen@example.com"),
+  // The access journeys' (`fl_frontend/e2e/desktop/banned.spec.ts`, `access.spec.ts`): the person banned, the one whose
+  // address the administrator's change starts on, the one erased, and the one whose change stands on the list.
+  journeyPerson("Paula Paul", "paula.paul@example.com"),
+  journeyPerson("Marta Moos", "marta.moos@example.com"),
+  journeyPerson("Olga Ott", "olga.ott@example.com"),
+  journeyPerson("Nina Noll", "nina.noll@example.com"),
 ];
 
 // --- Grants --------------------------------------------------------------------------------------
 
 // Each row as `fl_backend/app/api/grants/crud.py :: grant_in_session` leaves it, the one owner and the administrators in
-// effect a day ago, so every session signed in since holds its grant, and one addition still waiting.
+// effect a day ago, so every session signed in since holds its grant, and one addition still waiting. The handover's
+// wait outlasts any run, or the scheduler's first pass would take the owner's role from under the owner's journey.
 // Folded as the sign-in folds an address, or the grant admits nobody (`docs/ops/runbooks.md` §3).
 const IN_EFFECT = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const WAITING = new Date(Date.now() + 12 * 60 * 60 * 1000);
+const HANDOVER_WAITING = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000);
 const GRANTS = [
   ["inhaber@example.com", "owner", IN_EFFECT],
   ["admin.desktop@example.com", "administration", IN_EFFECT],
@@ -235,12 +245,19 @@ const GRANTS = [
   ["admin.editor@example.com", "administration", IN_EFFECT],
   ["admin@example.com", "administration", IN_EFFECT],
   ["admin.wartet@example.com", "administration", WAITING],
-].map(([address, admin_tier, effective_from]) => ({
+  ["admin.nachfolge@example.com", "administration", IN_EFFECT, HANDOVER_WAITING],
+  // The holder whose own address change waits (`HOLDER_CHANGE`).
+  ["admin.umzug@example.com", "administration", IN_EFFECT],
+  ["admin.sperre@example.com", "administration", IN_EFFECT],
+  ["admin.zugang@example.com", "administration", IN_EFFECT],
+].map(([address, admin_tier, effective_from, owner_from]) => ({
   _id: ObjectId(),
   address,
   admin_tier,
   granted_by: "MADE-UP-SEED",
   effective_from,
+  // Stored only while a handover waits.
+  ...(owner_from === undefined ? {} : { owner_from }),
 }));
 
 // --- Seasons -------------------------------------------------------------------------------------
@@ -497,12 +514,12 @@ running.saison.registrierung = { open: true, end: day(-36) };
 let seatedPeople = 0;
 
 /** A person as the form or the league seats them, nobody having answered (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`). */
-function seated(firstName, lastName, enteredOn, enteredBy, email = `${firstName}.${lastName}@example.com`.toLowerCase()) {
+function seated(firstName, lastName, enteredOn, enteredBy) {
   seatedPeople += 1;
   return {
     first_name: firstName,
     last_name: lastName,
-    email,
+    email: `${firstName}.${lastName}@example.com`.toLowerCase(),
     phone: `+49 170 ${2000000 + seatedPeople}`,
     birth_date: null,
     einwilligung: { scope: "kontakt_data", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
@@ -544,8 +561,8 @@ function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn =
 
 // Each state a seat stands in, as the pair of its slot and its entry, built from the `mail` `seats` hands it.
 const openSeat =
-  (firstName, lastName, { remindedOn, email } = {}) =>
-  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy, email), seatLink(mail, { remindedOn })];
+  (firstName, lastName, { remindedOn } = {}) =>
+  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy), seatLink(mail, { remindedOn })];
 const confirmedSeat = (firstName, lastName) => (mail) => [
   confirmedPerson(seated(firstName, lastName, mail.sentOn, mail.enteredBy), mail.sentOn + 1),
   seatLink(mail),
@@ -725,6 +742,8 @@ const AHORN_SQUAD = [
 ].map(([firstName, lastName]) => pupil(firstName, lastName));
 const NOMINEE = pupil("Karl", "Quast");
 const RETIRED_NOMINEE = pupil("Rosa", "Reiter");
+// In no squad of the finished season or a later one: the scheduler's first pass erases them, J4's season-after deletion.
+const SEASON_AFTER_PUPIL = pupil("Till", "Thalberg");
 
 const SQUADS = [
   squadRow(PUPILS.mia, "Ahorn", "9"),
@@ -985,8 +1004,8 @@ const APPLICATIONS = [
     },
   }),
   BOUNCED,
-  // Past its deadline: the first pass, a minute after the frontend starts, erases it and mails the Ansprechperson, the
-  // one deletion a journey can read.
+  // Past its deadline: the first pass, a minute after the frontend starts, erases it and tells the Trainerin, the one
+  // seat that confirmed, the one deletion a journey can read.
   application({
     school: clubRow("Lärche", 6),
     owner: "laerche",
@@ -994,7 +1013,7 @@ const APPLICATIONS = [
     wunschfarbe: "braun",
     states: {
       trainer: confirmedSeat("Lea", "Lehmann"),
-      ansprechperson: openSeat("Lutz", "Lehmann", { remindedOn: -13, email: "ansprechperson.laerche@example.com" }),
+      ansprechperson: openSeat("Lutz", "Lehmann", { remindedOn: -13 }),
       stellvertretung: openSeat("Lisa", "Lehmann", { remindedOn: -13 }),
     },
   }),
@@ -1067,6 +1086,71 @@ const PLANNED_ROWS = [
   ),
 ];
 
+// --- Bans, address changes and the log -----------------------------------------------------------
+
+const BANS = [
+  {
+    _id: ObjectId(),
+    address: "gesperrt@example.com",
+    ban_reason: "Beleidigungen am Spielfeldrand",
+    created_by: "inhaber@example.com",
+    created_at: day(-30),
+    barred_until_saison_id: "2031",
+  },
+];
+
+/** A running change, as `fl_backend/app/api/address_change/services.py :: compose_record` writes one. */
+const addressChange = (address, way, label, step) => ({
+  _id: ObjectId(),
+  address,
+  email: address.replace("@", ".neu@"),
+  way,
+  token_hashes: [linkHash(`${label}-new`)],
+  stop: { token_hashes: [linkHash(`${label}-stop`)] },
+  sent_at: day(-1),
+  valid_until: null,
+  released_at: null,
+  change_reason: null,
+  confirmed_at: null,
+  effective_from: null,
+  ended: null,
+  ...step,
+});
+
+// Its wait outlasts any run, as a handover's does: the hourly pass switches an address whose date has passed.
+const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "umzug", {
+  released_at: IN_EFFECT,
+  confirmed_at: IN_EFFECT,
+  effective_from: WAITING,
+});
+
+const ADDRESS_CHANGES = [
+  addressChange("nina.noll@example.com", "waiting_period", "noll", { valid_until: WAITING, change_reason: "Postfach verloren" }),
+  HOLDER_CHANGE,
+];
+
+/** One act as `fl_backend/app/core/recording.py :: record_act` writes it, `hoursAgo` before the seed. */
+const logged = (hoursAgo, by, action, { team = null, label = null, count = null } = {}) => ({
+  _id: ObjectId(),
+  at: new Date(Date.now() - hoursAgo * 60 * 60 * 1000),
+  by,
+  team,
+  action,
+  record_id: null,
+  label,
+  count,
+  trace_id: "made-up",
+});
+
+// One row of each who: an administrator's folded address, a team's representative, a referee, a pass, a person.
+const ACTION_LOG = [
+  logged(50, "person", "erasure.own"),
+  logged(40, "system", "retention.kontakte", { label: "2026", count: 2 }),
+  logged(30, "schiedsrichter", "spielbericht.saved", { label: "Birke vs. Linde" }),
+  logged(20, "kontakt", "spielbestaetigung.answered", { team: "Birke", label: "Birke vs. Linde" }),
+  logged(10, "inhaber@example.com", "grant.added", { label: "admin.wartet@example.com" }),
+];
+
 // --- Writing it ----------------------------------------------------------------------------------
 
 const DOCUMENTS = {
@@ -1078,7 +1162,7 @@ const DOCUMENTS = {
   saison_teams: [...finished.saisonTeams, ...running.saisonTeams, ...PLANNED_ROWS],
   spieltage: [...finished.spieltage, ...running.spieltage],
   spiele: [...finished.spiele, ...running.spiele],
-  spieler: [GHOST_SPIELER, ...Object.values(PUPILS), ...AHORN_SQUAD, NOMINEE, RETIRED_NOMINEE],
+  spieler: [GHOST_SPIELER, ...Object.values(PUPILS), ...AHORN_SQUAD, NOMINEE, RETIRED_NOMINEE, SEASON_AFTER_PUPIL],
   saison_spieler: SQUADS,
   spielberichte: REPORTS,
   bewerbungen: APPLICATIONS,
@@ -1095,15 +1179,15 @@ for (const name of db.getCollectionNames()) {
 // Ordered: an insert a unique index refuses throws with the server's own account of the key, and
 // mongosh exits non-zero on it; the read-back after the seed judges every document's shape. Each
 // document carries the `version: 0` the backend's create stamps:
-// every collection seeded here is in `fl_backend/app/core/collections.py :: EDITED_COLLECTIONS`, whose
-// saves match on the version their editor was served, and none matches a document without one.
+// every collection seeded here but `grants` is in `fl_backend/app/core/collections.py :: EDITED_COLLECTIONS`,
+// whose saves match on the version their editor was served, and none matches a document without one.
 // The first of each collection `fl_backend/app/core/crud.py :: anchor_in_db` writes carries the count an
 // anchor advances, as a document of the league's soon does, so the read-back judges that its record model declares it.
 const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "grants", "saisons", "saison_teams"]);
 for (const [name, documents] of Object.entries(DOCUMENTS)) {
   const versioned = documents.map((document, index) => ({
     ...document,
-    version: 0,
+    ...(name === "grants" ? {} : { version: 0 }),
     ...(ANCHORED.has(name) && index === 0 ? { bounded_writes: 1 } : {}),
   }));
   const inserted = db.getCollection(name).insertMany(versioned, { ordered: true }).insertedIds;
@@ -1116,6 +1200,9 @@ const UNEDITED = {
   invitations: Object.values(INVITATIONS),
   registrierungen: REGISTRATIONS,
   outbox: SETTLED_MAILS,
+  ban_list: BANS,
+  address_changes: ADDRESS_CHANGES,
+  action_log: ACTION_LOG,
 };
 for (const [name, documents] of Object.entries(UNEDITED)) {
   const inserted = db.getCollection(name).insertMany(documents, { ordered: true }).insertedIds;
