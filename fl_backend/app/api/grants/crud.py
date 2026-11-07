@@ -14,7 +14,6 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.address_change.services import build_addresses_filter
 from app.api.grants.services import ADMINISTRATION, OWNER, Notice, compose_handover_end, compose_notice, in_effect
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -92,46 +91,25 @@ def _named_recipients(data: FLGrantData) -> set[str]:
     return {data.address}
 
 
-async def _read_lost_mailboxes(
-    addresses: Sequence[str], *, address_changes_collection: ReadCollection, session: AsyncClientSession
-) -> set[str]:
-    """Which of these folded addresses a lost-mailbox change stands on: each may have passed to a stranger."""
-
-    rows = await aggregate_many_from_db(
-        collection=address_changes_collection,
-        pipeline=[{"$match": {**build_addresses_filter(list(addresses)), "way": "waiting_period"}}, {"$project": {"address": 1}}],
-        session=session,
-    )
-
-    return {str(row["address"]) for row in rows}
-
-
 async def owe_in_session(
     notices: Sequence[Notice],
     *,
     outbox_collection: AsyncCollection,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     now: datetime,
     session: AsyncClientSession,
-    # An address these notices owe nothing though its change has just ended, in this transaction.
-    passing_over: Sequence[str] = (),
 ) -> None:
     """Owe each notice, in the caller's transaction, to every holder in effect and to the address it names, one row apiece.
 
     The starter is among them: on a hijacked session the mail is how its owner learns of it. The holders are read after the
     caller's write, on its session, so a removed one is told only as the address named. A barred recipient is stopped at the
-    hand-out, not here (`app/api/outbox/system_router.py :: post_handout`). An address a lost-mailbox change stands on is told
-    nothing: these mails name people, and it hears only through that change's own notice and `address_change_effective`.
+    hand-out, not here (`app/api/outbox/system_router.py :: post_handout`).
     """
 
     if not notices:
         return
     grants = await read_grants(grants_collection=grants_collection, session=session)
     holders = {str(row["address"]) for row in grants if in_effect(row, now)}
-    named = {address for notice in notices for address in _named_recipients(FLGrantData.model_validate(notice.data))}
-    addresses = sorted(holders | named)
-    silent = {*passing_over, *await _read_lost_mailboxes(addresses, address_changes_collection=address_changes_collection, session=session)}
 
     mails: list[OwedMail] = []
     for notice in notices:
@@ -144,7 +122,7 @@ async def owe_in_session(
                 data=data,
                 reference=None,
             )
-            for address in sorted((holders | _named_recipients(data)) - silent)
+            for address in sorted(holders | _named_recipients(data))
         )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
@@ -154,7 +132,6 @@ async def grant_in_session(
     address: str,
     granted_by: str,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -190,7 +167,6 @@ async def grant_in_session(
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )
@@ -225,7 +201,6 @@ async def revoke_in_session(
     *,
     grant: Mapping[str, Any],
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -257,7 +232,6 @@ async def revoke_in_session(
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )
@@ -267,7 +241,6 @@ async def start_the_handover_in_session(
     grant: Mapping[str, Any],
     *,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -298,7 +271,6 @@ async def start_the_handover_in_session(
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )
@@ -308,7 +280,6 @@ async def stop_the_handover_in_session(
     grant: Mapping[str, Any],
     *,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -332,7 +303,6 @@ async def stop_the_handover_in_session(
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )
@@ -342,7 +312,6 @@ async def complete_the_handover_in_session(
     grant: Mapping[str, Any],
     *,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -378,7 +347,6 @@ async def complete_the_handover_in_session(
         [compose_notice(grant_id=grant["_id"], change="handover", stage="completed", address=str(grant["address"]))],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )

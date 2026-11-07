@@ -211,7 +211,6 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier
     async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
         return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
-            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],

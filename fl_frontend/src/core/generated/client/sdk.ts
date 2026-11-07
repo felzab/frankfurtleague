@@ -1314,7 +1314,7 @@ export const getGrantsDeleteGrantUrl = (grantId: string) => {
  * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
  * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
  * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
- * transaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a
+ * transaction. An address change standing on the row is left to run, as a
  * change of an address holding no grant.
  * @summary Remove an administrator, or withdraw a waiting addition
  */

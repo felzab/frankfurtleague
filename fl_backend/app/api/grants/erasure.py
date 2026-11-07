@@ -18,7 +18,6 @@ from app.api.grants.crud import owe_in_session, pull_the_list_to_judge
 from app.api.grants.services import compose_handover_end, compose_notice
 from app.api.kontakte.services import same_address
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db
-from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
@@ -103,7 +102,6 @@ async def _set_authored(collection: AsyncCollection, field: str, identifier: str
 async def erase_grants_and_authorship_in_session(
     *,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
@@ -147,7 +145,6 @@ async def erase_grants_and_authorship_in_session(
         notices,
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )

@@ -440,11 +440,12 @@ async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, iden
     """Every mail to this folded address removed, owed or settled, and every grant notice about it still owed.
 
     Every kind but those `ERASURE_SPARED_KINDS` names. A settled row's retention bounds a row nobody erases; no reader serves
-    an erased person's delivery history. No index serves the read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its
-    mail was owed. A notice stores a change's new address masked, so it is matched as masked: a completed change's old
-    address was this person's own, which the fold cannot find, and another person's mask reading alike costs that notice.
-    Answers each field naming the address in full as `collection/id/path`. A row matched by a mask alone stands on no line:
-    a mask fits many people, so that row names nobody a replay could read off it.
+    an erased person's delivery history. No index serves the read, the collection holding a month of mail. Matched on the
+    sign-in fold, a recipient being stored as its mail was owed. A notice stores a change's new address masked, so it is
+    matched as masked: a completed change's old address was this person's own, which the fold cannot find, and another
+    person's mask reading alike costs that notice. Answers each field naming the address in full as `collection/id/path`. A
+    row matched by a mask alone stands on no line: a mask fits many people, so that row names nobody a replay could read
+    off it.
     """
 
     mask = masked_address(identifier)
@@ -707,7 +708,6 @@ async def erase_everything(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             identifier=identifier,
-            address_changes_collection=address_changes_collection,
             now=now,
             session=session,
         )

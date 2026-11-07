@@ -278,7 +278,6 @@ async def delete_address_change(
         await tell_the_holders_of_the_end_in_session(
             stopped,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

@@ -20322,7 +20322,7 @@
     },
     "/api/v0/grants/{grant_id}": {
       "delete": {
-        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
+        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
         "operationId": "grants_delete_grant",
         "parameters": [
           {

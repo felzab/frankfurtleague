@@ -267,12 +267,10 @@ async def start_the_change_in_session(
     # Two starts on one address meet at `uniq_address_change_address` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=address_changes_collection, document=record, session=session)
 
-    # After the insert, so a lost-mailbox row already silences the mailbox it declares lost.
     if ended is not None:
         await tell_the_holders_of_the_end_in_session(
             ended,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -417,7 +415,6 @@ async def tell_the_holders_in_session(
     stage: FLGrantNoticeStage,
     effective_from: datetime | None,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -427,11 +424,8 @@ async def tell_the_holders_in_session(
     """Tell every holder in effect of a holder's change, in the caller's transaction, `record` as it stood.
 
     The new address masked: it is the holder's private mailbox, and the readers need to recognise it, never to write to it.
-    A lost-mailbox change passes over its old address, ended or not: whoever holds that mailbox now may be a stranger, and these
-    mails name people.
     """
 
-    lost_mailbox = record["way"] == "waiting_period"
     notice = compose_notice(
         grant_id=record["_id"],
         change="address",
@@ -444,10 +438,8 @@ async def tell_the_holders_in_session(
         [notice],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
-        passing_over=[str(record["address"])] if lost_mailbox else [],
     )
 
 
@@ -455,7 +447,6 @@ async def tell_the_holders_of_the_end_in_session(
     record: Mapping[str, Any],
     *,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -473,7 +464,6 @@ async def tell_the_holders_of_the_end_in_session(
         stage="withdrawn",
         effective_from=None,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         outbox_collection=outbox_collection,
         now=now,
         session=session,
@@ -701,7 +691,6 @@ async def move_the_address_in_session(
             stage="completed",
             effective_from=None,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -820,7 +809,6 @@ async def end_the_address_changes_in_session(
         await tell_the_holders_of_the_end_in_session(
             row,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,

@@ -26,9 +26,7 @@ from app.api.address_change.services import (
 )
 from app.api.address_change.system_router import get_address_change_address
 from app.api.grants.admin_router import post_grant
-from app.api.grants.crud import owe_in_session
 from app.api.grants.schemas import FLPostGrantPayload
-from app.api.grants.services import compose_notice
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
@@ -1062,54 +1060,6 @@ class TestAHoldersOwnChange:
             return [notice for notice in await told(database) if notice[0] == "withdrawn"]
 
         assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None, None) for address in sorted(recipients)]
-
-    @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link", "a lost-mailbox start replacing a waiting change"])
-    def test_a_lost_mailbox_hears_nothing_of_any_holder_notice(self, mongo_replica_set_url: str, ended_by: str):
-        """That mailbox may be a stranger's, and these mails carry every grantee's address."""
-
-        replacing = ended_by.startswith("a lost-mailbox start")
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
-            if replacing:
-                own = await start(database, client)
-                await answer(database, client, own.token)
-                await database[Collection.OUTBOX].delete_many({"kind": "grant"})
-                minted = await administrator_starts(database, client, operator=OWNER, email="lenore.ersatz@neupost.example.org")
-            else:
-                minted = await administrator_starts(database, client, operator=OWNER)
-                await answer(database, client, minted.token)
-            another = compose_notice(grant_id=ObjectId(), change="granted", stage="started", address=FOREIGN_EMAIL)
-
-            async def owe(session: Any) -> None:
-                await owe_in_session(
-                    [another],
-                    outbox_collection=database[Collection.OUTBOX],
-                    grants_collection=database[Collection.GRANTS],
-                    address_changes_collection=database[Collection.ADDRESS_CHANGES],
-                    now=NOW,
-                    session=session,
-                )
-
-            async with client.start_session() as session:
-                await session.with_transaction(owe)
-            if ended_by == "the stop link":
-                await stop_by_link(database, client, minted.stop_token)
-            elif not replacing:
-                await discard(database, client, minted.id, operator=OWNER)
-            rows = database[Collection.OUTBOX].find({"kind": "grant"}, sort=[("_id", 1)])
-            return [(row["data"]["change"], row["data"]["stage"], row["to"]) async for row in rows]
-
-        notices = on_a_person(mongo_replica_set_url, body)
-
-        assert EMAIL not in [to for _, _, to in notices]
-        # A replaced change's start was told before this case's rows.
-        assert [(change, stage) for change, stage, _ in notices if change == "address"] == [
-            *([] if replacing else [("address", "started")] * len(ADMINISTRATORS)),
-            *[("address", "withdrawn")] * len(ADMINISTRATORS),
-        ]
-        # The other notice still goes to everybody else.
-        assert sorted(to for change, _, to in notices if change == "granted") == sorted((*ADMINISTRATORS, FOREIGN_EMAIL))
 
     def test_a_row_a_handover_names_waits_the_owner_s_week_and_its_mails_say_so(self, mongo_replica_set_url: str):
         """A day's wait would land after the role did, and the mailbox holding the owner's role would have moved in a day."""

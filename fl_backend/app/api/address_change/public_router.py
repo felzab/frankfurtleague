@@ -359,7 +359,6 @@ async def post_address_change_answer(
                 stage="started",
                 effective_from=effective_from,
                 grants_collection=grants_collection,
-                address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
                 now=germany_now,
                 session=session,
@@ -469,7 +468,6 @@ async def post_address_change_stop(
         await tell_the_holders_of_the_end_in_session(
             record,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

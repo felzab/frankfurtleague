@@ -293,7 +293,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after it, a removal at once,
   and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
   and the person named are mailed when a wait starts or stops, when a handover completes and at any
-  removal, but for an old address while a lost-mailbox change stands on it (§5); an addition's wait
+  removal; an addition's wait
   ends with no mail, no pass running then. Only the `owner` stops a wait, on
   the same page: the mail tells the others to reach the owner.
 - **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
@@ -548,9 +548,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   hourly pass switches it. That pass judges it on less, an entry nobody confirmed joining no two people: nothing left to
   move ends it, and so do another pupil signing in on the new address where a pupil row moves, a grant of the new address,
   an entry a person confirmed and an account still owed its carry. Every holder in effect is mailed when the wait starts, when it is stopped or withdrawn and when
-  it completes, the new address masked. On a lost mailbox the old address, which may
-  have passed to a stranger, receives no such mail while the change stands, hearing only through the change's own notice
-  and its effect's. The tool starts a holder's change for the owner alone (`admin_address`). The owner
+  it completes, the new address masked. The tool starts a holder's change for the owner alone (`admin_address`). The owner
   discards it there; the holder withdraws it on Konto; the old address's stop link ends it too. At the switch the grant row
   keeps its id and moves, dated by the switch, so a session older than the switch holds nothing.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever

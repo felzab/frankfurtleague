@@ -117,7 +117,6 @@ async def post_grant(
             address=address,
             granted_by=granted_by,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -133,7 +132,6 @@ async def post_grant(
 async def delete_grant(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
-    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     revoked_by: str = Depends(get_actor_email),
@@ -145,7 +143,7 @@ async def delete_grant(
     Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
     Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
     and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
-    transaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a
+    transaction. An address change standing on the row is left to run, as a
     change of an address holding no grant.
     """
 
@@ -165,7 +163,6 @@ async def delete_grant(
         await revoke_in_session(
             grant=grant,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -182,7 +179,6 @@ async def post_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
-    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     started_by: str = Depends(get_actor_email),
@@ -217,7 +213,6 @@ async def post_handover(
         await start_the_handover_in_session(
             grant,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -233,7 +228,6 @@ async def post_handover(
 async def delete_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
-    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     stopped_by: str = Depends(get_actor_email),
@@ -259,7 +253,6 @@ async def delete_handover(
         await stop_the_handover_in_session(
             grant,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,

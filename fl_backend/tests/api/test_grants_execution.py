@@ -166,9 +166,9 @@ async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
         return await delete_grant(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
-            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
+            revoked_by=als,
             now=NOW,
         )
 
@@ -189,9 +189,9 @@ async def hand_over(
             grant_id=grant_id,
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             ban_list_collection=database[Collection.BAN_LIST],
-            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
+            started_by=als,
             now=now,
         )
 
@@ -203,9 +203,9 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
         return await delete_handover(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
-            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
+            stopped_by=als,
             now=NOW,
         )
 
@@ -222,7 +222,6 @@ async def pass_at(
 ) -> int:
     answer = await post_handover_pass(
         grants_collection=grants if grants is not None else database[Collection.GRANTS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
         outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
         db=client,
         now=now,
@@ -325,7 +324,7 @@ class TestAnAddition:
 
             return await owed(database)
 
-        [(_, _, _, _, to, _)] = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
+        [(_, _, _, to, _)] = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
         assert to == sorted([*EVERY_HOLDER, "paul@beispielschule.de"])
 
@@ -367,7 +366,6 @@ class TestAnAddition:
                     [notice],
                     outbox_collection=database[Collection.OUTBOX],
                     grants_collection=database[Collection.GRANTS],
-                    address_changes_collection=database[Collection.ADDRESS_CHANGES],
                     now=NOW,
                     session=session,
                 )

@@ -190,7 +190,6 @@ async def _make_the_due_change_take_effect(
         await tell_the_holders_of_the_end_in_session(
             record,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
