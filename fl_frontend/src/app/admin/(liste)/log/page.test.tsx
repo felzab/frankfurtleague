@@ -34,9 +34,7 @@ type Drawn = {
 };
 
 const pageOf = (searchParams: Record<string, string | string[]>) =>
-  ActionLogPage({ params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) } as Parameters<
-    typeof ActionLogPage
-  >[0]) as Drawn;
+  ActionLogPage({ params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) } as Parameters<typeof ActionLogPage>[0]) as Drawn;
 
 async function read(searchParams: Record<string, string | string[]>) {
   const page = pageOf(searchParams);
