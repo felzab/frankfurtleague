@@ -54,7 +54,6 @@ export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> 
  * Ends every session of an address's account, which a refused next sign-in does not reach, keeping the account: a
  * barred one is the account sweep's to judge, a signed-out one waits for its next
  * sign-in.
- * @awaitsProduction the ban list's page
  */
 export async function endSessionsOfAddress(address: string): Promise<boolean> {
   // No grant is asked about here: a ban ends every session whatever the address holds.

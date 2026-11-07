@@ -36,6 +36,7 @@ doubleApiClient(({ endpoint }) => {
 });
 
 const seasonActs = await import("@/app/admin/(editor)/saisons/[saison]/settings/saisonActs");
+const banActs = await import("@/app/admin/(liste)/ban-list/banActs");
 const accountActs = await import("@/features/account/personActions");
 const passkeyActs = await import("@/features/passkeys/actions");
 const grantActs = await import("@/features/grants/actions");
@@ -52,6 +53,8 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ["the draw's regeneration", () => seasonActs.recreateSpielplan({ saison_id: "2027", holder: HOLDER })],
   ["the draw's removal", () => seasonActs.deleteSpielplan({ saison_id: "2027", holder: HOLDER })],
   ["the switch onto a season", () => seasonActs.activateSaison({ saison_id: "2027", holder: HOLDER })],
+  ["a ban", () => banActs.enterBan({ email: "max@example.org", ban_reason: "Ein Grund", holder: HOLDER })],
+  ["a ban's lift", () => banActs.liftBan({ id: "65a000000000000000000001", holder: HOLDER })],
   ["the account's erasure", () => accountActs.eraseAccount({ token: "link-token", holder: HOLDER })],
   ["the sign-in address change", () => accountActs.startAddressChange({ email: "neu@example.org", holder: HOLDER })],
   ["a passkey's removal", () => passkeyActs.removePasskeyAction({ id: "pk-1", holder: HOLDER })],

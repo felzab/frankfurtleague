@@ -713,6 +713,7 @@ const SOURCE_BANS = [
     {
       only: [
         "account",
+        "ban-list",
         "bewerbungen",
         "funktionen",
         "grants",
