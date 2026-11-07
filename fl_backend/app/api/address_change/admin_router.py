@@ -49,7 +49,7 @@ from app.api.address_change.services import (
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, find_own_address_refusal
+from app.api.identity.services import find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION
@@ -87,7 +87,7 @@ async def _refuse_the_address(identifier: str, *, actor: str, grants_collection:
 
     refuse(find_own_address_refusal(identifier=identifier, actor=actor))
     grants = await read_grants(grants_collection=grants_collection, session=session)
-    refuse(find_admin_address_refusal(identifier=identifier, actor=actor, grants=grants, protected=EACH_ADMIN))
+    refuse(find_admin_address_refusal(identifier=identifier, actor=actor, grants=grants))
 
 
 async def _pull_the_change(

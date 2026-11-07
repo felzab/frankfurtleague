@@ -34,6 +34,7 @@ from app.api.address_change.services import (
 )
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, read_grants
 from app.api.grants.erasure import carry_authorship_in_session
+from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.services import address_change_viewable_denied, is_own_schiedsrichter, own_seats
@@ -381,7 +382,7 @@ async def owe_the_refusal_notice_in_session(
 async def tell_the_holders_in_session(
     record: Mapping[str, Any],
     *,
-    stage: Literal["started", "withdrawn", "completed"],
+    stage: FLGrantNoticeStage,
     # Null for the hourly pass, which is nobody.
     changed_by: str | None,
     effective_from: datetime | None,
