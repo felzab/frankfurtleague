@@ -11,7 +11,7 @@ import type { Fact } from "@/kit/Facts";
 
 /**
  * A row's one act for the owner: the word, its question over the facts, then the passkey touch from the final press.
- * „Entfernen“ stands quiet on a row of the list and „Zurückziehen“ as a button on what waits, as the board draws them.
+ * Each stands alone on its row, so each takes the secondary look a lone removal keeps across the pages.
  */
 export function RowAct({
   verb,
@@ -42,7 +42,7 @@ export function RowAct({
       onConfirm={() => act({ id, holder })}
       trigger={
         <Button
-          variant={verb === "remove" ? "quiet" : "secondary"}
+          variant="secondary"
           label={COPY.shared.verb[verb]}
         />
       }
