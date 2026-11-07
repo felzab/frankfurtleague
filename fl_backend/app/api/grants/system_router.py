@@ -36,7 +36,7 @@ async def post_handover_pass(
     """
 
     async def judge_and_complete(session: AsyncClientSession) -> int:
-        """Judge the list in this transaction: a stop or a removal beside the pass writes a row this writes, so it conflicts and is judged afresh."""
+        """Judge the list in this transaction: a stop or a removal beside the pass writes a row this writes, so it conflicts and retries."""
 
         due = handover_due(await read_grants(grants_collection=grants_collection, session=session), now)
         if due is None:
