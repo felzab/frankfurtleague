@@ -1,11 +1,11 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { catalogue, COPY, textOf } from "./copy";
-import { formatDate, formatDateLong, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { catalogue, COPY, textOf, waitWords } from "./copy";
+import { formatDate, formatDateLong, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 import { rollenText } from "./teamVocabulary";
 
-import type { Copy, Words } from "./copy";
+import type { Copy, Wait, Words } from "./copy";
 import type { CalendarDay } from "./format";
 import type { Code, FLBookingResource, FLKontaktRolle, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
@@ -13,7 +13,11 @@ import type { ROUTES } from "./routes";
 /** The route keys of the pages a search engine may list. */
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
+/** Codes the catalogue words ahead of the backend, which publishes each in `Code` when its write lands. */
+type AnnouncedCode = "owner_erasure" | "address_change_new_taken";
+
 const { team1, team2 } = COPY.admin.spiel;
+const ownerTier = COPY.admin.administrators.owner;
 
 // Words two entries of this one object say alike, each written once: a club's place, a group, the goals' difference
 // and match operations, the season line's eyebrow and an organiser's role.
@@ -37,6 +41,10 @@ const DISQUALIFIED = {
 };
 // An address the ban list holds, whichever write would mail it a link.
 const ADDRESS_BARRED = "Diese E-Mail-Adresse steht auf der Sperrliste.";
+// An address the administration holds, whichever act reached for it: a ban, an erasure or an address change.
+const ADDRESS_OF_ADMINISTRATION = "Diese Adresse gehört zur Verwaltung.";
+// The new address's answer, the title of its done page, a waiting change's opening on that title.
+const ADDRESS_CONFIRMED = "Adresse bestätigt";
 
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
@@ -103,6 +111,7 @@ export const SERVER_COPY = catalogue({
     kontakt_email_taken: COPY.shared.field.taken,
     kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,
+    grant_exists: COPY.shared.field.taken,
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -129,8 +138,22 @@ export const SERVER_COPY = catalogue({
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
     last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
+    /** The owner's own deletion, on `/erasure` and in Konto: the handover frees the account first. */
+    owner_erasure: `Mit der ${ownerTier} lässt sich das Konto nicht löschen.`,
+    /** An administrator's own address, which only Konto changes or deletes. */
+    own_address: "Für deine eigene Adresse geht das nur im Konto.",
+    /** A holder's address, one sentence on a ban, an erasure and an address change alike. */
+    admin_address: ADDRESS_OF_ADMINISTRATION,
+    ban_list_admin: ADDRESS_OF_ADMINISTRATION,
+    foreign_address_change: ADDRESS_OF_ADMINISTRATION,
+    /** A ban's last season counts from the running one. */
+    ban_list_no_saison: "Es läuft keine Saison.",
     /** A person's own address change to the address they already sign in with. */
     address_change_unchanged: COPY.account.address.unchanged,
+    /** An address change's start, for an address holding no record. */
+    address_change_nothing: COPY.admin.nothingAtAddress,
+    /** The re-send's own, which holds no box to set the field's phrase on. */
+    address_change_new_taken: "Die neue Adresse ist schon vergeben.",
     /** A grant's move nobody but the person could approve. */
     address_change_no_approver: COPY.account.address.noApprover,
     /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
@@ -145,6 +168,7 @@ export const SERVER_COPY = catalogue({
     schiedsrichter_address_barred: ADDRESS_BARRED,
     bewerbung_kontakt_barred: ADDRESS_BARRED,
     kontakt_seat_barred: ADDRESS_BARRED,
+    grant_barred: ADDRESS_BARRED,
     /** The public form's own: it names no list, as `COPY.signIn.refusal.noRecord` names none, so nobody can probe the ban list. */
     bewerbung_address_barred: "Mit einer dieser E-Mail-Adressen ist keine Bewerbung möglich.",
     /** A club the form or the acceptance picked that already stands in the season. */
@@ -182,7 +206,9 @@ export const SERVER_COPY = catalogue({
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
     spieltag_start_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
-  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
+  } satisfies Partial<
+    Record<Code | AnnouncedCode, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>
+  >,
 
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
@@ -397,6 +423,8 @@ export const SERVER_COPY = catalogue({
         subject: (saison: string) => `Absage für die ${COPY.shared.saisonName(saison)}`,
         lead: { before: "Danke für die Bewerbung von ", after: (saison: string) => ` für die ${COPY.shared.saisonName(saison)}.` },
         decision: "In dieser Saison können wir das Team nicht aufnehmen.",
+        /** After `decision`: the decline stands as the application's deletion notice, so no second mail follows. */
+        deletion: (days: number) => `Die Bewerbung löschen wir in ${formatNumber(days)} Tagen.`,
         title: "Die Absage",
       },
       erasure: {
@@ -463,6 +491,83 @@ export const SERVER_COPY = catalogue({
       effective: { subject: "E-Mail-Adresse geändert", lead: { before: "Seit", after: "gilt für dein Konto eine neue E-Mail-Adresse." } },
       /** To the new address, whose confirmed change did not take effect: never why, since its holder may be a stranger. */
       discarded: { subject: "E-Mail-Adresse nicht geändert", lead: "Für dein Konto gilt weiter die bisherige Adresse." },
+      /** A change the administration started: the new address's link, then the notice to the address on file. */
+      administrator: {
+        lead: "Die Verwaltung hat diese E-Mail-Adresse für ein Konto eingetragen.",
+        noticeSubject: "Deine E-Mail-Adresse soll sich ändern",
+        noticeLead: "Die Verwaltung hat eine neue E-Mail-Adresse für dich eingetragen.",
+        noticeWait: (wait: Wait) => `Sie gilt ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
+        noticeStop: "Bis dahin kannst du die Änderung stoppen.",
+      },
+    },
+
+    /**
+     * A ban's notice, the one record this reader ever gets, whose sign-in the ban ends: Art. 13 asks its basis and
+     * rights here, and the shell's objection closes it.
+     */
+    ban: {
+      subject: "Deine E-Mail-Adresse ist gesperrt",
+      lead: "Die Verwaltung hat deine E-Mail-Adresse gesperrt.",
+      effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
+      ends: (saison: string) => `Die Sperre endet nach der ${COPY.shared.saisonName(saison)} von selbst.`,
+      stored: "In der Sperrliste stehen deine Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
+      account: "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht.",
+      basis:
+        "Wir speichern das auf Grundlage unseres berechtigten Interesses, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).",
+      /** Around the league's address. */
+      rights: { before: "Für eine Kopie deiner Daten, ihre Löschung, einen Widerruf oder Fragen zur Sperre schreib uns an ", after: "." },
+    },
+
+    /** The notice to every holder and the person named, one body for every reader, by what changed. */
+    grant: {
+      subject: {
+        granted: "Neuer Zugang zur Verwaltung",
+        handover: `Übergabe der ${ownerTier} angekündigt`,
+        address: "Neue Adresse in der Verwaltung",
+        revoked: "Zugang zur Verwaltung beendet",
+        withdrawn: "Angekündigte Änderung zurückgezogen",
+        completed: "Angekündigte Änderung gilt jetzt",
+      },
+      lead: {
+        granted: (address: string) => `${address} bekommt Zugang zur Verwaltung.`,
+        handover: (address: string) => `Die ${ownerTier} der Verwaltung geht an ${address}.`,
+        address: (previous: string, next: string) => `${previous} wechselt zu ${next}.`,
+        revoked: (address: string) => `${address} hat keinen Zugang zur Verwaltung mehr.`,
+        withdrawn: {
+          granted: (address: string) => `${address} bekommt keinen Zugang zur Verwaltung.`,
+          handover: (address: string) => `Die ${ownerTier} geht nicht an ${address}.`,
+          address: (previous: string, next: string) => `${previous} wechselt nicht zu ${next}.`,
+        },
+        /** A wait a pass completed, so no `by` line follows. */
+        completed: {
+          handover: (address: string) => `${address} leitet jetzt die Verwaltung.`,
+          address: (previous: string, next: string) => `Die Adresse ${previous} heißt jetzt ${next}.`,
+        },
+      },
+      /** Who acted and when, by the act. */
+      by: {
+        entered: (actor: string, moment: string) => `Eingetragen von ${actor} am ${formatInstant(moment)}.`,
+        removed: (actor: string, moment: string) => `Entfernt von ${actor} am ${formatInstant(moment)}.`,
+        withdrawn: (actor: string, moment: string) => `Zurückgezogen von ${actor} am ${formatInstant(moment)}.`,
+      },
+      /** On what waits. */
+      effectiveFrom: (moment: string) => `Die Änderung gilt ab ${formatInstant(moment)}.`,
+      warn: `Kommt dir das falsch vor? Dann melde dich sofort bei der ${ownerTier}, nicht per E-Mail.`,
+      button: "Zur Verwaltung",
+      /** An erased person's address, in the subject's place. */
+      unnamedAddress: "Eine nicht genannte Adresse",
+      /** An erased actor, after „von“. */
+      unnamedActor: "einer nicht genannten Adresse",
+    },
+
+    /** The one notice of a deletion: an account's, or an application's that did not come about, to each seat that confirmed. */
+    deletion: {
+      account: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
+      bewerbung: {
+        // True of a lapse and of an application undecided at its season's end alike.
+        lead: (saison: string) => `Die Bewerbung für die ${COPY.shared.saisonName(saison)} kam nicht zustande.`,
+        deleted: "Wir haben sie mit allen Angaben gelöscht.",
+      },
     },
 
     /**
@@ -491,10 +596,15 @@ export const SERVER_COPY = catalogue({
     previous: {
       question: "Für dein Konto soll eine neue E-Mail-Adresse gelten.",
       confirmed: "Änderung bestätigt",
+      stopped: "Änderung gestoppt",
     },
     new: {
       question: `Diese Adresse soll künftig für ein Konto bei der ${COPY.brand.name} gelten.`,
-      confirmed: "Adresse bestätigt",
+      /** A change the administration started: the link's page and its mail alike. */
+      waits: (wait: Wait) => `Sie gilt ${waitWords(wait).span} nach deiner Bestätigung.`,
+      confirmed: ADDRESS_CONFIRMED,
+      /** The done page's title on a change that waits. */
+      confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ab ${formatDateLong(day)}`,
       /** A grant holder's confirmed change, which waits on another administrator's approval of the grant's move. */
       awaitsApproval: "Genehmigung ausstehend",
     },
@@ -505,9 +615,9 @@ export const SERVER_COPY = catalogue({
     question: "Alles oben wird endgültig gelöscht.",
     /** The list's rows beside each record's own: the account's passkeys, under their box's title, its live address changes, its grant. */
     passkeys: COPY.account.passkeys.title,
-    addressChanges: "Laufende Adressänderungen",
-    grant: "Zugang",
-    done: "Konto gelöscht",
+    addressChanges: COPY.admin.erasure.count.addressChanges,
+    grant: COPY.admin.erasure.count.grant,
+    done: COPY.admin.actionLog.action["erasure.own"],
   },
 
   /**
@@ -755,7 +865,7 @@ export const SERVER_COPY = catalogue({
         heading: "Bewerbung einer Schule",
         form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das der Ansprechperson, wenn sie noch eingetragen ist und ihren Link bekommen hat. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
       },
       kader: {
         heading: "Im Kader",
@@ -779,9 +889,9 @@ export const SERVER_COPY = catalogue({
         // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
           `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
-        // Session 7: the grant's 24-hour wait becomes a parameter read from the code once that session builds it.
-        changes: (linkHours: number, stopDays: number) =>
-          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Ein Zugang zur Verwaltung gilt erst 24 Stunden, nachdem er vergeben ist, auch für eine neue Adresse; alle mit Zugang erfahren sofort davon, und bis dahin lässt er sich zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+        // The two waits are bounds only the backend holds, written out as `legal`'s note says, each as its `Wait`.
+        changes: (linkHours: number, stopDays: number, administratorWait: Wait = { hours: 24 }, ownerWait: Wait = { days: 7 }) =>
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon, und bis dahin kann die ${ownerTier} die Änderung zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
       },
       mail: {
         heading: "E-Mail und WhatsApp",
@@ -885,12 +995,12 @@ export const SERVER_COPY = catalogue({
             period: (bound: RetentionBounds) =>
               `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen und Grund bis zu ihrem Ende, der Rest 30 Tage danach`,
           },
-          { name: "Änderungsprotokoll", content: "Änderungen", period: "12 Monate" },
+          { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; Löschungen ohne Namen", period: "12 Monate" },
           // The end state's one store: the erasure journal is written as the server's own journald lines, kept nine days,
           // so the host script that exports a day file today states nothing here.
           {
             name: "Protokolle des Servers",
-            content: "Aufrufe, Anmeldungen, Löschungen und Widerrufe, die Adresse pseudonymisiert",
+            content: "Aufrufe, Anmeldungen; Löschungen, Widerrufe und Widersprüche mit der Nummer des Eintrags",
             period: "9 Tage",
           },
           { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
@@ -901,8 +1011,8 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, freie Texte, die nicht unter deiner Adresse stehen, und im Änderungsprotokoll, was du unter einer früheren Adresse geändert hast. Löschen wir ein bestätigtes Konto oder eine bestätigte Bewerbung, schreiben wir dir das.",
-        log: "Jede Änderung an den Daten der Liga halten wir 12 Monate im Änderungsprotokoll fest; eine Person steht darin nur mit Rolle, Team und Nummer ihres Eintrags, eine persönliche Angabe nur als geändert, ohne ihren Inhalt.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast; eine Absage nennt die Löschung schon selbst.",
+        log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12 Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und jede Löschung. Ein Eintrag sagt, wer es war, was geschah und wann, nie einen alten oder neuen Inhalt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen nur mit Rolle und Team; eine Löschung nennt die gelöschte Person nicht.",
       },
       rights: {
         heading: "Deine Rechte",
