@@ -158,8 +158,11 @@ async def enter_a_club(
     gruppe: FLGruppenNames,
     trikot_farbe: FLTrikotFarbe | None,
     session: AsyncClientSession,
-) -> None:
-    """Judge this club's entry into the season and write its row, in the caller's transaction; everything judged is read in-session."""
+) -> str:
+    """Judge this club's entry into the season and write its row, in the caller's transaction, answering the club's name.
+
+    Everything judged is read in-session.
+    """
 
     # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
     # a row pointing at no club, and the season's own copy of the name and shorthand is seeded from it.
@@ -199,6 +202,8 @@ async def enter_a_club(
         saison_id=saison_id, team_id=team_id, gruppe=gruppe, trikot_farbe=trikot_farbe, name=team_raw["name"], shorthand=team_raw["shorthand"]
     )
     await post_one_to_db(collection=saison_teams_collection, document=document, session=session)
+
+    return str(team_raw["name"])
 
 
 async def refuse_a_gruppe_move(

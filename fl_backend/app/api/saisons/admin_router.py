@@ -130,6 +130,7 @@ from app.core.dependencies import (
 from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLGruppenNames
@@ -447,7 +448,7 @@ async def post_saison(
                 spieltag_spans=[],
             )
         )
-        return await post_one_to_db(
+        created = await post_one_to_db(
             collection=saisons_collection,
             document={
                 **saison_data.model_dump(mode="json"),
@@ -459,6 +460,9 @@ async def post_saison(
             },
             session=session,
         )
+        await record_act(collection=saisons_collection, action="saison.created", label=state.saison_id, session=session)
+
+        return created
 
     async with transaction_session(db) as session:
         post_operation = await session.with_transaction(enter_the_season)
@@ -633,6 +637,7 @@ async def patch_saison(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+        await record_act(collection=saisons_collection, action="saison.changed", label=saison_id, session=session)
 
         # A result is a write to `spiele` alone, so a moved start writes the fixtures it was judged on:
         # a result landing under the judgement conflicts, and the retry refuses on it. A squad entry
@@ -793,17 +798,24 @@ async def activate_saison(
         if outgoing_ids:
             await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
 
-        # ERASED rather than deleted: a retention period
-        # ended, which is the distinction between the two helpers, and a `before` image would
-        # outlive the bound by the log's own twelve months.
+        await record_act(collection=saisons_collection, action="saison.activated", label=saison_id, session=session)
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season AFTER it.
-        await erase_many_from_db(
+        lapsed = await erase_many_from_db(
             collection=ban_list_collection,
             db_filter={"barred_until_saison_id": {"$lt": saison_id}},
             session=session,
         )
+        if lapsed.deleted_count:
+            await record_act(
+                collection=saisons_collection,
+                action="retention.bans",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=lapsed.deleted_count,
+                session=session,
+            )
 
         return FLActivateSaisonResponse(deactivated=demoted.modified_count)
 
@@ -917,6 +929,7 @@ async def swap_gruppen(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
+        await record_act(collection=saisons_collection, action="saison.gruppen_swapped", label=saison_id, session=session)
 
         return swapped
 
@@ -1102,19 +1115,22 @@ async def post_spielplan(
             )
 
         watermark = FLSaisonSpielplan(generated_at=today)
-        # ONE `$set` inside the transaction: the shape and the draw it produced are one fact, so one
-        # write carries one pre-image -- the season before either moved. Two would log a `before`
-        # holding rules that were never the season's.
+        # ONE `$set` inside the transaction: the shape and the draw it produced are one fact.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$set": {**shape_written, "spielplan": watermark.model_dump(mode="json")}},
             session=session,
             # Nothing here reads the result, and `AFTER` would re-read the whole season inside the
-            # transaction to build one. The log takes its pre-image from the update itself either
-            # way.
+            # transaction to build one.
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
+        )
+        await record_act(
+            collection=saisons_collection,
+            action="saison.spielplan_recreated" if spielplan_data.replace else "saison.spielplan_created",
+            label=saison_id,
+            session=session,
         )
 
         return FLGenerateSpielplanResponse(
@@ -1183,9 +1199,8 @@ async def delete_spielplan(
         # holding no watermark, and the report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
-        # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
-        # replaying them then holds a fixture whose matchday is already gone. Confirmations and reports
-        # go first for that reason, each naming the fixture it is about.
+        # Fixtures first, the reverse of the draw's write order. Confirmations and reports go first of
+        # all, each naming the fixture it is about.
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
         await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
@@ -1201,6 +1216,7 @@ async def delete_spielplan(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
+        await record_act(collection=saisons_collection, action="saison.spielplan_deleted", label=saison_id, session=session)
 
         # The replace's reason.
         refuse(
@@ -1451,6 +1467,15 @@ async def post_invitations_dispatch(
         )
         for team in entered
     ]
+
+    # A transaction of its own: one press across a transaction per team is one act, and a press mailing nobody changed nothing.
+    if "mailed" in outcomes:
+
+        async def record_the_press(session: AsyncClientSession) -> None:
+            await record_act(collection=saisons_collection, action="saison.invitations_dispatched", label=saison_id, session=session)
+
+        async with transaction_session(db) as session:
+            await session.with_transaction(record_the_press)
 
     return FLInvitationDispatchResponse(
         saison_id=saison_id,

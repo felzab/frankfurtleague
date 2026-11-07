@@ -53,8 +53,9 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -63,7 +64,7 @@ from app.shared.tokens import hash_token
 # `app/api/bewerbungen/public_router.py`'s reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
-    dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
+    dependencies=[Depends(verify_access_base)],
 )
 
 
@@ -253,6 +254,16 @@ async def post_spielbestaetigung(
             # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
             # the filter repeats that judgement on the write.
             refuse(first_press_refusal())
+
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="spielbestaetigung.answered",
+            by=ACT_BY_KONTAKT,
+            team=next((str(verein["name"]) for verein in ansetzung_state.vereine if verein["team_id"] == row["party"]["team_id"]), None),
+            record_id=row["_id"],
+            label=str(row["saison_id"]),
+            session=session,
+        )
 
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering.

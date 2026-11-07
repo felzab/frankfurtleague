@@ -74,7 +74,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.security import verify_access_system
 from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
@@ -84,12 +84,11 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 # holds no session, and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
-# Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
-# loses; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S` together, each step's mails owed
-# in two commands of its own.
+# Each close costs three commands; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S`
+# together, each step's mails owed in two commands of its own.
 CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole.

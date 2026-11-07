@@ -534,7 +534,6 @@ class FLPatchSpielDataPayload(BaseModel):
     schiedsrichter: FLSpielSchiedsrichterFieldPayload | None
 
     # Here for the same `$set` reason; "" becomes None below, which is how a note is removed.
-    # The bound is the log row's ceiling (`app/shared/schemas/bounds.py`), no read model's business.
     note: str | None = Field(max_length=SPIEL_NOTE_MAX_LENGTH)
 
     # The `version` the editor was served, with no default: the save is refused once another write has raised it

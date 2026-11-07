@@ -421,4 +421,3 @@ class TestALeavingContactsReasonsGo:
         on_a_league(mongo_replica_set_url, after_the_answers)
 
         assert found["rows"] == sorted(expected(name) for name in REASONS)
-

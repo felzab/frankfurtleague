@@ -33,6 +33,7 @@ from app.core.crud import (
     pull_whole_from_db,
 )
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -295,7 +296,18 @@ async def strip_the_seasons_confirmations(
         session=session,
     )
 
-    return entries.modified_count + reasons.modified_count
+    stripped = entries.modified_count + reasons.modified_count
+    if stripped:
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="retention.spielbestaetigungen",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=stripped,
+            session=session,
+        )
+
+    return stripped
 
 
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.

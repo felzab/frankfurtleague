@@ -27,7 +27,7 @@ from app.api.schiedsrichter.services import (
     state_of,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -36,10 +36,10 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.journal import Journal, JournalLine
+from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
+from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -47,11 +47,10 @@ from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so
-# these three endpoints alone are base-tier and bind the public actor — no browser sends the
-# `X-FL-Actor`.
+# these three endpoints alone are base-tier.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/confirmation",
-    dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
+    dependencies=[Depends(verify_access_base)],
 )
 
 
@@ -192,25 +191,20 @@ async def post_decline(
     decline_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> None:
     """
     Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
 
     The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
     unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
-    re-send or reactivation asks the person again. The objection is journalled, so a restore from a snapshot taken before
-    it replays it.
+    re-send or reactivation asks the person again. The objection is journalled.
 
     Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
     confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`).
     """
 
     token_hash = hash_token(decline_data.token)
-    # The journal line's instant, so a replay records the day the person objected on.
-    at = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -234,9 +228,7 @@ async def post_decline(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
-        # Keyed on the address the link was mailed to, whose person pressed: a replay finds the entry by it.
-        hashed = erasure_journal_hash(str(raw["kontakt"]["email"]), key=config.sperrliste_key)
-        journal.note(JournalLine(person_hash=hashed, kind="objection", collection=Collection.SCHIEDSRICHTER, record_id=raw["_id"], at=at))
+        journal.note("objection", [f"{Collection.SCHIEDSRICHTER}/{raw['_id']}"])
 
     async with journal:
         async with transaction_session(db) as session:

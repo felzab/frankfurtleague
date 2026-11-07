@@ -45,6 +45,7 @@ from app.core.crud import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSide
@@ -194,7 +195,7 @@ async def write_bericht(
         if saved.get("bericht") is None
         else compose_bericht_update(payload, sides=sides, now=now)
     )
-    # `AFTER`: inside the transaction the patch reads the document back for its log anyway.
+    # `AFTER`: the view answers the document as written.
     return await patch_one_in_db(
         collection=spielberichte_collection,
         db_filter={"_id": saved["_id"]},
@@ -250,6 +251,15 @@ async def strip_the_seasons_reports(
         update={"$set": {"bericht.remarks": None, "bericht.cards.$[].reason": None}},
         session=session,
     )
+    if stripped.modified_count:
+        await record_act(
+            collection=spielberichte_collection,
+            action="retention.spielberichte",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=stripped.modified_count,
+            session=session,
+        )
 
     return stripped.modified_count
 

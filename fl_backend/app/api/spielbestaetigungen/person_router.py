@@ -6,7 +6,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.spielbestaetigungen.crud import (
@@ -51,8 +50,9 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -61,13 +61,13 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # every write is recorded under the referee's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 
 @router.get("/self", response_model=FLSpielbestaetigungenSelfResponse, summary="A signed-in referee's own fixture assignments")
 async def get_self(
-    identifier: SchiedsrichterIdentifier,
+    identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -179,7 +179,7 @@ async def get_self(
 async def post_schiedsrichter_answer(
     spielbestaetigung_id: CustomRouteObjectId,
     answer_data: Annotated[FLSpielbestaetigungSchiedsrichterAnswerPayload, Body()],
-    identifier: SchiedsrichterIdentifier,
+    identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -255,6 +255,15 @@ async def post_schiedsrichter_answer(
             )
         except DocumentNotFoundError:
             refuse(first_press_refusal())
+
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="spielbestaetigung.answered",
+            by=ACT_BY_SCHIEDSRICHTER,
+            record_id=spielbestaetigung_id,
+            label=str(row["saison_id"]),
+            session=session,
+        )
 
         if answer_data.answer == "declined":
             # Never `PATCH /spiele/{spiel_id}`, which re-resolves the season's bracket: a person's press moves this one

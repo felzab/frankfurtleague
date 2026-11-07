@@ -70,6 +70,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
     bind_actor,
@@ -212,6 +213,7 @@ async def post_schiedsrichter(
             },
             session=session,
         )
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.created", record_id=created.inserted_id, session=session)
         await owe_the_confirmation(
             outbox_collection=outbox_collection,
             schiedsrichter_id=created.inserted_id,
@@ -303,6 +305,7 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.changed", record_id=schiedsrichter_id, session=session)
         if minted:
             # The CORRECTED address this transaction wrote, never the stored one it replaced: mailing the link to the
             # address the save moved away from is the defect the fresh link exists to end.
@@ -368,7 +371,7 @@ async def delete_schiedsrichter(
         )
         refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
 
-        return await set_inactive_since(
+        retired = await set_inactive_since(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
             # An earlier press's day stands (`app/core/crud.py :: set_inactive_since`): it is the day a fee is
@@ -376,6 +379,9 @@ async def delete_schiedsrichter(
             when=today,
             session=session,
         )
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.retired", record_id=schiedsrichter_id, session=session)
+
+        return retired
 
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen
@@ -419,8 +425,7 @@ async def reactivate_schiedsrichter(
         )
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
-        # ONE write, the mint riding the revival's `$set`: the press is one action, and two writes file
-        # two log rows for it.
+        # ONE write, the mint riding the revival's `$set`: the press is one action.
         minted = compose_mint_update(today=today) if email is not None else {}
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -429,6 +434,9 @@ async def reactivate_schiedsrichter(
             session=session,
             expected_version=None,
             return_document=ReturnDocument.AFTER,
+        )
+        await record_act(
+            collection=schiedsrichter_collection, action="schiedsrichter.reactivated", record_id=schiedsrichter_id, session=session
         )
         if email is not None:
             await owe_the_confirmation(

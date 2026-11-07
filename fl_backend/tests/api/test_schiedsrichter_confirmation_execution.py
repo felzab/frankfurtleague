@@ -49,13 +49,10 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_confirmation_test")
-CONFIG = config_for(DATABASE_NAME)
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -219,9 +216,7 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str 
         decline_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         db=client,
-        config=CONFIG,
         today=today,
-        germany_now=NOW,
     )
 
 
@@ -260,6 +255,7 @@ class TestTheCreateIsTheInvitation:
         assert row[CONFIRMATION_FIELD]["deadline"] == response.answer.confirmation.deadline == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
+
 
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
     """The ruled behaviour: the old link was posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox."""
@@ -308,6 +304,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         assert CONFIRMATION_FIELD not in row
         assert old_link.error_code == Code.LINK_INVALID
         assert row[ERASE_AT_FIELD] == clock
+
 
 class TestTheReSend:
     def test_a_second_re_send_replaces_the_block_whole(self, mongo_replica_set_url: str):
@@ -388,6 +385,7 @@ class TestTheReSend:
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
 
+
 async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Mailed:
     answer = await reactivate_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
@@ -435,6 +433,7 @@ class TestTheReactivation:
         assert response.answer.confirmation is None
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
+
 
 class TestTheConfirmation:
     def test_it_writes_the_birthdate_and_the_record_in_one_update(self, mongo_replica_set_url: str):
@@ -623,4 +622,3 @@ class TestTheMediaAge:
         assert refused.error_code == Code.MEDIA_AGE
         assert row.get("birth_date") is None
         assert row.get(EINWILLIGUNG_FIELD) is None
-

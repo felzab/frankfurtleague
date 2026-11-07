@@ -10,13 +10,14 @@ from app.api.schiedsrichter.services import build_erasure_due_filter
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import DBClient, SchiedsrichterCollection, SpieleCollection, get_germany_now
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.recording import ACT_BY_SYSTEM, record_act
+from app.core.security import verify_access_system
 from app.core.transactions import Batch, drain
 
-# System tier and the system actor: the clock erases, and no administrator pressed anything.
+# System tier: the clock erases, and no administrator pressed anything.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/sweep",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
 # One transaction's referees. Each erasure is six commands where a pupil's is twenty-two, and ten pupils fit
@@ -68,6 +69,9 @@ async def sweep_schiedsrichter(
                 schiedsrichter_id=row["_id"],
                 session=session,
             )
+        await record_act(
+            collection=schiedsrichter_collection, action="retention.schiedsrichter", by=ACT_BY_SYSTEM, count=len(taken), session=session
+        )
 
         return len(rows), len(taken), 0
 

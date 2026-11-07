@@ -26,9 +26,7 @@ KONTAKT_EMAIL_MAX_LENGTH: Final = 254
 
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
-# A fixture's admin note, bounded on the payload alone: a season replace or undraw logs every
-# removed fixture whole in ONE row, and this bound is what keeps that row under BSON's
-# document ceiling by construction rather than by luck.
+# A fixture's admin note, bounded on the payload alone.
 SPIEL_NOTE_MAX_LENGTH: Final = 4096
 
 # Why an application was declined, bounded where an `austritt`'s `reason` is not: this one is composed

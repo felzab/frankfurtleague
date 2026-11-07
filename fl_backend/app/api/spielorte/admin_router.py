@@ -1,5 +1,4 @@
-from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
@@ -32,6 +31,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
@@ -107,7 +107,7 @@ async def post_spielort(
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
         taken = await is_held_elsewhere(collection=spielorte_collection, key="name", value=spielort_data.name, own_id=None, session=session)
         refuse(find_venue_name_refusal(taken=taken))
-        return await insert_live(
+        created = await insert_live(
             collection=spielorte_collection,
             document={
                 **spielort_data.model_dump(mode="json"),
@@ -115,6 +115,11 @@ async def post_spielort(
             },
             session=session,
         )
+        await record_act(
+            collection=spielorte_collection, action="spielort.created", record_id=created.inserted_id, label=spielort_data.name, session=session
+        )
+
+        return created
 
     async with transaction_session(db) as session:
         post_operation = await session.with_transaction(enter_the_venue)
@@ -158,11 +163,12 @@ async def patch_spielort(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+        await record_act(
+            collection=spielorte_collection, action="spielort.changed", record_id=spielort_id, label=spielort_data.name, session=session
+        )
 
         return FLPatchSpielortResponse(version=FLSpielort(**updated_document_raw).version)
 
-    # In a transaction for the read-back alone: `patch_one_in_db` compares the two images there, so a save changing
-    # nothing files no log row.
     async with transaction_session(db) as session:
         return await session.with_transaction(save_the_venue)
 
@@ -186,7 +192,7 @@ async def delete_spielort(
     while an unplayed fixture is still booked here (`spielort_still_booked`).
     """
 
-    async def retire_the_venue(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def retire_the_venue(session: AsyncClientSession) -> None:
         """Judge the venue's unplayed fixtures, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
         booked = await pull_many_from_db(
@@ -197,7 +203,10 @@ async def delete_spielort(
         )
         refuse(find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked)))
 
-        return await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=today, session=session)
+        retired = await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=today, session=session)
+        await record_act(
+            collection=spielorte_collection, action="spielort.retired", record_id=spielort_id, label=str(retired["name"]), session=session
+        )
 
     # The stamp inside the judgement's transaction, so a booking committing after the read above
     # conflicts on the venue it anchors rather than landing unseen
@@ -218,8 +227,11 @@ async def reactivate_spielort(
 ) -> None:
     """Clear `inactive_since`, putting the venue back into the picker and every default read."""
 
-    async def bring_the_venue_back(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)
+    async def bring_the_venue_back(session: AsyncClientSession) -> None:
+        revived = await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)
+        await record_act(
+            collection=spielorte_collection, action="spielort.reactivated", record_id=spielort_id, label=str(revived["name"]), session=session
+        )
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_venue_back)

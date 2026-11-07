@@ -30,6 +30,7 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "_id": 1,
     "saison_id": 1,
     "saison_phase": 1,
+    "spiel_nr": 1,
     "date": 1,
     "time": 1,
     "team1": 1,
@@ -474,8 +475,8 @@ def compose_bericht_update(
     }
 
 
-# --- The STRIP once the season after the match ends: the remarks and every card's reason, on the reports and in
-# their log images; the scorers, the cards and the proposed result stand as the league's record of the match.
+# --- The STRIP once the season after the match ends: the remarks and every card's reason; the scorers, the cards and
+# the proposed result stand as the league's record of the match.
 
 
 def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:

@@ -138,6 +138,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
     bind_actor,
@@ -300,6 +301,9 @@ async def write_the_contact_block(
         session=session,
     )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
+    await record_act(
+        collection=saison_teams_collection, action="team.seat_changed", record_id=team_id, label=str(stored["name"]), session=session
+    )
 
     return [mint for _, mint in links]
 
@@ -513,7 +517,7 @@ async def post_team_entry(
             if club.kind == "known"
             else await found_a_club(teams_collection=teams_collection, club=club.team.model_dump(mode="json"), session=session)
         )
-        await enter_a_club(
+        name = await enter_a_club(
             teams_collection=teams_collection,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
@@ -523,6 +527,7 @@ async def post_team_entry(
             trikot_farbe=entry_data.trikot_farbe,
             session=session,
         )
+        await record_act(collection=saison_teams_collection, action="team.entered", record_id=team_id, label=name, session=session)
 
         return team_id
 
@@ -552,7 +557,7 @@ async def delete_team(
     alone: the seasons it played still happened.
     """
 
-    async def retire_the_club(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def retire_the_club(session: AsyncClientSession) -> None:
         """Judge the club's seasons, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
         # Two small reads rather than a lookup: a club holds a handful of rows, the league a few seasons.
@@ -572,7 +577,8 @@ async def delete_team(
 
         refuse(find_retire_refusal(str(row["status"]) for row in saison_rows))
 
-        return await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today, session=session)
+        retired = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=today, session=session)
+        await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
 
     # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
     # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
@@ -592,8 +598,9 @@ async def reactivate_team(
 ) -> None:
     """Clear `inactive_since`, restoring a retired club to reads that hide retired ones."""
 
-    async def bring_the_club_back(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
+    async def bring_the_club_back(session: AsyncClientSession) -> None:
+        revived = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
+        await record_act(collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session)
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_club_back)
@@ -692,6 +699,7 @@ async def patch_team_saison(
             if moves_the_row
             else await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=[VERSION_FIELD], session=session)
         )
+        await record_act(collection=teams_collection, action="team.changed", record_id=team_id, label=team_data.name, session=session)
 
         return FLPatchTeamSaisonResponse(version=composite_version(stored_team, stored_row))
 
@@ -730,7 +738,9 @@ async def put_austritt(
     proposed = austritt_data.model_dump(mode="json")
 
     async def record_the_exit(session: AsyncClientSession) -> None:
-        stored = await pull_one_from_db(collection=saison_teams_collection, db_filter=row_filter, projection=["austritt"], session=session)
+        stored = await pull_one_from_db(
+            collection=saison_teams_collection, db_filter=row_filter, projection=["austritt", "name"], session=session
+        )
         # Two presses racing conflict on the row this writes, and the retry reads the exit the first left.
         refuse(find_austritt_standing_refusal(stored=stored.get("austritt")))
 
@@ -751,6 +761,9 @@ async def put_austritt(
             expected_version=None,
             session=session,
             return_document=ReturnDocument.BEFORE,
+        )
+        await record_act(
+            collection=saison_teams_collection, action="team.austritt_entered", record_id=team_id, label=str(stored["name"]), session=session
         )
         await owe_the_austritt_notices_in_session(
             spiele_collection=spiele_collection,
@@ -990,6 +1003,9 @@ async def replace_saison_team(
             update={"$set": {"inactive_since": today}},
             session=session,
         )
+        await record_act(
+            collection=saison_teams_collection, action="team.replaced", record_id=team_id, label=str(updated_raw["name"]), session=session
+        )
 
         # Built from the AFTER image, so the echo cannot describe a row this write did not land; a
         # stored `gruppe` outside the closed set raises here and aborts the transaction rather than answering.
@@ -1150,9 +1166,10 @@ async def post_invitation(
         # it, so nobody should be handed the junction's answer to act on first.
         refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
-        row = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"austritt": 1}, session=session)
+        row = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"austritt": 1, "name": 1}, session=session)
         refuse(find_team_in_saison_refusal(entered=row is not None))
-        refuse(find_austritt_standing_refusal(stored=(row or {}).get("austritt")))
+        assert row is not None
+        refuse(find_austritt_standing_refusal(stored=row.get("austritt")))
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
@@ -1173,6 +1190,9 @@ async def post_invitation(
             sent_at=None,
         )
         post_operation = await post_one_to_db(collection=invitations_collection, document=document, session=session)
+        await record_act(
+            collection=invitations_collection, action="team.invitation_created", record_id=team_id, label=str(row["name"]), session=session
+        )
 
         return post_operation.inserted_id
 
@@ -1213,7 +1233,7 @@ async def delete_invitation(
     async def revoke_the_link(session: AsyncClientSession) -> Mapping[str, Any]:
         # The filter is the judgement: `patch_one_in_db` answers a miss with the 404, so no read stands
         # between resolving the live row and stamping it.
-        return await patch_one_in_db(
+        before = await patch_one_in_db(
             collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_revocation_update(today=today),
@@ -1221,6 +1241,11 @@ async def delete_invitation(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
+        await record_act(
+            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=saison_id, session=session
+        )
+
+        return before
 
     async with transaction_session(db) as session:
         revoked = await session.with_transaction(revoke_the_link)
