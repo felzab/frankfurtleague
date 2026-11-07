@@ -144,8 +144,8 @@ export type TableProps = {
   prose?: boolean;
   /**
    * A table whose cells hold more than a phone's row shares with its name, such as the match editor's report: on a
-   * phone each row stacks, its name line over its cells and every cell after its column's label, the cells wrapping
-   * under it.
+   * phone each row stacks, its name line over its cells and every cell after its column's label, the name and the cells
+   * wrapping.
    */
   stack?: boolean;
   /**
@@ -295,13 +295,14 @@ const table = tv({
       },
     },
     // On a phone the column heads are read but not drawn, and each row is one column of its name line and its cells,
-    // each cell drawing its column's label before its words, which wrap there under their own label. The one column
-    // is `minmax(0, 1fr)`, so the name line is cut at the phone's width rather than widening the row.
+    // each cell drawing its column's label before its words, which wrap there under their own label. The name wraps as
+    // they do, since a touch reaches no tooltip, in one column of `minmax(0, 1fr)`, which a long word cannot widen.
     stack: {
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
         name: "max-lg:col-start-1 max-lg:w-auto max-lg:px-0 max-lg:py-0",
+        whole: PHONE_WRAPS,
         cell: `max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start ${PHONE_WRAPS}`,
         label: "text-xs text-fg-muted lg:hidden",
       },
