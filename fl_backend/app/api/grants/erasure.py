@@ -74,11 +74,14 @@ def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
 
     A change's new address is stored masked, so it is matched as masked: another person's mask reading alike loses a word
     from a mail and no more. A completed change's old address was this person's own, which the erasure's fold cannot find.
+    A notice of this person's own change loses the mask of their new mailbox too, as the erasure's own notice withholds it.
     """
 
     update: dict[str, Any] = {}
     if _names(data.get("address"), identifier):
         update["address"] = None
+        if data.get("change") == "address":
+            update["new_address"] = None
     if _names(data.get("changed_by"), identifier):
         update["changed_by"] = ERASED_ACTOR_MARKER
     if data.get("change") == "address" and data.get("new_address") == masked_address(identifier):
