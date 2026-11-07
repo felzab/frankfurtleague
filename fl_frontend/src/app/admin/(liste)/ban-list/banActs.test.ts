@@ -84,12 +84,31 @@ describe("a ban", () => {
     expect(store.reached).toContain("post");
   });
 
+  // A POST whose answer was lost leaves the ban standing and the sign-out never run, and nothing but this press ends it.
+  describe("a second ban", () => {
+    beforeEach(() => {
+      answerWith(async () => {
+        throw refused("duplicate_key");
+      });
+    });
+
+    it("is refused on the address's box and ends the sessions the first left running", async () => {
+      expect(await enterBan(BAN)).toMatchObject({ ok: false, fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } });
+
+      expect(store.reached).toStrictEqual([`end ${ADDRESS}`]);
+    });
+
+    it("says so where they did not end", async () => {
+      store.end = failing;
+
+      expect(await enterBan(BAN)).toMatchObject({ ok: false, reason: PARTIAL.sessions });
+    });
+  });
+
   // The list of codes the screen words is held by nothing else: the shared failure line sends a retry the same rule refuses.
   it.each([
     ["an address holding a grant", refused("ban_list_admin"), { reason: SERVER_COPY.refusalLine.ban_list_admin }],
     ["no season running", refused("ban_list_no_saison"), { reason: SERVER_COPY.refusalLine.ban_list_no_saison }],
-    // The shared 409 names no field, so the action alone can place it.
-    ["a second ban", refused("duplicate_key"), { fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } }],
     [
       "an address in the Grund",
       refusedPayload([bodyField(["ban_reason"], "address_in_free_text")]),

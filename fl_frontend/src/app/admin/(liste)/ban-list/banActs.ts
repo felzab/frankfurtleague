@@ -66,7 +66,8 @@ function partialOutcome(sessionsEnded: boolean, noticeOwed: boolean): Copy | und
  * Bans an address from the dialog over the list, behind the passkey touch: its next sign-in is refused, its live
  * sessions end here, and an address holding an account is owed its notice in the ban's own transaction. Nothing that
  * fails after the write undoes the ban, so the dialog stays open on what did not follow. A second ban is the unique
- * index's refusal, which the shared 409 answers with no field, and the address is the one box it can be about.
+ * index's refusal, which the shared 409 answers with no field, and the address is the one box it can be about; its
+ * sessions end all the same.
  */
 export const enterBan = action({
   lane: "admin",
@@ -84,7 +85,15 @@ export const enterBan = action({
       await banListPostBanListEntry({ email, ban_reason, notify: account === true });
     } catch (failed) {
       if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "duplicate_key") throw failed;
-      return { ok: false, errorCode: "duplicate_key", fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } };
+      // A first press whose answer was lost left the ban standing and its sessions running, and this press is the only
+      // one that can still end them. A session of an address banned earlier is already gone, so this costs nobody anything.
+      const ended = await sessionsEndedAt(email);
+      return {
+        ok: false,
+        errorCode: "duplicate_key",
+        fieldErrors: { email: SERVER_COPY.refusal.duplicate_key },
+        ...(ended ? {} : { reason: PARTIAL.sessions }),
+      };
     }
 
     // After the write is acknowledged, so nobody is signed out by a request that then failed.
