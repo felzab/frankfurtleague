@@ -1,7 +1,7 @@
 """
 API · the reconciliation's comparison, apart from any database
 
-`app/api/berechtigungen/services.py :: compare` decides what counts as a change, so what it answers
+`app/api/grants/services.py :: compare` decides what counts as a change, so what it answers
 is what every administrator is told.
 """
 
@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.berechtigungen.services import appointed, compare, found_ids, granted_since, owner_since
+from app.api.grants.services import appointed, compare, found_ids, granted_since, owner_since
 from app.core.security import signed_in_since
 
 FIRST = ObjectId("6890a1b2c3d4e5f607920001")

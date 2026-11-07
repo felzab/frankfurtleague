@@ -123,10 +123,10 @@ ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
-BAN_LIST_REASON_MAX_LENGTH: Final = 500
+BAN_REASON_MAX_LENGTH: Final = 500
 
 # Why a team is out of a season, in an administrator's words on the team's public page: a sentence,
-# `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason.
+# `BAN_REASON_MAX_LENGTH`'s figure for its reason.
 AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, written onto every log row it files: a mail's date
@@ -186,7 +186,7 @@ SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 # The one reminder falls this many days before a team row's deadline.
 SPIEL_REMINDER_DAYS: Final = 3
 
-# `BAN_LIST_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
+# `BAN_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
 SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
 

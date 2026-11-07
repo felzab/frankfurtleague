@@ -1,0 +1,152 @@
+"""
+API · every read of the ban list that reaches a collection
+
+Here rather than in `services.py`, which decides from its arguments and names no handle at all.
+The router opens the collection and the client; what it does not do is compose a query.
+"""
+
+from collections.abc import Iterable, Mapping
+from typing import Any
+
+from pydantic import SecretStr
+from pymongo import DESCENDING
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
+
+from app.api.ban_list.services import stored_address_hash
+from app.core.crud import aggregate_many_from_db, pull_many_from_db
+from app.core.readonly import ReadCollection
+
+# What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
+# inclusion rather than an exclusion: a field added to the collection is withheld until somebody
+# names it here.
+SERVED_FIELDS: Mapping[str, int] = {"ban_reason": 1, "created_by": 1, "created_at": 1, "barred_until_saison_id": 1}
+
+
+def build_ban_list_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
+    """The page and the total, from ONE pass.
+
+    `$facet`, so the count cannot disagree with the rows beside it: two reads straddle a write and
+    report a hidden ban that is not there, or miss one that is.
+    """
+
+    return [
+        {
+            "$facet": {
+                # `_id` decides between two bans entered on one day: `created_at` is a date, so it
+                # orders a day's rows against each other not at all.
+                "rows": [{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$limit": limit}, {"$project": dict(SERVED_FIELDS)}],
+                "total": [{"$count": "count"}],
+            }
+        }
+    ]
+
+
+async def read_ban_list_page(
+    *,
+    ban_list_collection: AsyncCollection,
+    limit: int,
+) -> tuple[list[Mapping[str, Any]], int]:
+    """One page of bans, newest first, and how many the collection holds."""
+
+    # `$facet` answers one document holding every row it selected, so the page has to fit BSON's
+    # 16MB ceiling. At this limit and this row shape it is four orders of magnitude clear.
+    faceted = await aggregate_many_from_db(collection=ban_list_collection, pipeline=build_ban_list_page_pipeline(limit=limit), limit=1)
+
+    if not faceted:
+        return [], 0
+
+    rows = list(faceted[0].get("rows") or [])
+    # `$count` emits NO document for an empty collection rather than a zero.
+    counted = faceted[0].get("total") or [{}]
+
+    return rows, int(counted[0].get("count", 0))
+
+
+async def address_is_barred(
+    *,
+    ban_list_collection: ReadCollection,
+    address_hash: str,
+    # May be read before the caller's transaction, every rollover erasing what it lapses in the one
+    # moving the season: an older reference matches as a sequential
+    # order would. Never for a ban's bound, written from it.
+    governing_saison_id: str | None,
+    session: AsyncClientSession | None = None,
+) -> bool:
+    """Whether a ban on this hash still stands, `uniq_ban_list_address_hash` serving the equality half.
+
+    The bound is compared rather than assumed gone: the write that moves the season read here is the
+    one that removes what it lapsed.
+    """
+
+    # The id alone and capped at one: a registration asks whether, never which row, and the answer
+    # must carry no part of a ban past the lane that may read it.
+    found = await pull_many_from_db(
+        collection=ban_list_collection,
+        db_filter={"address_hash": address_hash, **_standing(governing_saison_id)},
+        limit=1,
+        projection=["_id"],
+        session=session,
+    )
+
+    return bool(found)
+
+
+async def read_barred_hashes(
+    *,
+    ban_list_collection: ReadCollection,
+    address_hashes: Iterable[str],
+    governing_saison_id: str | None,
+    session: AsyncClientSession | None = None,
+) -> set[str]:
+    """Which of these hashes a standing ban holds, judged as `address_is_barred` judges one.
+
+    ONE read for a sweep's page of mailboxes: a read each would spend the round trips its share is
+    sized on.
+    """
+
+    asked = sorted(set(address_hashes))
+    if not asked:
+        return set()
+
+    found = await pull_many_from_db(
+        collection=ban_list_collection,
+        db_filter={"address_hash": {"$in": asked}, **_standing(governing_saison_id)},
+        limit=len(asked),
+        projection=["address_hash"],
+        session=session,
+    )
+
+    return {str(row["address_hash"]) for row in found}
+
+
+async def read_barred_addresses(
+    addresses: Iterable[str],
+    *,
+    ban_list_collection: ReadCollection,
+    key: SecretStr,
+    governing_saison_id: str | None,
+    session: AsyncClientSession | None = None,
+) -> set[str]:
+    """Which of these stored addresses a standing ban holds, in `read_barred_hashes`' one read.
+
+    One today's rule refuses is barred by none, as no ban can key it
+    (`app/api/ban_list/services.py :: stored_address_hash`).
+    """
+
+    hashes = {address: hashed for address in set(addresses) if (hashed := stored_address_hash(address, key=key)) is not None}
+    barred = await read_barred_hashes(
+        ban_list_collection=ban_list_collection,
+        address_hashes=hashes.values(),
+        governing_saison_id=governing_saison_id,
+        session=session,
+    )
+
+    return {address for address, hashed in hashes.items() if hashed in barred}
+
+
+def _standing(governing_saison_id: str | None) -> Mapping[str, Any]:
+    # The hash alone while no season is running, rather than an answer given without asking:
+    # `find_no_saison_refusal` leaves no row to find, and one that reached the collection another
+    # way bars rather than passing unjudged.
+    return {} if governing_saison_id is None else {"barred_until_saison_id": {"$gte": governing_saison_id}}

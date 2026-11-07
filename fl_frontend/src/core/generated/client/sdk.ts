@@ -43,6 +43,8 @@ import type {
   FLAddressChangeSweepResponse,
   FLAddressChangeViewResponse,
   FLAustrittPayload,
+  FLBanListResponse,
+  FLBanListWriteResponse,
   FLBewerbungEinwilligungAnswerResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
@@ -68,7 +70,7 @@ import type {
   FLGrantApprovalRequestDeclinedResponse,
   FLGrantReconciliationResponse,
   FLGrantsListResponse,
-  FLGrantStufeResponse,
+  FLGrantTierResponse,
   FLGrantWriteResponse,
   FLInvitationDispatchPayload,
   FLInvitationDispatchResponse,
@@ -106,6 +108,8 @@ import type {
   FLPatchSpieltagPayload,
   FLPatchTeamSaisonPayload,
   FLPatchTeamSaisonResponse,
+  FLPostBanListEntryPayload,
+  FLPostBanListEntryResponse,
   FLPostBewerbungPayload,
   FLPostGrantPayload,
   FLPostGrantResponse,
@@ -115,8 +119,6 @@ import type {
   FLPostSaisonResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
-  FLPostSperrlistePayload,
-  FLPostSperrlisteResponse,
   FLPostSpielortPayload,
   FLPostTeamEntryPayload,
   FLPostTeamEntryResponse,
@@ -153,8 +155,6 @@ import type {
   FLSeatEinwilligungPayload,
   FLSignInResponse,
   FLSignOutResponse,
-  FLSperrlisteListResponse,
-  FLSperrlisteWriteResponse,
   FLSpielberichteSaisonResponse,
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
@@ -374,7 +374,7 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+ * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
  * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
  * and the address on file a notice with its stop link; the change then takes effect
  * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
@@ -810,6 +810,96 @@ export const addressChangeInviteAddressChange = async (
   return adminKeyTransport<FLAddressChangeAdminMintResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
     ...options,
     method: "POST",
+  });
+};
+
+export const getBanListGetBanListEntriesUrl = () => {
+  return `/api/v0/ban_list`;
+};
+
+/**
+ * List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
+ *
+ * No address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed
+ * hash of it and the read projects that away. `created_by` is the administrator who entered the
+ * row, and is an address — `null` beside `created_by_barred` where the ban list holds that
+ * administrator's address too, as no barred address is served in plain. **The rows are capped at
+ * `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows
+ * served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
+ * @summary List the banned addresses
+ */
+export const banListGetBanListEntries = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBanListResponse> => {
+  return adminKeyTransport<FLBanListResponse>(getBanListGetBanListEntriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getBanListPostBanListEntryUrl = () => {
+  return `/api/v0/ban_list`;
+};
+
+/**
+ * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
+ *
+ * Refused where the list already holds the address (`duplicate_key`), while no season is
+ * running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and
+ * where the address is an administrator's (`ban_list_admin`). The ban covers the
+ * fifth season after the one running now — the last one it covers is answered as
+ * `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
+ * that names the address loses it in the same transaction, and where `notify` is set the ban's
+ * own notice is owed to it there too, the one mail a ban does not stop.
+ *
+ * `ban_reason` is served, mailed to the address and kept past that person's erasure.
+ * @summary Ban an email address
+ */
+export const banListPostBanListEntry = async (
+  fLPostBanListEntryPayload: FLPostBanListEntryPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLPostBanListEntryResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLPostBanListEntryResponse>(getBanListPostBanListEntryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostBanListEntryPayload),
+  });
+};
+
+export const getBanListDeleteBanListEntryUrl = (banListEntryId: string) => {
+  return `/api/v0/ban_list/${encodeURIComponent(String(banListEntryId))}`;
+};
+
+/**
+ * Lift a ban before it lapses, removing the row. HARD, no soft form.
+ *
+ * Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
+ * hash, so re-entering the ban means being told the address again. 404 where no row holds the id.
+ *
+ * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
+ * administrator who entered it, and no address of the person it barred — for the twelve months
+ * the rule gives every log row. The lifted ban is therefore readable
+ * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
+ * @summary Lift a ban
+ */
+export const banListDeleteBanListEntry = async (
+  banListEntryId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBanListWriteResponse> => {
+  return adminKeyTransport<FLBanListWriteResponse>(getBanListDeleteBanListEntryUrl(banListEntryId), {
+    ...options,
+    method: "DELETE",
   });
 };
 
@@ -1430,7 +1520,7 @@ export const grantsPatchGrant = async (
   grantId: string,
   fLPatchGrantPayload: FLPatchGrantPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLGrantStufeResponse> => {
+): Promise<FLGrantTierResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1443,7 +1533,7 @@ export const grantsPatchGrant = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLGrantStufeResponse>(getGrantsPatchGrantUrl(grantId), {
+  return adminKeyTransport<FLGrantTierResponse>(getGrantsPatchGrantUrl(grantId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3324,96 +3414,6 @@ export const schiedsrichterReactivateSchiedsrichter = async (
   return adminKeyTransport<FLSchiedsrichterReactivateResponse>(getSchiedsrichterReactivateSchiedsrichterUrl(schiedsrichterId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getSperrlisteGetSperrlisteUrl = () => {
-  return `/api/v0/sperrliste`;
-};
-
-/**
- * List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
- *
- * No address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed
- * hash of it and the read projects that away. `created_by` is the administrator who entered the
- * row, and is an address — `null` beside `created_by_barred` where the ban list holds that
- * administrator's address too, as no barred address is served in plain. **The rows are capped at
- * `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows
- * served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
- * @summary List the banned addresses
- */
-export const sperrlisteGetSperrliste = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSperrlisteListResponse> => {
-  return adminKeyTransport<FLSperrlisteListResponse>(getSperrlisteGetSperrlisteUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSperrlistePostSperrlisteEntryUrl = () => {
-  return `/api/v0/sperrliste`;
-};
-
-/**
- * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
- *
- * Refused where the list already holds the address (`duplicate_key`), while no season is
- * running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and
- * where the address is an administrator's (`ban_list_admin`). The ban covers the
- * fifth season after the one running now — the last one it covers is answered as
- * `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
- * that names the address loses it in the same transaction, and where `notify` is set the ban's
- * own notice is owed to it there too, the one mail a ban does not stop.
- *
- * `grund` is served, mailed to the address and kept past that person's erasure.
- * @summary Ban an email address
- */
-export const sperrlistePostSperrlisteEntry = async (
-  fLPostSperrlistePayload: FLPostSperrlistePayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostSperrlisteResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLPostSperrlisteResponse>(getSperrlistePostSperrlisteEntryUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPostSperrlistePayload),
-  });
-};
-
-export const getSperrlisteDeleteSperrlisteEntryUrl = (sperrlisteId: string) => {
-  return `/api/v0/sperrliste/${encodeURIComponent(String(sperrlisteId))}`;
-};
-
-/**
- * Lift a ban before it lapses, removing the row. HARD, no soft form.
- *
- * Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
- * hash, so re-entering the ban means being told the address again. 404 where no row holds the id.
- *
- * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
- * administrator who entered it, and no address of the person it barred — for the twelve months
- * the rule gives every log row. The lifted ban is therefore readable
- * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
- * @summary Lift a ban
- */
-export const sperrlisteDeleteSperrlisteEntry = async (
-  sperrlisteId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSperrlisteWriteResponse> => {
-  return adminKeyTransport<FLSperrlisteWriteResponse>(getSperrlisteDeleteSperrlisteEntryUrl(sperrlisteId), {
-    ...options,
-    method: "DELETE",
   });
 };
 

@@ -70,7 +70,7 @@ def compose_approval(*, admin_tier: str, started_by: str, now: datetime) -> dict
 
     return {
         "admin_tier": admin_tier,
-        # Its approver held their grant since then (`app/api/berechtigungen/services.py :: holds_since`).
+        # Its approver held their grant since then (`app/api/grants/services.py :: holds_since`).
         "asked_at": now.astimezone(UTC),
         "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
         # Folded, as `granted_by` stores an administrator: the one compared with the approver.
@@ -85,7 +85,7 @@ def compose_record(
     address: str,
     email: str,
     way: FLAddressChangeWay,
-    grund: str | None,
+    change_reason: str | None,
     approval: Mapping[str, Any] | None,
     now: datetime,
 ) -> dict[str, Any]:
@@ -103,7 +103,7 @@ def compose_record(
         "sent_at": german_day(now),
         "valid_until": valid_until_from(now),
         "released_at": None,
-        "grund": grund,
+        "change_reason": change_reason,
         "confirmed_at": None,
         "effective_from": None,
         "approval": None if approval is None else dict(approval),
@@ -166,7 +166,7 @@ def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[s
         "$set": {
             "address": None,
             "email": None,
-            "grund": None,
+            "change_reason": None,
             "approval": None,
             "ended": {"kind": kind, "at": now.astimezone(UTC)},
         }

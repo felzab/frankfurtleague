@@ -44,8 +44,8 @@ from app.api.address_change.services import (
     previous_state,
     side_of,
 )
+from app.api.ban_list.lookup import BanListLookup, ban_list_saison
 from app.api.identity.lookup import SubjectLookup
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison
 from app.core.clock import german_day
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -86,7 +86,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
 
-# What a link's view reads: never `grund`, the addresses for the judgement alone, and the new link's hashes, which say
+# What a link's view reads: never `change_reason`, the addresses for the judgement alone, and the new link's hashes, which say
 # which of the two links a token is.
 _FIELDS: Mapping[str, int] = {
     "address": 1,

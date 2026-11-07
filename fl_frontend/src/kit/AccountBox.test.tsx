@@ -103,7 +103,7 @@ describe("a Konto row's removal", () => {
             id: "passkey-1",
             name: { record: "Laptop" },
             detail: PASSKEY,
-            remove: { verb: "delete", subject: PASSKEY, consequence: REFUSAL, touch: false, holder: "anna@example.com", run },
+            remove: { verb: "delete", subject: PASSKEY, consequence: REFUSAL, run },
           },
         ]}
       />,

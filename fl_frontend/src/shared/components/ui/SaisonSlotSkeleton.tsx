@@ -3,8 +3,7 @@
 import { skeletonBlock } from "./skeleton";
 
 /**
- * Stands in for the season selector, including inside `SaisonSelector` until it hydrates: the real control streams in as
- * styled markup before React attaches. It mirrors the real trigger's own classes, and its bar widths are in `em`.
+ * Stands in for the shell's season slot while its read runs, its bar widths in `em`.
  */
 export function SaisonSlotSkeleton() {
   return (

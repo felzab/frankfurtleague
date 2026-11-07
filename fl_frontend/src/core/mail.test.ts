@@ -48,12 +48,12 @@ const CONFIG_DOUBLE = {
 // The map is each cutover's to fill: one kind stands in, rendered as any mail is, printing the secret it is handed.
 const KINDS_DOUBLE = {
   OUTBOX_TAG: "outbox_id",
-  mailFor: (_kind: string, data: { grund: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
+  mailFor: (_kind: string, data: { ban_reason: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
     kind: "notice",
     subjectLine: "Sperre",
     origin,
     firstName: "",
-    paragraphs: [[data.grund], ...(secret === null ? [] : [[secret]])],
+    paragraphs: [[data.ban_reason], ...(secret === null ? [] : [[secret]])],
   }),
 };
 
@@ -70,7 +70,7 @@ const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
 const handed = (n: number, attempt = 1): FLOutboxHandout => ({
   id: String(n).padStart(24, "a"),
   to: `person${String(n)}@example.org`,
-  data: { kind: "ban", grund: "Grund", barred_until_saison_id: "2627" },
+  data: { kind: "ban", ban_reason: "Grund", barred_until_saison_id: "2627" },
   token: null,
   secret: null,
   attempt,

@@ -20,9 +20,9 @@ from zoneinfo import ZoneInfo
 from bson import ObjectId
 
 from app.api.address_change.services import compose_record
+from app.api.ban_list.services import BAN_LIST_KEY_VERSION, address_hash
 from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
-from app.api.sperrliste.services import BAN_LIST_KEY_VERSION, address_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.core.recording import log_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
@@ -472,7 +472,7 @@ def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
         "_id": ObjectId(),
         "address_hash": address_hash(address, key=build_test_config().sperrliste_key),
         "key_version": BAN_LIST_KEY_VERSION,
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
         "created_by": "admin@frankfurtleague.de",
         "created_at": "2026-03-15",
         "barred_until_saison_id": until,
@@ -579,7 +579,7 @@ def address_change_document(
     asked_first = way == "account"
 
     return {
-        **compose_record(address=address, email=email, way=way, grund=None, approval=approval, now=started),
+        **compose_record(address=address, email=email, way=way, change_reason=None, approval=approval, now=started),
         "token_hashes": [] if token_hash is None else [token_hash],
         "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
         "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,

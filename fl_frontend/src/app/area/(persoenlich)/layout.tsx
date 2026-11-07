@@ -11,8 +11,8 @@ import { personEintraegeOf } from "@/features/funktionen/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 /**
- * Not async, for the reason `fl_frontend/src/app/area/admin/layout.tsx` states. The frame paints before
- * the session read; only what the person's Funktionen decide waits on it.
+ * Not async on purpose: awaiting the session here would make the whole shell a dynamic hole. The frame paints
+ * before the session read; only what the person's Funktionen decide waits on it.
  */
 export default function PersoenlichLayout({ children }: { children: React.ReactNode }) {
   return (

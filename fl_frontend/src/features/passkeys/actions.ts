@@ -26,7 +26,7 @@ const PasskeyId = z.string().min(1).max(64);
 type Removed = "thisDevice" | "otherDevices";
 
 /**
- * Removes one of the person's passkeys, the passkey touch first, and every session it signed in with, the one this
+ * Removes one of the person's passkeys, behind the passkey touch, and every session it signed in with, the one this
  * request arrived with among them where the touch answered with this passkey: a session the removed passkey made is
  * no session of a passkey the account holds. Where that ended this device's own session the body records no write
  * and renders nothing again, since the page would render under a session that is gone: the page leaves by a document

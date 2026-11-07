@@ -2,8 +2,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
-from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
+from app.api.ban_list.schemas import refuse_an_address_in_the_reason
+from app.api.grants.schemas import FLUtcInstant
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString

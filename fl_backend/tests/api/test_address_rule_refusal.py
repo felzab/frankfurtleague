@@ -110,7 +110,7 @@ ADDRESS_FIELDS = _address_fields()
 KNOWN_ADDRESS_FIELDS = {
     "app.api.identity.schemas.FLSubjectPayload.email",
     "app.api.registrierungen.schemas.FLPostRegistrierungPayload.email",
-    "app.api.sperrliste.schemas.FLPostSperrlistePayload.email",
+    "app.api.ban_list.schemas.FLPostBanListEntryPayload.email",
     "app.api.teams.schemas._KontaktpersonWritablePayload.email",
     "app.shared.schemas.kontakt.FLKontaktPayload.email",
 }
@@ -142,7 +142,7 @@ class TestEveryAddressPayloadHoldsTheSameRule:
 
         local_part = "zorbanax"
         with pytest.raises(ValidationError) as raised:
-            ADDRESS_FIELDS["app.api.sperrliste.schemas.FLPostSperrlistePayload.email"].validate_python(
+            ADDRESS_FIELDS["app.api.ban_list.schemas.FLPostBanListEntryPayload.email"].validate_python(
                 f"{local_part}{FULL_WIDTH_AT}x@schule.de"
             )
 

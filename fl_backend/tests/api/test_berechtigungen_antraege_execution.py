@@ -21,7 +21,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.admin_router import (
+from app.api.ban_list.services import compose_barred_until_saison_id
+from app.api.grants.admin_router import (
     delete_approval_request,
     delete_grant,
     get_grants,
@@ -29,16 +30,15 @@ from app.api.berechtigungen.admin_router import (
     post_approval_request_approval,
     post_grant,
 )
-from app.api.berechtigungen.antraege import (
+from app.api.grants.antraege import (
     approval_request_line,
     compose_approval_request,
     end_the_approval_requests_about_in_session,
     erase_approval_requests_in_session,
 )
-from app.api.berechtigungen.schemas import FLPatchGrantPayload, FLPostGrantPayload
-from app.api.berechtigungen.system_router import post_grants_reconciliation
+from app.api.grants.schemas import FLPatchGrantPayload, FLPostGrantPayload
+from app.api.grants.system_router import post_grants_reconciliation
 from app.api.identity.journal_replay import Window, plan_replay
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError

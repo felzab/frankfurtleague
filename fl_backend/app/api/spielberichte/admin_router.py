@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_active_saison_id
 from app.api.spielberichte.crud import pull_states
 from app.api.spielberichte.schemas import FLSpielberichteSaisonResponse

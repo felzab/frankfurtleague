@@ -650,7 +650,7 @@ stack's container publishes port 3000 or 27017**, which both publish
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
 local stack starts with an empty `auth` and a sign-in builds it; the grants deciding
 which administrator may sign in, and which the backend admits, arrive with the copy
-(`berechtigungen`), so a `--fresh` stack admits nobody until one is written, and anybody else is
+(`grants`), so a `--fresh` stack admits nobody until one is written, and anybody else is
 offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
 `/area/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —

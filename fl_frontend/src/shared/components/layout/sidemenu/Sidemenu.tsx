@@ -73,7 +73,7 @@ export function Sidemenu({
               person is acting in frames everything below it. */}
           {funktionSwitcher}
 
-          {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one continuous state. */}
+          {/* The season slot's own shape, so the wait reads as one continuous state. */}
           <Suspense fallback={<SaisonSlotSkeleton />}>
             <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}

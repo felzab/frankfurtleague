@@ -30,8 +30,7 @@ export function readingDirectionHref(search: URLSearchParams, target: ReadingDir
   // Copied rather than rebuilt, so reversing never silently drops a facet or the season.
   const next = withoutSearchQuery(search);
   next.delete(ORDER_PARAM);
-  // The default end is the ABSENCE of the parameter, as `SaisonSelector` and `useUrlFilters` spell
-  // theirs: a shared link carries only what somebody chose.
+  // The default end is the ABSENCE of the parameter: a shared link carries only what somebody chose.
   if (target === "asc") next.set(ORDER_PARAM, "asc");
 
   // Never empty, so the two routes to one state write one href: a bare `?` resolves to this path with
@@ -39,7 +38,7 @@ export function readingDirectionHref(search: URLSearchParams, target: ReadingDir
   return `?${next.toString()}`;
 }
 
-/** The same off a Server Component's `searchParams`, the shape `readFacetSelectionFromRoute` takes. */
+/** The same off a Server Component's `searchParams`. */
 export function readingDirectionHrefFromRoute(
   params: Readonly<Record<string, string | string[] | undefined>>,
   target: ReadingDirection,

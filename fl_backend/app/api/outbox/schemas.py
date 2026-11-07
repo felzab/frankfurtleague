@@ -3,7 +3,7 @@ from typing import Annotated, Final, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
-from app.api.berechtigungen.schemas import FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantNoticeKind, FLGrantSnapshot
+from app.api.grants.schemas import FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantNoticeKind, FLGrantSnapshot
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
@@ -43,7 +43,7 @@ class FLBanData(BaseModel):
     """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`)."""
 
     kind: Literal["ban"]
-    grund: str
+    ban_reason: str
     barred_until_saison_id: str
 
 

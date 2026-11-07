@@ -223,7 +223,7 @@ const REFEREES = [
 
 // --- Grants --------------------------------------------------------------------------------------
 
-// Each grant as the grant page's write leaves it (`fl_backend/app/api/berechtigungen/crud.py :: grant_in_session`):
+// Each grant as the grant page's write leaves it (`fl_backend/app/api/grants/crud.py :: grant_in_session`):
 // seen as it is written, and announced by a row of its own, so the reconciliation's first pass, a minute after the
 // frontend starts, finds nothing to date afresh. Written as a Playground paste instead, each would be found then and
 // dated by that moment, and every administrator's session signed in before it sent back to the sign-in on its next
@@ -245,7 +245,7 @@ const GRANTS = [
   seen_at: GRANTED_AT,
 }));
 
-// The announced record of each, keyed by its grant's id: `fl_backend/app/api/berechtigungen/services.py :: compose_announced`.
+// The announced record of each, keyed by its grant's id: `fl_backend/app/api/grants/services.py :: compose_announced`.
 const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, announced_at: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
@@ -1078,7 +1078,7 @@ const DOCUMENTS = {
   teams: CLUBS,
   spielorte: VENUES,
   schiedsrichter: REFEREES,
-  berechtigungen: GRANTS,
+  grants: GRANTS,
   saisons: [finished.saison, running.saison, PLANNED_SAISON],
   saison_teams: [...finished.saisonTeams, ...running.saisonTeams, ...PLANNED_ROWS],
   spieltage: [...finished.spieltage, ...running.spieltage],
@@ -1104,7 +1104,7 @@ for (const name of db.getCollectionNames()) {
 // saves match on the version their editor was served, and none matches a document without one.
 // The first of each collection `fl_backend/app/core/crud.py :: anchor_in_db` writes carries the count an
 // anchor advances, as a document of the league's soon does, so the read-back judges that its record model declares it.
-const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "berechtigungen", "saisons", "saison_teams"]);
+const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "grants", "saisons", "saison_teams"]);
 for (const [name, documents] of Object.entries(DOCUMENTS)) {
   const versioned = documents.map((document, index) => ({
     ...document,
@@ -1119,7 +1119,7 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
 // record model refuses one.
 const UNEDITED = {
   berechtigungen_angekuendigt: ANNOUNCED,
-  einladungen: Object.values(INVITATIONS),
+  invitations: Object.values(INVITATIONS),
   registrierungen: REGISTRATIONS,
   outbox: SETTLED_MAILS,
 };

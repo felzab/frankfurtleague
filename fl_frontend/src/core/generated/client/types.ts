@@ -819,12 +819,12 @@ export interface FLOutboxStatus {
  */
 export interface FLAddressChangeAdminOpen {
   approval: FLAddressChangeAdminApproval | null;
+  change_reason: string | null;
   confirmed_at: string | null;
   delivery: FLOutboxStatus | null;
   effective_from: string | null;
   email: string;
   expired: boolean;
-  grund: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   released_at: string | null;
@@ -841,14 +841,14 @@ export interface FLAddressChangeAdminOpen {
 export interface FLAddressChangeAdminPayload {
   /** @maxLength 254 */
   address: string;
-  /** @maxLength 254 */
-  email: string;
   /**
    * @minLength 1
    * @maxLength 200
    * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
-  grund: string;
+  change_reason: string;
+  /** @maxLength 254 */
+  email: string;
 }
 
 /**
@@ -1225,9 +1225,48 @@ export interface FLAustrittPayload {
  * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).
  */
 export interface FLBanData {
+  ban_reason: string;
   barred_until_saison_id: string;
-  grund: string;
   kind: "ban";
+}
+
+/**
+ * One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.
+ */
+export interface FLBanListRow {
+  /** @minLength 1 */
+  ban_reason: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  barred_until_saison_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  created_at: string;
+  created_by: string | null;
+  created_by_barred: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+}
+
+/**
+ * The bans, newest first, and how many there are.
+ *
+ * `count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a
+ * person barred by a row nobody can reach.
+ */
+export interface FLBanListResponse {
+  ban_list: FLBanListRow[];
+  /** @minimum 0 */
+  count_total: number;
+}
+
+/**
+ * The removal is hard, so the id is all there is to answer with: no document survives to echo.
+ */
+export interface FLBanListWriteResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  ban_list_entry_id: string;
 }
 
 export type FLBewerbungConfirmationState = (typeof FLBewerbungConfirmationState)[keyof typeof FLBewerbungConfirmationState];
@@ -2589,11 +2628,11 @@ export interface FLGenerateSpielplanResponse {
  * The change of this grant's address that waits on an administrator's approval.
  */
 export interface FLGrantAddressChange {
+  change_reason: string | null;
   confirmed: boolean;
   denied: FLApprovalDenied | null;
   email: string | null;
   email_barred: boolean;
-  grund: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   started_by: string | null;
@@ -2698,7 +2737,7 @@ export interface FLGrantRow {
 /**
  * The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect.
  */
-export interface FLGrantStufeResponse {
+export interface FLGrantTierResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   grant_id: string;
   requested: boolean;
@@ -4169,6 +4208,31 @@ export interface FLPatchTeamSaisonResponse {
   version: number;
 }
 
+export interface FLPostBanListEntryPayload {
+  /**
+   * @minLength 1
+   * @maxLength 500
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  ban_reason: string;
+  /** @maxLength 254 */
+  email: string;
+  notify: boolean;
+}
+
+/**
+ * Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.
+ */
+export interface FLPostBanListEntryResponse {
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  barred_until_saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
 /**
  * One school's application, as the public form submits it.
  *
@@ -4269,31 +4333,6 @@ export interface FLPostSchiedsrichterPayload {
 
 export interface FLPostSchiedsrichterResponse {
   confirmation: FLSchiedsrichterMint;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
-}
-
-export interface FLPostSperrlistePayload {
-  /** @maxLength 254 */
-  email: string;
-  /**
-   * @minLength 1
-   * @maxLength 500
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  grund: string;
-  notify: boolean;
-}
-
-/**
- * Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.
- */
-export interface FLPostSperrlisteResponse {
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  barred_until_saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
 }
@@ -4975,45 +5014,6 @@ export const FLSortOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
-
-/**
- * One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.
- */
-export interface FLSperrlisteRow {
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  barred_until_saison_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  created_at: string;
-  created_by: string | null;
-  created_by_barred: boolean;
-  /** @minLength 1 */
-  grund: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-}
-
-/**
- * The bans, newest first, and how many there are.
- *
- * `count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a
- * person barred by a row nobody can reach.
- */
-export interface FLSperrlisteListResponse {
-  /** @minimum 0 */
-  count_total: number;
-  sperrliste: FLSperrlisteRow[];
-}
-
-/**
- * The removal is hard, so the id is all there is to answer with: no document survives to echo.
- */
-export interface FLSperrlisteWriteResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  sperrliste_id: string;
-}
 
 export type FLSpielberichtVorschlagSonderereignis =
   (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;

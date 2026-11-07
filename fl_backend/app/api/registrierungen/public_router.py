@@ -7,6 +7,7 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, mailbox_anchor_ids, payload_fingerprint
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
@@ -51,7 +52,6 @@ from app.api.registrierungen.services import (
     zustand_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.spieler.services import build_live_squad_filter
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -322,7 +322,7 @@ async def post_registrierung(
         barred = await hash_barred(
             ban_list,
             hashed,
-            # Read before this transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+            # Read before this transaction (`app/api/ban_list/crud.py :: address_is_barred`).
             governing_saison_id=governing_saison_id,
             session=session,
         )
@@ -476,7 +476,7 @@ async def post_confirmation(
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungConfirmationResponse:

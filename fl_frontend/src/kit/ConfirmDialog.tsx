@@ -13,6 +13,7 @@ import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { answering } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
+import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
@@ -47,7 +48,7 @@ type Opening =
       open?: never;
     }
   | {
-      /** The open state, held by the control that asks: a row's act asking once the passkey touch has answered. */
+      /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
     };
@@ -59,6 +60,11 @@ type Act = {
    * the acts, a throw worded and the page read again as every form's send is (`answering`).
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
+  /**
+   * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list a person holding a passkey
+   * presses: the address the page was drawn for (`usePasskeyTouch`). The question stays open on a refused touch.
+   */
+  touch?: { holder: string };
 };
 
 export type ConfirmDialogProps = ConfirmWords & Act & Opening;
@@ -77,7 +83,7 @@ type Unasked = Act & { open: HeldOpen; trigger?: never } & { [Word in keyof Conf
  * refusal twice is announced twice.
  */
 export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
-  const { trigger, open, onConfirm } = props;
+  const { trigger, open, onConfirm, touch } = props;
   const words = props.verb === undefined ? null : props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
@@ -91,8 +97,12 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
     setWasOpen(isOpen);
     setRefusal(null);
   }
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   // An act answering nothing is done; one answering is judged by its answer.
-  const act = answering(async () => (await onConfirm()) ?? DONE, router.refresh);
+  const act = answering(
+    touched(async () => (await onConfirm()) ?? DONE),
+    router.refresh,
+  );
 
   const overlay = words !== null && (
     <DialogOverlay

@@ -1,0 +1,396 @@
+"""
+API · the grants' refusals, the one reading of a stored row, and the facts of their notices, apart from the handles they are asked of
+
+Each refusal takes what its caller read inside its own transaction, so a retry after a conflict
+judges the list afresh.
+"""
+
+from collections.abc import Collection, Mapping, Sequence, Set
+from dataclasses import dataclass
+from datetime import datetime
+from http import HTTPStatus
+from typing import Any, Final
+
+from bson import ObjectId
+
+from app.api.ban_list.services import withheld_actor
+from app.api.grants.schemas import FLGrantChangeKind, FLGrantNoticeKind, FLGrantSnapshot, as_utc
+from app.core.codes import Code
+from app.core.exceptions import WriteRefusal
+from app.core.security import signed_in_since
+from app.shared.folding import sign_in_identifier
+from app.shared.schemas.literals import FLApprovalDenied
+
+# An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
+# met would leave nobody to act while that one person is unreachable.
+MINDESTZAHL: Final = 2
+
+OWNER: Final = "owner"
+
+
+def granted_since(row: Mapping[str, Any], announced: Mapping[str, Any] | None) -> datetime | None:
+    """When a stored grant took effect, the one reading the subject lookup and the actor check share.
+
+    Two readings would let the frontend's guard and this side judge one session against two instants.
+    """
+
+    since = as_utc(row.get("found_at") or row["granted_at"])
+    if announced is None:
+        # Seen before and its record gone since: repointed past the pass
+        # that erased its record, or put back whole. Every date it carries, its id's included, is from
+        # before that edit.
+        if row.get("seen_at") is not None:
+            return None
+
+        # A paste nothing has seen, whose typed date can lie before it: never earlier than the id the
+        # Playground generated as it inserted the row, so its holder's first sign-in still admits.
+        return max(since, row["_id"].generation_time)
+
+    # An address changed in place before the comparison found it: nothing dates the change, and the
+    # dates the row carries are the address before's.
+    return since if announced.get("address") == row.get("address") else None
+
+
+def owner_since(row: Mapping[str, Any], announced: Mapping[str, Any] | None) -> datetime | None:
+    """When a stored grant's `owner` tier took effect, or `None` where no session holds an owner's power through it.
+
+    A session older than it keeps administering and holds none of an owner's.
+    """
+
+    since = granted_since(row, announced)
+    if since is None or row.get("admin_tier") != OWNER:
+        return None
+
+    # Promoted in the database and not yet found: nothing dates the edit, so no session holds the tier
+    # until the comparison stamps `appointed_at`. A demotion needs no find, taking the power at once.
+    if announced is not None and announced.get("admin_tier") != OWNER:
+        return None
+
+    appointed_at = row.get("appointed_at")
+
+    return since if appointed_at is None else max(since, as_utc(appointed_at))
+
+
+def found_ids(
+    changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
+) -> list[Any]:
+    """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `found_at`."""
+
+    return [grant_id for grant_id, kind, _, _ in changes if kind == "granted"]
+
+
+def appointed(
+    changes: Sequence[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]],
+) -> list[Any]:
+    """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `appointed_at`."""
+
+    return [grant_id for grant_id, kind, current, _ in changes if kind == "changed" and current is not None and current.admin_tier == OWNER]
+
+
+def admin_tier_of(address: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
+    """The tier this folded address holds among the live grants, or `None`."""
+
+    return next((str(grant["admin_tier"]) for grant in grants if grant["address"] == address), None)
+
+
+def find_vorhanden_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`grant_exists`: a grant already holds the address, of either tier."""
+
+    if admin_tier_of(address, grants) is None:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_EXISTS,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def holds_an_owners_power(*, actor: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]) -> bool:
+    """Whether the acting administrator's own live grant is `owner`, from a sign-in made since that tier took effect.
+
+    One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it.
+    """
+
+    row = next((grant for grant in grants if grant["address"] == actor), None)
+    record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
+    since = None if row is None else owner_since(row, record)
+
+    return since is not None and signed_in_since(auth_time, since)
+
+
+def find_nur_inhaber_refusal(
+    *, actor: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> WriteRefusal | None:
+    """`grant_only_owner`: only an `owner`, signed in since becoming one, revokes or changes a tier.
+
+    Judged inside the transaction, so one administrator cannot strip the others down to the floor and
+    then shelter behind it, nor make themselves an owner.
+    """
+
+    if holds_an_owners_power(actor=actor, auth_time=auth_time, grants=grants, announced=announced):
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_ONLY_OWNER,
+        status=HTTPStatus.FORBIDDEN,
+    )
+
+
+def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`grant_barred`: the address is on the ban list, which another administrator decided.
+
+    The target's state, so 409: lifting the ban is what changes it.
+    """
+
+    if not barred:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_BARRED,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
+    """`grant_owner`: an `owner` row is revoked by no route; it is demoted first."""
+
+    if grant.get("admin_tier") != OWNER:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_OWNER,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
+    """`grant_minimum_count`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
+
+    Counted over the unbarred grants: a barred row counted would let the floor
+    hold while one person alone could still act.
+    """
+
+    if remaining >= MINDESTZAHL:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_MINIMUM_COUNT,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
+    """`grant_last_owner`: a demotion leaves at least one live, unbarred `owner`.
+
+    Counted as the floor of two is: a barred `owner` row admits nobody, so it could demote
+    nobody back and grant nothing.
+    """
+
+    if remaining_owners >= 1:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_LAST_OWNER,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def snapshot_of(row: Mapping[str, Any]) -> FLGrantSnapshot:
+    return FLGrantSnapshot(address=str(row["address"]), admin_tier=row["admin_tier"])
+
+
+def compare(
+    *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]]:
+    """Every grant whose state differs from the announced record, in id order.
+
+    Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
+    """
+
+    current_by_id = {row["_id"]: snapshot_of(row) for row in grants}
+    before_by_id = {row["_id"]: snapshot_of(row) for row in announced}
+
+    changes: list[tuple[Any, FLGrantChangeKind, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
+    for grant_id in sorted(current_by_id.keys() | before_by_id.keys()):
+        current, before = current_by_id.get(grant_id), before_by_id.get(grant_id)
+        if before is None:
+            changes.append((grant_id, "granted", current, None))
+        elif current is None:
+            changes.append((grant_id, "revoked", None, before))
+        # Read as one tier change, a repointed address would name its new holder alone and hide whose
+        # access ended.
+        elif current.address != before.address:
+            changes.append((grant_id, "revoked", None, before))
+            changes.append((grant_id, "granted", current, None))
+        elif current != before:
+            changes.append((grant_id, "changed", current, before))
+
+    return changes
+
+
+def withheld(snapshot: FLGrantSnapshot | None, barred: Collection[str]) -> FLGrantSnapshot | None:
+    """`snapshot` with its address removed where that address is barred."""
+
+    if snapshot is None or snapshot.address is None or snapshot.address not in barred:
+        return snapshot
+
+    return snapshot.model_copy(update={"address": None})
+
+
+@dataclass(frozen=True)
+class Notice:
+    """One notice a grants write owes: the grant or request it is keyed by, and its facts (`FLGrantData`)."""
+
+    grant_id: ObjectId
+    data: dict[str, Any]
+
+
+def compose_notice(
+    *,
+    grant_id: ObjectId,
+    kind: FLGrantNoticeKind,
+    current: FLGrantSnapshot | None,
+    before: FLGrantSnapshot | None,
+    changed_by: str | None,
+    now: datetime,
+    barred: Collection[str],
+) -> Notice:
+    """One notice, every barred address in it withheld as it is written; `changed_by` null is a change found in the database.
+
+    The actor stored folded, the spelling a later ban or erasure matches queued notices by.
+    """
+
+    snapshots = (withheld(current, barred), withheld(before, barred))
+    actor = None if changed_by is None else sign_in_identifier(changed_by)
+
+    return Notice(
+        grant_id=grant_id,
+        data={
+            "kind": "grant",
+            "change": kind,
+            "author": "datenbank" if changed_by is None else "anwendung",
+            "current": None if snapshots[0] is None else snapshots[0].model_dump(),
+            "before": None if snapshots[1] is None else snapshots[1].model_dump(),
+            "changed_by": withheld_actor(actor, barred),
+            "changed_at": None if changed_by is None else now,
+            # The grant's address alone: a null actor on an application's change already says it is barred.
+            "withheld": "barred" if any(snapshot is not None and snapshot.address is None for snapshot in snapshots) else None,
+        },
+    )
+
+
+def compose_announced(*, grant_id: ObjectId, snapshot: FLGrantSnapshot, now: datetime) -> dict[str, Any]:
+    return {"_id": grant_id, "address": snapshot.address, "admin_tier": snapshot.admin_tier, "announced_at": now}
+
+
+def four_eyes_since(row: Mapping[str, Any], announced: Mapping[str, Any] | None, *, admin_tier: str) -> datetime | None:
+    """Since when the four-eyes rule counts this grant's holder as holding `admin_tier`'s tier.
+
+    The person's, not the mailbox's: a row their own address change moved keeps the dates it replaced.
+    """
+
+    since = (owner_since if admin_tier == OWNER else granted_since)(row, announced)
+    carried = (row.get("carried") or {}).get("owner_since" if admin_tier == OWNER else "granted_since")
+    # A promotion since the move dates an owner's tier afresh, as a demotion took the carried one.
+    if since is None or carried is None or (admin_tier == OWNER and row.get("appointed_at") is not None):
+        return since
+
+    return min(since, as_utc(carried))
+
+
+def compose_carried(row: Mapping[str, Any], announced: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """What a grant moved to its holder's new address carries of the row it replaces: both tiers' since-whens, carried on."""
+
+    administration = four_eyes_since(row, announced, admin_tier="administration")
+    if administration is None:
+        return None
+
+    return {"granted_since": administration, "owner_since": four_eyes_since(row, announced, admin_tier=OWNER)}
+
+
+def holds_since(
+    address: str, *, admin_tier: str, before: datetime, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> bool:
+    """Whether this folded address's live grant, an owner's for an `owner` act, took effect at or before `before`.
+
+    A grant made after a request approves nothing of it, or one person could grant a second mailbox and approve with it.
+    """
+
+    row = next((grant for grant in grants if grant["address"] == address), None)
+    if row is None:
+        return False
+    record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
+    since = four_eyes_since(row, record, admin_tier=admin_tier)
+
+    return since is not None and since <= as_utc(before)
+
+
+def approver_of(
+    *,
+    admin_tier: str,
+    excepted: Set[str],
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    barred: Set[str],
+    before: datetime,
+) -> list[str]:
+    """Every address that could approve an act on a grant of `admin_tier` asked at `before`.
+
+    A live, unbarred grant in effect since then, an owner's for an owner's act, and neither the act's subject nor its
+    starter (`excepted`).
+    """
+
+    return [
+        str(row["address"])
+        for row in grants
+        if row["address"] not in excepted
+        and row["address"] not in barred
+        and holds_since(str(row["address"]), admin_tier=admin_tier, before=before, grants=grants, announced=announced)
+    ]
+
+
+def approval_denied(
+    *,
+    target: Any,
+    approval: Mapping[str, Any],
+    actor: str,
+    owner: bool,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+) -> FLApprovalDenied | None:
+    """Why this folded administrator may not approve the act `approval` waits on, or `None`.
+
+    `owner` is whether their session holds an owner's power now.
+    """
+
+    if target == actor:
+        return "own"
+    if approval.get("started_by") == actor:
+        return "started"
+    admin_tier = str(approval.get("admin_tier"))
+    if admin_tier == OWNER and not owner:
+        return "owner"
+    if not holds_since(actor, admin_tier=admin_tier, before=approval["asked_at"], grants=grants, announced=announced):
+        return "younger"
+
+    return None
+
+
+def approval_stands(
+    *,
+    target: Any,
+    approval: Mapping[str, Any],
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    barred: Set[str],
+) -> bool:
+    """Whether a given approval still stands where the act takes effect: its approver may approve it now as when they did.
+
+    An approval never outlives its approver's grant, their owner's tier, or a ban since.
+    """
+
+    by = approval.get("approved_by")
+    if not isinstance(by, str) or by in barred or by in {target, approval.get("started_by")}:
+        return False
+
+    return holds_since(by, admin_tier=str(approval.get("admin_tier")), before=approval["asked_at"], grants=grants, announced=announced)

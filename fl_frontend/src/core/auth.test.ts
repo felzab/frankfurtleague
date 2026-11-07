@@ -20,7 +20,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { assertionAnswer } from "./auth/assertionAnswer.ts";
-import { PASSKEY_TOUCH_SECONDS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes.ts";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
@@ -226,7 +226,6 @@ const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion
 const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
 const { getAdminSession, getAccountSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
 const { getSignedInAddress, getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
-const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
@@ -668,7 +667,7 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     madeByPasskey(store, row);
     refreshedAgo(row, idle);
 
-    await proxy(new NextRequest("http://localhost:3000/area/admin/spiele", { headers: { cookie } }));
+    await proxy(new NextRequest("http://localhost:3000/admin/spielorte", { headers: { cookie } }));
     assert.ok(Date.now() - row.updatedAt.getTime() < MINUTE_MS, "the proxy slid nothing, so the case proves nothing");
 
     arriveAs(cookie);
@@ -1602,32 +1601,6 @@ describe("which session a new sign-in replaces", () => {
   });
 });
 
-describe("the step-up every change to passkeys and sign-ins asks for", () => {
-  const judged = (email: string, authFactor: string, age: number) =>
-    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, isAdmin: email === ADMIN_EMAIL });
-
-  it("admits a person signed in by either factor inside the window, and neither past it", () => {
-    for (const factor of ["code", "passkey"]) {
-      expect(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS - 60_000), `${factor} inside the window`).toBe(true);
-      expect(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS + 60_000), `${factor} past the window`).toBe(false);
-    }
-  });
-
-  /* The administrator's step-up is the passkey's: a mailbox alone must not manage the passkeys that
-     guard the admin surface. */
-  it("admits an administrator inside the window by the passkey alone", () => {
-    expect(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS - 60_000)).toBe(true);
-    expect(judged(ADMIN_EMAIL, "code", 0)).toBe(false);
-    expect(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS + 60_000)).toBe(false);
-  });
-
-  it("takes a stamp it cannot read for no step-up at all", () => {
-    expect(
-      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, isAdmin: false }),
-    ).toBe(false);
-  });
-});
-
 describe("what a ban ends in the sign-in store", () => {
   it("ends every session of the account the barred address folds to, and keeps the account and its passkeys", async () => {
     const first = await signIn(PERSON_EMAIL);
@@ -2339,7 +2312,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {
-  /* One person, one spelling in `aktionen.actor.email`: this lane and the person's lane compose the
+  /* One person, one spelling in `action_log.actor.email`: this lane and the person's lane compose the
      actor from one address, so a log filtered on it holds every write they made. */
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");

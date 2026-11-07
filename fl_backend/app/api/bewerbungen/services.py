@@ -8,6 +8,7 @@ from typing import Any, Final, Literal, TypeIs, get_args
 
 from pydantic import BaseModel, SecretStr, ValidationError
 
+from app.api.ban_list.services import withheld_actor
 from app.api.bewerbungen.schemas import (
     FLBewerbungDecision,
     FLBewerbungEinwilligungState,
@@ -25,7 +26,6 @@ from app.api.outbox.schemas import (
     FLOutboxStatus,
 )
 from app.api.outbox.services import OwedMail
-from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -926,7 +926,7 @@ def build_own_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
 # mailbox, because one on the season stalls every school's press and every season write the same way.
 OPEN_LINKS_PER_MAILBOX: Final = 3
 
-# One label per purpose (`app/api/sperrliste/services.py :: BAN_LIST_KEY_VERSION`).
+# One label per purpose (`app/api/ban_list/services.py :: BAN_LIST_KEY_VERSION`).
 MAILBOX_ANCHOR_KEY_VERSION: Final = "mailbox-anchor-v1"
 
 
@@ -941,7 +941,7 @@ def mailbox_of(address: str) -> str:
 def mailbox_anchor_ids(*, addresses: Iterable[str], key: SecretStr) -> list[str]:
     """Each of these addresses' mailbox as its document's `_id`, sorted so two presses meet in one order.
 
-    Keyed, as a ban is (`app/api/sperrliste/services.py :: address_hash`): an address is a dictionary word.
+    Keyed, as a ban is (`app/api/ban_list/services.py :: address_hash`): an address is a dictionary word.
     """
 
     sub_key = derive_sub_key(key, MAILBOX_ANCHOR_KEY_VERSION)

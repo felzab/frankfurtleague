@@ -9,10 +9,10 @@ from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.admin_router import post_kontakt_seat, resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLBewerbungKontaktSeatPayload
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError

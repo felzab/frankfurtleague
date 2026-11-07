@@ -1,0 +1,336 @@
+"""
+API · the grants' requests: a grant or a promotion to owner waiting on a second administrator's approval
+
+Every read filters on `until`, so a lapsed request is gone the moment it lapses, whatever the TTL monitor has not yet
+removed or a restore has put back.
+"""
+
+from collections.abc import Mapping, Sequence, Set
+from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
+from typing import Any, Literal
+
+from bson import ObjectId
+from pydantic import SecretStr
+from pymongo import ASCENDING
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
+
+from app.api.grants.schemas import as_utc
+from app.api.grants.services import holds_since
+from app.api.outbox.services import final_update
+from app.core.codes import Code
+from app.core.collections import Collection
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, patch_many_in_db, refuse
+from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.journal import JournalLine
+from app.core.readonly import ReadCollection
+from app.core.security import erasure_journal_hash
+from app.shared.schemas.bounds import APPROVAL_DAYS
+from app.shared.schemas.literals import FLAdminTier, FLApprovalDenied
+
+
+def compose_approval_request(*, address: str, admin_tier: str, grant_id: ObjectId | None, started_by: str, now: datetime) -> dict[str, Any]:
+    """The whole request a grant or a promotion inserts, its `approval` the block an address change's approval keeps."""
+
+    return {
+        "address": address,
+        "grant_id": grant_id,
+        "approval": {
+            "admin_tier": admin_tier,
+            # Its approver held their grant since then (`app/api/grants/services.py :: holds_since`).
+            "asked_at": now.astimezone(UTC),
+            # The address change's week: an approver away for a weekend is no reason to ask again.
+            "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
+            "started_by": started_by,
+        },
+    }
+
+
+def build_open_filter(now: datetime) -> dict[str, Any]:
+    """The requests not yet lapsed, the term every read carries: a row's presence says nothing."""
+
+    return {"approval.until": {"$gt": now.astimezone(UTC)}}
+
+
+def ist_offen(approval_request: Mapping[str, Any], *, now: datetime) -> bool:
+    return as_utc(approval_request["approval"]["until"]) > now.astimezone(UTC)
+
+
+def approval_request_stands(
+    approval_request: Mapping[str, Any], *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]], barred: Set[str]
+) -> bool:
+    """Whether the request's requester still holds, since before it and unbarred, the tier it asks for.
+
+    A revoke, a demotion or a ban stops a person acting, so it stops what they asked for too.
+    """
+
+    approval = approval_request["approval"]
+    by = str(approval["started_by"])
+
+    return by not in barred and holds_since(
+        by, admin_tier=str(approval["admin_tier"]), before=approval["asked_at"], grants=grants, announced=announced
+    )
+
+
+async def read_the_approval_requests(
+    *, grant_approval_requests_collection: AsyncCollection, now: datetime, session: AsyncClientSession | None = None
+) -> list[Mapping[str, Any]]:
+    """Every request not yet lapsed, oldest first, unbounded: one per address, as few as the grants that make them."""
+
+    return await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[{"$match": build_open_filter(now)}, {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}}],
+        session=session,
+    )
+
+
+async def read_the_approval_requests_of(
+    *, grant_approval_requests_collection: ReadCollection, identifier: str, now: datetime, session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """Every request not yet lapsed about this folded address or made by it, oldest first: what an erasure of it removes."""
+
+    return await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[
+            {"$match": {"$or": [{"address": identifier}, {"approval.started_by": identifier}], **build_open_filter(now)}},
+            {"$project": {"address": 1, "approval.admin_tier": 1, "approval.asked_at": 1}},
+            {"$sort": {"approval.asked_at": ASCENDING, "_id": ASCENDING}},
+        ],
+        session=session,
+    )
+
+
+async def pull_the_approval_request(
+    *, grant_approval_requests_collection: AsyncCollection, approval_request_id: ObjectId, now: datetime, session: AsyncClientSession
+) -> Mapping[str, Any]:
+    """The request this id names, or 404 where none stands: decided, withdrawn, erased or lapsed alike."""
+
+    found = await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[{"$match": {"_id": approval_request_id, **build_open_filter(now)}}],
+        session=session,
+    )
+    if not found:
+        raise DocumentNotFoundError()
+
+    return found[0]
+
+
+async def clear_the_address_in_session(
+    *, grant_approval_requests_collection: AsyncCollection, address: str, now: datetime, session: AsyncClientSession
+) -> None:
+    """Refuse a second request for this folded address, and remove a lapsed one the unique index would hold against it.
+
+    Removed by id, its image kept: a filter on the address would copy it into the log's filter text.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[{"$match": {"address": address}}, {"$project": {"approval.until": 1}}],
+        session=session,
+    )
+    refuse(find_approval_request_open_refusal(is_open=any(ist_offen(row, now=now) for row in rows)))
+    if rows:
+        await delete_many_from_db(
+            collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+        )
+
+
+async def settle_the_notices_in_session(
+    *, outbox_collection: AsyncCollection, approval_request_ids: Sequence[ObjectId], now: datetime, session: AsyncClientSession
+) -> None:
+    """A decided or erased request's notices still unsent, settled as gone: nothing is left to approve.
+
+    One a drain holds already is sent all the same, its claim settling it.
+    """
+
+    if approval_request_ids:
+        await patch_many_in_db(
+            collection=outbox_collection,
+            db_filter={
+                "reference.collection": str(Collection.GRANT_APPROVAL_REQUESTS),
+                "reference.id": {"$in": list(approval_request_ids)},
+                "reference.seat": None,
+                "state": "open",
+            },
+            update=final_update("dropped", now=now),
+            session=session,
+        )
+
+
+async def settle_the_requesters_notices_in_session(
+    *,
+    grant_approval_requests_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    started_by: str,
+    admin_tier: FLAdminTier | None,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """The unsent notices of the open requests this folded address made and its grant no longer carries.
+
+    Every one where the grant went (`admin_tier` None), and those asking `admin_tier` alone where the holder lost that
+    tier. The requests stay, `approval_request_stands` refusing their approval; their mail goes, since no approver could act on it.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[
+            {
+                "$match": {
+                    "approval.started_by": started_by,
+                    **({} if admin_tier is None else {"approval.admin_tier": admin_tier}),
+                    **build_open_filter(now),
+                }
+            },
+            {"$project": {"_id": 1}},
+        ],
+        session=session,
+    )
+    await settle_the_notices_in_session(
+        outbox_collection=outbox_collection, approval_request_ids=[row["_id"] for row in rows], now=now, session=session
+    )
+
+
+async def remove_the_approval_request_in_session(
+    *,
+    grant_approval_requests_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    approval_request_id: ObjectId,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
+
+    await delete_many_from_db(collection=grant_approval_requests_collection, db_filter={"_id": approval_request_id}, session=session)
+    await settle_the_notices_in_session(
+        outbox_collection=outbox_collection, approval_request_ids=[approval_request_id], now=now, session=session
+    )
+
+
+async def end_the_approval_requests_about_in_session(
+    *,
+    grant_approval_requests_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    address: str,
+    now: datetime,
+    session: AsyncClientSession,
+) -> list[Mapping[str, Any]]:
+    """End every request about this folded address as a refusal ends it, lapsed ones too, answering each for the caller's journal.
+
+    Never carried to the new address, which would grant what its approvers never judged.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[{"$match": {"address": address}}, {"$project": {"address": 1, "approval": 1}}],
+        session=session,
+    )
+    for row in rows:
+        await remove_the_approval_request_in_session(
+            grant_approval_requests_collection=grant_approval_requests_collection,
+            outbox_collection=outbox_collection,
+            approval_request_id=row["_id"],
+            now=now,
+            session=session,
+        )
+
+    return rows
+
+
+async def erase_approval_requests_in_session(
+    *,
+    grant_approval_requests_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    identifier: str,
+    now: datetime,
+    session: AsyncClientSession,
+) -> int:
+    """Every request about this folded address or made by it, lapsed or not, removed by id and imageless.
+
+    A request outlives neither person: the requester's grant goes in the same erasure, the subject's address is what it destroys.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=grant_approval_requests_collection,
+        pipeline=[{"$match": {"$or": [{"address": identifier}, {"approval.started_by": identifier}]}}, {"$project": {"_id": 1}}],
+        session=session,
+    )
+    if rows:
+        await erase_many_from_db(
+            collection=grant_approval_requests_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+        )
+        await settle_the_notices_in_session(
+            outbox_collection=outbox_collection, approval_request_ids=[row["_id"] for row in rows], now=now, session=session
+        )
+
+    return len(rows)
+
+
+# How a request ended, as its journal line names it: the replay tells again whom the end told.
+ApprovalRequestEndLine = Literal["approval_request_declined", "approval_request_withdrawn", "approval_request_ended"]
+
+
+def approval_request_line(*, approval_request: Mapping[str, Any], kind: ApprovalRequestEndLine, at: str, key: SecretStr) -> JournalLine:
+    """An ended request's line, so a restore from before its end does not bring it back to be approved."""
+
+    return JournalLine(
+        person_hash=erasure_journal_hash(str(approval_request["address"]), key=key),
+        kind=kind,
+        collection=Collection.GRANT_APPROVAL_REQUESTS,
+        record_id=approval_request["_id"],
+        at=at,
+    )
+
+
+def find_approval_request_open_refusal(*, is_open: bool) -> WriteRefusal | None:
+    """`grant_approval_request_open`: a request for this address waits already, which its approver or a refusal decides first."""
+
+    if not is_open:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_APPROVAL_REQUEST_OPEN,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_approval_denied_refusal(*, denied: FLApprovalDenied | None) -> WriteRefusal | None:
+    """Why this administrator may not decide the request, or `None`.
+
+    `grant_approval_denied` for a request about the actor or made by them, `grant_approval_owner` for an owner's
+    without an owner's power, `grant_approval_younger` for a younger grant.
+    """
+
+    if denied is None:
+        return None
+
+    if denied == "younger":
+        return WriteRefusal(
+            error_code=Code.GRANT_APPROVAL_YOUNGER,
+            status=HTTPStatus.FORBIDDEN,
+        )
+
+    if denied == "owner":
+        return WriteRefusal(
+            error_code=Code.GRANT_APPROVAL_OWNER,
+            status=HTTPStatus.FORBIDDEN,
+        )
+
+    return WriteRefusal(
+        error_code=Code.GRANT_APPROVAL_DENIED,
+        status=HTTPStatus.FORBIDDEN,
+    )
+
+
+def find_approval_request_lapsed_refusal(*, stands: bool) -> WriteRefusal | None:
+    """`grant_approval_request_lapsed`: the request's requester does not hold, since before it, the tier it asks for."""
+
+    if stands:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.GRANT_APPROVAL_REQUEST_LAPSED,
+        status=HTTPStatus.CONFLICT,
+    )

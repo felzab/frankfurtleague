@@ -6,7 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,

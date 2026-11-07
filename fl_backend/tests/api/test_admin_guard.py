@@ -7,8 +7,8 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.spieler import schemas as spieler_schemas
 from app.api.spieler.public_router import router as spieler_public_router
 from app.core.codes import Code
@@ -156,7 +156,7 @@ ADMIN_READS = [
     ("/api/v0/identity/erasure/view", "post"),
     # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
     # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
-    ("/api/v0/sperrliste", "get"),
+    ("/api/v0/ban_list", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
     # How many pupils an activation deletes, which only the person able to press it may weigh.

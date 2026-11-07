@@ -55,13 +55,13 @@ from app.api.address_change.services import (
     is_expired,
     waits_on,
 )
-from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import approval_denied, approver_of, holds_an_owners_power
+from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
+from app.api.grants.crud import read_grants, read_the_announced
+from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.services import approval_denied, approver_of, holds_an_owners_power
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -120,7 +120,7 @@ async def _refuse_the_address(
     """
 
     refuse(find_own_address_refusal(identifier=identifier, actor=actor))
-    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+    grants = await read_grants(grants_collection=grants_collection, session=session)
     announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
     refuse(
         find_admin_address_refusal(
@@ -151,7 +151,7 @@ def _pending_addresses(record: Mapping[str, Any], *, delivery: FLOutboxStatus | 
         id=record["_id"],
         email=record["email"],
         way=record["way"],
-        grund=record.get("grund"),
+        change_reason=record.get("change_reason"),
         waits_on=waits_on(record),
         sent_at=record["sent_at"],
         valid_until=as_utc(record.get("valid_until")),
@@ -284,7 +284,7 @@ async def post_address_change_admin(
     """
     Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
 
-    **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+    **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
     lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
     and the address on file a notice with its stop link; the change then takes effect
     `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
@@ -298,11 +298,15 @@ async def post_address_change_admin(
     grant nobody could approve (`address_change_no_approver`).
     """
 
-    identifier, email, grund = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email), address_change_data.grund
+    identifier, email, change_reason = (
+        sign_in_identifier(str(address_change_data.address)),
+        str(address_change_data.email),
+        address_change_data.change_reason,
+    )
     actor_identifier = sign_in_identifier(operator)
     way: FLAddressChangeWay = "waiting_period"
     hashed = ban_list.hash_of(email)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
     journal = Journal()
 
@@ -350,7 +354,7 @@ async def post_address_change_admin(
             address=identifier,
             email=email,
             way=way,
-            grund=grund,
+            change_reason=change_reason,
             approval=None
             if holdings.grant is None
             else compose_approval(admin_tier=str(holdings.grant["admin_tier"]), started_by=actor_identifier, now=germany_now),
@@ -433,7 +437,7 @@ async def invite_address_change(
     """
 
     actor_identifier = sign_in_identifier(operator)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
@@ -628,7 +632,7 @@ async def post_address_change_approval(
     """
 
     actor_identifier = sign_in_identifier(operator)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
     journal = Journal()
 
@@ -637,7 +641,7 @@ async def post_address_change_approval(
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         refuse(find_no_approval_open_refusal(is_open=approval_open(record)))
         refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         owner = holds_an_owners_power(actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced)
         denied = approval_denied(

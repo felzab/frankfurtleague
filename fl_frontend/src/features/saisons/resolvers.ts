@@ -5,8 +5,8 @@ import { getSaisonFrame } from "./queries";
 import type { FLSaisonStatus } from "@/core/generated/client/types";
 
 /**
- * The season the admin frame opens on and the admin header's default (`SaisonMetadataDisplay`), so the two never
- * differ: the running one, else the list's first, `undefined` only for a league holding none.
+ * The season the admin frame opens on: the running one, else the list's first, `undefined` only for a league
+ * holding none.
  */
 export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(saisons: readonly T[]): T | undefined {
   return saisons.find((saison) => saison.status === "active") ?? saisons[0];

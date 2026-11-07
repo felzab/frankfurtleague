@@ -124,7 +124,7 @@ directly**: a separate `auth` database holding sessions and passkeys and no leag
 `fl_frontend/src/core/db.ts :: signInStore`), because the library's adapter has no HTTP transport
 and sits on every authorization check. Application data goes through FastAPI without exception.
 
-**Administration is a stored grant, read on every request.** A row of `berechtigungen`
+**Administration is a stored grant, read on every request.** A row of `grants`
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
 `fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
@@ -141,7 +141,9 @@ layout turns a session away, because Next renders a page whatever its layout dec
 every signed-in shell and every frame's account menu links it, and an act on the passkey touch's fixed
 list, a passkey's removal and the address change's start among them, runs only on a passkey sign-in
 made seconds before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's
-`passkey`).
+`passkey`). The touch is always such an act's last step: the person presses the act, answers any
+dialog, presses the final button, and that press asks the touch and then runs the act
+(`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch lasts.
 
 ## Configuration and tests
 

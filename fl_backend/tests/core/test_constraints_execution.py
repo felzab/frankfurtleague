@@ -11,8 +11,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.berechtigungen.antraege import compose_approval_request
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
+from app.api.grants.antraege import compose_approval_request
 from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
@@ -219,7 +219,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
-        "aktionen": {
+        "action_log": {
             "_id": ACTION_LOG_ENTRY_OID,
             "at": "2026-03-15T09:30:00+00:00",
             "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
@@ -238,18 +238,18 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         # A hash rather than anything recognisable: the collection's whole point is that a row
         # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
-        "sperrliste": {
+        "ban_list": {
             "_id": BAN_LIST_OID,
             "address_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
             "key_version": "ban-list-v1",
-            "grund": "Falsches Geburtsdatum bei der Anmeldung",
+            "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
             "created_by": "admin@example.invalid",
             "created_at": "2026-03-15",
             "barred_until_saison_id": "2031",
         },
         # `revoked_at` is null rather than absent because `uniq_invitation_live` reaches the rows
         # holding null.
-        "einladungen": {
+        "invitations": {
             "_id": INVITATION_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
@@ -284,7 +284,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "decision": None,
         },
         # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
-        "berechtigungen": {
+        "grants": {
             "_id": GRANT_OID,
             "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
@@ -396,14 +396,14 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # The second row differs in its reason and its author: the index refuses on the hash alone, and
     # a pair agreeing in everything would pass while keyed on anything at all.
     "uniq_ban_list_address_hash": (
-        valid_documents()["sperrliste"],
-        valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", created_by="zweite@example.invalid"),
+        valid_documents()["ban_list"],
+        valid_document("ban_list", _id=TEAM_OID, ban_reason="Zweiter Eintrag", created_by="zweite@example.invalid"),
     ),
     # Both rows live, which is the reach the `partialFilterExpression` narrows the rule to: a pair
     # whose second row carried a revocation date would pass while the filter matched anything.
     "uniq_invitation_live": (
-        valid_documents()["einladungen"],
-        valid_document("einladungen", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
+        valid_documents()["invitations"],
+        valid_document("invitations", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
     # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
     # pair carrying no key at all would pass while the partial filter matched nothing.
@@ -429,8 +429,8 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
     "uniq_grant_address": (
-        valid_documents()["berechtigungen"],
-        valid_document("berechtigungen", _id=TEAM_OID, admin_tier="administration", granted_by="zweite@example.invalid"),
+        valid_documents()["grants"],
+        valid_document("grants", _id=TEAM_OID, admin_tier="administration", granted_by="zweite@example.invalid"),
     ),
     # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.
@@ -573,7 +573,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -587,7 +587,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
-        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
+        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -940,7 +940,7 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
     async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
         await database[Collection.ACTION_LOG].insert_many(
             [
-                valid_documents()["aktionen"]
+                valid_documents()["action_log"]
                 | {
                     "_id": ObjectId(),
                     "actor": {

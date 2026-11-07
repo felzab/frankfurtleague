@@ -22,7 +22,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.antraege import compose_approval_request
+from app.api.grants.antraege import compose_approval_request
 from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import (
     FLErasure,

@@ -7,10 +7,10 @@ from fastapi import APIRouter, Body, Depends, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.saisons.crud import pull_governing_saison_id
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,

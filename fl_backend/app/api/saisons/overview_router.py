@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.saisons.overview import SPIELE_AS, FLSaisonOverviewResponse, build_overview_pipeline, overview_of
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import bracket_faults_of

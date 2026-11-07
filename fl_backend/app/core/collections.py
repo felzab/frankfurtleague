@@ -32,23 +32,23 @@ class Collection(StrEnum):
     BEWERBUNGEN = "bewerbungen"
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
-    ACTION_LOG = "aktionen"
+    ACTION_LOG = "action_log"
     #: A row survives the erasure of the person it bars: keyed, it is
     #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker.
-    BAN_LIST = "sperrliste"
+    BAN_LIST = "ban_list"
     #: One minted registration link per row. It names a team, a season and the administrator who
     #: minted it, whose erasure leaves the row standing with the marker in their place.
-    INVITATIONS = "einladungen"
+    INVITATIONS = "invitations"
     #: One pupil's pending registration for a team's season. Erased by its own clocks, by the
     #: admission, which writes the person and the squad row in the transaction that deletes it, and by
     #: the erasure of its address.
     REGISTRIERUNGEN = "registrierungen"
     #: Who may enter the Verwaltung: one row per folded address. The one stored role, the other
     #: Funktionen being derived from league records (`docs/glossary.md`, `Berechtigung`).
-    GRANTS = "berechtigungen"
+    GRANTS = "grants"
     #: The grants every administrator has been told of, or will be by a notice owed in `OUTBOX`.
     #: Its own collection because a grant removed outside the application leaves no trace in
-    #: `berechtigungen` to compare against.
+    #: `grants` to compare against.
     GRANTS_ANNOUNCED = "berechtigungen_angekuendigt"
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.

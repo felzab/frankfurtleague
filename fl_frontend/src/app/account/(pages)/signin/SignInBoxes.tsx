@@ -23,7 +23,7 @@ export type Pending = {
 /**
  * Anmeldung's two boxes: the address the person signs in with, its change started, or pending and withdrawn; and
  * „Konto löschen“, the press mailing the link the deletion waits on. `held` says the person holds a passkey, whose
- * touch the start asks first; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
+ * touch the start's press asks; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
  * box's act is a server action's reference, which a Client Component takes as a prop, and nothing here is a closure.
  */
 export function SignInBoxes({

@@ -137,7 +137,7 @@ const GLYPHS = {
   spieler: User,
   registrierungen: UserPlus,
   administrators: Shield,
-  sperrliste: Ban,
+  banList: Ban,
   erasures: Trash,
   // An e-mail address: the administration's address changes, and the league's own on the question door and Kontakt.
   email: Mail,

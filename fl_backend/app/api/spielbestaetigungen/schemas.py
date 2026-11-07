@@ -120,7 +120,7 @@ class FLSpielbestaetigungAnswer(BaseModel):
     by: FLSpielbestaetigungBy
     vorschlag: FLSpielbestaetigungAppointment | None
     # Its length and its one line are the payload's: the read keeps a ban reason's floor alone, as
-    # `app/api/sperrliste/schemas.py`'s row does.
+    # `app/api/ban_list/schemas.py`'s row does.
     reason: CustomNonEmptyString | None
 
 

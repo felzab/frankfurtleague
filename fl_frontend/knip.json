@@ -19,11 +19,5 @@
   // A tagged export that gains its reader is a tag hint, which fails the run until the tag goes. An export
   // nothing reads and no page waits for is deleted or un-exported.
   "tags": ["-awaitsPage"],
-  "treatTagHintsAsErrors": true,
-  // Each entry is a reader knip cannot see.
-  "ignoreIssues": {
-    // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
-    // exported facet array; a URL parameter stays exported beside the rest of its family.
-    "src/features/*/facets.ts": ["exports"]
-  }
+  "treatTagHintsAsErrors": true
 }

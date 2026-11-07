@@ -1,8 +1,8 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import (
+from app.api.ban_list.schemas import FLPostBanListEntryPayload
+from app.api.ban_list.services import (
     BAN_LIST_KEY_VERSION,
     address_hash,
     stored_address_hash,
@@ -94,21 +94,21 @@ class TestWhatTheHashRefuses:
 
 
 class TestWhatTheReasonMayHold:
-    """`grund` is served, copied whole into a removal's log image and outlives the person's erasure."""
+    """`ban_reason` is served, copied whole into a removal's log image and outlives the person's erasure."""
 
-    def _grund(self, grund: str) -> str:
-        return FLPostSperrlistePayload(email="admin@beispielschule.de", grund=grund, notify=False).grund
+    def _ban_reason(self, ban_reason: str) -> str:
+        return FLPostBanListEntryPayload(email="admin@beispielschule.de", ban_reason=ban_reason, notify=False).ban_reason
 
     @pytest.mark.parametrize(
-        "grund",
+        "ban_reason",
         [
             pytest.param("zorbanax@beispielschule.de", id="an address alone"),
             pytest.param("Falsche Angabe, siehe zorbanax@beispielschule.de", id="an address inside a sentence"),
             pytest.param("Kontakt: ANNA@XN--MLLER-KVA.DE", id="an address in a punycode domain"),
         ],
     )
-    def test_a_reason_carrying_an_address_is_refused(self, grund: str):
+    def test_a_reason_carrying_an_address_is_refused(self, ban_reason: str):
         with pytest.raises(ValidationError) as raised:
-            self._grund(grund)
+            self._ban_reason(ban_reason)
 
         assert [error["type"] for error in raised.value.errors()] == ["address_in_free_text"]

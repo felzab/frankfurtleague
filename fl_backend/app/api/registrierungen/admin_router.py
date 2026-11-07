@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.registrierungen.schemas import (
     FLRegistrierungAdminRow,
     FLRegistrierungenAdminFilterParams,

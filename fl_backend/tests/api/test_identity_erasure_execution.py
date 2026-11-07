@@ -26,13 +26,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
-from app.api.berechtigungen.antraege import compose_approval_request
+from app.api.ban_list.services import compose_barred_until_saison_id
+from app.api.grants.antraege import compose_approval_request
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
 from app.api.invitations.services import compose_invitation, compose_revocation_update
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
@@ -548,7 +548,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         await edited(database, Collection.ADDRESS_CHANGES, change_id, {"$set": {"sent_at": "2126-03-30"}})
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
     await edited(database, Collection.GRANTS, GRANTED_BY_THEM_OID, {"$set": {"granted_at": datetime(2126, 1, 2, tzinfo=UTC)}})
-    await edited(database, Collection.BAN_LIST, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
+    await edited(database, Collection.BAN_LIST, BANNED_BY_THEM_OID, {"$set": {"ban_reason": "Doppelte Anmeldung"}})
     await edited(database, Collection.INVITATIONS, INVITED_BY_THEM_OID, compose_revocation_update(today=TODAY))
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
     await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
@@ -860,8 +860,8 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert ids_after == dict.fromkeys(records, [])
         assert [value for value in BYSTANDER_VALUES if not after[value]] == []
         # In the log too: a pass emptying a shared image whole would take the people beside them with it.
-        assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
-        assert {value: "aktionen" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
+        assert {value: "action_log" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
+        assert {value: "action_log" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
 
 
 class TestWhatStandsBesideThem:
@@ -1101,7 +1101,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4}
+        assert counts == {"grants": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
@@ -1142,7 +1142,7 @@ class TestTheJournal:
 
 
 class OwnersLoeschenAtOnce(InterleavedCollection):
-    """`berechtigungen` as one owner's erasure reads it, the other owner's whole erasure committing once its first read answered."""
+    """`grants` as one owner's erasure reads it, the other owner's whole erasure committing once its first read answered."""
 
     async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
         # After the read rather than before it: the read opens this transaction's snapshot, which the rival must land inside.

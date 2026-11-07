@@ -7,7 +7,7 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
+from app.api.action_log.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
 from app.api.bewerbungen.schemas import FLBewerbungSweepResponse
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,

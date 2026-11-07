@@ -1,0 +1,343 @@
+"""
+API · every read and write of the grants that reaches a collection
+
+The anchor lives here beside the read it protects, so no caller can judge the list without writing
+every row of it.
+"""
+
+import asyncio
+from collections.abc import Mapping, Sequence, Set
+from datetime import datetime
+from typing import Any, Final
+
+from bson import ObjectId
+from pymongo import ASCENDING
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
+
+from app.api.ban_list.lookup import BanList, barred_addresses
+from app.api.grants.services import (
+    Notice,
+    compare,
+    compose_announced,
+    compose_notice,
+    granted_since,
+    owner_since,
+    snapshot_of,
+)
+from app.api.outbox.schemas import FLGrantData, FLOutboxReference
+from app.api.outbox.services import OwedMail, enqueue_mails
+from app.core.collections import Collection
+from app.core.crud import (
+    aggregate_many_from_db,
+    anchor_in_db,
+    delete_many_from_db,
+    erase_many_from_db,
+    patch_many_in_db,
+    post_one_to_db,
+)
+from app.core.readonly import ReadCollection
+from app.shared.schemas.literals import FLAdminTier
+
+
+async def read_grants(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
+    """Every grant, by address, and unbounded: the floor and the recipients are both judged over the whole list."""
+
+    return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"address": ASCENDING}}], session=session)
+
+
+async def pull_the_list_to_judge(
+    *,
+    grants_collection: AsyncCollection,
+    # REQUIRED: the anchor is what closes the race, so forgetting the session has to be a TypeError
+    # at the call rather than a silent reopening of it.
+    session: AsyncClientSession,
+) -> list[Mapping[str, Any]]:
+    """Read every grant, then write each one, in the caller's transaction.
+
+    A snapshot re-validates no read: a rival judging the list writes the same rows, so whichever
+    lands second meets a write conflict and retries.
+    """
+
+    grants = await read_grants(grants_collection=grants_collection, session=session)
+
+    # Exactly the rows the read returned, each named: the rows judged are the rows a rival must meet.
+    await anchor_in_db(
+        collection=grants_collection,
+        db_filter={"_id": {"$in": [grant["_id"] for grant in grants]}},
+        session=session,
+    )
+
+    return grants
+
+
+async def _grant_and_its_record_in(
+    *,
+    grants_collection: ReadCollection,
+    address: str,
+    fields: list[str],
+    # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), or a commit landing between the
+    # row's read and the join pairs the row before it with the record after.
+    session: AsyncClientSession,
+) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
+    """The row this folded address holds and its record in `berechtigungen_angekuendigt`, joined in one read.
+
+    Every admin-tier request makes it, and a second read by the row's id would cost each a round trip.
+    """
+
+    found = await aggregate_many_from_db(
+        collection=grants_collection,
+        pipeline=[
+            {"$match": {"address": address}},
+            {"$limit": 1},
+            {"$project": {field: 1 for field in [*fields, "address", "granted_at", "found_at", "seen_at"]}},
+            {
+                "$lookup": {
+                    "from": Collection.GRANTS_ANNOUNCED,
+                    "localField": "_id",
+                    "foreignField": "_id",
+                    "pipeline": [{"$project": {"address": 1, "admin_tier": 1}}],
+                    "as": "announced",
+                }
+            },
+        ],
+        session=session,
+    )
+    if not found:
+        return None
+
+    return found[0], next(iter(found[0]["announced"]), None)
+
+
+async def read_admin_tier_of(
+    *, grants_collection: ReadCollection, address: str, session: AsyncClientSession
+) -> tuple[FLAdminTier, datetime, datetime | None] | None:
+    """The tier this address holds, and when the grant and the tier took effect, or `None`.
+
+    Each caller folds an address the address rule admitted, and a row equal to
+    that is live.
+    """
+
+    grant = await _grant_and_its_record_in(
+        grants_collection=grants_collection, address=address, fields=["admin_tier", "appointed_at"], session=session
+    )
+    if grant is None:
+        return None
+
+    row, announced = grant
+    since = granted_since(row, announced)
+    if since is None:
+        return None
+
+    # The tier in effect rather than the row's: a promotion made in the database and not yet found is
+    # no session's, so it is answered as the administrator it still is.
+    owner = owner_since(row, announced)
+
+    return ("administration" if owner is None else "owner"), since, owner
+
+
+async def live_unbarred_grant_since(
+    identifier: str,
+    *,
+    grants_collection: ReadCollection,
+    ban_list: BanList,
+    session: AsyncClientSession,
+) -> datetime | None:
+    """The actor check's question: when the live grant this identifier holds took effect, read by one equality beside the ban list's.
+
+    `None` for a barred holder, who is no administrator.
+    """
+
+    # Both at once rather than the ban after a grant is found: an admin-tier caller passed the
+    # frontend's own grant read moments before, so the ban read that order would spare is almost never spared. The ban
+    # read takes no session, so the gathered pair never runs two operations on one.
+    grant, barred = await asyncio.gather(
+        _grant_and_its_record_in(grants_collection=grants_collection, address=identifier, fields=[], session=session),
+        barred_addresses(ban_list, [identifier]),
+    )
+    if grant is None or barred:
+        return None
+
+    return granted_since(*grant)
+
+
+# A grant's notice still to be handed out: the one shape a ban or an erasure rewrites, a sent one being past saying.
+OPEN_NOTICE: Final[Mapping[str, Any]] = {"state": "open", "kind": "grant"}
+
+
+async def owe_in_session(
+    notices: Sequence[Notice],
+    *,
+    outbox_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+    # A request's approvers, in place of every holder.
+    to: Sequence[str] | None = None,
+    # The request a decision settles its notice by.
+    reference: FLOutboxReference | None = None,
+) -> None:
+    """Owe each notice, in the caller's transaction, to every live holder and to each address it names, one row apiece.
+
+    The holders are read after the caller's write, on its session, so a new grant's holder is among them and a removed one
+    is told through the notice's `before`. A barred recipient is stopped at the hand-out, not here
+    (`app/api/outbox/system_router.py :: post_handout`).
+    """
+
+    if not notices:
+        return
+    holders: set[str] = set()
+    if to is None:
+        grants = await read_grants(grants_collection=grants_collection, session=session)
+        holders = {str(row["address"]) for row in grants}
+
+    mails: list[OwedMail] = []
+    for notice in notices:
+        data = FLGrantData.model_validate(notice.data)
+        named = {snapshot.address for snapshot in (data.current, data.before) if snapshot is not None and snapshot.address is not None}
+        mails.extend(
+            OwedMail(
+                # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
+                # a database edit's notice beside its own (`revoke_in_session`).
+                key=f"grant/{notice.grant_id}/{data.change}/{data.author}/{now.isoformat()}/{address}",
+                to=address,
+                data=data,
+                reference=reference,
+            )
+            for address in sorted(set(to) if to is not None else holders | named)
+        )
+    await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
+
+
+async def withhold_in_the_outbox(*, outbox_collection: AsyncCollection, address: str, session: AsyncClientSession) -> None:
+    """Every grant notice still owed naming this folded address, as a grant's address or as its actor, withheld in place."""
+
+    for site in ("current", "before"):
+        await patch_many_in_db(
+            collection=outbox_collection,
+            db_filter={**OPEN_NOTICE, f"data.{site}.address": address},
+            update={"$set": {f"data.{site}.address": None, "data.withheld": "barred"}},
+            session=session,
+        )
+    await patch_many_in_db(
+        collection=outbox_collection,
+        db_filter={**OPEN_NOTICE, "data.changed_by": address},
+        # No reason: it is the grant address's, and a null actor on an application's change says it alone.
+        update={"$set": {"data.changed_by": None}},
+        session=session,
+    )
+
+
+async def read_the_announced(
+    *, grants_announced_collection: ReadCollection, session: AsyncClientSession | None = None
+) -> list[Mapping[str, Any]]:
+    """Every announced row: the whole record is the other half of every comparison."""
+
+    return await aggregate_many_from_db(collection=grants_announced_collection, pipeline=[{"$sort": {"_id": ASCENDING}}], session=session)
+
+
+async def grant_in_session(
+    *,
+    address: str,
+    admin_tier: str,
+    granted_by: str,
+    barred: Set[str],
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+    # A move's alone: the replaced row's since-whens (`app/api/grants/services.py :: compose_carried`).
+    carried: Mapping[str, Any] | None = None,
+) -> ObjectId:
+    """Write a grant and its announced row and owe its notice, answering its id.
+
+    The announced row moves with the grant, so the comparison never announces this write twice.
+    """
+
+    document: dict[str, Any] = {
+        "address": address,
+        "admin_tier": admin_tier,
+        # The bound actor rather than a payload field, so the grant and its `action_log` row name one person.
+        "granted_by": granted_by,
+        "granted_at": now,
+        # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
+        # than a fresh paste.
+        "seen_at": now,
+        **({} if carried is None else {"carried": carried}),
+    }
+    created = await post_one_to_db(collection=grants_collection, document=document, session=session)
+
+    snapshot = snapshot_of(document)
+    await post_one_to_db(
+        collection=grants_announced_collection,
+        document=compose_announced(grant_id=created.inserted_id, snapshot=snapshot, now=now),
+        session=session,
+    )
+    await owe_in_session(
+        [
+            compose_notice(
+                grant_id=created.inserted_id,
+                kind="granted",
+                current=snapshot,
+                before=None,
+                changed_by=granted_by,
+                now=now,
+                barred=barred,
+            )
+        ],
+        outbox_collection=outbox_collection,
+        grants_collection=grants_collection,
+        now=now,
+        session=session,
+    )
+
+    return created.inserted_id
+
+
+async def revoke_in_session(
+    *,
+    grant: Mapping[str, Any],
+    # The grant's own announced row, or none.
+    announced: Sequence[Mapping[str, Any]],
+    revoked_by: str,
+    barred: Set[str],
+    grants_collection: AsyncCollection,
+    grants_announced_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Remove one grant and its announced row, owing the notice of its end.
+
+    A database edit nobody was told of goes out first, or the revoke's notice would be its only trace.
+    """
+
+    notices = [
+        compose_notice(grant_id=changed_id, kind=kind, current=current, before=before, changed_by=None, now=now, barred=barred)
+        for changed_id, kind, current, before in compare(grants=[grant], announced=announced)
+    ]
+    notices.append(
+        compose_notice(
+            grant_id=grant["_id"],
+            kind="revoked",
+            current=None,
+            before=snapshot_of(grant),
+            changed_by=revoked_by,
+            now=now,
+            barred=barred,
+        )
+    )
+
+    await delete_many_from_db(collection=grants_collection, db_filter={"_id": grant["_id"]}, session=session)
+    # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
+    # none.
+    await erase_many_from_db(collection=grants_announced_collection, db_filter={"_id": grant["_id"]}, session=session)
+    # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `before`.
+    await owe_in_session(
+        notices,
+        outbox_collection=outbox_collection,
+        grants_collection=grants_collection,
+        now=now,
+        session=session,
+    )

@@ -12,8 +12,8 @@ from app.api.account.services import (
     find_own_entry_refusal,
     withdrawal_line,
 )
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.identity.services import own_seats
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
