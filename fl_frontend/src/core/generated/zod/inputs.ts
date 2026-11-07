@@ -26,35 +26,49 @@ export const AccountPostAddressChangeBody = zod.object({
 });
 
 /**
- * List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
+ * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
  *
- * `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
- * `anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.
- * @summary List recorded admin actions
+ * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
+ * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
+ * @summary List recorded acts
  */
-export const actionLogGetActionLogQueryLimitDefault = 1024;
-export const actionLogGetActionLogQueryLimitMax = 1024;
+export const actionLogGetActionLogQueryCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const actionLogGetActionLogQueryQOneMax = 200;
+
+export const actionLogGetActionLogQueryFromDayOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const actionLogGetActionLogQueryUntilDayOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const ActionLogGetActionLogQueryParams = zod.object({
-  collection: zod.union([zod.array(zod.string()), zod.null()]).optional(),
-  operation: zod
-    .union([zod.array(zod.enum(["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"])), zod.null()])
+  cursor: zod.union([zod.string().regex(actionLogGetActionLogQueryCursorOneRegExp), zod.null()]).optional(),
+  q: zod.union([zod.string().max(actionLogGetActionLogQueryQOneMax), zod.null()]).optional(),
+  by: zod.union([zod.string(), zod.null()]).optional(),
+  type: zod
+    .union([
+      zod.array(
+        zod.enum([
+          "saison",
+          "spieltag",
+          "spiel",
+          "spielbestaetigung",
+          "spielbericht",
+          "team",
+          "bewerbung",
+          "registrierung",
+          "spieler",
+          "schiedsrichter",
+          "spielort",
+          "grant",
+          "ban",
+          "address_change",
+          "erasure",
+          "retention",
+        ]),
+      ),
+      zod.null(),
+    ])
     .optional(),
-  herkunft: zod.union([zod.array(zod.enum(["person", "system", "public"])), zod.null()]).optional(),
-  trace_id: zod.union([zod.string(), zod.null()]).optional(),
-  document_id: zod.union([zod.string(), zod.null()]).optional(),
-  limit: zod.int().min(1).max(actionLogGetActionLogQueryLimitMax).default(actionLogGetActionLogQueryLimitDefault),
-  order: zod.enum(["asc", "desc"]).optional(),
-});
-
-/**
- * One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it.
- * @summary One recorded admin action
- */
-export const actionLogGetActionLogEntryPathActionLogEntryIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const ActionLogGetActionLogEntryParams = zod.object({
-  action_log_entry_id: zod.string().regex(actionLogGetActionLogEntryPathActionLogEntryIdRegExp),
+  from_day: zod.union([zod.string().regex(actionLogGetActionLogQueryFromDayOneRegExp), zod.null()]).optional(),
+  until_day: zod.union([zod.string().regex(actionLogGetActionLogQueryUntilDayOneRegExp), zod.null()]).optional(),
 });
 
 /**

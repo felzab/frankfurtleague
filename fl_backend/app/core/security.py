@@ -286,6 +286,15 @@ bind_public_actor = actor_binder(_the_public)
 bind_system_actor = actor_binder(_the_application)
 
 
+def get_person_identifier(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> str:
+    """The folded address a person's router authorises against, declared for every method at router level."""
+
+    return sign_in_identifier(actor.email)
+
+
+PersonIdentifier = Annotated[str, Depends(get_person_identifier)]
+
+
 # The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
 # (`app/api/ban_list/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
 ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"

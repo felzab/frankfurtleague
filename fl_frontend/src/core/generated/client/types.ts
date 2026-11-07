@@ -576,128 +576,115 @@ export interface FLAccountErasureViewResponse {
   spieler: FLAccountErasureSpieler[];
 }
 
-export type FLActionLogEntryDbFilter = { [key: string]: string } | null;
+export type FLAction = (typeof FLAction)[keyof typeof FLAction];
 
-export type FLActorWithAddressRowKind = (typeof FLActorWithAddressRowKind)[keyof typeof FLActorWithAddressRowKind];
-
-export const FLActorWithAddressRowKind = {
-  admin_session: "admin_session",
-  system: "system",
-  public: "public",
+export const FLAction = {
+  saisoncreated: "saison.created",
+  saisonchanged: "saison.changed",
+  saisonactivated: "saison.activated",
+  saisongruppen_swapped: "saison.gruppen_swapped",
+  saisonspielplan_created: "saison.spielplan_created",
+  saisonspielplan_recreated: "saison.spielplan_recreated",
+  saisonspielplan_deleted: "saison.spielplan_deleted",
+  saisoninvitations_dispatched: "saison.invitations_dispatched",
+  spieltagchanged: "spieltag.changed",
+  spielchanged: "spiel.changed",
+  spielergebnis_changed: "spiel.ergebnis_changed",
+  spielbestaetigungentered: "spielbestaetigung.entered",
+  spielbestaetigungvorschlag_discarded: "spielbestaetigung.vorschlag_discarded",
+  spielbestaetigungvorschlag_adopted: "spielbestaetigung.vorschlag_adopted",
+  spielbestaetigunganswered: "spielbestaetigung.answered",
+  spielberichtsaved: "spielbericht.saved",
+  teamentered: "team.entered",
+  teamchanged: "team.changed",
+  teamretired: "team.retired",
+  teamreactivated: "team.reactivated",
+  teamaustritt_entered: "team.austritt_entered",
+  teamseat_changed: "team.seat_changed",
+  teamreplaced: "team.replaced",
+  teaminvitation_created: "team.invitation_created",
+  teaminvitation_withdrawn: "team.invitation_withdrawn",
+  bewerbungaccepted: "bewerbung.accepted",
+  bewerbungdeclined: "bewerbung.declined",
+  bewerbungseat_changed: "bewerbung.seat_changed",
+  registrierungadmitted: "registrierung.admitted",
+  registrierungdeclined: "registrierung.declined",
+  spielerchanged: "spieler.changed",
+  spielerderegistered: "spieler.deregistered",
+  spielerreactivated: "spieler.reactivated",
+  schiedsrichtercreated: "schiedsrichter.created",
+  schiedsrichterchanged: "schiedsrichter.changed",
+  schiedsrichterretired: "schiedsrichter.retired",
+  schiedsrichterreactivated: "schiedsrichter.reactivated",
+  spielortcreated: "spielort.created",
+  spielortchanged: "spielort.changed",
+  spielortretired: "spielort.retired",
+  spielortreactivated: "spielort.reactivated",
+  grantadded: "grant.added",
+  grantremoved: "grant.removed",
+  grantaddition_withdrawn: "grant.addition_withdrawn",
+  granthandover_started: "grant.handover_started",
+  granthandover_withdrawn: "grant.handover_withdrawn",
+  granthandover_completed: "grant.handover_completed",
+  grantaddress_change_started: "grant.address_change_started",
+  grantaddress_switched: "grant.address_switched",
+  banadded: "ban.added",
+  banremoved: "ban.removed",
+  address_changestarted: "address_change.started",
+  address_changediscarded: "address_change.discarded",
+  erasureon_request: "erasure.on_request",
+  erasureown: "erasure.own",
+  retentionbewerbungen: "retention.bewerbungen",
+  retentionkontakte: "retention.kontakte",
+  retentionspielbestaetigungen: "retention.spielbestaetigungen",
+  retentionspielberichte: "retention.spielberichte",
+  retentionregistrierungen: "retention.registrierungen",
+  retentionschiedsrichter: "retention.schiedsrichter",
+  retentionspieler: "retention.spieler",
+  retentionaddress_changes: "retention.address_changes",
+  retentionbans: "retention.bans",
 } as const;
 
 /**
- * An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it.
- */
-export interface FLActorWithAddressRow {
-  email: string | null;
-  email_barred: boolean;
-  kind: FLActorWithAddressRowKind;
-}
-
-export type FLActorPersonFunktion = (typeof FLActorPersonFunktion)[keyof typeof FLActorPersonFunktion];
-
-export const FLActorPersonFunktion = {
-  kontakt: "kontakt",
-  spieler: "spieler",
-  schiedsrichter: "schiedsrichter",
-} as const;
-
-/**
- * A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address.
- */
-export interface FLActorPerson {
-  funktion: FLActorPersonFunktion;
-  kind: "person_session";
-  pseudonym: string;
-}
-
-export type FLActionLogEntryOperation = (typeof FLActionLogEntryOperation)[keyof typeof FLActionLogEntryOperation];
-
-export const FLActionLogEntryOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
-export interface FLActionLogEntryRequest {
-  method: string;
-  path: string;
-}
-
-/**
- * One recorded write.
+ * One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.
  */
 export interface FLActionLogEntry {
-  actor: FLActorWithAddressRow | FLActorPerson;
+  action: FLAction;
   at: string;
-  collection: string;
-  db_filter: FLActionLogEntryDbFilter;
-  document_id: string | null;
-  erasure_reason: string | null;
+  by: string;
+  count: number | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  modified_count: number | null;
-  operation: FLActionLogEntryOperation;
-  redacted_at: string | null;
-  request: FLActionLogEntryRequest | null;
-  stand_secured: boolean;
-  trace_id: string;
+  label: string | null;
+  team: string | null;
 }
-
-export type FLActionLogEntryHerkunft = (typeof FLActionLogEntryHerkunft)[keyof typeof FLActionLogEntryHerkunft];
-
-export const FLActionLogEntryHerkunft = {
-  person: "person",
-  system: "system",
-  public: "public",
-} as const;
-
-export type FLActionLogEntryWithBeforeBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
-
-export type FLActionLogEntryWithBeforeDbFilter = { [key: string]: string } | null;
-
-/**
- * One recorded write with the document it replaced, which only the single-row read serves.
- */
-export interface FLActionLogEntryWithBefore {
-  actor: FLActorWithAddressRow | FLActorPerson;
-  at: string;
-  before: FLActionLogEntryWithBeforeBefore;
-  collection: string;
-  db_filter: FLActionLogEntryWithBeforeDbFilter;
-  document_id: string | null;
-  erasure_reason: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  modified_count: number | null;
-  operation: FLActionLogEntryOperation;
-  redacted_at: string | null;
-  request: FLActionLogEntryRequest | null;
-  stand_secured: boolean;
-  trace_id: string;
-}
-
-export interface FLActionLogEntrySingleResponse {
-  action_log_entry: FLActionLogEntryWithBefore;
-}
-
-export type FLActionLogListResponseCountPerCollection = { [key: string]: number };
-
-export type FLActionLogListResponseCountPerHerkunft = { [key: string]: number };
-
-export type FLActionLogListResponseCountPerOperation = { [key: string]: number };
 
 export interface FLActionLogListResponse {
   action_log: FLActionLogEntry[];
-  complete: boolean;
-  count_per_collection: FLActionLogListResponseCountPerCollection;
-  count_per_herkunft: FLActionLogListResponseCountPerHerkunft;
-  count_per_operation: FLActionLogListResponseCountPerOperation;
+  by_options: string[];
+  cursor: string | null;
 }
+
+export type FLActionType = (typeof FLActionType)[keyof typeof FLActionType];
+
+export const FLActionType = {
+  saison: "saison",
+  spieltag: "spieltag",
+  spiel: "spiel",
+  spielbestaetigung: "spielbestaetigung",
+  spielbericht: "spielbericht",
+  team: "team",
+  bewerbung: "bewerbung",
+  registrierung: "registrierung",
+  spieler: "spieler",
+  schiedsrichter: "schiedsrichter",
+  spielort: "spielort",
+  grant: "grant",
+  ban: "ban",
+  address_change: "address_change",
+  erasure: "erasure",
+  retention: "retention",
+} as const;
 
 /**
  * How many seasons the activation moved off `active` -- normally exactly one.
@@ -6473,17 +6460,12 @@ export type N500Response = FLFailureBody;
 export type N503Response = FLFailureBody;
 
 export type ActionLogGetActionLogParams = {
-  collection?: string[] | null;
-  operation?: FLActionLogEntryOperation[] | null;
-  herkunft?: FLActionLogEntryHerkunft[] | null;
-  trace_id?: string | null;
-  document_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  order?: FLSortOrder;
+  cursor?: string | null;
+  q?: string | null;
+  by?: string | null;
+  type?: FLActionType[] | null;
+  from_day?: string | null;
+  until_day?: string | null;
 };
 
 export type AddressChangeSweepAddressChangeParams = {

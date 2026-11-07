@@ -23,7 +23,6 @@ import type {
   FLAccountEinwilligungenResponse,
   FLAccountEinwilligungPayload,
   FLAccountErasureViewResponse,
-  FLActionLogEntrySingleResponse,
   FLActionLogListResponse,
   FLActivateSaisonResponse,
   FLAddressChangeAddressPayload,
@@ -333,35 +332,17 @@ export const getActionLogGetActionLogUrl = (params?: ActionLogGetActionLogParams
 };
 
 /**
- * List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
+ * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
  *
- * `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
- * `anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.
- * @summary List recorded admin actions
+ * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
+ * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
+ * @summary List recorded acts
  */
 export const actionLogGetActionLog = async (
   params?: ActionLogGetActionLogParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLActionLogListResponse> => {
   return adminKeyTransport<FLActionLogListResponse>(getActionLogGetActionLogUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getActionLogGetActionLogEntryUrl = (actionLogEntryId: string) => {
-  return `/api/v0/action_log/${encodeURIComponent(String(actionLogEntryId))}`;
-};
-
-/**
- * One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it.
- * @summary One recorded admin action
- */
-export const actionLogGetActionLogEntry = async (
-  actionLogEntryId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLActionLogEntrySingleResponse> => {
-  return adminKeyTransport<FLActionLogEntrySingleResponse>(getActionLogGetActionLogEntryUrl(actionLogEntryId), {
     ...options,
     method: "GET",
   });
