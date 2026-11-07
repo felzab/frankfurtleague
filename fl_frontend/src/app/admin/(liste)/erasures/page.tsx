@@ -1,8 +1,4 @@
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { PageWait } from "@/kit/PageFade";
-import { QuestionForm, QuestionFormPlaceholder } from "@/kit/QuestionForm";
-import { RailPage } from "@/kit/RailFrame";
-import { TextField } from "@/kit/TextField";
+import { QuestionPage } from "@/kit/QuestionPage";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
@@ -22,56 +18,38 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.adminErasures, ROUTES.adminErasures.path());
 }
 
-/** The erasure of an address on its person's request: the one form, nothing listed beside it. */
+/**
+ * The erasure of an address on its person's request. No league read stands on this page, so the session's own judgement
+ * turns a refused one away.
+ */
 export default function ErasuresPage() {
   return (
-    <RailPage
-      scope="area"
-      title={{ route: "adminErasures" }}>
-      <PageWait
-        fallback={
-          <QuestionFormPlaceholder verb="delete">
-            <FieldPlaceholder width="W3" />
-            <FieldPlaceholder
-              width="W3"
-              description={COPY.admin.noNames}
-            />
-          </QuestionFormPlaceholder>
-        }>
-        <ErasureForm />
-      </PageWait>
-    </RailPage>
-  );
-}
-
-/** No league read stands on this page, so the session's own judgement turns a refused one away. */
-async function ErasureForm() {
-  // Past the guard, which records the actor.
-  const holder = await runAdminRead(async () => getRequestActor()?.email ?? "");
-  return (
-    <QuestionForm
+    <QuestionPage
+      title={{ route: "adminErasures" }}
       verb="delete"
       tone="danger"
       read={readErasureCounts}
       act={eraseAddress}
-      holder={holder}>
-      <TextField
-        label={COPY.signIn.address}
-        name="email"
-        width="W3"
-        kind="email"
-        isRequired={requires(email, "")}
-        maxLength={identityPostErasureBodyEmailMax}
-      />
-      <TextField
-        label={COPY.admin.erasure.reference}
-        name="reason"
-        width="W3"
-        kind="text"
-        description={COPY.admin.noNames}
-        isRequired={requires(reason, "")}
-        maxLength={identityPostErasureBodyReasonMax}
-      />
-    </QuestionForm>
+      holder={runAdminRead(async () => getRequestActor()?.email ?? "")}
+      fields={[
+        {
+          label: COPY.signIn.address,
+          name: "email",
+          width: "W3",
+          kind: "email",
+          isRequired: requires(email, ""),
+          maxLength: identityPostErasureBodyEmailMax,
+        },
+        {
+          label: COPY.admin.erasure.reference,
+          name: "reason",
+          width: "W3",
+          kind: "text",
+          description: COPY.admin.noNames,
+          isRequired: requires(reason, ""),
+          maxLength: identityPostErasureBodyReasonMax,
+        },
+      ]}
+    />
   );
 }
