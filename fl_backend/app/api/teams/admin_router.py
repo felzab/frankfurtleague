@@ -9,7 +9,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.action_log.crud import redact_images_in_session
 from app.api.address_change.crud import denied_addresses
 from app.api.address_change.services import build_addresses_filter
 from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses
@@ -37,8 +36,8 @@ from app.api.invitations.services import (
     find_team_in_saison_refusal,
     plan_invitation_dispatch,
 )
-from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
-from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
+from app.api.kontakte.crud import clear_seats
+from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
 from app.api.outbox.crud import state_of, states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
@@ -127,7 +126,6 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    ActionLogCollection,
     AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
@@ -145,7 +143,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     bind_actor,
@@ -907,11 +904,9 @@ async def replace_saison_team(
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
-    action_log_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLReplaceSaisonTeamResponse:
     """
     Hand this season's junction row, and every fixture on it, to another club.
@@ -1008,8 +1003,8 @@ async def replace_saison_team(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
-            # `find_eligibility_refusal` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-            # colour, the contacts and their links leave with the OUTGOING school.
+            # `find_eligibility_refusal` and `_may_hold_a_platz`. The colour, the contacts and their links
+            # leave with the OUTGOING school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
             expected_version=None,
@@ -1022,29 +1017,10 @@ async def replace_saison_team(
             session=session,
         )
 
-        # Owed at once, as the exit deletes the contacts. The contacts and their links alone leave the
-        # images: the exit record and every earlier state stay.
-        await redact_images_in_session(
-            action_log_collection=action_log_collection,
-            db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [updated_raw["_id"]])]),
-            judge=contact_block_image_edits,
-            stamp=log_stamp(germany_now),
-            session=session,
-        )
-
         # By address and by name, the application being reached by document:
         # it spells an address the editor corrected on the row the old
         # way. Its other people keep their seats.
         await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
-        await redact_seats_in_documents(
-            action_log_collection=action_log_collection,
-            documents=[(Collection.BEWERBUNGEN, [application["_id"] for application in applications])],
-            identifiers=outgoing,
-            links=True,
-            stamp=log_stamp(germany_now),
-            session=session,
-            names=outgoing_names,
-        )
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
         # season its club now holds no junction row in -- what `kader_team_not_in_saison` refuses to create.

@@ -8,7 +8,6 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState
 from app.api.spiele.schemas import unplayed_filter
 from app.core import clock
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
@@ -98,37 +97,6 @@ def build_ghost_repoint() -> Mapping[str, Any]:
     return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
 
 
-def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """Every `spiele` log row whose pre-image names this referee.
-
-    Selected inside the image rather than by the fixtures they hold today: a reassigned fixture, and a
-    removed one, each leave an image naming them that no id can reach.
-    """
-
-    # `collection` first, the one half an index serves — nothing indexes inside `before`, as the
-    # contact erasure's seat pass also finds
-    # (`app/api/kontakte/services.py :: build_seat_images_filter`). A `delete_many` row's image is
-    # an ARRAY, matched on its members.
-    return {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": schiedsrichter_id}
-
-
-def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict[str, Any]:
-    """One fixture image booked to this referee, repointed as the fixture itself is.
-
-    Its result and every other value stay: the match is the league's record, and only the booking
-    named the person.
-    """
-
-    booking = image.get("schiedsrichter")
-    if not isinstance(booking, Mapping) or booking.get("schiedsrichter_id") != schiedsrichter_id:
-        return {}
-
-    # The action log keeps an image as it was recorded, so its booking may carry the referee's name beside the id,
-    # where a stored fixture's holds the id alone; an image's edits are values set at a path, so the name is nulled
-    # in place rather than unset.
-    return {**build_ghost_repoint()["$set"], **({"schiedsrichter.name": None} if "name" in booking else {})}
-
-
 def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
     """`duplicate_key` on the name: another referee, a retired one included, holds it.
 
@@ -182,9 +150,9 @@ ADDRESS_PATH: Final = "kontakt.email"
 EINWILLIGUNG_FIELD: Final = "einwilligung"
 
 # The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
-# sweep_schiedsrichter`), its log images with it, which a TTL index deleting the row would leave for the log's twelve
-# months. On the record rather than inside the block: a retired referee's corrected address drops the block, and the
-# entry its person never confirmed still goes on the clock its last link started.
+# sweep_schiedsrichter`), its fixtures repointed at the ghost, which a TTL index deleting the row could not do. On the
+# record rather than inside the block: a retired referee's corrected address drops the block, and the entry its person
+# never confirmed still goes on the clock its last link started.
 ERASE_AT_FIELD: Final = "erase_at"
 
 

@@ -1042,11 +1042,9 @@ class TestAReplacedClubsRowsClose:
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                action_log_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db=client,
                 today=TODAY,
-                germany_now=NOW,
             )
             return await sweep(database, client), await rows(database)
 
@@ -1404,7 +1402,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                 {"spiel_id": OTHER_SPIEL, "party.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}}
             )
             await database[Collection.SPIELE].insert_one(fresh)
-            await database[Collection.ACTION_LOG].delete_many({})
 
             return await commands_by_name(
                 mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client, today=REMINDER)

@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.action_log.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -22,9 +21,7 @@ from app.api.spielberichte.services import (
     bericht_state_of,
     bericht_unchanged,
     build_bericht_kader_pipeline,
-    build_referee_report_images_filter,
     build_referee_reports_filter,
-    build_season_report_images_filter,
     build_season_report_texts_filter,
     build_state_pipeline,
     build_submitted_pipeline,
@@ -32,8 +29,6 @@ from app.api.spielberichte.services import (
     compose_new_bericht,
     live_kader,
     named_ids_of,
-    referee_report_image_edits,
-    season_end_report_image_edits,
     sides_of,
     team_id_of,
 )
@@ -242,15 +237,13 @@ async def pull_states(*, spielberichte_collection: ReadCollection, saison_id: st
 async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     saison_id: str,
-    stamp: str,
     # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
     session: AsyncClientSession,
 ) -> int:
-    """Once the season after `saison_id` has ended, every report's remarks and card reasons, on the reports and in their log images."""
+    """Once the season after `saison_id` has ended, every report's remarks and card reasons, answering how many reports it stripped."""
 
-    await patch_many_in_db(
+    stripped = await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter=build_season_report_texts_filter(saison_id),
         # Every card's reason by `$[]`: the cards stand.
@@ -258,26 +251,17 @@ async def strip_the_seasons_reports(
         session=session,
     )
 
-    return await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_season_report_images_filter(saison_id),
-        judge=lambda image: season_end_report_image_edits(image, saison_id),
-        stamp=stamp,
-        session=session,
-    )
+    return stripped.modified_count
 
 
 async def repoint_referee_reports_in_session(
     *,
     spielberichte_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[CustomObjectId],
-    # The caller's, so every redaction of one erasure carries one instant.
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """Repoint every report these referees sent at the ghost, in the document and in its log images.
+    """Repoint every report these referees sent at the ghost.
 
     The report stands, its remarks included: it is the league's record of the match. Run ahead of the referee's own step.
     """
@@ -290,14 +274,6 @@ async def repoint_referee_reports_in_session(
         collection=spielberichte_collection,
         db_filter=build_referee_reports_filter(schiedsrichter_ids),
         update={"$set": {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}},
-        session=session,
-    )
-
-    await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_referee_report_images_filter(schiedsrichter_ids),
-        judge=lambda image: referee_report_image_edits(image, schiedsrichter_ids),
-        stamp=stamp,
         session=session,
     )
 

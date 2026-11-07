@@ -905,7 +905,7 @@ class SplitReleaseRun:
 
 @dataclass(frozen=True)
 class DoubleReleaseRun:
-    """`ReleaseRun` plus the count of log rows the emptied fixture drew, which is how many writes reached it."""
+    """`ReleaseRun` for two releases of one fixture."""
 
     before: FLSpiel
     predicted: FLSpiel
@@ -913,7 +913,6 @@ class DoubleReleaseRun:
     after_save: FLSpiel
     preview: FLPatchSpielDataResponse
     saved: FLPatchSpielDataResponse
-    writes_against_the_held_spiel: int
 
 
 class TestAReleaseWritesWhatThePureModelPredicts:
@@ -1020,9 +1019,6 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 after_save=await read_spiel(database, GRUPPE_HELD),
                 preview=preview,
                 saved=saved,
-                # The action log is where a second `$set` would still show, once merging stopped it
-                # from failing: one released fixture is one row.
-                writes_against_the_held_spiel=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
             )
 
         run = on_a_seeded_season(
@@ -1042,7 +1038,8 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             (GRUPPE_HELD_NR, "team2", "Beta"),
         ]
         assert [entry.voided_ergebnis for entry in run.saved.released_sides] == ["2:1", "2:1"]
-        assert run.writes_against_the_held_spiel == 1
+        # A second `$set` would still show here once merging stopped it from failing: one released fixture is one write.
+        assert run.after_save.version == run.before.version + 1
 
     def test_two_held_spiele_each_give_up_the_side_its_own_release_names(self, mongo_replica_set_url: str):
         """Releases spanning two fixtures reach the fixture each one names.

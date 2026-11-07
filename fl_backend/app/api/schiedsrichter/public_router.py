@@ -30,9 +30,8 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import patch_one_in_db, redact_log_rows_in_db, refuse
+from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    ActionLogCollection,
     DBClient,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
@@ -209,7 +208,6 @@ async def post_confirmation(
 async def post_decline(
     decline_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
-    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
@@ -220,8 +218,8 @@ async def post_decline(
 
     The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
     unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
-    re-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's
-    objection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.
+    re-send or reactivation asks the person again. The objection is journalled, so a restore from a snapshot taken before
+    it replays it.
 
     Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
     confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
@@ -229,7 +227,7 @@ async def post_decline(
     """
 
     token_hash = hash_token(decline_data.token)
-    # One instant for the redaction and the journal line, so a replay records the day the person objected on.
+    # The journal line's instant, so a replay records the day the person objected on.
     at = log_stamp(germany_now)
     journal = Journal()
 
@@ -253,10 +251,6 @@ async def post_decline(
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
-        )
-        # LAST, so it reaches the pre-image the objection's own patch just filed, which holds the person who objected.
-        await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.SCHIEDSRICHTER, [raw["_id"]])], at=at, session=session
         )
         # Keyed on the address the link was mailed to, whose person pressed: a replay finds the entry by it.
         hashed = erasure_journal_hash(str(raw["kontakt"]["email"]), key=config.sperrliste_key)

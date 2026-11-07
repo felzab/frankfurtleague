@@ -21,7 +21,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import FLSpielSide
 
 SIDES: Final[tuple[FLSpielSide, ...]] = ("team1", "team2")
@@ -486,59 +485,13 @@ def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
     return {"saison_id": saison_id, "$or": [{"bericht.remarks": {"$type": "string"}}, {"bericht.cards.reason": {"$type": "string"}}]}
 
 
-def build_season_report_images_filter(saison_id: str) -> Mapping[str, Any]:
-    """Every `spielberichte` log row whose image of this season's report holds remarks or a card's reason."""
-
-    return {
-        "collection": str(Collection.SPIELBERICHTE),
-        "before.saison_id": saison_id,
-        "$or": [{"before.bericht.remarks": {"$type": "string"}}, {"before.bericht.cards.reason": {"$type": "string"}}],
-    }
-
-
-def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
-    """One image of this season's report stripped as the report is: its remarks and every card's reason."""
-
-    bericht = image.get("bericht")
-    if image.get("saison_id") != saison_id or not isinstance(bericht, Mapping):
-        return {}
-
-    holds_a_reason = any(isinstance(card, Mapping) and card.get("reason") is not None for card in bericht.get("cards") or [])
-    if bericht.get("remarks") is None and not holds_a_reason:
-        return {}
-
-    # Both paths whatever the image holds, every reason by `$[]`: one update then serves every single image, where a
-    # set per card index would cost the sweep's worst call a command each against its deadline.
-    return {"bericht.remarks": None, "bericht.cards.$[].reason": None}
-
-
-# --- The REFEREE'S ERASURE: the reports they sent, and the log images of them.
+# --- The REFEREE'S ERASURE: the reports they sent.
 
 
 def build_referee_reports_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
     """Every report one of these referees first sent."""
 
     return {"bericht.submitted_by.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
-
-
-def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
-    """Every `spielberichte` log row whose image names one of these referees as the report's sender.
-
-    Inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: the repoint leaves
-    no report naming them, while every older image, its own row's too, does.
-    """
-
-    return {"collection": str(Collection.SPIELBERICHTE), "before.bericht.submitted_by.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
-
-
-def referee_report_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
-    """One report image naming one of these referees, repointed as the report itself is; its remarks and entries stay."""
-
-    by = (image.get("bericht") or {}).get("submitted_by")
-    if not isinstance(by, Mapping) or by.get("schiedsrichter_id") not in schiedsrichter_ids:
-        return {}
-
-    return {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
 
 
 # Where the clubs' line-ups stand on the report document, one block per side, as the public report reads them.

@@ -993,7 +993,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
         assert on_a_spiel(mongo_replica_set_url, body, rows=rows) == ({SPIEL} if listed else set())
 
 
-# The answering Trainer's address, and the clock their erasure stamps its redactions with.
+# The answering Trainer's address, and the clock their erasure runs on.
 IDA = "ida@example.com"
 ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
