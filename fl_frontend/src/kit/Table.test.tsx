@@ -77,6 +77,17 @@ describe("a row's acts", () => {
     expect(screen.getByRole("table").style.gridTemplateColumns).toBe("minmax(0, 1fr) repeat(1, auto)");
   });
 
+  // The harm: `repeat(0, …)` voids the declaration, so a browser draws no track at all, and the row still reads.
+  it("gives a phone's grid the name's track alone where the phone keeps no column", () => {
+    render(
+      <Table
+        {...props([ACTING])}
+        columns={[]}
+      />,
+    );
+    expect(screen.getByRole("table").style.gridTemplateColumns).toBe("minmax(0, 1fr)");
+  });
+
   it("leaves a table none of whose rows acts as a table: no act column and no grid", () => {
     render(
       <Table

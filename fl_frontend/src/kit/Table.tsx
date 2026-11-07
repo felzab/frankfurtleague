@@ -370,7 +370,8 @@ const columnLook = (column: TableColumn) =>
  */
 function phoneTracks(columns: ReadonlyArray<TableColumn>) {
   const kept = columns.filter((column) => column.hideOnPhone !== true).length;
-  return { gridTemplateColumns: `minmax(0, 1fr) repeat(${String(kept)}, auto)` };
+  // `repeat` counts from 1: a count of 0 voids the whole declaration, the name's track with it.
+  return { gridTemplateColumns: kept === 0 ? "minmax(0, 1fr)" : `minmax(0, 1fr) repeat(${String(kept)}, auto)` };
 }
 
 /**
