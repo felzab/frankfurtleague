@@ -43,7 +43,6 @@ export const Code = {
   missing_actor: "missing_actor",
   actor_not_admin: "actor_not_admin",
   session_refused: "session_refused",
-  confirmation_required: "confirmation_required",
   grant_exists: "grant_exists",
   grant_owner: "grant_owner",
   grant_barred: "grant_barred",

@@ -1,5 +1,5 @@
 """
-API · who a request acts for: the session headers behind the admin key, the step-up and the binder
+API · who a request acts for: the session headers behind the admin key and the binder
 
 Which routes carry which guard is `tests/api/test_admin_guard.py`'s sweep; this file proves what each
 guard does with a request. The grants each check reads are the db tier's
@@ -20,22 +20,17 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import ACTOR_CHALLENGE, APIError
+from app.core.exceptions import ACTOR_CHALLENGE
 from app.core.recording import actor_var, record_act
 from app.core.security import (
     AUTH_TIME_HEADER,
-    ENROLMENT_WINDOW_S,
     PASSKEY_FACTOR,
-    STEP_UP_WINDOW_S,
     Factor,
     PersonIdentifier,
-    SessionActor,
     actor_pseudonym,
     bind_actor,
     erasure_journal_hash,
     get_actor_email,
-    verify_recent_confirmation,
-    verify_step_up,
 )
 from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
@@ -116,48 +111,6 @@ class TestTheAdministratorsSession:
 
         assert answer(response) == (401, Code.SESSION_REFUSED)
         assert response.headers["www-authenticate"] == ACTOR_CHALLENGE
-
-
-WindowCheck = Callable[[SessionActor], None]
-
-# Each window check and the window it holds a sign-in to.
-WINDOWS = [
-    pytest.param(verify_recent_confirmation, ENROLMENT_WINDOW_S, id="the grants' enrolment window"),
-    pytest.param(verify_step_up, STEP_UP_WINDOW_S, id="the step-up window"),
-]
-
-
-def challenge(window_s: int) -> str:
-    return f'{ACTOR_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
-
-
-def refusal_of(check: WindowCheck, actor: SessionActor) -> APIError | None:
-    """What a window check raises for `actor`, called with a plain argument as FastAPI calls it once the session checks have answered."""
-
-    try:
-        check(actor)
-    except APIError as refused:
-        return refused
-
-    return None
-
-
-class TestTheStepUp:
-    """The grants' writes are held to the enrolment window, every other step-up write to the step-up window."""
-
-    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
-    def test_a_sign_in_older_than_the_window_is_refused_with_its_challenge(self, check: WindowCheck, window_s: int):
-        refused = refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s + 1))
-
-        assert refused is not None
-        assert (refused.status_code, refused.error_code) == (401, Code.CONFIRMATION_REQUIRED)
-        assert refused.headers == {"WWW-Authenticate": challenge(window_s)}
-
-    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
-    def test_a_sign_in_inside_the_window_passes(self, check: WindowCheck, window_s: int):
-        """The control: every refusal above would pass on a check refusing everything."""
-
-        assert refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s - SESSION_AGE_S)) is None
 
 
 async def through(binder: AsyncIterator[None]) -> tuple[str | None, str | None]:

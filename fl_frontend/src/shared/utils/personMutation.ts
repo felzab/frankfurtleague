@@ -1,14 +1,10 @@
 // Redesign: goes with its last importer.
-import { refresh } from "next/cache";
-
-import { APIBadStatusError } from "@/core/errors";
 import { logRefused } from "@/core/refused";
 import { isSeatAt, rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 
 import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
-import { logActionFailure } from "./actionFailure";
-import { runGuardedMutation, stepUpRequired } from "./adminMutation";
+import { runGuardedMutation } from "./adminMutation";
 
 import type { Refusal } from "@/core/refused";
 import type { Role } from "@/core/roles";
@@ -80,18 +76,5 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
     return subject;
   };
 
-  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: ANMELDUNG_ABGELAUFEN }, async (subject) => {
-    try {
-      return await fn(subject);
-    } catch (error) {
-      // A grant holder's write the backend's own window refused, one the page's check admitted at the
-      // window's edge: answered as the admin spine answers it, so the page's next press asks for the
-      // passkey.
-      if (!(error instanceof APIBadStatusError && error.serverErrorCode === "confirmation_required")) throw error;
-
-      logActionFailure(`Person mutation refused for want of a confirmation: ${mutationName}`, error);
-      refresh();
-      return stepUpRequired();
-    }
-  });
+  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: ANMELDUNG_ABGELAUFEN }, fn);
 }
