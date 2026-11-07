@@ -5,7 +5,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
 from app.api.grants.crud import read_grants
-from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
+from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
 from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
 from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
 from app.core.config import API_VERSION
@@ -29,6 +29,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
+from app.core.journal import Journal
 from app.core.recording import ACT_BY_PERSON, record_act
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -92,8 +93,9 @@ async def post_account_erasure(
     touched here: deleting it is the caller's, once this has answered.
     """
 
-    journal = ErasureJournal(grants_collection=grants_collection)
+    journal = Journal()
 
+    @journal.attempted
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
         grants = await read_grants(grants_collection=grants_collection, session=session)
         # Before any write. A handover finishing meanwhile writes the row this erasure deletes, so the two conflict and the
@@ -124,8 +126,9 @@ async def post_account_erasure(
             session=session,
         )
         await record_act(collection=action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
+        journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-        return journal.took(erasure)
+        return FLErasureResponse(**erasure.counts.model_dump())
 
     async with journal, transaction_session(db) as session:
         return await session.with_transaction(erase_the_address)

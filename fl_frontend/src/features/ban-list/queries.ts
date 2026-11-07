@@ -4,7 +4,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 import type { FLBanListResponse } from "@/core/generated/client/types";
 
 /**
- * Every ban, newest first, with how many the list holds. Admin-tier: a row holds the address.
+ * Every ban, newest first. Admin-tier: a row holds the address.
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
  */

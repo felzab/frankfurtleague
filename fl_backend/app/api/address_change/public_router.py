@@ -47,6 +47,7 @@ from app.api.address_change.services import (
     side_of,
     stored_instant,
     wait_after_confirmation,
+    wait_tier,
 )
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
@@ -124,8 +125,9 @@ async def get_address_change_view(
     """
     Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
-    **Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new
-    mailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,
+    **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
+    it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
+    A POST that reads,
     so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
     links answer `ended`, how it ended and on which day, for as long as its record is kept.
 
@@ -133,8 +135,8 @@ async def get_address_change_view(
     the press would be refused for the address on file's sake or would
     find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
-    the proxy routes no public call to this service. The address on file's side answers the step the change waits on
-    and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+    the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
+    `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
     never whether the new mailbox could confirm, and the day it confirmed once it has.
     """
 
@@ -164,7 +166,7 @@ async def get_address_change_view(
             )
         )
 
-    valid_until, effective_from = stored_instant(record.get("valid_until")), stored_instant(record.get("effective_from"))
+    effective_from = stored_instant(record.get("effective_from"))
     if side == "previous":
         state_previous = previous_state(record, now=germany_now)
         released_at = stored_instant(record.get("released_at"))
@@ -172,7 +174,6 @@ async def get_address_change_view(
             view=FLAddressChangeViewPrevious(
                 side="previous",
                 state=state_previous,
-                valid_until=valid_until,
                 effective_from=effective_from,
                 way=record["way"],
                 email=previous_side_email(record, state=state_previous),
@@ -203,7 +204,6 @@ async def get_address_change_view(
         view=FLAddressChangeViewNew(
             side="new",
             state=state,
-            valid_until=valid_until,
             effective_from=effective_from,
             way=record["way"],
             email=str(record["email"]) if state == "valid" else None,
@@ -314,7 +314,7 @@ async def post_address_change_answer(
         # Refused rather than ended, so this 409 keeps the promise of `app/core/codes.py`: the hourly pass ends the change as its link lapses.
         refuse(find_nothing_refusal(empty=verdict.empty))
 
-        wait = wait_after_confirmation(way=record["way"], admin_tier=holdings.admin_tier)
+        wait = wait_after_confirmation(way=record["way"], admin_tier=holdings.waits_as)
         if wait is None:
             await move_the_address_in_session(
                 record=record,
@@ -357,10 +357,10 @@ async def post_address_change_answer(
             await tell_the_holders_in_session(
                 record,
                 stage="started",
-                # The person's own change is theirs; a lost-mailbox one's confirmation is nobody's the league knows.
-                changed_by=holdings.identifier if record["way"] == "account" else None,
+                changed_by=holdings.identifier,
                 effective_from=effective_from,
                 grants_collection=grants_collection,
+                address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
                 now=germany_now,
                 session=session,
@@ -417,7 +417,7 @@ async def _answer_for_the_address_on_file(
         email=str(released["email"]),
         way="account",
         valid_until=valid_until,
-        holder=None if grant is None else grant["admin_tier"],
+        holder=wait_tier(grant),
         outbox_collection=outbox_collection,
         now=germany_now,
         session=session,
@@ -471,6 +471,7 @@ async def post_address_change_stop(
             record,
             changed_by=str(record["address"]),
             grants_collection=grants_collection,
+            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

@@ -15,7 +15,7 @@ import unicodedata
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from typing import Any, Final, Literal
 
 from app.core.clock import german_day
 from app.core.codes import Code
@@ -23,9 +23,7 @@ from app.core.exceptions import APIError, WriteRefusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.custom import as_utc
-from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay
-
-ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 
 # What the address on file's link shows, one state per step the change waits on, and `release_expired` once the person's own
 # change's question to it lapsed: the page never offers a confirmation the press refuses `link_expired`.
@@ -34,12 +32,10 @@ FLAddressChangePreviousState = Literal["release_open", "release_expired", "open"
 # What the new mailbox's link shows while the change stands.
 FLAddressChangeNewState = Literal["valid", "expired", "not_confirmable", "confirmed"]
 
-ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndKind.__value__)
-
 # The one filter every read of a live change carries: `uniq_address_change_address` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
-# A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
+# Every running change, the key's type stated beside the live terms for `build_address_filter`'s reason.
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"address": {"$type": "string"}, **LIVE_TERMS}
 
 
@@ -55,11 +51,24 @@ def valid_until_from(now: datetime) -> datetime:
     return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
 
-def wait_after_confirmation(*, way: FLAddressChangeWay, admin_tier: str | None) -> timedelta | None:
+def wait_tier(grant: Mapping[str, Any] | None) -> FLAdminTier | None:
+    """The tier whose wait a change of this grant's address serves, a waiting row's included.
+
+    A row a handover names serves the owner's: its 24 hours would end the wait on the role's mailbox days after the handover
+    made it the owner's, a wait that exists because nobody can take that role back.
+    """
+
+    if grant is None:
+        return None
+
+    return "owner" if grant.get("owner_from") is not None else grant["admin_tier"]
+
+
+def wait_after_confirmation(*, way: FLAddressChangeWay, admin_tier: FLAdminTier | None) -> timedelta | None:
     """How long a change waits from the new mailbox's confirmation, `None` where it takes effect at that press.
 
     The lost-mailbox way and the owner's grant longest, nobody having proved the old mailbox or being able to take the role back; any
-    other grant a day, so every holder can read of it. `admin_tier` as the row stores it, a row still waiting included.
+    other grant a day, so every holder can read of it. `admin_tier` as `wait_tier` reads the row.
     """
 
     if way == "waiting_period":
@@ -358,6 +367,7 @@ def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_TAKEN,
         status=HTTPStatus.CONFLICT,
+        fields=(("email",),),
     )
 
 
@@ -425,6 +435,7 @@ def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_OCCUPIED,
         status=HTTPStatus.CONFLICT,
+        fields=(("email",),),
     )
 
 

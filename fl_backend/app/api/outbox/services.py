@@ -86,7 +86,8 @@ class OwedMail:
     `data` is the kind's member of `app/api/outbox/schemas.py :: FLOutboxData`, whose `kind` is the row's.
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
-    the hand-out on the record `reference` names.
+    the hand-out on the record `reference` names. `valid_until` ends the row where its link dies before `DELIVERY_DEADLINE`:
+    the mail states the link's life, which a late send would make false.
     """
 
     key: str
@@ -94,6 +95,7 @@ class OwedMail:
     data: FLOutboxData
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
+    valid_until: datetime | None = None
 
 
 async def enqueue_mails(
@@ -126,7 +128,9 @@ async def enqueue_mails(
         return
 
     await post_many_to_db(
-        collection=outbox_collection, documents=[row_of(mail, now=now, secret=None, valid_until=None) for mail in new], session=session
+        collection=outbox_collection,
+        documents=[row_of(mail, now=now, secret=None, valid_until=mail.valid_until) for mail in new],
+        session=session,
     )
 
     # Equality on the three keys of `outbox_reference` for each record and seat (`app/core/constraints.py :: SUPPORT_INDEXES`).
@@ -145,7 +149,7 @@ async def enqueue_mails(
 
 
 def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: datetime | None) -> dict[str, Any]:
-    """One owed mail's row as `outbox` stores it. `secret` lapses with `valid_until`, the row's deadline and its deletion both."""
+    """One owed mail's row as `outbox` stores it. `valid_until` is its deadline, and the row's deletion too where it holds a `secret`."""
 
     if secret is not None and valid_until is None:
         raise ValueError("a secret is held until it lapses, and this one names no lapse")

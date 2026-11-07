@@ -27,19 +27,24 @@ def refuse_an_address_in_the_reason(value: str) -> str:
     return value
 
 
-class FLBanListEntry(BaseModel):
-    """One ban, as `ban_list` stores it and as the list serves it."""
+class FLBanListRow(BaseModel):
+    """One ban as the list serves it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Folded as every address payload is (`app/shared/folding.py :: league_address`), so a check is an equality.
     address: CustomNonEmptyString
     ban_reason: CustomNonEmptyString
-    # The bound actor, on no payload.
-    created_by: CustomNonEmptyString
     created_at: CustomDateString
     # The last season the ban covers, INCLUSIVE. Served because a row whose bound nobody can read is
     # one an administrator cannot tell from a standing ban, and the lapse removes it without asking.
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+
+
+class FLBanListEntry(FLBanListRow):
+    """One ban as `ban_list` stores it."""
+
+    # The bound actor, on no payload; the ban's mail tells the person it is stored, and no page shows it.
+    created_by: CustomNonEmptyString
 
 
 class FLPostBanListEntryPayload(BaseModel):
@@ -60,18 +65,13 @@ class FLPostBanListEntryPayload(BaseModel):
 
 
 class FLBanListResponse(BaseAPIResponse):
-    """The bans, newest first, and how many there are.
+    """Every ban, newest first."""
 
-    `count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a
-    person barred by a row nobody can reach.
-    """
-
-    ban_list: list[FLBanListEntry]
-    count_total: int = Field(ge=0)
+    ban_list: list[FLBanListRow]
 
 
 class FLPostBanListEntryResponse(BaseAPIResponse):
-    """Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse."""
+    """The ban's id and the last season it covers."""
 
     created_id: CustomObjectId
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
