@@ -77,7 +77,6 @@ class Code(StrEnum):
     MISSING_ACTOR = auto()
     ACTOR_NOT_ADMIN = auto()
     SESSION_REFUSED = auto()
-    CONFIRMATION_REQUIRED = auto()
     GRANT_EXISTS = auto()
     # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()

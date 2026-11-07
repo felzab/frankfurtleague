@@ -1,5 +1,3 @@
-import hashlib
-import hmac
 import secrets
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
@@ -18,8 +16,7 @@ from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import ACTOR_CHALLENGE, APIError
 from app.core.recording import actor_var
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
-from app.shared.sub_keys import derive_sub_key
+from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 
 # RFC 9110's 401 carries a challenge naming the scheme the key is presented under.
 BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
@@ -176,56 +173,6 @@ def signed_in_since(auth_time: int, since: datetime) -> bool:
     return auth_time >= int(since.timestamp())
 
 
-def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:
-    """When the acting administrator signed in, which an owner's power is judged against inside the write."""
-
-    return actor.auth_time
-
-
-# Redesign: goes with its last importer.
-ENROLMENT_WINDOW_S: Final = ENROLMENT_WINDOW_MINUTES * 60
-# Redesign: goes with its last importer.
-STEP_UP_WINDOW_S: Final = STEP_UP_WINDOW_HOURS * 3600
-
-
-# Redesign: goes with its last importer.
-def confirmed_before(actor: SessionActor, window_s: int) -> bool:
-    """Whether the actor's sign-in or confirmation is older than `window_s`, which `confirmation_required` refuses a write for."""
-
-    return session_age_s(actor) > window_s
-
-
-# Redesign: goes with its last importer.
-def confirmation_required(window_s: int) -> APIError:
-    """`confirmation_required`'s refusal of a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
-
-    # RFC 9470 §3's error and parameter, under the actor's own scheme.
-    challenge = f'{ACTOR_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
-    return APIError(HTTPStatus.UNAUTHORIZED, Code.CONFIRMATION_REQUIRED, headers={"WWW-Authenticate": challenge})
-
-
-# Redesign: goes with its last importer.
-def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation.
-
-    A write stepped up on some calls alone declares the actor and calls this on exactly those calls.
-    """
-
-    if confirmed_before(actor, ENROLMENT_WINDOW_S):
-        raise confirmation_required(ENROLMENT_WINDOW_S)
-
-
-# Redesign: goes with its last importer.
-def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write stepped up from a sign-in or confirmation older than the step-up window.
-
-    A write stepped up on some calls alone declares the actor and calls this on exactly those calls.
-    """
-
-    if confirmed_before(actor, STEP_UP_WINDOW_S):
-        raise confirmation_required(STEP_UP_WINDOW_S)
-
-
 async def bind_actor(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> AsyncIterator[None]:
     """The acting administrator's address set for the length of the request, at router level so a later operation cannot miss it."""
 
@@ -248,35 +195,3 @@ def get_person_identifier(actor: Annotated[SessionActor, Depends(verify_person_a
 
 
 PersonIdentifier = Annotated[str, Depends(get_person_identifier)]
-
-
-# The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
-# (`app/api/ban_list/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
-ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"
-
-
-def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
-    # Folded here rather than by each caller, as `app/api/ban_list/services.py :: address_hash` folds its own: a
-    # stored spelling handed in unfolded would hash to a value no other spelling of the mailbox matches.
-    return hmac.new(derive_sub_key(key, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
-
-
-def actor_pseudonym(identifier: str, *, key: SecretStr) -> str:
-    """What the log records for a signed-in person: a keyed hash of the identifier as `sign_in_identifier` folds it.
-
-    Never `address_hash`, whose label would make this EQUAL the person's ban-row digest and whose
-    address rule raises inside a binder.
-    """
-
-    return _keyed_fold(identifier, key=key, label=ACTOR_PSEUDONYM_VERSION)
-
-
-# The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
-# row's digest or, on a choice, its person's log pseudonym, which an erasure's line alone names.
-ERASURE_JOURNAL_VERSION: Final = "erasure-v1"
-
-
-def erasure_journal_hash(identifier: str, *, key: SecretStr) -> str:
-    """What the erasure journal records for a person: a keyed hash of the identifier as `sign_in_identifier` folds it."""
-
-    return _keyed_fold(identifier, key=key, label=ERASURE_JOURNAL_VERSION)

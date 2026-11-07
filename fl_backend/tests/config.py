@@ -4,7 +4,7 @@ from typing import Any
 from bson import ObjectId
 from pydantic import SecretStr
 
-from app.core.config import BAN_LIST_KEY_MIN_LENGTH, INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, BackendConfig
+from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, BackendConfig
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -31,10 +31,6 @@ UNANSWERED_DEADLINE_S = 0.001
 _KEY_BASE = "test-key-base".ljust(INTERNAL_API_KEY_LENGTH, "0")
 _KEY_SYSTEM = "test-key-system".ljust(INTERNAL_API_KEY_LENGTH, "0")
 _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
-
-# Obviously fake and padded to the boot's floor, as the three above are. A suite asserting that one
-# address hashes differently under two keys builds its own second key rather than reading this one.
-_BAN_LIST_KEY = "test-ban-list-key".ljust(BAN_LIST_KEY_MIN_LENGTH, "0")
 
 # Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
 # `app/api/grants/guard.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
@@ -66,7 +62,6 @@ def build_test_config() -> BackendConfig:
         internal_api_key_base=SecretStr(_KEY_BASE),
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
-        sperrliste_key=SecretStr(_BAN_LIST_KEY),
     )
 
 

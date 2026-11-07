@@ -173,7 +173,6 @@
           "missing_actor",
           "actor_not_admin",
           "session_refused",
-          "confirmation_required",
           "grant_exists",
           "grant_owner",
           "grant_barred",

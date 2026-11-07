@@ -129,8 +129,8 @@ previous pass still running is skipped with one line rather than overlapping it.
 on dates, lapses or season statuses and is idempotent, so a redeploy, a restart and a missed hour
 each cost nothing, and a job that throws stops none of the others. The deletion notice is
 idempotent to one floor: a crash between a delivery and its stamp repeats that one notice once.
-Ending an address change whose step lapsed is the retention sweep's alone, and so, but for an
-approval pressed after it, is making one take effect once its waiting time ends. The backend
+Ending an address change whose step lapsed is the retention sweep's alone, and so is making one
+take effect once its waiting time ends. The backend
 judges each pupil of a deletion again in a transaction of their own, and the account sweep counts
 an account already gone as such.
 
@@ -176,7 +176,7 @@ host file's own owner and mode are what the container sees (Docker's Compose fil
 | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
 | `tunnel_token`                                                                                                                         | uid and gid 65532, the connector | `400` |
 | `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key`, `betterstack_heartbeat_url` | uid and gid 1001, the frontend   | `400` |
-| `backend_mongodb_uri`, `sperrliste_key`                                                                                                | uid and gid 1002, the backend    | `400` |
+| `backend_mongodb_uri`                                                                                                                  | uid and gid 1002, the backend    | `400` |
 | `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                                                           | root, group 1003                 | `440` |
 
 **The three internal keys are one file each, read by both application services**, which run as
@@ -551,7 +551,8 @@ itself** before `next dev` starts, over the shell and `fl_frontend/.env`, to the
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
 turn the frontend away from the secret's mount and its boot refuses.
 
-**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS` or a
+**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS`, a
+retired name of the ban list's key or a
 job switch the hourly scheduler replaced (`scripts/lib/_lib.sh :: RETIRED_ENV_NAMES`),
 refuses a deploy or a local start before its first compose call**, at exit 2, finding each
 such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style
@@ -650,7 +651,7 @@ local stack starts with an empty `auth` and a sign-in builds it; the grants deci
 which administrator may sign in, and which the backend admits, arrive with the copy
 (`grants`), so a `--fresh` stack admits nobody until one is written, and anybody else is
 offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
-`/area/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
+`/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
 gives. Every machine, and every `--fresh`, enrols again. A second passkey is added on Konto's

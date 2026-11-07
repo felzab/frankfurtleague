@@ -1,5 +1,5 @@
 """
-API · who a request acts for: the session headers behind the admin key, the step-up and the binder
+API · who a request acts for: the session headers behind the admin key and the binder
 
 Which routes carry which guard is `tests/api/test_admin_guard.py`'s sweep; this file proves what each
 guard does with a request. The grants each check reads are the db tier's
@@ -9,34 +9,19 @@ missing database at the first of those reads.
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Mapping
 from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import ACTOR_CHALLENGE, APIError
+from app.core.exceptions import ACTOR_CHALLENGE
 from app.core.recording import actor_var, record_act
-from app.core.security import (
-    AUTH_TIME_HEADER,
-    ENROLMENT_WINDOW_S,
-    PASSKEY_FACTOR,
-    STEP_UP_WINDOW_S,
-    Factor,
-    PersonIdentifier,
-    SessionActor,
-    actor_pseudonym,
-    bind_actor,
-    erasure_journal_hash,
-    get_actor_email,
-    verify_recent_confirmation,
-    verify_step_up,
-)
+from app.core.security import AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, PersonIdentifier, bind_actor, get_actor_email
 from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
@@ -118,48 +103,6 @@ class TestTheAdministratorsSession:
         assert response.headers["www-authenticate"] == ACTOR_CHALLENGE
 
 
-WindowCheck = Callable[[SessionActor], None]
-
-# Each window check and the window it holds a sign-in to.
-WINDOWS = [
-    pytest.param(verify_recent_confirmation, ENROLMENT_WINDOW_S, id="the grants' enrolment window"),
-    pytest.param(verify_step_up, STEP_UP_WINDOW_S, id="the step-up window"),
-]
-
-
-def challenge(window_s: int) -> str:
-    return f'{ACTOR_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
-
-
-def refusal_of(check: WindowCheck, actor: SessionActor) -> APIError | None:
-    """What a window check raises for `actor`, called with a plain argument as FastAPI calls it once the session checks have answered."""
-
-    try:
-        check(actor)
-    except APIError as refused:
-        return refused
-
-    return None
-
-
-class TestTheStepUp:
-    """The grants' writes are held to the enrolment window, every other step-up write to the step-up window."""
-
-    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
-    def test_a_sign_in_older_than_the_window_is_refused_with_its_challenge(self, check: WindowCheck, window_s: int):
-        refused = refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s + 1))
-
-        assert refused is not None
-        assert (refused.status_code, refused.error_code) == (401, Code.CONFIRMATION_REQUIRED)
-        assert refused.headers == {"WWW-Authenticate": challenge(window_s)}
-
-    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
-    def test_a_sign_in_inside_the_window_passes(self, check: WindowCheck, window_s: int):
-        """The control: every refusal above would pass on a check refusing everything."""
-
-        assert refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s - SESSION_AGE_S)) is None
-
-
 async def through(binder: AsyncIterator[None]) -> tuple[str | None, str | None]:
     """Driven as FastAPI's exit stack drives it, in one task, so what the binder sets and resets is visible here."""
 
@@ -208,13 +151,7 @@ def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fails():
     assert log.rows == []
 
 
-# Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.
-KNOWN_MASTER = SecretStr("known-answer-key".ljust(64, "0"))
 KNOWN_IDENTIFIER = "anna@beispielschule.de"
-# The VALUE, computed outside this package with `hmac` and `hashlib` alone:
-# HMAC-SHA256(HMAC-SHA256(master, "actor-v1"), identifier), nothing under `app/` imported.
-KNOWN_PSEUDONYM = "23bd7fa5b508d2a92d2cb34a1fe9418c4a956f2a43a3df44e0cf8c133fb57209"
-
 MIXED_CASE = "Anna@BeispielSchule.DE"
 
 PERSON_PROBE = "/api/v0/person-probe"
@@ -249,36 +186,3 @@ class TestThePersonsSession:
 
     def test_a_request_naming_nobody_is_refused(self):
         assert answer(person_client().get(PERSON_PROBE)) == (400, Code.MISSING_ACTOR)
-
-
-class TestThePseudonym:
-    def test_it_is_the_value_computed_outside_this_package(self):
-        """The known answer: every other case compares the function with itself, so a construction swapped end for end passes them all."""
-        assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_PSEUDONYM
-
-
-# The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "erasure-v1".
-KNOWN_JOURNAL_HASH = "18eae5d2b55d4f7332413b1832628a846888b1f2f591819933dba6b4a554f398"
-
-
-class TestTheJournalHash:
-    def test_it_is_the_value_computed_outside_this_package(self):
-        assert erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
-
-    def test_it_is_not_the_pseudonym(self):
-        """A shared label would let a journal line name the pseudonym an erasure removed."""
-        assert erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != KNOWN_PSEUDONYM
-
-
-# A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.
-UNFOLDED_IDENTIFIER = f" {MIXED_CASE} "
-
-
-@pytest.mark.parametrize(
-    ("helper", "folded"),
-    [(actor_pseudonym, KNOWN_PSEUDONYM), (erasure_journal_hash, KNOWN_JOURNAL_HASH)],
-    ids=("the pseudonym", "the journal hash"),
-)
-def test_an_unfolded_spelling_hashes_as_its_fold(helper: Callable[..., str], folded: str):
-    """A restore hashes every stored spelling against the journal, so a helper hashing the spelling as given matches nothing."""
-    assert helper(UNFOLDED_IDENTIFIER, key=KNOWN_MASTER) == folded

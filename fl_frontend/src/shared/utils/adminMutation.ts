@@ -15,20 +15,6 @@ import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
 
-/** The server's answer to a change sent after the step-up window closed; the page asks before it sends one. */
-const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
-
-/**
- * A change refused for want of a recent sign-in. `stepUp` is what the page opens the confirmation
- * on, so the sentence above is read only where the page could not ask first.
- */
-export type StepUpRequired = ActionFailure & { readonly stepUp: true };
-
-/** The step-up refusal, for an action judging a window of its own inside the spine's. */
-export function stepUpRequired(): StepUpRequired {
-  return { success: false, error: STEP_UP_REQUIRED, stepUp: true };
-}
-
 /**
  * A slice's mapped refusal as the failure an action returns.
  *

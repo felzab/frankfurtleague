@@ -131,7 +131,6 @@ const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
   "missing_actor",
   "actor_not_admin",
   "session_refused",
-  "confirmation_required",
   "payload_refused",
   "body_unreadable",
   "no_route",
