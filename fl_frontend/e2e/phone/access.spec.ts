@@ -48,6 +48,28 @@ test("Adressänderungen reads a person's running change, and a holder's for the 
   await expect(rows.filter({ hasText: "admin.umzug@example.com" })).toHaveCount(0);
 });
 
+// An address is what tells these rows apart, and a touch cannot reach the `title` a cut one keeps. Measured here because
+// only a browser computes a layout.
+test("a list's row shows its whole address at a phone's width", async ({ page }) => {
+  const profile = page.viewportSize();
+  if (profile === null) throw new Error("the phone project's profile sets a viewport");
+
+  for (const width of [profile.width, 360]) {
+    await page.setViewportSize({ ...profile, width });
+    for (const [list, address] of [
+      ["/admin/address-changes", "nina.noll@example.com"],
+      ["/admin/ban-list", "gesperrt@example.com"],
+    ] as const) {
+      await page.goto(list);
+      const cell = page.getByRole("main").getByRole("row").filter({ hasText: address }).getByText(address, { exact: true });
+      await expect(cell).toBeVisible();
+
+      const isWhole = await cell.evaluate((words) => words.scrollWidth <= words.clientWidth);
+      expect(isWhole, `${address} is cut on ${list} at ${String(width)} px`).toBe(true);
+    }
+  }
+});
+
 test("the Protokoll narrows to each who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");
