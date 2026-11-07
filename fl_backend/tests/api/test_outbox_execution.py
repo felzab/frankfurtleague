@@ -39,6 +39,7 @@ from app.api.outbox.services import (
     enqueue_mails,
 )
 from app.api.outbox.system_router import post_event, post_handout, post_result, post_sign_in
+from app.core import clock
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
@@ -53,6 +54,8 @@ DATABASE_NAME = worker_database("fl_outbox_test")
 
 # A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it.
 NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
+# Five minutes before the clock falls back, so a wall clock's ten run seventy.
+BEFORE_THE_CLOCK_FALLS_BACK = datetime(2126, 10, 27, 2, 55, tzinfo=clock.GERMANY)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
 REFERENCE = FLOutboxReference(collection=Collection.INVITATIONS, id=INVITATION, seat=None)
 NORA = "nora.neu@beispielschule.de"
@@ -89,6 +92,7 @@ async def owe(
     link: bool = False,
     reference: FLOutboxReference = REFERENCE,
     spec: FLOutboxLink = LINK,
+    now: datetime = NOW,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
@@ -97,7 +101,7 @@ async def owe(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
             mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
-            now=NOW,
+            now=now,
         )
 
     async with transaction_session(client) as session:
@@ -227,6 +231,17 @@ class TestTheDrain:
         assert ((late.sent, late.ignored), (settled.sent, settled.ignored)) == ((0, 1), (1, 0))
         assert (row["state"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
         assert logged == 0
+
+    def test_a_lease_runs_its_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):
+        """Added to a Berlin value the ten minutes would be the wall clock's, and a dead drain's mail would wait seventy."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> datetime:
+            row_id = await owe(database, client, "ban/1", now=BEFORE_THE_CLOCK_FALLS_BACK)
+            await claimed(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
+
+            return (await stored(database, row_id))["leased_until"]
+
+        assert utc(on_a_database(mongo_replica_set_url, body)) == BEFORE_THE_CLOCK_FALLS_BACK.astimezone(UTC) + LEASE_DURATION
 
     def test_a_link_goes_into_every_seat_it_names_and_a_mail_whose_seat_moved_on_since_is_dropped(self, mongo_replica_set_url: str):
         """One link for a person holding two seats, minted into both; a seat emptied or re-addressed since mints nothing.
