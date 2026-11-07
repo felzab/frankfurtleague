@@ -132,7 +132,7 @@ async def carry_authorship_in_session(
 
 
 async def _set_authored(collection: AsyncCollection, field: str, identifier: str, value: str, session: AsyncClientSession) -> int:
-    """Put `value` in `field` of every record this person made, by id, so the log keeps the ids and no address."""
+    """Put `value` in `field` of every record this person made, by id."""
 
     ids = [row["_id"] for row in await _rows_naming(collection, (field,), identifier, session)]
     if not ids:

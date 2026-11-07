@@ -8,14 +8,13 @@ from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
 from app.core.config import API_VERSION
 from app.core.dependencies import DBClient, GrantsCollection, OutboxCollection, get_germany_now
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.security import verify_access_system
 from app.core.transactions import transaction_session
 
-# System tier and the system actor, as the application sweep's own router is: the pass holds no
-# session, and the handover it completes was the owner's act a week before.
+# System tier, as the application sweep's own router is: the pass holds no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/grants/handover",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
 

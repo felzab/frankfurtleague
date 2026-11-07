@@ -27,6 +27,7 @@ from app.core.crud import (
     post_one_to_db,
 )
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.literals import FLAdminTier
 
@@ -160,6 +161,7 @@ async def grant_in_session(
         },
         session=session,
     )
+    await record_act(collection=grants_collection, action="grant.added", record_id=created.inserted_id, label=address, session=session)
     await owe_in_session(
         [
             compose_notice(
@@ -215,11 +217,27 @@ async def revoke_in_session(
 ) -> None:
     """Remove one grant, owing the notice of its end, or of the addition's withdrawal where it had not taken effect."""
 
-    change, stage = ("revoked", "completed") if in_effect(grant, now) else ("granted", "withdrawn")
+    holds = in_effect(grant, now)
     await delete_many_from_db(collection=grants_collection, db_filter={"_id": grant["_id"]}, session=session)
+    await record_act(
+        collection=grants_collection,
+        action="grant.removed" if holds else "grant.addition_withdrawn",
+        record_id=grant["_id"],
+        label=str(grant["address"]),
+        session=session,
+    )
     # After the removal, so the holders told are the ones who remain, and the removed one as the address named.
     await owe_in_session(
-        [compose_notice(grant_id=grant["_id"], change=change, stage=stage, address=str(grant["address"]), changed_by=revoked_by, now=now)],
+        [
+            compose_notice(
+                grant_id=grant["_id"],
+                change="revoked" if holds else "granted",
+                stage="completed" if holds else "withdrawn",
+                address=str(grant["address"]),
+                changed_by=revoked_by,
+                now=now,
+            )
+        ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
         now=now,
@@ -246,6 +264,9 @@ async def start_the_handover_in_session(
         expected_version=None,
         session=session,
         return_document=ReturnDocument.BEFORE,
+    )
+    await record_act(
+        collection=grants_collection, action="grant.handover_started", record_id=grant["_id"], label=str(grant["address"]), session=session
     )
     await owe_in_session(
         [
@@ -284,6 +305,9 @@ async def stop_the_handover_in_session(
         expected_version=None,
         session=session,
         return_document=ReturnDocument.BEFORE,
+    )
+    await record_act(
+        collection=grants_collection, action="grant.handover_withdrawn", record_id=grant["_id"], label=str(grant["address"]), session=session
     )
     await owe_in_session(
         [
@@ -324,6 +348,14 @@ async def complete_the_handover_in_session(
         expected_version=None,
         session=session,
         return_document=ReturnDocument.BEFORE,
+    )
+    await record_act(
+        collection=grants_collection,
+        action="grant.handover_completed",
+        by=ACT_BY_SYSTEM,
+        record_id=grant["_id"],
+        label=str(grant["address"]),
+        session=session,
     )
     await owe_in_session(
         [compose_notice(grant_id=grant["_id"], change="handover", stage="completed", address=str(grant["address"]), changed_by=None, now=now)],
