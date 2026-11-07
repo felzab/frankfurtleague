@@ -218,7 +218,7 @@ class TestTheDrain:
             late = await reported(database, lost.lease, row_id, "sent")
             settled = await reported(database, after.lease, row_id, "sent")
             record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
-            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.OUTBOX)})
+            logged = await database[Collection.ACTION_LOG].count_documents({})
 
             return lost, inside, after, late, settled, await stored(database, row_id), record, logged
 
