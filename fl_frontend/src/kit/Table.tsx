@@ -7,6 +7,7 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
+import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
@@ -576,7 +577,9 @@ export function Table({
   );
   return (
     // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
-    <div className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
+    <div
+      data-kit-focus="home"
+      className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
@@ -695,7 +698,7 @@ export function Table({
                     <td
                       role="cell"
                       className={table({ acts }).acts()}>
-                      {row.acts !== undefined && <span className="flex items-center gap-2 lg:justify-end">{row.acts}</span>}
+                      {row.acts !== undefined && <RowActs className="flex items-center gap-2 lg:justify-end">{row.acts}</RowActs>}
                     </td>
                   )}
                 </tr>
