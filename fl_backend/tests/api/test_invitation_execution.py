@@ -591,13 +591,18 @@ class TestTheSeasonWidePress:
         """The Protokoll records no re-send, and a row for each would bury the press that matters."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await press(database)
+            # Every link gone, so the press mails several teams, each in its own transaction.
+            await database[Collection.INVITATIONS].delete_many({})
+            mailed = (await press(database)).mailed
             first = await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
             await press(database, resend=True)
 
-            return first, await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
+            return mailed, first, await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
 
-        assert on_a_league(mongo_replica_set_url, body) == (1, 1)
+        mailed, first, after_the_re_send = on_a_league(mongo_replica_set_url, body)
+
+        assert mailed > 1
+        assert (first, after_the_re_send) == (1, 1)
 
     def test_a_re_send_replaces_the_mailed_teams_link(self, mongo_replica_set_url: str):
         """The raw value is recoverable from nothing, so a link to be mailed again is one that has just been minted."""
