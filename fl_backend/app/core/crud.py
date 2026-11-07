@@ -153,7 +153,7 @@ async def patch_one_in_db(
     session: AsyncClientSession | None = None,
     return_document: bool,
 ) -> Mapping[str, Any]:
-    """`expected_version` and `return_document` have no default, so every caller weighs whether its write checks a version, and the two images.
+    """`expected_version` and `return_document` have no default, so a caller weighs whether it checks a version and which state it answers.
 
     `BEFORE` answers the state the write just replaced, `AFTER` the state it left, both from the one command. An
     `expected_version` is refused `version_stale` once another write has raised the count; `None` checks nothing.
