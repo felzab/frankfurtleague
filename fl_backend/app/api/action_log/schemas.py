@@ -35,9 +35,8 @@ class FLActionLogFilterPayload(BaseModel):
     by: str | None = Field(default=None, max_length=KONTAKT_EMAIL_MAX_LENGTH)
     # A list: a filter's one option may stand for several categories.
     type: list[FLActionType] | None = Field(default=None, max_length=len(get_args(FLActionType.__value__)))
-    # German days, both inclusive.
+    # A German day, inclusive.
     from_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
-    until_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
 
 
 class FLActionLogEntry(BaseModel):

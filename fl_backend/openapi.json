@@ -1368,18 +1368,6 @@
               }
             ],
             "title": "Type"
-          },
-          "until_day": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Until Day"
           }
         },
         "title": "FLActionLogFilterPayload",
@@ -1568,37 +1556,6 @@
           "changes"
         ],
         "title": "FLAddressChangeAdminListResponse",
-        "type": "object"
-      },
-      "FLAddressChangeAdminMintResponse": {
-        "description": "A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "valid_until": {
-            "format": "date-time",
-            "title": "Valid Until",
-            "type": "string"
-          },
-          "way": {
-            "$ref": "#/components/schemas/FLAddressChangeWay"
-          }
-        },
-        "required": [
-          "id",
-          "way",
-          "valid_until",
-          "email"
-        ],
-        "title": "FLAddressChangeAdminMintResponse",
         "type": "object"
       },
       "FLAddressChangeAdminOpen": {
@@ -1812,6 +1769,7 @@
         "type": "string"
       },
       "FLAddressChangeIdResponse": {
+        "description": "A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered.",
         "properties": {
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -7732,12 +7690,6 @@
       },
       "FLPasskeyData": {
         "properties": {
-          "account": {
-            "maxLength": 256,
-            "pattern": "^/[a-z0-9/_-]*$",
-            "title": "Account",
-            "type": "string"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
@@ -7754,8 +7706,7 @@
         },
         "required": [
           "kind",
-          "instant",
-          "account"
+          "instant"
         ],
         "title": "FLPasskeyData",
         "type": "object"
@@ -18017,7 +17968,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAdminMintResponse"
+                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
                 }
               }
             },
@@ -18715,7 +18666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAdminMintResponse"
+                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
                 }
               }
             },

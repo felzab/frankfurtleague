@@ -655,7 +655,7 @@ class TestTheConfirmation:
         assert (record["address"], record["email"], record["ended"]["kind"]) == (None, None, "effective")
         assert record["token_hashes"] == [hash_token(minted.token)]
 
-    def test_a_change_started_with_a_reason_is_confirmed_and_waits_for_the_pass(self, mongo_replica_set_url: str):
+    def test_a_lost_mailbox_change_is_confirmed_and_waits_for_the_pass(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client)
             confirmed = await answer(database, client, started.token)
@@ -667,7 +667,6 @@ class TestTheConfirmation:
 
         started, confirmed, waiting, early, late, after, (notices, owed_carries) = on_a_person(mongo_replica_set_url, body)
 
-        assert started.way == "waiting_period"
         assert (confirmed.effective, confirmed.effective_from is not None) == (False, True)
         assert (waiting["pupil"]["email"], waiting["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert (early.removed, early.discarded, early.effective) == (0, 0, 0)
@@ -1274,7 +1273,7 @@ class TestTheToolsStart:
 
         plain, refused, record = on_a_person(mongo_replica_set_url, body)
 
-        assert (plain.way, plain.token is not None) == ("waiting_period", True)
+        assert plain.token is not None
         assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_OCCUPIED, None)
 
     @staticmethod

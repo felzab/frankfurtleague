@@ -23,19 +23,19 @@ def utc(month: int, day: int, hour: int) -> datetime:
     ("filters", "query"),
     [
         pytest.param(
-            {"from_day": "2026-07-01", "until_day": "2026-07-01"},
-            {"at": {"$gte": utc(6, 30, 22), "$lt": utc(7, 1, 22)}},
+            {"from_day": "2026-07-01"},
+            {"at": {"$gte": utc(6, 30, 22)}},
             id="a summer day, two hours ahead of UTC",
         ),
         pytest.param(
-            {"from_day": "2026-01-15", "until_day": "2026-01-15"},
-            {"at": {"$gte": utc(1, 14, 23), "$lt": utc(1, 15, 23)}},
+            {"from_day": "2026-01-15"},
+            {"at": {"$gte": utc(1, 14, 23)}},
             id="a winter day, one hour ahead",
         ),
         pytest.param(
-            {"from_day": "2026-03-29", "until_day": "2026-03-29"},
-            {"at": {"$gte": utc(3, 28, 23), "$lt": utc(3, 29, 22)}},
-            id="the day the clock moves, 23 hours long",
+            {"from_day": "2026-03-29"},
+            {"at": {"$gte": utc(3, 28, 23)}},
+            id="the day the clock moves, which starts an hour ahead",
         ),
         pytest.param(
             {"q": " Adler (U17) "},

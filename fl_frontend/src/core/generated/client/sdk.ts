@@ -28,7 +28,6 @@ import type {
   FLAddressChangeAddressPayload,
   FLAddressChangeAddressResponse,
   FLAddressChangeAdminListResponse,
-  FLAddressChangeAdminMintResponse,
   FLAddressChangeAdminPayload,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
@@ -398,7 +397,7 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 export const addressChangePostAddressChangeAdmin = async (
   fLAddressChangeAdminPayload: FLAddressChangeAdminPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeAdminMintResponse> => {
+): Promise<FLAddressChangeIdResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -411,7 +410,7 @@ export const addressChangePostAddressChangeAdmin = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLAddressChangeAdminMintResponse>(getAddressChangePostAddressChangeAdminUrl(), {
+  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangePostAddressChangeAdminUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -738,8 +737,8 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
 export const addressChangeInviteAddressChange = async (
   addressChangeId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeAdminMintResponse> => {
-  return adminKeyTransport<FLAddressChangeAdminMintResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
+): Promise<FLAddressChangeIdResponse> => {
+  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
     ...options,
     method: "POST",
   });

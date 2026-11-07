@@ -19,7 +19,6 @@ from app.api.address_change.crud import (
 )
 from app.api.address_change.schemas import (
     FLAddressChangeAdminListResponse,
-    FLAddressChangeAdminMintResponse,
     FLAddressChangeAdminOpen,
     FLAddressChangeAdminPayload,
     FLAddressChangeIdResponse,
@@ -158,7 +157,7 @@ async def get_address_changes(
 
 @router.post(
     "",
-    response_model=FLAddressChangeAdminMintResponse,
+    response_model=FLAddressChangeIdResponse,
     summary="Start an address change for a person who says they cannot sign in",
 )
 async def post_address_change_admin(
@@ -171,7 +170,7 @@ async def post_address_change_admin(
     db: DBClient,
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeAdminMintResponse:
+) -> FLAddressChangeIdResponse:
     """
     Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
 
@@ -190,7 +189,7 @@ async def post_address_change_admin(
     identifier, email = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email)
     way: FLAddressChangeWay = "waiting_period"
 
-    async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
+    async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
         await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
@@ -249,7 +248,7 @@ async def post_address_change_admin(
             session=session,
         )
 
-        return FLAddressChangeAdminMintResponse(id=address_change_id, way=way, valid_until=record["valid_until"], email=email)
+        return FLAddressChangeIdResponse(id=address_change_id)
 
     # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
@@ -259,7 +258,7 @@ async def post_address_change_admin(
 
 @router.post(
     f"{by_id('address_change_id')}/invite",
-    response_model=FLAddressChangeAdminMintResponse,
+    response_model=FLAddressChangeIdResponse,
     summary="Send a pending address a fresh link",
 )
 async def invite_address_change(
@@ -272,7 +271,7 @@ async def invite_address_change(
     db: DBClient,
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeAdminMintResponse:
+) -> FLAddressChangeIdResponse:
     """
     Owe the new mailbox a fresh link for the change this id names, in the same transaction.
 
@@ -288,7 +287,7 @@ async def invite_address_change(
     re-send.
     """
 
-    async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
+    async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
         await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
@@ -327,7 +326,7 @@ async def invite_address_change(
             session=session,
         )
 
-        return FLAddressChangeAdminMintResponse(id=address_change_id, way=updated["way"], valid_until=valid_until, email=email)
+        return FLAddressChangeIdResponse(id=address_change_id)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(judge_and_remint_the_change)

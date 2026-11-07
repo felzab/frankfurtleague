@@ -26,8 +26,6 @@ class FLSignInCodeData(BaseModel):
 class FLPasskeyData(BaseModel):
     kind: Literal["passkey_added", "passkey_erased"]
     instant: AwareDatetime
-    # The reader's own account page, a path on the site's origin, which is where either event is acted on.
-    account: Annotated[str, StringConstraints(pattern=r"^/[a-z0-9/_-]*$", max_length=256)]
 
 
 class FLAccountErasureData(BaseModel):

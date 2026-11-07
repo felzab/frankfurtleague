@@ -74,7 +74,6 @@ export const ActionLogGetActionLogBody = zod
         zod.null(),
       ])
       .optional(),
-    until_day: zod.union([zod.iso.date(), zod.null()]).optional(),
   })
   .describe("What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.");
 
@@ -1106,9 +1105,6 @@ export const OutboxPostResultBody = zod
  * or not.
  * @summary Owe one mail of the sign-in library
  */
-export const outboxPostSignInBodyDataTwoAccountMax = 256;
-
-export const outboxPostSignInBodyDataTwoAccountRegExp = new RegExp("^/[a-z0-9/_-]*$");
 export const outboxPostSignInBodySecretOneMax = 4096;
 
 export const outboxPostSignInBodyToMax = 254;
@@ -1120,7 +1116,6 @@ export const OutboxPostSignInBody = zod
         kind: zod.literal("sign_in_code").meta({ title: "Kind" }),
       }),
       zod.object({
-        account: zod.string().max(outboxPostSignInBodyDataTwoAccountMax).regex(outboxPostSignInBodyDataTwoAccountRegExp),
         instant: zod.iso.datetime({ offset: true }),
         kind: zod.enum(["passkey_added", "passkey_erased"]),
       }),

@@ -658,7 +658,6 @@ export interface FLActionLogFilterPayload {
   from_day?: string | null;
   q?: string | null;
   type?: FLActionType[] | null;
-  until_day?: string | null;
 }
 
 export interface FLActionLogListResponse {
@@ -768,18 +767,6 @@ export interface FLAddressChangeAdminListResponse {
 }
 
 /**
- * A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.
- */
-export interface FLAddressChangeAdminMintResponse {
-  /** @minLength 1 */
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  valid_until: string;
-  way: FLAddressChangeWay;
-}
-
-/**
  * The address a change starts on, and the address it goes to.
  */
 export interface FLAddressChangeAdminPayload {
@@ -842,6 +829,9 @@ export const FLAddressChangeEndKind = {
   discarded: "discarded",
 } as const;
 
+/**
+ * A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered.
+ */
 export interface FLAddressChangeIdResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -3048,11 +3038,6 @@ export const FLPasskeyDataKind = {
 } as const;
 
 export interface FLPasskeyData {
-  /**
-   * @maxLength 256
-   * @pattern ^/[a-z0-9/_-]*$
-   */
-  account: string;
   instant: string;
   kind: FLPasskeyDataKind;
 }

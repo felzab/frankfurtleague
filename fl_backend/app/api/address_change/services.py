@@ -11,7 +11,6 @@ Invariants:
 """
 
 import math
-import unicodedata
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
@@ -292,31 +291,16 @@ def new_state(record: Mapping[str, Any], *, now: datetime, not_confirmable: bool
     return "not_confirmable" if not_confirmable else "valid"
 
 
-def _shown_label(label: str) -> str:
-    """One domain label as its reader knows it: decoded from punycode where it decodes, as stored where it does not."""
-
-    if not label.startswith("xn--"):
-        return label
-    try:
-        decoded = label.removeprefix("xn--").encode("ascii").decode("punycode")
-    except UnicodeError:
-        return label
-
-    # Punycode decodes nonsense into control characters rather than refusing it.
-    return label if any(unicodedata.category(character)[0] == "C" for character in decoded) else decoded
-
-
 def masked_address(email: str) -> str:
     """The pending address a league-started change shows its address on file.
 
-    Three bullets whatever the length; the last label alone, needing no public-suffix list; decoded first, so an
-    internationalised domain shows its own letter.
+    Three bullets whatever the length; the last label alone, needing no public-suffix list.
     """
 
-    # Folded and decoded, never judged by the address rule, whose tables move without us: a stored value it came to
+    # Folded, never judged by the address rule, whose tables move without us: a stored value it came to
     # refuse would answer the account page a 500 (`app/shared/schemas/kontakt.py :: FLKontaktPayload`).
     local, _, domain = sign_in_identifier(email).rpartition("@")
-    labels = [_shown_label(label) for label in domain.split(".")]
+    labels = domain.split(".")
     shortened = f"{labels[0][:1]}•••" + (f".{labels[-1]}" if len(labels) > 1 else "")
 
     return f"{local[:1]}•••@{shortened}"

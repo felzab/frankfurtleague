@@ -9,7 +9,6 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     CustomDateString,
-    CustomNonEmptyString,
     CustomObjectId,
     FLUtcInstant,
 )
@@ -231,16 +230,9 @@ class FLAddressChangeAdminPayload(BaseModel):
     email: CustomEmail
 
 
-class FLAddressChangeAdminMintResponse(BaseAPIResponse):
-    """A started or re-sent change, whose mails are owed in the Postausgang: no link is answered."""
-
-    id: CustomObjectId
-    way: FLAddressChangeWay
-    valid_until: FLUtcInstant
-    email: CustomNonEmptyString
-
-
 class FLAddressChangeIdResponse(BaseAPIResponse):
+    """A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered."""
+
     id: CustomObjectId
 
 
