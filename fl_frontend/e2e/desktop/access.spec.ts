@@ -7,6 +7,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { chooseWho } from "../support/actionLog";
 import { typeInto } from "../support/application";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
@@ -71,8 +72,9 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
 
   // --- Protokoll ---------------------------------------------------------------------------------
 
-  await page.goto(`/admin/log?by=${encodeURIComponent(ADMINISTRATOR)}`);
-  const logged = page.getByRole("main").getByRole("row");
+  await page.goto("/admin/log");
+  await chooseWho(page, main, ADMINISTRATOR);
+  const logged = main.getByRole("row");
   await expect(logged.filter({ hasText: "Adressänderung eingetragen" })).toBeVisible();
   await expect(logged.filter({ hasText: "Adressänderung verworfen" })).toBeVisible();
   await expect(logged.filter({ hasText: `Löschung auf Anfrage · ${REFERENCE}` })).toBeVisible();

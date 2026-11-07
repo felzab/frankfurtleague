@@ -9,6 +9,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { chooseWho } from "../support/actionLog";
 import { choose, typeInto } from "../support/application";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
@@ -90,7 +91,8 @@ test("the owner stops what waits, adds an administrator and stops it, and hands 
   expect(await assertionsSigned(context), "an act on Administratoren ran with no touch of its own").toBe(touches + 4);
 
   // The log names the owner by address, and the row by what it was about.
-  await page.goto(`/admin/log?by=${encodeURIComponent(OWNER)}`);
+  await page.goto("/admin/log");
+  await chooseWho(page, page.getByRole("main"), OWNER);
   const logged = page.getByRole("main").getByRole("row");
   await expect(logged.filter({ hasText: `Eintragung zurückgezogen · ${ADDED}` })).toBeVisible();
   await expect(logged.filter({ hasText: `Übergabe gestartet · ${SUCCESSOR}` })).toBeVisible();

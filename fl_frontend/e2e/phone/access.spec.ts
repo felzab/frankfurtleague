@@ -5,6 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { chooseWho } from "../support/actionLog";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
@@ -48,17 +49,25 @@ test("Adressänderungen reads a person's running change, and a holder's for the 
 });
 
 test("the Protokoll narrows to each who", async ({ page }) => {
-  const rows = page.getByRole("main").getByRole("row");
+  const main = page.getByRole("main");
+  const rows = main.getByRole("row");
   const seeded = [
-    ["inhaber%40example.com", "Administrator eingetragen · admin.wartet@example.com", "inhaber@example.com"],
-    ["kontakt", "Termin beantwortet · Birke vs. Linde", "Kontaktperson · Birke"],
-    ["schiedsrichter", "Spielbericht eingetragen · Birke vs. Linde", "Schiedsrichter"],
-    ["system", "Nach Frist gelöscht · Kontaktpersonen: 2", "Automatisch"],
-    ["person", "Konto gelöscht", "Person"],
+    ["inhaber@example.com", "Administrator eingetragen · admin.wartet@example.com", "inhaber@example.com"],
+    ["Teams", "Termin beantwortet · Birke vs. Linde", "Kontaktperson · Birke"],
+    ["Schiedsrichter", "Spielbericht eingetragen · Birke vs. Linde", "Schiedsrichter"],
+    ["Automatisch", "Nach Frist gelöscht · Kontaktpersonen: 2", "Automatisch"],
+    ["Person", "Konto gelöscht", "Person"],
   ] as const;
 
-  for (const [by, what, who] of seeded) {
-    await page.goto(`/admin/log?by=${by}`);
+  for (const [option, what, who] of seeded) {
+    await page.goto("/admin/log");
+    await main.getByRole("button", { name: "Filter" }).click();
+    // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
+    const sheet = page.getByRole("dialog", { name: "Filter" });
+    await chooseWho(page, sheet, option);
+    await sheet.getByRole("button", { name: "Fertig" }).click();
+    await expect(sheet).toBeHidden();
+
     await expect(rows.filter({ hasText: what }).filter({ hasText: who }).first()).toBeVisible();
 
     // Every other who's row is left out: unfiltered, the page would hold them all among its newest 50.
