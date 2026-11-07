@@ -1336,7 +1336,7 @@ def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]
 ROUND_TRIPS_A_ROW = 3
 
 # The worst call's commands beside its rows.
-SWEEP_OTHER_COMMANDS = 32
+SWEEP_OTHER_COMMANDS = 29
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
