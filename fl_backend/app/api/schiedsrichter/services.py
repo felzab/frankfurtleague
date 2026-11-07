@@ -394,8 +394,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     with no address would record a message that was never composed.
     """
 
-    # A stored value the fold cannot canonicalise is no address either, which the hand-out's ban read
-    # would otherwise meet as a failed mail.
+    # A stored value the fold cannot canonicalise is no address either.
     if email is not None:
         try:
             league_address(str(email))
