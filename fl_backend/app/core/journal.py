@@ -278,7 +278,7 @@ class Journal:
     """
 
     def __init__(self) -> None:
-        self._noted: list[JournalLine] = []
+        self._noted: list[tuple[PrivacyAct | JournalLine, Sequence[str], Sequence[str], Sequence[str]]] = []
 
     def attempted[T, *Arguments](
         self, callback: Callable[[AsyncClientSession, *Arguments], Awaitable[T]]
@@ -291,8 +291,8 @@ class Journal:
 
         return noting_afresh
 
-    def note(self, line: JournalLine) -> None:
-        self._noted.append(line)
+    def note(self, act: PrivacyAct | JournalLine, records: Sequence[str] = (), choices: Sequence[str] = (), seats: Sequence[str] = ()) -> None:
+        self._noted.append((act, records, choices, seats))
 
     async def __aenter__(self) -> Journal:
         return self
@@ -300,5 +300,8 @@ class Journal:
     async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
         # A lost answer journals too: the act may have landed, and replaying what its person asked for wrongs nobody.
         if failure is None or lost_its_answer(failure):
-            for line in self._noted:
-                journal_logger.info(line.text())
+            for act, records, choices, seats in self._noted:
+                if isinstance(act, JournalLine):
+                    journal_logger.info(act.text())
+                else:
+                    privacy_line(act, records, choices, seats)
