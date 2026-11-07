@@ -3,21 +3,17 @@
 import { useState } from "react";
 
 import { Callout } from "@/kit/Callout";
-import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
-import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
-
-const WORDS = COPY.admin.addressChange;
 
 /** What the start's write asks of its boxes, read on the server, where the schema stays. */
 export type StartRules = { required: Readonly<Record<"address" | "email" | "change_reason", boolean>>; reasonMax: number; addressMax: number };
 
 /**
  * The start's boxes: the address on file, its warning as soon as the typed address has a change on the list, since the
- * start ends that one; the new address; the reason, one line, and what the start sets off. Each posts under its name.
+ * start ends that one; the new address; the reason, one line, as the server keeps it. Each posts under its name.
  */
 export function StartFields({
   running,
@@ -41,12 +37,10 @@ export function StartFields({
         onChange={setTyped}
       />
       {running.includes(asSignInIdentifier(typed)) && (
-        <div className="w-full">
-          <Callout
-            tone="warn"
-            text={WORDS.replaces}
-          />
-        </div>
+        <Callout
+          tone="warn"
+          text={COPY.admin.addressChange.replaces}
+        />
       )}
       <TextField
         label={COPY.account.address.new}
@@ -65,10 +59,6 @@ export function StartFields({
         isRequired={required.change_reason}
         maxLength={reasonMax}
       />
-      <p className="text-sm text-fg-muted">{WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS })}</p>
-      <div className="w-full">
-        <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }]} />
-      </div>
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { ListPage } from "@/kit/ListPage";
 
 import { requires } from "@/core/action";
+import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import {
@@ -125,6 +126,8 @@ export default function AddressChangesPage() {
           title: START,
           act: { verb: "enter", object: COPY.account.address.change },
           action: startLostMailboxChange,
+          consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
+          facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
           touch: { holder },
           children: (
             <StartFields
