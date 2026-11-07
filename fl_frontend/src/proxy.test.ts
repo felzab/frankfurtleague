@@ -350,7 +350,7 @@ describe("where a session that is only read slides", () => {
     }
   });
 
-  it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {
+  it("leaves an administrator's twenty-four-hour cap, and the touch's window, where the sign-in set them", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     const signedIn = new Date(Date.now() - 25 * 60 * MINUTE_MS);
@@ -360,7 +360,7 @@ describe("where a session that is only read slides", () => {
     const answer = await visit(ADMIN_URL, cookie);
 
     assert.ok(setSessionCookie(answer, cookie), "the administrator's session did not slide, so the case proves nothing");
-    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the step-up are judged from").toBe(signedIn.getTime());
+    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the touch are judged from").toBe(signedIn.getTime());
     arriveAs(cookie);
     expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
   });

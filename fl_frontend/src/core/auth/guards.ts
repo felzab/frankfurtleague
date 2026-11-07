@@ -56,7 +56,7 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
 });
 
 /**
- * A served session beside the grant this request read for its address, which a step-up judges it by.
+ * A served session beside the verdict on the grant this request read for its address.
  * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
  */
 export type JudgedSession = ServedSession & { readonly isAdmin: boolean };

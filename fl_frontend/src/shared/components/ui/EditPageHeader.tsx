@@ -8,7 +8,6 @@ import { Button } from "@heroui/react/button";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { Hint } from "@/shared/components/ui/Hint";
-import { STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { ReactNode } from "react";
@@ -19,7 +18,7 @@ import type { ReactNode } from "react";
  */
 type Stilllegung = {
   isRetired: boolean;
-  reactivate: { isPending: boolean; isPrompting?: boolean; onPress: () => void };
+  reactivate: { isPending: boolean; onPress: () => void };
   /**
    * Handed the pressed control, which a landing anchors on. `disabledReason` is the refusal the page can already see:
    * offering what the endpoint refuses is one defect whichever control reaches it.
@@ -102,13 +101,13 @@ export function EditPageHeader({
 
 const HEADER_CONTROL_CLASSES = `${formButton({ intent: "nav", size: "sm" })} shrink-0`;
 
-function Reaktivieren({ isPending, isPrompting, onPress }: Stilllegung["reactivate"]) {
+function Reaktivieren({ isPending, onPress }: Stilllegung["reactivate"]) {
   return (
     <Button
       onPress={onPress}
       isPending={isPending}
       className={HEADER_CONTROL_CLASSES}>
-      {isPrompting === true ? STEP_UP_RUNNING : isPending ? "Stellt wieder her..." : "Reaktivieren"}
+      {isPending ? "Stellt wieder her..." : "Reaktivieren"}
     </Button>
   );
 }
