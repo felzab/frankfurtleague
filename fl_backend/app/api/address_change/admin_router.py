@@ -11,7 +11,6 @@ from app.api.address_change.crud import (
     Occupancy,
     address_taken,
     end_the_change_in_session,
-    ending_line,
     owe_the_link_in_session,
     owe_the_notice_in_session,
     read_the_holdings,
@@ -63,7 +62,7 @@ from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -89,9 +88,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.journal import Journal
 from app.core.readonly import ReadCollection
-from app.core.recording import log_stamp
 from app.core.routing import SAFE, by_id
 from app.core.security import bind_actor, get_actor_auth_time, get_actor_email, verify_access_admin, verify_recent_confirmation, verify_step_up
 from app.core.transactions import transaction_session
@@ -307,9 +304,6 @@ async def post_address_change_admin(
     hashed = ban_list.hash_of(email)
     # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
-    journal = Journal()
-
-    @journal.attempted
     async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         grants, announced = await _refuse_the_address(
             identifier,
@@ -362,9 +356,7 @@ async def post_address_change_admin(
         address_change_id = await start_the_change_in_session(
             record=record,
             address_changes_collection=address_changes_collection,
-            key=ban_list.key,
             now=germany_now,
-            journal=journal,
             session=session,
         )
         # The notice first and the link after, as the address on file is told before the new mailbox can answer.
@@ -393,9 +385,8 @@ async def post_address_change_admin(
 
     # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(judge_and_start_the_change)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(judge_and_start_the_change)
 
 
 @router.post(
@@ -520,7 +511,6 @@ async def delete_address_change(
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
@@ -528,7 +518,6 @@ async def delete_address_change(
     """
     Discard the change this id names: its links open nothing to press, and the address on file stays.
 
-    Journalled as the stop is, so a restore does not bring back a change confirmed in its waiting time to take effect.
     Nothing is mailed. Acts on the change the id names alone, so a page showing a change since replaced discards nothing.
 
     Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
@@ -536,10 +525,6 @@ async def delete_address_change(
     """
 
     actor_identifier = sign_in_identifier(operator)
-    stamp = log_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         await _refuse_the_address(
@@ -557,22 +542,12 @@ async def delete_address_change(
             now=germany_now,
             session=session,
         )
-        journal.note(
-            ending_line(
-                kind="address_change_discarded",
-                new_address=str(record["email"]),
-                record_id=address_change_id,
-                at=stamp,
-                key=config.sperrliste_key,
-            )
-        )
 
         return FLAddressChangeIdResponse(id=address_change_id)
 
     # One transaction, so the write and the log row recording it land together.
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(discard_the_change)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(discard_the_change)
 
 
 @router.post(
@@ -601,7 +576,6 @@ async def post_address_change_approval(
     ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
@@ -627,9 +601,6 @@ async def post_address_change_approval(
     actor_identifier = sign_in_identifier(operator)
     # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
-    journal = Journal()
-
-    @journal.attempted
     async def approve_the_change(session: AsyncClientSession) -> FLAddressChangeApprovalResponse | None:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         refuse(find_no_approval_open_refusal(is_open=approval_open(record)))
@@ -673,9 +644,7 @@ async def post_address_change_approval(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             action_log_collection=action_log_collection,
-            key=config.sperrliste_key,
             now=germany_now,
-            journal=journal,
             session=session,
             # Its new mailbox confirmed and was told the change waits on this approval.
             notify=True,
@@ -686,9 +655,8 @@ async def post_address_change_approval(
 
         return FLAddressChangeApprovalResponse(id=address_change_id, effective=effective)
 
-    async with journal:
-        async with transaction_session(db) as session:
-            approved = await session.with_transaction(approve_the_change)
+    async with transaction_session(db) as session:
+        approved = await session.with_transaction(approve_the_change)
 
     # After the commit, the discard standing: this approval found nothing left to move and ended the change.
     refuse(find_nothing_refusal(empty=approved is None))

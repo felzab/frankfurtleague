@@ -10,7 +10,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.address_change.crud import (
     Occupancy,
     end_the_change_in_session,
-    ending_line,
     judge_the_effect_in_session,
     owe_the_link_in_session,
     read_the_holdings,
@@ -47,7 +46,7 @@ from app.api.address_change.services import (
 from app.api.ban_list.lookup import BanListLookup, ban_list_saison
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -72,8 +71,6 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
-from app.core.journal import Journal
-from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -250,7 +247,6 @@ async def post_address_change_answer(
     ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeAnswerResponse:
     """
@@ -285,10 +281,6 @@ async def post_address_change_answer(
     """
 
     token_hash = hash_token(answer_data.token)
-    stamp = log_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
     async def answer_the_link(session: AsyncClientSession) -> FLAddressChangeAnswerResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
@@ -302,10 +294,7 @@ async def post_address_change_answer(
                 stop_hash=token_hash,
                 address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
-                config=config,
                 germany_now=germany_now,
-                stamp=stamp,
-                journal=journal,
                 session=session,
             )
 
@@ -319,15 +308,6 @@ async def post_address_change_answer(
                 kind="declined",
                 now=germany_now,
                 session=session,
-            )
-            journal.note(
-                ending_line(
-                    kind="address_change_declined",
-                    new_address=str(record["email"]),
-                    record_id=record["_id"],
-                    at=stamp,
-                    key=config.sperrliste_key,
-                )
             )
             return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, approval_open=False, effective=False)
 
@@ -351,9 +331,7 @@ async def post_address_change_answer(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             action_log_collection=action_log_collection,
-            key=config.sperrliste_key,
             now=germany_now,
-            journal=journal,
             session=session,
             notify=False,
             expired=is_expired(record, now=germany_now),
@@ -380,9 +358,8 @@ async def post_address_change_answer(
             effective=False,
         )
 
-    async with journal:
-        async with transaction_session(db) as session:
-            answered = await session.with_transaction(answer_the_link)
+    async with transaction_session(db) as session:
+        answered = await session.with_transaction(answer_the_link)
 
     # After the commit, the discard standing: the link now answers how the change ended.
     refuse(find_ended_refusal(is_open=answered is not None))
@@ -398,10 +375,7 @@ async def _answer_for_the_address_on_file(
     stop_hash: str,
     address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    config: BackendConfig,
     germany_now: datetime,
-    stamp: str,
-    journal: Journal,
     session: AsyncClientSession,
 ) -> FLAddressChangeAnswerResponse:
     """The address on file's answer to the person's own change, in the press's transaction: its confirmation owes the new mailbox its link."""
@@ -418,11 +392,6 @@ async def _answer_for_the_address_on_file(
             kind="declined",
             now=germany_now,
             session=session,
-        )
-        journal.note(
-            ending_line(
-                kind="address_change_declined", new_address=str(record["email"]), record_id=record["_id"], at=stamp, key=config.sperrliste_key
-            )
         )
         return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, approval_open=False, effective=False)
 
@@ -460,7 +429,6 @@ async def post_address_change_stop(
     stop_data: Annotated[FLTokenPayload, Body()],
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeStopResponse:
     """
@@ -475,10 +443,6 @@ async def post_address_change_stop(
     """
 
     stop_hash = hash_token(stop_data.token)
-    stamp = log_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
         # `way` and `released_at` are what `asks_the_address_on_file` reads.
         record = await address_changes_collection.find_one(
@@ -496,18 +460,8 @@ async def post_address_change_stop(
             now=germany_now,
             session=session,
         )
-        journal.note(
-            ending_line(
-                kind="address_change_stopped",
-                new_address=str(record["email"]),
-                record_id=record["_id"],
-                at=stamp,
-                key=config.sperrliste_key,
-            )
-        )
 
         return FLAddressChangeStopResponse(stopped=True)
 
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(stop_the_change)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(stop_the_change)

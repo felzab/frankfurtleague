@@ -3,13 +3,12 @@ from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
 from fastapi import APIRouter, Body, Depends, Query
-from pydantic import SecretStr
 from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.address_change.crud import end_the_change_in_session, ending_line, owe_the_refusal_notice_in_session, take_effect_in_session
+from app.api.address_change.crud import end_the_change_in_session, owe_the_refusal_notice_in_session, take_effect_in_session
 from app.api.address_change.schemas import (
     FLAddressChangeAddressPayload,
     FLAddressChangeAddressResponse,
@@ -32,7 +31,7 @@ from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     ActionLogCollection,
@@ -54,9 +53,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.journal import Journal
 from app.core.logging import fl_logger
-from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
@@ -112,10 +109,7 @@ async def _end_the_lapsed_change(
     db: AsyncMongoClient,
     now: datetime,
 ) -> None:
-    """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed.
-
-    Unjournalled: restored, a lapsed change lapses again at the next pass.
-    """
+    """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed."""
 
     async def end_the_lapsed_change(session: AsyncClientSession) -> None:
         stored = await end_the_change_in_session(
@@ -155,9 +149,7 @@ async def _make_the_due_change_take_effect(
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     db: AsyncMongoClient,
-    key: SecretStr,
     now: datetime,
-    stamp: str,
 ) -> Literal["effective", "discarded"] | None:
     """One due change in its own transaction, judged again as its confirmation was.
 
@@ -165,9 +157,6 @@ async def _make_the_due_change_take_effect(
     discarded or replaced since the page was read.
     """
 
-    journal = Journal()
-
-    @journal.attempted
     async def take_effect(session: AsyncClientSession) -> Literal["effective", "discarded"] | None:
         record = await pull_one_from_db(
             collection=address_changes_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
@@ -191,9 +180,7 @@ async def _make_the_due_change_take_effect(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             action_log_collection=action_log_collection,
-            key=key,
             now=now,
-            journal=journal,
             session=session,
             # Confirmed and due: its new mailbox was told it waits on this pass.
             notify=True,
@@ -214,23 +201,11 @@ async def _make_the_due_change_take_effect(
                 now=now,
                 session=session,
             )
-            # Journalled, as an administrator's discard is: the cause refusing it may postdate a snapshot a restore brings
-            # the change back from, due.
-            journal.note(
-                ending_line(
-                    kind="address_change_discarded_notified",
-                    new_address=str(record["email"]),
-                    record_id=record["_id"],
-                    at=stamp,
-                    key=key,
-                )
-            )
             await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
         return "discarded"
 
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(take_effect)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(take_effect)
 
 
 @router.post(
@@ -257,7 +232,6 @@ async def sweep_address_change(
     ban_list: BanListLookup,
     action_log_collection: ActionLogCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeSweepResponse:
     """
@@ -289,7 +263,6 @@ async def sweep_address_change(
     # The lapse and the due terms are disjoint, so the lapse's own judgement parts them.
     page = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["page"]]
     count = sum(row["count"] for row in read["count"])
-    stamp = log_stamp(germany_now)
     # Outside every change's transaction (`app/api/ban_list/crud.py :: address_is_barred`), and only where a due change
     # asks the ban list: a page of lapses reads no season.
     governing_saison_id = await ban_list_saison(ban_list) if any(row["due"] for row in page[:ADDRESS_CHANGE_PER_PASS]) else None
@@ -324,9 +297,7 @@ async def sweep_address_change(
                     ban_list_collection=ban_list_collection,
                     action_log_collection=action_log_collection,
                     db=db,
-                    key=config.sperrliste_key,
                     now=germany_now,
-                    stamp=stamp,
                 )
             else:
                 await _end_the_lapsed_change(

@@ -24,7 +24,6 @@ from app.api.account.services import (
 )
 from app.api.address_change.crud import (
     end_the_change_in_session,
-    ending_line,
     owe_the_notice_in_session,
     read_the_holdings,
     start_the_change_in_session,
@@ -50,7 +49,7 @@ from app.api.grants.services import approver_of
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
@@ -63,8 +62,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.journal import Journal
-from app.core.recording import log_stamp
 from app.core.security import (
     verify_access_admin,
 )
@@ -204,7 +201,6 @@ async def post_address_change(
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeMintResponse:
     """
@@ -225,9 +221,6 @@ async def post_address_change(
     """
 
     email = address_change_data.email
-    journal = Journal()
-
-    @journal.attempted
     async def start_the_change(session: AsyncClientSession) -> FLAccountAddressChangeMintResponse:
         # First: a press repeated inside the interval asks nothing of the records.
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"valid_until": 1}, session=session)
@@ -261,9 +254,7 @@ async def post_address_change(
         address_change_id = await start_the_change_in_session(
             record=record,
             address_changes_collection=address_changes_collection,
-            key=config.sperrliste_key,
             now=germany_now,
-            journal=journal,
             session=session,
         )
         # The address on file's link alone: the new mailbox is asked once the address on file confirmed.
@@ -280,9 +271,8 @@ async def post_address_change(
 
         return FLAccountAddressChangeMintResponse(id=address_change_id, valid_until=record["valid_until"], email=email)
 
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(start_the_change)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(start_the_change)
 
 
 @router.delete(
@@ -294,7 +284,6 @@ async def delete_address_change(
     identifier: KontaktIdentifier,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
@@ -304,34 +293,20 @@ async def delete_address_change(
     confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
     """
 
-    stamp = log_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAccountAddressChangeResponse:
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
         if live is None:
             raise DocumentNotFoundError()
 
-        stored = await end_the_change_in_session(
+        await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": live["_id"]},
             kind="stopped",
             now=germany_now,
             session=session,
         )
-        journal.note(
-            ending_line(
-                kind="address_change_stopped",
-                new_address=str(stored["email"]),
-                record_id=stored["_id"],
-                at=stamp,
-                key=config.sperrliste_key,
-            )
-        )
 
         return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=session)
 
-    async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(stop_the_change)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(stop_the_change)

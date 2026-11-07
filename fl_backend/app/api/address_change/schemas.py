@@ -52,13 +52,6 @@ class FLAddressChangeEnded(BaseModel):
     at: datetime
 
 
-class FLAddressChangeMoved(BaseModel):
-    """The effect's two addresses as the erasure journal hashes them: the new one, and the one it replaced."""
-
-    person_hash: str
-    before: str
-
-
 class FLAddressChangeMove(BaseModel):
     """The sign-in account an effect still owes to carry, from the replaced address to the new one, both folded."""
 
@@ -84,8 +77,6 @@ class FLAddressChange(BaseModel):
     ended: FLAddressChangeEnded | None
     # Set by an effect that carries the account, which the ended record keeps until the carry is done; absent otherwise.
     move: FLAddressChangeMove | None = Field(default=None)
-    # Set by every effect, until the erasure of the new address takes it.
-    moved: FLAddressChangeMoved | None = Field(default=None)
 
 
 class FLAddressChangeStop(BaseModel):

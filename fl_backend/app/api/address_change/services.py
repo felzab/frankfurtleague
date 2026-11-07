@@ -89,7 +89,7 @@ def compose_record(
     approval: Mapping[str, Any] | None,
     now: datetime,
 ) -> dict[str, Any]:
-    """The WHOLE record a start inserts, never reused, so a journal line's id names one change.
+    """The WHOLE record a start inserts.
 
     Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/outbox/system_router.py :: post_handout`).
     """

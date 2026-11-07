@@ -15,7 +15,6 @@ from datetime import datetime
 from typing import Any, Final, Literal
 
 from bson import ObjectId
-from pydantic import SecretStr
 from pymongo import DESCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -38,7 +37,7 @@ from app.api.address_change.services import (
     find_taken_refusal,
 )
 from app.api.ban_list.lookup import BanList, Saison, barred_addresses
-from app.api.grants.antraege import approval_request_line, build_open_filter, end_the_approval_requests_about_in_session
+from app.api.grants.antraege import build_open_filter, end_the_approval_requests_about_in_session
 from app.api.grants.crud import grant_in_session, read_grants, read_the_announced, revoke_in_session
 from app.api.grants.erasure import carry_authorship_in_session
 from app.api.grants.services import approval_stands, compose_carried
@@ -64,10 +63,8 @@ from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
-from app.core.journal import Journal, JournalLine
 from app.core.readonly import ReadCollection
-from app.core.recording import ERASED_ACTOR_MARKER, log_stamp
-from app.core.security import erasure_journal_hash
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay
 
@@ -231,52 +228,15 @@ async def end_the_change_in_session(
     )
 
 
-EndingKind = Literal["address_change_declined", "address_change_stopped", "address_change_discarded", "address_change_discarded_notified"]
-
-
-def ending_line(*, kind: EndingKind, new_address: str, record_id: ObjectId, at: str, key: SecretStr) -> JournalLine:
-    """A decline's, a stop's or a discard's line, so a restore does not bring the change back to act."""
-
-    return JournalLine(
-        person_hash=erasure_journal_hash(new_address, key=key),
-        kind=kind,
-        collection=Collection.ADDRESS_CHANGES,
-        record_id=record_id,
-        at=at,
-    )
-
-
-def effective_line(*, record: Mapping[str, Any], now: datetime, key: SecretStr) -> JournalLine:
-    """The effect's line, so a restore from a snapshot taken while the change stood is listed rather than silently undone.
-
-    The replaced address's hash too, where a later erasure finds the records a snapshot from before the start holds.
-    """
-
-    return JournalLine(
-        person_hash=erasure_journal_hash(str(record["email"]), key=key),
-        kind="address_change_effective",
-        collection=Collection.ADDRESS_CHANGES,
-        record_id=record["_id"],
-        at=log_stamp(now),
-        before=erasure_journal_hash(str(record["address"]), key=key),
-    )
-
-
 async def start_the_change_in_session(
     *,
     record: Mapping[str, Any],
     address_changes_collection: AsyncCollection,
-    key: SecretStr,
     now: datetime,
-    journal: Journal,
     session: AsyncClientSession,
 ) -> ObjectId:
-    """End the address's live change as replaced, then insert the new one, answering its id.
+    """End the address's live change as replaced, then insert the new one, answering its id."""
 
-    The replaced change is journalled as discarded: restored, a confirmed one would take effect unpressed.
-    """
-
-    stamp = log_stamp(now)
     replaced = await address_changes_collection.find_one(build_address_filter(str(record["address"])), {"email": 1}, session=session)
     if replaced is not None:
         await end_the_change_in_session(
@@ -285,9 +245,6 @@ async def start_the_change_in_session(
             kind="replaced",
             now=now,
             session=session,
-        )
-        journal.note(
-            ending_line(kind="address_change_discarded", new_address=str(replaced["email"]), record_id=replaced["_id"], at=stamp, key=key)
         )
 
     # Two starts on one address meet at `uniq_address_change_address` as a write conflict, which the transaction retries.
@@ -537,9 +494,7 @@ async def take_effect_in_session(
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
-    key: SecretStr,
     now: datetime,
-    journal: Journal,
     session: AsyncClientSession,
     # Whether a change finding nothing to move tells its new mailbox so: a confirmed one was told it waits on the effect,
     # the press's own page shows it instead.
@@ -588,7 +543,6 @@ async def take_effect_in_session(
     if not immediately and not verdict.empty:
         return Verdict(cause=None, empty=False, waits=True), False
 
-    stamp = log_stamp(now)
     if verdict.empty:
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
@@ -599,19 +553,9 @@ async def take_effect_in_session(
         )
         if notify:
             await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
-        # Journalled: what the address held may have gone after a snapshot a restore brings the change back from.
-        journal.note(
-            ending_line(
-                kind="address_change_discarded_notified" if notify else "address_change_discarded",
-                new_address=str(record["email"]),
-                record_id=record["_id"],
-                at=stamp,
-                key=key,
-            )
-        )
         return verdict, False
 
-    ended = await move_the_address_in_session(
+    await move_the_address_in_session(
         record=record,
         holdings=holdings,
         ban_list=ban_list,
@@ -629,14 +573,9 @@ async def take_effect_in_session(
         invitations_collection=invitations_collection,
         ban_list_collection=ban_list_collection,
         action_log_collection=action_log_collection,
-        key=key,
         now=now,
         session=session,
     )
-    # A line for each request the effect ended, so a restore from before it does not bring one back.
-    for approval_request in ended:
-        journal.note(approval_request_line(approval_request=approval_request, kind="approval_request_ended", at=stamp, key=key))
-    journal.note(effective_line(record=record, now=now, key=key))
 
     return verdict, True
 
@@ -660,16 +599,15 @@ async def move_the_address_in_session(
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
-    key: SecretStr,
     now: datetime,
     session: AsyncClientSession,
-) -> list[Mapping[str, Any]]:
+) -> None:
     """Move everything `holdings` holds to the change's address in the caller's transaction, then end it as taken effect.
 
     One patch per row, never a fan-out, so each row's own history keeps the write that moved it.
     """
 
-    new_address, stamp = str(record["email"]), log_stamp(now)
+    new_address = str(record["email"])
 
     if holdings.spieler is not None:
         # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality.
@@ -754,7 +692,7 @@ async def move_the_address_in_session(
         session=session,
     )
 
-    ended = await end_the_approval_requests_about_in_session(
+    await end_the_approval_requests_about_in_session(
         grant_approval_requests_collection=grant_approval_requests_collection,
         outbox_collection=outbox_collection,
         address=holdings.identifier,
@@ -792,23 +730,15 @@ async def move_the_address_in_session(
             session=session,
         )
     await _carry_the_mail(outbox_collection, old, new, session=session)
-    # The journal's pair on the tombstone, so an erasure at the new address finds the mail the replaced one still holds.
-    # A change that waited carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry
-    # is owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
-    await patch_many_in_db(
-        collection=address_changes_collection,
-        db_filter={"_id": record["_id"]},
-        update={
-            "$set": {
-                "moved": {
-                    "person_hash": erasure_journal_hash(new, key=key),
-                    "before": erasure_journal_hash(old, key=key),
-                },
-                **({} if record["way"] == "waiting_period" else {"move": {"old": old, "new": new}}),
-            }
-        },
-        session=session,
-    )
+    # The lost-mailbox way carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry is
+    # owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
+    if record["way"] != "waiting_period":
+        await patch_many_in_db(
+            collection=address_changes_collection,
+            db_filter={"_id": record["_id"]},
+            update={"$set": {"move": {"old": old, "new": new}}},
+            session=session,
+        )
     # The person's own change taking effect at the new mailbox's press owes the replaced mailbox nothing more: it confirmed
     # the change through its own link, and the new mailbox confirmed it last, so both already know. One that waited on a
     # grant's approval takes effect later, at that approval or the hourly pass, and tells the replaced mailbox then.
@@ -830,9 +760,6 @@ async def move_the_address_in_session(
             ],
             now=now,
         )
-
-    # The requests for a grant it ended, each journalled by the caller as a refusal.
-    return ended
 
 
 async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str, *, session: AsyncClientSession) -> None:
@@ -994,10 +921,10 @@ async def end_the_address_changes_in_session(
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """End every change naming the erased address, unjournalled, and give the marker where it started or approved one.
+    """End every change naming the erased address, and give the marker where it started or approved one.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
-    change. An erasure's line is the erasure's own: replayed, the erasure ends them again.
+    change.
     """
 
     if rows:
