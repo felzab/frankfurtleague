@@ -7,7 +7,7 @@ import { useObjectRef } from "react-aria/useObjectRef";
 
 import type { ComponentProps, FormEvent } from "react";
 
-/** React Aria's `Form` types neither a capture handler nor `noValidate`, and hands the DOM what it is spread. */
+/** React Aria's `Form` types neither a capture handler, nor `noValidate`, nor `onChange`, and hands the DOM what it is spread. */
 const FORM_ATTRIBUTES = { noValidate: true, onResetCapture: (event: FormEvent<HTMLFormElement>) => event.preventDefault() };
 
 /**
@@ -30,14 +30,20 @@ const FORM_ATTRIBUTES = { noValidate: true, onResetCapture: (event: FormEvent<HT
 export function HeldForm({
   ref,
   onSend,
+  onEdit,
   ...form
-}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit"> & { onSend: (formData: FormData) => void }) {
+}: Omit<ComponentProps<typeof Form>, "action" | "onSubmit"> & {
+  onSend: (formData: FormData) => void;
+  /** Any field of the form changed, which reaches the form as React's `change` bubbling. */
+  onEdit?: () => void;
+}) {
   const element = useObjectRef(ref);
   const isHeld = useRef(false);
   return (
     <Form
       {...form}
       {...FORM_ATTRIBUTES}
+      {...{ onChange: onEdit }}
       ref={element}
       action={() => {
         if (isHeld.current) return;

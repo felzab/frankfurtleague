@@ -91,6 +91,8 @@ export function QuestionForm<Input>({
       <HeldForm
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
+        // A done act's line is about the boxes it emptied: what is typed next is another act's.
+        onEdit={() => setDone(null)}
         onSend={(formData) => {
           if (isPending) return;
           setDone(null);
