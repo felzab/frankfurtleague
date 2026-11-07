@@ -7,9 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { AccountBox, AccountRows } from "./AccountBox";
 import { Button } from "./Button";
+import { CardActRow } from "./Card";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Table } from "./Table";
+
+import type { ComponentProps } from "react";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 
@@ -94,5 +98,55 @@ describe("a row removed by its own act", () => {
     await new Promise(requestAnimationFrame);
 
     expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it("lands a Konto row's removal on its box", async () => {
+    const box = (rows: ComponentProps<typeof AccountRows>["rows"]) => (
+      <AccountBox
+        title={COPY.page.teams}
+        description={COPY.page.teams}
+        act={undefined}>
+        <AccountRows rows={rows} />
+      </AccountBox>
+    );
+    const row = {
+      id: "1",
+      name: { record: "Laptop" },
+      detail: COPY.page.teams,
+      remove: { verb: "remove", subject: COPY.page.teams, consequence: COPY.page.teams, run: async () => ({ ok: true, value: undefined }) },
+    } as const;
+    const { rerender } = render(box([row]));
+    screen.getByRole("button", { name: VERB }).focus();
+
+    rerender(box([]));
+
+    await waitFor(() => expect(document.activeElement?.tagName).toBe("SECTION"));
+  });
+
+  it("lands a card row's removal on the page's title", async () => {
+    const page = (held: boolean) => (
+      <>
+        <h1>{COPY.page.teams}</h1>
+        {held && (
+          <CardActRow
+            href="/"
+            name={{ record: "Pia" }}
+            line={COPY.page.teams}
+            acts={
+              <Button
+                variant="secondary"
+                label={VERB}
+              />
+            }
+          />
+        )}
+      </>
+    );
+    const { rerender } = render(page(true));
+    screen.getByRole("button", { name: VERB }).focus();
+
+    rerender(page(false));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 })));
   });
 });
