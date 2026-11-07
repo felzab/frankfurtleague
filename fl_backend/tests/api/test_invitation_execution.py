@@ -179,11 +179,8 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        grants_collection=database[Collection.GRANTS],
         outbox_collection=database[Collection.OUTBOX],
         today=TODAY,
-        operator=ADMIN,
     )
 
 

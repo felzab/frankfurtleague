@@ -991,13 +991,6 @@ export interface FLAddressChangeViewResponse {
   view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
 }
 
-export type FLAddressChangeViewableDenied = (typeof FLAddressChangeViewableDenied)[keyof typeof FLAddressChangeViewableDenied];
-
-export const FLAddressChangeViewableDenied = {
-  own_address: "own_address",
-  admin_address: "admin_address",
-} as const;
-
 export type FLAddressChangeWaitingPeriodDays = 7;
 
 export interface FLAddressPayload {
@@ -4458,24 +4451,6 @@ export interface FLSaisonOverviewResponse {
   cards: FLOverviewCard[];
 }
 
-export interface FLSaisonTeamAddressChangeDenied {
-  ansprechperson: FLAddressChangeViewableDenied | null;
-  stellvertretung: FLAddressChangeViewableDenied | null;
-  trainer: FLAddressChangeViewableDenied | null;
-}
-
-/**
- * The live change of each confirmed seat's address, which the address tool shows.
- *
- * Null where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.
- */
-export interface FLSaisonTeamAddressChange {
-  ansprechperson: string | null;
-  stellvertretung: string | null;
-  trainer: string | null;
-  viewable_denied: FLSaisonTeamAddressChangeDenied;
-}
-
 /**
  * One seat's link as the contacts editor reads it: the stored link and whether it has lapsed.
  */
@@ -4681,8 +4656,6 @@ export interface FLSchiedsrichterSelfResponse {
 }
 
 export interface FLSchiedsrichterSingleResponse {
-  address_change_id: string | null;
-  address_change_viewable_denied: FLAddressChangeViewableDenied | null;
   confirmation_expired: boolean;
   delivery: FLOutboxStatus | null;
   schiedsrichter: FLSchiedsrichter;
@@ -5880,7 +5853,6 @@ export const FLTeamListState = {
  * One junction row as seen from its club: which season, which group, and the record if any.
  */
 export interface FLTeamMembership {
-  address_change: FLSaisonTeamAddressChange | null;
   austritt: FLAustritt | null;
   confirmations: FLSaisonTeamConfirmationsView | null;
   gruppe: FLGruppenNames;

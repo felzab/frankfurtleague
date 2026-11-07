@@ -6,8 +6,6 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.address_change.crud import denied_addresses
-from app.api.address_change.services import build_address_filter
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
@@ -61,9 +59,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AddressChangeCollection,
     DBClient,
-    GrantsCollection,
     OutboxCollection,
     SchiedsrichterCollection,
     SpieleCollection,
@@ -74,11 +70,9 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
     bind_actor,
-    get_actor_email,
     verify_access_admin,
 )
 from app.core.transactions import transaction_session
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier
@@ -129,11 +123,8 @@ async def get_schiedsrichter(
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
-    operator: str = Depends(get_actor_email),
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
 
@@ -142,27 +133,15 @@ async def get_schiedsrichter_by_id(
     (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
 
     Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
-    lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
-    beside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last
-    confirmation mail the referee was owed, null where none was.
+    lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
+    was owed, null where none was.
     """
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
-    email = (schiedsrichter_raw.get("kontakt") or {}).get("email")
-    identifier = sign_in_identifier(email) if isinstance(email, str) else None
-    open = None if identifier is None else await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1})
-    denied = await denied_addresses(
-        [] if open is None or identifier is None else [identifier],
-        actor=sign_in_identifier(operator),
-        grants_collection=grants_collection,
-        session=None,
-    )
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
         confirmation_expired=deadline_passed(schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today),
-        address_change_id=None if open is None else open["_id"],
-        address_change_viewable_denied=None if identifier is None else denied.get(identifier),
         delivery=await state_of(
             outbox_collection=outbox_collection,
             reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),

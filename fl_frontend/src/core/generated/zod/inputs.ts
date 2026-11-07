@@ -2012,9 +2012,8 @@ export const SchiedsrichterDeleteSchiedsrichterParams = zod.object({
  * (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
  *
  * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
- * lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
- * beside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last
- * confirmation mail the referee was owed, null where none was.
+ * lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
+ * was owed, null where none was.
  * @summary One Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterByIdPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3439,7 +3438,7 @@ export const TeamsPatchEinwilligungBody = zod
 /**
  * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
  *
- * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+ * `version` is what the one save sends. `membership` serves the row with its seats' links, null for
  * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
  * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
  * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season

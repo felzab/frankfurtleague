@@ -10,7 +10,6 @@ from app.api.teams.schemas import FLPatchTeamSaisonPayload, FLPostTeamEntryPaylo
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     ADDRESS,
@@ -29,7 +28,6 @@ DATABASE_NAME = worker_database("fl_team_saison_admin_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-15"
-OPERATOR = str(grants_for_the_suite()[0]["address"])
 
 ADLER = ObjectId("6890a1b2c3d4e5f607280001")
 BIEBER = ObjectId("6890a1b2c3d4e5f607280002")
@@ -80,7 +78,6 @@ def on_a_league(
             )
             if spiele:
                 await database[Collection.SPIELE].insert_many(list(spiele))
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
             return await body(database)
 
@@ -124,11 +121,8 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        grants_collection=database[Collection.GRANTS],
         outbox_collection=database[Collection.OUTBOX],
         today=TODAY,
-        operator=OPERATOR,
     )
 
 
