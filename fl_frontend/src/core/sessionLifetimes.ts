@@ -32,35 +32,3 @@ export const SESSION_EXPIRES_IN_DAYS = Math.max(ADMIN_LIFETIME.idle, PERSON_LIFE
 // How recent a passkey sign-in the passkey touch is: an act the touch guards asks one this recent of every person
 // holding a passkey, every time.
 export const PASSKEY_TOUCH_SECONDS = 60;
-
-// Redesign: goes with its last importer.
-// GitHub's re-authentication window, the widely adopted figure: a change to passkeys or sign-ins asks
-// again past it. Mirrored in `fl_backend/app/shared/schemas/bounds.py`,
-// whose step-up check refuses an administrator's step-up write from a sign-in older than it.
-export const STEP_UP_WINDOW_MS = 2 * HOUR_MS;
-
-// Redesign: goes with its last importer.
-// Narrower, for the administration's step-up before a write granting, moving, changing or ending access to the
-// administration, which outlives the session confirming it.
-export const ENROLMENT_WINDOW_MS = 5 * 60 * 1000;
-
-function isYoungerThan(createdAt: Date | string, window: number): boolean {
-  const created = new Date(createdAt).getTime();
-
-  // An unreadable stamp is no step-up rather than an unbounded one, as
-  // `fl_frontend/src/core/auth/sessionStamps.ts :: withinLifetime` reads one.
-  return Number.isFinite(created) && Date.now() - created < window;
-}
-
-// Redesign: goes with its last importer.
-// Both windows' predicates beside their figures rather than in `fl_frontend/src/core/auth/`: every spine judging one reads
-// it here, and the suites doubling the sign-in store keep it real.
-export function isWithinStepUpWindow(createdAt: Date | string): boolean {
-  return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);
-}
-
-// Redesign: goes with its last importer.
-/** The administration's narrower step-up, before a write on its access, asks a sign-in this recent. */
-export function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
-  return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
-}

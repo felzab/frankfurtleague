@@ -71,7 +71,7 @@ const signIn = (email: string) => sessionByCode(auth, store, email);
 const removed = await signIn(REMOVED_EMAIL);
 madeByPasskey(store, removed.row);
 
-const ADMIN_URL = "http://localhost:3000/area/admin/spiele";
+const ADMIN_URL = "http://localhost:3000/admin/spielorte";
 
 /** The proxy's own answer to a page request for the administrator's subtree carrying `cookie`, called directly. */
 async function callProxy(cookie: string): Promise<Response> {

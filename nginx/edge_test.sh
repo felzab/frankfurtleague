@@ -306,7 +306,7 @@ CASES=(
 
   # A typed search query, which no page writes: an address in the first parameter, a name past
   # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
-  "LEAK|${BASE}/area/admin/sperrliste?q=${EM}"
+  "LEAK|${BASE}/admin/ban-list?q=${EM}"
   "LEAK|${BASE}/saisons/2026/search?a=1&q=${TOK}"
   "LEAK-REF|http://localhost/saisons/2026/search?q=${TOK}"
   "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
@@ -318,7 +318,7 @@ CASES=(
   "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
   "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
-  "KEEP|${BASE}/area/admin/spiele?saison_id=abc|saison_id=abc"
+  "KEEP|${BASE}/admin/spielorte?saison_id=abc|saison_id=abc"
 
   # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
   # spelling above is then graded on a path nginx never received.
@@ -709,7 +709,7 @@ ACTION_REQUESTS=()
 # Twenty saves at once, under the burst of thirty.
 for _ in $(seq 1 20); do
   action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
-    --data '[]' "${BASE}/area/admin/spiele"
+    --data '[]' "${BASE}/admin/spielorte"
 done
 # Thirty more inside the same seconds: the burst and the second or two of refill are spent.
 for _ in $(seq 1 30); do

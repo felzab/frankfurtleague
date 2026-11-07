@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { allowedReturnAddress, withReturnAddress } from "./returnAddress.ts";
 
 describe("the addresses a sign-in may return to", () => {
-  it.each(["/area", "/account", "/admin", "/area/admin/administratoren", "/admin/spielorte", "/erasure"])("holds %s", (asked) => {
+  it.each(["/area", "/account", "/admin", "/admin/spielorte", "/erasure"])("holds %s", (asked) => {
     expect(allowedReturnAddress(asked)).toBe(asked);
   });
 
@@ -24,7 +24,7 @@ describe("the addresses a sign-in may return to", () => {
   });
 
   it("carries an allowed address on a path as one encoded parameter, and leaves the path alone otherwise", () => {
-    expect(withReturnAddress("/signin", "/area/admin")).toBe("/signin?return=%2Farea%2Fadmin");
+    expect(withReturnAddress("/signin", "/admin/spielorte")).toBe("/signin?return=%2Fadmin%2Fspielorte");
     expect(withReturnAddress("/signin", "//example.com/area")).toBe("/signin");
     expect(withReturnAddress("/signin", null)).toBe("/signin");
   });
