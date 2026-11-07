@@ -25,6 +25,19 @@ import type { FormStatus } from "./useFormAction";
 /** One box as wide as the sign-in's column from `lg`, its fields filling it: a page that is one question reads as that page does. */
 const BOX_CLASSES = formColumn({ class: cardSurface({ class: "gap-4 p-4 lg:max-w-signin" }) });
 
+/**
+ * The status line and the act. From `lg` the line beside the button can wrap to two, and a row growing with it would
+ * move the button under the pointer, so the row holds two lines' height at rest. On a phone the line stands under the
+ * button, where nothing above it moves.
+ */
+function StatusActRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="lg:grid lg:min-h-10 lg:items-center">
+      <ActRow>{children}</ActRow>
+    </div>
+  );
+}
+
 /** What the press read: the question's words, and the input the final press sends as the read held it to its rules. */
 export type AskedInput<Input> = {
   question: Pick<ConfirmWords, "subject" | "consequence" | "facts">;
@@ -98,7 +111,7 @@ export function QuestionForm<Input>({
         }}
         className={BOX_CLASSES}>
         <Fragment key={emptied}>{children}</Fragment>
-        <ActRow>
+        <StatusActRow>
           <StatusLine
             status={status}
             placement="row"
@@ -109,7 +122,7 @@ export function QuestionForm<Input>({
             label={COPY.shared.verb[verb]}
             isBusy={isPending}
           />
-        </ActRow>
+        </StatusActRow>
       </HeldForm>
       {/* Mounted closed from the first render, the sign-in client's chunk with it (`usePasskeyTouch`), and one component
           type in both arms: a swapped one would unmount, and its unmount closes the question it opens
@@ -151,10 +164,10 @@ export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; childr
   return (
     <Waiting layout={BOX_CLASSES}>
       {children}
-      <ActRow>
+      <StatusActRow>
         <span className={statusLine({ placement: "row", tone: "none" })} />
         <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
-      </ActRow>
+      </StatusActRow>
     </Waiting>
   );
 }

@@ -516,9 +516,9 @@ async function ListBody({ list }: { list: ListContent }) {
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
- * The title and the toolbar are drawn at once; the list alone waits for its content, in the template's one
- * boundary, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the search field before the rows arrive
- * searches them once they do.
+ * The title and the toolbar are drawn at once; the list waits for its content, in the template's one boundary with what
+ * its read decides above it, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the
+ * search field before the rows arrive searches them once they do.
  */
 export function ListPage({
   head,
@@ -549,11 +549,15 @@ export function ListPage({
    * on the list as a whole, a secondary button. No wait draws them. What a reader sees of an ordinary load's wait is the
    * static shell's (`PageWaitOnceRead`), which knows no reader, so a placeholder would show every other role an act it
    * does not hold and then lift its list. Every role waits alike, and the toolbar arrives with the list for the role
-   * holding it, moving the list down by its own height.
+   * holding it, moving the list down by its own height. It stands in the list's boundary: in one of its own, React's
+   * reveal throttle can land the rows 300 ms ahead of it, and it then lifts them under a finger on a row's act.
    */
   acts?: Promise<ListRoleActs>;
   link?: ListLink;
-  /** What holds of the list as read and no row says, standing between the toolbar and the list. */
+  /**
+   * What holds of the list as read and no row says, standing between the toolbar and the list, in the list's boundary as
+   * `acts` are, for the same reason.
+   */
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
@@ -598,22 +602,14 @@ export function ListPage({
             )}
           </div>
         )}
-        {acts !== undefined && (
-          <Suspense fallback={null}>
-            <RoleActsOnceRead acts={acts} />
-          </Suspense>
-        )}
-        {notice !== undefined && (
-          <Suspense fallback={null}>
-            <NoticeOnceRead notice={notice} />
-          </Suspense>
-        )}
         <PageWait
           fallback={
             <ListWait>
               <ListPlaceholder list={list} />
             </ListWait>
           }>
+          {acts !== undefined && <RoleActsOnceRead acts={acts} />}
+          {notice !== undefined && <NoticeOnceRead notice={notice} />}
           <ListBody list={list} />
         </PageWait>
       </ListQueryScope>

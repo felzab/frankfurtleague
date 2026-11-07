@@ -52,10 +52,12 @@ export const messageLine = tv({
 /**
  * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
  * nothing, and never cut, since a sentence's end is what says what happened. Beside the acts in a row it takes the
- * room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the whole width.
+ * room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the whole width. A line
+ * can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`, whose word still
+ * counts whole in the width of a grid track around the line and pushes the acts out of their box.
  */
 export const statusLine = tv({
-  base: "min-h-5 text-sm",
+  base: "min-h-5 text-sm wrap-anywhere",
   variants: {
     placement: {
       row: "min-w-0 flex-1",
