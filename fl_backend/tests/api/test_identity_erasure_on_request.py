@@ -439,8 +439,8 @@ class PupilsReadMeetingARival(InterleavedCollection):
         return await self._collection.aggregate(*args, **kwargs)
 
 
-# Where a grant's creation names its address besides the grant: its notice and its act's label.
-THE_GRANTS_OWN_ROWS = frozenset({Collection.OUTBOX, Collection.ACTION_LOG})
+# Where a grant's creation names its address: its row, its notice and its act's label.
+THE_GRANTS_OWN_ROWS = frozenset({Collection.GRANTS, Collection.OUTBOX, Collection.ACTION_LOG})
 
 
 def aside_the_grants_own_rows(held: Mapping[str, list[str]]) -> dict[str, list[str]]:

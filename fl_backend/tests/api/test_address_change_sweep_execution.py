@@ -502,7 +502,7 @@ class TestTheDeadlineStopsTheCall:
 
 # A due change moving a pupil row and a confirmed referee row. No retention rule bounds an address's records, so a
 # dearer change meets the deadline, moving nothing (`:: TestTheDeadlineStopsTheCall`).
-COMMANDS_A_DUE_PERSON = 30
+COMMANDS_A_DUE_PERSON = 25
 
 # The call's other command, one aggregate answering one document at any size.
 OTHER_COMMANDS = 1

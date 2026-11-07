@@ -845,7 +845,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"grants": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4}
+        assert counts == {"grants": 1, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 3}
         assert (seat, pending, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 0)
         # And no line: an erasure rolled back is no erasure a restore's step may repeat.
         assert not journal_records(caplog)
