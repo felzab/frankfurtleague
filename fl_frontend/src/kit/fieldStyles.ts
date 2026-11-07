@@ -67,6 +67,8 @@ export const statusLine = tv({
       // A danger row's second line at rest, its act's consequence in the small muted face.
       resting: "text-xs text-fg-muted",
       saved: "text-success",
+      // An act that partly happened: neither of the two beside it.
+      warn: "text-warn",
       error: "text-danger",
     },
   },

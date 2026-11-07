@@ -54,10 +54,9 @@ describe("a list's search", () => {
 
   // The harm: a Sperrliste searched by the words of a Grund finds nothing, and reads as if no such ban stood.
   it("reads a row's own words in its name's place, where the row states them", async () => {
-    const [first, second] = TABLE.rows;
-    const rows = [
-      { ...first, id: "1", name: { record: "anna@example.org" }, words: "anna@example.org Beleidigung", cells: {} },
-      { ...second, id: "2", cells: {} },
+    const rows: TableProps["rows"] = [
+      ...TABLE.rows,
+      { id: "3", name: { record: "anna@example.org" }, words: "anna@example.org Beleidigung", cells: {} },
     ];
     render(
       <Searched>
