@@ -47,15 +47,15 @@ const RAIL_GROUPS: RailGroup[] = [
     heading: COPY.admin.group.accessAndPrivacy,
     entries: [
       {
-        id: "administratoren",
+        id: "administrators",
         label: ROUTES.adminAdministrators.title,
         href: ROUTES.adminAdministrators.path(),
         icon: "administrators",
       },
-      { id: "sperrliste", label: ROUTES.adminBanList.title, href: ROUTES.adminBanList.path(), icon: "sperrliste" },
-      { id: "loeschungen", label: ROUTES.adminErasures.title, href: ROUTES.adminErasures.path(), icon: "erasures" },
+      { id: "banList", label: ROUTES.adminBanList.title, href: ROUTES.adminBanList.path(), icon: "banList" },
+      { id: "erasures", label: ROUTES.adminErasures.title, href: ROUTES.adminErasures.path(), icon: "erasures" },
       {
-        id: "adressaenderungen",
+        id: "addressChanges",
         label: ROUTES.adminAddressChanges.title,
         href: ROUTES.adminAddressChanges.path(),
         icon: "email",
