@@ -895,8 +895,8 @@ async def unreferenced(database: AsyncDatabase, *addresses: str) -> list[str]:
     )
 
 
-async def told(database: AsyncDatabase) -> list[tuple[str, str, str | None, str | None, str | None, Any]]:
-    """The holders' notices owed, in order: their stage, recipient, named old address, masked new one, actor and the wait's end."""
+async def told(database: AsyncDatabase) -> list[tuple[str, str, str | None, str | None, Any]]:
+    """The holders' notices owed, in order: their stage, recipient, named old address, masked new one and the wait's end."""
 
     rows = database[Collection.OUTBOX].find({"kind": "grant"}, sort=[("recorded_at", 1), ("to", 1)])
 
@@ -906,7 +906,6 @@ async def told(database: AsyncDatabase) -> list[tuple[str, str, str | None, str 
             row["to"],
             row["data"]["address"],
             row["data"]["new_address"],
-            row["data"]["changed_by"],
             row["data"]["effective_from"],
         )
         async for row in rows
@@ -997,24 +996,15 @@ class TestAHoldersOwnChange:
 
         assert (unconfirmed, first) == ([], [])
         masked = "l•••@n•••.org"
-        # The date is the mail's one sentence on when it lands, and the holder its reader asks.
+        # The date is the mail's one sentence on when it lands.
         ends = "2126-04-02T10:30:00Z"
-        assert started == [("started", address, EMAIL, masked, EMAIL, ends) for address in sorted((*ADMINISTRATORS, EMAIL))]
+        assert started == [("started", address, EMAIL, masked, ends) for address in sorted((*ADMINISTRATORS, EMAIL))]
         # The moved row is a holder at its new address. The old address has its short-lived effective mail alone: this row
         # would keep it 30 days past an erasure.
-        assert completed == [("completed", address, EMAIL, masked, None, None) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
+        assert completed == [("completed", address, EMAIL, masked, None) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
 
-    @pytest.mark.parametrize(
-        ("ended_by", "actor"),
-        [
-            ("the stop link", EMAIL),
-            ("the account page", EMAIL),
-            ("the owner's discard", OWNER),
-            ("a new start", EMAIL),
-            ("the pass refusing it", None),
-        ],
-    )
-    def test_every_ending_of_its_wait_tells_every_holder(self, mongo_replica_set_url: str, ended_by: str, actor: str | None):
+    @pytest.mark.parametrize("ended_by", ["the stop link", "the account page", "the owner's discard", "a new start", "the pass refusing it"])
+    def test_every_ending_of_its_wait_tells_every_holder(self, mongo_replica_set_url: str, ended_by: str):
         """Told it would happen and not told it stopped, a holder reports a threat that passed, or trusts one that came back."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1037,7 +1027,7 @@ class TestAHoldersOwnChange:
             return await told(database)
 
         assert on_a_person(mongo_replica_set_url, body) == [
-            ("withdrawn", address, EMAIL, "l•••@n•••.org", actor, None) for address in sorted((*ADMINISTRATORS, EMAIL))
+            ("withdrawn", address, EMAIL, "l•••@n•••.org", None) for address in sorted((*ADMINISTRATORS, EMAIL))
         ]
 
     @pytest.mark.parametrize("way", ["account", "waiting_period"])
@@ -1074,7 +1064,7 @@ class TestAHoldersOwnChange:
             await erase(database, client, erased)
             return [notice for notice in await told(database) if notice[0] == "withdrawn"]
 
-        assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None, None, None) for address in sorted(recipients)]
+        assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None, None) for address in sorted(recipients)]
 
     @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link", "a lost-mailbox start replacing a waiting change"])
     def test_a_lost_mailbox_hears_nothing_of_any_holder_notice_and_none_names_an_actor(self, mongo_replica_set_url: str, ended_by: str):
