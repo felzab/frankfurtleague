@@ -499,8 +499,8 @@ export function ListPage({
   filterCount?: number;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
-   * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
-   * its own and stands in the toolbar once read.
+   * where what it makes is the list's to say, as the Saisons list names the next season, or whether it stands at all, so
+   * it waits in a boundary of its own and stands in the toolbar once read.
    */
   create?: ListCreate | Promise<ListCreate> | ListActOnceRead;
   /** A second act on the list as a whole, such as Administratoren's handover: a secondary button before the create act. */
@@ -522,7 +522,7 @@ export function ListPage({
         {hasToolbar && (
           // Left out where the read leaves a reader no act: an empty row would still hold the page's gap.
           <div className="flex flex-wrap items-center gap-3 has-[>:only-child:empty]:hidden">
-            {search !== undefined && <ListSearchField label={search.label} />}
+            {search !== undefined && <ListSearchField {...search} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />

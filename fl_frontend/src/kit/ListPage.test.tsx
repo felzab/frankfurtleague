@@ -94,6 +94,23 @@ describe("the list's create act", () => {
   });
 });
 
+describe("the list's search", () => {
+  it("hands its field the bound the page states", () => {
+    render(
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        list={{
+          kind: "spiele",
+          search: { label: COPY.shared.saison, maxLength: 200 },
+          wait: 1,
+          content: new Promise(() => undefined),
+        }}
+      />,
+    );
+    expect(screen.getByRole("searchbox").getAttribute("maxlength")).toBe("200");
+  });
+});
+
 describe("the toolbar's acts the read decides", () => {
   // Read at once, since a prerender waits for every boundary, the list's among them.
   const LIST = {

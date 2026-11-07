@@ -67,7 +67,11 @@ async function pageOf({ carry, load }: ListMore, request: ListRequest): Promise<
  * The search field over a list, by its name. A list read whole is searched over its rows' names, or the `words` a row
  * states where more of it is searched; a list past one read's cap is searched on the server, which decides what it reads.
  */
-export type ListSearch = { label: Copy };
+export type ListSearch = {
+  label: Copy;
+  /** The bound the server's search publishes, past which the read refuses the text. */
+  maxLength?: number;
+};
 
 /** A row's words, its name where it states none, hold what is typed, upper and lower case alike. */
 const matches = (query: string) => {
@@ -136,7 +140,7 @@ export function ListQueryScope({ children }: { children: ReactNode }) {
 }
 
 /** The search field over a list, at a reading width in the toolbar row and the full width on a phone. */
-export function ListSearchField({ label }: ListSearch) {
+export function ListSearchField({ label, maxLength }: ListSearch) {
   const { query, setQuery } = use(ListQuery);
   return (
     <div className="w-full lg:max-w-96 lg:flex-1">
@@ -144,6 +148,7 @@ export function ListSearchField({ label }: ListSearch) {
         label={label}
         value={query}
         onChange={setQuery}
+        maxLength={maxLength}
       />
     </div>
   );

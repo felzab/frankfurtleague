@@ -52,6 +52,26 @@ describe("a list's search", () => {
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
   });
 
+  // The harm: a paste past the read's bound answers the shared failure line, which says nothing of the paste.
+  it("stops the box at the bound the page passes", async () => {
+    render(
+      <ListQueryScope>
+        <ListSearchField
+          label={COPY.shared.saison}
+          maxLength={3}
+        />
+      </ListQueryScope>,
+    );
+    await userEvent.click(screen.getByRole("searchbox"));
+    await userEvent.paste("Goethe");
+    expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("Goe");
+  });
+
+  it("sets no bound for a page that passes none", () => {
+    render(<Searched>{null}</Searched>);
+    expect(screen.getByRole("searchbox").hasAttribute("maxlength")).toBe(false);
+  });
+
   // The harm: a Sperrliste searched by the words of a Grund finds nothing, and reads as if no such ban stood.
   it("reads a row's own words in its name's place, where the row states them", async () => {
     const rows: TableProps["rows"] = [
