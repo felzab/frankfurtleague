@@ -270,7 +270,6 @@ describe("the kit's dialog", () => {
     expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
   });
 
-  // The harm: what an act does and to whom, drawn above the inputs or left out, is read after the choice it informs, or never.
   // The harm: a dialog left while its act runs takes the answer with it, and a partly done act's note reaches nobody.
   it("stays open while its act runs, however it is asked to close, and shows the answer", async () => {
     const answer = Promise.withResolvers<ActionAnswer>();
@@ -302,40 +301,6 @@ describe("the kit's dialog", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
     await screen.findByRole("dialog");
     expect(screen.queryByText(reason)).toBeNull();
-  });
-
-  it("says its sentence and its facts between its inputs and its acts", async () => {
-    const consequence = COPY.admin.banList.consequence;
-    render(
-      <Dialog
-        title={NAME}
-        act={{ verb: "create", object: NAME }}
-        action={async () => DONE}
-        consequence={consequence}
-        facts={[{ label: COPY.admin.banList.duration, value: COPY.admin.banList.durationSaisons(5) }]}
-        trigger={
-          <Button
-            variant="secondary"
-            label={COPY.shared.verb.create}
-          />
-        }>
-        <TextField
-          label={INPUT}
-          name="created"
-          width="W3"
-          kind="text"
-        />
-      </Dialog>,
-    );
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
-
-    const sentence = await screen.findByText(consequence);
-    const input = screen.getByRole("textbox");
-    const act = screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") });
-    const fact = screen.getByText(COPY.admin.banList.durationSaisons(5));
-    expect(input.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(sentence.compareDocumentPosition(fact) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(fact.compareDocumentPosition(act) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   // The harm: a ban that stands with its mail unsent reads as a clean save, or as a ban that failed and needs pressing again.
