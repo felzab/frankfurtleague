@@ -66,7 +66,7 @@ async function loadJobs(): Promise<{
     import("./features/funktionen/sweep"),
     import("./features/saisons/sweep"),
     import("./features/spielbestaetigungen/sweep"),
-    import("./features/berechtigungen/sweep"),
+    import("./features/grants/sweep"),
     import("./core/mail"),
   ]);
 

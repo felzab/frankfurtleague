@@ -338,8 +338,8 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["grants_post_handover_pass"],
-    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postHandoverPass"] },
-    runners: ["src/features/berechtigungen/sweep.ts"],
+    wrapper: { file: "src/features/grants/mutations.ts", names: ["postHandoverPass"] },
+    runners: ["src/features/grants/sweep.ts"],
   },
 ];
 
