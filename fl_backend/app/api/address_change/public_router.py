@@ -69,16 +69,17 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
+from app.core.recording import record_act
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
-# The token is the whole credential, so these endpoints are base-tier and bind the public actor.
+# The token is the whole credential, so these endpoints are base-tier.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/address_change/confirmation",
-    dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
+    dependencies=[Depends(verify_access_base)],
 )
 
 # What a link's view reads: never `change_reason`, the addresses for the judgement alone, and the new link's hashes, which say
@@ -335,6 +336,14 @@ async def post_address_change_answer(
         )
         effective_from = as_utc(confirmed["effective_from"])
         if holdings.grant is not None:
+            await record_act(
+                collection=address_changes_collection,
+                action="grant.address_change_started",
+                by=holdings.identifier,
+                record_id=record["_id"],
+                label=holdings.identifier,
+                session=session,
+            )
             await tell_the_holders_in_session(
                 record,
                 stage="started",

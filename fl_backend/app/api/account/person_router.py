@@ -40,7 +40,6 @@ from app.api.address_change.services import (
     masked_address,
     waits_on,
 )
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
@@ -56,23 +55,20 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.security import (
-    verify_access_admin,
-)
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
-# Every person binder fixes a Funktion and this page is none's: `kontakt` is bound, its seat control
-# having no page of its own. Its one write is the address change, which crosses every record the address holds.
+# Its one write is the address change, which crosses every record the address holds.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/account",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 
 @router.get("/einwilligungen", response_model=FLAccountEinwilligungenResponse, summary="A signed-in person's own consent records")
 async def get_einwilligungen(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -120,8 +116,7 @@ async def get_einwilligungen(
     )
 
 
-# --- The ADDRESS CHANGE the person starts and stops for themselves. Recorded under `kontakt`, as the erasure
-# is: the change crosses every Funktion the address holds.
+# --- The ADDRESS CHANGE the person starts and stops for themselves: it crosses every Funktion the address holds.
 
 
 def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChangeOpen:
@@ -151,7 +146,7 @@ async def _address_change_answer(
 
 @router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
 async def get_address_change(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     address_changes_collection: AddressChangeCollection,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
@@ -175,7 +170,7 @@ async def get_address_change(
     summary="Start a change of the signed-in person's address",
 )
 async def post_address_change(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     address_change_data: Annotated[FLAccountAddressChangePayload, Body()],
     records: SubjectLookup,
     address_changes_collection: AddressChangeCollection,
@@ -246,7 +241,7 @@ async def post_address_change(
     summary="Stop the address change pending on the signed-in person",
 )
 async def delete_address_change(
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,

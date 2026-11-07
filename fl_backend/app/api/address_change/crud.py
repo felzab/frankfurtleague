@@ -58,6 +58,7 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay
 
@@ -605,6 +606,15 @@ async def move_the_address_in_session(
         session=session,
     )
     await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
+    if holdings.grant is not None:
+        await record_act(
+            collection=address_changes_collection,
+            action="grant.address_switched",
+            by=ACT_BY_SYSTEM,
+            record_id=record["_id"],
+            label=new,
+            session=session,
+        )
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     # Read, then written by id: the log keeps a fan-out's filter as text, address and all.
     owed = await aggregate_many_from_db(

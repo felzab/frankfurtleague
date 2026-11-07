@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
@@ -27,7 +27,7 @@ from app.api.address_change.schemas import (
     FLAddressChangeSweepParams,
     FLAddressChangeSweepResponse,
 )
-from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, is_expired
+from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, compose_end_update, is_expired
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.core.codes import Code
 from app.core.config import API_VERSION
@@ -51,22 +51,22 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.security import verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.tokens import hash_token
 
-# System tier and the system actor: the clock ends a lapsed change and makes a due one take effect, and no administrator
-# pressed anything.
+# System tier: the clock ends a lapsed change and makes a due one take effect, and no administrator pressed anything.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/address_change",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
-# The largest share inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` for the dearest change over a 40,000-row
-# action log a due change reads whole; a dearer change meets the deadline.
+# A call's share, each due change a transaction of its own inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer
+# one meets the deadline, and the call answers where the next begins.
 ADDRESS_CHANGE_PER_PASS: Final = 4
 
 
@@ -86,26 +86,35 @@ def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
     ]
 
 
-async def _end_the_lapsed_change(
-    row: Mapping[str, Any],
+async def _end_the_lapsed_changes(
+    ids: Sequence[Any],
     *,
     address_changes_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
-) -> None:
-    """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed."""
+) -> int:
+    """A page's lapsed changes and their one log row in one transaction, each judged again there, answering how many ended."""
 
-    async def end_the_lapsed_change(session: AsyncClientSession) -> None:
-        await end_the_change_in_session(
-            address_changes_collection=address_changes_collection,
-            db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
-            kind="expired",
-            now=now,
+    async def end_the_lapsed_changes(session: AsyncClientSession) -> int:
+        result = await patch_many_in_db(
+            collection=address_changes_collection,
+            db_filter={"_id": {"$in": list(ids)}, **build_lapsed_terms(now)},
+            update=compose_end_update(kind="expired", now=now),
             session=session,
         )
+        if result.modified_count > 0:
+            await record_act(
+                collection=address_changes_collection,
+                action="retention.address_changes",
+                by=ACT_BY_SYSTEM,
+                count=result.modified_count,
+                session=session,
+            )
+
+        return result.modified_count
 
     async with transaction_session(db) as session:
-        await session.with_transaction(end_the_lapsed_change)
+        return await session.with_transaction(end_the_lapsed_changes)
 
 
 async def _make_the_due_change_take_effect(
@@ -185,6 +194,7 @@ async def _make_the_due_change_take_effect(
             now=now,
             session=session,
         )
+        await record_act(collection=address_changes_collection, action="retention.address_changes", by=ACT_BY_SYSTEM, count=1, session=session)
         return "discarded"
 
     async with transaction_session(db) as session:
@@ -225,8 +235,9 @@ async def sweep_address_change(
     completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
     this answer.
 
-    Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
-    replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `after` the last
+    A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
+    its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
+    **A pass is a run of calls, each handing the next the `after` the last
     answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
     changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
     logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
@@ -243,77 +254,87 @@ async def sweep_address_change(
     page = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["page"]]
     count = sum(row["count"] for row in read["count"])
 
+    share = page[:ADDRESS_CHANGE_PER_PASS]
+    lapsed = [row["_id"] for row in share if not row["due"]]
+    due = [row for row in share if row["due"]]
     removed, skipped = 0, 0
     discarded, effective = 0, 0
     reached: Any = None
     broke_off = False
-    for row in page[:ADDRESS_CHANGE_PER_PASS]:
+
+    def cut_by(failure: Exception, *, which: str, was: str, address_change_id: Any) -> bool:
+        """Log a failed step by its id, answering whether the call stops there.
+
+        Any class, or the next pass stops at this change again and holds back every one behind it; never an address this
+        pass handles.
+        """
+
+        # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
+        # it as a timeout keeping the label.
+        if isinstance(failure, PyMongoError) and failure.timeout:
+            uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+            # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
+            fl_logger.warning(
+                "address_change.sweep_cut",
+                extra={
+                    "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
+                    "kind": which,
+                    "address_change_id": str(address_change_id),
+                    # The step whose commit went out unanswered, null where none did.
+                    "unanswered": was if uncertain else None,
+                },
+            )
+            return True
+
+        code, diagnosis = diagnosis_of(failure)
+        fl_logger.error(
+            "address_change.sweep_row_failed",
+            extra={"error_code": code, "kind": which, "step": was, "address_change_id": str(address_change_id), "diagnosis": diagnosis},
+        )
+        return False
+
+    if lapsed:
+        reached = lapsed[-1]
+        # Not `BaseException`, so a cancellation still ends the call.
+        try:
+            removed = await _end_the_lapsed_changes(lapsed, address_changes_collection=address_changes_collection, db=db, now=germany_now)
+            skipped = len(lapsed) - removed
+        except Exception as failure:
+            broke_off = cut_by(failure, which="lapsed", was="end", address_change_id=lapsed[0])
+
+    for row in due:
+        if broke_off:
+            break
         reached = row["_id"]
-        which, was = ("due", "effect") if row["due"] else ("lapsed", "end")
         # Each caught outside the change's session.
         try:
-            if row["due"]:
-                ergebnis = await _make_the_due_change_take_effect(
-                    row,
-                    records=records,
-                    address_changes_collection=address_changes_collection,
-                    spieler_collection=spieler_collection,
-                    schiedsrichter_collection=schiedsrichter_collection,
-                    saison_teams_collection=saison_teams_collection,
-                    bewerbungen_collection=bewerbungen_collection,
-                    registrierungen_collection=registrierungen_collection,
-                    spielbestaetigungen_collection=spielbestaetigungen_collection,
-                    grants_collection=grants_collection,
-                    outbox_collection=outbox_collection,
-                    invitations_collection=invitations_collection,
-                    ban_list_collection=ban_list_collection,
-                    action_log_collection=action_log_collection,
-                    db=db,
-                    now=germany_now,
-                )
-            else:
-                await _end_the_lapsed_change(
-                    row,
-                    address_changes_collection=address_changes_collection,
-                    db=db,
-                    now=germany_now,
-                )
+            ergebnis = await _make_the_due_change_take_effect(
+                row,
+                records=records,
+                address_changes_collection=address_changes_collection,
+                spieler_collection=spieler_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+                saison_teams_collection=saison_teams_collection,
+                bewerbungen_collection=bewerbungen_collection,
+                registrierungen_collection=registrierungen_collection,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                grants_collection=grants_collection,
+                outbox_collection=outbox_collection,
+                invitations_collection=invitations_collection,
+                ban_list_collection=ban_list_collection,
+                action_log_collection=action_log_collection,
+                db=db,
+                now=germany_now,
+            )
         except DocumentNotFoundError:
-            # The filter is the judgement: confirmed, stopped, discarded or sent a fresh link since the read, and not due.
+            # The filter is the judgement: stopped, discarded or replaced since the read, and not due.
             skipped += 1
             continue
-        # Any class, or the next pass stops at this change again and holds back every one behind it;
-        # not `BaseException`, so a cancellation still ends the call.
         except Exception as failure:
-            # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
-            # it as a timeout keeping the label.
-            if isinstance(failure, PyMongoError) and failure.timeout:
-                uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
-                # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
-                fl_logger.warning(
-                    "address_change.sweep_cut",
-                    extra={
-                        "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
-                        "kind": which,
-                        "address_change_id": str(row["_id"]),
-                        # The step whose commit went out unanswered, null where none did.
-                        "unanswered": was if uncertain else None,
-                    },
-                )
-                broke_off = True
-                break
-
-            # The id and what locates the failure, never an address this pass handles.
-            code, diagnosis = diagnosis_of(failure)
-            fl_logger.error(
-                "address_change.sweep_row_failed",
-                extra={"error_code": code, "kind": which, "step": was, "address_change_id": str(row["_id"]), "diagnosis": diagnosis},
-            )
+            broke_off = cut_by(failure, which="due", was="effect", address_change_id=row["_id"])
             continue
 
-        if not row["due"]:
-            removed += 1
-        elif ergebnis == "discarded":
+        if ergebnis == "discarded":
             discarded += 1
         else:
             effective += 1

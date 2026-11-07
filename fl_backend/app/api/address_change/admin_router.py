@@ -64,6 +64,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
+from app.core.recording import record_act
 from app.core.routing import SAFE, by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -269,6 +270,13 @@ async def post_address_change_admin(
             now=germany_now,
             session=session,
         )
+        await record_act(
+            collection=address_changes_collection,
+            action="address_change.started",
+            record_id=address_change_id,
+            label=change_reason,
+            session=session,
+        )
 
         return FLAddressChangeAdminMintResponse(id=address_change_id, way=way, valid_until=record["valid_until"], email=email)
 
@@ -403,6 +411,7 @@ async def delete_address_change(
             now=germany_now,
             session=session,
         )
+        await record_act(collection=address_changes_collection, action="address_change.discarded", record_id=address_change_id, session=session)
 
         return FLAddressChangeIdResponse(id=address_change_id)
 
