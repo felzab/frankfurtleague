@@ -500,9 +500,10 @@ export const SERVER_COPY = catalogue({
       effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
       ends: (saison: string) => `Die Sperre endet nach der ${COPY.shared.saisonName(saison)} von selbst.`,
       stored: "In der Sperrliste stehen deine Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
-      account: "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht.",
+      account:
+        "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht. Die Sperre bleibt auch nach einer Löschung bis zu ihrem Ende.",
       basis:
-        "Wir speichern das auf Grundlage unseres berechtigten Interesses, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).",
+        "Wir speichern das auf Grundlage unseres berechtigten Interesses, den Spielbetrieb vor Störungen zu schützen (Art. 6 Abs. 1 lit. f DSGVO).",
       /** Around the league's address. */
       rights: { before: "Für eine Kopie deiner Daten, ihre Löschung, einen Widerruf oder Fragen zur Sperre schreib uns an ", after: "." },
     },
@@ -881,7 +882,8 @@ export const SERVER_COPY = catalogue({
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
           `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
         changes: (linkHours: number, stopDays: number, administratorWait: Wait, ownerWait: Wait) =>
-          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon, und bis dahin kann die ${ownerTier} die Änderung zurücknehmen. Dein Konto löschst du jederzeit selbst, bestätigt über einen Link an deine Adresse; sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon, mit der Adresse der Person aus der Verwaltung, die es veranlasst hat; bei einer Änderung auf Anfrage steht dort keine, und die bisherige Adresse erfährt nur von dieser Änderung. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. Mit der ${ownerTier} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+        ban: "Stört eine Adresse den Spielbetrieb, kann die Verwaltung sie sperren. Mit ihr meldet sich dann niemand an, und sie bekommt keine E-Mails. Hat sie ein Konto, schreiben wir das dorthin.",
       },
       mail: {
         heading: "E-Mail und WhatsApp",
@@ -962,8 +964,16 @@ export const SERVER_COPY = catalogue({
             period: "als Chronik der Liga; Namen darin nur, solange der Eintrag der Person besteht",
           },
           { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
-          { name: "Gesperrte Adresse", content: "Adresse, Grund, Datum", period: "5 Saisons" },
-          { name: "Zugang zur Verwaltung", content: "Adresse, Stufe, Beginn", period: "bis er endet" },
+          {
+            name: "Gesperrte Adresse",
+            content: "Adresse, Grund, Datum, wer sie eingetragen hat",
+            period: "bis zum Ende der 5. Saison danach",
+          },
+          {
+            name: "Zugang zur Verwaltung",
+            content: "Adresse, Stufe, Beginn, wer ihn vergeben hat",
+            period: "bis er endet; eine Sperre oder ein Zugang, den du eingetragen hast, nennt dich weiter, bis wir deine Daten löschen",
+          },
           { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
           {
             name: "Anmeldung",
@@ -985,7 +995,7 @@ export const SERVER_COPY = catalogue({
             period: (bound: RetentionBounds) =>
               `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen und Grund bis zu ihrem Ende, der Rest 30 Tage danach`,
           },
-          { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; Löschungen ohne Namen", period: "12 Monate" },
+          { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse", period: "12 Monate" },
           // The end state's one store: the erasure journal is written as the server's own journald lines, kept nine days,
           // so the host script that exports a day file today states nothing here.
           {
@@ -1001,8 +1011,8 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast; eine Absage nennt die Löschung schon selbst.",
-        log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12 Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und jede Löschung. Ein Eintrag sagt, wer es war, was geschah und wann, nie einen alten oder neuen Inhalt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen nur mit Rolle und Team; eine Löschung nennt die gelöschte Person nicht.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, die Protokolle des Servers mit der Nummer eines Eintrags bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
+        log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12 Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.",
       },
       rights: {
         heading: "Deine Rechte",

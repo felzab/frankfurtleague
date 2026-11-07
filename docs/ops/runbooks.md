@@ -292,8 +292,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
   „Administratoren“ page, each behind the passkey touch.** An addition holds
   `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after it, a removal at once,
   and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
-  and the person named are mailed when a wait starts, stops or completes and at any removal, and only
-  the `owner` stops a wait, on the same page: the mail tells the others to reach the owner elsewhere.
+  and the person named are mailed when a wait starts, stops or completes and at any removal, but for
+  an old address while a lost-mailbox change stands on it (§5), and only the `owner` stops a wait, on
+  the same page: the mail tells the others to reach the owner.
 - **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
   never a row still waiting, and one at a time; the pass demotes then promotes in one transaction.
   The owner stays the owner until then. The new owner signs in once more before acting: a session
@@ -449,11 +450,12 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
-`/admin/address-changes` (`GET /address_change`), lists every running change with its new address and
-reason, a holder's to the owner alone, and is the one read serving them; the editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
+`/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
+holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A change's reason no read
+serves (`address_changes.change_reason`). A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
 `data.first_name`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
-`address_changes.move.new`); no page renders either, and a read-only Playground query on those fields
-finds them.
+`address_changes.move.new`); no page renders any of these, and a read-only Playground query on those
+fields finds them.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
@@ -537,9 +539,12 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   person before starting again.
 - **The address holds a grant of access.** The change waits whole:
   `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after the new mailbox confirmed, `:: OWNER_WAIT_DAYS`
-  days for the owner and `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days on a lost mailbox, the old address working until the
+  days for the owner and for an administrator a handover names, and `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days on a lost
+  mailbox, the old address working until the
   hourly pass switches it. Every holder in effect is mailed when the wait starts, when it is stopped or withdrawn and when
-  it completes, the new address masked. The tool starts a holder's change for the owner alone (`admin_address`). The owner
+  it completes, the new address masked. On a lost mailbox those notices name no actor, and the old address, which may
+  have passed to a stranger, receives no such mail while the change stands, hearing only through the change's own notice
+  and its effect's. The tool starts a holder's change for the owner alone (`admin_address`). The owner
   discards it there; the holder withdraws it on Konto; the old address's stop link ends it too. At the switch the grant row
   keeps its id and moves, dated by the switch, so a session older than the switch holds nothing.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
@@ -574,7 +579,8 @@ seat, registration and grant the address holds, so one sign-in stays whole.
 - **The holder of a pending new address**, a mailbox a change was started for. Until the change
   takes effect, that address reaches nothing of the person's. `/admin/address-changes` names it as the
   change's new address: discard the change there, which takes the address out of the change's record. Where the holder asked for their data to be deleted, the erasure
-  itself ends the change alone and leaves the records standing. The
+  itself ends the change alone and leaves the records standing, the holders told where it was a
+  holder's confirmed change. The
   link's own „Das ist nicht meine Adresse“ does the same as the discard, past its deadline too, and
   the address on file's own link does it from the other side.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
@@ -745,7 +751,8 @@ activation that runs past it.** The season it was entered in does not count, so 
 two: the
 activation that makes a ban lapse is the same write that removes its row, so a ban on this page is
 always one that still bars. Lift a ban earlier from the page itself: a ban entered because somebody lied about their age loses its purpose the
-day they reach the floor their seat asks for, and the page is where somebody notices.
+day they reach the floor their seat asks for, and the page is where somebody notices. A lift mails nobody, so a lift on
+a request is answered in that mail thread.
 
 ## 6. When personal data has been exposed
 
