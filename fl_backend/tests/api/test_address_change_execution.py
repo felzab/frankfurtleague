@@ -991,7 +991,6 @@ class TestAHoldersOwnChange:
             )
             await answer(database, client, minted.token)
             await sweep(database, client, germany_now=AFTER_THE_WAIT)
-            await database[Collection.ADDRESS_CHANGES].update_many({}, {"$unset": {"move": ""}})
             return await told(database)
 
         assert on_a_person(mongo_replica_set_url, body) == []
@@ -1168,12 +1167,15 @@ class TestTheRunningChanges:
             second = await start(database, client, identifier=SECOND_ADMIN, email=FOREIGN_EMAIL)
             ended = await start(database, client, identifier=OTHER_EMAIL, email="jonte.neu@anderswo.example")
             await stop_by_link(database, client, ended.stop_token)
+            own = await start(database, client, identifier=OWNER, email="inhaber.neu@anderswo.example")
             seen = {reader: (await running(database, client, operator=reader)).changes for reader in (ADMIN, OWNER)}
-            return (person.id, admin.id, second.id), seen
+            return (person.id, admin.id, second.id, own.id), seen
 
-        (person, admin, second), seen = on_a_person(mongo_replica_set_url, body)
+        (person, admin, second, own), seen = on_a_person(mongo_replica_set_url, body)
 
         assert [row.id for row in seen[ADMIN]] == [person]
+        # The owner reads every holder's row but their own, whose acts the server refuses.
+        assert own not in [row.id for row in seen[OWNER]]
         assert [row.holder for row in seen[OWNER]] == ["administration", "administration", None]
         # Newest first, each row its two addresses and the step it waits on.
         assert [row.id for row in seen[OWNER]] == [second, admin, person]
@@ -1512,7 +1514,6 @@ class TestTheDecline:
         assert (kind, held) == ("declined", {NEW_EMAIL: ["outbox"]})
 
 
-# A restore's window, the snapshot before the start, its end the next morning; the replay runs after it.
 class TestTheWaitingTime:
     def test_the_stop_link_ends_it_during_the_wait(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1655,7 +1656,7 @@ class TestTheLoeschung:
 
 
 def erase(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
-    """The erasure on request, as an owner whose step-up window the HTTP suites hold."""
+    """The erasure on request, as the owner."""
 
     return call(
         post_erasure,

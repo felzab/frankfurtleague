@@ -346,7 +346,7 @@ class TestTheTwoChoices:
         assert after == before
 
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
-        """The stored answer pressed again: no evidence restamped, and no log row a restore could replay."""
+        """The stored answer pressed again: no evidence restamped, and no log row."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database), await database[Collection.ACTION_LOG].count_documents({})

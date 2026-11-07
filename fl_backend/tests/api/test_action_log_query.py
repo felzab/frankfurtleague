@@ -2,15 +2,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from bson import ObjectId
 from pydantic import ValidationError
 
 from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.api.action_log.services import build_action_log_query
 from app.core.config import API_VERSION
 from tests.core.app_source import application
-
-CURSOR = ObjectId("6890a1b2c3d4e5f607600001")
 
 # Escaped, so a typed bracket finds a bracket: left raw it is a group that matches rows it should not, or a pattern the server refuses.
 ADLER_U17: dict[str, Any] = {"$regex": r"Adler\ \(U17\)", "$options": "i"}
@@ -49,7 +46,6 @@ def utc(month: int, day: int, hour: int) -> datetime:
             {"action": {"$in": ["ban.added", "ban.removed", "address_change.started", "address_change.discarded"]}},
             id="the type's expansion",
         ),
-        pytest.param({"cursor": str(CURSOR)}, {"_id": {"$lt": CURSOR}}, id="the cursor"),
         pytest.param({"by": "kontakt"}, {"by": "kontakt"}, id="who, an equality"),
     ],
 )

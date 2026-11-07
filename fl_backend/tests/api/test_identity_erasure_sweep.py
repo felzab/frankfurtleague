@@ -36,6 +36,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.logging import JSONFormatter
 from app.main import create_app
+from tests.acts import deletions_of
 from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
@@ -359,10 +360,13 @@ class TestThePupilsOwnDataAlone:
             await one_address_in_four_roles(database)
             answer = await run(database, client)
 
-            return counts(answer), await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS)
+            held = await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS)
 
-        answer, held = on_a_league(mongo_replica_set_url, body)
+            return counts(answer), held, await deletions_of(database, "retention.spieler")
 
+        answer, held, deletions = on_a_league(mongo_replica_set_url, body)
+
+        assert deletions == [("system", JUST_ENDED, 1, None)]
         assert answer == {
             "completed_saison_id": JUST_ENDED,
             "spieler": 1,
