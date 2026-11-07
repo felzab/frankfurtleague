@@ -144,8 +144,8 @@ export type TableProps = {
   prose?: boolean;
   /**
    * A table whose cells hold more than a phone's row shares with its name, such as the match editor's report: on a
-   * phone each row stacks, its name line over its cells and every cell after its column's label, the cells wrapping
-   * under it.
+   * phone each row stacks, its name line over its cells and every cell after its column's label, the name and the cells
+   * wrapping.
    */
   stack?: boolean;
   /**
@@ -295,13 +295,14 @@ const table = tv({
       },
     },
     // On a phone the column heads are read but not drawn, and each row is one column of its name line and its cells,
-    // each cell drawing its column's label before its words, which wrap there under their own label. The one column
-    // is `minmax(0, 1fr)`, so the name line is cut at the phone's width rather than widening the row.
+    // each cell drawing its column's label before its words, which wrap there under their own label. The name wraps as
+    // they do, since a touch reaches no tooltip, in one column of `minmax(0, 1fr)`, which a long word cannot widen.
     stack: {
       true: {
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
         name: "max-lg:col-start-1 max-lg:w-auto max-lg:px-0 max-lg:py-0",
+        whole: PHONE_WRAPS,
         cell: `max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start ${PHONE_WRAPS}`,
         label: "text-xs text-fg-muted lg:hidden",
       },
@@ -771,20 +772,18 @@ export function TablePlaceholder({
   rows,
   plaques = false,
   bare = false,
-  plain = 0,
 }: {
   head: TableHead;
   rows: number;
   /** Whether each row holds a plaque before its name. */
   plaques?: boolean;
   bare?: boolean;
-  /** How many rows at the head of a table with acts carry none, such as the owner's own on Administratoren. */
-  plain?: number;
 }) {
   const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts, stack = false } = head;
   const linked = head.linked !== false && acts === undefined;
   const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   const tableActs = acts === undefined ? undefined : "table";
+  const rowActs = acts === undefined ? undefined : "row";
   const parts = table({ acts: tableActs });
   return (
     <div className={bare ? "@container w-full overflow-hidden" : cardSurface({ class: "@container w-full overflow-hidden" })}>
@@ -807,67 +806,61 @@ export function TablePlaceholder({
           </tr>
         </thead>
         <tbody className={parts.part()}>
-          {Array.from({ length: rows }, (_, index) => {
-            const holdsActs = acts !== undefined && index >= plain;
-            const rowActs = acts === undefined ? undefined : holdsActs ? "row" : "table";
-            return (
-              <tr
-                key={index}
-                className={table({ ...phoneEnd, acts: rowActs }).row()}>
-                {rankLabel !== undefined && (
-                  <td className={table({ align: "centre", compact }).cell()}>
-                    <span className={placeholderBar("mx-auto h-3 w-3")} />
-                  </td>
-                )}
-                <td className={table({ compact, stack, acts: rowActs }).name()}>
-                  <span className={table({ acts: rowActs }).whole({ class: "flex min-w-0 items-center gap-2" })}>
-                    {plaques && <span className={placeholderBar("h-6 w-10")} />}
-                    <PlaceholderLine
-                      text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
-                      width="w-1/2"
-                    />
-                  </span>
-                  <span className={table({ acts: rowActs }).chips()} />
+          {Array.from({ length: rows }, (_, index) => (
+            <tr
+              key={index}
+              className={table({ ...phoneEnd, acts: rowActs }).row()}>
+              {rankLabel !== undefined && (
+                <td className={table({ align: "centre", compact }).cell()}>
+                  <span className={placeholderBar("mx-auto h-3 w-3")} />
                 </td>
-                {columns.map((column) => {
-                  const s = table({ ...columnLook(column), compact, stack, acts: rowActs });
-                  return (
-                    <td
-                      key={column.key}
-                      className={s.cell()}>
-                      {stack && <span className={s.label()}>{column.label}</span>}
-                      <PlaceholderLine
-                        text=""
-                        width={column.figures === true ? "mx-auto w-4" : "w-20"}
-                      />
-                    </td>
-                  );
-                })}
-                {linked && (
+              )}
+              <td className={table({ compact, stack, acts: rowActs }).name()}>
+                <span className={table({ acts: rowActs }).whole({ class: "flex min-w-0 items-center gap-2" })}>
+                  {plaques && <span className={placeholderBar("h-6 w-10")} />}
+                  <PlaceholderLine
+                    text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
+                    width="w-1/2"
+                  />
+                </span>
+                <span className={table({ acts: rowActs }).chips()} />
+              </td>
+              {columns.map((column) => {
+                const s = table({ ...columnLook(column), compact, stack, acts: rowActs });
+                return (
                   <td
-                    className={table(phoneEnd).end()}
-                    style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
-                    <RowEnd />
+                    key={column.key}
+                    className={s.cell()}>
+                    {stack && <span className={s.label()}>{column.label}</span>}
+                    <PlaceholderLine
+                      text=""
+                      width={column.figures === true ? "mx-auto w-4" : "w-20"}
+                    />
                   </td>
-                )}
-                {acts !== undefined && (
-                  <td className={table({ acts: rowActs }).acts()}>
-                    {holdsActs && (
-                      <span className="flex items-center gap-2 lg:justify-end">
-                        {acts.map((act) => (
-                          <span
-                            key={act}
-                            className={buttonPlaceholder()}>
-                            {act}
-                          </span>
-                        ))}
+                );
+              })}
+              {linked && (
+                <td
+                  className={table(phoneEnd).end()}
+                  style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
+                  <RowEnd />
+                </td>
+              )}
+              {acts !== undefined && (
+                <td className={table({ acts: rowActs }).acts()}>
+                  <span className="flex items-center gap-2 lg:justify-end">
+                    {acts.map((act) => (
+                      <span
+                        key={act}
+                        className={buttonPlaceholder()}>
+                        {act}
                       </span>
-                    )}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
+                    ))}
+                  </span>
+                </td>
+              )}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

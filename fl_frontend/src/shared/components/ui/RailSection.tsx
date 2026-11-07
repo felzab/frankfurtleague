@@ -1,7 +1,7 @@
 "use client";
 
 // Redesign: goes with its last importer; `kit/Section` replaces it.
-import { useId, useState } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 
 import ChevronDown from "@gravity-ui/icons/ChevronDown";
 
@@ -9,9 +9,31 @@ import { card } from "@/shared/components/ui/card";
 
 import type { ReactNode } from "react";
 
+/** `xl`, the breakpoint at which the rail becomes its own column. */
+const railColumn = () => window.matchMedia("(min-width: 80rem)");
+
+function subscribe(onChange: () => void) {
+  const query = railColumn();
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+/**
+ * Whether the rail stands as its own column. The server answers a phone's, the first read, and hydration keeps that
+ * answer until the browser's replaces it: a fold's first state read from `window` would differ from the server's markup
+ * at one width or the other, and React would throw that markup away.
+ */
+export function useRailColumn() {
+  return useSyncExternalStore(
+    subscribe,
+    () => railColumn().matches,
+    () => false,
+  );
+}
+
 /**
  * **The fold control is an overlay button** labelled by the heading, everything decorative `pointer-events-none`: the
- * `InfoHint` stays its own control. **The mobile default resolves once on mount**, a CSS one being unoverridable.
+ * `InfoHint` stays its own control. **The mobile default is read in script**, a CSS one being unoverridable.
  */
 export function RailSection({
   title,
@@ -42,14 +64,11 @@ export function RailSection({
   const contentId = useId();
   const headingId = useId();
 
-  const [internalOpen, setInternalOpen] = useState(() => {
-    // `xl`, the breakpoint at which the rail becomes its own column.
-    if (defaultOpenOnMobile || typeof window === "undefined") return true;
-    return window.matchMedia("(min-width: 80rem)").matches;
-  });
+  const isColumn = useRailColumn();
+  const [chosenOpen, setChosenOpen] = useState<boolean | null>(null);
 
-  const isOpen = controlledOpen ?? internalOpen;
-  const toggle = () => (onToggle ? onToggle(!isOpen) : setInternalOpen((open) => !open));
+  const isOpen = controlledOpen ?? chosenOpen ?? (defaultOpenOnMobile || isColumn);
+  const toggle = () => (onToggle ? onToggle(!isOpen) : setChosenOpen(!isOpen));
 
   return (
     <section className={`${card()} flex w-full flex-col`}>

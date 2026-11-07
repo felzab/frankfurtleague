@@ -27,6 +27,17 @@ const folds = (count: number) => (count > 1 ? "grid content-start items-start ga
 const COLUMN = "grid gap-6";
 
 /**
+ * A fold head's count while it is read. The bar stands inline, so its line keeps the count's strut and with it a
+ * baseline: the head's row aligns on baselines, which stands the count's line 1 px past the title's, and a block bar,
+ * holding none, leaves the head 1 px short.
+ */
+const FoldCountPlaceholder = ({ className }: { className: string }) => (
+  <span className={className}>
+    <span className={placeholderBar("inline-block h-3 w-4 align-middle")} />
+  </span>
+);
+
+/**
  * The folded cards while they are read: `count` of `CardFold`'s heads, as the page first shows them, folded, each its
  * chevron, its title's line and its count as bars, set as `ReadFolds` sets them.
  */
@@ -46,9 +57,7 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
                 width="w-32"
               />
             </span>
-            <span className={s.count()}>
-              <span className={placeholderBar("h-3 w-4")} />
-            </span>
+            <FoldCountPlaceholder className={s.count()} />
           </span>
         </div>
       ))}
@@ -60,7 +69,7 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
  * The open card of `ReadFolds`' `column` while it is read: its title, its chevron turned as an open card's, a bar where
  * its count stands, and its table's placeholder.
  */
-export function OpenFoldPlaceholder({ title, head, rows, plain }: { title: Copy; head: TableHead; rows: number; plain?: number }) {
+export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: TableHead; rows: number }) {
   const s = cardLook({ body: "rows", fold: true });
   return (
     <div className={s.root()}>
@@ -74,15 +83,12 @@ export function OpenFoldPlaceholder({ title, head, rows, plain }: { title: Copy;
           </span>
           <span className="min-w-0">{title}</span>
         </span>
-        <span className={s.count()}>
-          <span className={placeholderBar("h-3 w-4")} />
-        </span>
+        <FoldCountPlaceholder className={s.count()} />
       </span>
       <div className={s.body()}>
         <TablePlaceholder
           head={head}
           rows={rows}
-          plain={plain}
           bare
         />
       </div>
