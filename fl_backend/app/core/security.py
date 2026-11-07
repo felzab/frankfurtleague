@@ -1,5 +1,3 @@
-import hashlib
-import hmac
 import secrets
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
@@ -19,7 +17,6 @@ from app.core.exceptions import ACTOR_CHALLENGE, APIError
 from app.core.recording import actor_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
-from app.shared.sub_keys import derive_sub_key
 
 # RFC 9110's 401 carries a challenge naming the scheme the key is presented under.
 BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
@@ -198,35 +195,3 @@ def get_person_identifier(actor: Annotated[SessionActor, Depends(verify_person_a
 
 
 PersonIdentifier = Annotated[str, Depends(get_person_identifier)]
-
-
-# The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
-# (`app/api/ban_list/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
-ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"
-
-
-def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
-    # Folded here rather than by each caller, as `app/api/ban_list/services.py :: address_hash` folds its own: a
-    # stored spelling handed in unfolded would hash to a value no other spelling of the mailbox matches.
-    return hmac.new(derive_sub_key(key, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
-
-
-def actor_pseudonym(identifier: str, *, key: SecretStr) -> str:
-    """What the log records for a signed-in person: a keyed hash of the identifier as `sign_in_identifier` folds it.
-
-    Never `address_hash`, whose label would make this EQUAL the person's ban-row digest and whose
-    address rule raises inside a binder.
-    """
-
-    return _keyed_fold(identifier, key=key, label=ACTOR_PSEUDONYM_VERSION)
-
-
-# The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
-# row's digest or, on a choice, its person's log pseudonym, which an erasure's line alone names.
-ERASURE_JOURNAL_VERSION: Final = "erasure-v1"
-
-
-def erasure_journal_hash(identifier: str, *, key: SecretStr) -> str:
-    """What the erasure journal records for a person: a keyed hash of the identifier as `sign_in_identifier` folds it."""
-
-    return _keyed_fold(identifier, key=key, label=ERASURE_JOURNAL_VERSION)

@@ -176,7 +176,7 @@ host file's own owner and mode are what the container sees (Docker's Compose fil
 | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
 | `tunnel_token`                                                                                                                         | uid and gid 65532, the connector | `400` |
 | `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key`, `betterstack_heartbeat_url` | uid and gid 1001, the frontend   | `400` |
-| `backend_mongodb_uri`, `sperrliste_key`                                                                                                | uid and gid 1002, the backend    | `400` |
+| `backend_mongodb_uri`                                                                                                                  | uid and gid 1002, the backend    | `400` |
 | `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                                                           | root, group 1003                 | `440` |
 
 **The three internal keys are one file each, read by both application services**, which run as
@@ -551,7 +551,8 @@ itself** before `next dev` starts, over the shell and `fl_frontend/.env`, to the
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
 turn the frontend away from the secret's mount and its boot refuses.
 
-**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS` or a
+**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS`, a
+retired name of the ban list's key or a
 job switch the hourly scheduler replaced (`scripts/lib/_lib.sh :: RETIRED_ENV_NAMES`),
 refuses a deploy or a local start before its first compose call**, at exit 2, finding each
 such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style

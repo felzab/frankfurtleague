@@ -560,12 +560,11 @@ def test_the_snippet_counts_a_key_s_line_keeping_the_dotenv_shape_and_never_name
     assert "vxq" not in output.lower(), output
 
 
-# A backend environment the settings accept, and the five secret files, two keys of the class and one
+# A backend environment the settings accept, and the four secret files, two keys of the class and one
 # carrying a space. Fabricated, of `k` alone.
 KEY_OUTSIDE_THE_CLASS: Final = """printf 'DB_BASE_NAME=league\\n' > fl_backend/.env
 mkdir -p fl_backend/run-secrets
 printf 'mongodb://localhost:27017/?directConnection=true' > fl_backend/run-secrets/backend_mongodb_uri
-printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_key
 printf '%s %s' "$(printf 'k%.0s' {1..10})" "$(printf 'k%.0s' {1..53})" > fl_backend/run-secrets/internal_api_key_base
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_system
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_admin
@@ -910,11 +909,11 @@ def test_the_boot_runs_the_image_s_own_command_as_the_service_told_which_deploym
 
 
 def test_settings_the_backend_refuses_stop_the_run_with_nothing_recreated() -> None:
-    code, output, fixture = _run(BOOT_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Invalid environment variables: SPERRLISTE_KEY")
+    code, output, fixture = _run(BOOT_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Invalid environment variables: DB_BASE_NAME")
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
     assert code == 2, output
-    assert "SPERRLISTE_KEY" in output, output
+    assert "DB_BASE_NAME" in output, output
     assert "NOTHING has been recreated." in output, output
     run = argv.index("run")
     assert argv[run : run + 7] == ["run", "--rm", "--no-deps", "-T", "backend", "python", "-c"], argv
@@ -1065,16 +1064,17 @@ def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> No
     assert "credential-lines-passed" not in output, output
 
 
-def test_the_ban_list_key_under_its_retired_name_refuses_naming_it_and_no_value() -> None:
-    """Renamed `SPERRLISTE_KEY` by the naming pass: no setting reads the old name, so its value would sit where `docker inspect` prints it."""
+@pytest.mark.parametrize("retired", ["SPERRLISTE_SCHLUESSEL", "SPERRLISTE_KEY"])
+def test_the_ban_list_key_under_a_retired_name_refuses_naming_it_and_no_value(retired: str) -> None:
+    """No setting reads either name, so a value left under one would sit where `docker inspect` prints it."""
     body = (
-        "printf 'DB_BASE_NAME=fl_db\\nSPERRLISTE_SCHLUESSEL=a value no case reads\\n' > fl_backend/.env\n"
+        f"printf 'DB_BASE_NAME=fl_db\\n{retired}=a value no case reads\\n' > fl_backend/.env\n"
         "refuse_credential_lines fl_backend/.env\necho credential-lines-passed\n"
     )
     code, output, _ = _run(body)
 
     assert code == 2, output
-    assert "fl_backend/.env:2 SPERRLISTE_SCHLUESSEL" in output, output
+    assert f"fl_backend/.env:2 {retired}" in output, output
     assert "a value no case reads" not in output, output
     assert "DB_BASE_NAME" not in output, output
     assert "credential-lines-passed" not in output, output

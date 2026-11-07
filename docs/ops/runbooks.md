@@ -498,14 +498,8 @@ made from its confirmation's log row before the log was emptied
 ([`../datenschutz.md`](../datenschutz.md#11-open-and-owed-a-decision)): say so where an answer sends
 it as the proof of that consent.
 
-**A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
-and nothing else of the person, so `/area/admin/sperrliste` cannot be asked whether a given address is on
-it: the question is answered by computing that address's hash under `secrets/sperrliste_key` — the
-same derivation `fl_backend/app/api/ban_list/services.py :: address_hash` performs, label and fold
-included — and looking the value up against `ban_list.address_hash`. The paste that does it belongs
-in the operator's own checklist and in no file here. What the answer then says is the row's reason,
-its day, its administrator and the season it runs to; the hash itself is not sent to the person, it
-being the value that identifies them.
+**A ban is read on its own list.** `/admin/ban-list` shows each barred address, and an answer
+says the row's reason, its day and the last season it covers.
 
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
 application, an accepted one and a season's contact block are each removed by the retention sweep; a season row's unconfirmed seat is emptied on the first pass past its day; an application nobody confirmed is deleted after its deadline, its
@@ -798,29 +792,6 @@ activation that makes a ban lapse is the same write that removes its row, so a b
 always one that still bars. Lift a ban earlier from the page itself,
 which is still one press: a ban entered because somebody lied about their age loses its purpose the
 day they reach the floor their seat asks for, and the page is where somebody notices.
-
-**Generating the key is the one command in this section.** A key-generation command is an operator
-instruction rather than a database migration, so it stands here; nothing it produces is ever written
-into this repository. Dev, on Windows in Git Bash, or on the server — generate it on whichever
-machine you will paste from, so the value is not carried between two of them:
-
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
-
-Thirty-two random bytes as sixty-four hexadecimal characters. **The boot's floor counts CHARACTERS
-and not entropy** (`fl_backend/app/core/config.py :: BAN_LIST_KEY_MIN_LENGTH`), so sixty-four
-repeated letters pass it and are worthless: what makes the value a key is that it came from this
-command and not from a keyboard.
-
-**The ban list's key, `secrets/sperrliste_key`, can never be rotated, and losing it costs the whole list**: replacing it
-disarms every ban in silence, the one
-sign being a second ban of an address already on the list admitted rather than refused. It keys the
-action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
-pseudonyms and the older can never be recomputed. Treat it as
-the one backend secret with no recovery: back it up where the database's own access details are
-backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
-record names the addresses.
 
 ## 6. When personal data has been exposed
 
@@ -1506,7 +1477,7 @@ Which service reads which, and each file's owner and mode on the server, is that
 **A file holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a
 trailing newline and surrounding blanks, and everything else in the file is part of the value.
 
-**Each machine has its own.** The internal keys, the ban list's key and the sign-in secret
+**Each machine has its own.** The internal keys and the sign-in secret
 authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
@@ -1517,7 +1488,7 @@ On a development machine, in Git Bash at the checkout root, this writes every fi
 `fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_key auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
 ```
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
@@ -1563,8 +1534,7 @@ and update the password-manager entry. Both containers are recreated by the same
 keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
 the same way: its holder, reaching the backend on the private network, can act as any administrator,
 so rotating is not finished until `action_log` has been read for every `grants` write since the
-leak, and every grant nobody can account for is revoked in the Playground. **`sperrliste_key` is never replaced**: every ban is stored under it,
-and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
+leak, and every grant nobody can account for is revoked in the Playground. **A new `auth_secret` signs everybody out.**
 
 ## 17. Clearing an address's code lock
 

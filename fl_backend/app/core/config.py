@@ -25,11 +25,6 @@ INTERNAL_API_KEY_LENGTH: Final = 64
 # identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
 INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 
-# The ban list's key is never rotated, every stored hash having been taken under it and no address
-# surviving to re-hash (`docs/ops/runbooks.md :: 5`), so the boot is the one place a weak one is
-# still cheap to replace.
-BAN_LIST_KEY_MIN_LENGTH: Final = 64
-
 # Where Compose mounts a file secret, which is where a container finds it with nothing set.
 DEFAULT_SECRETS_DIR: Final = "/run/secrets"
 
@@ -75,13 +70,6 @@ class _SecretFields(BaseModel):
     internal_api_key_base: InternalAPIKey = Field(description="Base internal API-key")
     internal_api_key_system: InternalAPIKey = Field(description="Internal API-key for the system router")
     internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the admin router")
-
-    # The floor is HMAC-SHA256's own digest width in characters: shorter, and the ban list's rows
-    # are cheaper to break than the addresses they were taken from
-    # (`app/api/ban_list/services.py :: address_hash`). No ceiling — HMAC takes a key of any length.
-    sperrliste_key: SecretStr = Field(
-        min_length=BAN_LIST_KEY_MIN_LENGTH, description="HMAC master key every keyed hash of an address derives its own sub-key from"
-    )
 
     @field_validator("mongodb_uri")
     def validate_mongodb_uri(cls, value: SecretStr) -> SecretStr:
