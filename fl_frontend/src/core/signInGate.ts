@@ -41,7 +41,6 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["reco
       unconfirmed: answer.unconfirmed,
       admin_tier: answer.admin_tier,
       granted_since: answer.granted_since,
-      owner_since: answer.owner_since,
     };
   }),
 );

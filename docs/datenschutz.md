@@ -96,10 +96,9 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   [section 11](#11-open-and-owed-a-decision)'s first question, and from the switch on a label names
   the words its person saw.
 - **Some refusals are taken by the code alone**, each before anything is written: a birthdate
-  outside a role's span, an address the ban list holds (on a registration, an application's seat, a
-  sign-in by any route, refused as its session would be created in
-  `fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`, and a confirmation however old its
-  link), a full squad, Cloudflare's bot check on the sign-in code request, the application form and
+  outside a role's span, an address the ban list holds (a sign-in by any route, refused as its
+  session would be created in `fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`), a full
+  squad, Cloudflare's bot check on the sign-in code request, the application form and
   the registration form (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), an address that
   is not plain ASCII (`fl_backend/app/shared/folding.py :: league_address`), and the code sign-in's
   limits (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`, the per-address counts under
@@ -178,8 +177,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Purpose and basis: who may administer the league, and refusing an address the league declined;
     Art. 6(1)(f).
   - People and data: a grant's address, tier and granter (`granted_by`), in plain; a pending
-    request's address and its requester's; a ban's keyed hash of the barred address
-    (`fl_backend/app/api/ban_list/services.py :: address_hash`), its free-text reason, the
+    request's address and its requester's; a ban's barred address, in plain, its free-text reason, the
     entering administrator's address (`created_by`) and the last season it covers.
   - Recipients: administrators.
 - **The action log and the erasure journal** (`action_log`; the journal lines).
@@ -291,8 +289,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Resend's copies of every message and Cloudflare's record of every message to the league, for
     their own periods (section 7), and the copies in the organisers' mailboxes, deleted on request,
     their providers' backups beyond reach;
-  - a ban's row, pseudonymised personal data under this controller's key, its reason possibly naming
-    the person, until its bound (section 6);
+  - a ban's row, holding the address and a reason possibly naming the person, until its bound
+    (section 6);
   - a reason they typed in a fixture answer from a seat they have since left, the answer recording the
     seat and never its holder, until that season's contact seats are cleared (section 6);
   - free text typed about others and keyed on no address, which only a name search could find, and a
@@ -362,9 +360,9 @@ Each bound is read from the symbol beside it; nothing compares this table with t
   now; the code keeps a registration's link at 7 days until session 8 raises it, and a declined
   application or registration for the calendar month the rows above name.
 - **A ban removes itself on the league's calendar rather than a count of days**: somebody too young
-  stays barred until too old. Its row keeps only a keyed hash of the address, so no second message
-  can be sent about it; the one sent at the ban (`fl_frontend/src/core/banListEmail.ts`) names
-  its season, its reason, what is kept and how to object.
+  stays barred until too old. Its row goes with no message; the one sent at the ban
+  (`fl_frontend/src/core/banListEmail.ts`) names its season, its reason, what is kept and how to
+  object.
 - **A sign-in account is deleted with no message until session 7 builds the one deletion notice**
   (ruled 2026-10-25), which tells its person once a confirmed account or application is deleted,
   whoever caused it, and never holds the deletion up.
@@ -404,9 +402,8 @@ the host's, which rests on its signed agreement.
   only the records under their own address.
 - **The origin.** A remotely managed tunnel is the only route to the origin, so every request
   passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
-- **Pseudonymisation.** A ban, a mailbox's document, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
-  one master secret by its own label (`fl_backend/app/api/ban_list/services.py :: address_hash`;
-  [`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
+- **Pseudonymisation.** A mailbox's document, a person's action-log actor and each journal line hold a keyed hash of an address rather than the address, each under a key derived from
+  one master secret by its own label ([`ops/runbooks.md`](ops/runbooks.md#16-the-secret-files)).
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a
   withheld person's seasons; an access line holds no credential and no search query.
 - **Integrity and recovery.** Daily snapshots; the action log's prior documents and the journal's
@@ -500,7 +497,7 @@ procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
    all, and whether a refusal the person is not told of can be offered a review.
 9. **The 18 for the two seats that commit a school**: whether that is contractual capacity at all.
 10. **The ban's surviving row**: the basis for keeping it about the person barred past their
-    erasure, and what an access request reaches when no route finds the row from the address.
+    erasure.
 11. **14 days for an unconfirmed registration**, the code's 7 until session 8 raises it: whether it
     is proportionate.
 12. **The referees entered before the confirmation link**, whose names stood on fixtures until their
