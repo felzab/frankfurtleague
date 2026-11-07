@@ -13,13 +13,12 @@ from app.api.account.services import (
     find_own_entry_refusal,
     withdrawal_line,
 )
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.identity.crud import refuse_without_a_seat, roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import holds_a_seat, own_seats, seat_is_confirmed
 from app.api.teams.schemas import FLTeamSeat, FLTeamSeatsResponse
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -29,17 +28,17 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import erasure_journal_hash, verify_access_admin
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
-# The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
+# The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 
@@ -63,7 +62,7 @@ def _as_seat(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
 async def get_team_seats(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
     db: DBClient,
@@ -99,11 +98,10 @@ async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
     einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
@@ -126,7 +124,6 @@ async def patch_einwilligung(
     """
 
     pressed: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     at = log_stamp(germany_now)
     journal = Journal()
 
@@ -173,17 +170,9 @@ async def patch_einwilligung(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        line = withdrawal_line(
-            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
-            collection=Collection.SAISON_TEAMS,
-            record_id=row["_id"],
-            blocks=[seat["einwilligung"] for seat in seats.values()],
-            chosen=chosen,
-            at=at,
-            text_versions=by_choice(einwilligung_data.text_versions),
-        )
-        if line is not None:
-            journal.note(line)
+        choices = withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen)
+        if choices is not None:
+            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices))
 
     async with journal:
         async with transaction_session(db) as session:

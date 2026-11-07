@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import SecretStr, ValidationError
+from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktePayload,
@@ -417,10 +417,7 @@ class TestOneAnchorDocumentAMailbox:
     def test_a_tag_stays_with_its_mailbox_and_a_second_mailbox_stands_apart(self):
         """One document for every mailbox stalls every school's press behind a stranger's flood of fresh addresses, and no failure names why."""
 
-        # Obviously fake.
-        key = SecretStr("key-one".ljust(64, "0"))
-
-        assert len(mailbox_anchor_ids(addresses=["victim@example.com", "victim+t@example.com", "other@example.com"], key=key)) == 2
+        assert len(mailbox_anchor_ids(addresses=["victim@example.com", "victim+t@example.com", "other@example.com"])) == 2
 
 
 class TestTheColoursASeasonHasAlreadyAssigned:

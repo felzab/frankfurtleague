@@ -33,7 +33,7 @@ import { ceremonyCredentialId, challengeIssuedAt, isDuplicateCredential, refuseA
 import { ADDRESS_ATTEMPTS_EXHAUSTED } from "./codeRefusal";
 import { carriedEnrolmentRead, carriedOrRefuse, ENROLMENT_READ, refuseBarred, refuseEnrolment } from "./enrolment";
 import { enrolmentSignIn } from "./gateReads";
-import { notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
+import { notifyAccountDeleted, notifyPasskey, oweSignInMail, sendDeletionLink } from "./mails";
 import { endReplacedSession, lineageOf, refuseUnadmitted, replacedToken } from "./minting";
 import {
   CODE_FACTOR,
@@ -292,6 +292,7 @@ const userOptions = {
     deleteTokenExpiresIn: ERASURE_LINK_VALID_HOURS * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
     beforeDelete: eraseBeforeTheAccount,
+    afterDelete: (user) => notifyAccountDeleted(user.email),
   },
 } satisfies BetterAuthOptions["user"];
 

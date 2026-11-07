@@ -9,7 +9,7 @@ import type {
 } from "@/core/generated/client/types";
 
 /** The new mailbox's states besides an open link, and a token the read matched to nothing. */
-export type AddressChangeLinkState = "expired" | "invalid" | "barred" | "not_confirmable";
+export type AddressChangeLinkState = "expired" | "invalid" | "not_confirmable";
 
 /**
  * The address on file's steps this view shows. The person's own change asks that address first, and the mailed page
@@ -26,15 +26,13 @@ type DeclineOnly = Extract<AddressChangeLinkState, "expired" | "not_confirmable"
  */
 export type AddressChangeView =
   | { state: "valid"; gueltigBis: string; way: FLAddressChangeWay }
-  | { state: "confirmed"; wirksamAb: string | null; genehmigungOffen: boolean; way: FLAddressChangeWay }
+  | { state: "confirmed"; wirksamAb: string | null; way: FLAddressChangeWay }
   | { state: OldViewPreviousState; gueltigBis: string | null; wirksamAb: string | null; way: FLAddressChangeWay }
   | { state: DeclineOnly; way: FLAddressChangeWay }
-  // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
-  | { state: "approval_expired"; way: FLAddressChangeWay }
   | { state: "ended"; side: FLAddressChangeViewEndedSide; art: FLAddressChangeEndKind }
   | { state: Exclude<AddressChangeLinkState, DeclineOnly> };
 
-type WithoutPress = { state: "ended" | "confirmed" | "approval_expired" | "barred" | "invalid" };
+type WithoutPress = { state: "ended" | "confirmed" | "invalid" };
 
 /** What the page opens on. The token rides only with a link a press can still spend. */
 export type AddressChangeStart =
@@ -53,10 +51,7 @@ export function viewOf({ view }: Pick<FLAddressChangeViewResponse, "view">): Add
     case "valid":
       return view.valid_until === null ? { state: "invalid" } : { state: "valid", gueltigBis: view.valid_until, way: view.way };
     case "confirmed":
-      // Null only outside `confirmed`, by the read's contract.
-      return { state: "confirmed", wirksamAb: view.effective_from, genehmigungOffen: view.approval_open === true, way: view.way };
-    case "barred":
-      return { state: "barred" };
+      return { state: "confirmed", wirksamAb: view.effective_from, way: view.way };
     default:
       return { state: view.state, way: view.way };
   }
@@ -68,8 +63,6 @@ export function startOf(read: AddressChangeView, token: string): AddressChangeSt
     // A pressed link answers a second press with the change's end, so it holds no press either.
     case "ended":
     case "confirmed":
-    case "approval_expired":
-    case "barred":
     case "invalid":
       return read;
     default:
@@ -83,5 +76,4 @@ export type AddressChangePressed = {
   answer: "confirmed" | "declined" | "stopped";
   effective: boolean;
   effective_from: string | null;
-  approval_open: boolean;
 };

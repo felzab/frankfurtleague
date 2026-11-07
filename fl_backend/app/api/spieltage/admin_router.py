@@ -33,6 +33,7 @@ from app.api.spieltage.services import (
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection, SpieltageReadCollection
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
@@ -239,6 +240,13 @@ async def patch_spieltag(
             expected_version=spieltag_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
+        )
+        await record_act(
+            collection=spieltage_collection,
+            action="spieltag.changed",
+            record_id=spieltag_id,
+            label=str(stored_raw["saison_id"]),
+            session=session,
         )
 
         return FLSpieltagWriteResponse(spieltag_id=spieltag_id, version=FLSpieltagRecord.model_validate(updated_raw).version)

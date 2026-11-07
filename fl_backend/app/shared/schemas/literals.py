@@ -39,7 +39,7 @@ type FLAustrittType = Literal["disqualifikation", "rueckzug"]
 type FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
 
 # The league's kit palette, slugged for `FLSchulform`'s reason. A slug is never renamed or dropped: stored
-# rows and the action log's images hold it.
+# rows hold it.
 type FLTrikotFarbe = Literal[
     "schwarz",
     "weiss",
@@ -109,18 +109,13 @@ type FLRegistrierungStatus = Literal["submitted", "declined"]
 # --- A person's own link
 
 # What a reopened confirmation link shows. A token nothing opens is a refusal rather than a state, and an
-# unreadable one never reaches the backend. `barred` ranks first.
-type FLConfirmationState = Literal["valid", "confirmed", "expired", "barred"]
+# unreadable one never reaches the backend.
+type FLConfirmationState = Literal["valid", "confirmed", "expired"]
 
 # --- The Verwaltung and an address's change
 
-# `owner` holds every power `administration` does and is reached only by an owner's tier change, never by
-# a grant.
+# `owner` holds every power `administration` does, and is reached only by a handover, never by a grant.
 type FLAdminTier = Literal["owner", "administration"]
-
-# Why an administrator may not approve an act on a grant: their own address, their own start, an owner's
-# act without an owner's power, or a grant or tier younger than the request.
-type FLApprovalDenied = Literal["own", "started", "owner", "younger"]
 
 # How an address change takes effect: the person's own start, confirmed at the address on file and then at the new
 # one, or an administrator's for a person who lost the address on file, with a recorded reason, waiting after its
@@ -132,9 +127,8 @@ type FLAddressChangeWay = Literal["account", "waiting_period"]
 type FLAddressChangeViewableDenied = Literal["own_address", "admin_address"]
 
 # What the change waits on: the address on file's confirmation of the person's own change through the link it was
-# mailed, the new mailbox's link, another administrator's approval of a grant's move once the new mailbox confirmed,
-# or its waiting time.
-type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "approval", "waiting_period"]
+# mailed, the new mailbox's link, or its waiting time.
+type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "waiting_period"]
 
 # How a change ended. `discarded` is every discard: an administrator's, the pass's refusal when due,
 # nothing left to move, and an erasure's.

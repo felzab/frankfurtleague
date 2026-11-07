@@ -60,6 +60,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
@@ -152,7 +153,7 @@ async def enter_spielbestaetigung(
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["answer", "closed"],
+            projection=["saison_id", "answer", "closed"],
             session=session,
         )
         refuse(find_enter_refusal(spielbestaetigung_raw=row))
@@ -160,7 +161,7 @@ async def enter_spielbestaetigung(
         try:
             # The state term as a seat's press writes it. A seat's answer committing under
             # this one conflicts with the write instead, and the retry's read above refuses.
-            return await patch_one_in_db(
+            entered = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
                 update=compose_enter_update(reason=enter_data.reason, today=today),
@@ -170,6 +171,16 @@ async def enter_spielbestaetigung(
             )
         except DocumentNotFoundError as miss:
             raise enter_refusal().error() from miss
+
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="spielbestaetigung.entered",
+            record_id=spielbestaetigung_id,
+            label=str(row["saison_id"]),
+            session=session,
+        )
+
+        return entered
 
     async with transaction_session(db) as session:
         await session.with_transaction(settle_for_the_party)
@@ -238,6 +249,14 @@ async def discard_spielbestaetigung(
             )
         except DocumentNotFoundError as miss:
             raise discard_refusal().error() from miss
+
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="spielbestaetigung.vorschlag_discarded",
+            record_id=spielbestaetigung_id,
+            label=str(row["saison_id"]),
+            session=session,
+        )
 
         if discard_owes_a_notice(row=row, today=today):
             # The club's season row as it stands, its seats the mailboxes told and its name the one the notice states.
@@ -346,6 +365,7 @@ async def adopt_spielbestaetigung(
                 collections=collections,
                 adopts_bericht=None,
                 now=now,
+                act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )
         except APIError as refused:

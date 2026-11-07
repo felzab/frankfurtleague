@@ -15,9 +15,6 @@ export const EINSAETZE_TITEL = "Deine Einsätze";
 /** The administration's own name, which the Funktion chooser's card and the old admin pages' not-found page carry. */
 export const VERWALTUNG_TITEL = "Verwaltung";
 
-/** The heading over the grants and promotions waiting on a second administrator, which a request's mail and a refused second request point to. */
-export const OFFENE_ANTRAEGE = "Offene Anträge";
-
 export const ABOUT_TITEL = "About";
 
 /** The organisers' name, which the old top bar and footer show. */

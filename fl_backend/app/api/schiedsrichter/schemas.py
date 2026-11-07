@@ -23,7 +23,7 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
 # through the same link, and the entry stays until its clock runs out.
-type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired", "barred"]
+type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired"]
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -184,8 +184,8 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     media_minimum_age: int = Field(gt=0)
     deadline: CustomDateString
     # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
-    # no answer, `barred` among them. A leaked token learns from it nothing past the state it already shows: the
-    # person's own day, never who they are.
+    # no answer. A leaked token learns from it nothing past the state it already shows: the person's own day, never who
+    # they are.
     answered_at: CustomOptionalDateString
 
 

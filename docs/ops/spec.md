@@ -91,9 +91,7 @@ destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy ca
 those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
 host files rather than a container stream (§1.2), holding every line that names a visitor
 — to eight, through an hourly `logrotate`
-([`runbooks.md`](runbooks.md) §7). An hourly timer there copies the backend's erasure-journal lines
-into a host file per day under the same thirty days (`scripts/ops/export_journal.sh`), since a
-restore reads them after the stream holding them is gone.
+([`runbooks.md`](runbooks.md) §7).
 
 **Every service drops every capability and runs under `no-new-privileges:true`, and `nginx` alone
 adds any back**: four, each one its master, starting as root, fails to start without.
@@ -117,8 +115,8 @@ that serves the site and stops when it stops. A pass runs each job in turn: the 
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`), the account sweep
 (`fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`), the pupils' deletion
 (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`), the fixture confirmations
-(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
-(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runGrantsReconciliation`). Then the
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the handover pass
+(`fl_frontend/src/features/berechtigungen/sweep.ts :: runHandoverPass`). Then the
 Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms

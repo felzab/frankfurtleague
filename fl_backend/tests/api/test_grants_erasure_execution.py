@@ -18,7 +18,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.grants.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
-from app.api.grants.schemas import FLGrantSnapshot
 from app.api.grants.services import compose_notice
 from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLGrantData
@@ -26,7 +25,6 @@ from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.recording import ERASED_ACTOR_MARKER
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, bewerbung_document, kontakte_document, registrierung_document, saison_document
 from tests.whole_database import where_held
@@ -41,9 +39,9 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 QUEUED = datetime(2026, 3, 31, 9, 0, tzinfo=UTC)
 TODAY = "2026-04-01"
 RUNNING = "2026"
-STANDING = compose_barred_until_saison_id(governing_saison_id=RUNNING)
+STANDING = compose_barred_until_saison_id(running_saison_id=RUNNING)
 
-# The person erased, an owner. Distinctive, so the whole-database scan finding it is no coincidence.
+# The person erased. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
 # Her mailbox as a paste, or an actor stored before the fold, typed it: the fold claims it.
 ERIKA_TYPED = "Erika.Zwirbelmoos@FrankfurtLeague.de"
@@ -55,11 +53,10 @@ LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
 # the two, and a read asking the stored spelling alone misses it.
 ERIKA_PUNYCODE = "erika@xn--mller-kva.de"
 ERIKA_PUNYCODE_PASTED = f"Erika@XN--MLLER-KVA.DE{chr(0xA0)}"
-# Another `owner`, erasing her as the administrator's own route will.
+# The owner, erasing her as the administrator's own route will.
 DORA = "dora.inhaberin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
 CLARA = "clara.admin@frankfurtleague.de"
-BARRED = "gesperrt@beispiel.de"
 
 ERIKA_ID = ObjectId("6890a1b2c3d4e5f607a10001")
 # A second row of hers in a spelling no request matches: a dead grant still holds the address.
@@ -68,12 +65,10 @@ DORA_ID = ObjectId("6890a1b2c3d4e5f607a10003")
 BERND_ID = ObjectId("6890a1b2c3d4e5f607a10004")
 CLARA_ID = ObjectId("6890a1b2c3d4e5f607a10005")
 NAHE_ID = ObjectId("6890a1b2c3d4e5f607a10006")
-GESPERRT_ID = ObjectId("6890a1b2c3d4e5f607a10007")
 
 # The notices still queued when she is erased, one per way a notice can name her or not.
 NAMING_HER_GRANT = ObjectId("6890a1b2c3d4e5f607a20001")
 MADE_BY_HER = ObjectId("6890a1b2c3d4e5f607a20002")
-A_BARRED_GRANT_BY_HER = ObjectId("6890a1b2c3d4e5f607a20003")
 NOT_HERS = ObjectId("6890a1b2c3d4e5f607a20004")
 # Made by another mailbox at her local part, which the queued notices' read reaches and the fold refuses.
 BY_HER_LOCAL_PART_ELSEWHERE = ObjectId("6890a1b2c3d4e5f607a20005")
@@ -95,31 +90,20 @@ def grant_row(grant_id: ObjectId, address: str, admin_tier: str, granted_by: str
         "address": address,
         "admin_tier": admin_tier,
         "granted_by": granted_by,
-        "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
     }
 
 
-def announced(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
-    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "announced_at": datetime(2026, 1, 2, tzinfo=UTC)}
-
-
-def notice(
-    row_id: ObjectId, grant_id: ObjectId, kind: Any, current: str | None, before: str | None, by: str, *, barred: frozenset[str] = frozenset()
-) -> dict[str, Any]:
-    def snapshot(address: str | None) -> FLGrantSnapshot | None:
-        return None if address is None else FLGrantSnapshot(address=address, admin_tier="administration")
-
-    notice = compose_notice(
-        grant_id=grant_id, kind=kind, current=snapshot(current), before=snapshot(before), changed_by=by, now=QUEUED, barred=barred
-    )
+def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | None, by: str) -> dict[str, Any]:
+    composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address, changed_by=by, now=QUEUED)
 
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
     return {
         "_id": row_id,
-        "key": f"grant/{grant_id}/{kind}/anwendung/{QUEUED.isoformat()}/{DORA}",
+        "key": f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA}",
         "kind": "grant",
         "to": DORA,
-        "data": FLGrantData.model_validate(notice.data).model_dump(mode="json"),
+        "data": FLGrantData.model_validate(composed.data).model_dump(mode="json"),
         "secret": None,
         "reference": None,
         "link": None,
@@ -166,7 +150,7 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(saison_document(RUNNING, "active"))
     await database[Collection.GRANTS].insert_many(
         [
-            grant_row(ERIKA_ID, ERIKA, "owner", "PLAYGROUND"),
+            grant_row(ERIKA_ID, ERIKA, "administration", "PLAYGROUND"),
             grant_row(ERIKA_DEAD_ID, ERIKA_TYPED, "administration", "PLAYGROUND"),
             grant_row(DORA_ID, DORA, "owner", "PLAYGROUND"),
             grant_row(BERND_ID, BERND, "administration", ERIKA),
@@ -174,20 +158,12 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
             grant_row(NAHE_ID, NAHE, "administration", DORA),
         ]
     )
-    await database[Collection.GRANTS_ANNOUNCED].insert_many(
-        [
-            announced(ERIKA_ID, ERIKA, "owner"),
-            announced(DORA_ID, DORA, "owner"),
-            *(announced(grant_id, address, "administration") for grant_id, address in ((BERND_ID, BERND), (CLARA_ID, CLARA), (NAHE_ID, NAHE))),
-        ]
-    )
     await database[Collection.OUTBOX].insert_many(
         [
-            notice(NAMING_HER_GRANT, ERIKA_ID, "changed", ERIKA, ERIKA, DORA),
-            notice(MADE_BY_HER, BERND_ID, "granted", BERND, None, ERIKA_TYPED),
-            notice(A_BARRED_GRANT_BY_HER, GESPERRT_ID, "revoked", None, BARRED, ERIKA, barred=frozenset({BARRED})),
-            notice(NOT_HERS, CLARA_ID, "granted", CLARA, None, DORA),
-            notice(BY_HER_LOCAL_PART_ELSEWHERE, ELSEWHERE_GRANTED_ID, "granted", "dritte.admin@frankfurtleague.de", None, ERIKA_ELSEWHERE),
+            notice(NAMING_HER_GRANT, ERIKA_ID, "handover", ERIKA, DORA),
+            notice(MADE_BY_HER, BERND_ID, "granted", BERND, ERIKA_TYPED),
+            notice(NOT_HERS, CLARA_ID, "granted", CLARA, DORA),
+            notice(BY_HER_LOCAL_PART_ELSEWHERE, ELSEWHERE_GRANTED_ID, "granted", "dritte.admin@frankfurtleague.de", ERIKA_ELSEWHERE),
         ]
     )
     await database[Collection.BAN_LIST].insert_many(
@@ -237,13 +213,11 @@ async def erase(
     async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
         return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
-            grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
             outbox_collection=database[Collection.OUTBOX],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             invitations_collection=database[Collection.INVITATIONS],
             ban_list_collection=database[Collection.BAN_LIST],
-            ban_list=ban_list(database),
             identifier=identifier,
             changed_by=changed_by,
             now=NOW,
@@ -266,31 +240,23 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
         data = row["data"]
         notices.setdefault(
             row["key"].rpartition("/")[0],
-            {
-                "kind": data["change"],
-                "author": data["author"],
-                "current": data["current"],
-                "before": data["before"],
-                "changed_by": data["changed_by"],
-                "withheld": data["withheld"],
-            },
+            {"change": data["change"], "stage": data["stage"], "address": data["address"], "changed_by": data["changed_by"]},
         )
 
     return list(notices.values())
 
 
 class TestHerGrantsGo:
-    def test_every_grant_her_address_holds_goes_her_owner_grant_and_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ErasedGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
+    def test_every_grant_her_address_holds_goes_a_dead_spelling_included(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ErasedGrantsAndAuthorship, set[ObjectId]]:
             result = await erase(database, client)
 
-            return result, await ids_in(database, Collection.GRANTS), await ids_in(database, Collection.GRANTS_ANNOUNCED)
+            return result, await ids_in(database, Collection.GRANTS)
 
-        result, grants, records = on_a_league(mongo_replica_set_url, body)
+        result, grants = on_a_league(mongo_replica_set_url, body)
 
         assert grants == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
-        assert records == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
-        assert (result.removed_grants, result.removed_announced) == (2, 1)
+        assert result.removed_grants == 2
 
     def test_a_grant_pasted_unfolded_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
         """Catches a read asking the stored spelling alone, which leaves this grant and its authorship standing."""
@@ -316,22 +282,13 @@ class TestHerGrantsGo:
 class TestTheNotices:
     """No notice still queued names her, and every administrator is told her grant ended."""
 
-    def test_her_grants_end_is_queued_already_withheld_and_attributed_to_who_geloescht_her(self, mongo_replica_set_url: str):
+    def test_her_grants_end_is_queued_with_no_address_and_attributed_to_who_geloescht_her(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
             await erase(database, client)
 
             return await queued_for(database, ERIKA_ID)
 
-        assert on_a_league(mongo_replica_set_url, body) == [
-            {
-                "kind": "revoked",
-                "author": "anwendung",
-                "current": None,
-                "before": {"address": None, "admin_tier": "owner"},
-                "changed_by": DORA,
-                "withheld": "erased",
-            }
-        ]
+        assert on_a_league(mongo_replica_set_url, body) == [{"change": "revoked", "stage": "completed", "address": None, "changed_by": DORA}]
 
     def test_geloescht_on_her_own_request_her_grants_end_names_its_maker_by_the_marker(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
@@ -341,49 +298,14 @@ class TestTheNotices:
 
         assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER]
 
-    def test_a_database_edit_to_her_grant_nobody_was_told_of_goes_out_first_withheld_too(self, mongo_replica_set_url: str):
-        """A promotion pasted and never announced: dropped, the holders never learn she held the tier."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[Any, ...]]:
-            await database[Collection.GRANTS_ANNOUNCED].update_one({"_id": ERIKA_ID}, {"$set": {"admin_tier": "administration"}})
-            await erase(database, client)
-
-            return [
-                (row["kind"], row["author"], row["current"], row["before"], row["withheld"]) for row in await queued_for(database, ERIKA_ID)
-            ]
-
-        withheld = {"address": None, "admin_tier": "owner"}
-        assert on_a_league(mongo_replica_set_url, body) == [
-            ("changed", "datenbank", withheld, {"address": None, "admin_tier": "administration"}, "erased"),
-            ("revoked", "anwendung", None, withheld, "erased"),
-        ]
-
-    def test_a_record_of_her_kept_under_a_grant_since_repointed_goes_and_that_grant_stands(self, mongo_replica_set_url: str):
-        """Repointed in the database and not yet compared: the record is hers, the grant somebody else's."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId], list[tuple[Any, ...]]]:
-            await database[Collection.GRANTS_ANNOUNCED].update_one({"_id": NAHE_ID}, {"$set": {"address": ERIKA}})
-            await erase(database, client)
-            queued = [(row["kind"], row["author"], row["before"], row["withheld"]) for row in await queued_for(database, NAHE_ID)]
-
-            return await ids_in(database, Collection.GRANTS), await ids_in(database, Collection.GRANTS_ANNOUNCED), queued
-
-        grants, records, queued = on_a_league(mongo_replica_set_url, body)
-
-        assert NAHE_ID in grants
-        assert NAHE_ID not in records
-        assert queued == [("revoked", "datenbank", {"address": None, "admin_tier": "administration"}, "erased")]
-
-    def test_every_notice_queued_before_her_loeschung_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
-        """Her grant's address withheld under its own reason; her as the actor, the marker; a ban's reason kept beside it."""
-
-        sites = ("current", "before", "changed_by", "withheld")
+    def test_every_notice_queued_before_her_erasure_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
+        """Her address emptied, her as the actor given the marker."""
 
         async def stored(database: AsyncDatabase) -> dict[ObjectId, tuple[Any, ...]]:
             return {
-                row["_id"]: tuple(row["data"][site] for site in sites)
+                row["_id"]: (row["data"]["address"], row["data"]["changed_by"])
                 async for row in database[Collection.OUTBOX].find(
-                    {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, A_BARRED_GRANT_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}}
+                    {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}}
                 )
             }
 
@@ -397,19 +319,12 @@ class TestTheNotices:
 
         before, after, withheld = on_a_league(mongo_replica_set_url, body)
 
-        bernd = {"address": BERND, "admin_tier": "administration"}
-        assert after[NAMING_HER_GRANT] == (
-            {"address": None, "admin_tier": "administration"},
-            {"address": None, "admin_tier": "administration"},
-            DORA,
-            "erased",
-        )
-        assert after[MADE_BY_HER] == (bernd, None, ERASED_ACTOR_MARKER, None)
-        assert after[A_BARRED_GRANT_BY_HER] == (None, {"address": None, "admin_tier": "administration"}, ERASED_ACTOR_MARKER, "barred")
+        assert after[NAMING_HER_GRANT] == (None, DORA)
+        assert after[MADE_BY_HER] == (BERND, ERASED_ACTOR_MARKER)
         assert after[NOT_HERS] == before[NOT_HERS]
         assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
         # The notice made at her local part elsewhere is counted nowhere: the fold drops it before any write is sent.
-        assert withheld == 3
+        assert withheld == 2
 
 
 class TestTheRecordsSheMade:

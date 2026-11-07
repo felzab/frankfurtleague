@@ -49,9 +49,8 @@ from app.shared.schemas.bounds import SPIEL_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document
+from tests.documents import kontaktperson_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
@@ -423,7 +422,6 @@ async def a_pass(
         saisons_collection=database[Collection.SAISONS],
         schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -499,7 +497,6 @@ async def press_answer(database: AsyncDatabase, client: AsyncMongoClient, token:
         spiele_collection=database[Collection.SPIELE],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spieltage_collection=database[Collection.SPIELTAGE],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
     )
@@ -1042,11 +1039,9 @@ class TestAReplacedClubsRowsClose:
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                action_log_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db=client,
                 today=TODAY,
-                germany_now=NOW,
             )
             return await sweep(database, client), await rows(database)
 
@@ -1265,38 +1260,6 @@ class TestEveryMailedLinkLivesToTheDeadline:
         assert alpha["deadline"] == DEADLINE
 
 
-class TestABarredSeatIsMintedNothingAndStaysDue:
-    """Nothing of a ban is stored, so the lift is what mints the seat."""
-
-    def test_the_seat_is_minted_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
-        barred = address(ALPHA, "stellvertretung")
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ban = ban_document(barred, until=SAISON_ID)
-            await database[Collection.BAN_LIST].insert_one(ban)
-            first = await sweep(database, client)
-            after_first = row_of(await rows(database), team_id=ALPHA)
-            second = await sweep(database, client)
-            after_second = row_of(await rows(database), team_id=ALPHA)
-            await database[Collection.BAN_LIST].delete_one({"_id": ban["_id"]})
-            lifted = await sweep(database, client)
-
-            return first, after_first, second, after_second, lifted, row_of(await rows(database), team_id=ALPHA)
-
-        first, after_first, second, after_second, lifted, after_lift = on_a_league(
-            mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)]
-        )
-
-        alpha_links = [link for request in first.anfragen if request.side == "team1" for link in request.links]
-        assert sorted(link.address for link in alpha_links) == sorted([address(ALPHA, "trainer"), address(ALPHA, "ansprechperson")])
-        assert after_first["kontakte"]["stellvertretung"] is None
-        assert (second.anfragen, after_second) == ([], after_first)
-        assert [(request.spielbestaetigung_id, [link.address for link in request.links]) for request in lifted.anfragen] == [
-            (after_first["_id"], [barred])
-        ]
-        assert len(after_lift["kontakte"]["stellvertretung"]["token_hashes"]) == 1
-
-
 class TestAMirroredPairIsOneLink:
     def test_a_person_on_two_seats_gets_one_link_naming_both(self, mongo_replica_set_url: str):
         mirrored = kontakte(ALPHA, ansprechperson=kontaktperson_document("Tamsin"), trainer_is_also="ansprechperson")
@@ -1368,12 +1331,11 @@ def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]
     ]
 
 
-# Three commands a row -- the update, its read-back, its log row. A fresh row costs less, one insert taking its share's
-# rows; the bound counts it at three.
-ROUND_TRIPS_A_ROW = 3
+# One command a row, the update. A fresh row costs less, one insert taking its share's rows; the bound counts it at one.
+ROUND_TRIPS_A_ROW = 1
 
 # The worst call's commands beside its rows.
-SWEEP_OTHER_COMMANDS = 32
+SWEEP_OTHER_COMMANDS = 28
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -1404,7 +1366,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                 {"spiel_id": OTHER_SPIEL, "party.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}}
             )
             await database[Collection.SPIELE].insert_one(fresh)
-            await database[Collection.ACTION_LOG].delete_many({})
 
             return await commands_by_name(
                 mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client, today=REMINDER)
@@ -1445,7 +1406,7 @@ class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
     def test_the_new_trainer_is_asked_and_the_old_one_holds_no_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
-            # Emptied as a ban or an earlier void leaves an entry, for the mint to fill.
+            # Emptied as an earlier void leaves an entry, for the mint to fill.
             await database[Collection.SPIELBESTAETIGUNGEN].update_one({"party.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
 
             async def hand_the_trainer_on() -> None:

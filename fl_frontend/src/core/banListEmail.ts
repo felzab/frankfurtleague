@@ -1,65 +1,31 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import { BRAND_NAME, mailOrigin, OBJECTION } from "./emailShell";
+import { COPY } from "./copy";
+import { mailOrigin, OBJECTION } from "./emailShell";
+import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail } from "./emailShell";
 import type { FLBanData } from "./generated/client/types";
 import type { MailOrigin } from "./mailKinds";
 
-/**
- * What is kept, named because the reader cannot be shown it, the account only while a record holds the
- * address (`docs/datenschutz.md :: 6`). It names no grant: a barred address holds none
- * (`ban_list_admin`, `grant_barred`).
- */
-const GESPEICHERT_SAETZE = [
-  "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
-  "Deine Adresse selbst steht dort nicht.",
-  "Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.",
-] as const;
-
-// Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
-// application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
-const EINLEITUNG = [
-  `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt.`,
-  "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
-] as const;
+const WORDS = SERVER_COPY.mail.ban;
 
 export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
-    subjectLine: "Deine E-Mail-Adresse ist gesperrt",
+    subjectLine: WORDS.subject,
     origin: mailOrigin(origin),
     firstName: "",
-    paragraphs: [
-      [
-        ...EINLEITUNG,
-        // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held.
-        "Bestehende Anmeldungen mit dieser Adresse werden beendet.",
-        // INCLUSIVE, where a bare „bis“ is not: a reader told the ban ends „bis 2031“ reads the whole of that season as free.
-        [{ strong: `Die Sperre gilt bis einschließlich der Saison ${barred_until_saison_id}.` }],
-        // What the form's hint promises the mail explains, so the two say one thing.
-        "Danach endet die Sperre von selbst. Du musst dafür nichts tun.",
-      ],
-      [`Angegebener Grund: ${ban_reason}`],
-      GESPEICHERT_SAETZE,
-      // The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
-      // request is the address holder's.
-      [
-        ["Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ", { address: KONTAKT_EMAIL }, "."],
-        "Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.",
-      ],
-      // A barred address's confirmation link shows the ban's sentence and nothing else, so a contact person
-      // withdrawing a consent that link took has only this mail to learn where it now goes.
-      [["Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ", { address: KONTAKT_EMAIL }, " vor."]],
-      // Art. 6 (1) (f), named because the mail is the ONLY record this reader ever gets.
-      [
-        "Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).",
-      ],
-      // Art. 21 (4) asks that the right to object be brought to the reader's attention EXPLICITLY and
-      // SEPARATELY at the first communication, which this message is: its own paragraph, the last, in the shell's
-      // wording for every first contact.
-      [OBJECTION, "Dort beantworten wir auch Fragen zur Sperre."],
+    paragraphs: [[WORDS.lead, WORDS.effect, WORDS.ends(barred_until_saison_id)]],
+    block: { title: COPY.admin.banList.object, facts: [{ label: COPY.admin.spiel.reason, value: ban_reason }] },
+    afterBlock: [
+      // Art. 13: what is kept and on what basis, named because this mail is the only record its reader ever gets.
+      [WORDS.stored, WORDS.account, WORDS.basis],
+      [[WORDS.rights.before, { address: KONTAKT_EMAIL }, WORDS.rights.after]],
+      // Art. 21 (4) asks that the right to object be brought to the reader's attention explicitly and separately at
+      // the first communication, which this message is: its own paragraph, the last.
+      [OBJECTION],
     ],
   };
 }

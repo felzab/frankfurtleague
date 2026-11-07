@@ -137,9 +137,7 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
     )
 
 
-async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
-    """`owner` is the `owner` grant's address as stored, or `None` for a league whose grants hold no owner."""
-
+async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -180,18 +178,12 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
         [ban_document(BARRED_SCHIEDSRICHTER, until=ACTIVE_SAISON), ban_document(BARRED, until=ACTIVE_SAISON)]
     )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
-    await database[Collection.GRANTS].insert_one(
-        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
+    await database[Collection.GRANTS].insert_many(
+        [
+            {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "effective_from": granted},
+            {"_id": ObjectId(), "address": OWNER, "admin_tier": "owner", "granted_by": "PLAYGROUND", "effective_from": granted},
+        ]
     )
-    # The address changed in place in the database, which the comparison has not seen: the grant is in
-    # effect for nobody until it does, and its account still stays.
-    await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "address": "verena.vorher@schule.de", "admin_tier": "administration", "announced_at": granted}
-    )
-    if owner is not None:
-        await database[Collection.GRANTS].insert_one(
-            {"_id": ObjectId(), "address": owner, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": granted}
-        )
 
 
 @functools.cache
@@ -215,7 +207,7 @@ def answered(url: str) -> tuple[int, Mapping[str, Any]]:
 
     async def _run() -> tuple[int, Mapping[str, Any]]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database, owner=OWNER)
+            await _seed(database)
 
             return await _ask(url, ASKED)
 

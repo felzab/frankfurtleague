@@ -5,40 +5,31 @@ from typing import Any, Final
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.action_log.crud import redact_images_in_session
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     AnsetzungState,
-    SeatVoid,
     austritt_notices_of,
     build_austritt_spiele_filter,
     build_holding_filter,
-    build_referee_images_filter,
     build_referee_rows_filter,
     build_season_entries_filter,
-    build_season_images_filter,
     build_season_reasons_filter,
-    build_seat_entry_images_filter,
-    referee_image_edits,
-    season_end_image_edits,
-    seat_entry_image_edits,
 )
 from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
-from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    erase_many_from_db,
+    delete_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
     pull_whole_from_db,
-    redact_log_rows_in_db,
 )
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -79,17 +70,8 @@ async def pull_named_spiele(
     )
 
 
-def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
-    """The clubs' season rows as a link reads them: the exit the close judges, the name the view states, no seat holder's name."""
-
-    return {
-        "_id": 0,
-        "team_id": 1,
-        "austritt.date": 1,
-        "name": 1,
-        # The other club's row and every other seat load no address.
-        f"kontakte.{seat}.email": {"$cond": [{"$eq": ["$team_id", team_id]}, f"$kontakte.{seat}.email", "$$REMOVE"]},
-    }
+# The clubs' season rows as a link reads them: the exit the close judges, the name the view states, no seat holder at all.
+VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1, "name": 1}
 
 
 async def pull_ansetzung_state(
@@ -253,71 +235,49 @@ async def pull_spielorte_public(
     }
 
 
-# --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
-
-
-async def redact_seat_entries_in_images(
-    *,
-    action_log_collection: AsyncCollection,
-    voids: Sequence[SeatVoid | None],
-    stamp: str,
-    # REQUIRED for `redact_images_in_session`'s reason.
-    session: AsyncClientSession,
-) -> int:
-    """These seats' link entries out of every log image of their teams' rows, as the void took them off the rows.
-
-    A seat handed on keeps its images: only a person's leaving owes them (`build_clearing_update`'s rule for the season row).
-    """
-
-    voided = [void for void in voids if void is not None]
-    if not voided:
-        return 0
-
-    return await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_seat_entry_images_filter(voided),
-        judge=lambda image: seat_entry_image_edits(image, voided),
-        stamp=stamp,
-        session=session,
-    )
+# --- The season's end: what a contact's seats leave on its fixtures.
 
 
 async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     saison_id: str,
-    stamp: str,
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry and reason left on the season's rows and their images.
+    """At the season's end, every link entry and reason left on the season's rows, answering how many writes that took.
 
     A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
-    record.
+    record. A row losing both an entry and a reason counts twice: the two filters match different rows, a null `answer`
+    refusing the one update they would share.
     """
 
     # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.
-    await patch_many_in_db(
+    entries = await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_entries_filter(saison_id),
         update={"$set": {f"kontakte.{seat}": None for seat in KONTAKT_ROLLEN}},
         session=session,
     )
-    await patch_many_in_db(
+    reasons = await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_reasons_filter(saison_id),
         update={"$set": {"answer.reason": None}},
         session=session,
     )
 
-    return await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_season_images_filter(saison_id),
-        judge=lambda image: season_end_image_edits(image, saison_id),
-        stamp=stamp,
-        session=session,
-    )
+    stripped = entries.modified_count + reasons.modified_count
+    if stripped:
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="retention.spielbestaetigungen",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=stripped,
+            session=session,
+        )
+
+    return stripped
 
 
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
@@ -326,14 +286,11 @@ async def strip_the_seasons_confirmations(
 async def erase_referee_confirmations_in_session(
     *,
     spielbestaetigungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[CustomObjectId],
-    # The caller's, so every redaction of one erasure carries one instant.
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """Remove every confirmation row these referees are the party of with its log images, and repoint any other image of theirs at the ghost.
+    """Remove every confirmation row these referees are the party of.
 
     Run ahead of the referee's own step, which removes the document the rows name.
     """
@@ -348,35 +305,17 @@ async def erase_referee_confirmations_in_session(
         session=session,
     )
 
-    erased_count = 0
-    if rows:
-        # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
-        # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
-        removed = await erase_many_from_db(
-            collection=spielbestaetigungen_collection,
-            db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
-            session=session,
-        )
-        erased_count = removed.deleted_count
-        # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
-        await redact_log_rows_in_db(
-            action_log_collection=action_log_collection,
-            targets=[(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])],
-            at=stamp,
-            session=session,
-        )
+    if not rows:
+        return 0
 
-    # Then every other image naming them, which only their part of leaves: an undraw's array holds rows long gone
-    # beside other parties', the referee's id and reason among them.
-    await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_referee_images_filter(schiedsrichter_ids),
-        judge=lambda image: referee_image_edits(image, schiedsrichter_ids),
-        stamp=stamp,
+    # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
+    removed = await delete_many_from_db(
+        collection=spielbestaetigungen_collection,
+        db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
         session=session,
     )
 
-    return erased_count
+    return removed.deleted_count
 
 
 # --- The PASS's mint.

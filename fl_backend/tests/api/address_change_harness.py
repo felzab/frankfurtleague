@@ -6,7 +6,6 @@ what it changes: the address, the instant, the actor.
 """
 
 import inspect
-import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -23,15 +22,13 @@ from app.api.account.person_router import get_address_change, post_address_chang
 from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.address_change.admin_router import (
     delete_address_change,
-    get_address_change_admin_view,
+    get_address_changes,
     invite_address_change,
     post_address_change_admin,
-    post_address_change_approval,
 )
 from app.api.address_change.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.address_change.schemas import (
     FLAddressChangeAdminPayload,
-    FLAddressChangeAdminViewPayload,
     FLAddressChangeAnswerPayload,
     FLAddressChangeSweepParams,
 )
@@ -39,10 +36,10 @@ from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.recording import actor_var
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
-from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import claimable
@@ -54,9 +51,8 @@ SAISON_ID = "2026"
 # under a case reading it back. Every seeded day moves with it.
 TODAY = "2126-04-01"
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-# Past a step's 24 hours, past a grant's week of approval, and past a confirmed change's waiting time.
+# Past a step's 24 hours, and past a confirmed change's waiting time.
 AFTER_THE_DEADLINE = NOW + timedelta(hours=25)
-AFTER_THE_WEEK = NOW + timedelta(days=7, hours=1)
 AFTER_THE_WAIT = NOW + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS, hours=2)
 
 # One person holding a pupil row, a confirmed referee row, seats and registrations, each stored folded; and a spelling they may type.
@@ -262,8 +258,6 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
         elif name == "records":
             supplied[name] = record_collections(database)
-        elif name == "ban_list":
-            supplied[name] = ban_list(database)
         elif name == "db":
             supplied[name] = client
         elif name == "config":
@@ -272,23 +266,26 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = NOW
         elif name == "operator":
             supplied[name] = ADMIN
-        elif name == "auth_time":
-            supplied[name] = int(time.time()) - 60
         elif name == "identifier":
             supplied[name] = EMAIL
         elif name == "actor":
             # An administrator's handler names its operator beside its actor, and a person's names none.
             supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
-    if "session" in inspect.signature(handler).parameters and "session" not in given:
-        # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
-        async def in_a_snapshot() -> Any:
-            async with client.start_session(snapshot=True) as session:
-                return await handler(**supplied, session=session)
+    async def as_its_route_binds_it() -> Any:
+        token = actor_var.set(supplied["operator"]) if "operator" in supplied else None
+        try:
+            if "session" in parameters and "session" not in given:
+                # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
+                async with client.start_session(snapshot=True) as session:
+                    return await handler(**supplied, session=session)
 
-        return in_a_snapshot()
+            return await handler(**supplied)
+        finally:
+            if token is not None:
+                actor_var.reset(token)
 
-    return handler(**supplied)
+    return as_its_route_binds_it()
 
 
 def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EMAIL, **given: Any) -> Awaitable[Any]:
@@ -321,7 +318,11 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     mails = []
     while (
         claim := await post_handout(
-            outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
+            outbox_collection=database[Collection.OUTBOX],
+            ban_list_collection=database[Collection.BAN_LIST],
+            db=database,
+            db_client=client,
+            now=claimable(now),
         )
     ).mails:
         mails += claim.mails
@@ -376,11 +377,6 @@ async def administrator_starts(
     )
 
 
-def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN, **key: Any) -> Awaitable[Any]:
-    payload = FLAddressChangeAdminViewPayload.model_validate(key)
-    return call(get_address_change_admin_view, database, client, view_data=payload, operator=operator)
-
-
 async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
     return await handed_out(
         database,
@@ -390,12 +386,12 @@ async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_chan
     )
 
 
+def running(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN) -> Awaitable[Any]:
+    return call(get_address_changes, database, client, operator=operator)
+
+
 def discard(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Awaitable[Any]:
     return call(delete_address_change, database, client, address_change_id=address_change_id, **given)
-
-
-def approve(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Awaitable[Any]:
-    return call(post_address_change_approval, database, client, address_change_id=address_change_id, **given)
 
 
 def _handed(token: str | None) -> str:

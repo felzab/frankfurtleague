@@ -57,7 +57,7 @@ registerAuthDoubles({
 const store = memoryStore(STORE);
 
 /** One record set the league holds, and the gate's `account` for it, as the backend answers both reads. */
-type Subject = Required<LookupFixture>;
+type Subject = Required<Omit<LookupFixture, "barred">>;
 
 const SPIELER = { spieler_id: "b".repeat(24) };
 
@@ -122,7 +122,12 @@ beforeEach(() => {
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("./auth/library.ts");
-const { getAdminSession } = await import("./auth/guards.ts");
+const { judgeAdminRequest } = await import("./auth/guards.ts");
+/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
+const getAdminSession = async () => {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
+};
 const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
@@ -300,9 +305,7 @@ describe("who the seam answers for", () => {
     assert.ok(answer);
     expect(Object.keys(answer.records).sort()).toStrictEqual([
       "admin_tier",
-      "barred",
       "granted_since",
-      "owner_since",
       "schiedsrichter",
       "seats",
       "spieler",
@@ -327,22 +330,6 @@ describe("who the seam answers for", () => {
 
       expect((await getSubjectSession())?.records.unconfirmed).toBe(unconfirmed);
     }
-  });
-
-  /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
-     the guard then answers it as a visitor, and the sign-in gate refuses it the next sign-in. */
-  it("answers a barred subject no session, and records no actor for it", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [SPIELER], barred: true }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
-
-    const { answer, actor } = await guardInScope();
-
-    expect(answer).toBe(null);
-    expect(actor).toBe(undefined);
   });
 
   /* The case the seam exists for. The code is created in process rather than mailed, whether one

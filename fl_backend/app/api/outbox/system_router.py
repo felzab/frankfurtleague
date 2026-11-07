@@ -9,7 +9,7 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.ban_list.lookup import BanListLookup, barred_addresses
+from app.api.ban_list.crud import read_barred_addresses
 from app.api.bewerbungen.services import compose_chase_update, reopened_chases
 from app.api.outbox.schemas import (
     FLOutboxEventPayload,
@@ -35,15 +35,15 @@ from app.api.outbox.services import (
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
-from app.core.dependencies import DB, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
+from app.core.security import verify_access_system
 from app.core.transactions import transaction_session
 from app.shared.tokens import mint_token
 
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/outbox",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
+    dependencies=[Depends(verify_access_system)],
 )
 
 
@@ -80,7 +80,7 @@ def _link_update(link: Mapping[str, Any], token_hash: str) -> dict[str, Any]:
 @router.post("/handout", response_model=FLOutboxHandoutResponse, summary="Claim the mails owed now and hand them out")
 async def post_handout(
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
+    ban_list_collection: BanListReadCollection,
     db: DB,
     db_client: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -89,8 +89,8 @@ async def post_handout(
     Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
 
     The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
-    is given up rather than handed out, and counted in `abandoned`. A mail to an address a standing ban holds is stopped
-    as `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
+    is given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as
+    `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
     the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
     holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
     answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every
@@ -126,7 +126,7 @@ async def post_handout(
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
         judged = {str(row["to"]) for row in due if row["kind"] not in UNBARRED}
-        barred = await barred_addresses(ban_list, judged, session=session) if judged else set()
+        barred = await read_barred_addresses(judged, ban_list_collection=ban_list_collection, session=session)
         barred_ids = [row["_id"] for row in due if row["kind"] not in UNBARRED and row["to"] in barred]
         dropped_ids: list[Any] = []
 

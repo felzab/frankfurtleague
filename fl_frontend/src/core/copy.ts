@@ -13,7 +13,15 @@ import {
 import { KONTAKT_ROLLE_LONG_FORM, rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
-import type { FLAddressChangeWay, FLKontaktRolle, FLSchulform, FLSpielerRolle, FLSpielerStufe } from "./generated/client/types";
+import type {
+  FLAction,
+  FLAddressChangeWaitsOn,
+  FLAddressChangeWay,
+  FLKontaktRolle,
+  FLSchulform,
+  FLSpielerRolle,
+  FLSpielerStufe,
+} from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
 
@@ -648,10 +656,8 @@ export const COPY = catalogue({
       /** The step the change waits on lapsed; the hourly pass ends it. */
       lapsed: "Die Änderung ist abgelaufen.",
       /** A grant's move waits on another administrator, who approves it apart from both links. */
-      grantNote: "Eine andere Person aus der Verwaltung muss die Änderung genehmigen.",
       unchanged: "Das ist schon deine E-Mail-Adresse.",
       /** A grant's move nobody but its holder could approve: the last owner's, or the one grant standing. */
-      noApprover: "Niemand kann die Änderung genehmigen.",
       /** The address on file's one act, on its link's page and on its mail's button. */
       stop: "Änderung stoppen",
       /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
@@ -1271,7 +1277,10 @@ export const COPY = catalogue({
     /** Adressänderungen: the running changes and the start's dialog. */
     addressChange: {
       /** A row's chip, by what the change waits on. */
-      waitsOn: { previous_address: "Bisherige offen", new_address: "Neue offen", waiting_period: "Wartezeit" },
+      waitsOn: { previous_address: "Bisherige offen", new_address: "Neue offen", waiting_period: "Wartezeit" } satisfies Record<
+        FLAddressChangeWaitsOn,
+        string
+      >,
       /** A row's way, by who started the change. */
       way: { account: "Im Konto", waiting_period: "Auf Anfrage" } satisfies Record<FLAddressChangeWay, string>,
       /** A row's line while a link is open. */
@@ -1311,7 +1320,7 @@ export const COPY = catalogue({
         "retention.spieler": SPIELER,
         "retention.address_changes": ADDRESS_CHANGES,
         "retention.bans": BANS,
-      },
+      } satisfies Record<Extract<FLAction, `retention.${string}`>, string>,
       /** A row's word, by its stored action. */
       action: {
         "saison.created": "Saison angelegt",
@@ -1378,7 +1387,7 @@ export const COPY = catalogue({
         "retention.spieler": DELETED_BY_PASS,
         "retention.address_changes": DELETED_BY_PASS,
         "retention.bans": DELETED_BY_PASS,
-      },
+      } satisfies Record<FLAction, string>,
     },
   },
 

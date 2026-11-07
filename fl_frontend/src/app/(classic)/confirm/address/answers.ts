@@ -49,7 +49,7 @@ export const answerAddressChange = action({
     }
 
     if (answered.effective) await carryTheAccount();
-    return { ok: true, value: endOf(side, answered.answer, answered.approval_open) };
+    return { ok: true, value: endOf(side, answered.answer, answered.effective_from) };
   },
 });
 
@@ -89,7 +89,7 @@ export const answerByAdminRoute = action({
         return {
           ok: true,
           value: {
-            pressed: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
+            pressed: { answer: "stopped", effective: false, effective_from: null },
           },
         };
       }

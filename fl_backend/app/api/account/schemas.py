@@ -1,10 +1,8 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.address_change.schemas import FLAddressChangeApprovalState
-from app.api.grants.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
-from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString, FLUtcInstant
 from app.shared.schemas.einwilligung import FLEinwilligungState
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (
@@ -112,7 +110,6 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
 class FLAccountAddressChangeOpen(BaseModel):
     """The address's live change as its own account page reads it."""
 
-    # What the approval names, so a tab drawn before a later start approves nothing it never showed.
     id: CustomObjectId
     # Whole where the person typed it on this page; masked where an administrator started the change, which may be a
     # pretext whose target the holder of the address on file must not learn (`app/api/address_change/services.py :: masked_address`).
@@ -121,7 +118,6 @@ class FLAccountAddressChangeOpen(BaseModel):
     waits_on: FLAddressChangeWaitsOn
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
-    approval: FLAddressChangeApprovalState | None
     # Judged as the hourly pass ends one, so the page closes a lapsed step's press without a clock of its own.
     expired: bool
 

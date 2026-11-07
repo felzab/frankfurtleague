@@ -46,7 +46,6 @@ RegistrierungenCollection = Annotated[AsyncCollection, Depends(collection_depend
 
 GrantsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANTS))]
 
-GrantsAnnouncedCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANTS_ANNOUNCED))]
 
 SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
 
@@ -54,7 +53,6 @@ SpielberichteCollection = Annotated[AsyncCollection, Depends(collection_dependen
 
 AddressChangeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 
-GrantApprovalRequestsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANT_APPROVAL_REQUESTS))]
 
 OutboxCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.OUTBOX))]
 
@@ -91,7 +89,6 @@ RegistrierungenReadCollection = Annotated[ReadCollection, Depends(collection_dep
 
 GrantsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.GRANTS))]
 
-GrantsAnnouncedReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.GRANTS_ANNOUNCED))]
 
 SpielbestaetigungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
 
@@ -99,7 +96,6 @@ SpielberichteReadCollection = Annotated[ReadCollection, Depends(collection_depen
 
 AddressChangeReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 
-GrantApprovalRequestsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.GRANT_APPROVAL_REQUESTS))]
 
 OutboxReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.OUTBOX))]
 

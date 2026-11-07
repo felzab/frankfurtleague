@@ -23,15 +23,12 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import PUBLIC_ACTOR_EMAIL
-from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
-from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, minted_confirmations, rules_document, saison_document, saison_team_document, team_document
@@ -149,7 +146,7 @@ SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
+STANDING = compose_barred_until_saison_id(running_saison_id=SAISON_ID)
 
 
 async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
@@ -164,7 +161,6 @@ async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbunge
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
-        ban_list=ban_list(database),
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -180,7 +176,6 @@ async def view(database: AsyncDatabase, token: str) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -375,38 +370,6 @@ class TestWhatTheCreateOwes:
         written, mailed = on_a_league(mongo_replica_set_url, body)
 
         assert written == mailed == {deadline_from_today()}
-
-    def test_no_raw_token_reaches_the_log(self, mongo_replica_set_url: str):
-        """The insert files no image, and the row is searched as text so a token carried in under any key would show."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await submit(database)
-            tokens = [mail.token for mail in await drained(database, database.client)]
-            rows = await database[Collection.ACTION_LOG].find({}).to_list(length=None)
-
-            return tokens, str(rows)
-
-        tokens, rendered = on_a_league(mongo_replica_set_url, body)
-
-        assert tokens and not any(raw is None or raw in rendered for raw in tokens)
-
-
-class TestWhatTheLogRecords:
-    """An insert carries no `before`, so the row says an application arrived and never what was in it."""
-
-    def test_no_submitted_value_reaches_the_row(self, mongo_replica_set_url: str):
-        """Searched as TEXT over the whole row: a field carried in under any key would show up here."""
-
-        async def body(database: AsyncDatabase) -> str:
-            await submit(database)
-            rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
-
-            return str(rows)
-
-        rendered = on_a_league(mongo_replica_set_url, body)
-
-        for submitted in (KONTAKTE["trainer"]["first_name"], KONTAKTE["ansprechperson"]["email"], KONTAKTE["trainer"]["phone"]):
-            assert submitted not in rendered
 
 
 class TestTheSubmissionKey:
@@ -626,7 +589,6 @@ class Submitted:
 
     response: Response
     stored: int
-    log_rows: list[Mapping[str, Any]]
 
 
 @functools.cache
@@ -665,14 +627,13 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
         return Submitted(
             response=response,
             stored=database[Collection.BEWERBUNGEN].count_documents({}),
-            log_rows=list(database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)})),
         )
     finally:
         client.close()
 
 
 class TestASubmissionMadeOverTheWire:
-    """What calling the endpoint function directly cannot prove: the guard, the binder and the log row a real request writes."""
+    """What calling the endpoint function directly cannot prove: the guard a real request meets."""
 
     def test_the_base_key_reaches_the_write(self, mongo_replica_set_url: str):
         """Also the floor under the two refusals below: without it each would pass on a write nothing reaches."""
@@ -690,31 +651,6 @@ class TestASubmissionMadeOverTheWire:
 
         assert submitted.response.status_code == 401
         assert submitted.stored == 0
-
-    def test_the_row_is_attributed_to_the_public_rather_than_to_the_system(self, mongo_replica_set_url: str):
-        """`system` means a write made outside a request; this one was made through one, by nobody."""
-
-        rows = through_the_app(mongo_replica_set_url, payload()).log_rows
-
-        assert len(rows) == 1
-        assert rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
-        assert rows[0]["request"] == {"method": "POST", "path": f"/api/v{API_VERSION}/bewerbungen"}
-
-    def test_a_forged_actor_header_does_not_reach_the_row(self, mongo_replica_set_url: str):
-        """The header `bind_actor` reads is the one this route must ignore, and the row is where that shows.
-
-        Over the wire rather than through the binder alone: what is asserted is the stored
-        `action_log.actor`, which is the record an erasure is audited against.
-        """
-
-        forged_actor = "attacker@example.com"
-        forged = {**BASE_AUTH, ACTOR_HEADER: forged_actor}
-        submitted = through_the_app(mongo_replica_set_url, payload(), headers=forged)
-
-        assert submitted.response.status_code == 201
-        assert len(submitted.log_rows) == 1
-        assert submitted.log_rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
-        assert forged_actor not in str(submitted.log_rows[0])
 
     @pytest.mark.parametrize(
         "key",
@@ -985,18 +921,7 @@ class TestAMailboxPastTheBound:
 
 
 class TestABannedContactAddress:
-    """`bewerbung_address_barred`: an address the ban list holds applies for nobody, on whichever seat it stands."""
-
-    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
-    def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
-        async def body(database: AsyncDatabase) -> tuple[str, int]:
-            await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE[seat]["email"], until=STANDING))
-            with pytest.raises(APIError) as failure:
-                await submit(database)
-
-            return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADDRESS_BARRED, 0)
+    """A form takes a banned address and stores it; the mail does not leave."""
 
     def test_a_replay_after_an_address_was_banned_owes_nothing_and_the_banned_mail_is_held(self, mongo_replica_set_url: str):
         """The replay answers the stored application; the ban is the drain's to apply, to the mail the first press owed."""

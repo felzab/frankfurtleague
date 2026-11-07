@@ -91,7 +91,7 @@ class FLRegistrierungBestaetigungRecord(FLConfirmation):
 
 
 class FLRegistrierungRecord(_RegistrierungStored):
-    """One registration as `registrierungen` stores it: its decision before any decider is withheld, and what no read serves."""
+    """One registration as `registrierungen` stores it, with what no read serves."""
 
     confirmation: FLRegistrierungBestaetigungRecord | None
     decision: FLRegistrierungEntscheidung | None
@@ -255,7 +255,6 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     erased_unconfirmed: int
     erased_without_decision: int
     erased_declined: int
-    redacted_action_log: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     failed: int
 

@@ -16,14 +16,11 @@ from app.api.spieler.services import (
     find_squad_capacity_refusal,
     find_squad_rolle_refusal,
 )
-from app.core.collections import Collection
 from app.core.crud import (
-    aggregate_many_from_db,
     anchor_in_db,
+    delete_many_from_db,
     ensure_one_in_db,
-    erase_many_from_db,
     pull_one_from_db,
-    redact_log_rows_in_db,
     refuse,
 )
 from app.core.readonly import ReadCollection
@@ -155,7 +152,6 @@ async def ensure_ghost_spieler(
 class PersonErased(NamedTuple):
     spieler: int
     saison_spieler: int
-    redacted_action_log: int
 
 
 async def erase_person_in_session(
@@ -163,14 +159,11 @@ async def erase_person_in_session(
     spieler_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     spieler_id: CustomObjectId,
-    # The caller's, so several erasures in one transaction redact under one instant.
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonErased:
-    """Repoint the person's report entries at the sentinel, remove the person and their squad rows, then redact the log.
+    """Repoint the person's report entries at the sentinel, and remove the person and their squad rows.
 
     Whether they may be erased is the caller's to judge; the sentinel must stand already
     (`ensure_ghost_spieler`).
@@ -184,28 +177,9 @@ async def erase_person_in_session(
     # entry left naming the id names a row nothing holds.
     await repoint_pupil_entries_in_session(spielberichte_collection=spielberichte_collection, spieler_id=spieler_id, session=session)
 
-    # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
-    # nothing can recover once the row is gone, so a capped read would leave the rows it dropped
-    # holding this person's values with no way left to find them.
-    squad_rows = await aggregate_many_from_db(
-        collection=saison_spieler_collection,
-        pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"_id": 1}}],
-        session=session,
-    )
-
     # The squad rows first: the public read starts from them and drops a row whose person its `$lookup` cannot
     # find, so a row left behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-    erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-    erased_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+    erased_rows = await delete_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
+    erased_person = await delete_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 
-    # Last, and it passes over the two rows the removals above just recorded: those carry a
-    # filter and a count and no `document_id`, so the erasure stays legible as an action.
-    redacted = await redact_log_rows_in_db(
-        action_log_collection=action_log_collection,
-        # The squad branch is empty where the person held no row, which matches nothing.
-        targets=[(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])],
-        at=stamp,
-        session=session,
-    )
-
-    return PersonErased(spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count, redacted_action_log=redacted)
+    return PersonErased(spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count)

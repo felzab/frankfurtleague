@@ -11,12 +11,12 @@ import { rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 import type { Mail, Sentence } from "./emailShell";
 import type {
   FLBewerbungAbsageData,
-  FLBewerbungErasureData,
   FLBewerbungLinkData,
   FLBewerbungObjectionData,
   FLBewerbungPerson,
   FLBewerbungReceivedData,
   FLBewerbungZusageData,
+  FLDeletionNoticeData,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
@@ -89,13 +89,22 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
+export function buildBewerbungAbsageEmail(
+  { team, saison_id, rollen, reason, deletion_days }: FLBewerbungAbsageData,
+  { origin }: MailOrigin,
+): Mail {
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
     origin: mailOrigin(origin),
     firstName: "",
-    paragraphs: [[[WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)], WORDS.absage.decision]],
+    paragraphs: [
+      [
+        [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
+        WORDS.absage.decision,
+        WORDS.absage.deletion(deletion_days),
+      ],
+    ],
     block: {
       title: WORDS.absage.title,
       facts: [
@@ -178,27 +187,26 @@ export function buildBewerbungReceivedEmail(
   };
 }
 
-/**
- * What the Ansprechperson is told as the application goes: owed in the erasure's own write and worded in the present.
- * `pending` names the people it still held, the one thing a school needs before applying again.
- */
-export function buildBewerbungErasureEmail({ saison_id, rollen, pending }: FLBewerbungErasureData, { origin }: MailOrigin): Mail {
+/** The one deletion notice, the application's arm where it names a season and the account's where it names none. */
+export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
+
+  if (saison_id === null) {
+    return {
+      kind: "notice",
+      subjectLine: SERVER_COPY.accountErasure.done,
+      origin: site,
+      firstName: "",
+      paragraphs: [[SERVER_COPY.mail.deletion.account]],
+    };
+  }
 
   return {
     kind: "notice",
     subjectLine: WORDS.erasure.subject(saison_id),
     origin: site,
     firstName: "",
-    paragraphs: [[WORDS.erasure.lead, WORDS.erasure.deleted], [WORDS.erasure.again]],
-    block: {
-      title: WORDS.status,
-      facts: [
-        { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.registeredAs, value: rollenText(rollen) },
-        { label: WORDS.erasure.pending, value: formatList(pending.map(personName)) },
-      ],
-    },
+    paragraphs: [[SERVER_COPY.mail.deletion.bewerbung.lead(saison_id), SERVER_COPY.mail.deletion.bewerbung.deleted], [WORDS.erasure.again]],
     button: toBewerbung(site, saison_id),
   };
 }

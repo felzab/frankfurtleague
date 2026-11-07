@@ -5,10 +5,7 @@ published document lists them once, as the failure body's `error_code`. A 4xx an
 the request wrote nothing, and the frontend clears the site's cache by that promise
 (`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`); a write that may stand answers
 `unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
-db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
-address change, whose records no cached read serves:
-`app/api/address_change/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/address_change/public_router.py :: post_address_change_answer` (`address_change_ended`).
+db_exception_handler`).
 """
 
 from enum import StrEnum, auto
@@ -51,27 +48,15 @@ class Code(StrEnum):
     # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
     # another token.
     LINK_EXPIRED = auto()
-    # 403 where `address_change_barred` is 409: this caller is the barred person, and nothing they change lifts it.
-    LINK_BARRED = auto()
-    # Its own code and never `link_barred`'s: the barred address here is the one on file, which the caller may not even hold.
-    ADDRESS_CHANGE_REPLACED_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
+    # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
+    ADDRESS_CHANGE_NEW_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
     # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
     # hold, a server action reaching the start from any page.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
-    ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
-    ADDRESS_CHANGE_NO_APPROVER = auto()
-    ADDRESS_CHANGE_NO_APPROVAL_OPEN = auto()
-    # 403: the refusal is about who asks, and another administrator's press is what lifts it.
-    ADDRESS_CHANGE_APPROVAL_DENIED = auto()
-    ADDRESS_CHANGE_APPROVAL_OWNER = auto()
-    ADDRESS_CHANGE_NOT_COVERED = auto()
     ADDRESS_CHANGE_NEW_GRANTED = auto()
-    # 403 as `address_change_approval_denied`: about who asks; an administrator holding their grant since before the
-    # start lifts it.
-    ADDRESS_CHANGE_APPROVAL_YOUNGER = auto()
     ADDRESS_CHANGE_OCCUPIED = auto()
     ANSETZUNG_ANSWERED = auto()
     ANSETZUNG_DEADLINE_PAST = auto()
@@ -92,25 +77,17 @@ class Code(StrEnum):
     MISSING_ACTOR = auto()
     ACTOR_NOT_ADMIN = auto()
     SESSION_REFUSED = auto()
-    PERSON_BARRED = auto()
     CONFIRMATION_REQUIRED = auto()
     GRANT_EXISTS = auto()
-    # A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
-    # out of an administrator's reach; only an erasure and an address change's move remove one.
+    # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()
     GRANT_BARRED = auto()
-    GRANT_MINIMUM_COUNT = auto()
-    # 403 and not 409: the refusal is about who asks, and granting the asker `owner` is what lifts it.
+    # 403 and not 409: the refusal is about who asks, and a handover to the asker is what lifts it.
     GRANT_ONLY_OWNER = auto()
-    # 409: the grants' state, and promoting another owner first is what lifts it.
-    GRANT_LAST_OWNER = auto()
-    GRANT_APPROVAL_REQUEST_OPEN = auto()
-    # 403, as the address change's approval refusals: about who asks, and another administrator's press lifts it.
-    GRANT_APPROVAL_DENIED = auto()
-    GRANT_APPROVAL_OWNER = auto()
-    GRANT_APPROVAL_YOUNGER = auto()
-    # 409: the request's own state, which no approver lifts; a new request does.
-    GRANT_APPROVAL_REQUEST_LAPSED = auto()
+    # 409: stopping the waiting handover is what lifts it.
+    GRANT_HANDOVER_WAITING = auto()
+    # 409: the addition's wait running out is what lifts it, so a handover waits its own days after the addition's.
+    GRANT_NOT_IN_EFFECT = auto()
     BERICHT_NOT_PLAYED = auto()
     BERICHT_NOT_OFFICIATED = auto()
     BERICHT_NOT_IN_KADER = auto()
@@ -134,8 +111,6 @@ class Code(StrEnum):
     BEWERBUNG_KONTAKT_REPEATED = auto()
     TRIKOT_FARBE_TAKEN = auto()
     BEWERBUNG_KEY_DIFFERING = auto()
-    BEWERBUNG_ADDRESS_BARRED = auto()
-    BEWERBUNG_KONTAKT_BARRED = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()
@@ -190,7 +165,6 @@ class Code(StrEnum):
     # rather than a 409, whatever the team's own state.
     ROLE_NOT_HELD = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
-    KONTAKT_SEAT_BARRED = auto()
     KONTAKT_EMAIL_TAKEN = auto()
     KONTAKT_PHONE_TAKEN = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()
@@ -198,9 +172,9 @@ class Code(StrEnum):
     # 403 and not 409, `grant_only_owner`'s precedent: the refusal is about who asks. An administrator's
     # own records go through their account page, or through an owner (`admin_address`).
     OWN_ADDRESS = auto()
-    # Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
-    # a database paste could hand the administration on.
-    LAST_OWNER_ERASURE = auto()
+    # Refused rather than warned of: with no owner nobody may name one again, and only a database paste
+    # could hand the administration on.
+    OWNER_ERASURE = auto()
     # 403 for who asks, as `own_address`: without it an administrator ends another's grant, which a revoke
     # reserves to an owner (`grant_only_owner`).
     ADMIN_ADDRESS = auto()
@@ -218,7 +192,6 @@ class Code(StrEnum):
     # Its own code beside `duplicate_key`, which words an administrator's duplicate ban: the name says
     # the flow that refuses rather than the collection consulted, and one rule keeps one code and one
     # German sentence.
-    REGISTRIERUNG_ADDRESS_BARRED = auto()
     REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
@@ -270,7 +243,6 @@ class Code(StrEnum):
     SCHIEDSRICHTER_NO_ADDRESS = auto()
     # Its own code and never `duplicate_key`, which the ban list's client words as a second ban of one
     # address: two conditions under one code are two a frontend cannot part.
-    SCHIEDSRICHTER_ADDRESS_BARRED = auto()
     SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()

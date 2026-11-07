@@ -9,14 +9,7 @@ from typing import Any
 
 import pytest
 
-from app.api.identity.services import (
-    closed_by,
-    completed_saison_id,
-    erasure_due,
-    kept_saison_ids,
-    open_addresses,
-    statuses_after_activating,
-)
+from app.api.identity.services import completed_saison_id, erasure_due, kept_saison_ids, open_addresses
 from app.shared.schemas.literals import FLSaisonStatus
 
 LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
@@ -89,19 +82,3 @@ class TestTheDueJudgement:
         """The registry erases by address, and nothing else may erase by a name."""
 
         assert not due_for_erasure([], email=None)
-
-
-class TestTheStatusesAnActivationLeaves:
-    def test_the_running_season_ends_and_the_target_runs(self):
-        assert statuses_after_activating(LEAGUE, "2027") == {**LEAGUE, "2026": "past", "2027": "active"}
-        assert closed_by(LEAGUE, "2027") == "2026"
-
-    def test_activating_the_running_season_again_ends_nothing(self):
-        assert statuses_after_activating(LEAGUE, "2026") == LEAGUE
-        assert closed_by(LEAGUE, "2026") is None
-
-    def test_a_league_with_no_running_season_closes_none(self):
-        statuses: dict[str, FLSaisonStatus] = {"2025": "past", "2026": "future"}
-
-        assert closed_by(statuses, "2026") is None
-        assert kept_saison_ids(statuses_after_activating(statuses, "2026")) == {"2025", "2026"}

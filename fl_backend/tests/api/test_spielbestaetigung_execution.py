@@ -51,10 +51,9 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.isolation import InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
 from tests.plans import plans_of_sent_reads
@@ -209,7 +208,6 @@ async def read_view(
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spielorte_collection=database[Collection.SPIELORTE],
         teams_collection=database[Collection.TEAMS],
-        ban_list=ban_list(database),
         today=today,
     )
 
@@ -241,7 +239,6 @@ async def press_answer(
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
-        ban_list=ban_list(database),
         db=client,
         today=today,
     )
@@ -396,26 +393,6 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
         assert outcome == code
         assert row["answer"] is None
         assert (spieltag["start"], spieltag["end"]) == SPAN
-
-
-class TestALinkToAnAddressBarredAfterTheMint:
-    def test_the_view_shows_the_ban_the_answer_is_refused_and_a_lift_lets_it_answer(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ban = documents.ban_document("klara@example.com", until=SAISON_ID)
-            await database[Collection.BAN_LIST].insert_one(ban)
-
-            view = await read_view(database, token(TEAM1, "stellvertretung"))
-            refused = await outcome_of(press_answer(database, client, token(TEAM1, "stellvertretung")))
-            unwritten = (await row_now(database, ROW1))["answer"]
-            # Another seat of the same club holds an address the list does not.
-            other_seat = (await read_view(database, token(TEAM1, "trainer"))).state
-
-            await database[Collection.BAN_LIST].delete_one({"_id": ban["_id"]})
-            lifted = await outcome_of(press_answer(database, client, token(TEAM1, "stellvertretung")))
-
-            return view.state, refused, unwritten, other_seat, lifted
-
-        assert on_a_spiel(mongo_replica_set_url, body) == ("barred", Code.LINK_BARRED, None, "valid", COMMITTED)
 
 
 class TestTheLinkLookupWalksAnIndex:
@@ -993,7 +970,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
         assert on_a_spiel(mongo_replica_set_url, body, rows=rows) == ({SPIEL} if listed else set())
 
 
-# The answering Trainer's address, and the clock their erasure stamps its redactions with.
+# The answering Trainer's address, and the clock their erasure runs on.
 IDA = "ida@example.com"
 ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 

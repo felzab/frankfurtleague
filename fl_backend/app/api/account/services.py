@@ -10,8 +10,6 @@ from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 
-from bson import ObjectId
-
 from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
 from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
@@ -23,7 +21,6 @@ from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
-from app.core.journal import JournalLine
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
 from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
@@ -87,36 +84,20 @@ def compose_seat_move(
 
 
 def withdrawal_line(
-    *,
-    person_hash: str,
-    collection: DbCollection,
-    record_id: ObjectId,
-    blocks: Sequence[Mapping[str, Any]],
-    chosen: Mapping[FLEinwilligungChoice, Any],
-    at: str,
-    text_versions: TextVersions,
-) -> JournalLine | None:
-    """The journal line of a press, naming each choice it moved off a grant on any of `blocks`; `None` where it withdrew none.
+    *, blocks: Sequence[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any]
+) -> tuple[FLEinwilligungChoice, ...] | None:
+    """The choices a press moved off a grant on any of `blocks`, for its journal line; `None` where it withdrew none.
 
     A grant is never journalled: a restore taking one back leaves the person less exposed, never more.
     """
 
-    withdrawn: dict[FLEinwilligungChoice, Any] = {
-        choice: value
-        for choice, value in chosen.items()
-        if not is_given(choice, value) and any(is_given(choice, block.get(choice)) for block in blocks)
-    }
-    if not withdrawn:
-        return None
-
-    return JournalLine(
-        person_hash=person_hash,
-        kind="withdrawal",
-        collection=collection,
-        record_id=record_id,
-        at=at,
-        text_versions={choice: text_versions[choice] for choice in withdrawn},
-        choices=withdrawn,
+    return (
+        tuple(
+            choice
+            for choice, value in chosen.items()
+            if not is_given(choice, value) and any(is_given(choice, block.get(choice)) for block in blocks)
+        )
+        or None
     )
 
 

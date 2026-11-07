@@ -26,9 +26,7 @@ KONTAKT_EMAIL_MAX_LENGTH: Final = 254
 
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
-# A fixture's admin note, bounded on the payload alone: a season replace or undraw logs every
-# removed fixture whole in ONE row, and this bound is what keeps that row under BSON's
-# document ceiling by construction rather than by luck.
+# A fixture's admin note, bounded on the payload alone.
 SPIEL_NOTE_MAX_LENGTH: Final = 4096
 
 # Why an application was declined, bounded where an `austritt`'s `reason` is not: this one is composed
@@ -53,6 +51,9 @@ BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays]
 # The age at which one seat's link is due its single reminder, counted from the mint and set more
 # than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
+
+# A declined application or registration goes as an unconfirmed one does: the privacy notice states one figure for both.
+DECLINED_RETENTION_DAYS: Final = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
 # one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
@@ -121,6 +122,12 @@ REFERENCES_ADDRESSES_MAX: Final = 250
 # no calendar months.
 ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
+# One page of the Protokoll, as „Weitere 50 laden“ words it.
+ACTION_LOG_PAGE_SIZE: Final = 50
+
+# The longest word a row stores, an erasure's reference: a longer search matches nothing.
+ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200
+
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 BAN_REASON_MAX_LENGTH: Final = 500
@@ -129,18 +136,14 @@ BAN_REASON_MAX_LENGTH: Final = 500
 # `BAN_REASON_MAX_LENGTH`'s figure for its reason.
 AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
-# The request an administrator's erasure answers, written onto every log row it files: a mail's date
-# and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.
+# The request an administrator's erasure answers, its log row's label: a mail's date and subject fit,
+# and the log keeps it twelve months, so a letter does not.
 ERASURE_REASON_MAX_LENGTH: Final = 200
 
 # How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
-BAN_DURATION_SAISONS: Final = 5
-
-# What the log read serves of a person's pseudonym, and what its page shows: enough to tell two people
-# apart by eye. The whole value would hand every administrator's browser a stable key to one person,
-# which no control reads.
-ACTOR_PSEUDONYM_SHOWN: Final = 8
+type FLBanDurationSaisons = Literal[5]
+BAN_DURATION_SAISONS: Final[FLBanDurationSaisons] = 5
 
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
@@ -165,9 +168,16 @@ ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 # stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
-# How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
-# approver away for a weekend is no reason to start it again.
-APPROVAL_DAYS: Final = 7
+# How long an addition, or an administrator's own address change, waits. Each hands out lasting power, so every holder has
+# a day to read of it and reach the owner.
+type FLGrantWaitHours = Literal[24]
+GRANT_WAIT_HOURS: Final[FLGrantWaitHours] = 24
+
+# How long a handover, or the owner's own address change, waits: the owner role is the one nobody else can take back.
+type FLOwnerWaitDays = Literal[7]
+OWNER_WAIT_DAYS: Final[FLOwnerWaitDays] = 7
+
+GRANT_BOUNDS: Final = (FLGrantWaitHours, FLOwnerWaitDays)
 
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
 ADDRESS_CHANGE_RETENTION_DAYS: Final = 30
@@ -187,11 +197,11 @@ SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 SPIEL_REMINDER_DAYS: Final = 3
 
 # `BAN_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
-# decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
+# decline's reason is nor kept on a log row as an erasure's reference is.
 SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
 
-# A report's remarks on one match, whoever writes them, bounded on the payload alone: every correction and adoption files the
-# report whole on a log row, which this keeps far under BSON's document ceiling.
+# A report's remarks on one match, whoever writes them, bounded on the payload alone, which keeps the report far under
+# BSON's document ceiling.
 SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.
 SPIELBERICHT_ENTRIES_MAX: Final = 60

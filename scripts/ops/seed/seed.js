@@ -223,30 +223,25 @@ const REFEREES = [
 
 // --- Grants --------------------------------------------------------------------------------------
 
-// Each grant as the grant page's write leaves it (`fl_backend/app/api/grants/crud.py :: grant_in_session`):
-// seen as it is written, and announced by a row of its own, so the reconciliation's first pass, a minute after the
-// frontend starts, finds nothing to date afresh. Written as a Playground paste instead, each would be found then and
-// dated by that moment, and every administrator's session signed in before it sent back to the sign-in on its next
-// page (`docs/ops/runbooks.md` §3). Its notice is owed nobody: no administrator was told of a grant before it.
+// Each row as `fl_backend/app/api/grants/crud.py :: grant_in_session` leaves it, the one owner and the administrators in
+// effect a day ago, so every session signed in since holds its grant, and one addition still waiting.
 // Folded as the sign-in folds an address, or the grant admits nobody (`docs/ops/runbooks.md` §3).
-const GRANTED_AT = new Date();
+const IN_EFFECT = new Date(Date.now() - 24 * 60 * 60 * 1000);
+const WAITING = new Date(Date.now() + 12 * 60 * 60 * 1000);
 const GRANTS = [
-  ["inhaber@example.com", "owner"],
-  ["admin.desktop@example.com", "administration"],
-  ["admin.telefon@example.com", "administration"],
-  ["admin.editor@example.com", "administration"],
-  ["admin@example.com", "administration"],
-].map(([address, admin_tier]) => ({
+  ["inhaber@example.com", "owner", IN_EFFECT],
+  ["admin.desktop@example.com", "administration", IN_EFFECT],
+  ["admin.telefon@example.com", "administration", IN_EFFECT],
+  ["admin.editor@example.com", "administration", IN_EFFECT],
+  ["admin@example.com", "administration", IN_EFFECT],
+  ["admin.wartet@example.com", "administration", WAITING],
+].map(([address, admin_tier, effective_from]) => ({
   _id: ObjectId(),
   address,
   admin_tier,
   granted_by: "MADE-UP-SEED",
-  granted_at: GRANTED_AT,
-  seen_at: GRANTED_AT,
+  effective_from,
 }));
-
-// The announced record of each, keyed by its grant's id: `fl_backend/app/api/grants/services.py :: compose_announced`.
-const ANNOUNCED = GRANTS.map(({ _id, address, admin_tier }) => ({ _id, address, admin_tier, announced_at: GRANTED_AT }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -1118,7 +1113,6 @@ for (const [name, documents] of Object.entries(DOCUMENTS)) {
 // These are bookkeeping no form edits: outside `EDITED_COLLECTIONS`, their documents carry no `version`, and each
 // record model refuses one.
 const UNEDITED = {
-  berechtigungen_angekuendigt: ANNOUNCED,
   invitations: Object.values(INVITATIONS),
   registrierungen: REGISTRATIONS,
   outbox: SETTLED_MAILS,

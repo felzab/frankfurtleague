@@ -1,11 +1,11 @@
 import hashlib
 import hmac
 import secrets
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
-from typing import Annotated, Any, Final, Literal, get_args
+from typing import Annotated, Final, Literal, get_args
 from urllib.parse import quote, unquote
 
 from fastapi import Depends, Request, Security
@@ -16,7 +16,7 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import ACTOR_CHALLENGE, APIError
-from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var, request_var
+from app.core.recording import actor_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
@@ -65,14 +65,11 @@ def get_actor_email() -> str:
     The variable the log reads, so a decision and its `action_log` row cannot name two people.
     """
 
-    actor = actor_var.get()
-    # Raised rather than answered with the pseudonym: a person's route has no administrator to
-    # store, and a hash written into an address field would read as one.
-    if isinstance(actor, PersonActor):
-        raise LookupError("a person's route is attributed to no administrator")
+    address = actor_var.get()
+    if address is None:
+        raise LookupError("a route binding no administrator stores no administrator")
 
-    # `bind_actor` fails closed on any write, so the default system actor cannot reach one.
-    return actor.email
+    return address
 
 
 # The session a request acts for, as the frontend's guard read it. Believed because only the
@@ -229,61 +226,28 @@ def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) 
         raise confirmation_required(STEP_UP_WINDOW_S)
 
 
-@dataclass(frozen=True)
-class Attribution[T]:
-    """Who a request's writes are recorded under, and what its binder hands a handler."""
+async def bind_actor(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> AsyncIterator[None]:
+    """The acting administrator's address set for the length of the request, at router level so a later operation cannot miss it."""
 
-    actor: Actor | PersonActor
-    value: T
+    # Folded, as the grant check read it: one administrator is one spelling in every stored field, whatever case the
+    # session's address was typed in.
+    token = actor_var.set(sign_in_identifier(actor.email))
 
-
-def actor_binder[T](attribute: Callable[..., Attribution[T] | Awaitable[Attribution[T]]]) -> Callable[..., AsyncIterator[T]]:
-    """The one binder: `attribute`'s actor set for the length of the request, beside the route it came through.
-
-    Every method, a read included, at router level, so a later operation cannot miss it.
-    """
-
-    async def bind(request: Request, attribution: Annotated[Attribution[Any], Depends(attribute)]) -> AsyncIterator[T]:
-        actor_token = actor_var.set(attribution.actor)
-        # The route's template, not `request.url.path`: an id baked into the stored path would make one
-        # row per document where the page wants one row per kind of action.
-        route = request.scope.get("route")
-        request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
-
-        try:
-            # Yielded rather than set on a variable: a handler declaring this same binder is answered
-            # from this run, and a handler asking for the value cannot run unbound.
-            yield attribution.value
-        finally:
-            # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
-            # `TraceContextMiddleware` resets its own ids for.
-            actor_var.reset(actor_token)
-            request_var.reset(request_token)
-
-    return bind
+    try:
+        yield
+    finally:
+        # Reset, or the address bleeds onto whichever request the loop runs next, the hazard `TraceContextMiddleware`
+        # resets its own ids for.
+        actor_var.reset(token)
 
 
-def attribute_the_administrator(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> Attribution[None]:
-    # Folded, as the grant check read it: one administrator is one spelling in every stored actor
-    # field, whatever case the session's address was typed in.
-    return Attribution(Actor(kind="admin_session", email=sign_in_identifier(actor.email)), None)
+def get_person_identifier(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> str:
+    """The folded address a person's router authorises against, declared for every method at router level."""
+
+    return sign_in_identifier(actor.email)
 
 
-def _the_public() -> Attribution[None]:
-    # No session at all: the headers are never read, so a forged one names nobody.
-    return Attribution(PUBLIC_ACTOR, None)
-
-
-def _the_application() -> Attribution[None]:
-    # The sweep holds no session, and an invented address for a machine is what `SYSTEM_ACTOR` exists to avoid.
-    return Attribution(SYSTEM_ACTOR, None)
-
-
-# Module-level objects, as the three key guards are, so a handler declaring its router's binder is
-# answered from the run the router started.
-bind_actor = actor_binder(attribute_the_administrator)
-bind_public_actor = actor_binder(_the_public)
-bind_system_actor = actor_binder(_the_application)
+PersonIdentifier = Annotated[str, Depends(get_person_identifier)]
 
 
 # The action log's label under the `sperrliste_key` secret file's key, beside the ban list's

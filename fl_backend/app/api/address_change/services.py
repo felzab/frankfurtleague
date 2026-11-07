@@ -21,23 +21,20 @@ from app.core.clock import german_day
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, APPROVAL_DAYS
-from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLApprovalDenied
+from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.custom import as_utc
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay
 
 ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
 
 # What the address on file's link shows, one state per step the change waits on, and `release_expired` once the person's own
 # change's question to it lapsed: the page never offers a confirmation the press refuses `link_expired`.
-FLAddressChangePreviousState = Literal["release_open", "release_expired", "open", "approval", "waiting_period"]
+FLAddressChangePreviousState = Literal["release_open", "release_expired", "open", "waiting_period"]
 
-# What the new mailbox's link shows while the change stands. `approval_expired` is a confirmed change's lapsed
-# approval week, never `expired`: that is the link's own deadline, and a confirmed link takes no second answer.
-FLAddressChangeNewState = Literal["valid", "expired", "barred", "not_confirmable", "confirmed", "approval_expired"]
+# What the new mailbox's link shows while the change stands.
+FLAddressChangeNewState = Literal["valid", "expired", "not_confirmable", "confirmed"]
 
 ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndKind.__value__)
-
-# The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
-_RANK: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
 
 # The one filter every read of a live change carries: `uniq_address_change_address` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
@@ -46,13 +43,10 @@ LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"address": {"$type": "string"}, **LIVE_TERMS}
 
 
-def as_utc(moment: Any) -> datetime | None:
-    """A stored instant marked as the UTC it is, the driver reading one back with no offset; `None` for anything else."""
+def stored_instant(moment: Any) -> datetime | None:
+    """A field a stage of the change may leave empty, as `as_utc` marks it; `None` for anything else."""
 
-    if not isinstance(moment, datetime):
-        return None
-
-    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+    return as_utc(moment) if isinstance(moment, datetime) else None
 
 
 def valid_until_from(now: datetime) -> datetime:
@@ -61,23 +55,19 @@ def valid_until_from(now: datetime) -> datetime:
     return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
 
-def effective_from_confirmed(confirmed_at: datetime) -> datetime:
-    return confirmed_at.astimezone(UTC) + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
+def wait_after_confirmation(*, way: FLAddressChangeWay, admin_tier: str | None) -> timedelta | None:
+    """How long a change waits from the new mailbox's confirmation, `None` where it takes effect at that press.
 
+    The lost-mailbox way and the owner's grant longest, nobody having proved the old mailbox or being able to take the role back; any
+    other grant a day, so every holder can read of it. `admin_tier` as the row stores it, a row still waiting included.
+    """
 
-def compose_approval(*, admin_tier: str, started_by: str, now: datetime) -> dict[str, Any]:
-    """The approval a change moving a grant waits on: the tier it moves, who started it, when, and the end of its week."""
+    if way == "waiting_period":
+        return timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
+    if admin_tier == "owner":
+        return timedelta(days=OWNER_WAIT_DAYS)
 
-    return {
-        "admin_tier": admin_tier,
-        # Its approver held their grant since then (`app/api/grants/services.py :: holds_since`).
-        "asked_at": now.astimezone(UTC),
-        "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
-        # Folded, as `granted_by` stores an administrator: the one compared with the approver.
-        "started_by": started_by,
-        "approved_at": None,
-        "approved_by": None,
-    }
+    return None if admin_tier is None else timedelta(hours=GRANT_WAIT_HOURS)
 
 
 def compose_record(
@@ -86,10 +76,9 @@ def compose_record(
     email: str,
     way: FLAddressChangeWay,
     change_reason: str | None,
-    approval: Mapping[str, Any] | None,
     now: datetime,
 ) -> dict[str, Any]:
-    """The WHOLE record a start inserts, never reused, so a journal line's id names one change.
+    """The WHOLE record a start inserts.
 
     Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/outbox/system_router.py :: post_handout`).
     """
@@ -106,7 +95,6 @@ def compose_record(
         "change_reason": change_reason,
         "confirmed_at": None,
         "effective_from": None,
-        "approval": None if approval is None else dict(approval),
         "ended": None,
     }
 
@@ -124,21 +112,15 @@ def compose_link_update(*, now: datetime, released: bool) -> dict[str, Any]:
     return {"$set": set_fields}
 
 
-def compose_confirmation_update(*, record: Mapping[str, Any], now: datetime) -> dict[str, Any]:
-    """The new mailbox confirmed a change not taking effect now: its deadline goes, and a waiting time may start.
+def compose_confirmation_update(*, wait: timedelta, now: datetime) -> dict[str, Any]:
+    """The new mailbox confirmed a change that waits: its deadline goes, and the wait runs from here.
 
     The token's hash stays, so the link answers what became of the change while its record is kept.
     """
 
-    set_fields: dict[str, Any] = {"valid_until": None, "confirmed_at": now.astimezone(UTC)}
-    if record.get("way") == "waiting_period":
-        set_fields["effective_from"] = effective_from_confirmed(now)
+    confirmed_at = now.astimezone(UTC)
 
-    return {"$set": set_fields}
-
-
-def compose_approved_update(*, actor: str, now: datetime) -> dict[str, Any]:
-    return {"$set": {"approval.approved_at": now.astimezone(UTC), "approval.approved_by": actor}}
+    return {"$set": {"valid_until": None, "confirmed_at": confirmed_at, "effective_from": confirmed_at + wait}}
 
 
 def build_owed_carry_filter(addresses: list[str]) -> dict[str, Any]:
@@ -150,14 +132,8 @@ def build_owed_carry_filter(addresses: list[str]) -> dict[str, Any]:
     return {"move.old": {"$in": addresses}}
 
 
-def compose_approval_withdrawn_update() -> dict[str, Any]:
-    """An approval that does not stand, taken off: its request's instant and deadline stay, so a new approval is judged as the first."""
-
-    return {"$set": {"approval.approved_at": None, "approval.approved_by": None}}
-
-
 def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[str, Any]:
-    """An ended change's tombstone: its addresses, its reason and its approval go; its hashes stay.
+    """An ended change's tombstone: its addresses and its reason go; its hashes stay.
 
     The hashes let each link answer how the change ended until the TTL removes the record.
     """
@@ -167,7 +143,6 @@ def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[s
             "address": None,
             "email": None,
             "change_reason": None,
-            "approval": None,
             "ended": {"kind": kind, "at": now.astimezone(UTC)},
         }
     }
@@ -194,18 +169,10 @@ def build_addresses_filter(addresses: list[str]) -> dict[str, Any]:
     return {"address": {"$in": addresses, "$type": "string"}, **LIVE_TERMS}
 
 
-def build_awaiting_approval_filter(addresses: list[str], *, now: datetime) -> dict[str, Any]:
-    """The live changes of these folded addresses awaiting their grant's approval, no step lapsed: what the administrators page offers.
+def build_incoming_filter(*, email: str, holders: list[str]) -> dict[str, Any]:
+    """A live change of one of these folded addresses, moving it to `email`."""
 
-    A lapsed one is refused `link_expired`, so the reload that refusal asks for must not offer it.
-    """
-
-    return {
-        **build_addresses_filter(addresses),
-        "approval.approved_at": {"$type": "null"},
-        # `is_expired`'s judgement, negated: one lapse rule for the press, the pass and this list.
-        "$nor": build_lapsed_terms(now)["$or"],
-    }
+    return {**build_addresses_filter(holders), "email": email}
 
 
 def build_resendable_terms() -> dict[str, Any]:
@@ -245,83 +212,28 @@ def build_open_link_terms(token_hash: str) -> dict[str, Any]:
 
 
 def build_lapsed_terms(now: datetime) -> dict[str, Any]:
-    """A live change whose waiting step lapsed at or before `now`: either link's question, or its grant's approval."""
+    """A live change whose link's question lapsed at or before `now`; a confirmed change holds no deadline."""
 
-    return {
-        **LIVE_TERMS,
-        "$or": [
-            {"valid_until": {"$type": "date", "$lte": now}},
-            {"approval.until": {"$type": "date", "$lte": now}, "approval.approved_at": {"$type": "null"}},
-        ],
-    }
+    return {**LIVE_TERMS, "valid_until": {"$type": "date", "$lte": now}}
 
 
 def build_due_terms(now: datetime) -> dict[str, Any]:
-    """A confirmed change with no waiting time left at `now`, an owed approval judged at the effect rather than here.
+    """A confirmed change whose wait ended at or before `now`: only a confirmation sets `effective_from`."""
 
-    A grant ended since the confirmation, by any route, leaves nothing to approve.
-    """
-
-    return {
-        **LIVE_TERMS,
-        "confirmed_at": {"$type": "date"},
-        "$or": [{"effective_from": {"$type": "null"}}, {"effective_from": {"$type": "date", "$lte": now}}],
-    }
-
-
-# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_grant_address`).
-HELD: Final = "_berechtigung"
-
-
-def build_parked_terms(now: datetime) -> dict[str, Any]:
-    """A confirmed change whose approval is owed while its address still holds a grant: waiting, neither due nor lapsed.
-
-    Read over a page `HELD` was joined onto; a lapse of the approval's week is no parking.
-    """
-
-    return {
-        "confirmed_at": {"$type": "date"},
-        "approval.approved_at": {"$type": "null"},
-        "approval.until": {"$type": "date", "$gt": now},
-        f"{HELD}.0": {"$exists": True},
-    }
+    return {**LIVE_TERMS, "effective_from": {"$type": "date", "$lte": now}}
 
 
 def is_expired(record: Mapping[str, Any], *, now: datetime) -> bool:
-    """Whether the step a live change waits on has lapsed, judged as `build_lapsed_terms` removes it."""
+    """Whether the link's question a live change waits on has lapsed, judged as `build_lapsed_terms` removes it."""
 
-    valid_until = as_utc(record.get("valid_until"))
-    if valid_until is not None and valid_until <= now:
-        return True
+    valid_until = stored_instant(record.get("valid_until"))
 
-    approval = record.get("approval")
-    if not isinstance(approval, Mapping) or approval.get("approved_at") is not None:
-        return False
-    until = as_utc(approval.get("until"))
-
-    return until is not None and until <= now
-
-
-def approval_open(record: Mapping[str, Any]) -> bool:
-    """Whether the change asks another administrator's approval it has not been given."""
-
-    approval = record.get("approval")
-
-    return isinstance(approval, Mapping) and approval.get("approved_at") is None
-
-
-def is_due(record: Mapping[str, Any], *, now: datetime) -> bool:
-    """Whether a confirmed change has no waiting time left: none was asked, or it ended at or before `now`."""
-
-    effective_from = as_utc(record.get("effective_from"))
-
-    return record.get("confirmed_at") is not None and (effective_from is None or effective_from <= now)
+    return valid_until is not None and valid_until <= now
 
 
 def waits_on(record: Mapping[str, Any]) -> FLAddressChangeWaitsOn:
     if record.get("confirmed_at") is not None:
-        # A confirmed change with no waiting time stands only while its grant's approval is owed.
-        return "waiting_period" if record.get("effective_from") is not None else "approval"
+        return "waiting_period"
 
     return "previous_address" if asks_the_address_on_file(record) else "new_address"
 
@@ -329,7 +241,6 @@ def waits_on(record: Mapping[str, Any]) -> FLAddressChangeWaitsOn:
 _PREVIOUS: Final[Mapping[FLAddressChangeWaitsOn, FLAddressChangePreviousState]] = {
     "previous_address": "release_open",
     "new_address": "open",
-    "approval": "approval",
     "waiting_period": "waiting_period",
 }
 
@@ -348,29 +259,31 @@ def previous_state(record: Mapping[str, Any], *, now: datetime) -> FLAddressChan
     return _PREVIOUS[waits]
 
 
-def new_state(record: Mapping[str, Any], *, now: datetime, barred: bool, not_confirmable: bool) -> FLAddressChangeNewState:
+def previous_side_email(record: Mapping[str, Any], *, state: FLAddressChangePreviousState) -> str | None:
+    """The new address the address on file's link names, whole on the person's own change, which that address confirms.
+
+    Masked on an administrator's start: it may be a pretext, and whoever holds the old mailbox learns the new one.
+    """
+
+    if state == "release_expired":
+        return None
+
+    return str(record["email"]) if record["way"] == "account" else masked_address(str(record["email"]))
+
+
+def new_state(record: Mapping[str, Any], *, now: datetime, not_confirmable: bool) -> FLAddressChangeNewState:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
     The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
     """
 
     if record.get("confirmed_at") is not None:
-        # Never `confirmed` once its approval week lapsed: the pass ends it unapproved, which the page must not deny.
-        return "approval_expired" if is_expired(record, now=now) else "confirmed"
-
-    if barred:
-        return "barred"
+        return "confirmed"
 
     if is_expired(record, now=now):
         return "expired"
 
     return "not_confirmable" if not_confirmable else "valid"
-
-
-def covers(approval: Any, admin_tier: Any) -> bool:
-    """Whether a change's approval covers moving a grant of `admin_tier`: asked for that tier or a higher one."""
-
-    return isinstance(approval, Mapping) and _RANK.get(str(approval.get("admin_tier")), -1) >= _RANK.get(str(admin_tier), 2)
 
 
 def _shown_label(label: str) -> str:
@@ -425,7 +338,7 @@ def find_ended_refusal(*, is_open: bool) -> WriteRefusal | None:
 
 
 def find_expired_refusal(*, expired: bool) -> WriteRefusal | None:
-    """`link_expired`: the step the change waits on lapsed -- either link's question, or its grant's approval."""
+    """`link_expired`: the step the change waits on lapsed: either link's question."""
 
     if not expired:
         return None
@@ -433,30 +346,6 @@ def find_expired_refusal(*, expired: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.LINK_EXPIRED,
         status=HTTPStatus.GONE,
-    )
-
-
-def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: the ban list holds the address the link was mailed to, however long ago it was minted."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
-    )
-
-
-def find_replaced_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`address_change_replaced_barred`: the ban list holds the address the change replaces, so moving would carry the ban's person off it."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_REPLACED_BARRED,
-        status=HTTPStatus.CONFLICT,
     )
 
 
@@ -484,7 +373,7 @@ def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | 
     start is held to one mail per interval whichever press owed the last, and nothing beside the record is stored.
     """
 
-    valid_until = as_utc(live_valid_until)
+    valid_until = stored_instant(live_valid_until)
     if valid_until is None:
         return None
 
@@ -512,18 +401,6 @@ def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
     )
 
 
-def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`address_change_barred`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_BARRED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 def find_nothing_refusal(*, empty: bool) -> WriteRefusal | None:
     """`address_change_nothing`: the address holds nothing a change moves, so there is nothing to change."""
 
@@ -532,78 +409,6 @@ def find_nothing_refusal(*, empty: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_NOTHING,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_no_approver_refusal(*, approver: int) -> WriteRefusal | None:
-    """`address_change_no_approver`: a change moving a grant waits on an approver nobody could be.
-
-    Neither the changed address nor the change's starter approves, and an owner's grant is approved by another owner alone:
-    the last owner makes another first.
-    """
-
-    if approver > 0:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NO_APPROVER,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_no_approval_open_refusal(*, is_open: bool) -> WriteRefusal | None:
-    """`address_change_no_approval_open`: the change asks no approval, or was given it already."""
-
-    if is_open:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NO_APPROVAL_OPEN,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_approval_denied_refusal(*, denied: FLApprovalDenied | None) -> WriteRefusal | None:
-    """Why this approver may not approve the change, or `None`.
-
-    `address_change_approval_denied` for the changed address or the starter, `address_change_approval_owner` for an owner's grant
-    without an owner's power, `address_change_approval_younger` for an approver whose grant, or owner's tier, took effect after the
-    change's start.
-    """
-
-    if denied is None:
-        return None
-
-    if denied == "younger":
-        return WriteRefusal(
-            error_code=Code.ADDRESS_CHANGE_APPROVAL_YOUNGER,
-            status=HTTPStatus.FORBIDDEN,
-        )
-
-    if denied == "owner":
-        return WriteRefusal(
-            error_code=Code.ADDRESS_CHANGE_APPROVAL_OWNER,
-            status=HTTPStatus.FORBIDDEN,
-        )
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_APPROVAL_DENIED,
-        status=HTTPStatus.FORBIDDEN,
-    )
-
-
-def find_not_covered_refusal(*, covered: bool) -> WriteRefusal | None:
-    """`address_change_not_covered`: the address came to hold a grant, or a higher tier, than the change's approval was asked for.
-
-    Moving it would hand access over unapproved, and leaving it would keep it at an address its person has left.
-    """
-
-    if covered:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NOT_COVERED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -619,6 +424,18 @@ def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_OCCUPIED,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
+def find_new_taken_refusal(*, taken: bool) -> WriteRefusal | None:
+    """`address_change_new_taken`: a re-send's new address has come to be another pupil's or to hold an entry, on a page with no box to mark."""
+
+    if not taken:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.ADDRESS_CHANGE_NEW_TAKEN,
         status=HTTPStatus.CONFLICT,
     )
 

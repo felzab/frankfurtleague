@@ -17,12 +17,10 @@ from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.app_client import app_client
-from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     EINWILLIGUNG,
-    ban_document,
     kontaktperson_document,
     rules_document,
     saison_document,
@@ -100,6 +98,8 @@ BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 # The name the junction row was entered under, and the one the club has taken since. They differ so
 # that serving the club's own would be observable.
 ROW_NAME_A = "Helmholtz"
+# Past every grant the seed dates.
+NOW = datetime(2026, 6, 1, tzinfo=UTC)
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 
@@ -220,33 +220,18 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01"),
         ]
     )
-    await database[Collection.BAN_LIST].insert_many(
-        [
-            ban_document(BARRED_BANNED, until=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
-            ban_document(EXPIRED, until=PAST_SAISON, _id=BAN_LAPSED_OID),
-        ]
-    )
-    grants = [
-        _grant(GRANT_OWNER_OID, ADMIN_OWNER, "owner") | {"found_at": GRANT_FOUND},
-        _grant(GRANT_STORED_OID, ADMIN_STORED, "administration"),
-    ]
-    await database[Collection.GRANTS].insert_many(grants)
-    # Both announced: the `owner` grant found by the reconciliation, the other made by the grant route.
-    await database[Collection.GRANTS_ANNOUNCED].insert_many(
-        [{"_id": grant["_id"], "address": grant["address"], "admin_tier": grant["admin_tier"], "announced_at": GRANT_FOUND} for grant in grants]
+    await database[Collection.GRANTS].insert_many(
+        [_grant(GRANT_OWNER_OID, ADMIN_OWNER, "owner"), _grant(GRANT_STORED_OID, ADMIN_STORED, "administration")]
     )
 
 
-# A paste's typed date, and the later moment the reconciliation found it: the `owner` grant's row carries both.
 GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
-GRANT_FOUND = datetime(2026, 1, 2, 8, 30, tzinfo=UTC)
-GRANT_PROMOTED = datetime(2026, 2, 1, 9, 0, tzinfo=UTC)
 
 
 def _grant(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
 
-    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "granted_at": GRANT_TYPED}
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "effective_from": GRANT_TYPED}
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -272,9 +257,9 @@ async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse
         return await get_subject(
             subject_data=FLSubjectPayload(email=email),
             records=record_collections(database),
-            ban_list=ban_list(database),
             grants_collection=database[Collection.GRANTS],
             session=session,
+            germany_now=NOW,
         )
 
 
@@ -341,10 +326,8 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
         "spieler": [],
         "schiedsrichter": [],
         "unconfirmed": False,
-        "barred": False,
         "admin_tier": None,
         "granted_since": None,
-        "owner_since": None,
     }
 
 
@@ -377,9 +360,10 @@ class TestEveryAddressReadWalksAnIndex:
                     await get_sign_in(
                         sign_in_data=FLSubjectPayload(email=IDENTIFIER),
                         records=record_collections(watched),
-                        ban_list=ban_list(watched),
+                        ban_list_collection=watched[Collection.BAN_LIST],
                         grants_collection=watched[Collection.GRANTS],
                         session=session,
+                        germany_now=NOW,
                     )
 
             _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, ask_both, _selects_by_address)
@@ -397,17 +381,6 @@ class TestEveryAddressReadWalksAnIndex:
 
 
 @pytest.mark.db
-class TestTheBanFlag:
-    def test_a_banned_address_asked_in_another_spelling_is_flagged_and_keeps_its_seat(self, mongo_replica_set_url: str):
-        """Asked in a spelling other than the one the ban was keyed under; the seat beside it kills a ban that narrows the records."""
-
-        answer = answered(mongo_replica_set_url, BARRED_ASKED)
-
-        assert answer.barred is True
-        assert [(seat.team_id, seat.rolle) for seat in answer.seats] == [(TEAM_C_OID, "stellvertretung")]
-
-
-@pytest.mark.db
 class TestTheGrant:
     """`admin_tier`: the one stored answer, read off `grants` on the folded identifier."""
 
@@ -419,87 +392,10 @@ class TestTheGrant:
         assert (answer.admin_tier, answer.granted_since) == (None, None)
         assert answer.seats
 
-    def test_each_grant_is_dated_by_the_reconciliation_s_find_where_it_made_one_and_by_its_own_date_otherwise(self, mongo_replica_set_url: str):
-        """The `owner` grant's row carries both, the later the find.
+    def test_a_grant_is_answered_with_its_tier_and_the_day_it_took_effect(self, mongo_replica_set_url: str):
+        answer = answered(mongo_replica_set_url, ADMIN_STORED)
 
-        A lookup reading `granted_at` alone would date a paste by whatever was typed.
-        """
-
-        assert [answered(mongo_replica_set_url, email).granted_since for email in (ADMIN_OWNER, ADMIN_ASKED)] == [
-            GRANT_FOUND,
-            GRANT_TYPED,
-        ]
-
-    def test_an_address_changed_in_place_before_the_reconciliation_found_it_is_answered_no_grant(self, mongo_replica_set_url: str):
-        """Its row still carries the address before's dates, so a tier dated by them would admit the new holder's older sessions."""
-
-        async def repointed(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"address": BYSTANDER}})
-
-            return await call_subject(database, BYSTANDER)
-
-        answer = on_a_league(mongo_replica_set_url, repointed)
-
-        assert (answer.admin_tier, answer.granted_since) == (None, None)
-
-    def test_only_the_owners_grant_is_answered_with_when_its_tier_took_effect(self, mongo_replica_set_url: str):
-        assert [answered(mongo_replica_set_url, email).owner_since for email in (ADMIN_OWNER, ADMIN_ASKED)] == [
-            GRANT_FOUND,
-            None,
-        ]
-
-    def test_a_promotion_after_the_grant_dates_the_owners_tier_and_leaves_the_grant_dated(self, mongo_replica_set_url: str):
-        """An administrator signed in between the two administers and holds no owner's power."""
-
-        async def promoted(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_OWNER_OID}, {"$set": {"appointed_at": GRANT_PROMOTED}})
-
-            return await call_subject(database, ADMIN_OWNER)
-
-        answer = on_a_league(mongo_replica_set_url, promoted)
-
-        assert (answer.admin_tier, answer.granted_since, answer.owner_since) == ("owner", GRANT_FOUND, GRANT_PROMOTED)
-
-    def test_a_promotion_made_in_the_database_is_answered_as_the_administrator_until_the_reconciliation_finds_it(
-        self, mongo_replica_set_url: str
-    ):
-        """Nothing dates the edit, so the row's tier would date an owner's power by the administrator's grant."""
-
-        async def raised(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"admin_tier": "owner"}})
-
-            return await call_subject(database, ADMIN_STORED)
-
-        answer = on_a_league(mongo_replica_set_url, raised)
-
-        assert (answer.admin_tier, answer.granted_since, answer.owner_since) == ("administration", GRANT_TYPED, None)
-
-    def test_a_row_the_reconciliation_saw_that_stands_without_its_record_is_answered_no_grant(self, mongo_replica_set_url: str):
-        """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
-
-        async def put_back(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"seen_at": GRANT_FOUND}})
-            await database[Collection.GRANTS_ANNOUNCED].delete_one({"_id": GRANT_STORED_OID})
-
-            return await call_subject(database, ADMIN_STORED)
-
-        answer = on_a_league(mongo_replica_set_url, put_back)
-
-        assert (answer.admin_tier, answer.granted_since) == (None, None)
-
-    def test_a_paste_no_reconciliation_has_found_is_dated_no_earlier_than_its_id(self, mongo_replica_set_url: str):
-        """Typed long before it was pasted, so the frontend's guard would admit sessions older than the paste."""
-
-        pasted = datetime(2026, 3, 1, 9, 0, tzinfo=UTC)
-
-        async def pasted_late(database: AsyncDatabase) -> FLSubjectResponse:
-            await database[Collection.GRANTS].insert_one(_grant(ObjectId.from_datetime(pasted), BYSTANDER, "administration"))
-
-            return await call_subject(database, BYSTANDER)
-
-        answer = on_a_league(mongo_replica_set_url, pasted_late)
-
-        assert (answer.admin_tier, answer.granted_since) == ("administration", pasted)
+        assert (answer.admin_tier, answer.granted_since) == ("administration", GRANT_TYPED)
 
     def test_the_instant_is_served_with_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""

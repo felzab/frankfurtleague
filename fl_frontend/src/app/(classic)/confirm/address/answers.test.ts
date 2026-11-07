@@ -37,7 +37,7 @@ vi.mock("@/features/address-change/umzug", () => ({
 const { answerAddressChange } = await import("./answers");
 
 const TOKEN = held.newLink;
-const EFFECTIVE: FLAddressChangeAnswerResponse = { answer: "confirmed", effective: true, effective_from: null, approval_open: false };
+const EFFECTIVE: FLAddressChangeAnswerResponse = { answer: "confirmed", effective: true, effective_from: null };
 
 beforeEach(() => {
   held.accountAtTheNewAddress = false;

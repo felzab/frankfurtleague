@@ -6,14 +6,12 @@ from typing import Any, Final
 
 import pytest
 from bson import ObjectId
-from pymongo import ASCENDING, AsyncMongoClient, monitoring
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
-from app.api.grants.antraege import compose_approval_request
-from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -63,16 +61,12 @@ GRANT_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
 ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
-APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
-# Far off, so the TTL index on `approval.until` leaves a request standing through every case that inserts one.
-APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
-CONFLICTING_SUPPORT_INDEX = "action_log_trace_id"
-# The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
-# also the shape of the mistake this index exists against.
+CONFLICTING_SUPPORT_INDEX = "address_change_token_hashes"
+# The same planting for the TTL kind: the name is claimed and the keys disagree.
 CONFLICTING_TTL_INDEX = "action_log_retention"
 ADDRESS = {"street": "Hanauer Landstraße", "house_number": "12a", "postcode": "60314", "district": "Ostend", "city": "Frankfurt am Main"}
 
@@ -221,27 +215,18 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "action_log": {
             "_id": ACTION_LOG_ENTRY_OID,
-            "at": "2026-03-15T09:30:00+00:00",
-            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
-            "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
+            "at": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
+            "by": "admin@example.invalid",
+            "team": None,
+            "action": "team.changed",
+            "record_id": TEAM_OID,
+            "label": "Lessing",
+            "count": None,
             "trace_id": secrets.token_hex(16),
-            "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
-            # Any collection but its own: the log records every other one and never itself.
-            "collection": "teams",
-            "operation": "patch_one",
-            "document_id": TEAM_OID,
-            "db_filter": None,
-            "before": {"name": "Lessing"},
-            "modified_count": None,
-            "redacted_at": None,
-            "erasure_reason": None,
         },
-        # A hash rather than anything recognisable: the collection's whole point is that a row
-        # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
         "ban_list": {
             "_id": BAN_LIST_OID,
-            "address_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-            "key_version": "ban-list-v1",
+            "address": "gesperrt@example.invalid",
             "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
             "created_by": "admin@example.invalid",
             "created_at": "2026-03-15",
@@ -289,13 +274,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
             "granted_by": "PLAYGROUND",
-            "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
-        },
-        "berechtigungen_angekuendigt": {
-            "_id": GRANT_OID,
-            "address": "inhaberin@example.invalid",
-            "admin_tier": "owner",
-            "announced_at": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+            "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
@@ -327,17 +306,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": ADDRESS_CHANGE_OID,
             **address_change_document(address="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
             "move": {"old": "vorher@example.invalid", "new": "alt@example.invalid"},
-        },
-        # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
-        "berechtigungen_antraege": {
-            "_id": APPROVAL_REQUEST_OID,
-            **compose_approval_request(
-                address="vorstand@example.invalid",
-                admin_tier="owner",
-                grant_id=TEAM_OID,
-                started_by="inhaberin@example.invalid",
-                now=APPROVAL_REQUEST_FILED,
-            ),
         },
     }
 
@@ -393,9 +361,9 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["spieltage"],
         valid_document("spieltage", _id=SPIELORT_OID, end="2026-03-22"),
     ),
-    # The second row differs in its reason and its author: the index refuses on the hash alone, and
+    # The second row differs in its reason and its author: the index refuses on the address alone, and
     # a pair agreeing in everything would pass while keyed on anything at all.
-    "uniq_ban_list_address_hash": (
+    "uniq_ban_list_address": (
         valid_documents()["ban_list"],
         valid_document("ban_list", _id=TEAM_OID, ban_reason="Zweiter Eintrag", created_by="zweite@example.invalid"),
     ),
@@ -448,21 +416,9 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["address_changes"],
         valid_document("address_changes", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
-    # Two requests about one address from two requesters: the index refuses on the address alone.
-    "uniq_grant_approval_request_address": (
-        valid_documents()["berechtigungen_antraege"],
-        valid_document(
-            "berechtigungen_antraege",
-            _id=TEAM_OID,
-            **compose_approval_request(
-                address="vorstand@example.invalid",
-                admin_tier="owner",
-                grant_id=TEAM_OID,
-                started_by="zweite@example.invalid",
-                now=APPROVAL_REQUEST_FILED,
-            ),
-        ),
-    ),
+    # A second owner at another address: a Playground paste is the one writer that could make one, and it would hold the
+    # role beside the first with nothing in the application able to take it away again.
+    "uniq_grant_owner": (valid_documents()["grants"], valid_document("grants", _id=TEAM_OID, address="zweite@example.invalid")),
     "uniq_outbox_key": ({"_id": ObjectId(), "key": "ban/1"}, {"_id": ObjectId(), "key": "ban/1"}),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
@@ -573,7 +529,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database.address_changes.create_index([("email", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -587,7 +543,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
-        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
+        await database.action_log.create_index([("by", ASCENDING)], name=CONFLICTING_TTL_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -912,72 +868,6 @@ def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
 
     assert "COLLSCAN" not in stages, f"read under {collation} scans the squads: {stages}"
     assert indexes == [index], f"read under {collation} walked {indexes}, not {index}"
-
-
-class _SentUpdates(monitoring.CommandListener):
-    """Every update statement this client sends, with its collection, as the server receives it."""
-
-    def __init__(self) -> None:
-        self.sent: list[tuple[str, dict[str, Any]]] = []
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        if event.command_name == "update":
-            self.sent.extend((str(event.command["update"]), dict(statement)) for statement in event.command["updates"])
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        """Required by the listener interface; an update is judged as it is sent."""
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        """Required by the listener interface; a failed update was still sent with its filter."""
-
-
-ERASED_PSEUDONYM: Final = "e" * 64
-
-
-def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
-    """The updates the two steps send, never a copy of their filters, explained over a log large enough that the planner prefers an index."""
-
-    async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
-        await database[Collection.ACTION_LOG].insert_many(
-            [
-                valid_documents()["action_log"]
-                | {
-                    "_id": ObjectId(),
-                    "actor": {
-                        "kind": "person_session",
-                        "pseudonym": ERASED_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
-                        "funktion": ("spieler", "kontakt", "schiedsrichter")[row % 3],
-                    },
-                }
-                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
-            ]
-        )
-
-        listener = _SentUpdates()
-        watched = AsyncMongoClient(mongo_url, event_listeners=[listener])
-        try:
-            log = watched[database.name][Collection.ACTION_LOG]
-            async with watched.start_session() as session:
-                await unattribute_in_session(
-                    action_log_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
-                )
-                await erase_pupil_actor_in_session(action_log_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
-        finally:
-            await watched.close()
-
-        explained = [
-            (statement["q"], await database.command({"explain": {"update": collection, "updates": [statement]}, "verbosity": "queryPlanner"}))
-            for collection, statement in listener.sent
-            if collection == Collection.ACTION_LOG
-        ]
-        return [(db_filter, winning_stages(plan)) for db_filter, plan in explained]
-
-    planned = on_the_shipped_schema(mongo_url, body)
-
-    # The control: a listener hearing nothing would pass the loop below over no update at all.
-    assert sum("actor.pseudonym" in db_filter for db_filter, _ in planned) == 2, planned
-    for db_filter, stages in planned:
-        assert "COLLSCAN" not in stages, f"marking {db_filter} scans the whole log: {stages}"
 
 
 OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")

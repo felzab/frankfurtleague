@@ -6,12 +6,11 @@ from types import TracebackType
 from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
-from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.action_log.crud import reattribute_administrator_in_session, redact_address_in_images
+from app.api.action_log.crud import reattribute_administrator_in_session
 from app.api.address_change.crud import (
     build_erasure_address_change_pipeline,
     end_an_emptied_change_in_session,
@@ -20,19 +19,17 @@ from app.api.address_change.crud import (
     others_naming,
 )
 from app.api.address_change.services import build_owed_carry_filter
-from app.api.ban_list.lookup import BanList
-from app.api.grants.antraege import erase_approval_requests_in_session
 from app.api.grants.crud import read_grants
 from app.api.grants.erasure import erase_grants_and_authorship_in_session
 from app.api.identity.lookup import RecordCollections
-from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
+from app.api.identity.schemas import FLErasure, FLErasureResponse, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
     EntryKind,
     awaits_confirmation,
     build_bewerbung_pipeline,
     build_bewerbung_references_pipeline,
-    build_erasure_due_count_pipeline,
     build_erasure_due_page_pipeline,
+    build_erasure_grant_pipeline,
     build_erasure_pupil_pipeline,
     build_erasure_referee_pipeline,
     build_erasure_registrierung_pipeline,
@@ -67,6 +64,7 @@ from app.api.identity.services import (
     unreferenced,
 )
 from app.api.kontakte.crud import erase_kontaktperson_in_session
+from app.api.outbox.services import ERASURE_SPARED_KINDS
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
@@ -75,13 +73,12 @@ from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_sess
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
 from app.core.db import warn_about_the_grants
-from app.core.journal import JournalLine, lost_its_answer
-from app.core.logging import fl_logger, journal_logger
+from app.core.journal import lost_its_answer, privacy_line
+from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
-from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLSaisonStatus
@@ -300,8 +297,6 @@ class Subject:
     """
 
     identifier: str
-    # The log's key for this person (`app/core/security.py :: actor_pseudonym`).
-    pseudonym: str
     # Each `None` where no step of the scope uses it, never an empty list: its property raises, so a step
     # given a scope without its read fails rather than erasing nothing and answering zero.
     _saison_teams: Rows | None
@@ -311,6 +306,7 @@ class Subject:
     _registrierungen: Rows | None
     # The live changes naming this address, its own and another address's whose new address it is.
     _address_change: Rows | None
+    _grants: Rows | None
 
     @property
     def saison_teams(self) -> Rows:
@@ -336,6 +332,25 @@ class Subject:
     def address_change(self) -> Rows:
         return _read(self._address_change, "address_changes")
 
+    @property
+    def grants(self) -> Rows:
+        return _read(self._grants, "grants")
+
+    def records(self) -> list[str]:
+        """Each top-level record of the address as `collection/id`, in the full scope alone: what repeats its erasure after a restore."""
+
+        kinds: tuple[tuple[Collection, Rows], ...] = (
+            (Collection.SAISON_TEAMS, self.saison_teams),
+            (Collection.BEWERBUNGEN, self.bewerbungen),
+            (Collection.SCHIEDSRICHTER, self.schiedsrichter),
+            (Collection.SPIELER, self.spieler),
+            (Collection.REGISTRIERUNGEN, self.registrierungen),
+            (Collection.ADDRESS_CHANGES, self.address_change),
+            (Collection.GRANTS, self.grants),
+        )
+
+        return [f"{collection}/{row['_id']}" for collection, rows in kinds for row in rows]
+
 
 async def resolve_subject(
     identifier: str,
@@ -346,7 +361,7 @@ async def resolve_subject(
     spieler_collection: ReadCollection,
     registrierungen_collection: ReadCollection,
     address_changes_collection: ReadCollection,
-    key: SecretStr,
+    grants_collection: ReadCollection,
     # REQUIRED: the erasure reads it inside its transaction, so a retry re-reads it, and the preview in
     # a snapshot, so it names the records of one moment.
     session: AsyncClientSession,
@@ -378,152 +393,50 @@ async def resolve_subject(
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
+    grants = (
+        await read(grants_collection, build_erasure_grant_pipeline(identifier))
+        if _runs(erase_grants_and_authorship_in_session, scope)
+        else None
+    )
 
     return Subject(
         identifier=identifier,
-        pseudonym=actor_pseudonym(identifier, key=key),
         _saison_teams=saison_teams,
         _bewerbungen=bewerbungen,
         _schiedsrichter=schiedsrichter,
         _spieler=spieler,
         _registrierungen=registrierungen,
         _address_change=address_change,
+        _grants=grants,
     )
 
 
-async def unattribute_in_session(
-    *,
-    action_log_collection: AsyncCollection,
-    identifier: str,
-    pseudonym: str,
-    # REQUIRED: it reaches the rows this transaction's own steps filed under the person, a
-    # self-erasure being recorded under the person it erases.
-    session: AsyncClientSession,
-) -> int:
-    """Put the marker where the person stood as author of every log row they wrote, as a person or an administrator.
+async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
+    """Every mail to this folded address removed, owed or settled, every kind but those `ERASURE_SPARED_KINDS` names.
 
-    The row keeps its kind, route, instant and image, saying an action happened and not by whom.
+    A settled row's retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index
+    serves the read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its
+    mail was owed.
     """
-
-    as_person = await unattribute_pseudonym_in_session(action_log_collection=action_log_collection, pseudonym=pseudonym, session=session)
-    as_administrator = await reattribute_administrator_in_session(
-        action_log_collection=action_log_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
-    )
-
-    return as_person + as_administrator
-
-
-async def unattribute_pseudonym_in_session(*, action_log_collection: AsyncCollection, pseudonym: str, session: AsyncClientSession) -> int:
-    """The marker on every log row the person wrote signed in, by their pseudonym alone: what a restore's replay reaches without the address."""
-
-    marked = await patch_many_in_db(
-        collection=action_log_collection,
-        db_filter={"actor.pseudonym": pseudonym},
-        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
-        session=session,
-    )
-
-    return marked.modified_count
-
-
-async def erase_pupil_actor_in_session(
-    *,
-    action_log_collection: AsyncCollection,
-    pseudonym: str,
-    # REQUIRED: outside the erasure's transaction, a pupil it rolls back would still lose their authorship.
-    session: AsyncClientSession,
-) -> None:
-    """Put the marker where the person stood as a pupil in the log."""
-
-    await patch_many_in_db(
-        collection=action_log_collection,
-        db_filter={"actor.pseudonym": pseudonym, "actor.funktion": "spieler"},
-        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
-        session=session,
-    )
-
-
-async def _replaced_addresses(
-    identifier: str, *, address_changes_collection: AsyncCollection, key: SecretStr, session: AsyncClientSession
-) -> tuple[set[str], list[Any]]:
-    """The hashes of every address this one replaced, through the chain of effects that moved the person here, and those effects.
-
-    The journal's own keyed hash (`app/core/security.py :: erasure_journal_hash`), so no address is kept to find them by.
-    """
-
-    replaced: set[str] = set()
-    effects: list[Any] = []
-    sought = {erasure_journal_hash(identifier, key=key)}
-    while sought:
-        found = await aggregate_many_from_db(
-            collection=address_changes_collection,
-            pipeline=[{"$match": {"moved.person_hash": {"$in": sorted(sought)}}}, {"$project": {"moved": 1}}],
-            session=session,
-        )
-        effects += [row["_id"] for row in found]
-        sought = {str(row["moved"]["before"]) for row in found} - replaced
-        replaced |= sought
-
-    return replaced, effects
-
-
-async def erase_the_mails_in_session(
-    *,
-    outbox_collection: AsyncCollection,
-    address_changes_collection: AsyncCollection,
-    identifier: str,
-    key: SecretStr,
-    session: AsyncClientSession,
-) -> int:
-    """Every mail to this folded address or one it replaced removed, and a replaced address withheld in every grant notice owed.
-
-    Owed or settled, every kind but the sign-in library's deletion link, which asks the erasure. A settled row's
-    retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index serves the
-    read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its mail was
-    owed.
-    """
-
-    replaced, effects = await _replaced_addresses(identifier, address_changes_collection=address_changes_collection, key=key, session=session)
-
-    def theirs(value: Any) -> bool:
-        if not isinstance(value, str):
-            return False
-        folded = sign_in_identifier(value)
-        return folded == identifier or erasure_journal_hash(folded, key=key) in replaced
 
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[
-            {"$match": {"kind": {"$ne": "account_erasure"}}},
-            {"$project": {"to": 1, "kind": 1, "state": 1, "data.current": 1, "data.before": 1, "data.changed_by": 1}},
-        ],
+        pipeline=[{"$match": {"kind": {"$nin": sorted(ERASURE_SPARED_KINDS)}}}, {"$project": {"to": 1}}],
         session=session,
     )
-    ids = [row["_id"] for row in rows if theirs(row["to"])]
+    ids = [row["_id"] for row in rows if isinstance(row["to"], str) and sign_in_identifier(row["to"]) == identifier]
     if ids:
-        await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
-
-    # The person's own address the grants' step withholds; a replaced one only this chain finds.
-    for row in rows:
-        if row["_id"] in ids or row["kind"] != "grant" or row["state"] != "open" or not replaced:
-            continue
-        data = row.get("data") or {}
-        withheld: dict[str, Any] = {}
-        for site in ("current", "before"):
-            if theirs((data.get(site) or {}).get("address")):
-                withheld |= {f"data.{site}.address": None, "data.withheld": "erased"}
-        if theirs(data.get("changed_by")):
-            withheld["data.changed_by"] = ERASED_ACTOR_MARKER
-        if withheld:
-            await patch_many_in_db(collection=outbox_collection, db_filter={"_id": row["_id"]}, update={"$set": withheld}, session=session)
-
-    # The chain served its one reader: nothing links the erased person's addresses past this erasure.
-    if effects:
-        await patch_many_in_db(
-            collection=address_changes_collection, db_filter={"_id": {"$in": effects}}, update={"$unset": {"moved": ""}}, session=session
-        )
+        await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
     return len(ids)
+
+
+@dataclass(frozen=True)
+class Erasure:
+    """What one erasure took: the counts its route answers, and each top-level record for its line, empty in a narrower scope."""
+
+    counts: FLErasure
+    records: list[str]
 
 
 @dataclass(frozen=True)
@@ -531,67 +444,38 @@ class ErasureStep:
     """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
 
     reaches: frozenset[Collection]
-    # `None` for a step serving no one kind of person: the full scope alone runs it. Every step leaving
-    # the address in another record's images is one, so no scope runs it without the address pass.
+    # `None` for a step serving no one kind of person: the full scope alone runs it.
     person_group: PersonGroup | None
     run: Callable[..., Awaitable[Any]]
 
 
 # In the order `erase_everything` runs them: every step reaching a person's references before the
-# step removing the person, the log's actor after every write the steps filed under them, and the
-# address pass after every image they filed.
+# step removing the person.
 ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
-        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG}),
+        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN}),
         person_group="kontakt",
         run=erase_kontaktperson_in_session,
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
+    ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX}), person_group=None, run=end_the_address_changes_in_session),
+    ErasureStep(reaches=frozenset({Collection.SPIELBESTAETIGUNGEN}), person_group="schiedsrichter", run=erase_referee_confirmations_in_session),
+    ErasureStep(reaches=frozenset({Collection.SPIELBERICHTE}), person_group="schiedsrichter", run=repoint_referee_reports_in_session),
+    ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE}), person_group="schiedsrichter", run=erase_referee_in_session),
+    ErasureStep(reaches=frozenset({Collection.REGISTRIERUNGEN}), person_group="spieler", run=erase_registrierungen_in_session),
     ErasureStep(
-        reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX, Collection.ACTION_LOG}),
-        person_group=None,
-        run=end_the_address_changes_in_session,
-    ),
-    ErasureStep(
-        reaches=frozenset({Collection.SPIELBESTAETIGUNGEN, Collection.ACTION_LOG}),
-        person_group="schiedsrichter",
-        run=erase_referee_confirmations_in_session,
-    ),
-    ErasureStep(
-        reaches=frozenset({Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
-        person_group="schiedsrichter",
-        run=repoint_referee_reports_in_session,
-    ),
-    ErasureStep(
-        reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.ACTION_LOG}),
-        person_group="schiedsrichter",
-        run=erase_referee_in_session,
-    ),
-    ErasureStep(
-        reaches=frozenset({Collection.REGISTRIERUNGEN, Collection.ACTION_LOG}),
-        person_group="spieler",
-        run=erase_registrierungen_in_session,
-    ),
-    ErasureStep(
-        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE, Collection.ACTION_LOG}),
+        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE}),
         person_group="spieler",
         run=erase_person_in_session,
     ),
     # After the pupil's records went: the season's erasure leaves the address's other records, and their change, standing.
-    ErasureStep(
-        reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.ACTION_LOG}), person_group="spieler", run=end_an_emptied_change_in_session
-    ),
-    # No kind's alone: a request is about an address, whatever it holds, or made by an administrator.
-    ErasureStep(
-        reaches=frozenset({Collection.GRANT_APPROVAL_REQUESTS, Collection.OUTBOX}), person_group=None, run=erase_approval_requests_in_session
-    ),
+    ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES}), person_group="spieler", run=end_an_emptied_change_in_session),
     # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
     # the pupil scope must never run it.
     ErasureStep(
         reaches=frozenset(
             {
                 Collection.GRANTS,
-                Collection.GRANTS_ANNOUNCED,
                 Collection.OUTBOX,
                 Collection.BEWERBUNGEN,
                 Collection.REGISTRIERUNGEN,
@@ -604,14 +488,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
     # erasure's notices to the administrators who remain.
-    ErasureStep(reaches=frozenset({Collection.OUTBOX, Collection.ADDRESS_CHANGES}), person_group=None, run=erase_the_mails_in_session),
-    ErasureStep(reaches=frozenset({Collection.ACTION_LOG}), person_group=None, run=unattribute_in_session),
-    # The pupil's share of the one above, finding nothing after it in the full scope: in the pupil scope a seat's or a
-    # referee row's rows are that standing record's, and stay.
-    ErasureStep(reaches=frozenset({Collection.ACTION_LOG}), person_group="spieler", run=erase_pupil_actor_in_session),
-    # LAST: images filed before the erasure hold the address, and the seat clearing files more. No kind's
-    # alone: in the pupil scope it would take a standing referee's or administrator's address out of their own images.
-    ErasureStep(reaches=frozenset({Collection.ACTION_LOG}), person_group=None, run=redact_address_in_images),
+    ErasureStep(reaches=frozenset({Collection.OUTBOX}), person_group=None, run=erase_the_mails_in_session),
+    # For every erased address, a grantee stopped before it took effect included: a grant act's label holds that address.
+    ErasureStep(reaches=frozenset({Collection.ACTION_LOG}), person_group=None, run=reattribute_administrator_in_session),
 )
 
 
@@ -640,19 +519,13 @@ async def erase_everything(
     registrierungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
-    grant_approval_requests_collection: AsyncCollection,
-    ban_list: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
     changed_by: str,
-    key: SecretStr,
-    # The caller's, so every redaction of one erasure carries one instant.
-    stamp: str,
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
@@ -660,11 +533,11 @@ async def erase_everything(
     # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
     # typed their address. Every change naming it ends all the same.
     for_the_person: bool = False,
-) -> FLErasure:
+) -> Erasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, so a retry after a conflict re-reads it. The caller runs its transaction inside an
-    `ErasureJournal`, which journals once it commits.
+    The subject is read HERE, so a retry after a conflict re-reads it. A request's route runs its transaction inside an
+    `ErasureJournal`, which writes the erasure's line once it commits.
     """
 
     subject = await resolve_subject(
@@ -675,7 +548,7 @@ async def erase_everything(
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
         address_changes_collection=address_changes_collection,
-        key=key,
+        grants_collection=grants_collection,
         session=session,
         scope=scope,
     )
@@ -689,30 +562,24 @@ async def erase_everything(
 
     kontakt_seats = 0
     if _runs(erase_kontaktperson_in_session, scope):
-        kontakt_seats = (
-            await erase_kontaktperson_in_session(
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                action_log_collection=action_log_collection,
-                identifier=identifier,
-                saison_team_rows=subject.saison_teams,
-                bewerbung_rows=subject.bewerbungen,
-                stamp=stamp,
-                session=session,
-            )
-        ).kontakt_slots
+        kontakt_seats = await erase_kontaktperson_in_session(
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            identifier=identifier,
+            saison_team_rows=subject.saison_teams,
+            bewerbung_rows=subject.bewerbungen,
+            session=session,
+        )
 
     address_change = 0
     if _runs(end_the_address_changes_in_session, scope):
         address_change = await end_the_address_changes_in_session(
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
-            action_log_collection=action_log_collection,
             identifier=identifier,
             rows=subject.address_change,
             now=now,
-            stamp=stamp,
             session=session,
         )
         if for_the_person:
@@ -722,9 +589,7 @@ async def erase_everything(
     if _runs(erase_referee_confirmations_in_session, scope):
         await erase_referee_confirmations_in_session(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            action_log_collection=action_log_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
-            stamp=stamp,
             session=session,
         )
 
@@ -732,9 +597,7 @@ async def erase_everything(
     if _runs(repoint_referee_reports_in_session, scope):
         await repoint_referee_reports_in_session(
             spielberichte_collection=spielberichte_collection,
-            action_log_collection=action_log_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
-            stamp=stamp,
             session=session,
         )
 
@@ -744,9 +607,7 @@ async def erase_everything(
             spiele += await erase_referee_in_session(
                 schiedsrichter_collection=schiedsrichter_collection,
                 spiele_collection=spiele_collection,
-                action_log_collection=action_log_collection,
                 schiedsrichter_id=row["_id"],
-                stamp=stamp,
                 session=session,
             )
 
@@ -754,9 +615,7 @@ async def erase_everything(
     if _runs(erase_registrierungen_in_session, scope):
         registrierungen = await erase_registrierungen_in_session(
             registrierungen_collection=registrierungen_collection,
-            action_log_collection=action_log_collection,
             registrierungen=subject.registrierungen,
-            stamp=stamp,
             session=session,
         )
 
@@ -767,9 +626,7 @@ async def erase_everything(
                 spieler_collection=spieler_collection,
                 saison_spieler_collection=saison_spieler_collection,
                 spielberichte_collection=spielberichte_collection,
-                action_log_collection=action_log_collection,
                 spieler_id=row["_id"],
-                stamp=stamp,
                 session=session,
             )
             spieler += erased.spieler
@@ -778,7 +635,6 @@ async def erase_everything(
     if _runs(end_an_emptied_change_in_session, scope):
         address_change += await end_an_emptied_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             grants_collection=grants_collection,
             records=RecordCollections(
                 saison_teams_collection=saison_teams_collection,
@@ -789,17 +645,6 @@ async def erase_everything(
             ),
             identifier=identifier,
             now=now,
-            stamp=stamp,
-            session=session,
-        )
-
-    grant_approval_requests = 0
-    if _runs(erase_approval_requests_in_session, scope):
-        grant_approval_requests = await erase_approval_requests_in_session(
-            grant_approval_requests_collection=grant_approval_requests_collection,
-            outbox_collection=outbox_collection,
-            identifier=identifier,
-            now=now,
             session=session,
         )
 
@@ -808,13 +653,11 @@ async def erase_everything(
         grants = (
             await erase_grants_and_authorship_in_session(
                 grants_collection=grants_collection,
-                grants_announced_collection=grants_announced_collection,
                 outbox_collection=outbox_collection,
                 bewerbungen_collection=bewerbungen_collection,
                 registrierungen_collection=registrierungen_collection,
                 invitations_collection=invitations_collection,
                 ban_list_collection=ban_list_collection,
-                ban_list=ban_list,
                 identifier=identifier,
                 changed_by=changed_by,
                 now=now,
@@ -823,83 +666,62 @@ async def erase_everything(
         ).removed_grants
 
     if _runs(erase_the_mails_in_session, scope):
-        await erase_the_mails_in_session(
-            outbox_collection=outbox_collection,
-            address_changes_collection=address_changes_collection,
-            identifier=identifier,
-            key=key,
-            session=session,
+        await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
+
+    if _runs(reattribute_administrator_in_session, scope):
+        await reattribute_administrator_in_session(
+            action_log_collection=action_log_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
         )
 
-    if _runs(unattribute_in_session, scope):
-        await unattribute_in_session(
-            action_log_collection=action_log_collection, identifier=identifier, pseudonym=subject.pseudonym, session=session
-        )
-
-    if _runs(erase_pupil_actor_in_session, scope):
-        await erase_pupil_actor_in_session(action_log_collection=action_log_collection, pseudonym=subject.pseudonym, session=session)
-
-    if _runs(redact_address_in_images, scope):
-        await redact_address_in_images(action_log_collection=action_log_collection, identifier=identifier, stamp=stamp, session=session)
-
-    return FLErasure(
-        spieler=spieler,
-        saison_spieler=saison_spieler,
-        schiedsrichter=len(subject.schiedsrichter) if _runs(erase_referee_in_session, scope) else 0,
-        spiele=spiele,
-        kontakt_seats=kontakt_seats,
-        registrierungen=registrierungen,
-        address_change=address_change,
-        grants=grants,
-        grant_approval_requests=grant_approval_requests,
+    return Erasure(
+        counts=FLErasure(
+            spieler=spieler,
+            saison_spieler=saison_spieler,
+            schiedsrichter=len(subject.schiedsrichter) if _runs(erase_referee_in_session, scope) else 0,
+            spiele=spiele,
+            kontakt_seats=kontakt_seats,
+            registrierungen=registrierungen,
+            address_change=address_change,
+            grants=grants,
+        ),
+        records=subject.records() if scope == EACH_PERSON_GROUP else [],
     )
 
 
-class ErasureJournal[Erased: FLErasure]:
-    """Entered around every erasure route's transaction block: the journal and the warnings follow its commit.
+class ErasureJournal:
+    """Entered around a request's transaction block: the erasure's line and the warnings follow its commit.
 
-    Outside the block, whose abort a failure meets first; never in the callback, where a
-    rolled-back attempt would be journalled.
+    Outside the block, whose abort a failure meets first; the callback hands each attempt's erasure to `took`, so a lost
+    answer still has the last attempt's records to name.
     """
 
-    def __init__(self, identifier: str, *, key: SecretStr, grants_collection: AsyncCollection) -> None:
-        self._identifier = identifier
-        self._key = key
+    def __init__(self, *, grants_collection: AsyncCollection) -> None:
         self._grants_collection = grants_collection
-        self._erased: Erased | None = None
+        self._erasure: Erasure | None = None
 
-    async def __aenter__(self) -> ErasureJournal[Erased]:
+    async def __aenter__(self) -> ErasureJournal:
         return self
 
-    def took(self, erased: Erased) -> Erased:
-        """The transaction's answer, handed on as it arrives."""
+    def took(self, erasure: Erasure) -> FLErasureResponse:
+        """The attempt's erasure, answered as its route answers it."""
 
-        self._erased = erased
+        self._erasure = erasure
 
-        return erased
+        return FLErasureResponse(**erasure.counts.model_dump())
 
     async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
-        if failure is None:
-            if self._erased is None:
-                raise RuntimeError("an erasure route left its journal without handing it the transaction's answer")
-            self._journal()
-            # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
-            # grant short: the ended grant's queued notice is what tells the other administrators.
-            if self._erased.grants:
-                await self._warn_about_the_grants()
-        # A lost answer, never a refusal (which raises before any commit): it may have landed, and replaying an
-        # erasure the person asked for wrongs nobody. Unwarned: the warning's read would meet the deadline that
-        # lost the answer.
-        elif lost_its_answer(failure):
-            self._journal()
+        # A lost answer writes its line too, never a refusal, which raises before any commit: the erasure may have landed.
+        if failure is not None and not lost_its_answer(failure):
+            return
+        if self._erasure is None:
+            raise RuntimeError("an erasure route left its journal without handing it the transaction's erasure")
 
-    def _journal(self) -> None:
-        line = JournalLine(
-            person_hash=erasure_journal_hash(self._identifier, key=self._key),
-            kind="erasure",
-            pseudonym=actor_pseudonym(self._identifier, key=self._key),
-        )
-        journal_logger.info(line.text())
+        privacy_line("erasure", self._erasure.records)
+        # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
+        # grant short: the ended grant's queued notice is what tells the other administrators. Unwarned on a
+        # lost answer: the warning's read would meet the deadline that lost the answer.
+        if failure is None and self._erasure.counts.grants:
+            await self._warn_about_the_grants()
 
     async def _warn_about_the_grants(self) -> None:
         # Logged, never raised: the erasure committed, and an error answered here, a read meeting the deadline
@@ -937,8 +759,7 @@ async def unreferenced_of(
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
-        # Every row as stored, never `app/api/grants/crud.py :: read_admin_tier_of`: a grant edited in
-        # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
+        # Every row as stored, never `app/api/grants/crud.py :: read_admin_tier_of`: a waiting grant's account stands too.
         read_grants(grants_collection=grants_collection),
         aggregate_many_from_db(
             collection=address_changes_collection,
@@ -946,7 +767,8 @@ async def unreferenced_of(
         ),
     )
 
-    # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced.
+    # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced, which the account
+    # sweep would act on by deleting every account.
     refuse(find_no_owner_refusal(grant_rows))
 
     referenced = referenced_addresses(
@@ -1004,20 +826,6 @@ async def erasure_due_page(
     return read["page"], sum(row["count"] for row in read["count"])
 
 
-async def due_count(
-    statuses: Mapping[str, FLSaisonStatus], *, spieler_collection: AsyncCollection, registrierungen_collection: AsyncCollection
-) -> int:
-    """How many pupils the rule makes due under `statuses`, read outside any transaction."""
-
-    kept = kept_saison_ids(statuses)
-    if kept is None:
-        return 0
-
-    pipeline = build_erasure_due_count_pipeline(kept=kept, pending_addresses=await _pending_addresses(registrierungen_collection))
-
-    return sum(row["count"] for row in await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline))
-
-
 async def erase_if_still_due(
     spieler_id: Any,
     *,
@@ -1033,15 +841,10 @@ async def erase_if_still_due(
     registrierungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
-    grant_approval_requests_collection: AsyncCollection,
-    ban_list: BanList,
-    key: SecretStr,
-    stamp: str,
     now: datetime,
     # REQUIRED: the judgement and the erasure commit together, so a squad row or a registration
     # landing between the population read and this transaction keeps the person.
@@ -1085,7 +888,7 @@ async def erase_if_still_due(
     ):
         return None
 
-    return await erase_everything(
+    erasure = await erase_everything(
         email,
         scope=SPIELER_ONLY,
         spieler_collection=spieler_collection,
@@ -1099,17 +902,14 @@ async def erase_if_still_due(
         registrierungen_collection=registrierungen_collection,
         action_log_collection=action_log_collection,
         grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
         outbox_collection=outbox_collection,
         invitations_collection=invitations_collection,
         ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
-        grant_approval_requests_collection=grant_approval_requests_collection,
-        ban_list=ban_list,
         # Read by the grants step alone, which this scope never runs.
         changed_by=SYSTEM_ACTOR_EMAIL,
-        key=key,
-        stamp=stamp,
         now=now,
         session=session,
     )
+
+    return erasure.counts

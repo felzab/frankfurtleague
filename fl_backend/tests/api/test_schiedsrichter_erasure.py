@@ -5,9 +5,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.identity.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
@@ -32,16 +31,12 @@ from app.api.spiele.schemas import (
 from app.api.spiele.services import BookedReferee, ResolvedReferences, find_booking_refusal
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.constraints import SUPPORT_INDEXES
-from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.exceptions import DocumentNotFoundError
-from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.outbox import MAIL_NOW
@@ -63,15 +58,13 @@ REFEREE_NAMES = {SCHIEDSRICHTER_OID: "Anna Körner", OTHER_SCHIEDSRICHTER_OID: "
 SCHULE = "Carl-Schurz-Schule"
 DEFAULT_PAYMENT = 20
 
-# The pair the seeded edit replaced. It survives in one place only -- the log row that edit wrote --
-# which is the copy an erasure stopping at the collection leaves standing.
+# The pair the seeded edit replaced.
 FORMER_KONTAKT = {
     SCHIEDSRICHTER_OID: {"phone": "+49 69 7654321", "email": "ak-vertretung@example.com"},
     OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 9998887", "email": "bk-vertretung@example.com"},
 }
 
-# What each referee holds when the erasure runs. No value here or above is shared between the two,
-# so the log sweep below can attribute every hit it finds to one referee.
+# What each referee holds when the erasure runs.
 KONTAKT = {
     SCHIEDSRICHTER_OID: {"phone": "+49 69 1234567", "email": "koerner.anna@example.com"},
     OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 2223334", "email": "kraus.bernd@example.com"},
@@ -82,10 +75,7 @@ KONTAKT = {
 # pass, which can fall before the hand-out claims it. Every day below moves with it.
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
-# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
-REDACTED_AT = "2126-04-01T10:30:00+00:00"
-
-# `get_german_date_str`'s answer for `NOW`, spelled out for `REDACTED_AT`'s reason.
+# `get_german_date_str`'s answer for `NOW`, written out rather than computed, which would agree with any conversion.
 TODAY = "2126-04-01"
 
 # A day the endpoints here are never handed, so a stamp found unmoved cannot be one they wrote.
@@ -95,19 +85,12 @@ AN_EARLIER_RETIREMENT = "2125-11-20"
 # then unmistakable rather than equal to what another write would have left.
 A_LATER_PRESS = "2126-05-04"
 
-# What the seeded fixture edit moves. The field is arbitrary; the edit is not -- it is what files a log
-# row carrying the whole fixture, the referee's embedded name included.
-A_RESCHEDULED_TIME = "15:00:00"
-
 # The day the seeded links were minted, earlier than every press here, so a block found carrying it
 # is the seed's rather than one a case wrote.
 MINTED_ON = "2126-03-02"
 BIRTH_DATE = "1984-05-09"
 
 TOKEN_HASHES = {oid: hash_token(f"raw-token-for-{oid}") for oid in REFEREE_NAMES}
-
-# Read off the declaration rather than typed here, so renaming the index fails at its one source.
-TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.ACTION_LOG and "document_id" in dict(index.keys))
 
 
 # Two fixtures for the erased referee, so a repoint stopping at the first row fails, and one for the
@@ -183,9 +166,6 @@ def spiel_documents() -> list[dict[str, Any]]:
 
 # What every repointed fixture holds afterwards: the ghost's id, no name, and the fee this match itself agreed.
 REPOINTED_BOOKING: dict[str, Any] = {"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "payment": DEFAULT_PAYMENT}
-
-# What a repointed image recorded while fixtures stored their referee's name holds: the same, that name nulled in place.
-REPOINTED_IMAGE: dict[str, Any] = {**REPOINTED_BOOKING, "name": None}
 
 
 async def an_archived_spiel(database: AsyncDatabase) -> None:
@@ -273,10 +253,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> None:
-    """Details EDITED through the real endpoints: the telephone by the editor's save, the address by the referee's own change.
-
-    Without the edits the log would hold no contact value and every assertion below would pass vacuously.
-    """
+    """Details EDITED through the real endpoints: the telephone by the editor's save, the address by the referee's own change."""
 
     former_email = FORMER_KONTAKT[schiedsrichter_id]["email"]
     served = await database[Collection.SCHIEDSRICHTER].find_one({"_id": schiedsrichter_id}, {"version": 1})
@@ -292,7 +269,6 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         now=MAIL_NOW,
@@ -303,30 +279,11 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
     await answer_the_change(database, client, minted.token, germany_now=NOW)
 
 
-async def a_spiel_with_a_history(database: AsyncDatabase, spiel_id: ObjectId) -> None:
-    """One edit to a fixture, through the recording helper the editor's own save uses.
-
-    Its image carries the referee's embedded name under the FIXTURE's id. Without it the log names no
-    fixture and the sweeps below pass vacuously.
-    """
-
-    await patch_one_in_db(
-        collection=database[Collection.SPIELE],
-        db_filter={"_id": spiel_id},
-        update={"$set": {"time": A_RESCHEDULED_TIME}},
-        expected_version=None,
-        return_document=ReturnDocument.BEFORE,
-    )
-
-
-def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
-    """The REAL indexes.
-
-    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
-    """
+def on_a_league(url: str, body: Body) -> Any:
+    """The REAL indexes."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # A referee save carrying an address reads the running season, the ban list being
             # judged against it, so a league with none would 404 in the seed rather than in a case.
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
@@ -334,8 +291,6 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
             await database[Collection.SPIELE].insert_many(spiel_documents())
             for oid in REFEREE_NAMES:
                 await a_referee_with_a_history(database, client, oid)
-            for spiel_id in (spiel_id for spiel_ids in SPIEL_OIDS.values() for spiel_id in spiel_ids):
-                await a_spiel_with_a_history(database, spiel_id)
 
             return await body(database, client)
 
@@ -355,7 +310,6 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         now=MAIL_NOW,
@@ -380,17 +334,6 @@ async def one_of_their_spiele_left_to_play(database: AsyncDatabase, *, sonderere
     await database[Collection.SPIELE].update_one({"_id": UNPLAYED_SPIEL_OID}, {"$set": {"ergebnis": None, "sonderereignis": sonderereignis}})
 
 
-async def a_validator_refusing_the_redaction(database: AsyncDatabase) -> None:
-    """Narrow enough to refuse the redaction's `$set`, wide enough to admit every row recorded with `redacted_at` null."""
-
-    await database.command(
-        "collMod",
-        Collection.ACTION_LOG.value,
-        validator={"$jsonSchema": {"bsonType": "object", "properties": {"redacted_at": {"bsonType": "null"}}}},
-        validationLevel="strict",
-    )
-
-
 async def stored_spiele(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
     """Keyed by `_id`, so a failing assertion names the fixture rather than a list position."""
 
@@ -403,42 +346,11 @@ async def stored_referees(database: AsyncDatabase) -> dict[Any, Mapping[str, Any
     return {row["_id"]: row for row in await database[Collection.SCHIEDSRICHTER].find().to_list(length=None)}
 
 
-async def log_rows_naming(database: AsyncDatabase, schiedsrichter_id: ObjectId) -> list[Mapping[str, Any]]:
-    """Every log row about this referee, spelled out here rather than taken from the endpoint's own filter.
-
-    A wrong filter in the endpoint cannot then make these assertions agree with it.
-    """
-
-    rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SCHIEDSRICHTER), "document_id": schiedsrichter_id})
-
-    return await rows.to_list(length=None)
-
-
-def index_names(plan: Any) -> set[str]:
-    """Every `indexName` at any depth of an explain plan: the tree's shape differs by engine and version."""
-
-    found: set[str] = set()
-
-    if isinstance(plan, Mapping):
-        if "indexName" in plan:
-            found.add(str(plan["indexName"]))
-        for value in plan.values():
-            found |= index_names(value)
-    elif isinstance(plan, list):
-        for item in plan:
-            found |= index_names(item)
-
-    return found
-
-
-def after_erasure(url: str) -> tuple[dict[Any, Mapping[str, Any]], list[Mapping[str, Any]]]:
-    """The whole collection and the whole log together: one seeded database serves both."""
-
+def after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await erase_the_referee(database, client)
-        log = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
-        return await stored_referees(database), log
+        return await stored_referees(database)
 
     return on_a_league(url, body)
 
@@ -447,7 +359,7 @@ def after_erasure(url: str) -> tuple[dict[Any, Mapping[str, Any]], list[Mapping[
 def test_the_referees_document_is_gone(mongo_replica_set_url: str):
     """The case the endpoint exists for. Kills nulling the row in place, and a transaction that never commits."""
 
-    referees, _ = after_erasure(mongo_replica_set_url)
+    referees = after_erasure(mongo_replica_set_url)
 
     assert SCHIEDSRICHTER_OID not in referees
     # The control, without which emptying the whole collection would pass.
@@ -458,7 +370,7 @@ def test_the_referees_document_is_gone(mongo_replica_set_url: str):
 def test_the_ghost_is_written_where_no_ghost_stood(mongo_replica_set_url: str):
     """Kills leaving the seed to a deploy step: a repoint onto a row nothing holds is a reference no rule and no report can resolve."""
 
-    referees, _ = after_erasure(mongo_replica_set_url)
+    referees = after_erasure(mongo_replica_set_url)
     ghost = referees[GHOST_SCHIEDSRICHTER_ID]
 
     assert (ghost["name"], ghost["schule"]) == (None, None)
@@ -510,7 +422,6 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     outbox_collection=database[Collection.OUTBOX],
-                    ban_list=ban_list(database),
                     db=client,
                     today=TODAY,
                     now=MAIL_NOW,
@@ -659,275 +570,9 @@ def test_the_fee_the_match_agreed_survives_the_repoint(mongo_replica_set_url: st
 def test_the_other_referee_keeps_their_contact_details(mongo_replica_set_url: str):
     """Kills a write that ignores its filter: the cases above all pass for one that empties the collection."""
 
-    referees, _ = after_erasure(mongo_replica_set_url)
+    referees = after_erasure(mongo_replica_set_url)
 
     assert referees[OTHER_SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[OTHER_SCHIEDSRICHTER_OID]
-
-
-@pytest.mark.db
-def test_the_removal_files_no_image_of_the_person(mongo_replica_set_url: str):
-    """Kills `delete_many_from_db` in the erasure's place: it keeps every image, so the row recording the deletion would hold the whole person.
-
-    The row is identified as the one this call added, so no ordering of the log can hide it.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        seeded = {row["_id"] for row in await log_rows_naming(database, SCHIEDSRICHTER_OID)}
-        await erase_the_referee(database, client)
-        rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SCHIEDSRICHTER), "operation": "erase_many"})
-
-        return seeded, await rows.to_list(length=None)
-
-    seeded, removals = on_a_league(mongo_replica_set_url, body)
-
-    assert seeded, "the seeded history left no row to tell the new one from"
-    assert len(removals) == 1, f"the erasure filed no removal row of its own: {removals}"
-    assert removals[0]["before"] is None
-    # The log stores a filter's values as TEXT, which is why the erasure's filter may name ids alone
-    # (`app/core/crud.py :: erase_many_from_db`).
-    assert removals[0]["db_filter"] == {"_id": str(SCHIEDSRICHTER_OID)}
-
-
-@pytest.mark.db
-def test_every_log_row_naming_them_is_emptied_and_stamped(mongo_replica_set_url: str):
-    """Kills dropping the redaction, one that stamps without clearing, and one that clears without stamping."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        seeded = await log_rows_naming(database, SCHIEDSRICHTER_OID)
-        await erase_the_referee(database, client)
-
-        return seeded, await log_rows_naming(database, SCHIEDSRICHTER_OID)
-
-    seeded, rows = on_a_league(mongo_replica_set_url, body)
-
-    # The pre-state, without which a filter matching nothing would pass.
-    assert [row for row in seeded if row["before"] is not None], "the seeded log held no image to redact"
-    assert all(row["before"] is None for row in rows)
-    assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
-
-
-@pytest.mark.db
-def test_no_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_set_url: str):
-    """Kills a redaction narrowed to some of their rows.
-
-    The NAME is in the set because a fixture's image carries it under that fixture's id. The other
-    referee's values are asserted present, or a log emptied wholesale would pass.
-    """
-
-    _, log = after_erasure(mongo_replica_set_url)
-    rendered = str(log)
-    theirs = (REFEREE_NAMES[SCHIEDSRICHTER_OID], *FORMER_KONTAKT[SCHIEDSRICHTER_OID].values(), *KONTAKT[SCHIEDSRICHTER_OID].values())
-
-    assert [value for value in theirs if value in rendered] == []
-    # Their replaced pair, not their live one: only what an edit replaced is ever in the log at all. Both halves,
-    # each logged by its own write, so neither half of the redaction passes on a log missing that write.
-    assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["phone"] in rendered
-    assert FORMER_KONTAKT[OTHER_SCHIEDSRICHTER_OID]["email"] in rendered
-    assert REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID] in rendered
-
-
-async def spiel_log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    """Every log row naming ONE fixture, the repoint's own row excluded: that one carries a count and names no document."""
-
-    rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELE), "document_id": {"$ne": None}})
-
-    return await rows.to_list(length=None)
-
-
-@pytest.mark.db
-def test_every_spiel_image_holding_their_name_is_repointed_and_stamped(mongo_replica_set_url: str):
-    """Kills a redaction reaching the referee's own rows alone, and one taking the match's earlier states with the booking.
-
-    The image is filed under the FIXTURE's id, out of `build_redaction_filter`'s reach. Each holds the name a fixture
-    stored as a copy when the image was recorded, which the fixture itself no longer holds: an image outlives the shape.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.ACTION_LOG].update_many(
-            {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": SCHIEDSRICHTER_OID},
-            {"$set": {"before.schiedsrichter.name": REFEREE_NAMES[SCHIEDSRICHTER_OID]}},
-        )
-        seeded = await spiel_log_rows(database)
-        await erase_the_referee(database, client)
-
-        return seeded, await spiel_log_rows(database)
-
-    seeded, rows = on_a_league(mongo_replica_set_url, body)
-
-    assert [row for row in seeded if row["before"] is not None], "the seeded log held no fixture image to redact"
-
-    theirs = [row for row in rows if row["document_id"] in SPIEL_OIDS[SCHIEDSRICHTER_OID]]
-    assert len(theirs) == len(SPIEL_OIDS[SCHIEDSRICHTER_OID]), "a fixture of theirs filed no log row at all"
-    assert [row["before"]["schiedsrichter"] for row in theirs] == [REPOINTED_IMAGE] * len(theirs)
-    assert {row["redacted_at"] for row in theirs} == {REDACTED_AT}
-    # The match's own earlier state, which the image is the record of, stands but for the booking.
-    as_seeded = {row["_id"]: {**row["before"], "schiedsrichter": None} for row in seeded}
-    assert [{**row["before"], "schiedsrichter": None} for row in theirs] == [as_seeded[row["_id"]] for row in theirs]
-
-    # The control: a sweep over every fixture row would empty this one too.
-    (other,) = [row for row in rows if row["document_id"] in SPIEL_OIDS[OTHER_SCHIEDSRICHTER_OID]]
-    assert other["before"] is not None
-    assert other["redacted_at"] is None
-
-
-@pytest.mark.db
-def test_an_image_of_a_spiel_since_reassigned_is_repointed_too(mongo_replica_set_url: str):
-    """The row no id can name: this fixture books somebody else now, so nothing the erasure reads still points at it.
-
-    Kills a redaction selecting the fixtures they hold TODAY, which the case above passes for.
-    """
-
-    reassigned = UNPLAYED_SPIEL_OID
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        # Through the recording helper, so the image this files is the one a real reassignment leaves.
-        await patch_one_in_db(
-            collection=database[Collection.SPIELE],
-            db_filter={"_id": reassigned},
-            update={"$set": {"schiedsrichter": {"schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}}},
-            expected_version=None,
-            return_document=ReturnDocument.BEFORE,
-        )
-        await erase_the_referee(database, client)
-
-        return [row for row in await spiel_log_rows(database) if row["document_id"] == reassigned]
-
-    rows = on_a_league(mongo_replica_set_url, body)
-
-    # Two: the seeded reschedule and the reassignment, both filed before the erasure ran.
-    assert len(rows) == 2, f"the reassignment filed no row of its own: {rows}"
-    assert [row["before"]["schiedsrichter"] for row in rows] == [REPOINTED_BOOKING] * 2
-    assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
-
-
-@pytest.mark.db
-def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica_set_url: str):
-    """An undraw removes a season's fixtures and keeps every image in ONE row, `document_id` an array.
-
-    Kills a filter reading `before` as a single document.
-    """
-
-    removed = SPIEL_OIDS[SCHIEDSRICHTER_OID]
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        # Through the helper the undraw uses, which is what files the array rather than one row each.
-        async with client.start_session() as session:
-            await delete_many_from_db(collection=database[Collection.SPIELE], db_filter={"_id": {"$in": list(removed)}}, session=session)
-        await erase_the_referee(database, client)
-
-        rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELE), "operation": "delete_many"})
-
-        return await rows.to_list(length=None)
-
-    (row,) = on_a_league(mongo_replica_set_url, body)
-
-    assert sorted(row["document_id"]) == sorted(removed), "the removal filed no array of the ids it took"
-    assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_BOOKING] * len(removed)
-    assert row["redacted_at"] == REDACTED_AT
-
-
-@pytest.mark.db
-def test_the_other_referees_log_rows_keep_their_images(mongo_replica_set_url: str):
-    """Kills a filter matching on `collection` alone, which would empty every referee's rows at once."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await erase_the_referee(database, client)
-
-        return await log_rows_naming(database, OTHER_SCHIEDSRICHTER_OID)
-
-    rows = on_a_league(mongo_replica_set_url, body)
-
-    assert [row for row in rows if row["before"] is not None], "the other referee's log rows were emptied too"
-    assert all(row["redacted_at"] is None for row in rows)
-
-
-@pytest.mark.db
-def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
-    """Kills removing `record_write`'s early return on the log: the redaction would record a copy of what it cleared.
-
-    None of the rows the erasure adds names the log at all.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        before_count = await database[Collection.ACTION_LOG].count_documents({})
-        await erase_the_referee(database, client)
-
-        return (
-            before_count,
-            await database[Collection.ACTION_LOG].count_documents({}),
-            await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.ACTION_LOG)}),
-        )
-
-    before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
-
-    # The ghost's insert, the fixtures' repoint, the removal, and its address change's ended record losing the carry it
-    # still owed and the hashes that linked its two addresses; the two redaction passes record nothing.
-    assert after_count == before_count + 5
-    assert self_recorded == 0
-
-
-@pytest.mark.db
-def test_the_redaction_filter_reads_the_target_index(mongo_replica_set_url: str):
-    """Kills a filter shape that scans: the log holds a year of recorded writes, so a scan reads every one of them."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        plan = await database.command(
-            "explain",
-            {
-                "find": Collection.ACTION_LOG.value,
-                "filter": build_redaction_filter([(Collection.SCHIEDSRICHTER, [SCHIEDSRICHTER_OID])]),
-            },
-            verbosity="queryPlanner",
-        )
-
-        return plan["queryPlanner"]["winningPlan"]
-
-    winning = on_a_league(mongo_replica_set_url, body)
-
-    assert index_names(winning) == {TARGET_INDEX.name}, f"the redaction filter did not reach `{TARGET_INDEX.name}`: {winning}"
-
-
-@pytest.mark.db
-def test_a_refused_redaction_takes_the_removal_back(mongo_replica_set_url: str):
-    """Kills running the writes outside one transaction, and dropping the session from any of them.
-
-    A `$jsonSchema` refusing a stamped row fails the LAST write, once the row is already deleted.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await a_validator_refusing_the_redaction(database)
-
-        with pytest.raises(OperationFailure) as failure:
-            await erase_the_referee(database, client)
-
-        return failure.value.code, await stored_referees(database), await log_rows_naming(database, SCHIEDSRICHTER_OID)
-
-    code, referees, rows = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
-
-    # Asserted on the code, so this cannot pass because something else failed before any write.
-    assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"
-    assert referees[SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[SCHIEDSRICHTER_OID], "the removal outlived a redaction that failed"
-    assert GHOST_SCHIEDSRICHTER_ID not in referees, "the ghost outlived a transaction that never committed"
-    assert [row for row in rows if row["before"] is not None], "the log lost its image to a transaction that never committed"
-    assert all(row["redacted_at"] is None for row in rows)
-
-
-@pytest.mark.db
-def test_a_refused_redaction_takes_the_repoint_back(mongo_replica_set_url: str):
-    """Kills dropping the session from the repoint: a run that failed would leave a match naming a referee whose row still stands."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await a_validator_refusing_the_redaction(database)
-
-        with pytest.raises(OperationFailure) as failure:
-            await erase_the_referee(database, client)
-
-        return failure.value.code, await stored_spiele(database)
-
-    code, spiele = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
-
-    assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the redaction, got code {code}"
-    assert spiele[PLAYED_SPIEL_OID]["schiedsrichter"] == {"schiedsrichter_id": SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}
 
 
 class TestTheRetirePressKeepsTheDayItFinds:

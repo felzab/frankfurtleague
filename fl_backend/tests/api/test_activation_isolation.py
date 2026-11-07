@@ -488,11 +488,10 @@ class TestAResultLandingMidPatchIsJudgedAgain:
         # The draw records nothing, so no fixture had taken place when this request first judged: the
         # refusal can only come from the retry the anchor's conflict forces.
         assert refusal.error_code == Code.SAISON_START_TAKEN_PLACE
-        # THREE: the judgement's read, the echo read its write makes, then the retry's judgement, which refuses
-        # and so writes and echoes nothing.
-        assert season_reads == 3, (
-            f"{season_reads} reads where the judgement, its echo and the retry make three: "
-            "one is a rival that landed before the patch judged, four a retry that conflicted again"
+        # TWO: the judgement's read, then the retry's judgement, which refuses and so writes nothing.
+        assert season_reads == 2, (
+            f"{season_reads} reads where the judgement and the retry make two: "
+            "one is a rival that landed before the patch judged, three a retry that conflicted again"
         )
 
         assert start == seeded_saison(TARGET, "future")["start_date"], "the start moved on a season the rival had played"

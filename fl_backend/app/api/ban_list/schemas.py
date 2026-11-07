@@ -15,10 +15,10 @@ ADDRESS_IN_FREE_TEXT: Final = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 
 
 def refuse_an_address_in_the_reason(value: str) -> str:
-    """The one way a plain address still reaches this collection.
+    """Refuse an address in free text a row keeps past its person's erasure.
 
-    `ban_reason` is served, copied whole into a removal's log image and outlives the erasure, so an
-    address typed here survives every place the hash keeps one out of.
+    `ban_reason` is served, mailed and outlives the erasure, so an address typed here is a second
+    person's, kept on a row that person has no way to reach.
     """
 
     if ADDRESS_IN_FREE_TEXT.search(value) is not None:
@@ -28,11 +28,13 @@ def refuse_an_address_in_the_reason(value: str) -> str:
 
 
 class FLBanListEntry(BaseModel):
-    """One ban as it is served: never its lookup key, so no read can recover the address."""
+    """One ban, as `ban_list` stores it and as the list serves it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+    # Folded as every address payload is (`app/shared/folding.py :: league_address`), so a check is an equality.
+    address: CustomNonEmptyString
     ban_reason: CustomNonEmptyString
-    # The bound actor, on no payload: a ban and its `action_log` row cannot then name two people.
+    # The bound actor, on no payload.
     created_by: CustomNonEmptyString
     created_at: CustomDateString
     # The last season the ban covers, INCLUSIVE. Served because a row whose bound nobody can read is
@@ -40,26 +42,9 @@ class FLBanListEntry(BaseModel):
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLBanListEntryRecord(FLBanListEntry):
-    """One ban as `ban_list` stores it: the lookup key and the version of the key it was taken under."""
-
-    address_hash: str
-    key_version: str
-
-
-class FLBanListRow(FLBanListEntry):
-    """One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too."""
-
-    # Null exactly where `created_by_barred` is set, as the grants list withholds its actors.
-    created_by: CustomNonEmptyString | None
-    created_by_barred: bool
-
-
 class FLPostBanListEntryPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # The one place an address reaches this slice. It is hashed at the endpoint and kept nowhere but on the ban's own
-    # notice, so nothing below this line has a plain address to store, log or echo.
     email: CustomEmail
     # Whether the address is told of its ban: only where it has a sign-in account, which the frontend's store alone knows.
     notify: bool
@@ -81,7 +66,7 @@ class FLBanListResponse(BaseAPIResponse):
     person barred by a row nobody can reach.
     """
 
-    ban_list: list[FLBanListRow]
+    ban_list: list[FLBanListEntry]
     count_total: int = Field(ge=0)
 
 

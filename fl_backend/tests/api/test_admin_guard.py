@@ -7,13 +7,12 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.spieler import schemas as spieler_schemas
 from app.api.spieler.public_router import router as spieler_public_router
 from app.core.codes import Code
 from app.core.routing import SAFE
-from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import bind_actor, get_person_identifier, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
@@ -110,7 +109,7 @@ SYSTEM_WRITES = [
     ("/api/v0/identity/references", "post"),
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.
-    ("/api/v0/grants/reconciliation", "post"),
+    ("/api/v0/grants/handover", "post"),
     # The season-after rule, the lapsed address's clock and the unconfirmed referee's, whichever caller runs them: a
     # timer holds no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identity/erasure/sweep", "post"),
@@ -159,8 +158,6 @@ ADMIN_READS = [
     ("/api/v0/ban_list", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
-    # How many pupils an activation deletes, which only the person able to press it may weigh.
-    ("/api/v0/saisons/{saison_id}/erasure/preview", "get"),
     # The team editor's read serves its link's `created_by`, an administrator's address.
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/admin", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
@@ -223,7 +220,7 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
 
 
-# The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
+# The operations a signed-in person reaches on the admin key through `get_person_identifier`, whose session
 # is a person no grant names: the one exemption from the check below, by name.
 PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     {
@@ -295,8 +292,11 @@ def test_every_person_operation_binds_a_person_after_the_key():
     for operation in sorted(PERSON_OPERATIONS):
         route = ROUTES_BY_OPERATION.get(operation)
         calls = [dependency.call for dependency in route.dependant.dependencies] if route else []
-        binders = [index for index, call in enumerate(calls) if any(call is binder for binder in PERSON_ACTOR_BINDERS.values())]
-        if verify_access_admin not in calls or not binders or binders[0] < calls.index(verify_access_admin):
+        if (
+            verify_access_admin not in calls
+            or get_person_identifier not in calls
+            or calls.index(get_person_identifier) < calls.index(verify_access_admin)
+        ):
             unearned.append(operation)
 
     assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"

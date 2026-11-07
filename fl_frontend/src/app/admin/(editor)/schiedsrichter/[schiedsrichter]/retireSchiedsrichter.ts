@@ -33,13 +33,12 @@ export const retireSchiedsrichter = action({
 
 /**
  * Brings a retired referee back into every match's choice. One who has not answered is asked again, a fresh link
- * mailed, which an address on the ban list refuses, the referee staying retired.
+ * mailed.
  */
 export const reactivateSchiedsrichter = action({
   lane: "admin",
   name: "reactivateSchiedsrichter",
   input: z.object({ id: SchiedsrichterReactivateSchiedsrichterParams.shape.schiedsrichter_id }),
-  ownWords: ["schiedsrichter_address_barred"],
   run: async ({ id }) => {
     await schiedsrichterReactivateSchiedsrichter(id);
     return { ok: true, value: undefined };
@@ -49,14 +48,12 @@ export const reactivateSchiedsrichter = action({
 /**
  * Mails a referee who has not answered a fresh link, the deadline starting again and the old link void, its line
  * naming the address the backend read it to. The editor offers it only while their entry waits on an answer, so a
- * retirement, an answer or an address gone since is a stale page; an address on the ban list, which the page cannot
- * know, is refused in the list's own sentence.
+ * retirement, an answer or an address gone since is a stale page.
  */
 export const sendSchiedsrichterLink = action({
   lane: "admin",
   name: "sendSchiedsrichterLink",
   input: z.object({ id: SchiedsrichterInviteSchiedsrichterParams.shape.schiedsrichter_id }),
-  ownWords: ["schiedsrichter_address_barred"],
   run: async ({ id }) => {
     const { confirmation } = await schiedsrichterInviteSchiedsrichter(id);
     return { ok: true, value: undefined, note: COPY.admin.schiedsrichter.sentTo(confirmation.email) };

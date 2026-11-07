@@ -34,7 +34,6 @@ import { patchSchiedsrichterAccountEinwilligung } from "@/features/schiedsrichte
 import { patchSpielerAccountEinwilligung } from "@/features/spieler/mutations";
 
 import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
-import { getErasureView } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
 import type { EndState } from "@/kit/MailedPage";
@@ -60,10 +59,9 @@ export const eraseAccount = action({
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
   input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...PAGE_HOLDER }),
   run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
-    // Refused before the library spends the link, so the same link completes once another owner is made; the
-    // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
-    if (subject.records.admin_tier === "owner" && (await getErasureView()).last_owner) {
-      return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
+    // Refused before the library spends the link, so the same link completes after a handover.
+    if (subject.records.admin_tier === "owner") {
+      return { ok: false, reason: SERVER_COPY.refusalLine.owner_erasure };
     }
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
@@ -98,7 +96,7 @@ export const startAddressChange = action({
   name: "startAddressChange",
   input: SignInPayloadSchema.extend(PAGE_HOLDER),
   examples: { email: COPY.shared.field.exampleAddress },
-  ownWords: ["address_change_unchanged", "address_change_no_approver", "address_change_started_recently"],
+  ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
     await requestAccountAddressChange({ email });
     return { ok: true, value: undefined };

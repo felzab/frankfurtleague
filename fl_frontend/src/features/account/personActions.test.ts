@@ -74,11 +74,6 @@ const erasures: { method: string; actor: string | null }[] = [];
 
 const ERASURE_PATH = "/api/v0/identity/account/erasure";
 
-const VIEW_PATH = "/api/v0/identity/account/erasure/view";
-
-/** Whether the preview reads the press as the last owner's. */
-let lastOwner = false;
-
 /** The person's own address change, and the method of every request sent to it. */
 const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
 const addressChanges: string[] = [];
@@ -91,10 +86,6 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   if (path.endsWith("/einwilligung")) {
     consentWrites.push(path);
     return Promise.resolve(Response.json({}));
-  }
-  if (path === VIEW_PATH) {
-    const empty = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
-    return Promise.resolve(Response.json({ ...empty, admin_tier: "owner", last_owner: lastOwner }));
   }
   if (path === ERASURE_PATH) {
     erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
@@ -135,7 +126,6 @@ beforeEach(() => {
   addressChanges.length = 0;
   consentWrites.length = 0;
   HELD.clear();
-  lastOwner = false;
 });
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
@@ -184,7 +174,6 @@ async function ownerWithLink(email: string): Promise<{ row: SessionRow; token: s
     ...NO_RECORDS,
     admin_tier: "owner",
     granted_since: "2026-01-01T00:00:00Z",
-    owner_since: "2026-01-01T00:00:00Z",
     account: false,
   });
   const byPasskey = await sessionByCode(auth, store, email);
@@ -214,17 +203,19 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(cacheCalls.filter(({ name }) => name === "updateTag").flatMap(({ args }) => args)).toStrictEqual([SITE_CACHE_TAG]);
     expect(deletedCookies, "the used link stayed in the browser for its hour").toStrictEqual([ERASURE_LINK_COOKIE]);
+    // Mailed nowhere, a person would never learn their account went.
+    expect(mail.owed.at(-1)?.data).toStrictEqual({ kind: "deletion_notice", saison_id: null });
   });
 
-  it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
-    const { row, token, holder } = await ownerWithLink("letzte-inhaberin@example.org");
-    lastOwner = true;
+  it("refuses the league's owner before the link is spent, and deletes on the same link after a handover", async () => {
+    const email = "letzte-inhaberin@example.org";
+    const { row, token, holder } = await ownerWithLink(email);
 
-    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
-    expect(erasures, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.owner_erasure });
+    expect(erasures, "the erasure was asked for although the subject read the owner").toStrictEqual([]);
     assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
 
-    lastOwner = false;
+    HELD.set(email, { ...NO_RECORDS, seats: [SEAT], account: true });
     await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(deletedCookies, "the refused press forgot the link, or the completed one kept it").toStrictEqual([ERASURE_LINK_COOKIE]);
@@ -240,33 +231,19 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
   });
 
-  /* The library reads a barred person's leftover session, or one its account's sessions were ended before, as a session
-     like any other: the person lane's own guard is what refuses both. */
-  for (const [label, email, judged] of [
-    [
-      "barred since the link was mailed",
-      "gesperrt-seither@example.org",
-      () => void HELD.set("gesperrt-seither@example.org", { ...NO_RECORDS, barred: true, account: true }),
-    ],
-    [
-      "ended by its account after it was made",
-      "beendet-seither@example.org",
-      () => {
-        const account = store.user.find((user) => user.email === "beendet-seither@example.org");
-        assert.ok(account !== undefined, "the sign-in wrote no account");
-        account.sessionsEndedAt = new Date();
-      },
-    ],
-  ] as const) {
-    it(`deletes and erases nothing from a session ${label}`, async () => {
-      const { row, token, holder } = await withLink(email);
-      judged();
+  /* The library reads a session its account's sessions were ended before as a session like any other: the person lane's
+     own guard is what refuses it. */
+  it("deletes and erases nothing from a session ended by its account after it was made", async () => {
+    const email = "beendet-seither@example.org";
+    const { row, token, holder } = await withLink(email);
+    const account = store.user.find((user) => user.email === email);
+    assert.ok(account !== undefined, "the sign-in wrote no account");
+    account.sessionsEndedAt = new Date();
 
-      expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-      expect(erasures).toStrictEqual([]);
-      expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
-    });
-  }
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
+    expect(erasures).toStrictEqual([]);
+    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
+  });
 });
 
 // Each a loss nobody would see: an administrator's other devices ended from a session a mailbox made, a device left
@@ -276,7 +253,7 @@ describe("the account's acts, behind the account's guard", () => {
      account's acts are the administrator's lane's to admit. */
   it("refuses an administrator's session made by a mailed code alone every untouched act of the account", async () => {
     const email = "verwalterin-per-code@example.org";
-    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", owner_since: null, account: false });
+    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false });
     const { cookie, row } = await sessionByCode(auth, store, email);
     const other = { ...row, id: `other-${row.id}`, token: `other-${row.token}` };
     store.session.push(other);
@@ -293,7 +270,7 @@ describe("the account's acts, behind the account's guard", () => {
      administrator's consents, the page alone refusing it. */
   it("refuses an administrator's session made by a mailed code alone every consent save, sending none", async () => {
     const email = "verwalterin-einwilligung@example.org";
-    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", owner_since: null, account: false });
+    HELD.set(email, { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false });
     const { cookie } = await sessionByCode(auth, store, email);
     arriveAs(cookie);
 

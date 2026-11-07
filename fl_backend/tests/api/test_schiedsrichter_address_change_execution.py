@@ -26,7 +26,6 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
@@ -81,7 +80,6 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                 outbox_collection=database[Collection.OUTBOX],
-                ban_list=ban_list(database),
                 db=client,
                 today=TODAY,
                 now=MAIL_NOW,
@@ -99,7 +97,6 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                         }
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    ban_list=ban_list(database),
                     db=client,
                     today=TODAY,
                     germany_now=NOW,
@@ -126,7 +123,6 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         now=MAIL_NOW,
@@ -142,14 +138,9 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
         grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-        ban_list=ban_list(database),
-        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
         operator="admin@frankfurtleague.de",
-        auth_time=0,
         germany_now=NOW,
     )
 
