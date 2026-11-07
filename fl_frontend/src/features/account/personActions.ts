@@ -42,7 +42,7 @@ import type { EndState } from "@/kit/MailedPage";
 const HOLDER_ALONE = z.object(PAGE_HOLDER);
 
 /**
- * Completes a mailed deletion link: the league's records, then the account, the passkey touch first for a person
+ * Completes a mailed deletion link: the league's records, then the account, behind the passkey touch for a person
  * holding one. The deletion ends the caller's own session, so a done one leads to a page needing none rather than
  * answering: Next renders the posting page again after an action writes a cookie, and the library deletes the session's
  * cookie, but a `redirect` from the body renders the destination alone, the builder having cleared the site's tag on
@@ -83,7 +83,7 @@ export const eraseAccount = action({
 
 /**
  * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
- * own once that confirms, the change taking effect once both have. A passkey holder touches the passkey first, the
+ * own once that confirms, the change taking effect once both have. The final press asks a passkey holder's touch, the
  * one check guarding it, since the backend judges no fresh sign-in. The address typed is one the person will sign in
  * at, so it is held to that schema before it is mailed. An account standing at the new
  * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which

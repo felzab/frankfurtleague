@@ -1127,7 +1127,6 @@ export const SERVER_COPY = catalogue({
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
     deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
-    objectionRight: OBJECTION_RIGHT,
     more: MORE,
   },
 

@@ -18,7 +18,7 @@ import type { ServedSession } from "./session";
 
 /**
  * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey on a session the
- * touch made within its window alone, and a person holding none as they stand. The browser asks the touch before every
+ * touch made within its window alone, and a person holding none as they stand. The browser asks the touch on every final
  * press, so a second act inside one window is a request no page sends. `false` where no guard recorded an actor.
  */
 export async function passesPasskeyTouch(actor: RequestActor | undefined): Promise<boolean> {
