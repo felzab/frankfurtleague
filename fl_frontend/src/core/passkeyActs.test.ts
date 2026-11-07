@@ -38,8 +38,10 @@ doubleApiClient(({ endpoint }) => {
 const seasonActs = await import("@/app/admin/(editor)/saisons/[saison]/settings/saisonActs");
 const accountActs = await import("@/features/account/personActions");
 const passkeyActs = await import("@/features/passkeys/actions");
+const grantActs = await import("@/features/grants/actions");
 
 const HOLDER = "pia@example.org";
+const GRANT = "64b000000000000000000002";
 
 /**
  * Every act on the passkey touch's fixed list, each with an input its schema takes. The lane is the only place the
@@ -53,6 +55,11 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ["the account's erasure", () => accountActs.eraseAccount({ token: "link-token", holder: HOLDER })],
   ["the sign-in address change", () => accountActs.startAddressChange({ email: "neu@example.org", holder: HOLDER })],
   ["a passkey's removal", () => passkeyActs.removePasskeyAction({ id: "pk-1", holder: HOLDER })],
+  ["an administrator's addition", () => grantActs.addAdministrator({ email: "neu@example.org", holder: HOLDER })],
+  ["an administrator's removal", () => grantActs.removeAdministrator({ id: GRANT, holder: HOLDER })],
+  ["a handover's start", () => grantActs.startHandover({ grant_id: GRANT, holder: HOLDER })],
+  ["a handover's stop", () => grantActs.stopHandover({ id: GRANT, holder: HOLDER })],
+  ["a holder's address change's stop", () => grantActs.stopAddressChange({ id: GRANT, holder: HOLDER })],
 ];
 
 describe("the acts behind the passkey touch", () => {

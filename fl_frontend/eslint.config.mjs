@@ -715,6 +715,7 @@ const SOURCE_BANS = [
         "account",
         "bewerbungen",
         "funktionen",
+        "grants",
         "registrierungen",
         "schiedsrichter",
         "spielberichte",
