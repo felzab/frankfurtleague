@@ -278,8 +278,7 @@ async def post_address_change_answer(
     one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one whose address came to hold a grant its approval
     does not cover (`address_change_not_covered`), one moving a grant onto an address holding one (`address_change_new_granted`), and one
     whose new address any entry names, confirmed or not, an open grant request among them (`address_change_occupied`): moving the person onto it
-    would join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the
-    change too.
+    would join two people's records. **A decline is refused none of these**: it removes an address nobody proved.
 
     A change whose address has come to hold nothing to move ends discarded, and the press answers `address_change_ended`. The codes past
     `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
@@ -303,7 +302,6 @@ async def post_address_change_answer(
                 stop_hash=token_hash,
                 address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
                 config=config,
                 germany_now=germany_now,
                 stamp=stamp,
@@ -317,11 +315,9 @@ async def post_address_change_answer(
         if answer_data.answer == "declined":
             await end_the_change_in_session(
                 address_changes_collection=address_changes_collection,
-                action_log_collection=action_log_collection,
                 db_filter=db_filter,
                 kind="declined",
                 now=germany_now,
-                stamp=stamp,
                 session=session,
             )
             journal.note(
@@ -402,7 +398,6 @@ async def _answer_for_the_address_on_file(
     stop_hash: str,
     address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     config: BackendConfig,
     germany_now: datetime,
     stamp: str,
@@ -419,11 +414,9 @@ async def _answer_for_the_address_on_file(
     if answer == "declined":
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter=db_filter,
             kind="declined",
             now=germany_now,
-            stamp=stamp,
             session=session,
         )
         journal.note(
@@ -466,13 +459,12 @@ async def _answer_for_the_address_on_file(
 async def post_address_change_stop(
     stop_data: Annotated[FLTokenPayload, Body()],
     address_changes_collection: AddressChangeCollection,
-    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeStopResponse:
     """
-    Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
+    Stop the change the address on file was mailed about: its new address goes.
 
     **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
     confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
@@ -499,11 +491,9 @@ async def post_address_change_stop(
 
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": record["_id"]},
             kind="stopped",
             now=germany_now,
-            stamp=stamp,
             session=session,
         )
         journal.note(

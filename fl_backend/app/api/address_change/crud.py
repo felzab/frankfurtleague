@@ -6,11 +6,10 @@ functions, so no two of them part on what a change moves or what its end leaves 
 
 Invariants:
 - The effect moves everything the address holds in its caller's transaction, a grant included, and nothing else.
-- Every end takes the record's addresses and reason out of it; its log images lose what no record holds after it: the
-  new address and the reason on every end but the effect, the replaced address on the effect.
+- Every end takes the record's addresses and reason out of it.
 """
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final, Literal
@@ -21,11 +20,7 @@ from pymongo import DESCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.action_log.crud import (
-    carry_the_replaced_address_in_images,
-    reattribute_administrator_in_session,
-    redact_images_in_session,
-)
+from app.api.action_log.crud import reattribute_administrator_in_session
 from app.api.address_change.services import (
     LIVE_TERMS,
     asks_the_address_on_file,
@@ -49,7 +44,7 @@ from app.api.grants.erasure import carry_authorship_in_session
 from app.api.grants.services import approval_stands, compose_carried
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.services import address_change_viewable_denied, is_own_schiedsrichter, own_seats
-from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
+from app.api.kontakte.services import rows_seating, same_address
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
     FLAddressChangeEffectiveData,
@@ -71,8 +66,8 @@ from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
 from app.core.readonly import ReadCollection
-from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
-from app.core.security import actor_pseudonym, erasure_journal_hash
+from app.core.recording import ERASED_ACTOR_MARKER, log_stamp
+from app.core.security import erasure_journal_hash
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay
 
@@ -215,32 +210,18 @@ async def address_taken(email: str, *, records: RecordCollections, occupancy: Oc
     return False
 
 
-def _redacting(fields: tuple[str, ...]) -> Callable[[Mapping[str, Any]], dict[str, None]]:
-    def redacted(image: Mapping[str, Any]) -> dict[str, None]:
-        return {field: None for field in fields if image.get(field) is not None}
-
-    return redacted
-
-
 async def end_the_change_in_session(
     *,
     address_changes_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     # The judgement: a change it matches not is a miss, `DocumentNotFoundError`, before any write.
     db_filter: Mapping[str, Any],
     kind: FLAddressChangeEndKind,
     now: datetime,
-    stamp: str,
     session: AsyncClientSession,
-    # The address on file too, where its records are gone and no erasure's address pass follows.
-    without_address: bool = False,
 ) -> Mapping[str, Any]:
-    """End one live change, answering it as it stood: the one body every ending runs.
+    """End one live change, answering it as it stood: the one body every ending runs."""
 
-    Its images lose the unproved address and the reason; an effect's keep both, the log's account of the move.
-    """
-
-    stored = await patch_one_in_db(
+    return await patch_one_in_db(
         collection=address_changes_collection,
         db_filter={**db_filter, **LIVE_TERMS},
         update=compose_end_update(kind=kind, now=now),
@@ -248,19 +229,6 @@ async def end_the_change_in_session(
         expected_version=None,
         return_document=ReturnDocument.BEFORE,
     )
-
-    # After the patch, so it reaches the image the patch filed. An effect keeps the new address, which the person's records
-    # hold and their erasure finds, and drops the replaced one, which no record holds for an erasure to find.
-    redacted = ("address",) if kind == "effective" else ("email", "change_reason", *(("address",) if without_address else ()))
-    await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_redaction_filter([(Collection.ADDRESS_CHANGES, [stored["_id"]])]),
-        judge=_redacting(redacted),
-        stamp=stamp,
-        session=session,
-    )
-
-    return stored
 
 
 EndingKind = Literal["address_change_declined", "address_change_stopped", "address_change_discarded", "address_change_discarded_notified"]
@@ -298,7 +266,6 @@ async def start_the_change_in_session(
     *,
     record: Mapping[str, Any],
     address_changes_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     key: SecretStr,
     now: datetime,
     journal: Journal,
@@ -314,11 +281,9 @@ async def start_the_change_in_session(
     if replaced is not None:
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": replaced["_id"]},
             kind="replaced",
             now=now,
-            stamp=stamp,
             session=session,
         )
         journal.note(
@@ -627,11 +592,9 @@ async def take_effect_in_session(
     if verdict.empty:
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": record["_id"]},
             kind="discarded",
             now=now,
-            stamp=stamp,
             session=session,
         )
         if notify:
@@ -783,18 +746,14 @@ async def move_the_address_in_session(
             session=session,
         )
 
-    await _rekey_the_person(holdings.identifier, new_address, action_log_collection=action_log_collection, key=key, session=session)
     await end_the_change_in_session(
         address_changes_collection=address_changes_collection,
-        action_log_collection=action_log_collection,
         db_filter={"_id": record["_id"]},
         kind="effective",
         now=now,
-        stamp=stamp,
         session=session,
     )
 
-    # Before the images' carry below, which takes the replaced address out of the image an ended request keeps.
     ended = await end_the_approval_requests_about_in_session(
         grant_approval_requests_collection=grant_approval_requests_collection,
         outbox_collection=outbox_collection,
@@ -803,8 +762,7 @@ async def move_the_address_in_session(
         session=session,
     )
 
-    # After every write above, so it reaches the images they filed: a record the effect leaves naming the replaced address
-    # by address alone would outlive the person's erasure at the new one.
+    # A record the effect leaves naming the replaced address by address alone would outlive the person's erasure at the new one.
     old, new = holdings.identifier, sign_in_identifier(new_address)
     # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
     # decisions included: the starter of a change stays excluded from approving it.
@@ -821,24 +779,6 @@ async def move_the_address_in_session(
     )
     await _reattribute_the_changes(address_changes_collection, old, new, session=session)
     await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
-    # A seat or referee row left before the change is in no document an erasure at the new address reads, so its images
-    # follow the person; one standing at the replaced address as nobody's proven own keeps it.
-    await carry_the_replaced_address_in_images(
-        action_log_collection=action_log_collection,
-        old=old,
-        new_address=new,
-        staying=await _seats_staying_at(old, collections=(saison_teams_collection, bewerbungen_collection), session=session),
-        referees_held={
-            row["_id"]
-            for row in await aggregate_many_from_db(
-                collection=schiedsrichter_collection,
-                pipeline=[{"$match": build_self_referee_filter(old, new)}, {"$project": {"_id": 1}}],
-                session=session,
-            )
-        },
-        stamp=stamp,
-        session=session,
-    )
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     # Read, then written by id: the log keeps a fan-out's filter as text, address and all.
     owed = await aggregate_many_from_db(
@@ -915,19 +855,6 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
         await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
 
 
-async def _seats_staying_at(identifier: str, *, collections: Sequence[AsyncCollection], session: AsyncClientSession) -> set[tuple[Any, str]]:
-    """Each document and slot seating this folded address, read after the effect moved the person's own seats."""
-
-    staying: set[tuple[Any, str]] = set()
-    for collection in collections:
-        rows = await aggregate_many_from_db(
-            collection=collection, pipeline=[{"$match": rows_seating(identifier)}, {"$project": {"kontakte": 1}}], session=session
-        )
-        staying |= {(row["_id"], slot) for row in rows for slot in find_matching_slots(row, identifier)}
-
-    return staying
-
-
 async def _move_the_grant(
     grant: Mapping[str, Any],
     *,
@@ -972,22 +899,6 @@ async def _move_the_grant(
         session=session,
         # The four-eyes rule dates the person, not the mailbox.
         carried=compose_carried(grant, announced[0] if announced else None),
-    )
-
-
-async def _rekey_the_person(
-    old: str, new_address: str, *, action_log_collection: AsyncCollection, key: SecretStr, session: AsyncClientSession
-) -> None:
-    """The log's pseudonym of the person by the replaced address, re-keyed rather than recorded, so an erasure of the new one reaches it.
-
-    Kept on a record instead, every erasure step would have to read it.
-    """
-
-    await patch_many_in_db(
-        collection=action_log_collection,
-        db_filter={"actor.pseudonym": actor_pseudonym(old, key=key)},
-        update={"$set": {"actor.pseudonym": actor_pseudonym(new_address, key=key)}},
-        session=session,
     )
 
 
@@ -1076,12 +987,10 @@ async def end_the_address_changes_in_session(
     *,
     address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     identifier: str,
     # The subject's rows, read before the erasure's first write.
     rows: Sequence[Mapping[str, Any]],
     now: datetime,
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
@@ -1105,11 +1014,9 @@ async def end_the_address_changes_in_session(
     for row in rows:
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": row["_id"]},
             kind="discarded",
             now=now,
-            stamp=stamp,
             session=session,
         )
 
@@ -1161,12 +1068,10 @@ async def _reattribute_the_changes(
 async def end_an_emptied_change_in_session(
     *,
     address_changes_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     records: RecordCollections,
     identifier: str,
     now: datetime,
-    stamp: str,
     session: AsyncClientSession,
 ) -> int:
     """End the address's live change where the pupil's erasure left the address holding nothing for it to move.
@@ -1184,13 +1089,10 @@ async def end_an_emptied_change_in_session(
 
     await end_the_change_in_session(
         address_changes_collection=address_changes_collection,
-        action_log_collection=action_log_collection,
         db_filter={"_id": live["_id"]},
         kind="discarded",
         now=now,
-        stamp=stamp,
         session=session,
-        without_address=True,
     )
 
     return 1

@@ -275,7 +275,6 @@ async def post_address_change_admin(
     outbox_collection: OutboxCollection,
     grant_approval_requests_collection: GrantApprovalRequestsCollection,
     ban_list: BanListLookup,
-    action_log_collection: ActionLogCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -363,7 +362,6 @@ async def post_address_change_admin(
         address_change_id = await start_the_change_in_session(
             record=record,
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             key=ban_list.key,
             now=germany_now,
             journal=journal,
@@ -521,7 +519,6 @@ async def delete_address_change(
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     grants_announced_collection: GrantsAnnouncedCollection,
-    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -531,10 +528,8 @@ async def delete_address_change(
     """
     Discard the change this id names: its links open nothing to press, and the address on file stays.
 
-    **Its address goes from the action log too**: every image the log holds of the change
-    loses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not
-    bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
-    alone, so a page showing a change since replaced discards nothing.
+    Journalled as the stop is, so a restore does not bring back a change confirmed in its waiting time to take effect.
+    Nothing is mailed. Acts on the change the id names alone, so a page showing a change since replaced discards nothing.
 
     Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
     (`address_change_ended`); 404 for an id naming no change.
@@ -557,11 +552,9 @@ async def delete_address_change(
         )
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": address_change_id},
             kind="discarded",
             now=germany_now,
-            stamp=stamp,
             session=session,
         )
         journal.note(
@@ -576,7 +569,7 @@ async def delete_address_change(
 
         return FLAddressChangeIdResponse(id=address_change_id)
 
-    # One transaction, so the write, the log row recording it and the redaction land together.
+    # One transaction, so the write and the log row recording it land together.
     async with journal:
         async with transaction_session(db) as session:
             return await session.with_transaction(discard_the_change)

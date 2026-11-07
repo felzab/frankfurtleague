@@ -53,7 +53,6 @@ from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    ActionLogCollection,
     AddressChangeCollection,
     DBClient,
     GrantsAnnouncedCollection,
@@ -204,7 +203,6 @@ async def post_address_change(
     grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
-    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -263,7 +261,6 @@ async def post_address_change(
         address_change_id = await start_the_change_in_session(
             record=record,
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             key=config.sperrliste_key,
             now=germany_now,
             journal=journal,
@@ -296,13 +293,12 @@ async def post_address_change(
 async def delete_address_change(
     identifier: KontaktIdentifier,
     address_changes_collection: AddressChangeCollection,
-    action_log_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
-    Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.
+    Stop the change pending on the signed-in address at any step: its new address goes.
 
     Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
     confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
@@ -319,11 +315,9 @@ async def delete_address_change(
 
         stored = await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": live["_id"]},
             kind="stopped",
             now=germany_now,
-            stamp=stamp,
             session=session,
         )
         journal.note(

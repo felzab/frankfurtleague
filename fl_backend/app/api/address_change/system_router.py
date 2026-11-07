@@ -109,10 +109,8 @@ async def _end_the_lapsed_change(
     *,
     address_changes_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
-    stamp: str,
 ) -> None:
     """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed.
 
@@ -122,11 +120,9 @@ async def _end_the_lapsed_change(
     async def end_the_lapsed_change(session: AsyncClientSession) -> None:
         stored = await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
-            action_log_collection=action_log_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
             kind="expired",
             now=now,
-            stamp=stamp,
             session=session,
         )
         # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
@@ -213,11 +209,9 @@ async def _make_the_due_change_take_effect(
         if not verdict.empty:
             await end_the_change_in_session(
                 address_changes_collection=address_changes_collection,
-                action_log_collection=action_log_collection,
                 db_filter={"_id": record["_id"]},
                 kind="discarded",
                 now=now,
-                stamp=stamp,
                 session=session,
             )
             # Journalled, as an administrator's discard is: the cause refusing it may postdate a snapshot a restore brings
@@ -270,8 +264,7 @@ async def sweep_address_change(
     End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
 
     **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
-    another administrator -- ends as `expired`: its address and reason out of the record and every log image of it
-    (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
+    another administrator -- ends as `expired`: its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
     holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
     signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
     ends it discarded, and
@@ -340,10 +333,8 @@ async def sweep_address_change(
                     row,
                     address_changes_collection=address_changes_collection,
                     outbox_collection=outbox_collection,
-                    action_log_collection=action_log_collection,
                     db=db,
                     now=germany_now,
-                    stamp=stamp,
                 )
         except DocumentNotFoundError:
             # The filter is the judgement: confirmed, stopped, discarded or sent a fresh link since the read, and not due.

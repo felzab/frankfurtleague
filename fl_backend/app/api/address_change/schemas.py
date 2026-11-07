@@ -21,8 +21,8 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
-# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
-# copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
+# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling. The log row of
+# the start carries it as its label, so an address typed here would stand in the log for a year.
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAddressChangeReason = Annotated[
     str,
