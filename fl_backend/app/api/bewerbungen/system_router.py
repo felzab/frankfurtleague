@@ -446,14 +446,15 @@ async def sweep_saison(
         # Once for the share, so voiding its people's match links costs the pass the same however many rows it
         # clears.
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        await record_act(
-            collection=saison_teams_collection,
-            action="retention.kontakte",
-            by=ACT_BY_SYSTEM,
-            label=saison_id,
-            count=len(voids),
-            session=session,
-        )
+        if voids:
+            await record_act(
+                collection=saison_teams_collection,
+                action="retention.kontakte",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=len(voids),
+                session=session,
+            )
 
         return len(voids)
 

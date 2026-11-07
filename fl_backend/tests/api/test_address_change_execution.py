@@ -885,8 +885,9 @@ class TestAHoldersOwnChange:
         assert (unconfirmed, first) == ([], [])
         masked = "l•••@n•••.org"
         assert started == [("started", address, EMAIL, masked) for address in sorted((*ADMINISTRATORS, EMAIL))]
-        # The moved row is a holder at its new address, and the old address is told as the one named.
-        assert completed == [("completed", address, EMAIL, masked) for address in sorted((*ADMINISTRATORS, EMAIL, NEW_EMAIL))]
+        # The moved row is a holder at its new address. The old address has its short-lived effective mail alone: this row
+        # would keep it 30 days past an erasure.
+        assert completed == [("completed", address, EMAIL, masked) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
 
     @pytest.mark.parametrize("ended_by", ["the stop link", "the account page", "the owner's discard", "a new start", "the pass refusing it"])
     def test_every_ending_of_its_wait_tells_every_holder(self, mongo_replica_set_url: str, ended_by: str):
@@ -974,7 +975,7 @@ class TestTheRunningChanges:
         )
 
     def test_an_administrator_s_start_and_discard_each_write_their_row(self, mongo_replica_set_url: str):
-        """The two acts the page records; the start's label is the reason typed, its one trace once the record ends."""
+        """The two acts the page records, neither with a label: a typed reason would outlive the record's own clearing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
@@ -983,7 +984,7 @@ class TestTheRunningChanges:
             return [(row["action"], row["by"], row["label"]) async for row in rows]
 
         assert on_a_person(mongo_replica_set_url, body) == [
-            ("address_change.started", ADMIN, CHANGE_REASON),
+            ("address_change.started", ADMIN, None),
             ("address_change.discarded", ADMIN, None),
         ]
 

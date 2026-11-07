@@ -324,7 +324,6 @@ async def post_address_change_admin(
             collection=address_changes_collection,
             action="address_change.started",
             record_id=address_change_id,
-            label=change_reason,
             session=session,
         )
 

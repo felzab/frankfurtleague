@@ -1468,7 +1468,7 @@ async def post_invitations_dispatch(
     ]
 
     # A transaction of its own: one press across a transaction per team is one act, and a press mailing nobody changed nothing.
-    if "mailed" in outcomes:
+    if "mailed" in outcomes and not dispatch_data.resend:
 
         async def record_the_press(session: AsyncClientSession) -> None:
             await record_act(collection=saisons_collection, action="saison.invitations_dispatched", label=saison_id, session=session)

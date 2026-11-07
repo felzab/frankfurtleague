@@ -6,7 +6,7 @@ every row of it.
 """
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from bson import ObjectId
@@ -99,6 +99,18 @@ async def address_is_banned(*, ban_list_collection: ReadCollection, address: str
 OPEN_NOTICE: Final[Mapping[str, Any]] = {"state": "open", "kind": "grant"}
 
 
+def _named_recipients(data: FLGrantData) -> set[str]:
+    """Who a notice names, beyond the holders: a completed address change's old address alone has its short-lived mail.
+
+    A row kept here would hold that address 30 days past an erasure (`app/api/outbox/services.py :: RETENTION`).
+    """
+
+    if data.address is None or (data.change == "address" and data.stage == "completed"):
+        return set()
+
+    return {data.address}
+
+
 async def owe_in_session(
     notices: Sequence[Notice],
     *,
@@ -130,7 +142,7 @@ async def owe_in_session(
                 data=data,
                 reference=None,
             )
-            for address in sorted(holders | ({data.address} if data.address is not None else set()))
+            for address in sorted(holders | _named_recipients(data))
         )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
@@ -149,7 +161,8 @@ async def grant_in_session(
     Its row stands from the first moment, so the address counts as held for everyone reading the list as stored.
     """
 
-    effective_from = now + timedelta(hours=GRANT_WAIT_HOURS)
+    # In UTC: added to a Berlin value the hours would be the wall clock's, 23 or 25 across a clock change.
+    effective_from = now.astimezone(UTC) + timedelta(hours=GRANT_WAIT_HOURS)
     created = await post_one_to_db(
         collection=grants_collection,
         document={
@@ -256,7 +269,7 @@ async def start_the_handover_in_session(
 ) -> None:
     """Date the named row's handover and owe its notice: the tier moves only at the pass, the owner staying the owner until then."""
 
-    owner_from = now + timedelta(days=OWNER_WAIT_DAYS)
+    owner_from = now.astimezone(UTC) + timedelta(days=OWNER_WAIT_DAYS)
     await patch_one_in_db(
         collection=grants_collection,
         db_filter={"_id": grant["_id"]},

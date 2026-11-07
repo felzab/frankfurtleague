@@ -36,14 +36,15 @@ function leadOf({ change, stage, address, new_address }: FLGrantData): string {
   }
 }
 
-/** Who acted and when, then when it takes effect; a pass completing a wait names nobody, so it has no such paragraph. */
+/** Who acted and when, then when it takes effect; a press or a pass naming nobody states its date alone. */
 function factsOf({ change, stage, changed_by, changed_at, effective_from }: FLGrantData): Paragraph | null {
-  if (changed_by === null) return null;
+  const takesEffect = effective_from === null ? null : WORDS.effectiveFrom(effective_from);
+  if (changed_by === null) return takesEffect === null ? null : [takesEffect];
 
   const actor = changed_by === ERASED_ACTOR_MARKER ? WORDS.unnamedActor : changed_by;
   const by = stage === "withdrawn" ? WORDS.by.withdrawn : change === "revoked" ? WORDS.by.removed : WORDS.by.entered;
 
-  return [by(actor, changed_at), ...(effective_from === null ? [] : [WORDS.effectiveFrom(effective_from)])];
+  return takesEffect === null ? [by(actor, changed_at)] : [by(actor, changed_at), takesEffect];
 }
 
 /** **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice. */

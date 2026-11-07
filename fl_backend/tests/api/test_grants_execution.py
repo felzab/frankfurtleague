@@ -54,6 +54,8 @@ CONFIG = config_for(DATABASE_NAME)
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 IN_EFFECT = datetime(2026, 1, 1, tzinfo=UTC)
+# The German clock falls back an hour in the night of the 25th.
+BEFORE_THE_CLOCK_FALLS_BACK = datetime(2026, 10, 24, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # The grants every case starts from: the owner, and two administrators.
 OWNER_ID = ObjectId("6890a1b2c3d4e5f607910001")
@@ -174,7 +176,13 @@ async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
 
 
 async def hand_over(
-    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId = ANNA_ID, *, als: str = OWNER, grants: Any = None
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    grant_id: ObjectId = ANNA_ID,
+    *,
+    als: str = OWNER,
+    grants: Any = None,
+    now: datetime = NOW,
 ) -> None:
     async def call() -> Any:
         return await post_handover(
@@ -184,7 +192,7 @@ async def hand_over(
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             started_by=als,
-            now=NOW,
+            now=now,
         )
 
     await administering(als, call)
@@ -369,6 +377,23 @@ class TestAnAddition:
             return await database[Collection.OUTBOX].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body) == len(EVERY_HOLDER)
+
+
+class TestAWaitCountsHours:
+    def test_both_waits_run_their_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):
+        """Added to a Berlin value the hours would be the wall clock's, and this wait would run 25 of them."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
+            created = await add(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
+            await hand_over(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
+
+            return (await row_of(database, created))["effective_from"], (await row_of(database, ANNA_ID))["owner_from"]
+
+        effective_from, owner_from = on_a_league(mongo_replica_set_url, body)
+
+        started = stored(BEFORE_THE_CLOCK_FALLS_BACK)
+        assert effective_from == started + timedelta(hours=GRANT_WAIT_HOURS)
+        assert owner_from == started + timedelta(days=OWNER_WAIT_DAYS)
 
 
 class TestOnlyTheOwnerActs:

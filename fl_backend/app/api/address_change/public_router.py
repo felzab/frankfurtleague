@@ -70,7 +70,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_germany_now,
 )
-from app.core.recording import record_act
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
@@ -341,7 +341,7 @@ async def post_address_change_answer(
             await record_act(
                 collection=address_changes_collection,
                 action="grant.address_change_started",
-                by=holdings.identifier,
+                by=holdings.identifier if record["way"] == "account" else ACT_BY_SYSTEM,
                 record_id=record["_id"],
                 label=holdings.identifier,
                 session=session,
