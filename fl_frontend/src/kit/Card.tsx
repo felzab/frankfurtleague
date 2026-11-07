@@ -226,7 +226,9 @@ export type CardActRowProps = {
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ acts: acts !== undefined });
   return (
-    <div className={s.root()}>
+    <div
+      data-kit-row
+      className={s.root()}>
       <span className={s.words()}>
         <span className={s.name()}>
           <CutText

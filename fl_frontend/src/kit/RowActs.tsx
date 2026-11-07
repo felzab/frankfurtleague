@@ -4,8 +4,14 @@ import { useLayoutEffect, useRef } from "react";
 
 import type { ReactNode, RefObject } from "react";
 
-/** What stands around a list's rows and outlives them: a table, a Konto box. The page's `h1` stands behind it. */
+/** What stands around what can leave and outlives it: a table, a Konto box, a toolbar's acts. The page's `h1` stands behind it. */
 const HOME = '[data-kit-focus="home"]';
+
+/** One record of a list, whose neighbours take the focus it leaves: a table's row, a card's, a Konto box's. */
+const ROW = "[data-kit-row]";
+
+/** What a keyboard reaches in a row: every act and link the kit draws is one of these, a locked act included. */
+const PRESSABLE = "a[href], button:not(:disabled)";
 
 // Focusable only while it holds the focus, as a skip link's target is, so it is never a stop for Tab or a press.
 function takeFocus(home: HTMLElement) {
@@ -15,27 +21,39 @@ function takeFocus(home: HTMLElement) {
 }
 
 /**
- * Where the focus goes when a row leaves with what held it: the act that removed the row took its own dialog's return
- * address along, and React Aria then finds nothing to go back to, which drops a keyboard's place on `body`. The APG's
- * dialog pattern asks for the next logical place instead, the list the row stood in, or the page's title where a card
- * left with its last row. The frame after the commit, as React Aria's own restore runs, and only for focus lost to
- * `body`: anywhere else it was moved on purpose. A node still connected was hidden with its page, not removed.
+ * Where the focus goes when a row or a lone act leaves with what held it: the act that removed it took its own dialog's
+ * return address along, and React Aria's `FocusScope` documents a restore to the element that opened it and nothing for
+ * one that is gone, which drops a keyboard's place on `body`. The APG's dialog pattern asks for the next logical place
+ * instead: the row after it, or before it, so the place in a long list holds; else what stood around it; else the page's
+ * title, where a card left with its last row. The frame after the commit, as React Aria's own restore runs, and only for
+ * focus lost to `body`: anywhere else it was moved on purpose. A node still connected was hidden with its page, not removed.
  */
-export function useFocusHome(row: RefObject<HTMLElement | null>) {
+export function useFocusHome(held: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
-    const node = row.current;
+    const node = held.current;
     return () => {
+      // Read here, while the row still has its neighbours: the frame after, it has none.
+      const row = node?.closest(ROW);
+      const neighbours = [row?.nextElementSibling, row?.previousElementSibling].map((other) => other?.querySelector<HTMLElement>(PRESSABLE));
       const homes = [node?.closest<HTMLElement>(HOME), document.querySelector("h1")];
       requestAnimationFrame(() => {
         if (node?.isConnected !== false || document.activeElement !== document.body) return;
+        const neighbour = neighbours.find((candidate) => candidate?.isConnected === true);
+        if (neighbour !== undefined && neighbour !== null) {
+          neighbour.focus({ preventScroll: true });
+          return;
+        }
         const home = homes.find((candidate) => candidate?.isConnected === true);
         if (home !== undefined && home !== null) takeFocus(home);
       });
     };
-  }, [row]);
+  }, [held]);
 }
 
-/** The acts of a row a server component draws, which is what can leave with its row. */
+/**
+ * What a server component draws that can leave with the focus on it: a row's acts, or a lone act that goes, as a dialog's
+ * trigger giving way to its locked button does. `contents` where the span is to lay nothing out.
+ */
 export function RowActs({ className, children }: { className: string; children: ReactNode }) {
   const acts = useRef<HTMLSpanElement>(null);
   useFocusHome(acts);

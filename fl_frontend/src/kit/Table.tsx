@@ -676,6 +676,7 @@ export function Table({
                 <tr
                   key={row.id}
                   id={row.anchor}
+                  data-kit-row
                   role="row"
                   className={table({ ...marks, ...phoneEnd }).row()}>
                   {rankLabel !== undefined && (

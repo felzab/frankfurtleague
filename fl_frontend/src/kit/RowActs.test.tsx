@@ -20,9 +20,9 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined
 const VERB = COPY.shared.verb.remove;
 const EMPTY = { kind: "none", plural: COPY.page.teams, glyph: "log" } as const;
 
-/** A list whose one row's act, asked once, removes the row, or with the row the list. */
-function ListOfOne({ leaves }: { leaves: "row" | "list" }) {
-  const [rows, setRows] = useState(["pia@example.org"]);
+/** A list whose row's act, asked once, removes the row, or with its last row the list. */
+function Listing({ leaves, addresses = ["pia@example.org"] }: { leaves: "row" | "list"; addresses?: readonly string[] }) {
+  const [rows, setRows] = useState(addresses);
   return (
     <>
       <h1>{COPY.page.teams}</h1>
@@ -42,7 +42,7 @@ function ListOfOne({ leaves }: { leaves: "row" | "list" }) {
                 subject={COPY.page.teams}
                 consequence={COPY.page.teams}
                 tone="danger"
-                onConfirm={() => setRows([])}
+                onConfirm={() => setRows(rows.filter((other) => other !== address))}
                 trigger={
                   <Button
                     variant="secondary"
@@ -63,17 +63,35 @@ function ListOfOne({ leaves }: { leaves: "row" | "list" }) {
   );
 }
 
-/** Opens the row's question and presses its act, as a keyboard's user does. */
-async function removeTheRow() {
+/** Opens the question of the list's `place`th row and presses its act, as a keyboard's user does. */
+async function removeTheRow(place = 1) {
   await userEvent.tab();
+  for (let row = 1; row < place; row += 1) await userEvent.tab();
   await userEvent.keyboard("{Enter}");
   await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
 }
 
 // The harm: focus dropped on `body` sends a keyboard's next Tab to the top of the document, and nothing fails.
 describe("a row removed by its own act", () => {
+  // The harm beyond `body`: the list's top row taking it would send a keyboard back past every row it had worked through.
+  it.each([
+    ["the row after it", 1],
+    ["the row before it, where none follows", 3],
+  ])("hands the focus to %s", async (_case, place) => {
+    render(
+      <Listing
+        leaves="row"
+        addresses={["pia@example.org", "ben@example.org", "tom@example.org"]}
+      />,
+    );
+    await removeTheRow(place);
+
+    const landed = screen.getByRole("row", { name: /ben@example.org/ });
+    await waitFor(() => expect(document.activeElement).toBe(within(landed).getByRole("button", { name: VERB })));
+  });
+
   it("hands the focus to the list it stood in, the list staying no stop for Tab", async () => {
-    render(<ListOfOne leaves="row" />);
+    render(<Listing leaves="row" />);
     await removeTheRow();
 
     await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-kit-focus="home"]')));
@@ -83,14 +101,14 @@ describe("a row removed by its own act", () => {
   });
 
   it("hands the focus to the page's title where the list leaves with it", async () => {
-    render(<ListOfOne leaves="list" />);
+    render(<Listing leaves="list" />);
     await removeTheRow();
 
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 })));
   });
 
   it("leaves alone a focus standing anywhere else", async () => {
-    render(<ListOfOne leaves="row" />);
+    render(<Listing leaves="row" />);
     const elsewhere = screen.getByRole("button", { name: COPY.shared.filter });
 
     await userEvent.click(elsewhere);

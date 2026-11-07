@@ -19,6 +19,7 @@ import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
+import { RowActs } from "./RowActs";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
@@ -319,10 +320,13 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
     />
   );
   return locked === undefined ? (
-    <Dialog
-      {...act}
-      trigger={button}
-    />
+    // The act that locks it takes its trigger along: a handover's start, whose button stands again unbound to its dialog.
+    <RowActs className="contents">
+      <Dialog
+        {...act}
+        trigger={button}
+      />
+    </RowActs>
   ) : (
     button
   );
@@ -527,7 +531,9 @@ export function ListPage({
               </Suspense>
             )}
             {hasActs && (
-              <div className="ms-auto flex flex-wrap items-center justify-end gap-3">
+              <div
+                data-kit-focus="home"
+                className="ms-auto flex flex-wrap items-center justify-end gap-3">
                 {sideAct !== undefined && (
                   <Suspense
                     fallback={
