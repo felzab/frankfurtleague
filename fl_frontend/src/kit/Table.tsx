@@ -1,6 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -15,6 +16,7 @@ import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
+import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
 import type { Plaque } from "./TeamPlaque";
@@ -32,6 +34,11 @@ type TableColumn = {
    * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
    */
   width?: "count" | "pair" | "marked" | "date" | "phone" | "line";
+  /**
+   * Free text of any length, such as a ban's Grund: cut with „…“ at the column `width` sets, whole in its tooltip while
+   * it is cut. Every other column widens to its longest value.
+   */
+  cut?: true;
 } &
   /** Left out on a phone, whose row is its name, its chip and at most a narrow column. */
   (
@@ -59,15 +66,15 @@ export type TableRow = {
   id: string;
   /** The record's name; with `href` the whole row opens the record. */
   name: Words;
-  href?: Route;
-  /**
-   * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check page
-   * back to a card: a client page's own, since a function cannot cross from the server.
-   */
-  onOpen?: () => void;
+  /** What a list read whole is searched by in the row's place, where a search reaches past the name; the name included. */
+  words?: string;
   /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
   plaque?: Plaque;
   chip?: ChipProps;
+  /** Beside `chip`, where the last mail of a row that mails met trouble: the delivery's chip, as a seat's. */
+  delivery?: ChipProps;
+  /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
+  line?: Words;
   /** Why the row's record was turned away, on a line of its own under the name, in the danger colour. */
   refusal?: Copy;
   /** The row's values, by column key; a missing value leaves its cell empty. */
@@ -87,7 +94,27 @@ export type TableRow = {
    * club that has played no match, shows a dash.
    */
   place?: number | null;
-};
+} & (
+  | {
+      href?: Route;
+      /**
+       * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
+       * page back to a card: a client page's own, since a function cannot cross from the server.
+       */
+      onOpen?: () => void;
+      acts?: never;
+    }
+  | {
+      href?: never;
+      onOpen?: never;
+      /**
+       * What can be done to a record that opens no page of its own: one or two kit buttons, each the trigger of its
+       * dialog, as a card's act row holds them: under the row's words on a phone, at the row's end from `lg`. A row the
+       * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
+       */
+      acts?: ReactElement;
+    }
+);
 
 export type TableProps = {
   /** The table's name. */
@@ -137,7 +164,12 @@ export type TableProps = {
  * What a table is before its rows are read: its heads, its columns and how its cells set. A page states it once,
  * beside the rows it reads, so the table and its placeholder are drawn from the one declaration.
  */
-export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone">;
+export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"> & {
+  /** The rows open nothing, so their wait ends in no chevron. */
+  linked?: false;
+  /** The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. */
+  acts?: ReadonlyArray<Copy>;
+};
 
 /** A table's rows once read: everything but its head. */
 export type TableBody = Omit<TableProps, keyof TableHead>;
@@ -153,6 +185,10 @@ const table = tv({
     // The column head's look, which every subhead inside a card shares, so the column heads never compete
     // with the card's head band.
     head: columnHead().text(),
+    sheet: "w-full border-collapse text-sm",
+    headRow: columnHead().rule(),
+    // `thead` and `tbody`, whose rows a phone's act table sets in the table's own tracks.
+    part: "",
     // A row a link may point to by its fragment, marked while the address names it.
     row: `kit-target relative h-14 ${stacked()} lg:h-13`,
     cell: "px-3 whitespace-nowrap",
@@ -166,6 +202,11 @@ const table = tv({
     label: "",
     // Under the name line, cut as a name is: the row keeps its height at the least, and a phone's width cuts no chip.
     refusal: "block truncate text-xs text-danger",
+    // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
+    // least width, as the name's does (`nameLine`).
+    line: "grid grid-cols-[minmax(0,max-content)] text-xs text-fg-muted",
+    // The acts' last cell, as narrow as its buttons, as the chevrons' is.
+    acts: "w-0 pe-3",
   },
   variants: {
     align: {
@@ -186,6 +227,11 @@ const table = tv({
     },
     figures: {
       true: { cell: "font-numeric" },
+    },
+    // No width of its own: `max-w-0` leaves the words out of the column's width, which its head's `width` alone sets, and
+    // the name's `w-full` takes the rest.
+    cut: {
+      true: { cell: "max-w-0" },
     },
     strong: {
       true: { cell: "font-semibold" },
@@ -233,6 +279,26 @@ const table = tv({
         name: "max-lg:col-start-1 max-lg:w-auto max-lg:px-0 max-lg:py-0",
         cell: "max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start max-lg:whitespace-normal",
         label: "text-xs text-fg-muted lg:hidden",
+      },
+    },
+    // A phone's act row is two lines, which no table row can be: the table is a grid there, its rows subgrids, so head
+    // and rows still share one set of tracks, the name's and the narrow column's, and the acts' cell takes a line of
+    // its own under them. A table keeps its table layout from `lg`, the acts its row's last cell.
+    acts: {
+      // A row with no acts in such a table: the list's plain row, its acts' cell left out on a phone.
+      table: {
+        sheet: "max-lg:grid",
+        part: "max-lg:contents",
+        headRow: "max-lg:col-span-full max-lg:grid max-lg:grid-cols-subgrid",
+        head: "max-lg:grid max-lg:items-center",
+        row: "max-lg:col-span-full max-lg:grid max-lg:grid-cols-subgrid max-lg:items-center",
+        acts: "max-lg:hidden",
+      },
+      // The kit's act row, as `Card.tsx`'s and `SeatRows.tsx`'s: 12 px over the words and under the acts, 8 between them.
+      row: {
+        row: "max-lg:col-span-full max-lg:grid max-lg:h-auto max-lg:grid-cols-subgrid max-lg:items-center max-lg:pb-3",
+        name: "max-lg:pt-3",
+        acts: "max-lg:col-span-full max-lg:w-auto max-lg:px-3",
       },
     },
     linked: {
@@ -291,7 +357,16 @@ function phoneOf(column: TableColumn) {
 
 /** How a column sets, for its head and its cells alike, in the table and in its placeholder. */
 const columnLook = (column: TableColumn) =>
-  ({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), width: column.width }) as const;
+  ({ align: column.figures === true ? "figure" : "start", phone: phoneOf(column), width: column.width, cut: column.cut === true }) as const;
+
+/**
+ * The tracks of an act table on a phone: the name's, taking the room the others leave as `w-full` does in a table, and
+ * one for each column the phone keeps. Inline, for a count no class can name; a table ignores it from `lg`.
+ */
+function phoneTracks(columns: ReadonlyArray<TableColumn>) {
+  const kept = columns.filter((column) => column.hideOnPhone !== true).length;
+  return { gridTemplateColumns: `minmax(0, 1fr) repeat(${String(kept)}, auto)` };
+}
 
 /**
  * A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
@@ -311,10 +386,17 @@ function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<Table
  * of the digits, and its name tells a screen reader what no line explains.
  * A record is its three counts, `RecordFigures`.
  */
-function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
+function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean; cut: boolean }) {
   if (cell === undefined) return null;
   if (typeof cell === "object" && "counts" in cell) return <RecordFigures counts={cell.counts} />;
   const { value, cancelled } = typeof cell === "object" && "cancelled" in cell ? cell : { value: cell, cancelled: 0 };
+  if (cut)
+    return (
+      <CutText
+        text={textOf(value)}
+        className="block truncate"
+      />
+    );
   if (!slot) return textOf(value);
   return (
     <span className="inline-block px-2">
@@ -332,6 +414,9 @@ function Cell({ cell, slot }: { cell: TableCell | undefined; slot: boolean }) {
     </span>
   );
 }
+
+/** Whether a table carries an act column, and of its rows whether this one fills it. */
+type TableActs = "table" | "row" | undefined;
 
 /**
  * A row's name line. The name's track grows to the name and stops at the room the line has, so a chip stands directly
@@ -379,6 +464,7 @@ function NameCell({
   prose,
   stack,
   plaqueAlone,
+  acts,
 }: {
   row: TableRow;
   barred: TableRow["qualifies"];
@@ -386,8 +472,9 @@ function NameCell({
   prose: boolean;
   stack: boolean;
   plaqueAlone: boolean;
+  acts: TableActs;
 }) {
-  const s = table({ qualifies: barred, compact, prose, stack });
+  const s = table({ qualifies: barred, compact, prose, stack, acts });
   const { plaque } = row;
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
@@ -419,7 +506,16 @@ function NameCell({
           )}
         </CutText>
         {row.chip !== undefined && <Chip {...row.chip} />}
+        {row.delivery !== undefined && <Chip {...row.delivery} />}
       </span>
+      {row.line !== undefined && (
+        <span className={s.line()}>
+          <CutText
+            text={textOf(row.line)}
+            className="truncate"
+          />
+        </span>
+      )}
       {row.refusal !== undefined && <span className={s.refusal()}>{row.refusal}</span>}
     </td>
   );
@@ -446,7 +542,11 @@ export function Table({
   chevronOnPhone = true,
   plaqueAlone = false,
 }: TableProps) {
-  const nameHead = table({ align: "start", compact, prose, stack }).head();
+  // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
+  const hasActs = rows.some((row) => row.acts !== undefined);
+  const tableActs = hasActs ? "table" : undefined;
+  const parts = table({ acts: tableActs });
+  const nameHead = table({ align: "start", compact, prose, stack, acts: tableActs }).head();
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
@@ -473,11 +573,12 @@ export function Table({
         <table
           role="table"
           aria-label={label}
-          className="w-full border-collapse text-sm">
-          <thead>
+          className={parts.sheet()}
+          style={hasActs ? phoneTracks(columns) : undefined}>
+          <thead className={parts.part()}>
             <tr
               role="row"
-              className={columnHead().rule()}>
+              className={parts.headRow()}>
               {rankLabel !== undefined && (
                 <th
                   role="columnheader"
@@ -497,22 +598,29 @@ export function Table({
                   key={column.key}
                   role="columnheader"
                   scope="col"
-                  className={table({ ...columnLook(column), compact, prose, stack }).head()}>
+                  className={table({ ...columnLook(column), compact, prose, stack, acts: tableActs }).head()}>
                   {column.label}
                 </th>
               ))}
-              {/* The chevrons' column names nothing, so its head is no header cell. */}
+              {/* The chevrons' column and the acts' name nothing, so their head is no header cell. */}
               {isLinked && (
                 <td
                   role="cell"
                   className={table({ phone: chevronOnPhone ? "shown" : "hidden", prose, stack }).head()}
                 />
               )}
+              {hasActs && (
+                <td
+                  role="cell"
+                  className={table({ phone: "hidden" }).head()}
+                />
+              )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className={parts.part()}>
             {rows.map((row) => {
-              const marks = { linked: leadsOn(row), muted: row.muted === true };
+              const acts: TableActs = !hasActs ? undefined : row.acts === undefined ? "table" : "row";
+              const marks = { linked: leadsOn(row), muted: row.muted === true, acts };
               return (
                 <tr
                   key={row.id}
@@ -533,6 +641,7 @@ export function Table({
                     prose={prose}
                     stack={stack}
                     plaqueAlone={plaqueAlone}
+                    acts={acts}
                   />
                   {columns.map((column) => {
                     const s = table({
@@ -558,6 +667,7 @@ export function Table({
                         <Cell
                           cell={row.cells[column.key]}
                           slot={marked.has(column.key)}
+                          cut={column.cut === true}
                         />
                       </td>
                     );
@@ -568,6 +678,13 @@ export function Table({
                       className={table(phoneEnd).end()}
                       style={endStyle}>
                       {leadsOn(row) && <RowEnd />}
+                    </td>
+                  )}
+                  {hasActs && (
+                    <td
+                      role="cell"
+                      className={table({ acts }).acts()}>
+                      {row.acts !== undefined && <span className="flex items-center gap-2 lg:justify-end">{row.acts}</span>}
                     </td>
                   )}
                 </tr>
@@ -585,15 +702,15 @@ export function Table({
  * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
  * centred, a name from the start after a club's plaque where the rows hold clubs, the chevron where rows lead on.
  * Drawn with the table's own recipe and the columns' stated widths, so it stands as the table will at every width, a
- * phone's left-out columns left out, and a `stack` table's rows stacked as `Table`'s.
+ * phone's left-out columns left out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons.
  */
 export function TablePlaceholder({
   head,
   rows,
   plaques = false,
   bare = false,
-  linked = true,
-  stack = false,
+  linked = head.linked !== false && head.acts === undefined,
+  stack = head.stack === true,
 }: {
   head: TableHead;
   rows: number;
@@ -604,36 +721,42 @@ export function TablePlaceholder({
   linked?: boolean;
   stack?: boolean;
 }) {
-  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false } = head;
+  const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts } = head;
   const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
+  const tableActs = acts === undefined ? undefined : "table";
+  const rowActs = acts === undefined ? undefined : "row";
+  const parts = table({ acts: tableActs });
   return (
     <div className={bare ? "@container w-full overflow-hidden" : cardSurface({ class: "@container w-full overflow-hidden" })}>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className={columnHead().rule()}>
+      <table
+        className={parts.sheet()}
+        style={acts === undefined ? undefined : phoneTracks(columns)}>
+        <thead className={parts.part()}>
+          <tr className={parts.headRow()}>
             {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
-            <th className={table({ align: "start", compact, stack }).head()}>{nameLabel}</th>
+            <th className={table({ align: "start", compact, stack, acts: tableActs }).head()}>{nameLabel}</th>
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={table({ ...columnLook(column), compact, stack }).head()}>
+                className={table({ ...columnLook(column), compact, stack, acts: tableActs }).head()}>
                 {column.label}
               </th>
             ))}
             {linked && <td className={table({ phone: chevronOnPhone ? "shown" : "hidden", stack }).head()} />}
+            {acts !== undefined && <td className={table({ phone: "hidden" }).head()} />}
           </tr>
         </thead>
-        <tbody>
+        <tbody className={parts.part()}>
           {Array.from({ length: rows }, (_, index) => (
             <tr
               key={index}
-              className={table(phoneEnd).row()}>
+              className={table({ ...phoneEnd, acts: rowActs }).row()}>
               {rankLabel !== undefined && (
                 <td className={table({ align: "centre", compact }).cell()}>
                   <span className={placeholderBar("mx-auto h-3 w-3")} />
                 </td>
               )}
-              <td className={table({ compact, stack }).name()}>
+              <td className={table({ compact, stack, acts: rowActs }).name()}>
                 <span className="flex min-w-0 items-center gap-2">
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
@@ -658,6 +781,19 @@ export function TablePlaceholder({
                   className={table(phoneEnd).end()}
                   style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
                   <RowEnd />
+                </td>
+              )}
+              {acts !== undefined && (
+                <td className={table({ acts: rowActs }).acts()}>
+                  <span className="flex items-center gap-2 lg:justify-end">
+                    {acts.map((act) => (
+                      <span
+                        key={act}
+                        className={buttonPlaceholder()}>
+                        {act}
+                      </span>
+                    ))}
+                  </span>
                 </td>
               )}
             </tr>

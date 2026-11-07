@@ -11,7 +11,7 @@ import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
-import { EmptyState } from "./EmptyState";
+import { EmptyState, EmptyStatePlaceholder } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
 import { Filters } from "./Filters";
 import { Icon } from "./Icon";
@@ -28,7 +28,7 @@ import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { DialogAct } from "./dialogAct";
 import type { EmptyStateProps } from "./EmptyState";
@@ -95,9 +95,19 @@ type ListContent =
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
       /** The table's head, which its placeholder draws while the rows are read. */
       head: TableHead;
-      /** How many rows its wait draws. */
-      wait: number;
+      /**
+       * How many rows its wait draws, or `"empty"` for a list that usually holds nothing, whose wait draws the empty box
+       * it lands on on most days: Sperrliste and Adressänderungen. Its rows arrive taller on the rare day it holds some.
+       */
+      wait: number | "empty";
       content: Promise<TableContent>;
+    }
+  | {
+      kind: "folds";
+      /** The cards while they wait, `OpenFoldPlaceholder`, which the page places as it places the cards. */
+      wait: ReactElement;
+      /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
+      content: Promise<ReactElement>;
     }
   | {
       kind: "spieltage";
@@ -155,12 +165,18 @@ type ListContent =
 function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table":
-      return (
+      return list.wait === "empty" ? (
+        <div className={cardSurface({ class: "overflow-hidden" })}>
+          <EmptyStatePlaceholder />
+        </div>
+      ) : (
         <TablePlaceholder
           head={list.head}
           rows={list.wait}
         />
       );
+    case "folds":
+      return list.wait;
     case "groups":
       return Array.from({ length: list.wait.groups }, (_, index) => (
         <CardPlaceholder
@@ -274,10 +290,17 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
 export type ListCreate = DialogAct & { locked?: Copy };
 
 /**
- * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
- * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide.
+ * A toolbar act the read decides, as Administratoren's are: its words, which its wait draws at their width, and the act,
+ * `null` for a reader whose role never holds it, or `locked` while the list as read shuts it.
  */
-function CreatePlaceholder() {
+export type ListActOnceRead = { label: Copy; act: Promise<ListCreate | null> };
+
+/**
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
+ * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide,
+ * unless the page states the words.
+ */
+function CreatePlaceholder({ label = actLabel({ verb: "create", object: SAISON_WORDS }) }: { label?: Copy }) {
   return (
     <Placeholder>
       <span className={buttonPlaceholder()}>
@@ -285,7 +308,7 @@ function CreatePlaceholder() {
           glyph="create"
           size={16}
         />
-        {actLabel({ verb: "create", object: SAISON_WORDS })}
+        {label}
       </span>
     </Placeholder>
   );
@@ -312,9 +335,36 @@ function CreateAct({ create }: { create: ListCreate }) {
   );
 }
 
-/** The create act once what it makes is read. */
-async function CreateOnceRead({ create }: { create: Promise<ListCreate> }) {
-  return <CreateAct create={await create} />;
+/** The create act once what it makes is read, absent for a reader who never holds it. */
+async function CreateOnceRead({ create }: { create: Promise<ListCreate | null> }) {
+  const read = await create;
+  return read !== null && <CreateAct create={read} />;
+}
+
+/** The second act on the list as a whole, a secondary button before the create act, its button opening the dialog. */
+function SideAct({ side }: { side: ListCreate }) {
+  const { locked, ...act } = side;
+  const button = (
+    <Button
+      variant="secondary"
+      label={actLabel(act.act)}
+      locked={locked}
+    />
+  );
+  return locked === undefined ? (
+    <Dialog
+      {...act}
+      trigger={button}
+    />
+  ) : (
+    button
+  );
+}
+
+/** That act once the read says whether it stands. */
+async function SideActOnceRead({ side }: { side: Promise<ListCreate | null> }) {
+  const read = await side;
+  return read !== null && <SideAct side={read} />;
 }
 
 /**
@@ -363,6 +413,8 @@ async function ListBody({ list }: { list: ListContent }) {
         />
       );
     }
+    case "folds":
+      return list.content;
     case "spieltage": {
       const { tabs, empty } = await list.content;
       return tabs === null ? <EmptyBox empty={empty} /> : <Spieltage {...tabs} />;
@@ -455,6 +507,7 @@ export function ListPage({
   filters,
   filterCount = 1,
   create,
+  sideAct,
   link,
   notice,
   list,
@@ -472,14 +525,17 @@ export function ListPage({
    * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
    * its own and stands in the toolbar once read.
    */
-  create?: ListCreate | Promise<ListCreate>;
+  create?: ListCreate | Promise<ListCreate> | ListActOnceRead;
+  /** A second act on the list as a whole, such as Administratoren's handover: a secondary button before the create act. */
+  sideAct?: ListActOnceRead;
   link?: ListLink;
   /** What holds of the list as read and no row says, standing between the toolbar and the list. */
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
-  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || link !== undefined;
+  const hasActs = create !== undefined || sideAct !== undefined;
+  const hasToolbar = search !== undefined || filters !== undefined || hasActs || link !== undefined;
 
   return (
     <RailPage {...head}>
@@ -487,18 +543,33 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          <div className="flex flex-wrap items-center gap-3">
+          // Left out where the read leaves a reader no act: an empty row would still hold the page's gap.
+          <div className="flex flex-wrap items-center gap-3 has-[>:only-child:empty]:hidden">
             {search !== undefined && <ListSearchField label={search.label} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
-            {create !== undefined && (
-              <div className="ms-auto">
-                {create instanceof Promise ? (
+            {hasActs && (
+              <div className="ms-auto flex flex-wrap items-center justify-end gap-3 empty:hidden">
+                {sideAct !== undefined && (
+                  <Suspense
+                    fallback={
+                      <Placeholder>
+                        <span className={buttonPlaceholder()}>{sideAct.label}</span>
+                      </Placeholder>
+                    }>
+                    <SideActOnceRead side={sideAct.act} />
+                  </Suspense>
+                )}
+                {create === undefined ? null : create instanceof Promise ? (
                   <Suspense fallback={<CreatePlaceholder />}>
                     <CreateOnceRead create={create} />
+                  </Suspense>
+                ) : "label" in create ? (
+                  <Suspense fallback={<CreatePlaceholder label={create.label} />}>
+                    <CreateOnceRead create={create.act} />
                   </Suspense>
                 ) : (
                   <CreateAct create={create} />

@@ -64,15 +64,15 @@ async function pageOf({ carry, load }: ListMore, request: ListRequest): Promise<
 }
 
 /**
- * The search field over a list, by its name. A list read whole is searched over its rows' names; a list past
- * one read's cap is searched on the server, which decides what it reads.
+ * The search field over a list, by its name. A list read whole is searched over its rows' names, or the `words` a row
+ * states where more of it is searched; a list past one read's cap is searched on the server, which decides what it reads.
  */
 export type ListSearch = { label: Copy };
 
-/** A row's name holds what is typed, upper and lower case alike. */
+/** A row's words, its name where it states none, hold what is typed, upper and lower case alike. */
 const matches = (query: string) => {
   const wanted = query.trim().toLowerCase();
-  return (row: TableRow) => textOf(row.name).toLowerCase().includes(wanted);
+  return (row: TableRow) => (row.words ?? textOf(row.name)).toLowerCase().includes(wanted);
 };
 
 /**
