@@ -721,4 +721,4 @@ class TestTheMountedRouteReadsTheGrants:
 
             return response.status_code, row and row["granted_by"], actor, logged and (logged["by"], logged["label"])
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER.upper(), OWNER, (OWNER, NEU))
+        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER, OWNER, (OWNER, NEU))
