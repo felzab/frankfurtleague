@@ -148,6 +148,7 @@ export function SchiedsrichterEditor({
                   name="email"
                   width="W3"
                   kind="email"
+                  autofill="off"
                   isDisabled
                   description={address.confirmed}
                   value={draft.email}
