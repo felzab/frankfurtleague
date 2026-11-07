@@ -1244,7 +1244,9 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 own rows about it included. Every erasure a person or an administrator asked for left its line in the
 backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
 seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no value, address or name, where its person stood:
-`records`, each record one address alone holds, as `collection/id`; `seats`, a Widerspruch's slots by
+`records`, as `collection/id`, on an erasure's line each record one address alone holds, and on a
+withdrawal's or a Widerspruch's the record the act landed on, which on a seat's row or an application
+holds other people too; `seats`, a seat's withdrawal's or Widerspruch's slots by
 name, an erasure's as `collection/id/slot`, its row holding other people, and a confirmed slot's with
 that slot's `einwilligung.confirmed_at` as a fourth part; `rows`, an erasure's every
 other field that named the address, as `collection/id/path`, so a row naming two people says which
@@ -1266,7 +1268,8 @@ mail thread beside the lines for every request that arrived by mail. A line whos
 answer may name an act that never landed, and running it again wrongs nobody, the person having asked
 for it.
 
-**A withdrawal is set again on its record, a Widerspruch's seats emptied again**, each in the
+**A withdrawal is set again on its record, on a seat's in the `einwilligung` of each slot its `seats`
+name and no other, a Widerspruch's seats emptied again**, each in the
 Playground, from the fields of its line, the person's evidence having gone with the lost window.
 A line names the choice and no value, so where a choice holds several withholding values the one
 that withholds most is set. A choice granted since by evidence later than the line stands. A person who made one of these acts

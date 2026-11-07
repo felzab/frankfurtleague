@@ -92,7 +92,7 @@ async def patch_einwilligung(
                 return_document=ReturnDocument.BEFORE,
             )
         if moved := withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen):
-            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved))
+            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=rollen)
 
     async with journal:
         async with transaction_session(db) as session:

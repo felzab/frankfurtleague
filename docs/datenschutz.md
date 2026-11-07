@@ -197,7 +197,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     line's act, the random id joining an act's lines, record ids, an erasure's seats, a confirmed one
     with that slot's confirmation day,
     and each other field it took the person off, by row id and field name, a withdrawal's choices and
-    an objection's slots, and no address or name
+    the slots a seat's withdrawal or objection took, and no address or name
     (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
 - **Mail** (`outbox`; mail to the league; WhatsApp).

@@ -172,7 +172,7 @@ async def patch_einwilligung(
             )
         choices = withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen)
         if choices is not None:
-            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices))
+            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=rollen)
 
     async with journal:
         async with transaction_session(db) as session:

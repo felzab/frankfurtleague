@@ -234,8 +234,8 @@ async def registration_withdrawal(http: AsyncClient, database: AsyncDatabase) ->
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
 
-# Every press writing a line, as the person makes it: its act and the record the line names.
-PRESSES: dict[str, tuple[Press, str, Collection, ObjectId]] = {
+# Every press writing a line, as the person makes it: its act, the record the line names and the slots saying whose block that is.
+PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
             f"{V}/spieler/account/einwilligung",
@@ -245,6 +245,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId]] = {
         "withdrawal",
         Collection.SPIELER,
         PUPIL_OID,
+        [],
     ),
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
@@ -255,6 +256,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId]] = {
         "withdrawal",
         Collection.SCHIEDSRICHTER,
         REFEREE_OID,
+        [],
     ),
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
@@ -265,6 +267,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId]] = {
         "withdrawal",
         Collection.SAISON_TEAMS,
         ROW_OID,
+        ["trainer"],
     ),
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
@@ -275,34 +278,38 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId]] = {
         "withdrawal",
         Collection.BEWERBUNGEN,
         APPLICATION_OID,
+        ["trainer"],
     ),
-    "a pending registration's withdrawal": (registration_withdrawal, "withdrawal", Collection.REGISTRIERUNGEN, REGISTRATION_OID),
+    "a pending registration's withdrawal": (registration_withdrawal, "withdrawal", Collection.REGISTRIERUNGEN, REGISTRATION_OID, []),
     "an objection on an application": (
         lambda http, _database: http.post(f"{V}/bewerbungen/einwilligung", json=declined(f"{APPLICATION_LINK}-trainer"), headers=BASE_AUTH),
         "objection",
         Collection.BEWERBUNGEN,
         DECLINED_APPLICATION_OID,
+        ["trainer"],
     ),
     "an objection on a season row": (
         lambda http, _database: http.post(f"{V}/bewerbungen/einwilligung", json=declined(ROW_LINK), headers=BASE_AUTH),
         "objection",
         Collection.SAISON_TEAMS,
         ROW_OID,
+        ["stellvertretung"],
     ),
     "a referee's objection": (
         lambda http, _database: http.post(f"{V}/schiedsrichter/confirmation/decline", json={"token": REFEREE_LINK}, headers=BASE_AUTH),
         "objection",
         Collection.SCHIEDSRICHTER,
         OBJECTING_REFEREE_OID,
+        [],
     ),
 }
 
 
 @pytest.mark.parametrize("press", PRESSES, ids=PRESSES)
 def test_each_press_writes_one_line_naming_its_record_and_no_address(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, press: str):
-    """No address: the line outlives the erasure it may later have to sit beside."""
+    """No address: the line outlives the erasure it may later have to sit beside. Its slots: a replay sets one person's block of three."""
 
-    act, kind, collection, record_id = PRESSES[press]
+    act, kind, collection, record_id, slots = PRESSES[press]
 
     async def run() -> int:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
@@ -316,5 +323,5 @@ def test_each_press_writes_one_line_naming_its_record_and_no_address(mongo_repli
     line = {key: vars(record)[key] for key in ("act", "records", "choices", "seats")}
 
     assert status < 300
-    assert (line["act"], line["records"]) == (kind, [f"{collection}/{record_id}"])
+    assert (line["act"], line["records"], line["seats"]) == (kind, [f"{collection}/{record_id}"], slots)
     assert "@" not in str(line)
