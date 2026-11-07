@@ -140,7 +140,6 @@ async def get_address_changes(
         session=session,
     )
     grants = await read_grants(grants_collection=grants_collection, session=session)
-    actor = sign_in_identifier(operator)
     tiers = {sign_in_identifier(str(grant["address"])): grant["admin_tier"] for grant in grants}
 
     return FLAddressChangeAdminListResponse(
@@ -152,7 +151,7 @@ async def get_address_changes(
                 now=germany_now,
             )
             for row in rows
-            if address_change_viewable_denied(str(row["address"]), actor=actor, grants=grants) is None
+            if address_change_viewable_denied(str(row["address"]), actor=operator, grants=grants) is None
         ]
     )
 
@@ -194,11 +193,10 @@ async def post_address_change_admin(
         str(address_change_data.email),
         address_change_data.change_reason,
     )
-    actor_identifier = sign_in_identifier(operator)
     way: FLAddressChangeWay = "waiting_period"
 
     async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
-        await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
+        await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
@@ -222,7 +220,7 @@ async def post_address_change_admin(
         record = compose_record(address=identifier, email=email, way=way, change_reason=change_reason, now=germany_now)
         address_change_id = await start_the_change_in_session(
             record=record,
-            actor=actor_identifier,
+            actor=operator,
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
@@ -298,12 +296,10 @@ async def invite_address_change(
     re-send.
     """
 
-    actor_identifier = sign_in_identifier(operator)
-
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
-        await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
+        await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
         email = str(record["email"])
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         taken = holdings.spieler is not None and await another_pupil_holds(
@@ -369,11 +365,9 @@ async def delete_address_change(
     (`address_change_ended`); 404 for an id naming no change.
     """
 
-    actor_identifier = sign_in_identifier(operator)
-
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
-        await _refuse_the_address(str(record["address"]), actor=actor_identifier, grants_collection=grants_collection, session=session)
+        await _refuse_the_address(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": address_change_id},
@@ -383,7 +377,7 @@ async def delete_address_change(
         )
         await tell_the_holders_of_the_end_in_session(
             record,
-            changed_by=actor_identifier,
+            changed_by=operator,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,

@@ -386,7 +386,6 @@ async def post_address_change_moves_done(
 ) -> FLAddressChangeMovesDoneResponse:
     """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
 
-    # By id alone: the log keeps the filter, and an address would stand in it.
     result = await patch_many_in_db(
         collection=address_changes_collection,
         db_filter={"_id": {"$in": sorted(set(done_data.ids))}, "move": {"$type": "object"}},

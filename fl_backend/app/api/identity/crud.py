@@ -72,7 +72,7 @@ from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
-from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLSaisonStatus
@@ -545,12 +545,12 @@ async def erase_everything(
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
-    # Whom the grant notice names as ending the person's grant: the person on their own request, the
-    # administrator on theirs.
-    changed_by: str,
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
+    # Whom the grant notice names as ending the person's grant: the person on their own request, the administrator on
+    # theirs. Read by the grants step alone, which the pupil scope never runs.
+    changed_by: str = ERASED_ACTOR_MARKER,
     # The person's own request, whose answer counts no change whose link has not reached this mailbox, as their preview
     # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
     # typed their address. Every change naming it ends all the same.
@@ -891,8 +891,6 @@ async def erase_if_still_due(
         invitations_collection=invitations_collection,
         ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
-        # Read by the grants step alone, which this scope never runs.
-        changed_by=SYSTEM_ACTOR_EMAIL,
         now=now,
         session=session,
     )

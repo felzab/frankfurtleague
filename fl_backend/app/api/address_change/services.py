@@ -15,7 +15,7 @@ import unicodedata
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from typing import Any, Final, Literal
 
 from app.core.clock import german_day
 from app.core.codes import Code
@@ -25,8 +25,6 @@ from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE
 from app.shared.schemas.custom import as_utc
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 
-ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
-
 # What the address on file's link shows, one state per step the change waits on, and `release_expired` once the person's own
 # change's question to it lapsed: the page never offers a confirmation the press refuses `link_expired`.
 FLAddressChangePreviousState = Literal["release_open", "release_expired", "open", "waiting_period"]
@@ -34,12 +32,10 @@ FLAddressChangePreviousState = Literal["release_open", "release_expired", "open"
 # What the new mailbox's link shows while the change stands.
 FLAddressChangeNewState = Literal["valid", "expired", "not_confirmable", "confirmed"]
 
-ADDRESS_CHANGE_END_KINDS: Final[tuple[str, ...]] = get_args(FLAddressChangeEndKind.__value__)
-
 # The one filter every read of a live change carries: `uniq_address_change_address` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
-# A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
+# Every running change, the key's type stated beside the live terms for `build_address_filter`'s reason.
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"address": {"$type": "string"}, **LIVE_TERMS}
 
 

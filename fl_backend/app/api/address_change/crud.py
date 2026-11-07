@@ -1,8 +1,8 @@
 """
 API · an address change's reads and writes: what the address holds, the start, the effect and every ending
 
-Every route, the hourly pass, the erasure and the restore's replay start, judge, move and end a change through these
-functions, so no two of them part on what a change moves or what its end leaves behind.
+Every route, the hourly pass and the erasure start, judge, move and end a change through these functions, so no two of
+them part on what a change moves or what its end leaves behind.
 
 Invariants:
 - The effect moves everything the address holds in its caller's transaction, a grant included, and nothing else.
@@ -586,10 +586,7 @@ async def move_the_address_in_session(
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Move everything `holdings` holds to the change's address in the caller's transaction, then end it as taken effect.
-
-    One patch per row, never a fan-out, so each row's own history keeps the write that moved it.
-    """
+    """Move everything `holdings` holds to the change's address in the caller's transaction, then end it as taken effect."""
 
     new_address = str(record["email"])
 
@@ -619,7 +616,7 @@ async def move_the_address_in_session(
         await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"_id": row["_id"]},
-            update=_seat_move(row, slots, new_address),
+            update=_seat_move(slots, new_address),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -635,7 +632,7 @@ async def move_the_address_in_session(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": row["_id"]},
-            update=_seat_move(row, slots, new_address),
+            update=_seat_move(slots, new_address),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -689,17 +686,9 @@ async def move_the_address_in_session(
             session=session,
         )
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
-    # Read, then written by id: the log keeps a fan-out's filter as text, address and all.
-    owed = await aggregate_many_from_db(
-        collection=address_changes_collection, pipeline=[{"$match": {"move.new": old}}, {"$project": {"_id": 1}}], session=session
+    await patch_many_in_db(
+        collection=address_changes_collection, db_filter={"move.new": old}, update={"$set": {"move.new": new}}, session=session
     )
-    if owed:
-        await patch_many_in_db(
-            collection=address_changes_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in owed]}},
-            update={"$set": {"move.new": new}},
-            session=session,
-        )
     await _carry_the_mail(outbox_collection, old, new, session=session)
     # The lost-mailbox way carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry is
     # owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
@@ -765,7 +754,7 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
         await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
 
 
-def _seat_move(row: Mapping[str, Any], slots: Sequence[str], new_address: str) -> dict[str, Any]:
+def _seat_move(slots: Sequence[str], new_address: str) -> dict[str, Any]:
     """The seats' address."""
 
     return {"$set": {f"kontakte.{slot}.email": new_address for slot in slots}}
@@ -889,19 +878,13 @@ async def end_the_address_changes_in_session(
         )
 
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address
-    # it would move one to. By id, as every write here.
-    owed = await aggregate_many_from_db(
+    # it would move one to.
+    await patch_many_in_db(
         collection=address_changes_collection,
-        pipeline=[{"$match": {"$or": [{"move.old": identifier}, {"move.new": identifier}]}}, {"$project": {"_id": 1}}],
+        db_filter={"$or": [{"move.old": identifier}, {"move.new": identifier}]},
+        update={"$unset": {"move": ""}},
         session=session,
     )
-    if owed:
-        await patch_many_in_db(
-            collection=address_changes_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in owed]}},
-            update={"$unset": {"move": ""}},
-            session=session,
-        )
 
     return len(rows)
 

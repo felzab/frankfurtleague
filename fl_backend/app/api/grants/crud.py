@@ -73,27 +73,11 @@ async def read_admin_tier_of(
     person holding a seat keeps Konto through the wait.
     """
 
-    found = await aggregate_many_from_db(
-        collection=grants_collection,
-        pipeline=[{"$match": {"address": address}}, {"$limit": 1}, {"$project": {"admin_tier": 1, "effective_from": 1}}],
-        session=session,
-    )
-    if not found or not in_effect(found[0], now):
+    found = await grants_collection.find_one({"address": address}, {"admin_tier": 1, "effective_from": 1}, session=session)
+    if found is None or not in_effect(found, now):
         return None
 
-    return found[0]["admin_tier"], as_utc(found[0]["effective_from"])
-
-
-async def address_is_banned(*, ban_list_collection: ReadCollection, address: str, session: AsyncClientSession) -> bool:
-    """Whether a ban holds this folded address: read here because a grant's start alone refuses on it, every other write taking one."""
-
-    return bool(
-        await aggregate_many_from_db(
-            collection=ban_list_collection,
-            pipeline=[{"$match": {"address": address}}, {"$limit": 1}, {"$project": {"_id": 1}}],
-            session=session,
-        )
-    )
+    return found["admin_tier"], as_utc(found["effective_from"])
 
 
 # A grant's notice still to be handed out: the one shape an erasure rewrites, a sent one being past saying.

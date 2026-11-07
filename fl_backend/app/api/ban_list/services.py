@@ -5,7 +5,6 @@ from http import HTTPStatus
 
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import BAN_DURATION_SAISONS, SAISON_ID_LENGTH
 
 
@@ -55,7 +54,7 @@ def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming:
     onto an address that cannot sign in or be mailed.
     """
 
-    if not incoming and address not in {sign_in_identifier(administrator) for administrator in administrators}:
+    if not incoming and address not in set(administrators):
         return None
 
     return WriteRefusal(

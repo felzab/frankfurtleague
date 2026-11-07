@@ -6,8 +6,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
 from app.api.address_change.services import build_address_filter
+from app.api.ban_list.crud import address_is_barred
 from app.api.grants.crud import (
-    address_is_banned,
     grant_in_session,
     pull_the_list_to_judge,
     read_grants,
@@ -25,7 +25,7 @@ from app.api.grants.services import (
     find_owner_row_refusal,
 )
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, refuse
+from app.core.crud import refuse
 from app.core.dependencies import (
     AddressChangeCollection,
     BanListCollection,
@@ -94,25 +94,20 @@ async def post_grant(
     """
 
     address = sign_in_identifier(str(payload.email))
-    actor = sign_in_identifier(granted_by)
 
     async def judge_and_grant(session: AsyncClientSession) -> FLGrantWriteResponse:
         """Anchor and read the list, judge the actor and the address, end a change standing at it, then write the row, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=actor, grants=grants))
+        refuse(find_only_owner_refusal(actor=granted_by, grants=grants))
         refuse(find_exists_refusal(address=address, grants=grants))
-        refuse(find_barred_refusal(barred=await address_is_banned(ban_list_collection=ban_list_collection, address=address, session=session)))
+        refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
 
-        live = await aggregate_many_from_db(
-            collection=address_changes_collection,
-            pipeline=[{"$match": build_address_filter(address)}, {"$project": {"_id": 1}}],
-            session=session,
-        )
-        for change in live:
+        live = await address_changes_collection.find_one(build_address_filter(address), {"_id": 1}, session=session)
+        if live is not None:
             await end_the_change_in_session(
                 address_changes_collection=address_changes_collection,
-                db_filter={"_id": change["_id"]},
+                db_filter={"_id": live["_id"]},
                 kind="discarded",
                 now=now,
                 session=session,
@@ -154,13 +149,11 @@ async def delete_grant(
     change of an address holding no grant.
     """
 
-    actor = sign_in_identifier(revoked_by)
-
     async def judge_and_revoke(session: AsyncClientSession) -> None:
         """Anchor and read the list, judge the actor and the row against it, then remove the row, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=actor, grants=grants))
+        refuse(find_only_owner_refusal(actor=revoked_by, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -205,13 +198,11 @@ async def post_handover(
     the same transaction, and told what date it completes on.
     """
 
-    actor = sign_in_identifier(started_by)
-
     async def judge_and_start(session: AsyncClientSession) -> None:
         """Anchor and read the list, judge the actor and the row against it, then date the handover, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=actor, grants=grants))
+        refuse(find_only_owner_refusal(actor=started_by, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -221,7 +212,7 @@ async def post_handover(
         refuse(find_handover_refusal(grant=grant, grants=grants, now=now))
         refuse(
             find_barred_refusal(
-                barred=await address_is_banned(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
+                barred=await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
             )
         )
         await start_the_handover_in_session(
@@ -253,17 +244,15 @@ async def delete_handover(
     """
     Stop a waiting handover, the role staying with the owner.
 
-    Only the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.
-    Every holder in effect is told in the same transaction.
+    Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
+    no handover. Every holder in effect is told in the same transaction.
     """
-
-    actor = sign_in_identifier(stopped_by)
 
     async def judge_and_stop(session: AsyncClientSession) -> None:
         """Anchor and read the list, judge the actor and the row against it, then take the date off, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=actor, grants=grants))
+        refuse(find_only_owner_refusal(actor=stopped_by, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id and row.get("owner_from") is not None), None)
         if grant is None:

@@ -337,8 +337,12 @@ class RaisesOnOneChange:
 
         return await self._collection.find_one_and_update(filter, *args, **kwargs)
 
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        raise NotTheDatabases("synthetic")
+    async def update_many(self, filter: Mapping[str, Any], *args: Any, **kwargs: Any) -> Any:
+        ids = filter.get("_id")
+        if isinstance(ids, Mapping) and self._failing in ids.get("$in", ()):
+            raise NotTheDatabases("synthetic")
+
+        return await self._collection.update_many(filter, *args, **kwargs)
 
 
 class TestOneChangeHoldsBackNoOther:
@@ -377,7 +381,7 @@ class TestOneChangeHoldsBackNoOther:
             await stored(database, a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY))
             await a_due_person(database, 2)
             answer = await sweep(
-                database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(0))
+                database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
             )
 
             return (answer.removed, answer.effective, answer.remaining), await live(database)

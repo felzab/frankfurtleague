@@ -15,7 +15,7 @@ from typing import Literal
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import PyMongoError
 
-from app.core.logging import journal_logger
+from app.core.logging import fl_logger
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 
 PrivacyAct = Literal["erasure", "withdrawal", "objection"]
@@ -31,7 +31,7 @@ def privacy_line(
     how an address holding no record of its own is found again.
     """
 
-    journal_logger.info(
+    fl_logger.info(
         "journal.act",
         extra={"act": act, "records": list(records), "choices": list(choices), "seats": list(seats), "rows": list(rows)},
     )
