@@ -76,7 +76,7 @@ async def sweep_registrierungen(
     """
     Run the four registration retention clocks over one season, as of today in Europe/Berlin.
 
-    A declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a
+    A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
     decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
     below do not run for a `past` season, whose own end takes every row they read.
 
@@ -227,7 +227,7 @@ async def sweep_registrierungen(
         return len(taken)
 
     async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The one-month clock. Read in-session, so a retry re-judges."""
+        """The decline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(

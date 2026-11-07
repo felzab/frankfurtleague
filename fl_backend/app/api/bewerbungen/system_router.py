@@ -17,10 +17,10 @@ from app.api.bewerbungen.services import (
     compose_chase_update,
     compose_erinnerung_update,
     compose_lapsed_seats_update,
+    days_after,
     decline_loeschung_is_due,
     deletion_is_due,
     lapsed_seats,
-    latest_decision_due,
     next_saison_id,
     owed_erasure,
     owed_link,
@@ -63,7 +63,7 @@ from app.core.dependencies import (
 )
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
@@ -333,15 +333,19 @@ async def sweep_saison(
         return len(rows), result.deleted_count, 0
 
     async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The one-month clock. Read in-session, so a retry re-judges."""
+        """The decline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
-                # Narrowed to the decisions whose month is behind them: a page of fresh ones would fill the
+                # Narrowed to the decisions whose days are behind them: a page of fresh ones would fill the
                 # read ahead of a due one, and the stall would refuse the pass.
                 db_filter=batch.within(
-                    {"saison_id": saison_id, "status": "declined", "decision.made_at": {"$lte": latest_decision_due(today=today)}}
+                    {
+                        "saison_id": saison_id,
+                        "status": "declined",
+                        "decision.made_at": {"$lte": days_after(day=today, days=-DECLINED_RETENTION_DAYS)},
+                    }
                 ),
                 projection=["status", "decision"],
                 limit=SWEEP_PAGE + 1,

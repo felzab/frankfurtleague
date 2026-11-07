@@ -39,6 +39,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
+    DECLINED_RETENTION_DAYS,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
@@ -1266,33 +1267,6 @@ def next_saison_id(saison_id: str) -> str:
     return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
 
 
-def one_month_after(*, day: str) -> str:
-    """The same day of the next month, clamped to that month's end.
-
-    The bound is one calendar month, and thirty days is not that.
-    """
-
-    start = date.fromisoformat(day)
-    year, month = (start.year + 1, 1) if start.month == 12 else (start.year, start.month + 1)
-    last_day = (date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)) - timedelta(days=1)
-
-    return date(year, month, min(start.day, last_day.day)).isoformat()
-
-
-def latest_decision_due(*, today: str) -> str:
-    """The last decision day whose month is behind it today.
-
-    Found through `one_month_after`, never a month counted back from today: that month CLAMPS to a
-    short month's end and drops the due decisions of the days past it.
-    """
-
-    day = date.fromisoformat(today)
-    while one_month_after(day=day.isoformat()) > today:
-        day -= timedelta(days=1)
-
-    return day.isoformat()
-
-
 def _entry_of(confirmations: Any, seat: str) -> Mapping[str, Any] | None:
     entry = confirmations.get(seat) if isinstance(confirmations, Mapping) else None
 
@@ -1542,7 +1516,7 @@ def compose_lapsed_seats_update(*, kontakte: Any, seats: Sequence[str]) -> Mappi
 
 
 def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the one-month clock takes this declined application, counted from the day the decision was taken."""
+    """Whether the decline clock takes this declined application, counted from the day the decision was taken."""
 
     if bewerbung_raw.get("status") != "declined":
         return False
@@ -1550,7 +1524,7 @@ def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) ->
     entscheidung = bewerbung_raw.get("decision")
     getroffen_am = entscheidung.get("made_at") if isinstance(entscheidung, Mapping) else None
 
-    return isinstance(getroffen_am, str) and one_month_after(day=getroffen_am) <= today
+    return isinstance(getroffen_am, str) and days_after(day=getroffen_am, days=DECLINED_RETENTION_DAYS) <= today
 
 
 def season_has_ended(*, saison_status: Any) -> bool:

@@ -9,12 +9,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import days_after, latest_decision_due, mailbox_pattern, one_month_after, season_has_ended
+from app.api.bewerbungen.services import days_after, mailbox_pattern, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink
 from app.api.registrierungen.schemas import FLRegistrierungPage
 
-# The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
-# month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -24,6 +22,7 @@ from app.shared.einwilligung_evidence import TextVersions, compose_initial, comp
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    DECLINED_RETENTION_DAYS,
     LIST_LIMIT_MAX,
     MEDIA_MIN_AGE_YEARS,
     REGISTRIERUNG_MIN_AGE_YEARS,
@@ -618,13 +617,13 @@ def build_erinnerung_filter(*, saison_id: str, today: str, team_ids: Sequence[An
 
 
 def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every declined row whose month is behind it, as `decline_loeschung_is_due` judges it.
+    """Every declined row whose days are behind it, as `decline_loeschung_is_due` judges it.
 
-    In the query: a page of decisions still inside their month would fill the read ahead of a due
+    In the query: a page of decisions still inside their days would fill the read ahead of a due
     one, and the stall refuses the pass.
     """
 
-    return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": latest_decision_due(today=today)}}
+    return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-DECLINED_RETENTION_DAYS)}}
 
 
 def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
@@ -680,7 +679,7 @@ def undecided_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], saison_s
 
 
 def decline_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the one-month clock takes this declined registration, counted from the day the decision was taken."""
+    """Whether the decline clock takes this declined registration, counted from the day the decision was taken."""
 
     if registrierung_raw.get("status") != DECLINED:
         return False
@@ -688,7 +687,7 @@ def decline_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str
     entscheidung = registrierung_raw.get("decision")
     getroffen_am = entscheidung.get("made_at") if isinstance(entscheidung, Mapping) else None
 
-    return isinstance(getroffen_am, str) and one_month_after(day=getroffen_am) <= today
+    return isinstance(getroffen_am, str) and days_after(day=getroffen_am, days=DECLINED_RETENTION_DAYS) <= today
 
 
 def compose_erinnerung_update(*, today: str) -> Mapping[str, Any]:
@@ -713,7 +712,7 @@ def build_eigene_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
 
 
 def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
-    """Every registration of these addresses, of every status: a declined row holds the same person until its month is out."""
+    """Every registration of these addresses, of every status: a declined row holds the same person until its days are out."""
 
     # Folded here, the form every registration stores.
     return {"email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})}}
