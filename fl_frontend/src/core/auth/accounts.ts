@@ -31,6 +31,17 @@ export async function accountStandsAt(address: string): Promise<boolean> {
   return (await internalAdapter.findUserByEmail(asSignInIdentifier(address))) !== null;
 }
 
+/**
+ * What the sign-in store holds at `address`, counted for an erasure's confirmation: an address holding an account alone
+ * holds no league record, so the backend's counts cannot say it holds anything.
+ */
+export async function accountHoldingsAt(address: string): Promise<{ account: number; passkeys: number }> {
+  const { adapter, internalAdapter } = await auth.$context;
+  const account = await internalAdapter.findUserByEmail(asSignInIdentifier(address));
+  if (account === null) return { account: 0, passkeys: 0 };
+  return { account: 1, passkeys: await adapter.count({ model: "passkey", where: [{ field: "userId", value: account.user.id }] }) };
+}
+
 /** Where an address change's effect left the replaced address's account: moved, none there, or the new address holding its own. */
 export type AccountCarry = "moved" | "none" | "taken";
 

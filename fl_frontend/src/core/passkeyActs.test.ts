@@ -18,6 +18,7 @@ vi.mock("@/core/auth/guards", () => ({
 vi.mock("@/core/subject", async () => ({ getSubjectSession: async () => person({}) }));
 // The sign-in store's own acts, each recording that a press reached it.
 vi.mock("@/core/auth/accounts", () => ({
+  deleteAccountFor: async () => void reached.push("deleteAccountFor"),
   deleteOwnAccount: async () => void reached.push("deleteOwnAccount"),
   requestAccountDeletion: async () => void reached.push("requestAccountDeletion"),
   DeletionOutcomeUnknown: class extends Error {},
@@ -38,6 +39,7 @@ doubleApiClient(({ endpoint }) => {
 const seasonActs = await import("@/app/admin/(editor)/saisons/[saison]/settings/saisonActs");
 const banActs = await import("@/app/admin/(liste)/ban-list/banActs");
 const accountActs = await import("@/features/account/personActions");
+const erasureActs = await import("@/app/admin/(liste)/erasures/erasureActs");
 const passkeyActs = await import("@/features/passkeys/actions");
 const grantActs = await import("@/features/grants/actions");
 
@@ -63,6 +65,7 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ["a handover's start", () => grantActs.startHandover({ grant_id: GRANT, holder: HOLDER })],
   ["a handover's stop", () => grantActs.stopHandover({ id: GRANT, holder: HOLDER })],
   ["a holder's address change's stop", () => grantActs.stopAddressChange({ id: GRANT, holder: HOLDER })],
+  ["an address's erasure", () => erasureActs.eraseAddress({ email: "max@example.org", reason: "Mail vom 3.11.2026", holder: HOLDER })],
 ];
 
 describe("the acts behind the passkey touch", () => {
