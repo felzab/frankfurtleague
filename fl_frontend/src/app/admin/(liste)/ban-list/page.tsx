@@ -1,15 +1,15 @@
 import { ListPage } from "@/kit/ListPage";
+import { RowAct } from "@/kit/RowAct";
 
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { getBanList } from "@/features/ban-list/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { enterBan } from "./banActs";
+import { enterBan, liftBan } from "./banActs";
 import { BanFields } from "./BanFields";
-import { LiftBan } from "./LiftBan";
 
 import type { FLBanDurationSaisons, FLBanListRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
@@ -42,8 +42,7 @@ const HEAD: TableHead = {
 
 /** The address the page was drawn for; the list's own read turns a refused session away to the sign-in. */
 async function readHolder() {
-  const judged = await judgeAdminRequest();
-  return "session" in judged ? judged.session.user.email : "";
+  return (await getAdminSession())?.user.email ?? "";
 }
 
 /** One ban's row, opening nothing: its address, the Grund cut at its column, the last season it covers, and its lift. */
@@ -57,10 +56,16 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
     enteredOn: { record: formatDate(dayOf(ban.created_at)) },
   },
   acts: (
-    <LiftBan
+    <RowAct
+      verb="remove"
+      subject={WORDS.object}
+      consequence={WORDS.liftConsequence}
+      facts={[
+        { label: COPY.signIn.address, value: { record: ban.address } },
+        { label: COPY.admin.spiel.reason, value: { record: ban.ban_reason } },
+      ]}
+      act={liftBan}
       id={ban.id}
-      address={ban.address}
-      reason={ban.ban_reason}
       holder={holder}
     />
   ),
