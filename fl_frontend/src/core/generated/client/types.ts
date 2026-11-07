@@ -2527,8 +2527,6 @@ export interface FLInvitationMailPayload {
  * How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.
  */
 export interface FLInvitationMailResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  invitation_id: string;
   /** @minimum 0 */
   mailed: number;
 }

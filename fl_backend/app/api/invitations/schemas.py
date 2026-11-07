@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -56,13 +55,6 @@ class FLInvitationWriteResponse(BaseAPIResponse):
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
     invitation_id: CustomObjectId
-
-
-class FLInvitationRecipient(BaseModel):
-    """One mailbox a link goes to, and the seat it is addressed as."""
-
-    rolle: FLKontaktRolle
-    email: CustomNonEmptyString
 
 
 type FLInvitationSkipReason = Literal[
@@ -123,7 +115,6 @@ class FLInvitationMailPayload(BaseModel):
 class FLInvitationMailResponse(BaseAPIResponse):
     """How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed."""
 
-    invitation_id: CustomObjectId
     mailed: int = Field(ge=0)
 
 

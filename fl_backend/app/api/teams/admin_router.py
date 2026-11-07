@@ -1289,7 +1289,7 @@ async def post_invitation_dispatch(
             now=germany_now,
         )
 
-        return FLInvitationMailResponse(invitation_id=mail_data.invitation_id, mailed=len(recipients))
+        return FLInvitationMailResponse(mailed=len(recipients))
 
     async with transaction_session(db) as session:
         return await session.with_transaction(owe_the_link)

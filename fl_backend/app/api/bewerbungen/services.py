@@ -775,14 +775,6 @@ def seat_answered_at(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
     return confirmed_at or _declined_on(confirmations, seat)
 
 
-def seat_first_name(*, kontakte: Any, seat: str) -> str:
-    """The first name in a seat's slot, or `""` where the slot is empty."""
-
-    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-
-    return str(slot.get("first_name") or "") if isinstance(slot, Mapping) else ""
-
-
 def _was_mailed(confirmations: Any, seat: str) -> bool:
     return (_entry_of(confirmations, seat) or {}).get("sent_at") is not None
 

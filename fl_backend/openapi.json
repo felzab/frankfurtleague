@@ -5609,11 +5609,6 @@
       "FLInvitationMailResponse": {
         "description": "How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.",
         "properties": {
-          "invitation_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Invitation Id",
-            "type": "string"
-          },
           "mailed": {
             "minimum": 0.0,
             "title": "Mailed",
@@ -5621,7 +5616,6 @@
           }
         },
         "required": [
-          "invitation_id",
           "mailed"
         ],
         "title": "FLInvitationMailResponse",
