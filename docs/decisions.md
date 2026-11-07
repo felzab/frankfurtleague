@@ -65,6 +65,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 
 - **db** — Add a second direct `MongoClient`
 - **system** — Remove the system key
+- **grants** — Hold a second `owner`; make an owner outside the handover; make a removal wait; send a
+  wait's notice only to the person who started it
 - **cache** — Add an invalidation endpoint, or clear the site-wide cache tag outside the save spines;
   fault staleness within the `minutes` lifetime after a change no save makes
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP

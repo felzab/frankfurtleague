@@ -3,7 +3,7 @@ from typing import Annotated, Final, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
-from app.api.grants.schemas import FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantNoticeKind, FLGrantSnapshot
+from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
@@ -48,20 +48,20 @@ class FLBanData(BaseModel):
 
 
 class FLGrantData(BaseModel):
-    """A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it."""
+    """One step of what changes who holds the administration, as every holder in effect and the person named are told it."""
 
     kind: Literal["grant"]
-    change: FLGrantNoticeKind
-    author: FLBerechtigungUrheber
-    current: FLGrantSnapshot | None
-    before: FLGrantSnapshot | None
-    # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
-    # `author` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
+    change: FLGrantChange
+    stage: FLGrantNoticeStage
+    # The grant's address, or the old address of an address change; null once that person is erased.
+    address: str | None
+    # An address change's new address, masked (`app/api/address_change/services.py :: masked_address`), null on every other change.
+    new_address: str | None
+    # The folded administrator who acted, null where a pass completed it, `app/core/recording.py :: ERASED_ACTOR_MARKER` once erased.
     changed_by: str | None
-    # Null where it was found in the database, nobody knowing when that edit was made.
-    changed_at: AwareDatetime | None
-    # Why a grant address above is null.
-    withheld: FLBerechtigungVorenthalten | None
+    changed_at: AwareDatetime
+    # When what waits takes effect, on a start alone.
+    effective_from: AwareDatetime | None
 
 
 class FLAddressChangeLinkData(BaseModel):
