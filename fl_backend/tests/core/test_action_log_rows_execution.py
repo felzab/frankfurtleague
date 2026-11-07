@@ -8,10 +8,10 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.action_log.schemas import FLAktionRecord
+from app.api.action_log.schemas import FLActionLogRecord, FLAktionRecord
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import ACT_BY_KONTAKT, Operation, build_redaction_filter, build_redaction_update, log_stamp, record_act
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -28,6 +28,12 @@ RENAMED = "Lessing-Gymnasium"
 CITY = "Frankfurt am Main"
 
 RECORDED_AT = "2026-03-15T18:00:00+00:00"
+
+FAIL_POINT = "failCommand"
+REFUSED_COMMIT_APP = "act-refused-commit"
+# A write conflict, which a commit refused under the transient label carries, and which the driver reruns the callback on.
+WRITE_CONFLICT = 112
+TRANSIENT = "TransientTransactionError"
 
 
 def team_document() -> dict[str, Any]:
@@ -51,6 +57,49 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
             return await body(database, client)
 
     return on_the_seed_loop(_run())
+
+
+def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(mongo_replica_set_url: str):
+    """The driver reruns an act whose commit is refused as transient, and an insert outside the transaction would stand once per attempt.
+
+    The record model reads the row, as a drift between it and `record_act` is a page that cannot read its log.
+    """
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, list[dict[str, Any]]]:
+        refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
+        refusal = {
+            "failCommands": ["commitTransaction"],
+            "appName": REFUSED_COMMIT_APP,
+            "errorCode": WRITE_CONFLICT,
+            "errorLabels": [TRANSIENT],
+        }
+        attempts = 0
+
+        async def act(session: AsyncClientSession) -> None:
+            nonlocal attempts
+            attempts += 1
+            teams = refusing[database.name][Collection.TEAMS]
+            await record_act(
+                collection=teams, action="spieler.changed", by=ACT_BY_KONTAKT, team=SEEDED_NAME, record_id=TEAM_OID, session=session
+            )
+
+        await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+        try:
+            async with refusing.start_session() as session:
+                await session.with_transaction(act)
+        finally:
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+            await refusing.close()
+
+        return attempts, [row async for row in database[Collection.ACTION_LOG].find()]
+
+    attempts, rows = on_a_replica_set(mongo_replica_set_url, body)
+
+    assert len(rows) == 1
+    FLActionLogRecord.model_validate(rows[0], extra="forbid")
+    assert (rows[0]["by"], rows[0]["team"], rows[0]["record_id"]) == (ACT_BY_KONTAKT, SEEDED_NAME, TEAM_OID)
+    # The premise last: the act ran twice, so one row is the rollback's work.
+    assert attempts == 2
 
 
 def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set_url: str):
