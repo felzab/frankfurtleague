@@ -213,6 +213,8 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "address_change_ended",
   // The address holds nothing a change moves, its records erased since the page was served.
   "address_change_nothing",
+  // A running change ended, or a newer one replaced it, since the list offering its acts was read.
+  "address_change_ended",
   // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
   // setting one words them as its own.
   "ergebnis_side_emptied",
