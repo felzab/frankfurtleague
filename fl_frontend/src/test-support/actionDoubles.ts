@@ -138,7 +138,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
     setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", authTime: 0, factor: "passkey" });
   }
 
-  // Served in the real guard's shape: the admin shell reads the step-up window off the row.
+  // Served in the real guard's shape.
   return answering(served);
 }
 
@@ -250,7 +250,6 @@ export function doubleActionRequest({
 } = {}): {
   setSession: (next: AdminSessionDouble, destination?: string) => void;
   setSubject: (next: SubjectDouble) => void;
-  /** Whether the session counts as confirmed within the step-up window, for the rest of that case; confirmed by default. */
   /** How often `getSubjectSession` was called since the case began. */
   subjectReads: () => number;
   /** Every address a ban signed out since the case began. */

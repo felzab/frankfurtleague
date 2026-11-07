@@ -1,6 +1,5 @@
 import { afterAll, assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { StepUp, StepUpDemand } from "@/shared/components/ui/stepUp.ts";
 // Type-only, so nothing is imported at load: the hook module is pulled in from `beforeAll`, below.
 import type * as ReactModule from "react";
 import type { useTwoPressConfirm } from "./useTwoPressConfirm.ts";
@@ -33,13 +32,6 @@ function useRef<T>(initial: T): { current: T } {
   return box as { current: T };
 }
 
-/** What the page's step-up provider hands the hook, `undefined` standing for a page without one. */
-let stepUpContext: StepUp | undefined;
-
-function useContext(): StepUp | undefined {
-  return stepUpContext;
-}
-
 function useTransition(): [boolean, (scope: () => void) => void] {
   return [
     inFlight,
@@ -54,7 +46,7 @@ function useTransition(): [boolean, (scope: () => void) => void] {
 
 type Control = ReturnType<typeof useTwoPressConfirm>;
 
-/* Loaded from `beforeAll`, never at the top level: React is stood in for by the four hooks above,
+/* Loaded from `beforeAll`, never at the top level: React is stood in for by the three hooks above,
    which `vi.doMock` hands only to modules imported after it. Renamed off `use`, which is the whole of
    what `react-hooks/rules-of-hooks` grades a call site by. */
 let twoPressConfirm!: typeof useTwoPressConfirm;
@@ -62,12 +54,10 @@ let twoPressConfirm!: typeof useTwoPressConfirm;
 let DOUBLE_PRESS_MS!: number;
 
 beforeAll(async () => {
-  // `createContext` and the rest stay React's own: `stepUp.ts` builds its context with it.
   vi.doMock("react", async (importOriginal) => ({
     ...(await importOriginal<typeof ReactModule>()),
     useState,
     useRef,
-    useContext,
     useTransition,
   }));
   const hookModule = await import("./useTwoPressConfirm.ts");
@@ -81,10 +71,10 @@ afterAll(() => {
 });
 
 /** One render pass. React reads the cell fresh on each, and so does the stub above. */
-const render = (guard?: () => boolean, stepUp?: StepUpDemand): Control => {
+const render = (guard?: () => boolean): Control => {
   refCalls = 0;
   stateCalls = 0;
-  return twoPressConfirm({ guard, stepUp });
+  return twoPressConfirm({ guard });
 };
 
 /** One turn of the loop — long enough for a settled write's continuation to have run. */
@@ -121,7 +111,6 @@ describe("the two-press confirm", () => {
     refBoxes = [];
     refreshHeld = undefined;
     now = 0;
-    stepUpContext = undefined;
   });
 
   /* Drop the arming branch's `return` and the FIRST press writes — the whole confirmation gone from
@@ -295,144 +284,5 @@ describe("the two-press confirm", () => {
 
     expect(render().isConfirming, "cancel left the control armed").toBe(false);
     expect(gate.calls(), "cancel wrote").toBe(0);
-  });
-});
-
-/** The page's step-up, stale until `until` on the test's clock, its prompt answering `outcome` and counting each run. */
-function stepUpUntil(until: number, outcome = true): { prompts: () => number } {
-  let prompts = 0;
-  stepUpContext = {
-    isStale: (at) => at >= until,
-    confirm: () => {
-      prompts += 1;
-      return Promise.resolve(outcome);
-    },
-  };
-  return { prompts: () => prompts };
-}
-
-describe("the two-press confirm of a step-up write", () => {
-  beforeEach(() => {
-    cells = [];
-    inFlight = false;
-    refBoxes = [];
-    refreshHeld = undefined;
-    now = 0;
-    stepUpContext = undefined;
-  });
-
-  /* The label the armed press wears is the page's promise about that press; drop the arming's read of
-     the window and every step-up write arms on its own words with the prompt still to come. */
-  it("arms asking for the passkey past the window, and on its own words inside it", () => {
-    stepUpUntil(0);
-    render(undefined, true).press(() => Promise.resolve());
-    expect(render(undefined, true).asksPasskey, "a stale session armed without asking for the passkey").toBe(true);
-
-    cells = [];
-    stepUpUntil(1);
-    render(undefined, true).press(() => Promise.resolve());
-    expect(render(undefined, true).asksPasskey, "a confirmed session was asked for the passkey").toBe(false);
-  });
-
-  /* The prompt comes before the write, inside the press: a write sent first is refused by the server,
-     and a prompt started anywhere else has lost the press's user activation. */
-  it("runs the prompt on the armed press and then sends the write once", async () => {
-    const stepUp = stepUpUntil(0);
-    const gate = gated();
-
-    render(undefined, true).press(gate.write);
-    wait(DOUBLE_PRESS_MS);
-    render(undefined, true).press(gate.write);
-    await settled();
-    gate.finish();
-    await settled();
-
-    expect(stepUp.prompts(), "the armed press sent the write without the prompt").toBe(1);
-    expect(gate.calls(), "a confirmed prompt did not send exactly one write").toBe(1);
-    expect(render(undefined, true).isConfirming, "the answered write left the control armed").toBe(false);
-  });
-
-  /* A refused prompt sends nothing, says so beside the control, and leaves it armed on the prompt's
-     label, so the next press asks again rather than arming afresh. */
-  it("sends nothing on a refused prompt and stays armed to ask again", async () => {
-    const stepUp = stepUpUntil(0, false);
-    const gate = gated();
-
-    render(undefined, true).press(gate.write);
-    wait(DOUBLE_PRESS_MS);
-    render(undefined, true).press(gate.write);
-    await settled();
-
-    const refused = render(undefined, true);
-    expect(gate.calls(), "a refused prompt sent the write").toBe(0);
-    expect(stepUp.prompts()).toBe(1);
-    expect(
-      [refused.isConfirming, refused.asksPasskey, refused.passkeyRefused],
-      "a refused prompt left the control anywhere but armed on the prompt, saying it was refused",
-    ).toStrictEqual([true, true, true]);
-
-    refused.press(gate.write);
-    await settled();
-    expect(stepUp.prompts(), "the press after a refusal did not ask again").toBe(2);
-  });
-
-  /* The window can close while the alert stands. The label then still says the write's own words, and
-     the press runs the prompt anyway rather than sending what the server refuses. */
-  it("asks at the armed press when the window closed after arming", async () => {
-    const stepUp = stepUpUntil(DOUBLE_PRESS_MS);
-    const gate = gated();
-
-    render(undefined, true).press(gate.write);
-    expect(render(undefined, true).asksPasskey).toBe(false);
-    wait(DOUBLE_PRESS_MS);
-    render(undefined, true).press(gate.write);
-    await settled();
-    gate.finish();
-    await settled();
-
-    expect(stepUp.prompts(), "a press after the window closed sent the write unconfirmed").toBe(1);
-    expect(gate.calls()).toBe(1);
-  });
-
-  /* A panel can learn its demand from a read its arming started, as the erasure learns a grant holder's address:
-     a label fixed on the demand declared at arming says the write's own words over a press that prompts. */
-  it("re-decides the passkey label when the declared demand changes while armed", () => {
-    stepUpContext = { isStale: (_at, demand) => demand === "enrolment", confirm: () => Promise.resolve(true) };
-
-    render(undefined, true).press(() => Promise.resolve());
-    expect(render(undefined, true).asksPasskey, "a session inside the step-up's window was asked for the passkey").toBe(false);
-    expect(render(undefined, "enrolment").asksPasskey, "a demand declared after arming left the label on the write's words").toBe(true);
-  });
-
-  /* The declaration is the site's: a reversible two-press write, and the sign-out, never ask, whatever
-     the page's window says. */
-  it("never asks for a control that does not declare the step-up", async () => {
-    const stepUp = stepUpUntil(0);
-    const gate = gated();
-
-    render().press(gate.write);
-    expect(render().asksPasskey, "an undeclared control armed on the prompt").toBe(false);
-    wait(DOUBLE_PRESS_MS);
-    render().press(gate.write);
-    gate.finish();
-    await settled();
-
-    expect(stepUp.prompts(), "an undeclared control ran the prompt").toBe(0);
-    expect(gate.calls()).toBe(1);
-  });
-
-  /* Outside the administrator's shell there is no figure to ask on; the write goes, and the server's
-     refusal is the whole of the step-up there. */
-  it("sends without asking where no page provides a step-up", async () => {
-    const gate = gated();
-
-    render(undefined, true).press(gate.write);
-    expect(render(undefined, true).asksPasskey).toBe(false);
-    wait(DOUBLE_PRESS_MS);
-    render(undefined, true).press(gate.write);
-    gate.finish();
-    await settled();
-
-    expect(gate.calls()).toBe(1);
   });
 });

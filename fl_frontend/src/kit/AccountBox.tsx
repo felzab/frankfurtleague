@@ -13,6 +13,7 @@ import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
 import { HeldForm } from "./HeldForm";
+import { useFocusHome } from "./RowActs";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
@@ -242,7 +243,9 @@ export function AccountBox(
   if (props.act === undefined) {
     const held = boxHead({ ruled: props.children !== undefined });
     return (
-      <section className={slots.root()}>
+      <section
+        data-kit-focus="home"
+        className={slots.root()}>
         <div className={held.head()}>{words}</div>
         {props.children !== undefined && <div className={held.content({ class: "gap-4" })}>{props.children}</div>}
       </section>
@@ -297,7 +300,9 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   );
 
   return (
-    <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
+    <section
+      data-kit-focus="home"
+      className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <HeldForm
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
@@ -388,8 +393,12 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
 function Row({ record }: { record: AccountRow }) {
   const slots = rowLook();
   const nameId = useId();
+  const row = useRef<HTMLDivElement>(null);
+  useFocusHome(row);
   return (
-    <div className={slots.row()}>
+    <div
+      ref={row}
+      className={slots.row()}>
       <div className={slots.words()}>
         <CutText
           id={nameId}

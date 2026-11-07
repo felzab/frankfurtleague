@@ -58,17 +58,15 @@ describe("the person's own change, on a link opened again", () => {
 
 // `ended_on` is the effect's day, a wait after the answer: a link opened again would state a day nobody confirmed on.
 describe("a waited change, on a link opened again", () => {
-  it("names the day the new mailbox confirmed, in the wait and once it took effect", async () => {
+  it("names the wait's day until it took effect, and the day the new mailbox confirmed after", async () => {
     const CONFIRMED = "2026-10-28";
-    const title = COPY.shared.end.doneOn(WORDS.new.confirmed, CONFIRMED);
 
-    expect(await stateFor({ ...live, side: "new", state: "confirmed", confirmed_on: CONFIRMED })).toMatchObject({
-      state: "alreadyDone",
-      title,
-    });
+    expect(
+      await stateFor({ ...live, side: "new", state: "confirmed", confirmed_on: CONFIRMED, effective_from: "2026-11-04T10:00:00Z" }),
+    ).toMatchObject({ state: "alreadyDone", title: WORDS.new.confirmedFrom(DAY) });
     expect(await stateFor({ ...ended, side: "new", kind: "effective", confirmed_on: CONFIRMED })).toMatchObject({
       state: "alreadyDone",
-      title,
+      title: COPY.shared.end.doneOn(WORDS.new.confirmed, CONFIRMED),
     });
   });
 });

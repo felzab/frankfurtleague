@@ -3,8 +3,8 @@
 /* HeroUI, component by component: its own entry pulls in everything and Tailwind
    does not tree-shake a dependency's CSS. Order is HeroUI's `components/index.css`. */
 
-/* Two entries back no direct import: `spinner` is `Button`'s loading state, and `empty-state` is
-   `ListBox`'s `renderEmptyState`. */
+/* An entry with no direct import is one a kept component imports itself, as `Button` does `spinner`, its loading
+   state: read `node_modules/@heroui/react/dist/components/<name>` before one goes. */
 @layer theme, base, components, utilities;
 
 @import "tailwindcss";
@@ -16,14 +16,11 @@
 /* Shared primitives */
 @import "@heroui/styles/components/close-button.css" layer(components);
 @import "@heroui/styles/components/description.css" layer(components);
-@import "@heroui/styles/components/error-message.css" layer(components);
 @import "@heroui/styles/components/field-error.css" layer(components);
 @import "@heroui/styles/components/label.css" layer(components);
 
 /* Navigation */
 @import "@heroui/styles/components/disclosure.css" layer(components);
-@import "@heroui/styles/components/link.css" layer(components);
-@import "@heroui/styles/components/tabs.css" layer(components);
 
 /* Buttons */
 @import "@heroui/styles/components/button.css" layer(components);
@@ -38,28 +35,21 @@
 @import "@heroui/styles/components/list-box.css" layer(components);
 @import "@heroui/styles/components/menu-item.css" layer(components);
 @import "@heroui/styles/components/menu-section.css" layer(components);
-@import "@heroui/styles/components/menu.css" layer(components);
 
 /* Controls */
 @import "@heroui/styles/components/switch.css" layer(components);
 
 /* DataDisplay */
-@import "@heroui/styles/components/badge.css" layer(components);
-@import "@heroui/styles/components/chip.css" layer(components);
-@import "@heroui/styles/components/table.css" layer(components);
 
 /* Feedback */
-@import "@heroui/styles/components/empty-state.css" layer(components);
 @import "@heroui/styles/components/skeleton.css" layer(components);
 @import "@heroui/styles/components/spinner.css" layer(components);
 @import "@heroui/styles/components/toast.css" layer(components);
 
 /* Forms */
 @import "@heroui/styles/components/input.css" layer(components);
-@import "@heroui/styles/components/input-group.css" layer(components);
 @import "@heroui/styles/components/number-field.css" layer(components);
 @import "@heroui/styles/components/textfield.css" layer(components);
-@import "@heroui/styles/components/search-field.css" layer(components);
 @import "@heroui/styles/components/textarea.css" layer(components);
 
 /* Date & Time */
@@ -71,7 +61,6 @@
 @import "@heroui/styles/components/date-picker.css" layer(components);
 
 /* Layout */
-@import "@heroui/styles/components/header.css" layer(components);
 @import "@heroui/styles/components/separator.css" layer(components);
 @import "@heroui/styles/components/surface.css" layer(components);
 
@@ -84,7 +73,6 @@
 @import "@heroui/styles/components/select.css" layer(components);
 
 /* Utilities */
-@import "@heroui/styles/components/scroll-shadow.css" layer(components);
 
 @import "@heroui/styles/themes/default/index.css";
 @import "@heroui/styles/utilities";
@@ -786,33 +774,12 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
 }
 
 @layer components {
-  /* Session 8: the skeleton's and the tables' overrides go with HeroUI's `Skeleton` and `Table`, by this
-     session at the latest. */
+  /* Session 8: the skeleton's override goes with HeroUI's skeleton classes, by this session at the latest. */
   /* HeroUI's own sweep runs 2-3 lightness points from the `--bg-muted` these blocks
      are painted, so it animates and cannot be seen. Same layer as HeroUI's rule and
      declared after it, so source order settles it without `!`. */
   .skeleton--shimmer::after {
     background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-sweep) 50%, transparent 100%);
-  }
-
-  .table__column {
-    @apply bg-background/90! fluid-xxs text-foreground;
-  }
-
-  [data-slot="table"] td {
-    @apply border-b-1! border-b-border!;
-  }
-
-  [data-slot="table"] tr:last-child td {
-    @apply border-b-0!;
-  }
-
-  /* HeroUI's `secondary` variant fills a row's cells on hover with `bg-default/50`,
-     which is not this app's surface and paints over the card underneath. No table
-     here gives a row an action for that to advertise. Vendored: `@heroui/styles` `table.css`. */
-  .table-root--secondary .table__row:hover .table__cell,
-  .table-root--secondary .table__row[data-hovered="true"] .table__cell {
-    background-color: transparent;
   }
 
   /* Redesign: the toast's rules go with the last importer of `shared/utils/appToast`, with `AppToaster`. */

@@ -1,7 +1,7 @@
 import { RailFrame } from "@/kit/RailFrame";
 import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -80,7 +80,7 @@ const BAR = ["uebersicht", "spiele", "teams"] as const;
  */
 export function AdminFrame({ children }: { children: ReactNode }) {
   // One judgement for both reads.
-  const session = judgeAdminRequest().then((judged) => ("session" in judged ? judged.session : null));
+  const session = getAdminSession();
 
   return (
     // A failed read of the frame's own is answered in the rail frame: the area's `error.tsx` stands inside this layout.

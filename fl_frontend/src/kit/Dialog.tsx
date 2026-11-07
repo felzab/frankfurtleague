@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -164,17 +164,18 @@ export function RouteDialog({
 }
 
 /**
- * The dialog's form, mounted only while the dialog is open, so a refusal it showed goes with the dialog and
- * never greets the next opening. A done act closes the dialog, but one whose answer notes what else the write moved,
- * which stays open with that note in its status line, its act closed, so the person reads it before leaving by
- * „Zurück“; a refused one, a refused passkey touch among them, stays with its input kept, each field's message under its
- * field and the reason in the status line beside the acts, as a Konto box shows it.
+ * The dialog and its form, mounted anew at each opening, so a refusal it showed goes with the dialog and never greets
+ * the next opening. A done act closes the dialog, but one whose answer notes what else the write moved, which stays open
+ * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one, a
+ * refused passkey touch among them, stays with its input kept, each field's message under its field and the reason in
+ * the status line beside the acts, as a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the
+ * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it.
  */
-function ActForm({
+function ActDialog({
   title,
   label,
   action,
-  close,
+  opened,
   touched,
   carry = {},
   lead,
@@ -184,9 +185,10 @@ function ActForm({
   children,
 }: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "children"> & {
   label: Copy;
-  close: () => void;
+  opened: HeldOpen;
   touched: ReturnType<typeof usePasskeyTouch>;
 }) {
+  const close = () => opened.onOpenChange(false);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     touched(async (formData: FormData) => {
       const answered = await action(formData);
@@ -194,7 +196,7 @@ function ActForm({
       if (answered.ok && answered.note === undefined) startTransition(close);
       return answered;
     }),
-    // The form unmounts as the dialog closes, which clears its answer.
+    // The next opening draws this anew, which clears its answer.
     { resetOnLeave: false },
   );
   const refused = answer !== null && !answer.ok ? answer : null;
@@ -203,52 +205,60 @@ function ActForm({
   const status = statusOf(refused ?? noted, isBlocked, isPending);
 
   return (
-    // A dialog opened from inside another form, such as an editor's section, is a form of its own: React
-    // Aria's `Form` would otherwise take the outer form's props from its context, the outer submit handler
-    // among them.
-    <FormContext.Provider value={null}>
-      <Form
-        className="grid gap-6"
-        validationErrors={refused?.fieldErrors}
-        onInvalid={block}
-        onSubmit={(event) => {
-          event.preventDefault();
-          // React's submit event bubbles through the portal to the outer form, whose save would run too.
-          event.stopPropagation();
-          const formData = new FormData(event.currentTarget);
-          for (const [name, value] of Object.entries(carry)) formData.set(name, value);
-          submit(formData);
-        }}>
-        <Heading
-          slot="title"
-          level={2}
-          className="text-xl font-semibold">
-          {title}
-        </Heading>
-        {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
-        <div className="grid justify-items-start gap-4">{children}</div>
-        {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
-        {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
-        <ActRow>
-          <StatusLine
-            status={status}
-            placement="row"
-          />
-          <Button
-            variant="secondary"
-            label={COPY.shared.back}
-            onPress={close}
-          />
-          <Button
-            variant={tone}
-            type="submit"
-            label={label}
-            isBusy={isPending}
-            isDisabled={noted !== null}
-          />
-        </ActRow>
-      </Form>
-    </FormContext.Provider>
+    <DialogOverlay
+      width="form"
+      isDismissable={!isPending}
+      isKeyboardDismissDisabled={isPending}
+      {...opened}>
+      <AriaDialog data-kit-focus>
+        {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
+            `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
+        <FormContext.Provider value={null}>
+          <Form
+            className="grid gap-6"
+            validationErrors={refused?.fieldErrors}
+            onInvalid={block}
+            onSubmit={(event) => {
+              event.preventDefault();
+              // React's submit event bubbles through the portal to the outer form, whose save would run too.
+              event.stopPropagation();
+              const formData = new FormData(event.currentTarget);
+              for (const [name, value] of Object.entries(carry)) formData.set(name, value);
+              submit(formData);
+            }}>
+            <Heading
+              slot="title"
+              level={2}
+              className="text-xl font-semibold">
+              {title}
+            </Heading>
+            {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
+            <div className="grid justify-items-start gap-4">{children}</div>
+            {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
+            {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
+            <ActRow>
+              <StatusLine
+                status={status}
+                placement="row"
+              />
+              <Button
+                variant="secondary"
+                label={COPY.shared.back}
+                isDisabled={isPending}
+                onPress={close}
+              />
+              <Button
+                variant={tone}
+                type="submit"
+                label={label}
+                isBusy={isPending}
+                isDisabled={noted !== null}
+              />
+            </ActRow>
+          </Form>
+        </FormContext.Provider>
+      </AriaDialog>
+    </DialogOverlay>
   );
 }
 
@@ -276,23 +286,23 @@ export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Openi
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const label = actLabel(act);
+  // Counted while rendering, as React's guide adjusts state to a changed prop: the count keys `ActDialog`.
+  const [opening, setOpening] = useState(0);
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) setOpening(opening + 1);
+  }
 
   const overlay = (
-    <DialogOverlay
-      width="form"
-      isDismissable
-      isOpen={isOpen}
-      onOpenChange={setOpen}>
-      <AriaDialog data-kit-focus>
-        <ActForm
-          {...form}
-          carry={touch === undefined ? form.carry : { ...form.carry, holder: touch.holder }}
-          label={label}
-          close={() => setOpen(false)}
-          touched={touched}
-        />
-      </AriaDialog>
-    </DialogOverlay>
+    <ActDialog
+      key={opening}
+      {...form}
+      carry={touch === undefined ? form.carry : { ...form.carry, holder: touch.holder }}
+      label={label}
+      opened={{ isOpen, onOpenChange: setOpen }}
+      touched={touched}
+    />
   );
   return trigger === undefined ? (
     overlay

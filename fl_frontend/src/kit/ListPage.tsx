@@ -19,7 +19,7 @@ import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { Placeholder, SAISON_WORDS, Waiting } from "./Skeleton";
+import { Placeholder, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
@@ -289,11 +289,9 @@ export type ListCreate = DialogAct & { locked?: Copy };
 export type ListActOnceRead = { label: Copy; act: Promise<ListCreate | null> };
 
 /**
- * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
- * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide,
- * unless the page states the words.
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height.
  */
-function CreatePlaceholder({ label = actLabel({ verb: "create", object: SAISON_WORDS }) }: { label?: Copy }) {
+function CreatePlaceholder({ label }: { label: Copy }) {
   return (
     <Placeholder>
       <span className={buttonPlaceholder()}>
@@ -502,7 +500,7 @@ export function ListPage({
    * where what it makes is the list's to say, as the Saisons list names the next season, or whether it stands at all, so
    * it waits in a boundary of its own and stands in the toolbar once read.
    */
-  create?: ListCreate | Promise<ListCreate> | ListActOnceRead;
+  create?: ListCreate | ListActOnceRead;
   /** A second act on the list as a whole, such as Administratoren's handover: a secondary button before the create act. */
   sideAct?: ListActOnceRead;
   link?: ListLink;
@@ -543,11 +541,7 @@ export function ListPage({
                     />
                   </Suspense>
                 )}
-                {create === undefined ? null : create instanceof Promise ? (
-                  <Suspense fallback={<CreatePlaceholder />}>
-                    <ToolbarActOnceRead act={create} />
-                  </Suspense>
-                ) : "label" in create ? (
+                {create === undefined ? null : "label" in create ? (
                   <Suspense fallback={<CreatePlaceholder label={create.label} />}>
                     <ToolbarActOnceRead act={create.act} />
                   </Suspense>

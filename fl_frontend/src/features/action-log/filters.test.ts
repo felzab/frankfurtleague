@@ -1,9 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { logParams } from "./filters";
+import { byOf, byOptions, logParams } from "./filters";
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("„Wer“", () => {
+  /* The option's id stands in the page's URL, which the edge's log, the next page's referer and Cloudflare's log keep. */
+  it("names an actor in the URL by nothing of the address, and reads it back", () => {
+    const held = ["pia@example.org", "system"];
+    const ids = byOptions(held).map(({ id }) => id);
+
+    expect(ids.join()).not.toMatch(/pia|example|@/);
+    expect(ids.map((id) => byOf(held, id)).toSorted()).toStrictEqual(held);
+  });
+
+  it("reads a stray id as no actor", () => {
+    expect(byOf(["system"], "pia@example.org")).toBeNull();
+  });
 });
 
 describe("the read a filter asks", () => {

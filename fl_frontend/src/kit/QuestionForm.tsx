@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, startTransition, useState } from "react";
+import { Fragment, startTransition, useLayoutEffect, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -20,6 +20,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Verb } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
+import type { FormStatus } from "./useFormAction";
 
 /** The form column as one box, the fields at their own widths in it. */
 const BOX_CLASSES = formColumn({ class: cardSurface({ class: "justify-items-start gap-4 p-4" }) });
@@ -63,10 +64,12 @@ export function QuestionForm<Input>({
   // Raised to draw the boxes anew, as `HeldForm` refuses a form's reset.
   const [emptied, setEmptied] = useState(0);
 
-  // The press's read through the one form wrapper, and the act's done answer handed in to stand on the same line.
+  // What a done act said, the question having closed with its own line. Gone as the page hides, as a form's answer is.
+  const [done, setDone] = useState<FormStatus>(null);
+  useLayoutEffect(() => () => setDone(null), []);
+
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
-    async (press: FormData | ActionAnswer): Promise<ActionAnswer> => {
-      if (!(press instanceof FormData)) return press;
+    async (press: FormData): Promise<ActionAnswer> => {
       const answered = await read(press);
       if (!answered.ok) return answered;
       // A form's action runs in a transition, and an update after its `await` commits outside it.
@@ -80,7 +83,7 @@ export function QuestionForm<Input>({
   );
   const refused = answer !== null && !answer.ok ? answer : null;
   // A read that opened the question says nothing here: the question is its answer.
-  const status = answer?.ok === true && answer.note === undefined ? null : statusOf(answer, isBlocked, isPending);
+  const status = done ?? (answer?.ok === true ? null : statusOf(answer, isBlocked, isPending));
   const open = { isOpen: isAsking, onOpenChange: setAsking };
 
   return (
@@ -89,7 +92,9 @@ export function QuestionForm<Input>({
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
         onSend={(formData) => {
-          if (!isPending) submit(formData);
+          if (isPending) return;
+          setDone(null);
+          submit(formData);
         }}
         className={BOX_CLASSES}>
         <Fragment key={emptied}>{children}</Fragment>
@@ -128,9 +133,12 @@ export function QuestionForm<Input>({
           touch={{ holder }}
           onConfirm={async () => {
             const answered = await act({ ...asked.input, holder });
+            // An update after the `await` lands outside the press's transition unless it opens one of its own.
             if (answered.ok) {
-              setEmptied((count) => count + 1);
-              submit(answered);
+              startTransition(() => {
+                setEmptied((count) => count + 1);
+                setDone(statusOf(answered, false, false));
+              });
             }
             return answered;
           }}

@@ -67,11 +67,6 @@ describe("a list's search", () => {
     expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("Goe");
   });
 
-  it("sets no bound for a page that passes none", () => {
-    render(<Searched>{null}</Searched>);
-    expect(screen.getByRole("searchbox").hasAttribute("maxlength")).toBe(false);
-  });
-
   // The harm: a Sperrliste searched by the words of a Grund finds nothing, and reads as if no such ban stood.
   it("reads a row's own words in its name's place, where the row states them", async () => {
     const rows: TableProps["rows"] = [

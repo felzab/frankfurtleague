@@ -133,7 +133,7 @@ export const blankIsNull = <Text extends z.ZodType>(rule: Text) => z.preprocess(
 type Held<Schema extends z.ZodType> = z.output<Schema> extends { readonly holder: string } ? unknown : never;
 
 /**
- * The passkey touch, which an act on its fixed list declares: the browser asks it before every press, and the act runs
+ * The passkey touch, which an act on its fixed list declares: the browser asks it on every final press, and the act runs
  * only on a session a passkey sign-in made within `PASSKEY_TOUCH_SECONDS`, for a person holding a passkey, and only
  * for the address its page was drawn for; a person holding none passes.
  */
@@ -210,7 +210,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "grant_owner",
   "grant_handover_waiting",
   "grant_not_in_effect",
-  "address_change_ended",
   // The address holds nothing a change moves, its records erased since the page was served.
   "address_change_nothing",
   // A running change ended, or a newer one replaced it, since the list offering its acts was read.

@@ -6,7 +6,6 @@ import { Button } from "@heroui/react/button";
 import { confirmButton } from "./formButtons";
 import { Hint } from "./Hint";
 import { NAME_WRAP_CLASSES } from "./nameWrap";
-import { STEP_UP_LABEL, STEP_UP_RUNNING } from "./stepUp";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ReactNode } from "react";
@@ -64,9 +63,7 @@ export function ConfirmPressButton({
   restingName?: string;
 }) {
   const { isConfirming } = confirm;
-  // The prompt's words over the panel's armed ones: this press opens the browser's passkey prompt
-  // before it sends anything.
-  const label = !isConfirming ? resting : confirm.asksPasskey ? STEP_UP_LABEL : armed;
+  const label = isConfirming ? armed : resting;
   const writing = confirm.isPending || submitting;
   // A write in flight HOLDS the control rather than closing it.
   const waiting = writing || held;
@@ -93,10 +90,7 @@ export function ConfirmPressButton({
         {!isConfirming && icon}
         {/* Words the page does not write, an address among them, break mid-word rather than leave the
             button; `min-w-0` makes the label, not the icon, give up the width. */}
-        <span className={`min-w-0 ${NAME_WRAP_CLASSES}`}>
-          {/* The prompt's words while it is open: nothing has been sent yet. */}
-          {confirm.isPrompting ? STEP_UP_RUNNING : writing ? running : label}
-        </span>
+        <span className={`min-w-0 ${NAME_WRAP_CLASSES}`}>{writing ? running : label}</span>
       </Button>
     </Hint>
   );
