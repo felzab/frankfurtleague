@@ -44,6 +44,7 @@ from app.api.identity.services import (
     build_seat_pipeline,
     build_seat_references_pipeline,
     erasure_due,
+    find_no_owner_refusal,
     find_role_refusal,
     folds_to,
     grants_a_panel,
@@ -765,6 +766,10 @@ async def unreferenced_of(
             pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"move.old": 1}}],
         ),
     )
+
+    # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced, which the account
+    # sweep would act on by deleting every account.
+    refuse(find_no_owner_refusal(grant_rows))
 
     referenced = referenced_addresses(
         seat_rows=seat_rows,

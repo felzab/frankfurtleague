@@ -614,6 +614,18 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
     return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
+def find_no_owner_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`no_owner`: no grant is an `owner`'s, so this is an empty or a foreign database rather than the league's."""
+
+    if any(grant.get("admin_tier") == OWNER for grant in grant_rows):
+        return None
+
+    return WriteRefusal(
+        error_code=Code.NO_OWNER,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
 # --- The SEASON-AFTER RULE, keyed on the stored statuses and never
 # on a next season's id, which a skipped year leaves naming no season at all.
 
