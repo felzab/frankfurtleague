@@ -1668,26 +1668,6 @@ export interface FLBewerbungEntryOffer {
 }
 
 /**
- * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
- */
-export interface FLBewerbungPerson {
-  first_name: string | null;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.
- */
-export interface FLBewerbungErasureData {
-  kind: "bewerbung_erasure";
-  pending: FLBewerbungPerson[];
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-  saison_id: string;
-}
-
-/**
  * One club as the public form offers it: its id and its name.
  */
 export interface FLBewerbungSchuleOption {
@@ -1845,6 +1825,15 @@ export interface FLBewerbungListRow {
   version: number;
   wunschfarbe: FLTrikotFarbe;
   wunschgegner: string | null;
+}
+
+/**
+ * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
+ */
+export interface FLBewerbungPerson {
+  first_name: string | null;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -2295,6 +2284,14 @@ export interface FLDeclineBewerbungPayload {
 export interface FLDeclineBewerbungResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+}
+
+/**
+ * The one deletion notice, to a person who confirmed what went, owed in the deletion's own write.
+ */
+export interface FLDeletionNoticeData {
+  kind: "deletion_notice";
+  saison_id: string | null;
 }
 
 /**
@@ -3532,7 +3529,7 @@ export interface FLOutboxHandout {
     | FLBewerbungReceivedData
     | FLBewerbungZusageData
     | FLBewerbungAbsageData
-    | FLBewerbungErasureData
+    | FLDeletionNoticeData
     | FLBewerbungObjectionData
     | FLKontaktLinkData;
   /** @pattern ^[0-9a-fA-F]{24}$ */

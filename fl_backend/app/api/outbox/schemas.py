@@ -302,13 +302,12 @@ class FLBewerbungAbsageData(BaseModel):
     reason: str
 
 
-class FLBewerbungErasureData(BaseModel):
-    """The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write."""
+class FLDeletionNoticeData(BaseModel):
+    """The one deletion notice, to a person who confirmed what went, owed in the deletion's own write."""
 
-    kind: Literal["bewerbung_erasure"]
-    saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    pending: list[FLBewerbungPerson]
+    kind: Literal["deletion_notice"]
+    # The season of the application that went; null where the person's account went.
+    saison_id: str | None
 
 
 class FLBewerbungObjectionData(BaseModel):
@@ -359,7 +358,7 @@ FLOutboxData = Annotated[
     | FLBewerbungReceivedData
     | FLBewerbungZusageData
     | FLBewerbungAbsageData
-    | FLBewerbungErasureData
+    | FLDeletionNoticeData
     | FLBewerbungObjectionData
     | FLKontaktLinkData,
     Field(discriminator="kind"),
@@ -395,7 +394,7 @@ FLOutboxKind = Literal[
     "bewerbung_received",
     "bewerbung_zusage",
     "bewerbung_absage",
-    "bewerbung_erasure",
+    "deletion_notice",
     "bewerbung_objection",
     "kontakt_confirmation",
 ]

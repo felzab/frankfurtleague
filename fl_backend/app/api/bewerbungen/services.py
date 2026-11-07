@@ -17,10 +17,10 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
-    FLBewerbungErasureData,
     FLBewerbungLinkData,
     FLBewerbungPerson,
     FLBewerbungReceivedData,
+    FLDeletionNoticeData,
     FLOutboxLink,
     FLOutboxReference,
     FLOutboxStatus,
@@ -1744,19 +1744,14 @@ def owed_erasure(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedMai
     """
 
     kontakte = bewerbung_raw.get("kontakte")
-    email, rollen = ansprechperson_mailbox(kontakte=kontakte, confirmations=bewerbung_raw.get("confirmations"))
+    email, _ = ansprechperson_mailbox(kontakte=kontakte, confirmations=bewerbung_raw.get("confirmations"))
     if email is None or deletion_was_announced(bewerbung_raw=bewerbung_raw):
         return None
 
     return OwedMail(
         key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/erasure",
         to=email,
-        data=FLBewerbungErasureData(
-            kind="bewerbung_erasure",
-            saison_id=saison_id,
-            rollen=rollen,
-            pending=pending_people(kontakte=kontakte, seats=pending_seats(kontakte=kontakte)),
-        ),
+        data=FLDeletionNoticeData(kind="deletion_notice", saison_id=saison_id),
     )
 
 
