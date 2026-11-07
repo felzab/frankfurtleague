@@ -114,13 +114,8 @@ type FLConfirmationState = Literal["valid", "confirmed", "expired", "barred"]
 
 # --- The Verwaltung and an address's change
 
-# `owner` holds every power `administration` does and is reached only by an owner's tier change, never by
-# a grant.
+# `owner` holds every power `administration` does, and is reached only by a handover, never by a grant.
 type FLAdminTier = Literal["owner", "administration"]
-
-# Why an administrator may not approve an act on a grant: their own address, their own start, an owner's
-# act without an owner's power, or a grant or tier younger than the request.
-type FLApprovalDenied = Literal["own", "started", "owner", "younger"]
 
 # How an address change takes effect: the person's own start, confirmed at the address on file and then at the new
 # one, or an administrator's for a person who lost the address on file, with a recorded reason, waiting after its

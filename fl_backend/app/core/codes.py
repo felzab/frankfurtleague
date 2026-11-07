@@ -95,22 +95,15 @@ class Code(StrEnum):
     PERSON_BARRED = auto()
     CONFIRMATION_REQUIRED = auto()
     GRANT_EXISTS = auto()
-    # A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
-    # out of an administrator's reach; only an erasure and an address change's move remove one.
+    # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.
     GRANT_OWNER = auto()
     GRANT_BARRED = auto()
-    GRANT_MINIMUM_COUNT = auto()
-    # 403 and not 409: the refusal is about who asks, and granting the asker `owner` is what lifts it.
+    # 403 and not 409: the refusal is about who asks, and a handover to the asker is what lifts it.
     GRANT_ONLY_OWNER = auto()
-    # 409: the grants' state, and promoting another owner first is what lifts it.
-    GRANT_LAST_OWNER = auto()
-    GRANT_APPROVAL_REQUEST_OPEN = auto()
-    # 403, as the address change's approval refusals: about who asks, and another administrator's press lifts it.
-    GRANT_APPROVAL_DENIED = auto()
-    GRANT_APPROVAL_OWNER = auto()
-    GRANT_APPROVAL_YOUNGER = auto()
-    # 409: the request's own state, which no approver lifts; a new request does.
-    GRANT_APPROVAL_REQUEST_LAPSED = auto()
+    # 409: stopping the waiting handover is what lifts it.
+    GRANT_HANDOVER_WAITING = auto()
+    # 409: the addition's wait running out is what lifts it, so a handover waits its own days after the addition's.
+    GRANT_NOT_IN_EFFECT = auto()
     BERICHT_NOT_PLAYED = auto()
     BERICHT_NOT_OFFICIATED = auto()
     BERICHT_NOT_IN_KADER = auto()
