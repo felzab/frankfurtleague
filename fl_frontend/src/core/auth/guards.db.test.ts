@@ -41,7 +41,12 @@ const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => Mo
 const client = signInStore();
 closing(() => client.close());
 const { auth } = await import("@/core/auth/library.ts");
-const { getAdminSession, getAccountSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
+const { getAccountSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
+/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
+const getAdminSession = async () => {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
+};
 const { getPasskeyStep } = await import("@/core/auth/landing.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");

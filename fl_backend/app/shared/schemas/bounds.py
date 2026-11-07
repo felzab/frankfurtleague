@@ -171,9 +171,16 @@ ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 # stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
-# How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
-# approver away for a weekend is no reason to start it again.
-APPROVAL_DAYS: Final = 7
+# How long an addition, or an administrator's own address change, waits. Each hands out lasting power, so every holder has
+# a day to read of it and reach the owner.
+type FLGrantWaitHours = Literal[24]
+GRANT_WAIT_HOURS: Final[FLGrantWaitHours] = 24
+
+# How long a handover, or the owner's own address change, waits: the owner role is the one nobody else can take back.
+type FLOwnerWaitDays = Literal[7]
+OWNER_WAIT_DAYS: Final[FLOwnerWaitDays] = 7
+
+GRANT_BOUNDS: Final = (FLGrantWaitHours, FLOwnerWaitDays)
 
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
 ADDRESS_CHANGE_RETENTION_DAYS: Final = 30

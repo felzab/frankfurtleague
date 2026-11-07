@@ -56,14 +56,9 @@ export const Code = {
   grant_exists: "grant_exists",
   grant_owner: "grant_owner",
   grant_barred: "grant_barred",
-  grant_minimum_count: "grant_minimum_count",
   grant_only_owner: "grant_only_owner",
-  grant_last_owner: "grant_last_owner",
-  grant_approval_request_open: "grant_approval_request_open",
-  grant_approval_denied: "grant_approval_denied",
-  grant_approval_owner: "grant_approval_owner",
-  grant_approval_younger: "grant_approval_younger",
-  grant_approval_request_lapsed: "grant_approval_request_lapsed",
+  grant_handover_waiting: "grant_handover_waiting",
+  grant_not_in_effect: "grant_not_in_effect",
   bericht_not_played: "bericht_not_played",
   bericht_not_officiated: "bericht_not_officiated",
   bericht_not_in_kader: "bericht_not_in_kader",
@@ -1099,15 +1094,6 @@ export interface FLAddressPayload {
    */
   street: string;
 }
-
-export type FLApprovalDenied = (typeof FLApprovalDenied)[keyof typeof FLApprovalDenied];
-
-export const FLApprovalDenied = {
-  own: "own",
-  started: "started",
-  owner: "owner",
-  younger: "younger",
-} as const;
 
 export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
 
@@ -2611,127 +2597,59 @@ export interface FLGenerateSpielplanResponse {
   spieltage: number;
 }
 
-/**
- * The change of this grant's address that waits on an administrator's approval.
- */
-export interface FLGrantAddressChange {
-  change_reason: string | null;
-  confirmed: boolean;
-  denied: FLApprovalDenied | null;
-  email: string | null;
-  email_barred: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  started_by: string | null;
-  started_by_barred: boolean;
-  until: string;
-  viewable_denied: FLAddressChangeViewableDenied | null;
-  way: FLAddressChangeWay;
-}
-
-/**
- * The request a refusal or a withdrawal removed: a removal is hard, so the id is all there is to answer with.
- */
-export interface FLGrantApprovalRequestDeclinedResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  approval_request_id: string;
-}
-
-/**
- * One request as the list serves it, while it may still be decided.
- */
-export interface FLGrantApprovalRequestRow {
-  address: string | null;
-  admin_tier: FLAdminTier;
-  asked_at: string;
-  barred: boolean;
-  denied: FLApprovalDenied | null;
-  grant_id: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  stands: boolean;
-  started_by: string | null;
-  started_by_barred: boolean;
-  until: string;
-}
-
-export type FLGrantDataAuthor = (typeof FLGrantDataAuthor)[keyof typeof FLGrantDataAuthor];
-
-export const FLGrantDataAuthor = {
-  anwendung: "anwendung",
-  datenbank: "datenbank",
-} as const;
-
 export type FLGrantDataChange = (typeof FLGrantDataChange)[keyof typeof FLGrantDataChange];
 
 export const FLGrantDataChange = {
   granted: "granted",
   revoked: "revoked",
-  changed: "changed",
-  requested: "requested",
+  handover: "handover",
+  address: "address",
 } as const;
 
-export type FLGrantDataWithheld = (typeof FLGrantDataWithheld)[keyof typeof FLGrantDataWithheld] | null;
+export type FLGrantDataStage = (typeof FLGrantDataStage)[keyof typeof FLGrantDataStage];
 
-export const FLGrantDataWithheld = {
-  barred: "barred",
-  erased: "erased",
+export const FLGrantDataStage = {
+  started: "started",
+  withdrawn: "withdrawn",
+  completed: "completed",
 } as const;
 
 /**
- * One grant's address and tier at one moment.
- */
-export interface FLGrantSnapshot {
-  address: string | null;
-  admin_tier: FLAdminTier;
-}
-
-/**
- * A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.
+ * One step of what changes who holds the administration, as every holder in effect and the person named are told it.
  */
 export interface FLGrantData {
-  author: FLGrantDataAuthor;
-  before: FLGrantSnapshot | null;
+  address: string | null;
   change: FLGrantDataChange;
-  changed_at: string | null;
+  changed_at: string;
   changed_by: string | null;
-  current: FLGrantSnapshot | null;
+  effective_from: string | null;
   kind: "grant";
-  withheld: FLGrantDataWithheld;
+  new_address: string | null;
+  stage: FLGrantDataStage;
 }
 
-export interface FLGrantReconciliationResponse {
+export interface FLGrantHandoverPassResponse {
   /** @minimum 0 */
-  changes: number;
+  handed_over: number;
 }
 
 /**
  * One grant as the list serves it.
  */
 export interface FLGrantRow {
-  address: string | null;
-  address_change: FLGrantAddressChange | null;
+  address: string;
   admin_tier: FLAdminTier;
-  barred: boolean;
-  granted_at: string;
-  granted_by: string | null;
-  granted_by_barred: boolean;
+  effective_from: string;
+  granted_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  version: number;
+  owner_from: string | null;
 }
 
-/**
- * The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect.
- */
-export interface FLGrantTierResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  grant_id: string;
-  requested: boolean;
-}
+export type FLGrantWaitHours = 24;
 
 /**
- * The grant a revoke removed or an approval wrote or promoted.
+ * The grant an act named: a removal is hard, so the id is all there is to answer with.
  */
 export interface FLGrantWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2739,10 +2657,9 @@ export interface FLGrantWriteResponse {
 }
 
 /**
- * Every grant, never in part, and every request still waiting.
+ * Every grant, never in part, a waiting addition among them.
  */
 export interface FLGrantsListResponse {
-  approval_requests: FLGrantApprovalRequestRow[];
   grants: FLGrantRow[];
 }
 
@@ -3855,10 +3772,7 @@ export const FLOverviewGapKind = {
   team_missing: "team_missing",
 } as const;
 
-export interface FLPatchGrantPayload {
-  admin_tier: FLAdminTier;
-  version?: number | null;
-}
+export type FLOwnerWaitDays = 7;
 
 /**
  * A seat holder's edit of a squad row.
@@ -4247,12 +4161,6 @@ export interface FLPostBewerbungPayload {
 export interface FLPostGrantPayload {
   /** @maxLength 254 */
   email: string;
-}
-
-export interface FLPostGrantResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
-  requested: boolean;
 }
 
 /**

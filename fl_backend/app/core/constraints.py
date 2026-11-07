@@ -104,6 +104,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
+    # Checked at each write rather than at the commit, so a handover demotes before it promotes
+    # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
+    UniqueIndex(Collection.GRANTS, "uniq_grant_owner", ("admin_tier",), "exactly one owner", partial_filter={"admin_tier": "owner"}),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
     # `uniq_invitation_live`'s reason.
@@ -126,9 +129,6 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one live change per address",
         partial_filter={"ended": {"$type": "null"}, "address": {"$type": "string"}},
     ),
-    # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
-    # (`app/api/grants/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
-    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_grant_approval_request_address", ("address",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/outbox/services.py :: enqueue_mails`).
     UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
@@ -408,14 +408,6 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         "ended.at",
         ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
-    ),
-    # Zero: a lapsed request decides nothing, and every read already treats it as gone.
-    TTLIndex(
-        Collection.GRANT_APPROVAL_REQUESTS,
-        "grant_approval_requests_until",
-        "approval.until",
-        0,
-        "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
     TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),

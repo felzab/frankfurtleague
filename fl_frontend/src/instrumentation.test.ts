@@ -64,7 +64,7 @@ vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("be
 vi.doMock("@/features/funktionen/sweep.ts", () => ({ runAccountSweep: job("account") }));
 vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("erasure") }));
 vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
-vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runGrantsReconciliation: job("grants") }));
+vi.doMock("@/features/berechtigungen/sweep.ts", () => ({ runHandoverPass: job("grants") }));
 vi.doMock("@/core/mail.ts", () => ({
   drainOutbox: async () => {
     ran.push("outbox");

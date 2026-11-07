@@ -49,7 +49,6 @@ class Collection(StrEnum):
     #: The grants every administrator has been told of, or will be by a notice owed in `OUTBOX`.
     #: Its own collection because a grant removed outside the application leaves no trace in
     #: `grants` to compare against.
-    GRANTS_ANNOUNCED = "berechtigungen_angekuendigt"
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
     SPIELBESTAETIGUNGEN = "spielbestaetigungen"
@@ -62,7 +61,6 @@ class Collection(StrEnum):
     ADDRESS_CHANGES = "address_changes"
     #: A grant or a promotion to owner waiting on a second administrator's approval, one per address; the approval
     #: writes the grant and removes it in one transaction, and its TTL index removes one nobody decided.
-    GRANT_APPROVAL_REQUESTS = "berechtigungen_antraege"
     #: Every mail the league owes, one row per recipient, each written in the transaction of the write owing it and settled
     #: by the drain that sends it; a settled row says what became of its message until its TTL index removes it.
     OUTBOX = "outbox"

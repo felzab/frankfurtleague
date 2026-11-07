@@ -12,7 +12,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
-from app.api.grants.antraege import compose_approval_request
 from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
@@ -63,9 +62,6 @@ GRANT_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
 ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
-APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
-# Far off, so the TTL index on `approval.until` leaves a request standing through every case that inserts one.
-APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
@@ -289,13 +285,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
             "granted_by": "PLAYGROUND",
-            "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
-        },
-        "berechtigungen_angekuendigt": {
-            "_id": GRANT_OID,
-            "address": "inhaberin@example.invalid",
-            "admin_tier": "owner",
-            "announced_at": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+            "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
@@ -327,17 +317,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": ADDRESS_CHANGE_OID,
             **address_change_document(address="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
             "move": {"old": "vorher@example.invalid", "new": "alt@example.invalid"},
-        },
-        # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
-        "berechtigungen_antraege": {
-            "_id": APPROVAL_REQUEST_OID,
-            **compose_approval_request(
-                address="vorstand@example.invalid",
-                admin_tier="owner",
-                grant_id=TEAM_OID,
-                started_by="inhaberin@example.invalid",
-                now=APPROVAL_REQUEST_FILED,
-            ),
         },
     }
 
@@ -448,21 +427,9 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["address_changes"],
         valid_document("address_changes", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
-    # Two requests about one address from two requesters: the index refuses on the address alone.
-    "uniq_grant_approval_request_address": (
-        valid_documents()["berechtigungen_antraege"],
-        valid_document(
-            "berechtigungen_antraege",
-            _id=TEAM_OID,
-            **compose_approval_request(
-                address="vorstand@example.invalid",
-                admin_tier="owner",
-                grant_id=TEAM_OID,
-                started_by="zweite@example.invalid",
-                now=APPROVAL_REQUEST_FILED,
-            ),
-        ),
-    ),
+    # A second owner at another address: a Playground paste is the one writer that could make one, and it would hold the
+    # role beside the first with nothing in the application able to take it away again.
+    "uniq_grant_owner": (valid_documents()["grants"], valid_document("grants", _id=TEAM_OID, address="zweite@example.invalid")),
     "uniq_outbox_key": ({"_id": ObjectId(), "key": "ban/1"}, {"_id": ObjectId(), "key": "ban/1"}),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),

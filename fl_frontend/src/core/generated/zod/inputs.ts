@@ -911,19 +911,14 @@ export const BewerbungenPostKontaktSeatBody = zod
   .describe("The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.");
 
 /**
- * Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.
+ * Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.
  *
- * **Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator
- * nor the address -- the grant is not made: a request is, answered with `requested` set and its id, and the grant takes effect
- * only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone administrator grants alone.
- *
- * The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
- * grant already holds the address (`grant_exists`), where the ban list
- * holds it (`grant_barred`), and where a request about it waits already (`grant_approval_request_open`). The grant takes effect on
- * the next request, for a session signed in after it alone -- an older one is refused `session_refused` on every admin-tier route -- and
- * its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
- * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `confirmation_required` otherwise.
- * @summary Grant access to the administration
+ * Only the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier
+ * request is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban
+ * list holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant
+ * to an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date
+ * it holds from.
+ * @summary Add an administrator
  */
 export const grantsPostGrantBodyEmailMax = 254;
 
@@ -932,54 +927,12 @@ export const GrantsPostGrantBody = zod.object({
 });
 
 /**
- * Refuse a request, or withdraw one's own: it is removed, and nothing it asked for happens. HARD, no soft form.
+ * Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.
  *
- * Decided by whoever may approve it, refused with the approval's own codes otherwise (`grant_approval_denied`,
- * `grant_approval_owner`, `grant_approval_younger`), and withdrawn by the administrator who made it, whatever their tier
- * now. 404 for an id naming no request, a request decided, withdrawn or lapsed among them. A restore from a snapshot taken before it brings
- * the request back only until the replay of its journal line.
- *
- * A refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and
- * nobody who refused it, for `POST /grants/reconciliation` to hand out; a withdrawal tells nobody.
- * @summary Refuse a grant or a promotion another administrator asked for, or withdraw one's own
- */
-export const grantsDeleteApprovalRequestPathApprovalRequestIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const GrantsDeleteApprovalRequestParams = zod.object({
-  approval_request_id: zod.string().regex(grantsDeleteApprovalRequestPathApprovalRequestIdRegExp),
-});
-
-/**
- * Approve a request, the second pair of eyes a grant or a promotion waits on.
- *
- * The grant is made, or the tier moved, and the request removed, in one transaction, the change announced to every
- * administrator as one made directly is, under this administrator's name.
- *
- * Refused to the address the request is about and to the administrator who made it (`grant_approval_denied`), to anyone but an
- * owner, signed in since becoming one, for a promotion (`grant_approval_owner`), to an administrator whose grant, or owner's tier,
- * took effect after the request (`grant_approval_younger`), and where the requester does not hold that tier since before it,
- * revoked, demoted or barred since (`grant_approval_request_lapsed`); and, as the direct act would be, where the address holds a grant by now
- * (`grant_exists`) or is on the ban list (`grant_barred`). 404 for an id naming no request, a request decided, withdrawn or
- * lapsed among them, and for a promotion whose grant has gone. A promotion whose grant is an owner's already removes the request and changes
- * nothing. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
- * @summary Approve a grant or a promotion another administrator asked for
- */
-export const grantsPostApprovalRequestApprovalPathApprovalRequestIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const GrantsPostApprovalRequestApprovalParams = zod.object({
-  approval_request_id: zod.string().regex(grantsPostApprovalRequestApprovalPathApprovalRequestIdRegExp),
-});
-
-/**
- * Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `actor_not_admin` on its next request.
- *
- * Only an `owner` revokes (`grant_only_owner`), judged on the actor's own grant inside the transaction, and before anything
- * about the target is answered; an owner's sign-in older than the moment they became one is refused the same. 404 where no grant
- * has the id. Refused for an `owner` row (`grant_owner`), which is made an
- * administrator first, and where fewer than two live, unbarred grants would remain (`grant_minimum_count`). The removal's
- * announcement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in
- * or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as the grant's is.
- * @summary Revoke access to the administration
+ * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
+ * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
+ * and a handover waiting on the row ends with it. Every holder in effect and the person named are told in the same transaction.
+ * @summary Remove an administrator, or withdraw a waiting addition
  */
 export const grantsDeleteGrantPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
@@ -988,35 +941,31 @@ export const GrantsDeleteGrantParams = zod.object({
 });
 
 /**
- * Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
+ * Stop a waiting handover, the role staying with the owner.
  *
- * Only an `owner` changes a tier (`grant_only_owner`), judged on the actor's own grant inside the transaction, and before
- * anything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.
- *
- * **Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this
- * owner nor the promoted address -- the tier is not moved: a request is, answered with `requested` set, and the promotion takes
- * effect only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone owner promotes alone. A demotion
- * and a step-down take effect at once.
- *
- * A promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's
- * step until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A
- * promotion of an address on the ban list is refused (`grant_barred`), one whose request waits already
- * (`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant
- * holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
- * any change to the row made in the database and not yet announced, and a grant found that way is stamped `found_at` as
- * `POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
- * `confirmation_required`, as the grant's is.
- * @summary Change a grant between administrator and owner
+ * Only the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.
+ * Every holder in effect is told in the same transaction.
+ * @summary Stop a waiting handover
  */
-export const grantsPatchGrantPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const grantsDeleteHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
-export const GrantsPatchGrantParams = zod.object({
-  grant_id: zod.string().regex(grantsPatchGrantPathGrantIdRegExp),
+export const GrantsDeleteHandoverParams = zod.object({
+  grant_id: zod.string().regex(grantsDeleteHandoverPathGrantIdRegExp),
 });
 
-export const GrantsPatchGrantBody = zod.object({
-  admin_tier: zod.enum(["owner", "administration"]),
-  version: zod.union([zod.int(), zod.null()]).optional(),
+/**
+ * Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.
+ *
+ * Only the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.
+ * Refused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait
+ * still runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in
+ * the same transaction, and told what date it completes on.
+ * @summary Hand the owner role over to an administrator
+ */
+export const grantsPostHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const GrantsPostHandoverParams = zod.object({
+  grant_id: zod.string().regex(grantsPostHandoverPathGrantIdRegExp),
 });
 
 /**

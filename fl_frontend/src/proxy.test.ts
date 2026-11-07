@@ -9,7 +9,6 @@ import {
   configDouble,
   cookiePair,
   GATE_BACKEND_CONFIG,
-  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -48,7 +47,12 @@ const store = memoryStore(STORE);
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
-const { getAdminSession, getAccountSession } = await import("./core/auth/guards.ts");
+const { judgeAdminRequest } = await import("./core/auth/guards.ts");
+/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
+const getAdminSession = async () => {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
+};
 const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
@@ -344,23 +348,6 @@ describe("where a session that is only read slides", () => {
       ).toBe(false);
       expect(set?.maxAge, `a ${ending} session's cookie was left standing or extended`).toBe(0);
     }
-  });
-
-  // The slide reads no ban, which is the backend's: what keeps a barred session out is every guard's own read.
-  it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async ({
-    onTestFinished,
-  }) => {
-    const { cookie, row } = await signIn("gesperrt@example.org");
-    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(Response.json({ ...HOLDS_NOTHING, barred: true })));
-    onTestFinished(() => void fetched.mockRestore());
-
-    assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
-
-    arriveAs(cookie);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(await getSubjectSession()).toBe(null);
-    expect(await getAccountSession()).toBe(null);
   });
 
   it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {

@@ -1,8 +1,8 @@
-import { grantsPostGrantsReconciliation } from "@/core/generated/client/sdk";
+import { grantsPostHandoverPass } from "@/core/generated/client/sdk";
 
-import type { FLGrantReconciliationResponse } from "@/core/generated/client/types";
+import type { FLGrantHandoverPassResponse } from "@/core/generated/client/types";
 
-/** The comparison, system tier: it writes, owing a notice of every change made in the database directly. */
-export async function postBerechtigungenAbgleich(): Promise<FLGrantReconciliationResponse> {
-  return grantsPostGrantsReconciliation();
+/** The handover pass, system tier: it writes, moving the owner role where a wait has ended. */
+export async function postHandoverPass(): Promise<FLGrantHandoverPassResponse> {
+  return grantsPostHandoverPass();
 }

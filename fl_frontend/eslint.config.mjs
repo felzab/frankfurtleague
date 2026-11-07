@@ -337,9 +337,9 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
-    operations: ["grants_post_grants_reconciliation"],
-    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postBerechtigungenAbgleich"] },
-    runners: ["src/features/berechtigungen/abgleich.ts"],
+    operations: ["grants_post_handover_pass"],
+    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postHandoverPass"] },
+    runners: ["src/features/berechtigungen/sweep.ts"],
   },
 ];
 

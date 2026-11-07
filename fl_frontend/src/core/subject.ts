@@ -42,7 +42,7 @@ export type SubjectSession = { readonly email: string; readonly isAdmin: boolean
 // a guard and a page of one render pass share one session read, one lookup and one actor.
 const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
   const served = await readRequestSession();
-  // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
+  // Both figures here as well as at `judgeAdminRequest`: a lane that skips them is a lane in which
   // the cap does not exist.
   if (!served || !isWithinPersonLifetime(served.session)) return null;
 
@@ -79,7 +79,7 @@ export async function getSubjectSession(): Promise<SubjectSession | null> {
   const judged = await judgeSubjectSession();
   if (judged === null) return null;
 
-  // On every call, outside the memo, for `getAdminSession`'s reason. Both guards on one request is a
+  // On every call, outside the memo, for `judgeAdminRequest`'s reason. Both guards on one request is a
   // programming error, so the second actor throws.
   setRequestActor(judged.actor);
 
