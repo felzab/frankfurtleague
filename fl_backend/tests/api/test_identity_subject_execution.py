@@ -1,7 +1,7 @@
 import asyncio
 import functools
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLSubjectPayload, FLSubjectResponse
+from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload, FLSubjectResponse
 from app.api.identity.system_router import get_sign_in, get_subject
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -263,6 +263,18 @@ async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse
         )
 
 
+async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
+    async with database.client.start_session(snapshot=True) as session:
+        return await get_sign_in(
+            sign_in_data=FLSubjectPayload(email=email),
+            records=record_collections(database),
+            ban_list_collection=database[Collection.BAN_LIST],
+            grants_collection=database[Collection.GRANTS],
+            session=session,
+            germany_now=NOW,
+        )
+
+
 def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
     return on_a_league(url, lambda database: call_subject(database, email))
 
@@ -356,15 +368,7 @@ class TestEveryAddressReadWalksAnIndex:
         async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
             async def ask_both(watched: AsyncDatabase, _client: Any) -> None:
                 await call_subject(watched, IDENTIFIER)
-                async with watched.client.start_session(snapshot=True) as session:
-                    await get_sign_in(
-                        sign_in_data=FLSubjectPayload(email=IDENTIFIER),
-                        records=record_collections(watched),
-                        ban_list_collection=watched[Collection.BAN_LIST],
-                        grants_collection=watched[Collection.GRANTS],
-                        session=session,
-                        germany_now=NOW,
-                    )
+                await call_sign_in(watched, IDENTIFIER)
 
             _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, ask_both, _selects_by_address)
 
@@ -396,6 +400,18 @@ class TestTheGrant:
         answer = answered(mongo_replica_set_url, ADMIN_STORED)
 
         assert (answer.admin_tier, answer.granted_since) == ("administration", GRANT_TYPED)
+
+    def test_a_waiting_row_answers_no_tier_on_either_route(self, mongo_replica_set_url: str):
+        """A named person is no administrator until the wait ends, which the owner may yet stop: a tier here admits them early."""
+
+        async def body(database: AsyncDatabase) -> tuple[Any, ...]:
+            await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"effective_from": NOW + timedelta(hours=1)}})
+            subject = await call_subject(database, ADMIN_STORED)
+            sign_in = await call_sign_in(database, ADMIN_STORED)
+
+            return subject.admin_tier, subject.granted_since, sign_in.admin_tier
+
+        assert on_a_league(mongo_replica_set_url, body) == (None, None, None)
 
     def test_the_instant_is_served_with_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""
