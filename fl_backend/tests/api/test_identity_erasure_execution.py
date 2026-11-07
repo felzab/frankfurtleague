@@ -38,6 +38,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundError
+from app.core.logging import JSONFormatter
 from app.core.security import PASSKEY_FACTOR
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
@@ -425,9 +426,33 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         }
     )
 
+    await database[Collection.OUTBOX].insert_one(a_mail("spiel_request", to=IDENTIFIER))
     await their_confirmations(database)
     await their_reports(database)
     await a_mailbox_sharing_their_local_part(database)
+
+
+def a_mail(kind: str, *, to: str) -> dict[str, Any]:
+    """A settled row of the Postausgang, as a hand-out's report leaves it."""
+
+    return {
+        "key": f"{kind}/{ObjectId()}",
+        "kind": kind,
+        "to": to,
+        "secret": None,
+        "reference": None,
+        "link": None,
+        "state": "sent",
+        "recorded_at": NOW,
+        "deadline": NOW,
+        # Far off, so the TTL monitor reads nothing a case is about.
+        "erase_at": datetime(2199, 1, 1, tzinfo=UTC),
+        "lease": None,
+        "leased_until": None,
+        "attempts": 1,
+        "message_id": None,
+        "delivery": None,
+    }
 
 
 async def pending_changes(database: AsyncDatabase, *changes: tuple[ObjectId, str, str, str, str]) -> None:
@@ -908,6 +933,19 @@ class TestTheGrantsLeftBehind:
         assert [record.getMessage() for record in caplog.records].count(NO_OWNER) == 1
 
 
+class TestTheMail:
+    def test_a_deletion_notice_stands_where_every_other_mail_to_the_address_goes(self, mongo_replica_set_url: str):
+        """Catches the notice erased with the rest: the person would never hear of a deletion the league owes them word of."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.OUTBOX].insert_one(a_mail("deletion_notice", to=IDENTIFIER))
+            await erased_over_http(mongo_replica_set_url)
+
+            return [row["kind"] async for row in database[Collection.OUTBOX].find({"to": IDENTIFIER})]
+
+        assert on_a_league(mongo_replica_set_url, body) == ["deletion_notice"]
+
+
 class TestTheJournal:
     def test_one_line_per_loeschung_names_its_records_by_id_and_no_address(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the line built from the wrong rows, or holding what it outlives: it stays in the stream after the person has gone."""
@@ -921,7 +959,8 @@ class TestTheJournal:
         with caplog.at_level(logging.INFO):
             status, team_row_id = on_a_league(mongo_replica_set_url, body)
 
-        [line] = journal_records(caplog)
+        [record] = journal_records(caplog)
+        line = vars(record)
         records = {
             f"{Collection.SAISON_TEAMS}/{team_row_id}",
             f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}",
@@ -936,9 +975,9 @@ class TestTheJournal:
         }
 
         assert status == 200
-        assert (line.act, set(line.records), line.choices, line.seats) == ("erasure", records, [], [])  # type: ignore[attr-defined]
-        assert len(line.records) == len(records)  # type: ignore[attr-defined]
-        assert not {value.lower() for value in THEIR_VALUES} & set(str(vars(line)).lower().split("'"))
+        assert (line["act"], set(line["records"]), line["choices"], line["seats"]) == ("erasure", records, [], [])
+        assert len(line["records"]) == len(records)
+        assert not [value for value in THEIR_VALUES if value.lower() in JSONFormatter().format(record).lower()]
 
 
 class TestTheOwner:
@@ -1141,11 +1180,11 @@ class TestAnAdmissionInsideTheLoeschung:
                     identifier=SEAT_HOLDER,
                     registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                    saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=database[Collection.SAISONS],
                     spieler_collection=database[Collection.SPIELER],
                     records=record_collections(database),
                     db=client,
-                    germany_now=NOW,
                 )
 
             registrations = RegistrationsAdmittedInside(database[Collection.REGISTRIERUNGEN], admission)

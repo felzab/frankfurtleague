@@ -709,7 +709,7 @@ FIRST_BATCH = 101
 
 
 # One pupil's commands on the wire at their costliest, a report naming them.
-COMMANDS_A_PERSON = 22
+COMMANDS_A_PERSON = 15
 
 # The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
 # batch, the page being one document.

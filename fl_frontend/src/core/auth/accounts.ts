@@ -170,7 +170,7 @@ export async function deleteAccountFor(identifier: string): Promise<boolean> {
     throw committing ? failed : new RolledBackError(failed);
   }
 
-  if (deleted) await notifyAccountDeleted(identifier);
+  if (deleted) await notifyAccountDeleted(asSignInIdentifier(identifier));
   return deleted;
 }
 

@@ -332,7 +332,7 @@ class TestAGrantHoldersAddress:
         assert (response.status_code, response.json().get("error_code"), granted) == (403, Code.ADMIN_ADDRESS, [201])
         assert row is not None and row["admin_tier"] == "administration"
         # The rows the grant wrote aside, every value stands where it stood.
-        assert {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in left.items()} == held
+        assert aside_the_grants_own_rows(left) == aside_the_grants_own_rows(held)
         # The premise last: the first attempt passed its judgement and read the pupils, which a grant landing first refuses.
         racing[0].assert_landed_inside(serially=0)
 
@@ -387,22 +387,20 @@ CHANGING_HOLDER_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00003")
 class TestAGrantHoldersPendingChange:
     """A grant holder's change naming the address is shown and ended only where the tool would open it."""
 
-    @pytest.mark.parametrize("tier", ["administration", "owner"])
-    def test_the_counts_leave_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str, tier: str):
+    def test_the_counts_leave_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str):
         """Counted, it would answer whether a typed address is that change's new one, which the administrators page withholds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
+            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, "administration")
             return [(await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=by)).json()["address_change"] for by in (OPERATOR, OWNER)]
 
         assert on_a_league(mongo_replica_set_url, body) == [1, 2]
 
-    @pytest.mark.parametrize("tier", ["administration", "owner"])
-    def test_the_loeschung_ending_it_is_the_owners_whatever_the_tier(self, mongo_replica_set_url: str, tier: str):
-        """Ending it is a discard, which only an owner makes of an administrator's change."""
+    def test_the_loeschung_ending_it_is_the_owners(self, mongo_replica_set_url: str):
+        """Ending it is a discard, which only the owner makes of an administrator's change."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, tier)
+            await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, "administration")
             before = await everything_in(database)
             by_operator = await posted(mongo_replica_set_url, PATH, erasure_of())
             untouched = before == await everything_in(database)
@@ -441,8 +439,12 @@ class PupilsReadMeetingARival(InterleavedCollection):
         return await self._collection.aggregate(*args, **kwargs)
 
 
-# Where a grant's creation names its address besides the grant: its notice.
-THE_GRANTS_OWN_ROWS = frozenset({Collection.OUTBOX})
+# Where a grant's creation names its address besides the grant: its notice and its act's label.
+THE_GRANTS_OWN_ROWS = frozenset({Collection.OUTBOX, Collection.ACTION_LOG})
+
+
+def aside_the_grants_own_rows(held: Mapping[str, list[str]]) -> dict[str, list[str]]:
+    return {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in held.items()}
 
 
 @pytest.mark.db

@@ -23,17 +23,16 @@ export const NO_RECORDS: SubjectSession["records"] = deepFrozen({
   spieler: [],
   schiedsrichter: [],
   unconfirmed: false,
-  barred: false,
   admin_tier: null,
   granted_since: null,
-  owner_since: null,
 });
 
 /**
  * What a suite's backend holds for one address. `account` is stated, never worked out from the lists:
- * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
+ * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer. `barred`
+ * reaches the gate's answer alone.
  */
-export type LookupFixture = Partial<SubjectSession["records"]> & { readonly account: boolean };
+export type LookupFixture = Partial<SubjectSession["records"]> & { readonly account: boolean; readonly barred?: boolean };
 
 /**
  * The path the sign-in gate reads, its own beside the subject read every guard takes. Spelled rather than built by
@@ -45,13 +44,13 @@ const GATE_ENDPOINT = "/identity/sign_in";
 
 /** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */
 export function answerAt(endpoint: string, held: LookupFixture): Record<string, unknown> {
-  const { account, ...subject } = held;
+  const { account, barred, ...subject } = held;
   if (!endpoint.endsWith(GATE_ENDPOINT)) return subject;
 
   return {
     unconfirmed: subject.unconfirmed ?? false,
     account,
-    barred: subject.barred ?? false,
+    barred: barred ?? false,
     admin_tier: subject.admin_tier ?? null,
   };
 }

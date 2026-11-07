@@ -33,21 +33,8 @@ from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, FLSeat
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
 JOURNAL_TOKEN: Final = "erasure-journal"
 
-# An erasure, which an administrator runs again on its page, and each act the replay writes again. An end that told
-# somebody has a kind of its own: the replay tells them again from the kind alone.
-JournalKind = Literal[
-    "erasure",
-    "withdrawal",
-    "objection",
-    "address_change_declined",
-    "address_change_stopped",
-    "address_change_discarded",
-    "address_change_discarded_notified",
-    "address_change_effective",
-    "approval_request_declined",
-    "approval_request_withdrawn",
-    "approval_request_ended",
-]
+# Every kind a line of the old shape may name, until the lanes' last `JournalLine` leaves.
+JournalKind = Literal["erasure", "withdrawal", "objection"]
 
 # The collections each act is made on: a line naming any other is unreadable rather than replayed there.
 RECORDS: Final[Mapping[JournalKind, frozenset[Collection]]] = {
@@ -56,20 +43,6 @@ RECORDS: Final[Mapping[JournalKind, frozenset[Collection]]] = {
         {Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN}
     ),
     "objection": frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SCHIEDSRICHTER}),
-    # Each on the change's own record, whose id names one change: a start never reuses one.
-    "address_change_declined": frozenset({Collection.ADDRESS_CHANGES}),
-    "address_change_stopped": frozenset({Collection.ADDRESS_CHANGES}),
-    # Ended telling nobody: by an administrator, by a start replacing it, or by its own press finding nothing to move.
-    "address_change_discarded": frozenset({Collection.ADDRESS_CHANGES}),
-    # Ended at its effect by the hourly pass or an approval, which told its new mailbox it did not take effect.
-    "address_change_discarded_notified": frozenset({Collection.ADDRESS_CHANGES}),
-    # The replay moves everything the restored address on file holds, as the effect did.
-    "address_change_effective": frozenset({Collection.ADDRESS_CHANGES}),
-    # Restored, an ended request would stand to be approved. Refused by a decider and ended by an address change, it told
-    # its requester; withdrawn by them, nobody.
-    "approval_request_declined": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
-    "approval_request_withdrawn": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
-    "approval_request_ended": frozenset({Collection.GRANT_APPROVAL_REQUESTS}),
 }
 
 # The homes whose rows hold several people's seats, which an objection empties by name.

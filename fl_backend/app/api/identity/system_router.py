@@ -114,8 +114,6 @@ async def get_sign_in(
     The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with both flags false.
     """
 
-    # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
-    # `league_address` runs, so an address the hash would refuse was answered 422 before here.
     identifier = sign_in_identifier(str(sign_in_data.email))
     ban_key = ban_list.hash_of(str(sign_in_data.email))
 
@@ -155,7 +153,7 @@ async def get_references(
 
 # The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
 # it, and neither the hourly pass nor an activation's press holds a person's session here.
-# At most twenty-two commands for a pupil a report names, each the round trip plus at most 2.03 ms, timed locally
+# At most fifteen commands for a pupil a report names, each the round trip plus at most 2.03 ms, timed locally
 # 2026-10-16: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
 ERASURES_PER_PASS: Final = 10
 

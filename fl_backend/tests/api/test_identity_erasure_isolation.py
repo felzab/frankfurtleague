@@ -205,49 +205,42 @@ async def another_kit_colour(database: AsyncDatabase, client: AsyncMongoClient) 
     return lambda database, client: junction_patched(database, client, values)
 
 
-# Each write an administrator can make to the club's row keeping the erased person's seat, with the log rows it files there.
-KEEPING_WRITES: dict[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Rival]], int]] = {
-    "a contacts save sending the block it was served": (the_block_it_was_served, 0),
-    "a contacts save filling another seat": (another_seat_filled, 1),
-    "a team save sending the row as it stands": (the_row_as_it_stands, 0),
-    "a team save changing the kit colour": (another_kit_colour, 1),
+# Each write an administrator can make to the club's row keeping the erased person's seat.
+KEEPING_WRITES: dict[str, Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Rival]]] = {
+    "a contacts save sending the block it was served": the_block_it_was_served,
+    "a contacts save filling another seat": another_seat_filled,
+    "a team save sending the row as it stands": the_row_as_it_stands,
+    "a team save changing the kit colour": another_kit_colour,
 }
 
 
 class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
     """The row is what the erasure writes, so a write changing it meets the erasure there and one of the two runs again.
 
-    A write leaving the row unchanged writes nothing the erasure writes, and files no log row either.
+    A write leaving the row unchanged writes nothing the erasure writes.
     """
 
     @pytest.mark.parametrize("write", list(KEEPING_WRITES))
-    def test_nothing_holds_the_address_and_the_log_keeps_each_change(self, mongo_replica_set_url: str, write: str):
-        """Record every patch and an unchanged row's log row keeps the address; record none inside a transaction and a change loses its row."""
-
-        prepare, rows_filed = KEEPING_WRITES[write]
+    def test_nothing_holds_the_address(self, mongo_replica_set_url: str, write: str):
+        prepare = KEEPING_WRITES[write]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Saved twice, the first minting the person's link, so the stored block is what a later send of it composes.
             await contacts_saved(database, client, kontakte_document(trainer=SEATED), 0)
             await contacts_saved(database, client, kontakte_document(trainer=SEATED), (await club_row(database))["version"])
             keeping = await prepare(database, client)
-            on_the_row = {"collection": str(Collection.SAISON_TEAMS)}
             written: list[str] = []
-            filed: list[int] = []
 
             async def keep_the_seat() -> None:
-                rows_before = await database[Collection.ACTION_LOG].count_documents(on_the_row)
                 written.append(await outcome_of(keeping(database, client)))
-                filed.append(await database[Collection.ACTION_LOG].count_documents(on_the_row) - rows_before)
 
             grants = GrantsReadThenRival(database[Collection.GRANTS], keep_the_seat)
             outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, grants_collection=grants))
 
-            return outcome, written, filed, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
+            return outcome, written, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 
-        outcome, written, filed, trainer, held = on_a_league(mongo_replica_set_url, body)
+        outcome, written, trainer, held = on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, written) == (COMMITTED, [COMMITTED]), "the write or the erasure never committed, so this case proves nothing"
         assert trainer is None, "the erased person's seat stands"
         assert held == [], f"{held} still hold the address the erasure answered for"
-        assert filed == [rows_filed]

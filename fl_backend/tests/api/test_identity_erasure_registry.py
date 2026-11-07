@@ -8,6 +8,7 @@ one `find` after the commit, and the aggregates `:: resolve_subject` sends.
 import asyncio
 import logging
 from dataclasses import fields
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
@@ -17,6 +18,8 @@ from pymongo.errors import NetworkTimeout
 
 from app.api.identity.crud import Erasure, ErasureJournal, Subject, resolve_subject
 from app.api.identity.schemas import FLErasure, FLErasureResponse
+from app.api.outbox.schemas import FLAddressChangeEffectiveData, FLDeletionNoticeData
+from app.api.outbox.services import DELIVERY_DEADLINE, OwedMail, row_of
 from app.core.codes import Code
 
 IDENTIFIER = "zorbanax.quillfeather@example.org"
@@ -57,6 +60,24 @@ def test_a_committed_loeschung_whose_grant_warning_fails_answers_and_journals(ca
     assert "journal.act" in messages
     assert [getattr(record, "error_code", None) for record in caplog.records].count(Code.DATABASE_FAILED) == 1
     assert [message for message in messages if IDENTIFIER in message] == []
+
+
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(FLDeletionNoticeData(kind="deletion_notice", saison_id=None), id="the notice an erasure spares"),
+        pytest.param(FLAddressChangeEffectiveData(kind="address_change_effective", instant=NOW, first_name=None), id="the replaced address's"),
+    ],
+)
+def test_a_row_no_erasure_reaches_goes_at_its_deadline(data: Any):
+    """Catches the row kept a retention longer: it holds an address the person's erasure no longer finds, past the erasure."""
+
+    row = row_of(OwedMail(key="a-key", to=IDENTIFIER, data=data), now=NOW, secret=None, valid_until=None)
+
+    assert row["erase_at"] == NOW + DELIVERY_DEADLINE
 
 
 class _NoRows:
