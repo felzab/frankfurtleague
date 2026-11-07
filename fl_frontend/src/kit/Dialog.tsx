@@ -16,6 +16,7 @@ import { StatusLine } from "./FieldParts";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
+import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -165,14 +166,15 @@ export function RouteDialog({
  * The dialog's form, mounted only while the dialog is open, so a refusal it showed goes with the dialog and
  * never greets the next opening. A done act closes the dialog, but one whose answer notes what else the write moved,
  * which stays open with that note in its status line, its act closed, so the person reads it before leaving by
- * „Zurück“; a refused one stays with its input kept, each field's message under its field and the reason in the status
- * line beside the acts, as a Konto box shows it.
+ * „Zurück“; a refused one, a refused passkey touch among them, stays with its input kept, each field's message under its
+ * field and the reason in the status line beside the acts, as a Konto box shows it.
  */
 function ActForm({
   title,
   label,
   action,
   close,
+  touched,
   carry = {},
   lead,
   tone = "primary",
@@ -180,14 +182,15 @@ function ActForm({
 }: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "tone" | "children"> & {
   label: Copy;
   close: () => void;
+  touched: ReturnType<typeof usePasskeyTouch>;
 }) {
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
-    async (formData: FormData) => {
+    touched(async (formData: FormData) => {
       const answered = await action(formData);
       // A form's action runs in a transition, and an update after its `await` commits outside it.
       if (answered.ok && answered.note === undefined) startTransition(close);
       return answered;
-    },
+    }),
     // The form unmounts as the dialog closes, which clears its answer.
     { resetOnLeave: false },
   );
@@ -264,8 +267,9 @@ type Opening =
  * noting more than it was asked leaves it open on its note, and a refused one leaves it open with the input kept and
  * the refusal shown.
  */
-export function Dialog({ act, trigger, open, ...form }: DialogAct & Opening) {
+export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Opening) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const label = actLabel(act);
 
   const overlay = (
@@ -277,8 +281,10 @@ export function Dialog({ act, trigger, open, ...form }: DialogAct & Opening) {
       <AriaDialog data-kit-focus>
         <ActForm
           {...form}
+          carry={touch === undefined ? form.carry : { ...form.carry, holder: touch.holder }}
           label={label}
           close={() => setOpen(false)}
+          touched={touched}
         />
       </AriaDialog>
     </DialogOverlay>

@@ -145,19 +145,6 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
               onConfirm: act,
             },
           },
-          // A danger act behind the passkey touch draws its own button, which the lock closes too.
-          {
-            name: COPY.shared.withObject(COPY.page.spielplan, "discard"),
-            consequence: COPY.admin.spielort.retireConsequence,
-            touch: { holder: "admin@example.com" },
-            confirm: {
-              verb: "discard",
-              subject: COPY.page.spielplan,
-              consequence: COPY.admin.spielort.retireConsequence,
-              tone: "danger",
-              onConfirm: act,
-            },
-          },
         ],
       }}
     />
@@ -167,7 +154,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
 // An act raises the record's version and runs on the stored values: pressed under a draft, it would act on values the
 // boxes show changed, and the draft's save would then be refused as stale.
 describe("an editor's own acts", () => {
-  it.each([COPY.shared.withObject(COPY.page.spielplan, "create"), COPY.shared.verb.retire, COPY.shared.verb.discard])(
+  it.each([COPY.shared.withObject(COPY.page.spielplan, "create"), COPY.shared.verb.retire])(
     "answer a press with the draft's reason while it holds a change, asking nothing and running nothing: %s",
     async (name) => {
       const act = vi.fn();

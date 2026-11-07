@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -10,12 +10,11 @@ import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { DraftUnsaved, useLocked } from "./draftUnsaved";
 import { EditorBar } from "./EditorBar";
-import { StatusLine } from "./FieldParts";
+import { statusLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
 import { dangerRow, Section } from "./Section";
-import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
@@ -24,7 +23,6 @@ import type { ConfirmDialogProps } from "./ConfirmDialog";
 import type { DialogAct } from "./dialogAct";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
-import type { FormStatus } from "./useFormAction";
 
 /**
  * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields, and `note`,
@@ -45,44 +43,30 @@ export type DangerAct = {
   locked?: Copy;
 } & (
   | {
-      /** The question its button opens; the button carries the question's verb and tone. */
-      confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
       /**
-       * The passkey touch before the question, for an act on its fixed list: the address the page was drawn for
-       * (`usePasskeyTouch`). An editor is an administrator's page, and an administrator signs in by passkey alone, so the
-       * person always holds one.
+       * The question its button opens; the button carries the question's verb and tone. An act behind the passkey touch
+       * asks it from the question's own button: an editor is an administrator's page, and an administrator signs in by
+       * passkey alone, so the person always holds one.
        */
-      touch?: { holder: string };
+      confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
       dialog?: never;
     }
   | {
       /** The dialog its button opens; the button carries the dialog's act and its tone. */
       dialog: DialogAct & { tone: "danger" };
       confirm?: never;
-      touch?: never;
     }
 );
 
-/**
- * One danger row. An act behind the passkey touch asks the touch on its press, its button busy until the
- * browser's prompt answers, and only then its question; a touch the passkey did not answer opens nothing, and
- * the row's second line says so in place of the consequence, as a Konto box's line says why its act did not run.
- */
+/** One danger row, whose question or dialog answers for its act, a passkey touch's refusal among what it shows. */
 function DangerRow({ act }: { act: DangerAct }) {
-  const [isAsking, setAsking] = useState(false);
-  const { run, refusal, isTouching } = usePasskeyTouch(act.touch !== undefined, act.touch?.holder);
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
-  // The row's one line, a live region from the first render, so the touch's refusal is announced as it replaces the
-  // consequence.
-  const line: FormStatus = refusal === null ? { tone: "resting", text: act.consequence } : { tone: "error", text: refusal };
   const button = (
     <Button
       variant={act.dialog === undefined ? act.confirm.tone : act.dialog.tone}
       label={label}
-      isBusy={isTouching}
       locked={locked}
-      onPress={act.touch === undefined ? undefined : () => void run(() => setAsking(true))}
     />
   );
   return (
@@ -90,12 +74,9 @@ function DangerRow({ act }: { act: DangerAct }) {
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
         <span className="font-semibold">{act.name}</span>
-        <StatusLine
-          status={line}
-          placement="column"
-        />
+        <p className={statusLine({ placement: "column", tone: "resting" })}>{act.consequence}</p>
       </div>
-      {act.touch !== undefined || locked !== undefined ? (
+      {locked !== undefined ? (
         button
       ) : act.dialog === undefined ? (
         <ConfirmDialog
@@ -106,12 +87,6 @@ function DangerRow({ act }: { act: DangerAct }) {
         <Dialog
           {...act.dialog}
           trigger={button}
-        />
-      )}
-      {act.touch !== undefined && (
-        <ConfirmDialog
-          {...act.confirm}
-          open={{ isOpen: isAsking, onOpenChange: setAsking }}
         />
       )}
     </div>

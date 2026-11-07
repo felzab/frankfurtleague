@@ -141,7 +141,9 @@ layout turns a session away, because Next renders a page whatever its layout dec
 every signed-in shell and every frame's account menu links it, and an act on the passkey touch's fixed
 list, a passkey's removal and the address change's start among them, runs only on a passkey sign-in
 made seconds before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's
-`passkey`).
+`passkey`). The touch is always such an act's last step: the person presses the act, answers any
+dialog, presses the final button, and that press asks the touch and then runs the act
+(`fl_frontend/src/kit/usePasskeyTouch.ts`), so nothing typed runs against the minute a touch lasts.
 
 ## Configuration and tests
 

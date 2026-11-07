@@ -25,6 +25,12 @@ export type DialogAct = {
   lead?: Words;
   /** `danger` for an act taking a record out of something, as a danger box's question names its verb's tone. */
   tone?: "primary" | "danger";
+  /**
+   * The passkey touch the act's button asks ahead of `action`, for an act on its fixed list a person holding a passkey
+   * presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The dialog stands
+   * with its inputs on a refused touch.
+   */
+  touch?: { holder: string };
 };
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */
