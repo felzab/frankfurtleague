@@ -531,6 +531,8 @@ export const SERVER_COPY = catalogue({
         completed: {
           handover: (address: string) => `${address} leitet jetzt die Verwaltung.`,
           address: (previous: string, next: string) => `Die Adresse ${previous} heißt jetzt ${next}.`,
+          /** A completion queued when its person was erased: both its addresses are theirs. */
+          unnamedAddress: "Eine nicht genannte Adresse hat gewechselt.",
         },
       },
       /** Who acted and when, by the act. */
@@ -541,11 +543,13 @@ export const SERVER_COPY = catalogue({
       },
       /** On what waits. */
       effectiveFrom: (moment: string) => `Die Änderung gilt ab ${formatInstant(moment)}.`,
-      warn: `Kommt dir das falsch vor? Dann melde dich sofort bei der ${ownerTier}, nicht per E-Mail.`,
+      warn: `Stimmt das nicht, melde dich sofort bei der ${ownerTier}.`,
       button: "Zur Verwaltung",
       /** An erased person's address, in the subject's place. */
       unnamedAddress: "Eine nicht genannte Adresse",
-      /** An erased actor, after „von“. */
+      /** The same, as a lead's object after „an“ or „heißt jetzt“. */
+      unnamedTarget: "eine nicht genannte Adresse",
+      /** An erased actor, after „von“, and an erased new address, after „zu“. */
       unnamedActor: "einer nicht genannten Adresse",
     },
 
