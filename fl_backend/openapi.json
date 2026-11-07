@@ -20630,7 +20630,7 @@
     },
     "/api/v0/grants/{grant_id}/handover": {
       "delete": {
-        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.\nEvery holder in effect is told in the same transaction.",
+        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on\nno handover. Every holder in effect is told in the same transaction.",
         "operationId": "grants_delete_handover",
         "parameters": [
           {

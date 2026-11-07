@@ -878,8 +878,8 @@ export const GrantsDeleteGrantParams = zod.object({
 /**
  * Stop a waiting handover, the role staying with the owner.
  *
- * Only the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.
- * Every holder in effect is told in the same transaction.
+ * Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
+ * no handover. Every holder in effect is told in the same transaction.
  * @summary Stop a waiting handover
  */
 export const grantsDeleteHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
