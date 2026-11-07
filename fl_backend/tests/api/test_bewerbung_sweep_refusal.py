@@ -12,15 +12,14 @@ from app.api.bewerbungen.services import (
     first_name_of,
     group_seats_by_mailbox,
     lapsed_seats,
-    one_month_after,
-    owed_erasure,
+    owed_deletion_notices,
     reminder_seats,
     reopened_chases,
     schule_name,
     seat_reminder_is_due,
     unreachable_seats,
 )
-from app.api.outbox.schemas import FLBewerbungErasureData, FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
+from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
@@ -92,23 +91,6 @@ def application(**overrides: Any) -> dict[str, Any]:
 
 def all_seats_until(deadline: str | None) -> dict[str, Any]:
     return {seat: {**entry, "deadline": deadline} for seat, entry in confirmations().items()}
-
-
-class TestOneMonth:
-    @pytest.mark.parametrize(
-        ("day", "expected"),
-        [
-            pytest.param("2026-03-15", "2026-04-15", id="a plain day"),
-            pytest.param("2026-01-31", "2026-02-28", id="clamped to February"),
-            pytest.param("2024-01-31", "2024-02-29", id="clamped to a leap February"),
-            pytest.param("2026-12-05", "2027-01-05", id="across the year"),
-            pytest.param("2026-03-31", "2026-04-30", id="clamped to a thirty-day month"),
-        ],
-    )
-    def test_the_same_day_next_month_clamped(self, day: str, expected: str):
-        """A calendar month, not thirty days; the clamp is what keeps the 31st from skipping a month."""
-
-        assert one_month_after(day=day) == expected
 
 
 class TestTheReminderMark:
@@ -382,16 +364,16 @@ class TestALapsedSeasonRowSeat:
         assert lapsed_seats(kontakte=kontakte(trainer=slot), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
 
 
-class TestTheOneMonthClock:
+class TestTheDeclineClock:
     @pytest.mark.parametrize(
         ("made_at", "due"),
         [
-            pytest.param("2026-03-02", False, id="a day short of the month"),
-            pytest.param("2026-03-01", True, id="the month, to the day"),
-            pytest.param("2026-02-15", True, id="past the month"),
+            pytest.param("2026-03-19", False, id="a day short of the fourteen"),
+            pytest.param("2026-03-18", True, id="the fourteenth day"),
+            pytest.param("2026-02-15", True, id="past them"),
         ],
     )
-    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
+    def test_each_boundary_falls_fourteen_days_after_the_decision(self, made_at: str, due: bool):
         declined = application(status="declined", decision={"made_at": made_at, "by": "admin", "reason": "kein Platz"})
 
         assert decline_loeschung_is_due(bewerbung_raw=declined, today=TODAY) == due
@@ -422,16 +404,21 @@ class TestWhatTheNoticesNeed:
         )
         assert ansprechperson_mailbox(kontakte=kontakte(ansprechperson=None), confirmations=mailed) == (None, [])
 
-    def test_the_deletion_notice_names_only_those_who_never_answered(self):
-        """A partly answered application is this notice's ordinary shape, and once it has gone nothing shows the school its list is wrong."""
+    def test_the_deletion_notice_mails_the_seat_that_confirmed_and_never_the_silent_one(self):
+        """A seat that never confirmed may be a stranger the form named, and a confirmed person hearing nothing has no other word of it."""
 
         partly_answered = application(kontakte=kontakte(stellvertretung=kontaktperson_document("Stellan", confirmed_at=YESTERDAY)))
 
-        mail = owed_erasure(bewerbung_raw=partly_answered, saison_id="2026")
+        assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=partly_answered, saison_id="2026")] == ["stellan@example.com"]
 
-        assert mail is not None
-        assert isinstance(mail.data, FLBewerbungErasureData)
-        assert [person.first_name for person in mail.data.pending] == ["Quillhilde", "Ansgar"]
+    def test_a_widerspruchs_notice_spares_the_person_it_told_and_no_other_confirmed_seat(self):
+        confirmed = kontakte(
+            ansprechperson=kontaktperson_document("Ansgar", confirmed_at=YESTERDAY),
+            stellvertretung=kontaktperson_document("Stellan", confirmed_at=YESTERDAY),
+        )
+        told = application(kontakte=confirmed, erasure_announced_at=YESTERDAY)
+
+        assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=told, saison_id="2026")] == ["stellan@example.com"]
 
     def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
         assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"

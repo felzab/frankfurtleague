@@ -71,7 +71,7 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=[Depends(verify_access_system)])
 
-# Both shares at three commands a row beside the worst call's other 75: 252 commands at 36 ms plus 1.38 ms take 9.42 s
+# Both shares at three commands a row beside the worst call's other 49: 226 commands at 36 ms plus 1.38 ms take 8.45 s
 # of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 36
 

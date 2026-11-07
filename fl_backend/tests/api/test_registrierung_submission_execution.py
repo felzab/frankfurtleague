@@ -13,7 +13,6 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
@@ -27,13 +26,11 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
-from app.shared.folding import league_address
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
-from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
@@ -147,7 +144,6 @@ def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str,
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
 # would leave these cases passing over a lapsed row.
-STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 
 def on_a_league(
@@ -156,8 +152,6 @@ def on_a_league(
     *,
     registrierung: Any = OPEN_WINDOW,
     squad: int = 0,
-    banned: str | None = None,
-    banned_until: str = STANDING,
     saison_status: str = "active",
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
@@ -188,9 +182,6 @@ def on_a_league(
                         for seat in range(squad)
                     ]
                 )
-
-            if banned is not None:
-                await database[Collection.BAN_LIST].insert_one(documents.ban_document(banned, until=banned_until))
 
             return await body(database, client)
 
@@ -231,7 +222,6 @@ async def register(
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         outbox_collection=database[Collection.OUTBOX],
         mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -278,13 +268,11 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         identifier=seat["email"],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
-        action_log_collection=database[Collection.ACTION_LOG],
-        ban_list=ban_list(database),
         db=client,
-        germany_now=NOW,
     )
 
 
@@ -392,7 +380,6 @@ class TestWhatASubmissionStores:
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
-                ban_list=ban_list(database),
                 today=TODAY,
             )
 
@@ -864,39 +851,6 @@ class TestWhatASubmissionIsRefused:
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"] - 1) == 2
-
-    def test_a_banned_address_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, email=BANNED_EMAIL)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (Code.REGISTRIERUNG_ADDRESS_BARRED, 0)
-
-    def test_a_banned_address_is_refused_however_the_pupil_spells_it(self, mongo_replica_set_url: str):
-        """One canonical form decides, so a ban is not lifted by typing the address in another case."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, email=BANNED_EMAIL.upper())
-
-            return refused.value.error_code
-
-        assert league_address(BANNED_EMAIL.upper()) == league_address(BANNED_EMAIL)
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADDRESS_BARRED
-
-
-class TestALapsedBan:
-    def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
-        """The bound counted from the season the league is on: a check ignoring it would bar a pupil the ban no longer covers."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await register(database, client, email=BANNED_EMAIL)
-
-            return await database[Collection.REGISTRIERUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL, banned_until="2025") == 1
 
 
 class TestWhatTheInvitesOwnReadAnswers:

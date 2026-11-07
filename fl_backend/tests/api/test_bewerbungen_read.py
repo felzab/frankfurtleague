@@ -6,12 +6,11 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.admin_router import get_bewerbung, get_bewerbungen_admin
-from app.api.bewerbungen.services import with_delivery, zustand_of
+from app.api.bewerbungen.services import with_delivery
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
@@ -112,7 +111,6 @@ async def view_one(database: Any, bewerbung_id: ObjectId) -> Any:
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         today="2026-02-02",
     )
 
@@ -200,13 +198,6 @@ class TestTheSeasonsListRead:
         assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
         # The boxes the dialog disables, which `trikot_farbe_taken` would refuse: a row holding no colour takes none.
         assert offer.taken == ["blau"]
-
-
-class TestWhatAReopenedLinkReads:
-    def test_a_barred_address_reads_barred(self):
-        """The press refuses it anyway, so anything else shows a form nobody can send."""
-
-        assert zustand_of(bewerbung_raw=bewerbung_document(1), seat="trainer", today="2026-02-02", barred=True) == "barred"
 
 
 class TestEachSeatServesWhereItStands:
