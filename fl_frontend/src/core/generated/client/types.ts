@@ -689,23 +689,6 @@ export interface FLAddressChangeAddressResponse {
   email: string | null;
 }
 
-/**
- * What the address holds that a change moves, counted: the tool names the kinds, the editors the records.
- */
-export interface FLAddressChangeAdminHoldings {
-  /** @minimum 0 */
-  bewerbung_seats: number;
-  grant: FLAdminTier | null;
-  /** @minimum 0 */
-  registrierungen: number;
-  /** @minimum 0 */
-  schiedsrichter: number;
-  /** @minimum 0 */
-  seats: number;
-  /** @minimum 0 */
-  spieler: number;
-}
-
 export type FLOutboxDeliveryState = (typeof FLOutboxDeliveryState)[keyof typeof FLOutboxDeliveryState];
 
 export const FLOutboxDeliveryState = {
@@ -758,6 +741,7 @@ export interface FLAddressChangeAdminOpen {
   effective_from: string | null;
   email: string;
   expired: boolean;
+  holder: FLAdminTier | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   released_at: string | null;
@@ -801,21 +785,6 @@ export interface FLAddressChangeAdminPayload {
   change_reason: string;
   /** @maxLength 254 */
   email: string;
-}
-
-/**
- * Exactly one key: the address typed, or the change a page links to.
- */
-export interface FLAddressChangeAdminViewPayload {
-  address?: string | null;
-  address_change_id?: string | null;
-}
-
-export interface FLAddressChangeAdminViewResponse {
-  address: string;
-  holdings: FLAddressChangeAdminHoldings;
-  open: FLAddressChangeAdminOpen | null;
-  possible: boolean;
 }
 
 export type FLAddressChangeAnswer = (typeof FLAddressChangeAnswer)[keyof typeof FLAddressChangeAnswer];
@@ -962,6 +931,7 @@ export const FLAddressChangeViewEndedSide = {
  * What either link opens once its change ended, for as long as its record is kept.
  */
 export interface FLAddressChangeViewEnded {
+  confirmed_on: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ended_on: string;
   kind: FLAddressChangeEndKind;
@@ -984,6 +954,7 @@ export const FLAddressChangeViewNewState = {
  * What the new mailbox's link opens while the change stands.
  */
 export interface FLAddressChangeViewNew {
+  confirmed_on: string | null;
   effective_from: string | null;
   email: string | null;
   side: "new";

@@ -92,7 +92,6 @@ from .address_change_harness import (
     stop_by_link,
     stop_here,
     sweep,
-    tool_read,
     view,
 )
 from .address_change_harness import on_a_person as _on_a_person
@@ -140,6 +139,9 @@ class TestTheAccountPagesRead:
 
 # Past the interval a person's start waits after the mail its address's live change last owed.
 RESTART = timedelta(seconds=ADDRESS_CHANGE_RESTART_SECONDS)
+
+# `NEW_EMAIL` as a holder's mail and an administrator's change show it.
+MASKED_NEW_EMAIL = "l•••@n•••.org"
 
 
 class TestThePersonsStart:
@@ -286,9 +288,9 @@ class TestTheLinks:
     @pytest.mark.parametrize(
         ("step", "waits_on", "bisherig", "email"),
         [
-            ("an administrator's start", "new_address", "open", None),
+            ("an administrator's start", "new_address", "open", MASKED_NEW_EMAIL),
             ("previous_address", "previous_address", "release_open", NEW_EMAIL),
-            ("a holder's wait", "waiting_period", "waiting_period", None),
+            ("a holder's wait", "waiting_period", "waiting_period", NEW_EMAIL),
         ],
     )
     def test_the_step_a_change_waits_on_reads_on_the_account_page_and_the_stop_link(
@@ -296,8 +298,8 @@ class TestTheLinks:
     ):
         """The account page and the address on file's link name each step alike.
 
-        The new address only where the person's own change asks the address on file its question: an administrator's
-        start may be a pretext whose target that address's holder must not learn.
+        The new address whole on the person's own change, which that address confirmed: an administrator's start may be a
+        pretext whose target that address's holder must not learn.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -326,6 +328,29 @@ class TestTheLinks:
             return seen.state, seen.email, pressed
 
         assert on_a_person(mongo_replica_set_url, body) == ("release_expired", None, Code.LINK_EXPIRED)
+
+    def test_the_new_link_names_the_day_it_was_confirmed_in_the_wait_and_once_ended(self, mongo_replica_set_url: str):
+        """The effect's day is the wait's end, so a page naming it as the confirmation's would be a day or a week out."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            before = (await view(database, client, minted.token)).view
+            await answer(database, client, minted.token)
+            waiting = (await view(database, client, minted.token)).view
+            stopped = (await view(database, client, minted.stop_token)).view
+            await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
+            ended = (await view(database, client, minted.token)).view
+            ended_stop = (await view(database, client, minted.stop_token)).view
+            return (
+                before.confirmed_on,
+                waiting.confirmed_on,
+                getattr(stopped, "confirmed_on", "absent"),
+                ended.confirmed_on,
+                ended_stop.confirmed_on,
+            )
+
+        assert on_a_person(mongo_replica_set_url, body) == (None, TODAY, "absent", TODAY, None)
 
     def test_an_ended_change_s_links_answer_how_it_ended_and_take_nothing_more(self, mongo_replica_set_url: str):
         """Each link answers truthfully after the end, for as long as the record is kept."""
@@ -977,6 +1002,7 @@ class TestTheRunningChanges:
         (person, admin, second), seen = on_a_person(mongo_replica_set_url, body)
 
         assert [row.id for row in seen[ADMIN]] == [person]
+        assert [row.holder for row in seen[OWNER]] == ["administration", "administration", None]
         # Newest first, each row its two addresses and the step it waits on.
         assert [row.id for row in seen[OWNER]] == [second, admin, person]
         assert (seen[OWNER][2].address, seen[OWNER][2].email, seen[OWNER][2].way, seen[OWNER][2].waits_on) == (
@@ -1108,12 +1134,11 @@ class TestTheTool:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
             await discard(database, client, started.id)
-            ended = await refused_code(tool_read(database, client, address_change_id=started.id))
             with pytest.raises(DocumentNotFoundError):
-                await tool_read(database, client, address_change_id=ObjectId())
-            return ended, await refused_code(discard(database, client, started.id)), await refused_code(resend(database, client, started.id))
+                await discard(database, client, ObjectId())
+            return await refused_code(discard(database, client, started.id)), await refused_code(resend(database, client, started.id))
 
-        assert on_a_person(mongo_replica_set_url, body) == (Code.ADDRESS_CHANGE_ENDED,) * 3
+        assert on_a_person(mongo_replica_set_url, body) == (Code.ADDRESS_CHANGE_ENDED,) * 2
 
     def test_the_re_send_replaces_the_link_and_keeps_the_stop_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1152,7 +1177,7 @@ class TestTheTool:
 
         assert on_a_person(mongo_replica_set_url, body) == Code.ADDRESS_CHANGE_NEW_TAKEN
 
-    @pytest.mark.parametrize("route", ["read-by-address", "read-by-id", "re-send", "discard"])
+    @pytest.mark.parametrize("route", ["re-send", "discard"])
     @pytest.mark.parametrize(("whose", "refused"), [("own", Code.OWN_ADDRESS), ("grant-holder", Code.ADMIN_ADDRESS)])
     def test_who_asks_is_refused_on_every_route_the_start_refuses_it(self, mongo_replica_set_url: str, route: str, whose: str, refused: str):
         """An administrator's own address, and a grant holder's for anyone without an owner's power: each route its own read."""
@@ -1165,8 +1190,6 @@ class TestTheTool:
             started = await administrator_starts(database, client, change_reason=CHANGE_REASON, address=address, operator=OWNER)
             before = await change(database, started.id)
             asked = {
-                "read-by-address": lambda: tool_read(database, client, address=address),
-                "read-by-id": lambda: tool_read(database, client, address_change_id=started.id),
                 "re-send": lambda: resend(database, client, started.id),
                 "discard": lambda: discard(database, client, started.id),
             }[route]
@@ -1203,31 +1226,25 @@ class TestALapse:
         assert on_a_person(mongo_replica_set_url, body) == (1, [])
 
 
-class TestEveryLinkIntoTheToolSaysWhetherItOpens:
-    """A page links a change's id into the address tool; a link the tool refuses its reader is a dead end, worded by why."""
+class TestEveryLinkSaysWhetherItOpens:
+    """An editor names a waiting change; one its reader may not read is a dead end, worded by why."""
 
     @pytest.mark.parametrize(
         ("reader", "grant"),
         [
-            pytest.param(EMAIL, True, id="a grant holder's own change, read by them: the tool refuses -003"),
-            pytest.param(ADMIN, True, id="a grant holder's change, read by an administrator: the tool refuses -005"),
-            pytest.param(OWNER, True, id="a grant holder's change, read by an owner: the tool opens it"),
-            pytest.param(ADMIN, False, id="a change holding no grant, read by an administrator: the tool opens it"),
+            pytest.param(EMAIL, True, id="a grant holder's own change, read by them"),
+            pytest.param(ADMIN, True, id="a grant holder's change, read by an administrator"),
+            pytest.param(OWNER, True, id="a grant holder's change, read by an owner"),
+            pytest.param(ADMIN, False, id="a change holding no grant, read by an administrator"),
         ],
     )
-    def test_each_read_serving_a_change_s_id_serves_the_tool_s_own_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
+    def test_each_read_serving_a_change_s_id_serves_its_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
         """The referee editor and the contacts editor."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if grant:
                 await granted(database)
             minted = await start(database, client)
-            try:
-                await tool_read(database, client, address_change_id=minted.id, operator=reader)
-                denied = None
-            except APIError as refused:
-                denied = {Code.OWN_ADDRESS: "own_address", Code.ADMIN_ADDRESS: "admin_address"}[refused.error_code]
-
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
             team = await call(get_team_saison_admin, database, client, team_id=TEAM_OID, saison_id=SAISON_ID, today=TODAY, operator=reader)
             seats = team.membership.address_change
@@ -1235,11 +1252,11 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
                 "referee": (referee.address_change_id, referee.address_change_viewable_denied),
                 "seats": (seats.ansprechperson, seats.viewable_denied.model_dump()),
             }
-            return minted.id, denied, served
+            return minted.id, served
 
-        minted, denied, served = on_a_person(mongo_replica_set_url, body)
+        minted, served = on_a_person(mongo_replica_set_url, body)
 
-        assert denied == {EMAIL: "own_address", ADMIN: "admin_address" if grant else None, OWNER: None}[reader]
+        denied = {EMAIL: "own_address", ADMIN: "admin_address" if grant else None, OWNER: None}[reader]
         expected = {
             "referee": (minted, denied),
             # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.

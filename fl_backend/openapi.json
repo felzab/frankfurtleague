@@ -1456,56 +1456,6 @@
         "title": "FLAddressChangeAddressResponse",
         "type": "object"
       },
-      "FLAddressChangeAdminHoldings": {
-        "description": "What the address holds that a change moves, counted: the tool names the kinds, the editors the records.",
-        "properties": {
-          "bewerbung_seats": {
-            "minimum": 0.0,
-            "title": "Bewerbung Seats",
-            "type": "integer"
-          },
-          "grant": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAdminTier"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "registrierungen": {
-            "minimum": 0.0,
-            "title": "Registrierungen",
-            "type": "integer"
-          },
-          "schiedsrichter": {
-            "minimum": 0.0,
-            "title": "Schiedsrichter",
-            "type": "integer"
-          },
-          "seats": {
-            "minimum": 0.0,
-            "title": "Seats",
-            "type": "integer"
-          },
-          "spieler": {
-            "minimum": 0.0,
-            "title": "Spieler",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spieler",
-          "schiedsrichter",
-          "seats",
-          "bewerbung_seats",
-          "registrierungen",
-          "grant"
-        ],
-        "title": "FLAddressChangeAdminHoldings",
-        "type": "object"
-      },
       "FLAddressChangeAdminListResponse": {
         "description": "The running changes this administrator may act on, newest first.",
         "properties": {
@@ -1614,6 +1564,16 @@
             "title": "Expired",
             "type": "boolean"
           },
+          "holder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAdminTier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -1661,6 +1621,7 @@
           "email",
           "way",
           "change_reason",
+          "holder",
           "waits_on",
           "sent_at",
           "valid_until",
@@ -1701,71 +1662,6 @@
           "change_reason"
         ],
         "title": "FLAddressChangeAdminPayload",
-        "type": "object"
-      },
-      "FLAddressChangeAdminViewPayload": {
-        "additionalProperties": false,
-        "description": "Exactly one key: the address typed, or the change a page links to.",
-        "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "maxLength": 254,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "address_change_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address Change Id"
-          }
-        },
-        "title": "FLAddressChangeAdminViewPayload",
-        "type": "object"
-      },
-      "FLAddressChangeAdminViewResponse": {
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "holdings": {
-            "$ref": "#/components/schemas/FLAddressChangeAdminHoldings"
-          },
-          "open": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAddressChangeAdminOpen"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "possible": {
-            "title": "Possible",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "address",
-          "holdings",
-          "possible",
-          "open"
-        ],
-        "title": "FLAddressChangeAdminViewResponse",
         "type": "object"
       },
       "FLAddressChangeAnswer": {
@@ -2124,6 +2020,18 @@
       "FLAddressChangeViewEnded": {
         "description": "What either link opens once its change ended, for as long as its record is kept.",
         "properties": {
+          "confirmed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed On"
+          },
           "ended_on": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ended On",
@@ -2167,7 +2075,8 @@
           "kind",
           "ended_on",
           "way",
-          "released_on"
+          "released_on",
+          "confirmed_on"
         ],
         "title": "FLAddressChangeViewEnded",
         "type": "object"
@@ -2175,6 +2084,18 @@
       "FLAddressChangeViewNew": {
         "description": "What the new mailbox's link opens while the change stands.",
         "properties": {
+          "confirmed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed On"
+          },
           "effective_from": {
             "anyOf": [
               {
@@ -2235,7 +2156,8 @@
           "valid_until",
           "effective_from",
           "way",
-          "email"
+          "email",
+          "confirmed_on"
         ],
         "title": "FLAddressChangeViewNew",
         "type": "object"
@@ -19037,84 +18959,6 @@
         "tags": [
           "address_change"
         ]
-      }
-    },
-    "/api/v0/address_change/view": {
-      "post": {
-        "description": "Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.\n\nADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;\nnever a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.\n\nRefused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a grant\nunless the owner asks (`admin_address`). A change id answers 404 where no change is kept, and `address_change_ended`\nwhere it ended.",
-        "operationId": "address_change_get_address_change_admin_view",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLAddressChangeAdminViewPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAdminViewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Show what an address holds that a change moves, and its live change",
-        "tags": [
-          "address_change"
-        ],
-        "x-safe": true
       }
     },
     "/api/v0/address_change/{address_change_id}": {

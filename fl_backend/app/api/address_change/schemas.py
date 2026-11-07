@@ -146,6 +146,8 @@ class FLAddressChangeViewNew(BaseModel):
     # The address this link was mailed to, exactly where `valid`: the question its holder answers names it, and the holder
     # of that mailbox knows it.
     email: str | None
+    # The German day the new mailbox confirmed it; `effective_from` is the wait's end, a day or a week later.
+    confirmed_on: CustomDateString | None
 
 
 class FLAddressChangeViewPrevious(BaseModel):
@@ -156,8 +158,8 @@ class FLAddressChangeViewPrevious(BaseModel):
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
-    # The new address, exactly where the person's own change waits on this link (`release_open` on `account`): the holder
-    # of the address on file cannot judge a change without the address it goes to.
+    # The new address while the change stands, null past this link's own deadline: the holder of the address on file cannot
+    # judge a change without it. Masked on `waiting_period`, whose start may be a pretext for learning a person's new mailbox.
     email: str | None
     # The German day the address on file confirmed the change, which a link opened again names; null before.
     released_on: CustomDateString | None
@@ -175,6 +177,8 @@ class FLAddressChangeViewEnded(BaseModel):
     way: FLAddressChangeWay
     # The German day the address on file confirmed it, on the address on file's side once it has; null otherwise.
     released_on: CustomDateString | None
+    # The German day the new mailbox confirmed it, on the new side once it has: `ended_on` is the effect's day.
+    confirmed_on: CustomDateString | None
 
 
 class FLAddressChangeViewResponse(BaseAPIResponse):
@@ -208,33 +212,6 @@ class FLAddressChangeStopResponse(BaseAPIResponse):
 # --- The administrator's tool, keyed by the address it types.
 
 
-class FLAddressChangeAdminViewPayload(BaseModel):
-    """Exactly one key: the address typed, or the change a page links to."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    address: CustomEmail | None = None
-    address_change_id: CustomObjectId | None = None
-
-    @model_validator(mode="after")
-    def exactly_one_key(self) -> Self:
-        if (self.address is None) == (self.address_change_id is None):
-            raise ValueError("name either the address or the change, and not both")
-
-        return self
-
-
-class FLAddressChangeAdminHoldings(BaseModel):
-    """What the address holds that a change moves, counted: the tool names the kinds, the editors the records."""
-
-    spieler: int = Field(ge=0)
-    schiedsrichter: int = Field(ge=0)
-    seats: int = Field(ge=0)
-    bewerbung_seats: int = Field(ge=0)
-    registrierungen: int = Field(ge=0)
-    grant: FLAdminTier | None
-
-
 class FLAddressChangeAdminOpen(BaseModel):
     """One live change whole, admin tier: both addresses and the reason included, never a hash."""
 
@@ -243,6 +220,8 @@ class FLAddressChangeAdminOpen(BaseModel):
     email: str
     way: FLAddressChangeWay
     change_reason: str | None
+    # The tier the changing address holds, whose holders a change in its wait mails; null for anyone else.
+    holder: FLAdminTier | None
     waits_on: FLAddressChangeWaitsOn
     sent_at: CustomDateString
     valid_until: FLUtcInstant | None
@@ -259,13 +238,6 @@ class FLAddressChangeAdminListResponse(BaseAPIResponse):
     """The running changes this administrator may act on, newest first."""
 
     changes: list[FLAddressChangeAdminOpen]
-
-
-class FLAddressChangeAdminViewResponse(BaseAPIResponse):
-    address: str
-    holdings: FLAddressChangeAdminHoldings
-    possible: bool
-    open: FLAddressChangeAdminOpen | None
 
 
 class FLAddressChangeAdminPayload(BaseModel):

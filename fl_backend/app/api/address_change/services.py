@@ -259,6 +259,18 @@ def previous_state(record: Mapping[str, Any], *, now: datetime) -> FLAddressChan
     return _PREVIOUS[waits]
 
 
+def previous_side_email(record: Mapping[str, Any], *, state: FLAddressChangePreviousState) -> str | None:
+    """The new address the address on file's link names, whole on the person's own change, which that address confirms.
+
+    Masked on an administrator's start: it may be a pretext, and whoever holds the old mailbox learns the new one.
+    """
+
+    if state == "release_expired":
+        return None
+
+    return str(record["email"]) if record["way"] == "account" else masked_address(str(record["email"]))
+
+
 def new_state(record: Mapping[str, Any], *, now: datetime, not_confirmable: bool) -> FLAddressChangeNewState:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 

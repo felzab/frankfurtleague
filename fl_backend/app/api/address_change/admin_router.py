@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import (
-    Holdings,
     Occupancy,
     address_taken,
     denied_addresses,
@@ -20,18 +19,14 @@ from app.api.address_change.crud import (
     tell_the_holders_of_the_end_in_session,
 )
 from app.api.address_change.schemas import (
-    FLAddressChangeAdminHoldings,
     FLAddressChangeAdminListResponse,
     FLAddressChangeAdminMintResponse,
     FLAddressChangeAdminOpen,
     FLAddressChangeAdminPayload,
-    FLAddressChangeAdminViewPayload,
-    FLAddressChangeAdminViewResponse,
     FLAddressChangeIdResponse,
 )
 from app.api.address_change.services import (
     LIVE_KEYED_TERMS,
-    build_address_filter,
     build_live_filter,
     build_resendable_terms,
     compose_link_update,
@@ -69,12 +64,12 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
-from app.core.routing import SAFE, by_id
+from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.literals import FLAddressChangeWay
+from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/address_change",
@@ -103,13 +98,16 @@ async def _pull_the_change(
     return record
 
 
-def _pending_addresses(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeAdminOpen:
+def _pending_addresses(
+    record: Mapping[str, Any], *, holder: FLAdminTier | None, delivery: FLOutboxStatus | None, now: datetime
+) -> FLAddressChangeAdminOpen:
     return FLAddressChangeAdminOpen(
         id=record["_id"],
         address=record["address"],
         email=record["email"],
         way=record["way"],
         change_reason=record.get("change_reason"),
+        holder=holder,
         waits_on=waits_on(record),
         sent_at=record["sent_at"],
         valid_until=stored_instant(record.get("valid_until")),
@@ -118,17 +116,6 @@ def _pending_addresses(record: Mapping[str, Any], *, delivery: FLOutboxStatus | 
         effective_from=stored_instant(record.get("effective_from")),
         delivery=delivery,
         expired=is_expired(record, now=now),
-    )
-
-
-def _holdings(holdings: Holdings) -> FLAddressChangeAdminHoldings:
-    return FLAddressChangeAdminHoldings(
-        spieler=0 if holdings.spieler is None else 1,
-        schiedsrichter=len(holdings.schiedsrichter),
-        seats=sum(len(slots) for _, slots in holdings.seats),
-        bewerbung_seats=sum(len(slots) for _, slots in holdings.bewerbung_seats),
-        registrierungen=len(holdings.registrierungen),
-        grant=None if holdings.grant is None else holdings.grant["admin_tier"],
     )
 
 
@@ -161,67 +148,22 @@ async def get_address_changes(
     denied = await denied_addresses(
         [str(row["address"]) for row in rows], actor=sign_in_identifier(operator), grants_collection=grants_collection, session=session
     )
+    tiers = {
+        sign_in_identifier(str(grant["address"])): grant["admin_tier"]
+        for grant in await read_grants(grants_collection=grants_collection, session=session)
+    }
 
     return FLAddressChangeAdminListResponse(
         changes=[
             _pending_addresses(
                 row,
+                holder=tiers.get(str(row["address"])),
                 delivery=await state_of_the_link(outbox_collection=outbox_collection, address_change_id=row["_id"], session=session),
                 now=germany_now,
             )
             for row in rows
             if str(row["address"]) not in denied
         ]
-    )
-
-
-@router.post(
-    "/view",
-    response_model=FLAddressChangeAdminViewResponse,
-    summary="Show what an address holds that a change moves, and its live change",
-    openapi_extra=SAFE,
-)
-async def get_address_change_admin_view(
-    view_data: Annotated[FLAddressChangeAdminViewPayload, Body()],
-    address_changes_collection: AddressChangeReadCollection,
-    outbox_collection: OutboxReadCollection,
-    records: SubjectLookup,
-    grants_collection: GrantsReadCollection,
-    session: SnapshotSession,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLAddressChangeAdminViewResponse:
-    """
-    Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.
-
-    ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
-    never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
-
-    Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a grant
-    unless the owner asks (`admin_address`). A change id answers 404 where no change is kept, and `address_change_ended`
-    where it ended.
-    """
-
-    actor_identifier = sign_in_identifier(operator)
-
-    # Every read in the request's snapshot session, so the tool names the records of one moment; never a transaction, a
-    # read writing nothing having no conflict to retry for.
-    if view_data.address_change_id is not None:
-        identifier = str((await _pull_the_change(address_changes_collection, view_data.address_change_id, session=session))["address"])
-    else:
-        identifier = sign_in_identifier(str(view_data.address))
-    await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
-    holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
-    open = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
-    delivery = (
-        None if open is None else await state_of_the_link(outbox_collection=outbox_collection, address_change_id=open["_id"], session=session)
-    )
-
-    return FLAddressChangeAdminViewResponse(
-        address=identifier,
-        holdings=_holdings(holdings),
-        possible=not holdings.empty,
-        open=None if open is None else _pending_addresses(open, delivery=delivery, now=germany_now),
     )
 
 

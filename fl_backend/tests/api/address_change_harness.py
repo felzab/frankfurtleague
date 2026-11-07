@@ -22,7 +22,6 @@ from app.api.account.person_router import get_address_change, post_address_chang
 from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.address_change.admin_router import (
     delete_address_change,
-    get_address_change_admin_view,
     get_address_changes,
     invite_address_change,
     post_address_change_admin,
@@ -30,7 +29,6 @@ from app.api.address_change.admin_router import (
 from app.api.address_change.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.address_change.schemas import (
     FLAddressChangeAdminPayload,
-    FLAddressChangeAdminViewPayload,
     FLAddressChangeAnswerPayload,
     FLAddressChangeSweepParams,
 )
@@ -377,11 +375,6 @@ async def administrator_starts(
         await call(post_address_change_admin, database, client, address_change_data=payload, **given),
         now=given.get("germany_now", NOW),
     )
-
-
-def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN, **key: Any) -> Awaitable[Any]:
-    payload = FLAddressChangeAdminViewPayload.model_validate(key)
-    return call(get_address_change_admin_view, database, client, view_data=payload, operator=operator)
 
 
 async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:

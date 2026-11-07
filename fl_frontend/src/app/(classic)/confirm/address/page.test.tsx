@@ -32,7 +32,7 @@ async function stateFor(view: FLAddressChangeViewResponse["view"]): Promise<Mail
 }
 
 const live = { valid_until: "2026-11-05T10:00:00Z", effective_from: null, way: "account", email: null } as const;
-const ended = { state: "ended", ended_on: DAY, way: "account", released_on: null } as const;
+const ended = { state: "ended", ended_on: DAY, way: "account", released_on: null, confirmed_on: null } as const;
 
 // A link opened again after its answer offers no press the backend could refuse, so the end it shows is the only
 // account of what happened: a change that took effect shown as a dead link misleads in silence.

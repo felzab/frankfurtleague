@@ -42,6 +42,7 @@ from app.api.address_change.services import (
     find_unknown_refusal,
     is_expired,
     new_state,
+    previous_side_email,
     previous_state,
     side_of,
     stored_instant,
@@ -97,6 +98,11 @@ _FIELDS: Mapping[str, int] = {
     "token_hashes": 1,
 }
 
+
+def _day_of(moment: datetime | None) -> str | None:
+    return None if moment is None else german_day(moment)
+
+
 # Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable.
 _NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 
@@ -138,6 +144,7 @@ async def get_address_change_view(
     refuse(find_unknown_refusal(found=record is not None))
     assert record is not None
     side = side_of(record, token_hash)
+    confirmed_at = stored_instant(record.get("confirmed_at"))
 
     ended = record.get("ended")
     if isinstance(ended, Mapping):
@@ -153,6 +160,7 @@ async def get_address_change_view(
                 ended_on=german_day(ended_at),
                 way=record["way"],
                 released_on=None if released_at is None else german_day(released_at),
+                confirmed_on=_day_of(confirmed_at) if side == "new" else None,
             )
         )
 
@@ -167,8 +175,7 @@ async def get_address_change_view(
                 valid_until=valid_until,
                 effective_from=effective_from,
                 way=record["way"],
-                # Only while the person's own change asks this link its question, never once that lapsed.
-                email=str(record["email"]) if state_previous == "release_open" else None,
+                email=previous_side_email(record, state=state_previous),
                 released_on=None if released_at is None else german_day(released_at),
             )
         )
@@ -200,6 +207,7 @@ async def get_address_change_view(
             effective_from=effective_from,
             way=record["way"],
             email=str(record["email"]) if state == "valid" else None,
+            confirmed_on=_day_of(confirmed_at),
         )
     )
 

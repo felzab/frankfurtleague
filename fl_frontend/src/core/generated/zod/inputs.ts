@@ -265,30 +265,6 @@ export const AddressChangePostAddressChangeMovesDoneBody = zod.object({
 });
 
 /**
- * Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.
- *
- * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
- * never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
- *
- * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a grant
- * unless the owner asks (`admin_address`). A change id answers 404 where no change is kept, and `address_change_ended`
- * where it ended.
- * @summary Show what an address holds that a change moves, and its live change
- */
-export const addressChangeGetAddressChangeAdminViewBodyAddressOneMax = 254;
-
-export const addressChangeGetAddressChangeAdminViewBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const AddressChangeGetAddressChangeAdminViewBody = zod
-  .object({
-    address: zod.union([zod.string().max(addressChangeGetAddressChangeAdminViewBodyAddressOneMax), zod.null()]).optional(),
-    address_change_id: zod
-      .union([zod.string().regex(addressChangeGetAddressChangeAdminViewBodyAddressChangeIdOneRegExp), zod.null()])
-      .optional(),
-  })
-  .describe("Exactly one key: the address typed, or the change a page links to.");
-
-/**
  * Discard the change this id names: its links open nothing to press, and the address on file stays.
  *
  * A holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page

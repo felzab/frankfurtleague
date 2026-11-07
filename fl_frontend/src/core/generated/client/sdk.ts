@@ -30,8 +30,6 @@ import type {
   FLAddressChangeAdminListResponse,
   FLAddressChangeAdminMintResponse,
   FLAddressChangeAdminPayload,
-  FLAddressChangeAdminViewPayload,
-  FLAddressChangeAdminViewResponse,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
   FLAddressChangeIdResponse,
@@ -674,45 +672,6 @@ export const addressChangePostAddressChangeMovesDone = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLAddressChangeMovesDonePayload),
-  });
-};
-
-export const getAddressChangeGetAddressChangeAdminViewUrl = () => {
-  return `/api/v0/address_change/view`;
-};
-
-/**
- * Answer what the typed address holds that a change moves, by kind, and its live change whole, the new address and reason included.
- *
- * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
- * never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
- *
- * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a grant
- * unless the owner asks (`admin_address`). A change id answers 404 where no change is kept, and `address_change_ended`
- * where it ended.
- * @summary Show what an address holds that a change moves, and its live change
- */
-export const addressChangeGetAddressChangeAdminView = async (
-  fLAddressChangeAdminViewPayload: FLAddressChangeAdminViewPayload,
-  options?: Parameters<typeof adminKeyReadTransport>[1],
-): Promise<FLAddressChangeAdminViewResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyReadTransport<FLAddressChangeAdminViewResponse>(getAddressChangeGetAddressChangeAdminViewUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAddressChangeAdminViewPayload),
   });
 };
 
