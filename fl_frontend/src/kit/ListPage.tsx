@@ -28,7 +28,7 @@ import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { DialogAct } from "./dialogAct";
 import type { EmptyStateProps } from "./EmptyState";
@@ -100,6 +100,13 @@ type ListContent =
       content: Promise<TableContent>;
     }
   | {
+      kind: "folds";
+      /** The cards while they wait, `OpenFoldPlaceholder`, which the page places as it places the cards. */
+      wait: ReactElement;
+      /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
+      content: Promise<ReactElement>;
+    }
+  | {
       kind: "spieltage";
       /** Each matchday's panel opens with its dates and its act, as the administrator's „Spiele“ list's do. */
       dated?: true;
@@ -161,6 +168,8 @@ function ListPlaceholder({ list }: { list: ListContent }) {
           rows={list.wait}
         />
       );
+    case "folds":
+      return list.wait;
     case "groups":
       return Array.from({ length: list.wait.groups }, (_, index) => (
         <CardPlaceholder
@@ -274,10 +283,17 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
 export type ListCreate = DialogAct & { locked?: Copy };
 
 /**
- * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
- * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide.
+ * A toolbar act the read decides, as Administratoren's are: its words, which its wait draws at their width, and the act,
+ * `null` for a reader whose role never holds it, or `locked` while the list as read shuts it.
  */
-function CreatePlaceholder() {
+export type ListActOnceRead = { label: Copy; act: Promise<ListCreate | null> };
+
+/**
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
+ * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide,
+ * unless the page states the words.
+ */
+function CreatePlaceholder({ label = actLabel({ verb: "create", object: SAISON_WORDS }) }: { label?: Copy }) {
   return (
     <Placeholder>
       <span className={buttonPlaceholder()}>
@@ -285,19 +301,21 @@ function CreatePlaceholder() {
           glyph="create"
           size={16}
         />
-        {actLabel({ verb: "create", object: SAISON_WORDS })}
+        {label}
       </span>
     </Placeholder>
   );
 }
 
-/** The create act at the toolbar row's end, its button opening the dialog over the list. */
-function CreateAct({ create }: { create: ListCreate }) {
-  const { locked, ...act } = create;
+/**
+ * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second
+ * act before it, a secondary button.
+ */
+function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate; side?: boolean }) {
   const button = (
     <Button
-      variant="primary"
-      leadingIcon="create"
+      variant={side ? "secondary" : "primary"}
+      {...(side ? {} : { leadingIcon: "create" as const })}
       label={actLabel(act.act)}
       locked={locked}
     />
@@ -312,9 +330,17 @@ function CreateAct({ create }: { create: ListCreate }) {
   );
 }
 
-/** The create act once what it makes is read. */
-async function CreateOnceRead({ create }: { create: Promise<ListCreate> }) {
-  return <CreateAct create={await create} />;
+/** A toolbar act once what it makes is read, absent for a reader who never holds it. */
+async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate | null>; side?: boolean }) {
+  const read = await act;
+  return (
+    read !== null && (
+      <ToolbarAct
+        act={read}
+        side={side}
+      />
+    )
+  );
 }
 
 /**
@@ -363,6 +389,8 @@ async function ListBody({ list }: { list: ListContent }) {
         />
       );
     }
+    case "folds":
+      return list.content;
     case "spieltage": {
       const { tabs, empty } = await list.content;
       return tabs === null ? <EmptyBox empty={empty} /> : <Spieltage {...tabs} />;
@@ -438,9 +466,10 @@ async function ListBody({ list }: { list: ListContent }) {
 /**
  * The list template: the page's title in the strip; one toolbar row holding the search field where the list
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
- * creating a record over the list; then the list. The list is a table whose rows open their records,
- * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
- * matchday tabs, one matchday at a time, opening on the one the server names; or one card per group, its
+ * creating a record over the list, a second act before it where the list holds one; then the list. The list is a
+ * table whose rows open their records or carry their acts, „Weitere 50 laden“ under it only while the server reports
+ * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
+ * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
  * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
@@ -455,6 +484,7 @@ export function ListPage({
   filters,
   filterCount = 1,
   create,
+  sideAct,
   link,
   notice,
   list,
@@ -469,17 +499,20 @@ export function ListPage({
   filterCount?: number;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
-   * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
-   * its own and stands in the toolbar once read.
+   * where what it makes is the list's to say, as the Saisons list names the next season, or whether it stands at all, so
+   * it waits in a boundary of its own and stands in the toolbar once read.
    */
-  create?: ListCreate | Promise<ListCreate>;
+  create?: ListCreate | Promise<ListCreate> | ListActOnceRead;
+  /** A second act on the list as a whole, such as Administratoren's handover: a secondary button before the create act. */
+  sideAct?: ListActOnceRead;
   link?: ListLink;
   /** What holds of the list as read and no row says, standing between the toolbar and the list. */
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
   const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
-  const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || link !== undefined;
+  const hasActs = create !== undefined || sideAct !== undefined;
+  const hasToolbar = search !== undefined || filters !== undefined || hasActs || link !== undefined;
 
   return (
     <RailPage {...head}>
@@ -487,21 +520,39 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          <div className="flex flex-wrap items-center gap-3">
-            {search !== undefined && <ListSearchField label={search.label} />}
+          // Left out where the read leaves a reader no act: an empty row would still hold the page's gap.
+          <div className="flex flex-wrap items-center gap-3 has-[>:only-child:empty]:hidden">
+            {search !== undefined && <ListSearchField {...search} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
-            {create !== undefined && (
-              <div className="ms-auto">
-                {create instanceof Promise ? (
+            {hasActs && (
+              <div className="ms-auto flex flex-wrap items-center justify-end gap-3">
+                {sideAct !== undefined && (
+                  <Suspense
+                    fallback={
+                      <Placeholder>
+                        <span className={buttonPlaceholder()}>{sideAct.label}</span>
+                      </Placeholder>
+                    }>
+                    <ToolbarActOnceRead
+                      act={sideAct.act}
+                      side
+                    />
+                  </Suspense>
+                )}
+                {create === undefined ? null : create instanceof Promise ? (
                   <Suspense fallback={<CreatePlaceholder />}>
-                    <CreateOnceRead create={create} />
+                    <ToolbarActOnceRead act={create} />
+                  </Suspense>
+                ) : "label" in create ? (
+                  <Suspense fallback={<CreatePlaceholder label={create.label} />}>
+                    <ToolbarActOnceRead act={create.act} />
                   </Suspense>
                 ) : (
-                  <CreateAct create={create} />
+                  <ToolbarAct act={create} />
                 )}
               </div>
             )}

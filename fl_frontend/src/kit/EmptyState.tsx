@@ -13,7 +13,10 @@ import type { IconName } from "./Icon";
  */
 export type EmptyStateProps = {
   kind: "search" | "filter" | "none";
-  /** The list's own plural, „Spielorte“, from its title's key. */
+  /**
+   * The list's own plural: its title's entry where its title is a plural, „Spielorte“, and otherwise the noun the
+   * catalogue keeps for its rows, „Sperren“ under the title „Sperrliste“.
+   */
   plural: Copy;
   /**
    * The list is one record named by a masculine or neuter noun rather than a plural, as a team's „Kader“, so

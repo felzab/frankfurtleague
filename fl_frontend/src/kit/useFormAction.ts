@@ -34,9 +34,10 @@ export function answering<Payload, Value>(
 }
 
 /**
- * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields.
+ * A form's status line: its words and its tone, or nothing. `changes` is the editor's count of unsaved fields, `warn`
+ * an act that partly happened.
  */
-export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | null;
+export type FormStatus = { tone: "changes" | "saved" | "warn" | "error"; text: Copy } | null;
 
 /**
  * The status line of a send. One the browser kept back for a field's own rule points at the fields, as does
@@ -50,10 +51,11 @@ export type FormStatus = { tone: "changes" | "saved" | "error"; text: Copy } | n
 export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean): FormStatus {
   if (isBlocked) return { tone: "error", text: COPY.template.checkFields };
   if (answer === null || isPending) return null;
-  if (answer.ok) return { tone: "saved", text: answer.note ?? COPY.shared.saved };
+  if (answer.ok) return { tone: answer.warn === true ? "warn" : "saved", text: answer.note ?? COPY.shared.saved };
   // A save held back for its question: the question says what, and nothing failed.
   if (answer.ask !== undefined) return null;
-  if (answer.fieldErrors === undefined) return { tone: "error", text: answer.reason ?? COPY.shared.failure.unexpected };
+  if (answer.fieldErrors === undefined)
+    return { tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected };
   // A reason beside the fields stands before their pointer, being said nowhere else, unless a box already says it.
   const { reason } = answer;
   const unsaid = reason !== undefined && !Object.values(answer.fieldErrors).includes(reason);

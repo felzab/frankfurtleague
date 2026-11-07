@@ -11,9 +11,20 @@ import type { Copy } from "@/core/copy";
 /**
  * Find in a list: one field above it, named by `label` for assistive technology, with the magnifier at
  * its start and a clearing button once something is typed. What is typed stays on the page and never
- * enters the address.
+ * enters the address. A search the server bounds passes that bound as `maxLength`, so the box stops a paste there rather
+ * than send a text the read refuses.
  */
-export function SearchField({ label, value, onChange }: { label: Copy; value?: string; onChange: (text: string) => void }) {
+export function SearchField({
+  label,
+  value,
+  onChange,
+  maxLength,
+}: {
+  label: Copy;
+  value?: string;
+  onChange: (text: string) => void;
+  maxLength?: number;
+}) {
   const root = useEarlyEdit();
   return (
     <AriaSearchField
@@ -21,6 +32,7 @@ export function SearchField({ label, value, onChange }: { label: Copy; value?: s
       aria-label={label}
       value={value}
       onChange={onChange}
+      maxLength={maxLength}
       className="group">
       <div
         data-kit-focus="field"

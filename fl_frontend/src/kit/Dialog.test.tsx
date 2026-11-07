@@ -119,6 +119,34 @@ describe("the kit's confirmation", () => {
     await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
   });
 
+  // The harm: an erasure that took the league's data and not the account reads as a refusal, or leaves no way to finish.
+  it.each([
+    ["warn", { ok: false, reason: COPY.shared.failure.stale, warn: true }, "text-warn"],
+    ["error", { ok: false, reason: COPY.shared.failure.stale }, "text-danger"],
+  ] as const)("reads an unfinished act in the %s tone, its question open and its act pressable", async (_tone, answer: ActionAnswer, look) => {
+    render(
+      <ConfirmDialog
+        verb="retire"
+        subject={NAME}
+        consequence={COPY.admin.spielort.retireConsequence}
+        tone="danger"
+        trigger={
+          <Button
+            variant="danger"
+            label={COPY.shared.verb.retire}
+          />
+        }
+        onConfirm={async () => answer}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
+
+    const question = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(within(question).getByRole("status").parentElement?.className).toContain(look));
+    expect(within(question).getByRole("button", { name: COPY.shared.verb.retire }).hasAttribute("disabled")).toBe(false);
+  });
+
   // The harm: Escape pressed while the act runs closing the question, so its refusal, still on its way, is shown nowhere.
   it("keeps Escape from closing it while its act runs, and lets it again once the act has answered", async () => {
     const answer = Promise.withResolvers<ActionAnswer>();
@@ -240,6 +268,61 @@ describe("the kit's dialog", () => {
     await waitFor(() => expect(screen.getByText(note)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
+  });
+
+  // The harm: what an act does and to whom, drawn above the inputs or left out, is read after the choice it informs, or never.
+  it("says its sentence and its facts between its inputs and its acts", async () => {
+    const consequence = COPY.admin.banList.consequence;
+    render(
+      <Dialog
+        title={NAME}
+        act={{ verb: "create", object: NAME }}
+        action={async () => DONE}
+        consequence={consequence}
+        facts={[{ label: COPY.admin.banList.duration, value: COPY.admin.banList.durationSaisons(5) }]}
+        trigger={
+          <Button
+            variant="secondary"
+            label={COPY.shared.verb.create}
+          />
+        }>
+        <TextField
+          label={INPUT}
+          name="created"
+          width="W3"
+          kind="text"
+        />
+      </Dialog>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
+
+    const sentence = await screen.findByText(consequence);
+    const input = screen.getByRole("textbox");
+    const act = screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") });
+    const fact = screen.getByText(COPY.admin.banList.durationSaisons(5));
+    expect(input.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sentence.compareDocumentPosition(fact) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fact.compareDocumentPosition(act) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // The harm: a ban that stands with its mail unsent reads as a clean save, or as a ban that failed and needs pressing again.
+  it("reads a done act's note in the warn tone where the answer marks it, the dialog open and its act closed", async () => {
+    const note = COPY.admin.banList.partial.notice;
+    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note, warn: true })} />);
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.getByText(note).closest("p")?.className).toContain("text-warn"));
+    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("reads a done act's note unmarked as ever, in the saved tone", async () => {
+    const note = COPY.admin.spiel.alsoChanged([5, 7]);
+    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
+
+    await createThroughTheDialog();
+
+    await waitFor(() => expect(screen.getByText(note).closest("p")?.className).toContain("text-success"));
   });
 
   // The harm: a refused create closing its dialog, the refusal shown nowhere.
