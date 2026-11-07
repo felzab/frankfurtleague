@@ -123,8 +123,10 @@ REFERENCES_ADDRESSES_MAX: Final = 250
 # no calendar months.
 ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
-# One page of the Protokoll, as „Weitere 50 laden“ words it.
-ACTION_LOG_PAGE_SIZE: Final = 50
+# One page of the Protokoll. Published as `ADDRESS_CHANGE_BOUNDS` are: „Weitere 50 laden“ states the figure, and
+# `fl_frontend/src/core/copy.ts` checks its constant against this alias.
+type FLActionLogPageSize = Literal[50]
+ACTION_LOG_PAGE_SIZE: Final[FLActionLogPageSize] = 50
 
 # The days the Protokoll's filters may name: wider than any row's, and each with a next midnight and a UTC instant that
 # `date` and BSON can hold, so a day past them is refused rather than overflowing into a 500.

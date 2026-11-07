@@ -666,6 +666,8 @@ export interface FLActionLogListResponse {
   cursor: string | null;
 }
 
+export type FLActionLogPageSize = 50;
+
 /**
  * How many seasons the activation moved off `active` -- normally exactly one.
  */

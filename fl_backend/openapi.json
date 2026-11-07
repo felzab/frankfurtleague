@@ -1409,6 +1409,10 @@
         "title": "FLActionLogListResponse",
         "type": "object"
       },
+      "FLActionLogPageSize": {
+        "const": 50,
+        "type": "integer"
+      },
       "FLActionType": {
         "enum": [
           "saison",
