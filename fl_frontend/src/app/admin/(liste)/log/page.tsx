@@ -49,8 +49,8 @@ const HEAD: TableHead = {
   stack: true,
   linked: false,
   columns: [
-    { key: "who", label: WORDS.who, width: "line" },
-    { key: "when", label: WORDS.when, width: "phone" },
+    { key: "who", label: WORDS.who, width: "line", cut: true },
+    { key: "when", label: WORDS.when, width: "instant" },
   ],
 };
 

@@ -182,8 +182,10 @@ const PHONE_END_ROW = "max-lg:grid-cols-[minmax(0,1fr)_auto] max-lg:gap-x-3";
 /** That chevron's column, the row's second, centring the chevron on the lines it spans. */
 const PHONE_END = "max-lg:col-start-2 max-lg:flex max-lg:w-auto max-lg:items-center max-lg:pe-0";
 
-/** An act row's name on a phone: its own line across the row, wrapping rather than cut. */
+/** Words on a phone wrapping rather than cut, a long address breaking anywhere rather than widening the row. */
 const PHONE_WRAPS = "max-lg:whitespace-normal max-lg:wrap-anywhere";
+
+/** An act row's name on a phone: its own line across the row. */
 const PHONE_WHOLE_NAME = `max-lg:col-span-full max-lg:px-3 max-lg:pt-3 ${PHONE_WRAPS}`;
 
 /** What else the name cell holds, on a line of its own under the name. */
@@ -300,7 +302,7 @@ const table = tv({
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
         name: "max-lg:col-start-1 max-lg:w-auto max-lg:px-0 max-lg:py-0",
-        cell: "max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start max-lg:whitespace-normal",
+        cell: `max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start ${PHONE_WRAPS}`,
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
@@ -363,6 +365,8 @@ const table = tv({
     { align: "centre", compact: true, class: { head: "max-lg:w-7", cell: "max-lg:w-7" } },
     // Restated after the variants, so a stacked row's grid cell never draws a column the phone leaves out.
     { phone: "hidden", class: { head: "max-lg:hidden", cell: "max-lg:hidden" } },
+    // A stacked row's grid cell has a width of its own, which `max-w-0` would take to nothing.
+    { cut: true, stack: true, class: { cell: "max-lg:max-w-none" } },
     // A prose or a stacked row on a phone stands its cells in one column and its chevron in a column of its own at its
     // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
     { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
@@ -429,7 +433,7 @@ function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<Table
  * of the digits, and its name tells a screen reader what no line explains.
  * A record is its three counts, `RecordFigures`.
  */
-function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean; cut: boolean }) {
+function Cell({ cell, slot, cut, stack }: { cell: TableCell | undefined; slot: boolean; cut: boolean; stack: boolean }) {
   if (cell === undefined) return null;
   if (typeof cell === "object" && "counts" in cell) return <RecordFigures counts={cell.counts} />;
   const { value, cancelled } = typeof cell === "object" && "cancelled" in cell ? cell : { value: cell, cancelled: 0 };
@@ -437,7 +441,7 @@ function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean;
     return (
       <CutText
         text={textOf(value)}
-        className="block truncate"
+        className={stack ? `block truncate ${PHONE_WRAPS}` : "block truncate"}
       />
     );
   if (!slot) return textOf(value);
@@ -724,6 +728,7 @@ export function Table({
                           cell={row.cells[column.key]}
                           slot={marked.has(column.key)}
                           cut={column.cut === true}
+                          stack={stack}
                         />
                       </td>
                     );
