@@ -852,6 +852,17 @@ class TestTheSeasonAndOneClock:
         # The block's own keys survive around the clearing: the row is still a junction row.
         assert (row["gruppe"], row["trikot_farbe"]) == ("B", "blau")
 
+    def test_a_pass_finding_no_block_left_writes_no_row(self, mongo_replica_set_url: str):
+        """Every hourly pass reads every old season, so a row for a pass that took nothing would fill the Protokoll."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
+            await sweep(database, client)
+            await sweep(database, client)
+
+            return await database[Collection.ACTION_LOG].count_documents({"action": "retention.kontakte"})
+
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="past") == 1
+
     @pytest.mark.parametrize("people", [pytest.param(kontakte(), id="beside their people"), pytest.param(None, id="left by an older image")])
     def test_the_rows_confirmation_links_and_their_delivery_records_go_too(self, mongo_replica_set_url: str, people: Any):
         """A link's entry carries a token hash and the delivery record of its message, neither of which has a clock of its own."""

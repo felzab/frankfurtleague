@@ -587,6 +587,18 @@ class TestTheSeasonWidePress:
         assert hashes == []
         assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
 
+    def test_the_press_writes_its_one_row_and_a_re_send_writes_none(self, mongo_replica_set_url: str):
+        """The Protokoll records no re-send, and a row for each would bury the press that matters."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await press(database)
+            first = await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
+            await press(database, resend=True)
+
+            return first, await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
+
+        assert on_a_league(mongo_replica_set_url, body) == (1, 1)
+
     def test_a_re_send_replaces_the_mailed_teams_link(self, mongo_replica_set_url: str):
         """The raw value is recoverable from nothing, so a link to be mailed again is one that has just been minted."""
 

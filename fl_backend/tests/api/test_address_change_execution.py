@@ -948,6 +948,18 @@ class TestAHoldersOwnChange:
             ("grant.address_switched", "system", NEW_EMAIL),
         ]
 
+    def test_a_lost_mailbox_start_names_the_league_and_never_the_person_it_moves(self, mongo_replica_set_url: str):
+        """That person may be the change's victim, and the row would name them as having asked for it for a year."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await administrator_starts(database, client, change_reason=CHANGE_REASON, operator=OWNER)
+            await answer(database, client, minted.token)
+            rows = database[Collection.ACTION_LOG].find({"record_id": minted.id, "action": "grant.address_change_started"})
+            return [row["by"] async for row in rows]
+
+        assert on_a_person(mongo_replica_set_url, body) == ["system"]
+
 
 class TestTheRunningChanges:
     def test_the_list_leaves_out_the_actor_s_own_row_and_a_holder_s_unless_the_owner_asks(self, mongo_replica_set_url: str):
