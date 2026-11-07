@@ -57,7 +57,7 @@ describe("an open card's wait", () => {
       />,
     );
     expect(screen.getByText(COPY.admin.team.active)).toBeTruthy();
-    expect(container.querySelector("svg")?.parentElement?.className).toContain("rotate-90");
+    expect(container.querySelector("svg")?.parentElement?.classList.contains("rotate-90")).toBe(true);
     expect(container.querySelectorAll("tbody tr")).toHaveLength(3);
   });
 });
