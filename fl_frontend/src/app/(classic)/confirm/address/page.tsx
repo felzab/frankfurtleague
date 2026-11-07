@@ -107,13 +107,13 @@ async function ownWay(view: FLAddressChangeViewResponse["view"], token: string):
       );
     }
     const released = dayOf(view.released_on);
-    // Confirmed, the change waiting on the new mailbox; an approval a grant holder's change waits on is the old view's.
+    // Confirmed, the change waiting on the new mailbox; a holder's wait offers the old view's stop.
     if (view.state === "open" && released !== null) return doneOnEnd("previous", "confirmed", released);
-    return view.state === "approval" ? oldView(viewOf({ view }), token) : INVALID;
+    return view.state === "waiting_period" ? oldView(viewOf({ view }), token) : INVALID;
   }
 
-  // Waiting on an approval after the new mailbox confirmed: the old view's, with the approval.
-  if (view.state === "confirmed" || view.state === "approval_expired") return oldView(viewOf({ view }), token);
+  // A holder's wait after the new mailbox confirmed: the old view's, with its date.
+  if (view.state === "confirmed") return oldView(viewOf({ view }), token);
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
   if (view.state !== "valid" || view.email === null || (await accountAtTheNewAddress(token))) return INVALID;
   return question("new", token, COPY.shared.withObject(COPY.signIn.address, "confirm"), COPY.signIn.address, view.email, WORDS.new.question);

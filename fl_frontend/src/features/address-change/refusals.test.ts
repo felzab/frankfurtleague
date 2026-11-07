@@ -8,10 +8,8 @@ describe("what one refused press asks the link page to show", () => {
   for (const [code, state] of [
     ["link_invalid", "invalid"],
     ["link_expired", "expired"],
-    ["link_barred", "barred"],
-    ["address_change_replaced_barred", "not_confirmable"],
+    ["address_change_nothing", "not_confirmable"],
     ["address_change_taken", "not_confirmable"],
-    ["address_change_not_covered", "not_confirmable"],
     ["address_change_new_granted", "not_confirmable"],
     ["duplicate_key", "not_confirmable"],
   ] as const) {

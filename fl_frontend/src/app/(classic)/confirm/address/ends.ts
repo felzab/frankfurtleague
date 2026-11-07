@@ -3,6 +3,7 @@ import "server-only";
 import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { COPY } from "@/core/copy";
+import { dayIn } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -27,14 +28,14 @@ const DONE = {
 
 /**
  * The end an answer reaches. The new address's confirmation leads to signing in with it; the address on file's to
- * Konto, where the change waits on the new mailbox; a decline, on the danger tint, to the start page. A grant holder's
- * confirmed change still waits on its approval, which the done state's title says, on the info tint, and leads to
- * Konto, where the waiting change stands, in place of the sign-in.
+ * Konto, where the change waits on the new mailbox; a decline, on the danger tint, to the start page. A holder's
+ * confirmed change waits, which the done state's title says with its day, on the info tint, and leads to Konto, where
+ * the waiting change stands, in place of the sign-in.
  */
-export function endOf(side: Side, answer: "confirmed" | "declined", approvalOpen: boolean): EndState {
+export function endOf(side: Side, answer: "confirmed" | "declined", effectiveFrom: string | null): EndState {
   if (answer === "declined") return { tone: "danger", title: WORDS.declined, next: TO_HOME };
   if (side === "previous") return { tone: "success", title: DONE.previous, next: TO_ACCOUNT };
-  if (approvalOpen) return { tone: "info", title: WORDS.new.awaitsApproval, next: TO_ACCOUNT };
+  if (effectiveFrom !== null) return { tone: "info", title: WORDS.new.confirmedFrom(dayIn(new Date(effectiveFrom))), next: TO_ACCOUNT };
   return { tone: "success", title: DONE.new, next: { label: COPY.shared.verb.signIn, href: ROUTES.signIn.path() } };
 }
 

@@ -14,7 +14,6 @@ import { startOf } from "@/features/address-change/link";
 import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  AddressBarred,
   ANSWER_NOT_SAVED,
   ANSWER_NOT_SAVED_SENTENCE,
   AskQuestion,
@@ -65,16 +64,13 @@ const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 
 const STOPP_TITEL = "Änderung Deiner E-Mail-Adresse";
 
-/** One heading per live state. A barred link's page has none; an ended change's heading is its side's and its end's. */
-const TITEL: Record<Exclude<AddressChangeStart["state"], "barred" | "ended">, string> = {
+/** One heading per live state; an ended change's heading is its side's and its end's. */
+const TITEL: Record<Exclude<AddressChangeStart["state"], "ended">, string> = {
   valid: "Neue E-Mail-Adresse bestätigen",
   confirmed: "Adresse bestätigt",
   open: STOPP_TITEL,
-  approval: STOPP_TITEL,
   waiting_period: STOPP_TITEL,
   expired: "Link abgelaufen",
-  // The heading the change's tombstone reads once the hourly pass has ended it.
-  approval_expired: "Änderung abgelaufen",
   not_confirmable: "Bestätigung gerade nicht möglich",
   invalid: "Link ungültig",
   unlesbar: LINK_UNREADABLE_TITLE,
@@ -108,7 +104,7 @@ const ENDE: Record<FLAddressChangeEndKind, Record<Beendet["side"], { titel: stri
     previous: { titel: "Änderung abgelaufen", body: "Die Änderung ist abgelaufen und gelöscht. Diese Adresse bleibt." },
   },
   replaced: {
-    // A newer change waiting on the address on file's approval has mailed no link yet, so none is promised.
+    // A newer change waiting on the address on file's confirmation has mailed no link yet, so none is promised.
     new: {
       titel: "Link ersetzt",
       body: "Diese Änderung wurde durch eine neuere ersetzt. Gilt die neuere Dir, nimm nur einen Link aus einer späteren E-Mail.",
@@ -149,7 +145,7 @@ function nachDruck(antwort: AddressChangePressed, way: FLAddressChangeWay): Addr
   if (antwort.answer === "stopped") return { state: "ended", side: "previous", art: "stopped" };
   if (antwort.effective) return { state: "ended", side: "new", art: "effective" };
 
-  return { state: "confirmed", wirksamAb: antwort.effective_from, genehmigungOffen: antwort.approval_open, way };
+  return { state: "confirmed", wirksamAb: antwort.effective_from, way };
 }
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
@@ -270,9 +266,6 @@ function NurAblehnen({ antwort }: { antwort: Presse }) {
 
 /** The stop link's body for each step the change waits on, by the way it began. */
 function stoppSatz(state: OldViewPreviousState, way: FLAddressChangeWay, wirksamAb: string | null) {
-  if (state === "approval") {
-    return "Die neue E-Mail-Adresse ist bestätigt. Sie gilt erst, wenn die Verwaltung die Änderung genehmigt hat. Bis dahin meldest Du Dich weiter mit dieser Adresse an. Hast Du das nicht angefragt, stoppe die Änderung.";
-  }
   if (state === "waiting_period" && wirksamAb !== null) {
     return (
       <>
@@ -291,7 +284,7 @@ function stoppSatz(state: OldViewPreviousState, way: FLAddressChangeWay, wirksam
 
 /**
  * The stop link of the address on file, in every state the change can stand in: a stop hands nothing
- * over, so it is offered as the decline is. The approval is never here, needing a fresh sign-in.
+ * over, so it is offered as the decline is.
  */
 function StoppPanel({
   state,
@@ -322,22 +315,20 @@ function StoppPanel({
   );
 }
 
-/** What the new mailbox is told once its link is pressed and the change still waits on its time or an approval. */
-function bestaetigtSatz({ wirksamAb, genehmigungOffen }: { wirksamAb: string | null; genehmigungOffen: boolean }) {
-  const ab = wirksamAb === null ? null : <Value>{formatInstant(wirksamAb)}</Value>;
-  if (ab !== null && genehmigungOffen) {
-    return <>Danke. Die neue E-Mail-Adresse gilt frühestens ab {ab}, und erst wenn die Verwaltung die Änderung genehmigt hat.</>;
-  }
-  if (ab !== null) return <>Danke. Die neue E-Mail-Adresse gilt ab {ab}.</>;
-  if (genehmigungOffen) return "Danke. Die neue E-Mail-Adresse gilt, sobald die Verwaltung die Änderung genehmigt hat.";
+/** What the new mailbox is told once its link is pressed and the change still waits on its time. */
+function bestaetigtSatz({ wirksamAb }: { wirksamAb: string | null }) {
+  if (wirksamAb === null) return "Danke. Die neue E-Mail-Adresse ist bestätigt.";
 
-  return "Danke. Die neue E-Mail-Adresse ist bestätigt.";
+  return (
+    <>
+      Danke. Die neue E-Mail-Adresse gilt ab <Value>{formatInstant(wirksamAb)}</Value>.
+    </>
+  );
 }
 
 /**
- * Session 7: the administrator's way, in every state either link of such a change can be in, live or awaiting
- * an approval; the person's own way, ended changes included, is `kit/MailedPage.tsx`'s. A grant holder's own change
- * confirmed and waiting on its approval stands here too, the approval being the administrators' page's.
+ * Session 7: the administrator's way, in every state either link of such a change can be in; the person's own way,
+ * ended changes included, is `kit/MailedPage.tsx`'s. A holder's own change confirmed and in its wait stands here too.
  */
 export function AdresswechselLinkView({ start, beantworten }: { start: AddressChangeStart; beantworten: Beantworten }) {
   const [stand, setStand] = useState<AddressChangeStart>(start);
@@ -348,8 +339,6 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
   };
   // Every state holding a token sends through it; a state without one renders no press.
   const antwort = useAntwort(stand, beantworten, onAbschluss);
-
-  if (stand.state === "barred") return <AddressBarred panelRef={ergebnisRef} />;
 
   const titel = stand.state === "ended" ? ENDE[stand.art][stand.side].titel : TITEL[stand.state];
 
@@ -367,7 +356,7 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
         />
       )}
 
-      {(stand.state === "open" || stand.state === "approval" || stand.state === "waiting_period") && (
+      {(stand.state === "open" || stand.state === "waiting_period") && (
         <StoppPanel
           state={stand.state}
           way={stand.way}
@@ -414,21 +403,6 @@ export function AdresswechselLinkView({ start, beantworten }: { start: AddressCh
           </ConfirmationResult>
           <NurAblehnen antwort={antwort} />
         </>
-      )}
-
-      {/* Pressed, so no decline is offered: the backend refuses every press on a confirmed change. */}
-      {stand.state === "approval_expired" && (
-        <ConfirmationResult
-          panelRef={ergebnisRef}
-          tone="notice">
-          <p className={PARAGRAPH_CLASSES}>
-            Die Änderung ist abgelaufen, weil die Verwaltung ihr nicht rechtzeitig zugestimmt hat. Diese Adresse wird nicht übernommen.{" "}
-            {stand.way === "account"
-              ? "Brauchst Du die Änderung noch, frag sie in Deinem Konto neu an."
-              : `Brauchst Du die Änderung noch, schreib uns an ${KONTAKT_EMAIL}.`}
-          </p>
-          <ToLiga />
-        </ConfirmationResult>
       )}
 
       {/* Naming no cause, the holder of this mailbox being a stranger to each, and no end: an account's move still owed,

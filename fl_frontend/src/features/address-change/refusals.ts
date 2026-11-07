@@ -36,13 +36,10 @@ export function mapAddressChangePressRefusal(error: unknown): AddressChangePress
       return { neuLesen: true };
     case "link_expired":
       return { state: "expired" };
-    case "link_barred":
-      return { state: "barred" };
-    // The replaced address barred, the new one another pupil's, the administration's or holding entries of its own, or a
-    // grant the approval does not cover: one panel, so the link's holder learns nothing about who holds an address.
-    case "address_change_replaced_barred":
+    // The new address another pupil's, the administration's or holding entries of its own, or the address on file left
+    // holding nothing to move: one panel, so the link's holder learns nothing about who holds an address.
+    case "address_change_nothing":
     case "address_change_taken":
-    case "address_change_not_covered":
     case "address_change_new_granted":
     case "address_change_occupied":
     case "duplicate_key":
