@@ -84,7 +84,10 @@ export function SecurityBoxes({
     remove: {
       verb: "delete",
       subject: PASSKEY,
-      consequence: passkey.thisDevice ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
+      // The removal's touch signs this device in by the passkey that answers it: the only one a person holds, so that
+      // removal always ends this device, whatever session drew the page. Among several the page cannot know which
+      // answers, and words the session it was drawn for.
+      consequence: passkey.thisDevice || passkeys.length === 1 ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
       touch: { holder },
       locked: lastKept,
       run: async () => {
