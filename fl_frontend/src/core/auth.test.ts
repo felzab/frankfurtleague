@@ -2071,8 +2071,8 @@ describe("which addresses the send gate mails", () => {
   });
 
   /* A grant written in the database directly is the one way onto a barred address, and it admits
-     nothing: the backend refuses a barred holder every admin-tier request, so a code would open a
-     shell whose every read fails. */
+     nothing: the ban is judged at the sign-in, for a holder as for anyone, so this refusal is what
+     keeps them out. */
   it("mails a barred address holding a grant nothing", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, barred: true });
 
@@ -2259,8 +2259,8 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {
-  /* One person, one spelling in `action_log.actor.email`: this lane and the person's lane compose the
-     actor from one address, so a log filtered on it holds every write they made. */
+  /* One person, one spelling in `action_log.by`, which an administrator's act takes from this actor,
+     so a log filtered on it holds every write they made. */
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);

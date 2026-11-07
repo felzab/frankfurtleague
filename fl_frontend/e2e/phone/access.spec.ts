@@ -75,8 +75,8 @@ test("the Protokoll narrows to each who", async ({ page }) => {
   const rows = main.getByRole("row");
   const seeded = [
     ["inhaber@example.com", "Administrator eingetragen · admin.wartet@example.com", "inhaber@example.com"],
-    ["Teams", "Termin beantwortet · Birke vs. Linde", "Kontaktperson · Birke"],
-    ["Schiedsrichter", "Spielbericht eingetragen · Birke vs. Linde", "Schiedsrichter"],
+    ["Teams", "Termin beantwortet · 2026", "Kontaktperson · Birke"],
+    ["Schiedsrichter", "Spielbericht eingetragen · 2026 / 1", "Schiedsrichter"],
     ["Automatisch", "Nach Frist gelöscht · Kontaktpersonen: 2", "Automatisch"],
     ["Person", "Konto gelöscht", "Person"],
   ] as const;

@@ -1146,8 +1146,8 @@ const logged = (hoursAgo, by, action, { team = null, label = null, count = null 
 const ACTION_LOG = [
   logged(50, "person", "erasure.own"),
   logged(40, "system", "retention.kontakte", { label: "2026", count: 2 }),
-  logged(30, "schiedsrichter", "spielbericht.saved", { label: "Birke vs. Linde" }),
-  logged(20, "kontakt", "spielbestaetigung.answered", { team: "Birke", label: "Birke vs. Linde" }),
+  logged(30, "schiedsrichter", "spielbericht.saved", { label: "2026 / 1" }),
+  logged(20, "kontakt", "spielbestaetigung.answered", { team: "Birke", label: "2026" }),
   logged(10, "inhaber@example.com", "grant.added", { label: "admin.wartet@example.com" }),
 ];
 
