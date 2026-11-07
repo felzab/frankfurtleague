@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -7,15 +7,16 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import DuplicateKeyError
 
 from app.api.ban_list.admin_router import delete_ban_list_entry, get_ban_list_entries
 from app.api.ban_list.crud import address_is_barred, read_ban_list_page
-from app.api.ban_list.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from tests.bans import ban_list, ban_through_the_route
-from tests.config import build_test_config, grants_for_the_suite
+from app.core.recording import Actor, actor_var
+from tests.bans import ban_through_the_route
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spieler_document
 from tests.erasure import erased
@@ -25,24 +26,17 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_ban_list_test")
 
-CONFIG = build_test_config()
-
 TODAY = "2026-04-01"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 ADMIN = "admin@frankfurtleague.de"
 
-# Distinctive rather than "test@example.com": a sweep of a whole database for a fragment is evidence
-# of absence only where a hit could not be coincidence.
 BANNED = "Zorbanax@Beispielschule.de"
-# The same person typing the same address differently -- the case the write and the check must agree
-# on, and the one a per-spelling hash would let through.
+# The same person typing the same address differently: the case the write and the check must agree on.
 BANNED_RETYPED = "zorbanax@beispielschule.de"
 OTHER = "quillhilde@beispielschule.de"
-
-# Searched for apart, so a row keeping either half of the address is caught where the whole is not.
-BANNED_LOCAL_PART, BANNED_DOMAIN = BANNED.lower().split("@")
-BANNED_SCHOOL = BANNED_DOMAIN.split(".")[0]
+# A row whose wait has not run out, which counts as held.
+WAITING = "wartet@beispielschule.de"
 
 BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 
@@ -71,83 +65,34 @@ def on_a_clean_list(url: str, body: Body) -> Any:
 
 
 async def listed(database: AsyncDatabase) -> Any:
-    """The list read with its two dependencies: the season the ban list compares against, and the key."""
-
-    return await get_ban_list_entries(
-        ban_list_collection=database[Collection.BAN_LIST],
-        ban_list=ban_list(database),
-    )
+    return await get_ban_list_entries(ban_list_collection=database[Collection.BAN_LIST])
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, ban_reason: str = BAN_REASON, by: str = ADMIN) -> Any:
     return await ban_through_the_route(database, client, email=email, ban_reason=ban_reason, by=by, today=TODAY)
 
 
+async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry_id: ObjectId) -> Any:
+    token = actor_var.set(Actor(kind="admin_session", email=ADMIN))
+    try:
+        return await delete_ban_list_entry(ban_list_entry_id=ban_list_entry_id, ban_list_collection=database[Collection.BAN_LIST], db=client)
+    finally:
+        actor_var.reset(token)
+
+
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return [row async for row in database[Collection.BAN_LIST].find().sort("_id", 1)]
 
 
-class TestWhatABanStores:
-    def test_no_part_of_the_banned_address_reaches_the_row(self, mongo_replica_set_url: str):
-        """The whole point of the collection, and the half nothing else in the suite would notice going wrong."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
-            await ban(database, client)
-            stored = await database[Collection.BAN_LIST].find_one({})
-
-            assert stored is not None
-            return stored
-
-        stored = on_a_clean_list(mongo_replica_set_url, body)
-
-        # `created_by` is the ADMINISTRATOR's own address and the one field here that may hold
-        # one, so the `@` clause is asked of everything beside it.
-        assert "@" not in repr({key: value for key, value in stored.items() if key != "created_by"})
-        assert BANNED_LOCAL_PART not in repr(stored).lower()
-        assert BANNED_SCHOOL not in repr(stored).lower()
-
-    def test_the_write_is_recorded_without_the_address(self, mongo_replica_set_url: str):
-        """The log is the second place a value can survive a feature built to keep none: the create files a row here too."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await ban(database, client)
-
-            return repr([row async for row in database[Collection.ACTION_LOG].find()])
-
-        recorded = on_a_clean_list(mongo_replica_set_url, body)
-
-        assert "ban_list" in recorded, "the create filed no log row at all, so the assertion below holds of nothing"
-        assert BANNED_LOCAL_PART not in recorded.lower()
-
-
 class TestASecondBanOfOneAddress:
-    def test_a_row_written_is_a_row_refused(self, mongo_replica_set_url: str):
-        """The full cycle: the write and the check hash under one key, so a second ban meets the first.
-
-        Keyed differently at the two ends, every case here still passes -- and the list silently
-        refuses nobody.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-            await ban(database, client)
-
-            with pytest.raises(APIError) as raised:
-                await ban(database, client)
-
-            assert raised.value.error_code == Code.DUPLICATE_KEY
-
-        on_a_clean_list(mongo_replica_set_url, body)
-
     def test_the_same_address_retyped_meets_the_row_it_already_has(self, mongo_replica_set_url: str):
-        """The case a per-spelling hash lets through: one person, two spellings, one row and one refusal."""
+        """One person, two spellings, one row, the index answering 409 `duplicate_key`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await ban(database, client)
 
-            with pytest.raises(APIError) as raised:
+            with pytest.raises(DuplicateKeyError):
                 await ban(database, client, email=BANNED_RETYPED)
-
-            assert raised.value.error_code == Code.DUPLICATE_KEY
 
             return await database[Collection.BAN_LIST].count_documents({})
 
@@ -170,29 +115,40 @@ class TestABanOfAnAdministratorsAddress:
 
         assert on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 0)
 
+    def test_a_row_whose_wait_has_not_run_out_is_refused_too(self, mongo_replica_set_url: str):
+        """Until the owner stops it: judging only the grants in effect would ban an address about to hold the administration."""
 
-class TestTheCheckASignUpWillAsk:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await database[Collection.GRANTS].insert_one(
+                {**grants_for_the_suite()[-1], "_id": ObjectId(), "address": WAITING, "effective_from": datetime(2999, 1, 1, tzinfo=UTC)}
+            )
+
+            with pytest.raises(APIError) as raised:
+                await ban(database, client, email=WAITING)
+
+            return raised.value.error_code
+
+        assert on_a_clean_list(mongo_replica_set_url, body) == Code.BAN_LIST_ADMIN
+
+
+class TestTheCheckASignInAsks:
     def test_a_banned_address_answers_the_check_in_every_spelling(self, mongo_replica_set_url: str):
-        """What a registration calls before it writes; nothing calls it yet, so this is the only thing holding it."""
+        """A spelling the check does not fold is an address the list holds and does not bar."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[bool]:
             await ban(database, client)
 
             return [
-                await address_is_barred(
-                    ban_list_collection=database[Collection.BAN_LIST],
-                    address_hash=address_hash(typed, key=CONFIG.sperrliste_key),
-                    governing_saison_id=ACTIVE_SAISON_ID,
-                )
-                for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
+                await address_is_barred(ban_list_collection=database[Collection.BAN_LIST], address=typed)
+                for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ", OTHER)
             ]
 
-        assert on_a_clean_list(mongo_replica_set_url, body) == [True, True, True]
+        assert on_a_clean_list(mongo_replica_set_url, body) == [True, True, True, False]
 
 
 class TestWhatTheListServes:
-    def test_the_served_rows_carry_no_address_and_no_hash(self, mongo_replica_set_url: str):
-        """A read is the widest surface a stored value escapes through, and the hash is what a leaked collection lacks."""
+    def test_a_row_is_served_with_its_folded_address(self, mongo_replica_set_url: str):
+        """The page's row is what an administrator lifts by, so a row served without its address is one nobody can tell apart."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client)
@@ -202,33 +158,10 @@ class TestWhatTheListServes:
         served = on_a_clean_list(mongo_replica_set_url, body)
 
         assert len(served.ban_list) == 1
-        rendered = served.model_dump_json()
-        # `created_by` carries the administrator's own address, so the banned one is named
-        # directly rather than sought by its `@`.
-        assert BANNED_LOCAL_PART not in rendered.lower()
-        assert "address_hash" not in rendered
+        assert served.ban_list[0].address == BANNED_RETYPED
         assert served.ban_list[0].ban_reason == BAN_REASON
         assert served.ban_list[0].created_by == ADMIN
         assert served.ban_list[0].created_at == TODAY
-
-    def test_an_author_revoked_and_barred_since_is_withheld_beside_a_flag(self, mongo_replica_set_url: str):
-        """The grants list's rule on every admin read: no barred address is served in plain."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client, email=OTHER)
-            # Revoked as a paste revokes, then barred through the route by another administrator.
-            await database[Collection.GRANTS].delete_one({"address": ADMIN})
-            await ban(database, client, email=ADMIN, by=grants_for_the_suite()[0]["address"])
-
-            served = await listed(database)
-
-            return [(row.created_by, row.created_by_barred) for row in served.ban_list], served.model_dump_json()
-
-        rows, rendered = on_a_clean_list(mongo_replica_set_url, body)
-
-        # Newest first: the ban on the author, entered by an owner the list does not hold, then the author's own.
-        assert rows == [(grants_for_the_suite()[0]["address"], False), (None, True)]
-        assert ADMIN not in rendered
 
     def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
         """A ban past the cap is enforced and not rendered, so the count is what says one is there to lift.
@@ -257,43 +190,11 @@ class TestLiftingABan:
             created = await ban(database, client)
             await ban(database, client, email=OTHER, ban_reason="Bleibt stehen")
 
-            await delete_ban_list_entry(
-                ban_list_entry_id=ObjectId(created.created_id),
-                ban_list_collection=database[Collection.BAN_LIST],
-                db=client,
-            )
+            await lift(database, client, ObjectId(created.created_id))
 
             return [str(row["ban_reason"]) for row in await rows_of(database)]
 
         assert on_a_clean_list(mongo_replica_set_url, body) == ["Bleibt stehen"]
-
-    def test_the_log_image_holds_the_whole_row_and_no_address(self, mongo_replica_set_url: str):
-        """What outlives a lifted ban, pinned rather than assumed: the image is kept for the rule's twelve months.
-
-        A field added to the row joins this image on the next removal, so the set is asserted whole.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            created = await ban(database, client)
-            await delete_ban_list_entry(
-                ban_list_entry_id=ObjectId(created.created_id),
-                ban_list_collection=database[Collection.BAN_LIST],
-                db=client,
-            )
-            recorded = await database[Collection.ACTION_LOG].find_one({"operation": "delete_many", "collection": "ban_list"})
-
-            assert recorded is not None
-            return recorded
-
-        recorded = on_a_clean_list(mongo_replica_set_url, body)
-        images = recorded["before"]
-
-        assert len(images) == 1
-        assert set(images[0]) == {"_id", "address_hash", "key_version", "ban_reason", "created_by", "created_at", "barred_until_saison_id"}
-        assert images[0]["ban_reason"] == BAN_REASON
-        # The reason the image is safe to keep: it holds the hash and the administrator, never the
-        # address the ban was taken from.
-        assert BANNED_LOCAL_PART not in repr(images).lower()
 
     def test_an_id_no_row_holds_is_a_404_that_removes_nothing(self, mongo_replica_set_url: str):
         """A removal answering 200 over an empty result tells an administrator a ban is lifted that still stands."""
@@ -302,11 +203,7 @@ class TestLiftingABan:
             await ban(database, client)
 
             with pytest.raises(DocumentNotFoundError):
-                await delete_ban_list_entry(
-                    ban_list_entry_id=ObjectId("6890a1b2c3d4e5f60794ffff"),
-                    ban_list_collection=database[Collection.BAN_LIST],
-                    db=client,
-                )
+                await lift(database, client, ObjectId("6890a1b2c3d4e5f60794ffff"))
 
             return await database[Collection.BAN_LIST].count_documents({})
 

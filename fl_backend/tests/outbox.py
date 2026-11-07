@@ -7,7 +7,6 @@ from app.api.outbox.schemas import FLOutboxHandout, FLOutboxResultPayload
 from app.api.outbox.services import RETENTION
 from app.api.outbox.system_router import post_handout, post_result
 from app.core.collections import Collection
-from tests.bans import ban_list
 
 # The clock a case owes and drains its mails under, a century ahead of the real one: the TTL monitor deletes a row whose
 # delete date has passed, under a case still reading it.
@@ -35,7 +34,11 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
     mails: list[FLOutboxHandout] = []
     while True:
         answer = await post_handout(
-            outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
+            outbox_collection=database[Collection.OUTBOX],
+            ban_list_collection=database[Collection.BAN_LIST],
+            db=database,
+            db_client=client,
+            now=claimable(now),
         )
         if answer.lease is None:
             return mails

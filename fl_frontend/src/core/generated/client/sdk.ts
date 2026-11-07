@@ -794,14 +794,10 @@ export const getBanListGetBanListEntriesUrl = () => {
 };
 
 /**
- * List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
+ * List the bans, newest first: the address, why, by whom, on which day and the last season covered, with how many the list holds.
  *
- * No address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed
- * hash of it and the read projects that away. `created_by` is the administrator who entered the
- * row, and is an address — `null` beside `created_by_barred` where the ban list holds that
- * administrator's address too, as no barred address is served in plain. **The rows are capped at
- * `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows
- * served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
+ * **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the
+ * rows served, bans are enforced that this answer does not show, and a ban nobody can see is one nobody can lift.
  * @summary List the banned addresses
  */
 export const banListGetBanListEntries = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBanListResponse> => {
@@ -816,15 +812,13 @@ export const getBanListPostBanListEntryUrl = () => {
 };
 
 /**
- * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
+ * Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
  *
- * Refused where the list already holds the address (`duplicate_key`), while no season is
- * running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and
- * where the address is an administrator's (`ban_list_admin`). The ban covers the
- * fifth season after the one running now — the last one it covers is answered as
- * `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
- * that names the address loses it in the same transaction, and where `notify` is set the ban's
- * own notice is owed to it there too, the one mail a ban does not stop.
+ * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
+ * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
+ * a row in `grants`, in effect or waiting (`ban_list_admin`). The ban covers the fifth season after the one running now,
+ * the last one it covers answered as `barred_until_saison_id`, and it survives that person's erasure. Where `notify` is
+ * set the ban's own notice is owed to the address in the same transaction.
  *
  * `ban_reason` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address
@@ -858,15 +852,7 @@ export const getBanListDeleteBanListEntryUrl = (banListEntryId: string) => {
 };
 
 /**
- * Lift a ban before it lapses, removing the row. HARD, no soft form.
- *
- * Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
- * hash, so re-entering the ban means being told the address again. 404 where no row holds the id.
- *
- * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
- * administrator who entered it, and no address of the person it barred — for the twelve months
- * the rule gives every log row. The lifted ban is therefore readable
- * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
+ * Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.
  * @summary Lift a ban
  */
 export const banListDeleteBanListEntry = async (
@@ -1849,8 +1835,8 @@ export const getOutboxPostHandoutUrl = () => {
  * Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
  *
  * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
- * is given up rather than handed out, and counted in `abandoned`. A mail to an address a standing ban holds is stopped
- * as `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
+ * is given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as
+ * `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
  * the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
  * holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
  * answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every

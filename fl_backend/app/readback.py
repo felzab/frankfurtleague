@@ -14,7 +14,7 @@ from pymongo.errors import PyMongoError
 
 from app.api.action_log.schemas import FLAktionRecord
 from app.api.address_change.schemas import FLAddressChangeRecord
-from app.api.ban_list.schemas import FLBanListEntryRecord
+from app.api.ban_list.schemas import FLBanListEntry
 from app.api.bewerbungen.schemas import FLBewerbungRecord, FLMailboxAnchorRecord
 from app.api.grants.schemas import FLGrantRecord
 from app.api.invitations.schemas import FLInvitationRecord
@@ -46,7 +46,7 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
     Collection.BEWERBUNGEN: FLBewerbungRecord,
     Collection.ACTION_LOG: FLAktionRecord,
-    Collection.BAN_LIST: FLBanListEntryRecord,
+    Collection.BAN_LIST: FLBanListEntry,
     Collection.INVITATIONS: FLInvitationRecord,
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
     Collection.GRANTS: FLGrantRecord,

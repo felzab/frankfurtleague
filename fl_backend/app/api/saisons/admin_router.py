@@ -809,7 +809,7 @@ async def activate_saison(
         )
         if lapsed.deleted_count:
             await record_act(
-                collection=saisons_collection,
+                collection=ban_list_collection,
                 action="retention.bans",
                 by=ACT_BY_SYSTEM,
                 label=saison_id,
