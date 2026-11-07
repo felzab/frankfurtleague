@@ -41,17 +41,17 @@ class TestTheMask:
 class TestWhatALeakedLinkLearns:
     """`READ-ADRESSWECHSEL-001`: a link is a stranger's to forward, so its page learns little.
 
-    Its side, its state, its way and its days, and the new address only where it asks its question.
+    Its side, its state, its way and its days, and the new address, masked where an administrator started the change.
     """
 
     @pytest.mark.parametrize(
         ("model", "fields"),
         [
-            pytest.param(FLAddressChangeViewNew, {"side", "state", "valid_until", "effective_from", "way", "email"}, id="new"),
+            pytest.param(FLAddressChangeViewNew, {"side", "state", "valid_until", "effective_from", "way", "email", "confirmed_on"}, id="new"),
             pytest.param(
                 FLAddressChangeViewPrevious, {"side", "state", "valid_until", "effective_from", "way", "email", "released_on"}, id="on file"
             ),
-            pytest.param(FLAddressChangeViewEnded, {"side", "state", "kind", "ended_on", "way", "released_on"}, id="ended"),
+            pytest.param(FLAddressChangeViewEnded, {"side", "state", "kind", "ended_on", "way", "released_on", "confirmed_on"}, id="ended"),
         ],
     )
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):
