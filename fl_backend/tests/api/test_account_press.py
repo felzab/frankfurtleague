@@ -1,9 +1,10 @@
 """
-API · which labels an account press may name: a choice it moves onto a grant names its current wording, and nothing else does
+API · an account press's two judgements: which labels it may name, and which choices its journal line says it withdrew
 
-The payloads take any label their kind cites, so this sequence is the one place the rule binds. Every kind's records
-cite their current labels alone until a rewording adds one, so no request can carry a replaced label yet, and the
-database tier never reaches these cases: the labels are constructed past validation.
+A choice it moves onto a grant names its current wording, and nothing else does. The payloads take any label their kind
+cites, so this sequence is the one place the rule binds. Every kind's records cite their current labels alone until a
+rewording adds one, so no request can carry a replaced label yet, and the database tier never reaches these cases: the
+labels are constructed past validation.
 """
 
 import asyncio
@@ -13,6 +14,7 @@ from typing import Any, Final
 import pytest
 
 from app.api.account.crud import press_einwilligung
+from app.api.account.services import withdrawal_line
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.shared.einwilligung_evidence import FLEinwilligungChoice, evidence_state_of
@@ -65,4 +67,13 @@ class TestAGrantThePressMovesNamesItsCurrentWording:
             Code.GRANT_WORDING_STALE,
             409,
             (("text_versions", choice),),
+        )
+
+
+class TestTheJournalNamesWhatThePressWithdrew:
+    def test_it_names_the_choice_moved_off_a_grant_and_never_the_grant_kept_beside_it(self):
+        """A restore replays this line: a kept choice named on it takes a consent back from a person who gave it."""
+
+        assert withdrawal_line(blocks=[{"scope": "kader_public", "media": True}], chosen={"scope": "kader_public", "media": False}) == (
+            "media",
         )

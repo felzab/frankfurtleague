@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.api.ban_list.admin_router import delete_ban_list_entry
+from app.api.ban_list.admin_router import delete_ban_list_entry, get_ban_list_entries
 from app.api.ban_list.crud import address_is_barred
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -46,6 +46,8 @@ BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 # find_no_saison_refusal`), and the season every case here is counted from. What the five-season
 # bound does with it is `tests/api/test_ban_list_lapse_execution.py`'s.
 ACTIVE_SAISON_ID = "2026"
+# The fifth season after it, the last a ban entered then covers.
+BARRED_UNTIL = "2031"
 
 SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_gruppen=2, allowed_stufen=["E1"]))
 
@@ -66,8 +68,16 @@ def on_a_clean_list(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, ban_reason: str = BAN_REASON, by: str = ADMIN) -> Any:
-    return await ban_through_the_route(database, client, email=email, ban_reason=ban_reason, by=by, today=TODAY)
+async def ban(
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    *,
+    email: str = BANNED,
+    ban_reason: str = BAN_REASON,
+    by: str = ADMIN,
+    notify: bool = False,
+) -> Any:
+    return await ban_through_the_route(database, client, email=email, ban_reason=ban_reason, by=by, today=TODAY, notify=notify)
 
 
 async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry_id: ObjectId) -> Any:
@@ -147,6 +157,36 @@ class TestABanOfAnAdministratorsAddress:
             return raised.value.error_code, await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 1)
+
+
+class TestTheList:
+    def test_two_bans_of_one_day_read_newest_first_each_with_what_the_page_shows(self, mongo_replica_set_url: str):
+        """`created_at` is a date, so `_id` alone orders a day's rows; a ban the page cannot name is one nobody can lift."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            first = await ban(database, client)
+            second = await ban(database, client, email=OTHER, ban_reason="Bleibt stehen")
+            return first.created_id, second.created_id, (await get_ban_list_entries(database[Collection.BAN_LIST])).ban_list
+
+        first, second, rows = on_a_clean_list(mongo_replica_set_url, body)
+
+        assert [(row.id, row.address, row.ban_reason, row.created_at, row.barred_until_saison_id) for row in rows] == [
+            (second, OTHER, "Bleibt stehen", TODAY, BARRED_UNTIL),
+            (first, BANNED_RETYPED, BAN_REASON, TODAY, BARRED_UNTIL),
+        ]
+
+
+class TestTheBansOwnMail:
+    @pytest.mark.parametrize(("notify", "owed"), [(True, [(BANNED_RETYPED, BAN_REASON, BARRED_UNTIL)]), (False, [])])
+    def test_the_address_is_owed_it_exactly_where_the_press_said(self, mongo_replica_set_url: str, notify: bool, owed: list[Any]):
+        """Owed unasked, it tells a mailbox holding no account of a list it never met; unowed, a person learns only by failing to sign in."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, client, notify=notify)
+            rows = database[Collection.OUTBOX].find({"kind": "ban"})
+            return [(row["to"], row["data"]["ban_reason"], row["data"]["barred_until_saison_id"]) async for row in rows]
+
+        assert on_a_clean_list(mongo_replica_set_url, body) == owed
 
 
 class TestTheCheckASignInAsks:

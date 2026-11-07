@@ -296,13 +296,16 @@ class TestTheEntry:
     def test_a_new_club_is_founded_and_entered_with_its_colour(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             answer = await enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="ESC")})
+            acts = database[Collection.ACTION_LOG].find({"action": "team.entered"})
 
-            return await database[Collection.SAISON_TEAMS].find_one({"team_id": ObjectId(answer.team_id)})
+            return await database[Collection.SAISON_TEAMS].find_one({"team_id": ObjectId(answer.team_id)}), [act["label"] async for act in acts]
 
-        row = on_a_league(mongo_replica_set_url, body)
+        row, acts = on_a_league(mongo_replica_set_url, body)
 
         assert row is not None
         assert (row["name"], row["shorthand"], row["gruppe"], row["trikot_farbe"], row["version"]) == ("Eschborn", "ESC", "A", "rot", 0)
+        # The Protokoll's one word for which club entered.
+        assert acts == ["Eschborn"]
 
     def test_a_taken_shorthand_is_refused_on_its_box(self, mongo_replica_set_url: str):
         """A retired club's among them, which the unique index would answer with no field."""
