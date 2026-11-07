@@ -9,7 +9,7 @@ Invariants:
 - Every end takes the record's addresses and reason out of it.
 """
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final, Literal
@@ -33,12 +33,12 @@ from app.api.address_change.services import (
     masked_address,
     wait_tier,
 )
-from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge, read_grants
+from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
 from app.api.grants.erasure import carry_authorship_in_session
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
 from app.api.identity.lookup import RecordCollections
-from app.api.identity.services import address_change_viewable_denied, is_own_schiedsrichter, is_own_spieler, own_seats
+from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, own_seats
 from app.api.kontakte.services import rows_seating, same_address
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
@@ -62,7 +62,7 @@ from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay, FLAdminTier
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWay, FLAdminTier
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"first_name": 1, "last_name": 1, "email": 1, "einwilligung": 1}
 # The whole consent record: `is_own_schiedsrichter` judges its stamp.
@@ -789,31 +789,6 @@ def build_erasure_address_change_pipeline(identifier: str) -> list[Mapping[str, 
         {"$project": {"address": 1, "email": 1, "way": 1, "released_at": 1, "confirmed_at": 1}},
         {"$sort": {"_id": 1}},
     ]
-
-
-async def denied_addresses(
-    addresses: Iterable[str],
-    *,
-    actor: str,
-    grants_collection: ReadCollection,
-    session: AsyncClientSession | None,
-) -> dict[str, FLAddressChangeViewableDenied]:
-    """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
-
-    Judged by `app/api/identity/services.py :: address_change_viewable_denied`; the grants are read only where an
-    address is asked, most reads serving no change.
-    """
-
-    asked = set(addresses)
-    if not asked:
-        return {}
-    grants = await read_grants(grants_collection=grants_collection, session=session)
-
-    return {
-        address: viewable_denied
-        for address in asked
-        if (viewable_denied := address_change_viewable_denied(address, actor=actor, grants=grants)) is not None
-    }
 
 
 def others_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
