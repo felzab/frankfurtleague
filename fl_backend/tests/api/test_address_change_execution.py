@@ -963,18 +963,27 @@ class TestAHoldersOwnChange:
 
         assert on_a_person(mongo_replica_set_url, body) == []
 
-    def test_an_erasure_ending_its_wait_tells_every_holder_and_masks_nothing_of_the_erased(self, mongo_replica_set_url: str):
-        """The holders hold a date the erasure took away, and the mask is all that is left of the person erased."""
+    @pytest.mark.parametrize(
+        ("erased", "named", "recipients"),
+        [
+            pytest.param(NEW_EMAIL, EMAIL, (*ADMINISTRATORS, EMAIL), id="the new address's owner"),
+            pytest.param(EMAIL, None, ADMINISTRATORS, id="the holder, whose new mailbox it was"),
+        ],
+    )
+    def test_an_erasure_ending_its_wait_tells_every_holder_and_masks_nothing_of_the_erased(
+        self, mongo_replica_set_url: str, erased: str, named: str | None, recipients: tuple[str, ...]
+    ):
+        """The holders hold a date the erasure took away, and a mask of the new address is all that would be left of the person."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
             minted = await start(database, client)
             await answer(database, client, minted.token)
             await database[Collection.OUTBOX].delete_many({"kind": "grant"})
-            await erase(database, client, NEW_EMAIL)
-            return await told(database)
+            await erase(database, client, erased)
+            return [notice for notice in await told(database) if notice[0] == "withdrawn"]
 
-        assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, EMAIL, None) for address in sorted((*ADMINISTRATORS, EMAIL))]
+        assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None) for address in sorted(recipients)]
 
     @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link"])
     def test_a_lost_mailbox_hears_nothing_of_any_holder_notice_and_none_names_an_actor(self, mongo_replica_set_url: str, ended_by: str):
