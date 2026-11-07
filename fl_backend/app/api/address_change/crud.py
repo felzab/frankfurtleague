@@ -441,8 +441,6 @@ async def tell_the_holders_in_session(
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
-    # Off where an erasure ended it: a mask of the erased address is no fact left to tell.
-    names_the_new_address: bool = True,
 ) -> None:
     """Tell every holder in effect of a holder's change, in the caller's transaction, `record` as it stood.
 
@@ -457,7 +455,7 @@ async def tell_the_holders_in_session(
         change="address",
         stage=stage,
         address=str(record["address"]),
-        new_address=masked_address(str(record["email"])) if names_the_new_address else None,
+        new_address=masked_address(str(record["email"])),
         changed_by=None if lost_mailbox else changed_by,
         effective_from=effective_from,
         now=now,
@@ -482,7 +480,6 @@ async def tell_the_holders_of_the_end_in_session(
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
-    names_the_new_address: bool = True,
 ) -> None:
     """The withdrawal's notice of a holder's change ended in its wait, `record` as it stood: one not yet started told nobody."""
 
@@ -501,7 +498,6 @@ async def tell_the_holders_of_the_end_in_session(
         outbox_collection=outbox_collection,
         now=now,
         session=session,
-        names_the_new_address=names_the_new_address,
     )
 
 
@@ -822,8 +818,9 @@ async def end_the_address_changes_in_session(
     """End every change naming the erased address.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
-    change. A holder's change in its wait tells the holders, who hold a date it will not reach, naming no actor and no new
-    address: either may be the erased one.
+    change. A holder's change in its wait tells the holders, who hold a date it will not reach, naming no actor: it may be
+    the erased one. The new address's mask leaves that notice at the erasure's own step, later in this transaction
+    (`app/api/grants/erasure.py :: _withholding`), which takes the erased person out of every notice still owed.
     """
 
     if rows:
@@ -853,7 +850,6 @@ async def end_the_address_changes_in_session(
             outbox_collection=outbox_collection,
             now=now,
             session=session,
-            names_the_new_address=False,
         )
 
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address
