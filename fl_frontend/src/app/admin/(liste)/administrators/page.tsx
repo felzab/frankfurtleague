@@ -11,6 +11,7 @@ import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
+import { grantOf } from "@/core/grant";
 import { ROUTES } from "@/core/routes";
 import { discardChange } from "@/features/address-change/actions";
 import { getAddressChanges } from "@/features/address-change/queries";
@@ -206,12 +207,32 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
   ];
 }
 
-/** The head of the list of who holds access, its wait drawing a row's „Entfernen“ as most of the owner's rows hold it. */
+/** The head of the list of who holds access, as an administrator reads it: rows to read, no act on any. */
 const HEAD = {
   nameLabel: ADDRESS,
   columns: [{ key: "since", label: WORDS.since, narrow: true, width: "date" }],
-  acts: [COPY.shared.verb.remove],
 } as const satisfies TableHead;
+
+const ROWS = 3;
+
+/**
+ * The list's wait as the owner reads it: the owner's own row first, which holds no act, then a row's „Entfernen“ on the
+ * rest. It stands for every reader until `readsAsOwner` answers, the taller state, as a rail page draws one.
+ */
+const OWNERS_WAIT = (
+  <OpenFoldPlaceholder
+    title={COPY.admin.team.active}
+    head={{ ...HEAD, acts: [COPY.shared.verb.remove] }}
+    rows={ROWS}
+    plain={1}
+  />
+);
+
+/** Whether this reader is the owner: the session's own grant, read ahead of the list's three reads, so the wait can say. */
+async function readsAsOwner() {
+  const session = await getAdminSession();
+  return session !== null && (await grantOf(session.user.email)).admin_tier === "owner";
+}
 
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
 
@@ -307,19 +328,25 @@ function handoverOf({ actor, active, handover }: Access): ListCreate | null {
 /** Who holds access to the administration and what waits: the owner's acts on either, an administrator's page to read. */
 export default function AdministratorsPage() {
   const access = readAccess();
+  const held = readsAsOwner();
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminAdministrators" } }}
-      sideAct={{ label: actLabel(HAND_OVER), act: access.then(handoverOf) }}
-      create={{ label: actLabel(ADD), act: access.then(addOf) }}
+      sideAct={{ label: actLabel(HAND_OVER), act: access.then(handoverOf), held }}
+      create={{ label: actLabel(ADD), act: access.then(addOf), held }}
       list={{
         kind: "folds",
-        wait: (
-          <OpenFoldPlaceholder
-            title={COPY.admin.team.active}
-            head={HEAD}
-            rows={3}
-          />
+        wait: OWNERS_WAIT,
+        waitOnceRead: held.then((isOwner) =>
+          isOwner ? (
+            OWNERS_WAIT
+          ) : (
+            <OpenFoldPlaceholder
+              title={COPY.admin.team.active}
+              head={HEAD}
+              rows={ROWS}
+            />
+          ),
         ),
         content: foldsOf(access),
       }}

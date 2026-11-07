@@ -16,7 +16,9 @@ import type { ReactNode } from "react";
  * page states beside it, a list that fits a screen included, so a list landing short does not shrink. A part whose
  * state the read decides draws, on a rail page, its taller state: nothing stands under `main` there, so a taller wait
  * collapses unseen where a shorter one loses a reload's place for good. On a classic page, whose footer a collapse
- * would lift into view, it draws the state that lands most often. A placeholder never shows a state's words.
+ * would lift into view, it draws the state that lands most often. A part the reader's role decides draws what a first
+ * read says this reader will see (`PageWaitOnceRead`), since no static shell knows who reads. A placeholder never shows a
+ * state's words.
  */
 const placeholder = tv({
   slots: {

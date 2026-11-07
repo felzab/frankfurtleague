@@ -398,6 +398,7 @@ function Row({ record }: { record: AccountRow }) {
   return (
     <div
       ref={row}
+      data-kit-row
       className={slots.row()}>
       <div className={slots.words()}>
         <CutText

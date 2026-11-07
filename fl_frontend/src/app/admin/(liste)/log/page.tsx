@@ -49,8 +49,8 @@ const HEAD: TableHead = {
   stack: true,
   linked: false,
   columns: [
-    { key: "who", label: WORDS.who, width: "line" },
-    { key: "when", label: WORDS.when, width: "phone" },
+    { key: "who", label: WORDS.who, width: "line", cut: true },
+    { key: "when", label: WORDS.when, width: "instant" },
   ],
 };
 
@@ -70,6 +70,7 @@ export default function ActionLogPage({ searchParams }: Props) {
         search: { label: WORDS.search, maxLength: actionLogGetActionLogBodyQOneMax },
         head: HEAD,
         wait: 50 satisfies FLActionLogPageSize,
+        paged: true,
         content: log.then(({ filters, page, by }) => {
           const chosen = filters.flatMap(({ name, value }) => (value === null ? [] : [[name, value] as const]));
           return {

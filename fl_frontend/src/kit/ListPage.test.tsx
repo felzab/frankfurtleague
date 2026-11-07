@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { prerender } from "react-dom/static";
@@ -75,6 +75,26 @@ describe("the frames' `main`", () => {
 });
 
 describe("the list's create act", () => {
+  // The harm: a handover's start swaps its trigger for the locked button, and the keyboard's place falls to `body`.
+  it("keeps the keys in the toolbar when the act it just ran locks it", async () => {
+    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
+    const page = (locked?: typeof COPY.template.draftUnsaved) => (
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        create={{ title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null, locked }}
+        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
+      />
+    );
+    const { rerender } = render(page());
+    const trigger = screen.getByRole("button", { name });
+    const place = trigger.closest('[data-kit-focus="home"]');
+    trigger.focus();
+
+    rerender(page(COPY.template.draftUnsaved));
+
+    await waitFor(() => expect(document.activeElement).toBe(place));
+  });
+
   // The harm: a dialog's trigger around the locked button would open the create form behind the reason.
   it("answers a press with its reason while locked, never its form", async () => {
     const reason = COPY.template.draftUnsaved;
@@ -130,6 +150,28 @@ describe("the toolbar's acts the read decides", () => {
     expect(bar?.querySelector("button")).toBe(null);
     expect(bar?.className).toContain("has-[>:only-child:empty]:hidden");
     expect(bar?.firstElementChild?.children).toHaveLength(0);
+  });
+});
+
+describe("the toolbar's wait", () => {
+  // The harm: the buttons' wait going with the read lifts the list under them for an administrator, who never holds them.
+  it("draws nothing for an act the first read says the reader never holds, whatever the act's own read does", async () => {
+    const { prelude } = await prerender(
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        create={{ label: COPY.page.spielplan, act: new Promise(() => undefined), held: Promise.resolve(false) }}
+        list={{
+          kind: "spieltage",
+          wait: { tabs: 1, matches: 1 },
+          content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } }),
+        }}
+      />,
+      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+    );
+    const page = document.createElement("div");
+    page.innerHTML = await new Response(prelude).text();
+
+    expect(page.querySelector("[class*='only-child']")?.firstElementChild?.children).toHaveLength(0);
   });
 });
 

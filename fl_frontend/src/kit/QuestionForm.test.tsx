@@ -94,7 +94,7 @@ describe("a form asking its question over what the press read", () => {
   });
 
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
-  it("clears a done act's line at the next press and once the page hides", async () => {
+  it("clears a done act's line as the next address is typed and once the page hides", async () => {
     acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
     const { rerender } = render(<Activity mode="visible">{FORM}</Activity>);
     await userEvent.type(box(), ADDRESS);
@@ -103,10 +103,9 @@ describe("a form asking its question over what the press read", () => {
     await screen.findByText(COPY.admin.erased);
 
     await userEvent.type(box(), ADDRESS);
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await screen.findByRole("alertdialog");
     expect(screen.queryByText(COPY.admin.erased)).toBeNull();
-    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
     await screen.findByText(COPY.admin.erased);
 
     rerender(<Activity mode="hidden">{FORM}</Activity>);

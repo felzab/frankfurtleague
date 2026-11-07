@@ -7,7 +7,7 @@ import AdministratorsPage from "./page";
 import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
 import type { ListCreate } from "@/kit/ListPage";
 import type { FoldedCard } from "@/kit/ReadFolds";
-import type { TableProps } from "@/kit/Table";
+import type { TableHead, TableProps } from "@/kit/Table";
 import type { ReactElement } from "react";
 
 const OWNER = "owner@example.org";
@@ -16,6 +16,10 @@ const FUTURE = "2999-01-01T10:00:00Z";
 
 const state = vi.hoisted(() => ({ grants: [] as unknown[], changes: [] as unknown[], reader: "" }));
 
+vi.mock("@/core/grant", () => ({
+  grantOf: (email: string) =>
+    Promise.resolve({ admin_tier: (state.grants as FLGrantRow[]).find(({ address }) => address === email.toLowerCase())?.admin_tier ?? null }),
+}));
 vi.mock("@/features/grants/schemas", () => ({ GRANT_RULES: { required: { email: true, grant_id: true }, emailMax: 254 } }));
 vi.mock("@/features/grants/queries", () => ({ getGrants: () => Promise.resolve({ grants: state.grants }) }));
 vi.mock("@/features/address-change/queries", () => ({ getAddressChanges: () => Promise.resolve({ changes: state.changes }) }));
@@ -45,9 +49,12 @@ const change = (address: string, effective_from: string | null, holder: FLAddres
 
 type Drawn = {
   props: {
-    create: { act: Promise<ListCreate | null> };
-    sideAct: { act: Promise<ListCreate | null> };
-    list: { content: Promise<ReactElement<{ cards: readonly FoldedCard[] }>> };
+    create: { act: Promise<ListCreate | null>; held: Promise<boolean> };
+    sideAct: { act: Promise<ListCreate | null>; held: Promise<boolean> };
+    list: {
+      content: Promise<ReactElement<{ cards: readonly FoldedCard[] }>>;
+      waitOnceRead: Promise<ReactElement<{ head: TableHead; plain?: number }>>;
+    };
   };
 };
 
@@ -60,6 +67,8 @@ async function read(reader: string, grants: readonly FLGrantRow[], changes: read
   const { cards } = (await props.list.content).props;
   const rowsOf = (title: string) => (cards.find((card) => card.title === title)?.tables[0] as TableProps | undefined)?.rows ?? [];
   return {
+    held: await Promise.all([props.create.held, props.sideAct.held]),
+    wait: (await props.list.waitOnceRead).props,
     create: await props.create.act,
     side: await props.sideAct.act,
     titles: cards.map((card) => card.title),
@@ -90,6 +99,24 @@ describe("who holds access and what waits", () => {
     const { waiting } = await read(OWNER, [THE_OWNER, grant("anna@example.org"), grant("ben@example.org")], changes);
 
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
+  });
+});
+
+// The harm: a wait drawn for another reader than the one reading moves every row as the page lands.
+describe("the wait, as the first read says who reads", () => {
+  it("draws an administrator neither the toolbar's acts nor a row's", async () => {
+    const { held, wait } = await read("anna@example.org", [THE_OWNER, grant("anna@example.org")]);
+
+    expect(held).toStrictEqual([false, false]);
+    expect(wait.head.acts).toBeUndefined();
+  });
+
+  it("draws the owner both, and no act on the owner's own row", async () => {
+    const { held, wait } = await read("Owner@Example.org", [THE_OWNER, grant("anna@example.org")]);
+
+    expect(held).toStrictEqual([true, true]);
+    expect(wait.head.acts).toStrictEqual([COPY.shared.verb.remove]);
+    expect(wait.plain).toBe(1);
   });
 });
 

@@ -1239,11 +1239,13 @@ export const COPY = catalogue({
       consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
       duration: "Dauer",
       durationSaisons: (count: number) => (count === 1 ? "1 Saison" : `${formatNumber(count)} Saisons`),
-      /** The dialog's note once the ban stands, by what did not follow it. */
+      /** The dialog's line once the ban stands, by what did not follow it. */
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
         notice: "Die Sperre steht, aber die E-Mail ist nicht raus.",
         both: "Die Sperre steht, aber Anmeldungen und E-Mail sind offen.",
+        /** The second press's note, once it ended what the first left running. */
+        ended: "Die Anmeldungen sind beendet.",
       },
       liftConsequence: "Die Adresse kann sich wieder anmelden.",
     },

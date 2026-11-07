@@ -17,8 +17,9 @@ import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
-import { PageWait } from "./PageFade";
+import { PageWait, PageWaitOnceRead } from "./PageFade";
 import { RailPage } from "./RailFrame";
+import { RowActs } from "./RowActs";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
@@ -97,12 +98,16 @@ type ListContent =
       head: TableHead;
       /** How many rows its wait draws. */
       wait: number;
+      /** „Weitere 50 laden“ stands under the list as a rule, so its wait draws the button. */
+      paged?: true;
       content: Promise<TableContent>;
     }
   | {
       kind: "folds";
       /** The cards while they wait, `OpenFoldPlaceholder`, which the page places as it places the cards. */
       wait: ReactElement;
+      /** The wait as the reader will see the cards, where a first read knows: `wait` stands until it answers. */
+      waitOnceRead?: Promise<ReactElement>;
       /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
       content: Promise<ReactElement>;
     }
@@ -163,10 +168,17 @@ function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table":
       return (
-        <TablePlaceholder
-          head={list.head}
-          rows={list.wait}
-        />
+        <>
+          <TablePlaceholder
+            head={list.head}
+            rows={list.wait}
+          />
+          {list.paged === true && (
+            <div className="flex items-center gap-3">
+              <span className={buttonPlaceholder()}>{COPY.shared.loadMore}</span>
+            </div>
+          )}
+        </>
       );
     case "folds":
       return list.wait;
@@ -221,6 +233,11 @@ function ListPlaceholder({ list }: { list: ListContent }) {
     case "tiles":
       return <SchoolTilesPlaceholder count={list.wait} />;
   }
+}
+
+/** What a list's boundary holds while its blocks are read, laid out as the blocks will be. */
+function ListWait({ children }: { children: ReactNode }) {
+  return <Waiting layout="flex flex-col gap-6">{children}</Waiting>;
 }
 
 /** A list's empty state inside the list's box, as `Table` places its own. */
@@ -284,9 +301,10 @@ export type ListCreate = DialogAct & { locked?: Copy };
 
 /**
  * A toolbar act the read decides, as Administratoren's are: its words, which its wait draws at their width, and the act,
- * `null` for a reader whose role never holds it, or `locked` while the list as read shuts it.
+ * `null` for a reader whose role never holds it, or `locked` while the list as read shuts it. `held` is whether this
+ * reader's role holds it at all, a first read ahead of the act's own, so a reader who never holds it sees no wait for it.
  */
-export type ListActOnceRead = { label: Copy; act: Promise<ListCreate | null> };
+export type ListActOnceRead = { label: Copy; act: Promise<ListCreate | null>; held?: Promise<boolean> };
 
 /**
  * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height.
@@ -319,10 +337,13 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
     />
   );
   return locked === undefined ? (
-    <Dialog
-      {...act}
-      trigger={button}
-    />
+    // The act that locks it takes its trigger along: a handover's start, whose button stands again unbound to its dialog.
+    <RowActs className="contents">
+      <Dialog
+        {...act}
+        trigger={button}
+      />
+    </RowActs>
   ) : (
     button
   );
@@ -338,6 +359,29 @@ async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate | nul
         side={side}
       />
     )
+  );
+}
+
+async function HeldOnceRead({ held, children }: { held: Promise<boolean>; children: ReactNode }) {
+  return (await held) && children;
+}
+
+/** The toolbar's act and its wait, which the first read takes away from a reader whose role never holds it. */
+function ToolbarWait({ act: { act, held }, wait, side }: { act: ListActOnceRead; wait: ReactElement; side?: boolean }) {
+  const waiting = (
+    <Suspense fallback={wait}>
+      <ToolbarActOnceRead
+        act={act}
+        side={side}
+      />
+    </Suspense>
+  );
+  return held === undefined ? (
+    waiting
+  ) : (
+    <Suspense fallback={wait}>
+      <HeldOnceRead held={held}>{waiting}</HeldOnceRead>
+    </Suspense>
   );
 }
 
@@ -527,24 +571,25 @@ export function ListPage({
               </Suspense>
             )}
             {hasActs && (
-              <div className="ms-auto flex flex-wrap items-center justify-end gap-3">
+              <div
+                data-kit-focus="home"
+                className="ms-auto flex flex-wrap items-center justify-end gap-3">
                 {sideAct !== undefined && (
-                  <Suspense
-                    fallback={
+                  <ToolbarWait
+                    act={sideAct}
+                    wait={
                       <Placeholder>
                         <span className={buttonPlaceholder()}>{sideAct.label}</span>
                       </Placeholder>
-                    }>
-                    <ToolbarActOnceRead
-                      act={sideAct.act}
-                      side
-                    />
-                  </Suspense>
+                    }
+                    side
+                  />
                 )}
                 {create === undefined ? null : "label" in create ? (
-                  <Suspense fallback={<CreatePlaceholder label={create.label} />}>
-                    <ToolbarActOnceRead act={create.act} />
-                  </Suspense>
+                  <ToolbarWait
+                    act={create}
+                    wait={<CreatePlaceholder label={create.label} />}
+                  />
                 ) : (
                   <ToolbarAct act={create} />
                 )}
@@ -569,14 +614,24 @@ export function ListPage({
             <NoticeOnceRead notice={notice} />
           </Suspense>
         )}
-        <PageWait
-          fallback={
-            <Waiting layout="flex flex-col gap-6">
-              <ListPlaceholder list={list} />
-            </Waiting>
-          }>
-          <ListBody list={list} />
-        </PageWait>
+        {list.kind === "folds" && list.waitOnceRead !== undefined ? (
+          <PageWaitOnceRead
+            fallback={<ListWait>{list.wait}</ListWait>}
+            wait={list.waitOnceRead.then((wait) => (
+              <ListWait>{wait}</ListWait>
+            ))}>
+            <ListBody list={list} />
+          </PageWaitOnceRead>
+        ) : (
+          <PageWait
+            fallback={
+              <ListWait>
+                <ListPlaceholder list={list} />
+              </ListWait>
+            }>
+            <ListBody list={list} />
+          </PageWait>
+        )}
       </ListQueryScope>
     </RailPage>
   );

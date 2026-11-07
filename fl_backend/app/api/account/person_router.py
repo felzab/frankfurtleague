@@ -24,6 +24,7 @@ from app.api.account.services import (
 )
 from app.api.address_change.crud import (
     end_the_change_in_session,
+    live_grant_of,
     owe_the_notice_in_session,
     read_the_holdings,
     start_the_change_in_session,
@@ -38,6 +39,7 @@ from app.api.address_change.services import (
     is_expired,
     masked_address,
     stored_instant,
+    wait_tier,
     waits_on,
 )
 from app.api.identity.crud import roles_from
@@ -136,32 +138,38 @@ async def _address_change_answer(
     identifier: str,
     *,
     address_changes_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession | None,
 ) -> FLAccountAddressChangeResponse:
     record = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
+    grant = await live_grant_of(identifier, grants_collection=grants_collection, session=session)
 
-    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now))
+    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now), wait_tier=wait_tier(grant))
 
 
 @router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: PersonIdentifier,
     address_changes_collection: AddressChangeCollection,
+    grants_collection: GrantsCollection,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """
-    Answer the change pending on the signed-in address, null where none is.
+    Answer the change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
 
     PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
     `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
     the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
     mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,
-    whose press is refused until the hourly pass ends the change.
+    whose press is refused until the hourly pass ends the change. `wait_tier` is null for an address holding no grant, and
+    `owner` for a row a handover names, whatever its stored tier.
     """
 
-    return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=None)
+    return await _address_change_answer(
+        identifier, address_changes_collection=address_changes_collection, grants_collection=grants_collection, now=germany_now, session=None
+    )
 
 
 @router.post(
@@ -279,7 +287,13 @@ async def delete_address_change(
             session=session,
         )
 
-        return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=session)
+        return await _address_change_answer(
+            identifier,
+            address_changes_collection=address_changes_collection,
+            grants_collection=grants_collection,
+            now=germany_now,
+            session=session,
+        )
 
     async with transaction_session(db) as session:
         return await session.with_transaction(stop_the_change)

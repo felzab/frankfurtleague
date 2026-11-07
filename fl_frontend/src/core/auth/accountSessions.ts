@@ -50,6 +50,14 @@ export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> 
   });
 }
 
+/** Whether a session of an address's account stands: a second ban's press is told by it from one with nothing to end. */
+export async function sessionsStandAt(address: string): Promise<boolean> {
+  const { adapter, internalAdapter } = await auth.$context;
+  const account = await internalAdapter.findUserByEmail(asSignInIdentifier(address));
+  if (account === null) return false;
+  return (await adapter.count({ model: "session", where: [{ field: "userId", value: account.user.id }] })) > 0;
+}
+
 /**
  * Ends every session of an address's account, which a refused next sign-in does not reach, keeping the account: a
  * barred one is the account sweep's to judge, a signed-out one waits for its next
