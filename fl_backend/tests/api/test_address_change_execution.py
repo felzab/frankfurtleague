@@ -830,13 +830,14 @@ class TestAHoldersOwnChange:
             if holder == EMAIL:
                 await granted(database)
             before = await database[Collection.GRANTS].find_one({"address": holder})
+            assert before is not None
             minted = await start(database, client, identifier=holder)
             answered = await answer(database, client, minted.token)
             early = await sweep(database, client, germany_now=NOW + wait - timedelta(minutes=1))
-            waiting = await database[Collection.GRANTS].find_one({"_id": before["_id"]})
+            waiting = await row(database, Collection.GRANTS, before["_id"])
             due = NOW + wait + timedelta(minutes=1)
             late = await sweep(database, client, germany_now=due)
-            moved = await database[Collection.GRANTS].find_one({"_id": before["_id"]})
+            moved = await row(database, Collection.GRANTS, before["_id"])
             return answered, early, waiting, late, moved, due, await carries(database), await owed(database)
 
         answered, early, waiting, late, moved, due, owed_carries, notices = on_a_person(mongo_replica_set_url, body)

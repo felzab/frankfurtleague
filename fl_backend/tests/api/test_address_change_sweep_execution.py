@@ -19,7 +19,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.address_change.schemas import FLAddressChangeMovesDonePayload, FLAddressChangeSweepParams
-from app.api.address_change.services import wait_after_confirmation
 from app.api.address_change.system_router import (
     ADDRESS_CHANGE_PER_PASS,
     get_address_change_moves,
@@ -94,7 +93,7 @@ def confirmed_on(change: dict[str, Any], confirmed_at: datetime) -> dict[str, An
         "valid_until": None,
         "change_reason": "Postfach gelöscht, telefonisch bestätigt",
         "confirmed_at": confirmed_at,
-        "effective_from": confirmed_at + wait_after_confirmation(way="waiting_period", admin_tier=None),
+        "effective_from": confirmed_at + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS),
     }
 
 
