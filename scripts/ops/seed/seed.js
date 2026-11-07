@@ -1091,7 +1091,8 @@ const PLANNED_ROWS = [
 const BANS = [
   {
     _id: ObjectId(),
-    address: "gesperrt@example.com",
+    // Long enough for a phone's row to have to wrap it, which `fl_frontend/e2e/phone/access.spec.ts` measures.
+    address: "gesperrte.person.mit.langer.adresse@example.com",
     ban_reason: "Beleidigungen am Spielfeldrand",
     created_by: "inhaber@example.com",
     created_at: day(-30),

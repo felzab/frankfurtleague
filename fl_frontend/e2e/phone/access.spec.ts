@@ -29,7 +29,7 @@ test("Administratoren reads who holds access and what waits, and offers an admin
 test("the Sperrliste reads a ban", async ({ page }) => {
   await page.goto("/admin/ban-list");
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Sperrliste" })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("row").filter({ hasText: "gesperrt@example.com" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("row").filter({ hasText: "gesperrte.person.mit.langer.adresse@example.com" })).toBeVisible();
 });
 
 test("Löschungen opens on its one form", async ({ page }) => {
@@ -58,7 +58,7 @@ test("a list's row shows its whole address at a phone's width", async ({ page })
     await page.setViewportSize({ ...profile, width });
     for (const [list, address] of [
       ["/admin/address-changes", "nina.noll@example.com"],
-      ["/admin/ban-list", "gesperrt@example.com"],
+      ["/admin/ban-list", "gesperrte.person.mit.langer.adresse@example.com"],
     ] as const) {
       await page.goto(list);
       const cell = page.getByRole("main").getByRole("row").filter({ hasText: address }).getByText(address, { exact: true });
