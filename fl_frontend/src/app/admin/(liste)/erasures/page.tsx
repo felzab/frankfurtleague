@@ -1,9 +1,9 @@
 import { QuestionPage } from "@/kit/QuestionPage";
 
 import { requires } from "@/core/action";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { IdentityPostErasureBody, identityPostErasureBodyEmailMax, identityPostErasureBodyReasonMax } from "@/core/generated/zod/inputs";
-import { getRequestActor } from "@/core/requestScope";
 import { ROUTES } from "@/core/routes";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -30,7 +30,7 @@ export default function ErasuresPage() {
       tone="danger"
       read={readErasureCounts}
       act={eraseAddress}
-      holder={runAdminRead(async () => getRequestActor()?.email ?? "")}
+      holder={runAdminRead(async () => (await getAdminSession())?.user.email ?? "")}
       fields={[
         {
           label: COPY.signIn.address,

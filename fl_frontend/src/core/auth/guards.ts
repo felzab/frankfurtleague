@@ -141,3 +141,9 @@ export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSes
 
   return { session: judged.session };
 }
+
+/** The session the administrator's guard admits, `null` for any it refuses, whatever the reason. */
+export async function getAdminSession(): Promise<JudgedSession | null> {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
+}

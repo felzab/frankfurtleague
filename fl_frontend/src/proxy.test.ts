@@ -47,12 +47,7 @@ const store = memoryStore(STORE);
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
-const { judgeAdminRequest } = await import("./core/auth/guards.ts");
-/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
-const getAdminSession = async () => {
-  const judged = await judgeAdminRequest();
-  return "session" in judged ? judged.session : null;
-};
+const { getAdminSession } = await import("./core/auth/guards.ts");
 const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");

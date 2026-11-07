@@ -4,15 +4,17 @@ import { OpenFoldPlaceholder, ReadFolds } from "@/kit/ReadFolds";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { GRANT_WAIT, OWNER_WAIT } from "@/core/addressChange";
+import { getAdminSession } from "@/core/auth/guards";
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { discardChange } from "@/features/address-change/actions";
+import { getAddressChanges } from "@/features/address-change/queries";
 import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
-import { getAddressChanges, getGrants } from "@/features/grants/queries";
+import { getGrants } from "@/features/grants/queries";
 import { GRANT_RULES } from "@/features/grants/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -20,7 +22,7 @@ import { RowAct } from "./RowAct";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { FLAddressChangeAdminOpen, FLGrantRow, FLGrantWaitHours, FLOwnerWaitDays } from "@/core/generated/client/types";
+import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableProps, TableRow } from "@/kit/Table";
@@ -31,8 +33,6 @@ const FACTS = COPY.admin.facts;
 const MAIL_TO = COPY.admin.mailTo;
 const ADDRESS = COPY.signIn.address;
 
-const ADDITION_WAIT = { hours: 24 } as const satisfies { hours: FLGrantWaitHours };
-const OWNER_WAIT = { days: 7 } as const satisfies { days: FLOwnerWaitDays };
 const DAY_MS = 86_400_000;
 
 /** The two toolbar acts, each naming its button, its wait and its dialog. */
@@ -60,23 +60,22 @@ const isWaitingChange = (change: FLAddressChangeAdminOpen): change is WaitingCha
 
 /**
  * Who holds access and what waits. A future `effective_from` is an addition no session holds yet; a holder's change is
- * a running change at a grant's address with its date set, which the server answers to the owner alone, and never the
+ * a running change the server marks a holder's with its date set, which it answers to the owner alone, and never the
  * reader's own, which Konto shows.
  */
 async function readAccess(): Promise<Access> {
-  const [{ grants }, { changes }, judged] = await Promise.all([getGrants(), getAddressChanges(), judgeAdminRequest()]);
+  const [{ grants }, { changes }, session] = await Promise.all([getGrants(), getAddressChanges(), getAdminSession()]);
   // The page's read turned a refused session away to the sign-in before this line.
-  const holder = "session" in judged ? judged.session.user.email : "";
+  const holder = session?.user.email;
   const moment = now().getTime();
   const inEffect = grants.filter((grant) => new Date(grant.effective_from).getTime() <= moment);
   const owner = inEffect.filter((grant) => grant.admin_tier === "owner");
-  const addresses = new Set(grants.map((grant) => grant.address));
   return {
-    actor: owner.some((grant) => grant.address === asSignInIdentifier(holder)) ? holder : null,
+    actor: holder !== undefined && owner.some((grant) => grant.address === asSignInIdentifier(holder)) ? holder : null,
     active: [...owner, ...inEffect.filter((grant) => grant.admin_tier !== "owner")],
     additions: grants.filter((grant) => !inEffect.includes(grant)),
     handover: grants.find((grant) => grant.owner_from !== null),
-    changes: changes.filter(isWaitingChange).filter((change) => addresses.has(change.address)),
+    changes: changes.filter(isWaitingChange).filter((change) => change.holder !== null),
   };
 }
 
@@ -212,7 +211,6 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
 const HEAD = {
   nameLabel: ADDRESS,
   columns: [{ key: "since", label: WORDS.since, narrow: true, width: "date" }],
-  linked: false,
   acts: [COPY.shared.verb.remove],
 } as const satisfies TableHead;
 
@@ -263,7 +261,7 @@ function addOf({ actor }: Access): ListCreate | null {
     act: ADD,
     action: addAdministrator,
     touch: { holder: actor },
-    consequence: WORDS.additionConsequence(ADDITION_WAIT),
+    consequence: WORDS.additionConsequence(GRANT_WAIT),
     children: (
       <TextField
         label={ADDRESS}

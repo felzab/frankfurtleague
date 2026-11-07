@@ -7,7 +7,7 @@ import { FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { TablePlaceholder } from "@/kit/Table";
 
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
@@ -181,14 +181,14 @@ export default function SaisonSettingsPage({ params }: Props) {
 
 async function readEditor(params: Props["params"]) {
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
+  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, session] = await Promise.all([
     readSaison(params),
     getAdminSaisons(),
-    judgeAdminRequest(),
+    getAdminSession(),
   ]);
   // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
   // by passkey alone, so every act behind the touch asks it.
-  const holder = "session" in judged ? judged.session.user.email : "";
+  const holder = session?.user.email ?? "";
   // The teams the registration links' press would mail now, by the press's own plan.
   const mailed = invitations.filter((row) => row.skipped === null);
 
