@@ -45,7 +45,7 @@ export const saveSchiedsrichter = action({
   lane: "admin",
   name: "saveSchiedsrichter",
   input: SaveSchiedsrichter,
-  ownWords: ["duplicate_key", "email_not_accepted", "schiedsrichter_address_barred"],
+  ownWords: ["duplicate_key", "email_not_accepted"],
   paths: { name: "changes.name", "kontakt.email": "changes.email" },
   examples: { "changes.name": COPY.shared.field.exampleName, "changes.phone": COPY.admin.schiedsrichter.phoneExample },
   run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {

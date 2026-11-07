@@ -187,18 +187,6 @@ class AnsetzungState:
     vereine: Sequence[Mapping[str, Any]]
 
 
-def seat_address(*, ansetzung_state: AnsetzungState, spielbestaetigung_raw: Mapping[str, Any], seat: str) -> str | None:
-    """The address the seat holds now on its club's season row.
-
-    A seat a write emptied or handed over had its links voided in that write, so a link resolving here is its holder's.
-    """
-
-    team_id = (spielbestaetigung_raw.get("party") or {}).get("team_id")
-    verein = next((row for row in ansetzung_state.vereine if row.get("team_id") == team_id), None)
-
-    return kontakt_address(kontakte=(verein or {}).get("kontakte"), seat=seat)
-
-
 def _reason_now(
     *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str
 ) -> FLSpielbestaetigungClosedReason | None:
@@ -226,15 +214,11 @@ def zustand_of(
     spielbestaetigung_raw: Mapping[str, Any],
     ansetzung_state: AnsetzungState,
     today: str,
-    barred: bool,
     vorschlag_open: FLSpielbestaetigungAppointment | None,
 ) -> FLSpielbestaetigungState:
     """What a reopened link shows, the first state matching winning: a spent link is answered, never refused."""
 
     answer, closed = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
-
-    if barred:
-        return "barred"
 
     # Closed, by the reason stored; open or a discard still holding its question, by the one the close would store.
     reason = (
@@ -280,18 +264,6 @@ def find_unknown_link_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | 
     return WriteRefusal(
         error_code=Code.LINK_INVALID,
         status=HTTPStatus.NOT_FOUND,
-    )
-
-
-def find_barred_link_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: asked at the press, however old the link, ahead of every state of its row."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
     )
 
 
@@ -699,12 +671,10 @@ def build_current_rows_pipeline(
 def schiedsrichter_state_of(
     *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str
 ) -> FLSpielbestaetigungSchiedsrichterState:
-    """What the panel shows of a referee's own row: the link's state, which no ban and no proposal reaches here."""
+    """What the panel shows of a referee's own row: the link's state, which no proposal reaches here."""
 
-    state = zustand_of(
-        spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, barred=False, vorschlag_open=None
-    )
-    assert state != "barred" and state != "vorschlag" and state != "discarded"
+    state = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=None)
+    assert state != "vorschlag" and state != "discarded"
 
     return state
 

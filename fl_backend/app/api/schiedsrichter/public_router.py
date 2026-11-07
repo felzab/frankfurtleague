@@ -5,7 +5,6 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
     FLSchiedsrichterConfirmationResponse,
@@ -22,7 +21,6 @@ from app.api.schiedsrichter.services import (
     compose_decline_update,
     find_already_answered_refusal,
     find_alter_refusal,
-    find_confirmation_barred_refusal,
     find_expired_token_refusal,
     find_media_refusal,
     find_unknown_token_refusal,
@@ -66,7 +64,6 @@ router = APIRouter(
 async def get_confirmation_view(
     view_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterConfirmationViewResponse:
     """
@@ -78,10 +75,8 @@ async def get_confirmation_view(
     URL.
 
     Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
-    is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,
-    ahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),
-    so the page offers a barred referee nothing to press. `answered_at` is the day the state's answer was given, the
-    consent's or the objection's, and null on every state showing none.
+    is SERVED in that state rather than refused, so a reopened link shows what became of it. `answered_at` is the day the
+    state's answer was given, the consent's or the objection's, and null on every state showing none.
     """
 
     token_hash = hash_token(view_data.token)
@@ -94,9 +89,7 @@ async def get_confirmation_view(
     block = raw[CONFIRMATION_FIELD]
     einwilligung = raw.get(EINWILLIGUNG_FIELD)
 
-    barred = await barred_addresses(ban_list, [str((raw.get("kontakt") or {}).get("email") or "")])
-
-    state = state_of(einwilligung=einwilligung, confirmation=block, today=today, barred=bool(barred))
+    state = state_of(einwilligung=einwilligung, confirmation=block, today=today)
 
     return FLSchiedsrichterConfirmationViewResponse(
         state=state,
@@ -118,7 +111,6 @@ async def get_confirmation_view(
 async def post_confirmation(
     answer_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -132,9 +124,8 @@ async def post_confirmation(
     fixture stores.
 
     Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
-    declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
-    list holds now, whenever the link was minted (`link_barred`), an age outside `minimum_age` to `maximum_age`
-    (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
+    declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to
+    `maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
     `media_minimum_age` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
@@ -142,8 +133,6 @@ async def post_confirmation(
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:
         """Judge, then write, everything judged read in-session.
@@ -163,12 +152,6 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        # Asked at the press rather than only at the mint: a ban entered after the link went out
-        # stops it here, and one lifted while it runs lets it answer again.
-        barred = await barred_addresses(
-            ban_list, [str((raw.get("kontakt") or {}).get("email") or "")], governing_saison_id=governing_saison_id, session=session
-        )
-        refuse(find_confirmation_barred_refusal(barred=bool(barred)))
         refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
         refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
@@ -222,8 +205,7 @@ async def post_decline(
     it replays it.
 
     Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
-    confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
-    is not asked: an objection gives the league nothing a ban withholds.
+    confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`).
     """
 
     token_hash = hash_token(decline_data.token)

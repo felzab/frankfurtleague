@@ -10,7 +10,6 @@ from app.api.teams.schemas import FLPatchTeamSaisonPayload, FLPostTeamEntryPaylo
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.bans import ban_list
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
@@ -128,10 +127,8 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Any:
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         grants_collection=database[Collection.GRANTS],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         today=TODAY,
         operator=OPERATOR,
-        auth_time=0,
     )
 
 

@@ -118,7 +118,6 @@ export const Code = {
   team_retired: "team_retired",
   role_not_held: "role_not_held",
   kontakt_seat_without_confirmation: "kontakt_seat_without_confirmation",
-  kontakt_seat_barred: "kontakt_seat_barred",
   kontakt_email_taken: "kontakt_email_taken",
   kontakt_phone_taken: "kontakt_phone_taken",
   kontakt_row_without_saison: "kontakt_row_without_saison",
@@ -166,7 +165,6 @@ export const Code = {
   rules_forfeit_unentschieden_in_a_knockout_as_stored: "rules_forfeit_unentschieden_in_a_knockout_as_stored",
   schiedsrichter_retired: "schiedsrichter_retired",
   schiedsrichter_no_address: "schiedsrichter_no_address",
-  schiedsrichter_address_barred: "schiedsrichter_address_barred",
   schiedsrichter_address_only_per_change: "schiedsrichter_address_only_per_change",
   ban_list_no_saison: "ban_list_no_saison",
   ban_list_admin: "ban_list_admin",
@@ -4890,7 +4888,6 @@ export const FLSchiedsrichterConfirmationState = {
   confirmed: "confirmed",
   declined: "declined",
   expired: "expired",
-  barred: "barred",
 } as const;
 
 /**
@@ -5475,7 +5472,7 @@ export interface FLSpielbestaetigungSeat {
 }
 
 /**
- * The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty, barred or voided seat holds no link.
+ * The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty or voided seat holds no link.
  */
 export interface FLSpielbestaetigungKontakte {
   ansprechperson: FLSpielbestaetigungSeat | null;
@@ -5634,7 +5631,6 @@ export const FLSpielbestaetigungViewResponseState = {
   expired: "expired",
   invalid: "invalid",
   cancelled: "cancelled",
-  barred: "barred",
 } as const;
 
 /**

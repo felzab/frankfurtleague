@@ -10,7 +10,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
-from app.api.ban_list.lookup import BanList, BanListLookup, barred_addresses
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
@@ -26,7 +25,6 @@ from app.api.invitations.services import (
     build_live_team_filter,
     compose_invitation,
     compose_revocation_update,
-    confirmed_recipients,
     find_invitation_saison_past_refusal,
     plan_invitation_dispatch,
 )
@@ -252,7 +250,6 @@ async def get_saison_admin(
     teams_collection: TeamsCollection,
     spielberichte_collection: SpielberichteReadCollection,
     invitations_collection: InvitationsCollection,
-    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
     """
@@ -323,7 +320,6 @@ async def get_saison_admin(
                 saison_id=saison_id,
                 saison_teams_collection=saison_teams_collection,
                 invitations_collection=invitations_collection,
-                ban_list=ban_list,
             ),
         ),
     )
@@ -1247,14 +1243,6 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
     )
 
 
-async def _barred_recipients(ban_list: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
-    """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
-
-    addresses = [person.email for team in entered for person in confirmed_recipients(kontakte=team.get("kontakte"))]
-
-    return await barred_addresses(ban_list, addresses) if addresses else set()
-
-
 class _PlannedTeam(NamedTuple):
     """One team as a press made now would treat it, beside the live link it holds."""
 
@@ -1268,7 +1256,6 @@ async def _plan_the_dispatch(
     saison_id: str,
     saison_teams_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
-    ban_list: BanList,
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
@@ -1288,7 +1275,6 @@ async def _plan_the_dispatch(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
-    barred = await _barred_recipients(ban_list, entered)
 
     planned: list[_PlannedTeam] = []
     for team in entered:
@@ -1298,7 +1284,6 @@ async def _plan_the_dispatch(
             kontakte=team.get("kontakte"),
             invitation_raw=invitation_raw,
             resend=False,
-            barred=barred,
         )
         planned.append(_PlannedTeam(team=team, live=invitation_raw, plan=plan))
 
@@ -1317,7 +1302,6 @@ async def _mail_one_team(
     saison_id: str,
     team: Mapping[str, Any],
     resend: bool,
-    barred: set[str],
     created_by: str,
     today: str,
     now: datetime,
@@ -1348,7 +1332,6 @@ async def _mail_one_team(
             kontakte=team.get("kontakte"),
             invitation_raw=live[0] if live else None,
             resend=resend,
-            barred=barred,
         )
 
         if plan.skipped is not None:
@@ -1420,7 +1403,6 @@ async def post_invitations_dispatch(
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
@@ -1433,12 +1415,10 @@ async def post_invitations_dispatch(
     copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
     handed out; no link is answered. A team this skips is left exactly as it was.
 
-    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
-    `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
-    holds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,
-    never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club
-    holds is replaced only by a deliberate resend. **The first is read off the junction row's
+    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
+    has been confirmed by its own person, or its live link was already sent and `resend` is false. **The fourth is read off the day the
+    live link was sent, stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails
+    nobody twice, and a link a club holds is replaced only by a deliberate resend. **The first is read off the junction row's
     `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
     being a deliberate act rather than a bulk one.
 
@@ -1454,8 +1434,6 @@ async def post_invitations_dispatch(
     refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
-    # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
-    barred = await _barred_recipients(ban_list, entered)
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
@@ -1467,7 +1445,6 @@ async def post_invitations_dispatch(
             saison_id=saison_id,
             team=team,
             resend=dispatch_data.resend,
-            barred=barred,
             created_by=created_by,
             today=today,
             now=germany_now,

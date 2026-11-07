@@ -73,17 +73,8 @@ async def pull_named_spiele(
     )
 
 
-def verein_fields(*, team_id: Any, seat: str) -> dict[str, Any]:
-    """The clubs' season rows as a link reads them: the exit the close judges, the name the view states, no seat holder's name."""
-
-    return {
-        "_id": 0,
-        "team_id": 1,
-        "austritt.date": 1,
-        "name": 1,
-        # The other club's row and every other seat load no address.
-        f"kontakte.{seat}.email": {"$cond": [{"$eq": ["$team_id", team_id]}, f"$kontakte.{seat}.email", "$$REMOVE"]},
-    }
+# The clubs' season rows as a link reads them: the exit the close judges, the name the view states, no seat holder at all.
+VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1, "name": 1}
 
 
 async def pull_ansetzung_state(

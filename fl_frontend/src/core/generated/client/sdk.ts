@@ -2700,12 +2700,10 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
  * handed out; no link is answered. A team this skips is left exactly as it was.
  *
- * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link was already sent and
- * `resend` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
- * holds rather than losing it to a press that mails nobody. **The fifth is read off the day the live link was sent, stored on it**,
- * never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and a link a club
- * holds is replaced only by a deliberate resend. **The first is read off the junction row's
+ * Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
+ * has been confirmed by its own person, or its live link was already sent and `resend` is false. **The fourth is read off the day the
+ * live link was sent, stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails
+ * nobody twice, and a link a club holds is replaced only by a deliberate resend. **The first is read off the junction row's
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
@@ -2982,8 +2980,7 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused where another referee holds the name (`duplicate_key`, naming `name`), then
- * `schiedsrichter_address_barred` where the address given is on the ban list.
+ * Refused where another referee holds the name (`duplicate_key`, naming `name`).
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichter = async (
@@ -3071,9 +3068,8 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  * fixture stores.
  *
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
- * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), a link mailed to an address the ban
- * list holds now, whenever the link was minted (`link_barred`), an age outside `minimum_age` to `maximum_age`
- * (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
+ * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to
+ * `maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
  * `media_minimum_age` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
@@ -3117,8 +3113,7 @@ export const getSchiedsrichterPostDeclineUrl = () => {
  * it replays it.
  *
  * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
- * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
- * is not asked: an objection gives the league nothing a ban withholds.
+ * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`).
  * @summary Decline one Schiedsrichter's entry
  */
 export const schiedsrichterPostDecline = async (
@@ -3158,10 +3153,8 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
  * URL.
  *
  * Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
- * is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `barred`,
- * ahead of every other, wherever the ban list holds the address the link was mailed to (`link_barred`),
- * so the page offers a barred referee nothing to press. `answered_at` is the day the state's answer was given, the
- * consent's or the objection's, and null on every state showing none.
+ * is SERVED in that state rather than refused, so a reopened link shows what became of it. `answered_at` is the day the
+ * state's answer was given, the consent's or the objection's, and null on every state showing none.
  * @summary What one Schiedsrichter confirmation link opens
  */
 export const schiedsrichterGetConfirmationView = async (
@@ -3301,8 +3294,7 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  *
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
- * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `schiedsrichter_address_barred`.
+ * reactivation mints the fresh one.
  *
  * Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
  *
@@ -3345,9 +3337,8 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered, consenting or objecting (`confirmation_exists`), where they carry no email address
- * (`schiedsrichter_no_address`), and where that address is on the ban list
- * (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
+ * answered, consenting or objecting (`confirmation_exists`), and where they carry no email address
+ * (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
  *
  * **A referee who has already answered is refused rather than sent a second link**: the
@@ -3375,8 +3366,7 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
  * **A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
- * person has answered. Where a link is minted, an address on the ban list is refused
- * `schiedsrichter_address_barred` and the row stays retired.
+ * person has answered.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.
@@ -3558,8 +3548,7 @@ export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
  * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
  * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.
  *
- * Refuses, in this order: a token no seat holds (`link_invalid`); a link whose seat's address the ban list holds
- * now, whenever it was minted (`link_barred`); a row already answered, closed since or not
+ * Refuses, in this order: a token no seat holds (`link_invalid`); a row already answered, closed since or not
  * (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
  * (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
  * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a
@@ -3567,7 +3556,7 @@ export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
  * (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
  * refused, judged on what it newly claims and in that save's order: on or after a club's exit
  * (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
- * other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
+ * other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the first is asked again outside
  * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
  * than letting it stand.
  * @summary Confirm a fixture's Ansetzung, or decline it proposing another date
@@ -3679,7 +3668,7 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
  * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
  * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
- * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
+ * occupied seat holding no link -- its holder replaced or newly seated -- is owed one too. A
  * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
  * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
  * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
@@ -3693,9 +3682,6 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
  * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
  * other seats are reminded beside it.
- *
- * A seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks
- * it once the ban is lifted.
  *
  * Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
  * and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
@@ -3725,8 +3711,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungViewUrl = () => {
  * Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
  * reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
  * (`link_invalid`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
- * decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The
- * state is `barred`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.
+ * decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it.
  * `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
  * Ansetzung, whose date and hour alone are served.
  * @summary What one fixture confirmation link opens
@@ -4984,9 +4969,8 @@ export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat
  * on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
  * claim, and the seat it named keeps its person. Left out, the claim stands.
  *
- * Refused `version_stale` on a row moved since the read, `kontakt_email_taken` and `kontakt_phone_taken` where another
- * seat's person holds the address or the number, and `kontakt_seat_barred` where the ban list holds the address of a
- * person newly seated. 404 for a team and season holding no row, and for a path naming no seat.
+ * Refused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another
+ * seat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeat = async (
@@ -5027,8 +5011,8 @@ export const getTeamsInviteKontaktUrl = (teamId: string, saisonId: string, seat:
  * the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
  * the address the mail is owed to, never the link.
  *
- * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
- * person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
+ * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its
+ * person has already confirmed it (`kontakt_seat_without_confirmation`).
  * 404 for a team and season holding no row, and for a path naming no seat.
  * @summary Send one contact seat a fresh confirmation link
  */

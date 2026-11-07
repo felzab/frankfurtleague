@@ -1360,21 +1360,6 @@ def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
     return None
 
 
-def find_kontakt_seat_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`kontakt_seat_barred`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
-
-    409, as every administrator's write naming a barred address is.
-    """
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.KONTAKT_SEAT_BARRED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 def build_team_spiele_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     """This club's fixtures of one season. Both sides, because a fixture fields a team on either."""
 

@@ -34,7 +34,6 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW
@@ -211,7 +210,6 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     spielorte_collection=database[Collection.SPIELORTE],
                     teams_collection=database[Collection.TEAMS],
-                    ban_list=ban_list(database),
                     today=TODAY,
                 )
             except APIError as refused:
@@ -306,7 +304,6 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         config=CONFIG,
         today=TODAY,
@@ -425,17 +422,3 @@ class TestALeavingContactsReasonsGo:
 
         assert found["rows"] == sorted(expected(name) for name in REASONS)
 
-
-class TestAnAnsweredRowsLinkOutlivesNoHolder:
-    def test_the_old_trainers_link_tells_nobody_that_the_new_trainer_is_barred(self, mongo_replica_set_url: str):
-        """The page would read the successor's address against the ban list and tell whoever holds the old mail that it is barred."""
-
-        async def hand_on_then_bar(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await hand_the_trainer_on(database, client)
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document("lea@example.com", until=SAISON_ID))
-
-        links, stored_answers = on_a_league(mongo_replica_set_url, hand_on_then_bar)
-
-        # Refused `link_invalid` (`links_answering` admits no other refusal), never served as `barred`.
-        assert links["answered"] == ALL - {"trainer"}
-        assert stored_answers == [row["answer"] for row in ROWS.values()]
