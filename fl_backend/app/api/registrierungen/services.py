@@ -12,7 +12,6 @@ from typing import Any, Final
 from app.api.bewerbungen.services import days_after, mailbox_pattern, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink
 from app.api.registrierungen.schemas import FLRegistrierungPage
-
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -130,23 +129,6 @@ def find_kader_refusal(*, free: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.REGISTRIERUNG_KADER_FULL,
         status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`registrierung_address_barred`: the ban list holds the address this registration was typed with.
-
-    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
-    """
-
-    if not barred:
-        return None
-
-    # NEUTRAL: an administrator is told plainly what a visitor is told neutrally, so a stranger
-    # learns from this that the address is unusable and nothing about a list.
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_ADDRESS_BARRED,
-        status=HTTPStatus.FORBIDDEN,
     )
 
 
@@ -320,8 +302,8 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's: the press judges the link, the stamp, the club's row, the address the ban
-# list is asked of and the name its page is resolved by, and names no team.
+# Narrower than the view's: the press judges the link, the stamp, the club's row and the address and
+# name its page is resolved by, and names no team.
 BESTAETIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
     "confirmation.deadline": 1,
     "status": 1,
@@ -353,14 +335,11 @@ def link_is_over(*, confirmation: Any, status: Any, departed: bool, today: str) 
     return not isinstance(deadline, str) or deadline < today
 
 
-def zustand_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str, barred: bool) -> FLConfirmationState:
-    """What a reopened link shows: the ban first, then a stamp over the deadline.
+def zustand_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str) -> FLConfirmationState:
+    """What a reopened link shows: a stamp over the deadline.
 
     A pupil who answered on the last valid day is shown that they did.
     """
-
-    if barred:
-        return "barred"
 
     if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
         return "confirmed"
@@ -409,20 +388,6 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.CONFIRMATION_EXISTS,
         status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: the ban list holds the address this link was mailed to, however long ago it was minted."""
-
-    if not barred:
-        return None
-
-    # 403 and named plainly, where the submission's `registrierung_address_barred` is neutral: whoever holds the mailed token
-    # holds that mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
     )
 
 

@@ -109,8 +109,8 @@ type FLRegistrierungStatus = Literal["submitted", "declined"]
 # --- A person's own link
 
 # What a reopened confirmation link shows. A token nothing opens is a refusal rather than a state, and an
-# unreadable one never reaches the backend. `barred` ranks first.
-type FLConfirmationState = Literal["valid", "confirmed", "expired", "barred"]
+# unreadable one never reaches the backend.
+type FLConfirmationState = Literal["valid", "confirmed", "expired"]
 
 # --- The Verwaltung and an address's change
 

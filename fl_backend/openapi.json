@@ -216,8 +216,6 @@
           "bewerbung_kontakt_repeated",
           "trikot_farbe_taken",
           "bewerbung_key_differing",
-          "bewerbung_address_barred",
-          "bewerbung_kontakt_barred",
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
@@ -262,7 +260,6 @@
           "registrierung_stufe_not_allowed",
           "confirmation_exists",
           "registrierung_kader_full",
-          "registrierung_address_barred",
           "registrierung_key_differing",
           "registrierung_unconfirmed",
           "registrierung_person_not_named",
@@ -3128,7 +3125,7 @@
         "type": "object"
       },
       "FLBewerbung": {
-        "description": "One school's application to play one season, as stored, its decision as served.",
+        "description": "One school's application to play one season, as stored.",
         "properties": {
           "confirmations": {
             "$ref": "#/components/schemas/FLBewerbungConfirmations"
@@ -3136,7 +3133,7 @@
           "decision": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLBewerbungDecisionRow"
+                "$ref": "#/components/schemas/FLBewerbungDecision"
               },
               {
                 "type": "null"
@@ -3438,23 +3435,12 @@
         "title": "FLBewerbungConfirmations",
         "type": "object"
       },
-      "FLBewerbungDecisionRow": {
-        "description": "A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address.",
+      "FLBewerbungDecision": {
+        "description": "Who decided this application, when, and on a decline why.",
         "properties": {
           "by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "By"
-          },
-          "by_barred": {
-            "title": "By Barred",
-            "type": "boolean"
+            "title": "By",
+            "type": "string"
           },
           "made_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3476,10 +3462,9 @@
         "required": [
           "made_at",
           "by",
-          "reason",
-          "by_barred"
+          "reason"
         ],
-        "title": "FLBewerbungDecisionRow",
+        "title": "FLBewerbungDecision",
         "type": "object"
       },
       "FLBewerbungEinwilligungAnswerResponse": {
@@ -3710,8 +3695,7 @@
               "confirmed",
               "declined",
               "expired",
-              "saison_past",
-              "barred"
+              "saison_past"
             ],
             "title": "State",
             "type": "string"
@@ -5170,8 +5154,7 @@
         "enum": [
           "valid",
           "confirmed",
-          "expired",
-          "barred"
+          "expired"
         ],
         "type": "string"
       },
@@ -6950,7 +6933,7 @@
         "type": "object"
       },
       "FLInvitationRow": {
-        "description": "One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address.",
+        "description": "One live link as the team's read serves it.",
         "properties": {
           "created_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6958,20 +6941,9 @@
             "type": "string"
           },
           "created_by": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
-          "created_by_barred": {
-            "title": "Created By Barred",
-            "type": "boolean"
+            "minLength": 1,
+            "title": "Created By",
+            "type": "string"
           },
           "delivery": {
             "anyOf": [
@@ -7031,7 +7003,6 @@
           "created_by",
           "revoked_at",
           "sent_at",
-          "created_by_barred",
           "delivery"
         ],
         "title": "FLInvitationRow",
@@ -7042,7 +7013,6 @@
           "austritt_entered",
           "no_kontakt_block",
           "no_confirmed_kontaktperson",
-          "kontakte_barred",
           "already_sent"
         ],
         "type": "string"
@@ -20737,7 +20707,7 @@
     },
     "/api/v0/bewerbungen": {
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nAn address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press. Two people sharing\nan address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being\nthat one person.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the\npress: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same\neither way, so it tells a stranger nothing about the address.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nTwo people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the\nTrainer also holds being that one person.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the\npress: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same\neither way, so it tells a stranger nothing about the address.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -20826,7 +20796,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice\nnaming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `media_age`, and\non a team's season row `link_expired` and `kontakt_saison_past`.",
+        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice\nnaming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's\nseason row `link_expired` and `kontakt_saison_past`.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -20933,7 +20903,7 @@
     },
     "/api/v0/bewerbungen/einwilligung/view": {
       "post": {
-        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `barred`\nranking first; only a token no seat holds is refused (`link_invalid`).",
+        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token\nno seat holds is refused (`link_invalid`).",
         "operationId": "bewerbungen_get_einwilligung_view",
         "requestBody": {
           "content": {
@@ -21312,7 +21282,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application, its decision's administrator withheld as the list withholds it.\n\nEach seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open\napplication of the season, as the list takes it.",
+        "description": "One application.\n\nEach seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open\napplication of the season, as the list takes it.",
         "operationId": "bewerbungen_get_bewerbung",
         "parameters": [
           {
@@ -21651,7 +21621,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
       "post": {
-        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThat seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.",
+        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThat seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.",
         "operationId": "bewerbungen_resend_einwilligung",
         "parameters": [
           {
@@ -21739,7 +21709,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,\n`bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no\nseat is a 404.",
+        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,\n`bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -23525,7 +23495,7 @@
     },
     "/api/v0/registrierungen/confirmation": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,\n`confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,\n`confirmation_exists`, `confirmation_age`, `media_age` and `registrierung_choices_unsuitable`.",
         "operationId": "registrierungen_post_confirmation",
         "requestBody": {
           "content": {
@@ -23602,7 +23572,7 @@
     },
     "/api/v0/registrierungen/confirmation/view": {
       "post": {
-        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,\na link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning\npupil's page; only a token no registration holds is refused (`link_invalid`).",
+        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has\nleft the season reading expired, and `confirmation_spieler_returning` opens the returning\npupil's page; only a token no registration holds is refused (`link_invalid`).",
         "operationId": "registrierungen_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -23867,7 +23837,7 @@
     },
     "/api/v0/registrierungen/list/admin": {
       "get": {
-        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past\n`OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
+        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past\n`OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
         "operationId": "registrierungen_get_registrierungen_admin",
         "parameters": [
           {
@@ -23957,7 +23927,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:\n`reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that\ninbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every\nremoval names this season alone and is made inside a transaction.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:\n`reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that\ninbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every\nremoval names this season alone and is made inside a transaction.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -24035,7 +24005,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/admit": {
       "post": {
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address\nthis admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on\nthe day the registration was submitted, never today's and never lifted from a retired row; this person's retired\nrow of this season is rewritten rather than a second one written, whichever team it was on. The registration is\ndeleted in the same transaction, so a second press meets no row. Its\nsubmission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list\nholds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer\n(`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address\nthis admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on\nthe day the registration was submitted, never today's and never lifted from a retired row; this person's retired\nrow of this season is rewritten rather than a second one written, whichever team it was on. The registration is\ndeleted in the same transaction, so a second press meets no row. Its\nsubmission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not\noffer (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
         "operationId": "registrierungen_admit",
         "parameters": [
           {
@@ -24124,7 +24094,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/decline": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`role_not_held`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`role_not_held`).",
         "operationId": "registrierungen_decline",
         "parameters": [
           {

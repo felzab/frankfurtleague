@@ -86,8 +86,6 @@ export const Code = {
   bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
   trikot_farbe_taken: "trikot_farbe_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
-  bewerbung_address_barred: "bewerbung_address_barred",
-  bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
@@ -132,7 +130,6 @@ export const Code = {
   registrierung_stufe_not_allowed: "registrierung_stufe_not_allowed",
   confirmation_exists: "confirmation_exists",
   registrierung_kader_full: "registrierung_kader_full",
-  registrierung_address_barred: "registrierung_address_barred",
   registrierung_key_differing: "registrierung_key_differing",
   registrierung_unconfirmed: "registrierung_unconfirmed",
   registrierung_person_not_named: "registrierung_person_not_named",
@@ -1301,11 +1298,10 @@ export interface FLBewerbungConfirmations {
 }
 
 /**
- * A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address.
+ * Who decided this application, when, and on a decline why.
  */
-export interface FLBewerbungDecisionRow {
-  by: string | null;
-  by_barred: boolean;
+export interface FLBewerbungDecision {
+  by: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
   reason: string | null;
@@ -1452,11 +1448,11 @@ export interface FLBewerbungTrikot {
 }
 
 /**
- * One school's application to play one season, as stored, its decision as served.
+ * One school's application to play one season, as stored.
  */
 export interface FLBewerbung {
   confirmations: FLBewerbungConfirmations;
-  decision: FLBewerbungDecisionRow | null;
+  decision: FLBewerbungDecision | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   kader: FLBewerbungKader;
@@ -1604,7 +1600,6 @@ export const FLBewerbungEinwilligungViewResponseState = {
   declined: "declined",
   expired: "expired",
   saison_past: "saison_past",
-  barred: "barred",
 } as const;
 
 export type FLKontaktRow = (typeof FLKontaktRow)[keyof typeof FLKontaktRow];
@@ -2252,7 +2247,6 @@ export const FLConfirmationState = {
   valid: "valid",
   confirmed: "confirmed",
   expired: "expired",
-  barred: "barred",
 } as const;
 
 /**
@@ -2799,7 +2793,6 @@ export const FLInvitationSkipReason = {
   austritt_entered: "austritt_entered",
   no_kontakt_block: "no_kontakt_block",
   no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
-  kontakte_barred: "kontakte_barred",
   already_sent: "already_sent",
 } as const;
 
@@ -2857,13 +2850,13 @@ export interface FLInvitationMintResponse {
 }
 
 /**
- * One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address.
+ * One live link as the team's read serves it.
  */
 export interface FLInvitationRow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  created_by: string | null;
-  created_by_barred: boolean;
+  /** @minLength 1 */
+  created_by: string;
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;

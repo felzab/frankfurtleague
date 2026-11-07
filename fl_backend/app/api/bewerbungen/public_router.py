@@ -7,7 +7,6 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, barred_hashes
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungEinwilligungAnswerResponse,
@@ -46,8 +45,6 @@ from app.api.bewerbungen.services import (
     find_already_answered_refusal,
     find_already_entered_refusal,
     find_alter_refusal,
-    find_barred_refusal,
-    find_einwilligung_barred_refusal,
     find_expired_token_refusal,
     find_picked_club_refusal,
     find_repeated_contact_refusal,
@@ -188,12 +185,6 @@ async def get_form(
     )
 
 
-async def _any_barred(*, ban_list: BanList, hashed: Sequence[str], governing_saison_id: str | None, session: AsyncClientSession) -> bool:
-    """Whether the ban list holds any of the seats' addresses, asked in the caller's transaction in one read."""
-
-    return bool(await barred_hashes(ban_list, hashed, governing_saison_id=governing_saison_id, session=session))
-
-
 async def _open_links_by_mailbox(
     *, bewerbungen_collection: BewerbungenCollection, saison_id: str, addresses: Sequence[str], session: AsyncClientSession
 ) -> dict[str, int]:
@@ -236,7 +227,6 @@ async def post_bewerbung(
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # visitor's own press is then refused as a changed replay.
@@ -257,9 +247,8 @@ async def post_bewerbung(
     application it holds, stores none and owes nothing again. The same key over other details is refused
     (`bewerbung_key_differing`).
 
-    An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press. Two people sharing
-    an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being
-    that one person.
+    Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
+    Trainer also holds being that one person.
 
     A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
     press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
@@ -271,13 +260,9 @@ async def post_bewerbung(
     schluessel = str(idempotency_key)
     fingerabdruck = payload_fingerprint(bewerbung_data)
 
-    # Hashed outside the transaction, whose callback may run again: the hash reads no document. One
-    # per distinct address, the seat the Trainer also holds naming theirs twice.
+    # One per distinct address, the seat the Trainer also holds naming theirs twice.
     kontakte = bewerbung_data.kontakte
     addresses = sorted({str(person.email) for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)})
-    hashed = sorted({ban_list.hash_of(address) for address in addresses})
-    # The REFERENCE season a ban is counted from, as the registration reads it.
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
@@ -309,14 +294,6 @@ async def post_bewerbung(
             )
             refuse(find_already_entered_refusal(entered=entered > 0))
 
-        # Last, as the registration asks it: every other refusal names what the applicant can repair
-        # themselves, and this one they are told neutrally.
-        refuse(
-            find_barred_refusal(
-                barred=await _any_barred(ban_list=ban_list, hashed=hashed, governing_saison_id=governing_saison_id, session=session)
-            )
-        )
-
         confirmation_deadline = confirmation_deadline_from(today=today)
         # The school as the mails name it: proposed, or the picked club as the league holds it, never as the body spells it.
         schule_text = schule.team_name if schule is not None else str((team_raw or {}).get("name") or "")
@@ -331,7 +308,7 @@ async def post_bewerbung(
         # the retry reads its row. One found full is mailed nothing and left alone, so a flood contends only until the bound.
         await anchor_mailboxes_in_db(
             collection=mailbox_anchors_collection,
-            ids=mailbox_anchor_ids(addresses=[a for a in addresses if open_links[mailbox_of(a)] < OPEN_LINKS_PER_MAILBOX], key=ban_list.key),
+            ids=mailbox_anchor_ids(addresses=[a for a in addresses if open_links[mailbox_of(a)] < OPEN_LINKS_PER_MAILBOX]),
             at=germany_now,
             session=session,
         )
@@ -405,7 +382,6 @@ async def _saison_view(
     token_hash: str,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    ban_list: BanListLookup,
     today: str,
 ) -> FLBewerbungEinwilligungViewResponse:
     """The view of a link no application holds, read off the season row holding it, or the unknown-token refusal."""
@@ -420,12 +396,11 @@ async def _saison_view(
     zugleich = saison_link_pair(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat, token_hash=token_hash)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    barred = await barred_addresses(ban_list, seat_addresses(kontakte=row.get("kontakte"), seats=seats))
     # As the press reads it: no season is ever deleted, so a miss is a broken invariant rather than a 404.
     saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1})
     assert saison_raw is not None
 
-    state = saison_state_of(row=row, seat=seat, today=today, barred=bool(barred), saison_status=saison_raw.get("status"))
+    state = saison_state_of(row=row, seat=seat, today=today, saison_status=saison_raw.get("status"))
     refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
 
     return FLBewerbungEinwilligungViewResponse(
@@ -456,13 +431,12 @@ async def get_einwilligung_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
-    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
-    A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `barred`
-    ranking first; only a token no seat holds is refused (`link_invalid`).
+    A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token
+    no seat holds is refused (`link_invalid`).
     """
 
     token_hash = hash_token(view_data.token)
@@ -475,7 +449,6 @@ async def get_einwilligung_view(
             token_hash=token_hash,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            ban_list=ban_list,
             today=today,
         )
 
@@ -490,9 +463,7 @@ async def get_einwilligung_view(
     zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    barred = await barred_addresses(ban_list, seat_addresses(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
-
-    state = zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, barred=bool(barred))
+    state = zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today)
     refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
 
     return FLBewerbungEinwilligungViewResponse(
@@ -523,7 +494,6 @@ async def post_einwilligung(
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
@@ -533,14 +503,11 @@ async def post_einwilligung(
 
     A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
     naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
-    `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `media_age`, and
-    on a team's season row `link_expired` and `kontakt_saison_past`.
+    `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's
+    season row `link_expired` and `kontakt_saison_past`.
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`), and only for the
-    # answer that asks the ban.
-    governing_saison_id = await ban_list_saison(ban_list) if answer_data.answer == "given" else None
     # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
     at = log_stamp(germany_now)
     journal = Journal()
@@ -580,13 +547,6 @@ async def post_einwilligung(
             # Every link on a closed row meets this here, whether minted before it closed, beside its
             # rollover or after it; never the Widerspruch below, which removes the person.
             refuse(find_saison_past_einwilligung_refusal(saison_status=saison_raw.get("status"), austritt=row.get("austritt")))
-
-            # Asked at the press, however old the link, as the application's consent asks it;
-            # never of the Widerspruch below.
-            barred = await barred_addresses(
-                ban_list, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
-            )
-            refuse(find_einwilligung_barred_refusal(barred=bool(barred)))
             refuse(find_alter_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
             refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
@@ -684,12 +644,6 @@ async def post_einwilligung(
         if answer_data.answer == "given":
             birth_date = answer_data.birth_date
 
-            # Asked at the press rather than only at the mint, so a ban entered after the link went out
-            # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
-            barred = await barred_addresses(
-                ban_list, seat_addresses(kontakte=kontakte, seats=seats), governing_saison_id=governing_saison_id, session=session
-            )
-            refuse(find_einwilligung_barred_refusal(barred=bool(barred)))
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
             refuse(find_alter_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))

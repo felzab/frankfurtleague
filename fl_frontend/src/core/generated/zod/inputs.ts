@@ -399,9 +399,8 @@ export const BanListDeleteBanListEntryParams = zod.object({
  * application it holds, stores none and owes nothing again. The same key over other details is refused
  * (`bewerbung_key_differing`).
  *
- * An address the ban list holds, on any seat, is refused (`bewerbung_address_barred`) on a first press. Two people sharing
- * an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the Trainer also holds being
- * that one person.
+ * Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
+ * Trainer also holds being that one person.
  *
  * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
  * press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
@@ -613,8 +612,8 @@ export const BewerbungenPostBewerbungBody = zod
  *
  * A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
  * naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `link_barred`, `media_age`, and
- * on a team's season row `link_expired` and `kontakt_saison_past`.
+ * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's
+ * season row `link_expired` and `kontakt_saison_past`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyOneBirthDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -652,8 +651,8 @@ export const BewerbungenPostEinwilligungBody = zod.union([
 /**
  * What the confirmation page renders for the seat this token opens, and nothing of the person.
  *
- * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `barred`
- * ranking first; only a token no seat holds is refused (`link_invalid`).
+ * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token
+ * no seat holds is refused (`link_invalid`).
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungViewBodyTokenMax = 128;
@@ -704,7 +703,7 @@ export const BewerbungenSweepSaisonParams = zod.object({
 });
 
 /**
- * One application, its decision's administrator withheld as the list withholds it.
+ * One application.
  *
  * Each seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open
  * application of the season, as the list takes it.
@@ -840,8 +839,7 @@ export const BewerbungenDeclineBewerbungBody = zod
  * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
  * That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
  * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
- * decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
- * holds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.
+ * decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -864,8 +862,7 @@ export const BewerbungenResendEinwilligungParams = zod.object({
  * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
  * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
  * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
- * `bewerbung_kontakt_phone_taken`), or an address the ban list holds (`bewerbung_kontakt_barred`). A path naming no
- * seat is a 404.
+ * `bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1377,7 +1374,7 @@ export const RegistrierungenPatchEinwilligungBody = zod
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
  * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
- * `confirmation_exists`, `confirmation_age`, `media_age`, `link_barred` and `registrierung_choices_unsuitable`.
+ * `confirmation_exists`, `confirmation_age`, `media_age` and `registrierung_choices_unsuitable`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmationBodyBirthDateOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1411,8 +1408,8 @@ export const RegistrierungenPostConfirmationBody = zod
 /**
  * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
- * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `barred` ranking first,
- * a link whose club has left the season reading expired, and `confirmation_spieler_returning` opens the returning
+ * A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
+ * left the season reading expired, and `confirmation_spieler_returning` opens the returning
  * pupil's page; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
@@ -1475,7 +1472,7 @@ export const RegistrierungenGetOpenRegistrierungenQueryParams = zod.object({
 /**
  * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
  *
- * The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
+ * The page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.
  * `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
  * `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
  * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
@@ -1497,7 +1494,7 @@ export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
 /**
  * Run the four registration retention clocks over one season, as of today in Europe/Berlin.
  *
- * A declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a
+ * A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
  * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
  * below do not run for a `past` season, whose own end takes every row they read.
  *
@@ -1536,9 +1533,8 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * submission key moves onto the squad row, so the submission replayed later stores nothing.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
- * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
- * holds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
- * (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
+ * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
+ * offer (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
  * person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
  * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
@@ -1564,7 +1560,7 @@ export const RegistrierungenAdmitBody = zod
  *
  * The decision records the declining seat holder's address and a reason from a closed set, never free text:
  * `other_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only
+ * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
  * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season

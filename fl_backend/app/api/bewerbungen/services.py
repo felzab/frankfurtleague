@@ -1,16 +1,13 @@
 import hashlib
-import hmac
 import json
 from collections.abc import Container, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, TypeIs, get_args
 
-from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic import BaseModel, ValidationError
 
-from app.api.ban_list.services import withheld_actor
 from app.api.bewerbungen.schemas import (
-    FLBewerbungDecision,
     FLBewerbungEinwilligungState,
     FLBewerbungWindowState,
     age_outside_the_bounds,
@@ -45,7 +42,6 @@ from app.shared.schemas.bounds import (
     SIGNATORY_MIN_AGE_YEARS,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
-from app.shared.sub_keys import derive_sub_key
 
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
@@ -411,9 +407,7 @@ KONTAKT_CHOICE_FIELDS: Final = ("einwilligung.scope", "einwilligung.media", "ein
 # Every hash, which `seat_holding` compares.
 EINWILLIGUNG_VIEW_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at", "deadline"),
-    # The address for the ban list alone, as the answer's read takes it: the response model declares
-    # no field to carry it.
-    **_per_seat("kontakte", "email", "einwilligung.confirmed_at"),
+    **_per_seat("kontakte", "einwilligung.confirmed_at"),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_is_also": 1,
@@ -427,8 +421,8 @@ EINWILLIGUNG_VIEW_FIELDS: Mapping[str, int] = {
 }
 
 # Narrower than the view's: the answer takes its wording from the payload and names no school. The
-# address is what a consent asks the ban list of, and no answer carries it. `sent_at` says whether a
-# decline's notice has anybody to tell (`ansprechperson_mailbox`).
+# address and `sent_at` say whether a decline's notice has anybody to tell (`ansprechperson_mailbox`),
+# and no answer carries them.
 EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "sent_at"),
     # The choices and their evidence, so a withdrawal names the grant it ends (`compose_choices`).
@@ -588,11 +582,8 @@ def find_alter_refusal(*, birth_date: str, today: str, minimum_age: int) -> Writ
     return None
 
 
-def _seat_state_of(*, kontakte: Any, confirmations: Any, seat: str, over: bool, barred: bool) -> FLBewerbungEinwilligungState:
-    """The one ranking both records' links are shown in: the ban first, then a stamp."""
-
-    if barred:
-        return "barred"
+def _seat_state_of(*, kontakte: Any, confirmations: Any, seat: str, over: bool) -> FLBewerbungEinwilligungState:
+    """The one ranking both records' links are shown in: a stamp, then the deadline."""
 
     if _seat_is_confirmed(kontakte, seat):
         return "confirmed"
@@ -603,13 +594,13 @@ def _seat_state_of(*, kontakte: Any, confirmations: Any, seat: str, over: bool, 
     return "expired" if over else "valid"
 
 
-def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str, barred: bool) -> FLBewerbungEinwilligungState:
+def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungState:
     """What a reopened link shows. A confirmed seat on an accepted application reads as confirmed."""
 
     confirmations = bewerbung_raw.get("confirmations")
     over = link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today)
 
-    return _seat_state_of(kontakte=bewerbung_raw.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
+    return _seat_state_of(kontakte=bewerbung_raw.get("kontakte"), confirmations=confirmations, seat=seat, over=over)
 
 
 # --- A TEAM'S SEASON ROW. A contact seat an administrator typed in is mailed its own link, resolved
@@ -623,11 +614,10 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 
 
 # An INCLUSION for `EINWILLIGUNG_VIEW_FIELDS`' reason: the rest of the row is what a base-tier read
-# must not hold. The address is the ban list's alone, and the club's season name is the page's
-# `schule`.
+# must not hold. The club's season name is the page's `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("confirmations", "token_hashes", "declined_at", "deadline"),
-    **_per_seat("kontakte", "email", "einwilligung.confirmed_at"),
+    **_per_seat("kontakte", "einwilligung.confirmed_at"),
     "kontakte.trainer_is_also": 1,
     "saison_id": 1,
     "name": 1,
@@ -662,12 +652,12 @@ def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
     return saison_status != "past" and austritt is None
 
 
-def saison_state_of(*, row: Mapping[str, Any], seat: str, today: str, barred: bool, saison_status: Any) -> FLBewerbungEinwilligungState:
+def saison_state_of(*, row: Mapping[str, Any], seat: str, today: str, saison_status: Any) -> FLBewerbungEinwilligungState:
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
     confirmations = row.get("confirmations")
     over = saison_link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
-    state = _seat_state_of(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over, barred=barred)
+    state = _seat_state_of(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
     # (`link_expired`), while a closed row's link still takes one (`kontakt_saison_past`).
@@ -786,11 +776,7 @@ def seat_answered_at(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
 
 
 def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
-    """The stored address of each of these seats that still holds one.
-
-    One helper for the consent and the view, so the page shows the ban for exactly the addresses a
-    press would be refused on.
-    """
+    """The stored address of each of these seats that still holds one."""
 
     slots = [kontakte.get(seat) for seat in seats] if isinstance(kontakte, Mapping) else []
 
@@ -927,9 +913,6 @@ def build_own_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
 # mailbox, because one on the season stalls every school's press and every season write the same way.
 OPEN_LINKS_PER_MAILBOX: Final = 3
 
-# One label per purpose (`app/api/ban_list/services.py :: BAN_LIST_KEY_VERSION`).
-MAILBOX_ANCHOR_KEY_VERSION: Final = "mailbox-anchor-v1"
-
 
 def mailbox_of(address: str) -> str:
     """The mailbox a stored address reaches, its plus-tag off. A provider's own aliases, such as Gmail's dots, stay out of reach."""
@@ -939,15 +922,13 @@ def mailbox_of(address: str) -> str:
     return f"{local.partition('+')[0]}@{domain}"
 
 
-def mailbox_anchor_ids(*, addresses: Iterable[str], key: SecretStr) -> list[str]:
-    """Each of these addresses' mailbox as its document's `_id`, sorted so two presses meet in one order.
+def mailbox_anchor_ids(*, addresses: Iterable[str]) -> list[str]:
+    """Each of these addresses' mailbox as its document's `_id`, one hashed document, sorted so two presses meet in one order.
 
-    Keyed, as a ban is (`app/api/ban_list/services.py :: address_hash`): an address is a dictionary word.
+    Unkeyed: the id is a write-conflict key that lapses in an hour, for a press whose row holds the address plain.
     """
 
-    sub_key = derive_sub_key(key, MAILBOX_ANCHOR_KEY_VERSION)
-
-    return sorted({hmac.new(sub_key, mailbox_of(address).encode("utf-8"), hashlib.sha256).hexdigest() for address in addresses})
+    return sorted({hashlib.sha256(mailbox_of(address).encode("utf-8")).hexdigest() for address in addresses})
 
 
 def mailbox_pattern(address: str) -> str:
@@ -1087,56 +1068,6 @@ def build_resend_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
         unanswered[f"kontakte.{seat}.einwilligung.confirmed_at"] = None
 
     return {"_id": bewerbung_id, "status": "submitted", **unanswered}
-
-
-def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_address_barred`: the ban list holds one of the addresses a submission names.
-
-    Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
-    """
-
-    if not barred:
-        return None
-
-    # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
-    # list, and 403 because what fails is who is applying rather than the season's state.
-    return WriteRefusal(
-        error_code=Code.BEWERBUNG_ADDRESS_BARRED,
-        status=HTTPStatus.FORBIDDEN,
-    )
-
-
-def find_kontakt_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`bewerbung_kontakt_barred`: an administrator's seat write names an address the ban list holds.
-
-    409 where the public form's is 403: an administrator's write naming it is about the entry it writes,
-    as the referee editor's `schiedsrichter_address_barred` is.
-    """
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.BEWERBUNG_KONTAKT_BARRED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_einwilligung_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: the ban list holds the address a confirmation link was mailed to, however long ago it was minted.
-
-    Asked of a consent alone: a Widerspruch empties the seat, which is what a barred person is owed.
-    """
-
-    if not barred:
-        return None
-
-    # 403 and named plainly, where the form's is neutral: whoever holds the mailed token holds that
-    # mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
-    )
 
 
 def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusal | None:
@@ -1882,25 +1813,6 @@ def build_duplicates_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def decider_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
-    """Every administrator these stored applications name as their decider, folded as the ban list is asked."""
-
-    return [sign_in_identifier(FLBewerbungDecision.model_validate(row["decision"]).by) for row in rows if row.get("decision") is not None]
-
-
-def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Container[str]) -> dict[str, Any]:
-    """A stored application with its decision as every read serves it."""
-
-    if row.get("decision") is None:
-        return dict(row)
-
-    # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
-    entscheidung = FLBewerbungDecision.model_validate(row["decision"])
-    by = withheld_actor(entscheidung.by, barred)
-
-    return {**row, "decision": {**entscheidung.model_dump(), "by": by, "by_barred": by is None}}
-
-
 def seat_state(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str | None], FLOutboxStatus], seat: str) -> FLOutboxStatus | None:
     """The last mail owed this seat of a stored application, `None` where none was.
 
@@ -1925,7 +1837,6 @@ def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
     """A stored application with each seat's last mail and its state beside its bookkeeping, as every read serves it.
 
     The state is `zustand_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
-    No ban is asked: `barred` ranks a link's page, and this page's re-send and seat write judge the list themselves.
     """
 
     confirmations = row.get("confirmations")
@@ -1938,7 +1849,7 @@ def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
             seat: {
                 **entry,
                 "delivery": seat_state(row=row, states=states, seat=seat),
-                "state": zustand_of(bewerbung_raw=row, seat=seat, today=today, barred=False),
+                "state": zustand_of(bewerbung_raw=row, seat=seat, today=today),
             }
             if isinstance(entry, Mapping)
             else entry

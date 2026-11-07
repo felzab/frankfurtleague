@@ -5,7 +5,7 @@ One planner decides who a season's press mails, and the season editor's rows ans
 readers of one rule is how a page starts telling an administrator something the press then contradicts.
 """
 
-from collections.abc import Collection, Mapping
+from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
@@ -174,13 +174,10 @@ class InvitationDispatchPlan(NamedTuple):
     skipped: FLInvitationSkipReason | None
 
 
-def plan_invitation_dispatch(
-    *, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None, resend: bool, barred: Collection[str]
-) -> InvitationDispatchPlan:
+def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None, resend: bool) -> InvitationDispatchPlan:
     """Who this team's link goes to, or why it is skipped. The season editor's rows and the press both read it.
 
-    `invitation_raw` is the team's live invite, `None` where it holds none. `barred` holds the stored addresses a standing
-    ban holds, as `app/api/ban_list/lookup.py :: barred_addresses` answers them.
+    `invitation_raw` is the team's live invite, `None` where it holds none.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
@@ -194,11 +191,6 @@ def plan_invitation_dispatch(
     recipients = confirmed_recipients(kontakte=kontakte)
     if not recipients:
         return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
-
-    # Ahead of the mail's state, which a barred address's mail settles `barred`: a team reached by
-    # nobody else would lose its link to a fresh mint at every press while the ban stands.
-    if all(person.email in barred for person in recipients):
-        return InvitationDispatchPlan([], "kontakte_barred")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave sixteen links unsent for ever.

@@ -32,7 +32,6 @@ export const submitBewerbung = action({
   input: Application,
   ownWords: [
     "bewerbung_picked_team_already_entered",
-    "bewerbung_address_barred",
     "bewerbung_key_differing",
     "bewerbung_kontakt_repeated",
     "good_spieler_exceed_kader",

@@ -10,7 +10,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.crud import press_withdrawal
 from app.api.account.services import compose_person_move, find_own_entry_refusal, withdrawal_line
 from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
-from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_registrierung
@@ -36,7 +35,6 @@ from app.api.registrierungen.services import (
     compose_kader_fields,
     compose_person,
     compose_person_update,
-    find_barred_refusal,
     find_person_fehlt_refusal,
     find_person_refusal,
     find_schon_im_kader_refusal,
@@ -187,7 +185,6 @@ async def admit(
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     records: SubjectLookup,
-    ban_list: BanListLookup,
     db: DBClient,
 ) -> FLRegistrierungAdmissionResponse:
     """
@@ -208,17 +205,13 @@ async def admit(
     submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
-    (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
-    holds (`registrierung_address_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
-    (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
+    (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
+    offer (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
     person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
     `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
     already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
     written on any of them.
     """
-
-    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
         """Judge, then write the person, the squad row and the erasure. Everything judged is read in-session."""
@@ -231,11 +224,6 @@ async def admit(
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
         refuse(find_unbestaetigt_refusal(einwilligung=registrierung_raw.get("einwilligung")))
-
-        # Inside the transaction, with no season anchor: a ban writes no registration, so only this
-        # read orders a ban entered between the team's read and its press.
-        barred = await barred_addresses(ban_list, [str(registrierung_raw["email"])], governing_saison_id=governing_saison_id, session=session)
-        refuse(find_barred_refusal(barred=bool(barred)))
 
         # The one read of the season: its rules for the level and the cap, its window for the Nachnominierung marker.
         saison_raw = await pull_one_from_db(

@@ -195,7 +195,6 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
 
   switch (view.state) {
     case "expired":
-    case "barred":
       return INVALID;
     case "confirmed":
       return alreadyDone(view, "confirmed");

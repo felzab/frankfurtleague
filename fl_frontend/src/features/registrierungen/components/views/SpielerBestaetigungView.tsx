@@ -20,7 +20,6 @@ import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/F
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { EinwilligungRow } from "@/features/bewerbungen/components/views/ConfirmationNotices";
 import {
-  AddressBarred,
   ANSWER_NOT_SAVED,
   ANSWER_NOT_SAVED_SENTENCE,
   AskQuestion,
@@ -87,8 +86,8 @@ function anfang(start: SpielerBestaetigungStart, fassung: SpielerSeitenFassung |
   return fassung === null ? { state: "unlesbar" } : { ...start, wording: fassung };
 }
 
-/** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["state"], "barred">, string> = {
+/** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
+const TITEL: Record<Stand["state"], string> = {
   valid: "Registrierung bestätigen",
   erfolg: "Registrierung bestätigt",
   confirmed: "Schon erledigt",
@@ -141,7 +140,6 @@ export function SpielerBestaetigungView({
   const [stand, setStand] = useState<Stand>(() => anfang(start, fassung));
   const { ergebnisRef, answered } = useLinkSeite(stand.state);
 
-  if (stand.state === "barred") return <AddressBarred panelRef={ergebnisRef} />;
 
   // Off the CURRENT state and never the one the page opened on: a link the write found dead is
   // answered by a panel that names nobody, and the banner beside it would name the team anyway.

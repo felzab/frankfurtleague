@@ -91,7 +91,7 @@ class FLRegistrierungBestaetigungRecord(FLConfirmation):
 
 
 class FLRegistrierungRecord(_RegistrierungStored):
-    """One registration as `registrierungen` stores it: its decision before any decider is withheld, and what no read serves."""
+    """One registration as `registrierungen` stores it, with what no read serves."""
 
     confirmation: FLRegistrierungBestaetigungRecord | None
     decision: FLRegistrierungEntscheidung | None

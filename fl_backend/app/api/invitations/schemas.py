@@ -33,11 +33,8 @@ class FLInvitationRecord(FLInvitation):
 
 
 class FLInvitationRow(FLInvitation):
-    """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
+    """One live link as the team's read serves it."""
 
-    # Null exactly where `created_by_barred` is set, as the grants list withholds its actors.
-    created_by: CustomNonEmptyString | None
-    created_by_barred: bool
     # What became of the last mail owed about it, null where none was ever owed.
     delivery: FLOutboxStatus | None
 
@@ -76,7 +73,6 @@ type FLInvitationSkipReason = Literal[
     "austritt_entered",
     "no_kontakt_block",
     "no_confirmed_kontaktperson",
-    "kontakte_barred",
     "already_sent",
 ]
 

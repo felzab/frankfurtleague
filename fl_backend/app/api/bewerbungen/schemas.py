@@ -136,16 +136,8 @@ class FLBewerbungDecision(BaseModel):
     reason: str | None
 
 
-class FLBewerbungDecisionRow(FLBewerbungDecision):
-    """A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."""
-
-    # Null exactly where `by_barred` is set, as the grants list withholds its actors.
-    by: str | None
-    by_barred: bool
-
-
 class FLBewerbung(BaseReadModel):
-    """One school's application to play one season, as stored, its decision as served."""
+    """One school's application to play one season, as stored."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # What a decision or a seat write sends back, so one over an application another write moved since is refused as stale.
@@ -166,9 +158,7 @@ class FLBewerbung(BaseReadModel):
     # A FREE STRING, never a club reference: the school may name an applicant the league has not
     # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
     wunschgegner: str | None
-    # As served, so a row reaches the wire only through
-    # `app/api/bewerbungen/services.py :: mit_vorenthaltener_entscheidung`.
-    decision: FLBewerbungDecisionRow | None
+    decision: FLBewerbungDecision | None
     confirmations: FLBewerbungConfirmations
 
 
@@ -189,9 +179,8 @@ class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):
 
 
 class FLBewerbungRecord(FLBewerbung):
-    """One application as `bewerbungen` stores it: its decision before any administrator is withheld, and what no read serves."""
+    """One application as `bewerbungen` stores it: what no read serves beside what every read does."""
 
-    decision: FLBewerbungDecision | None
     confirmations: FLBewerbungConfirmationsRecord
     # The retention sweep's announcement, and the submission's replay key and digest.
     erasure_announced_at: str | None = None
@@ -560,9 +549,9 @@ class FLBewerbungFormResponse(BaseAPIResponse):
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
-# What a reopened link shows: where its seat stands, with `barred` ranking first.
+# What a reopened link shows: where its seat stands.
 # `saison_past`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_past`).
-FLBewerbungEinwilligungState = Literal[FLBewerbungSeatState, "saison_past", "barred"]
+FLBewerbungEinwilligungState = Literal[FLBewerbungSeatState, "saison_past"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
 # the person on. The page picks its wording by it.
