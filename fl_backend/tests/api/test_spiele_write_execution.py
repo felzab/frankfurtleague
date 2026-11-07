@@ -778,6 +778,27 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
         assert spiele[GRUPPE_FILLING_NR]["date"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
 
 
+class TestTheProtokollTellsAResultFromARedating:
+    @pytest.mark.parametrize(
+        ("moved", "action"),
+        [
+            pytest.param({"team1": side(ALPHA, 3), "team2": side(BETA, 1)}, "spiel.ergebnis_changed", id="a result"),
+            pytest.param({"time": "16:30:00"}, "spiel.changed", id="a re-dating"),
+        ],
+    )
+    def test_a_save_writes_one_row_naming_the_fixture_and_which_it_was(self, mongo_replica_set_url: str, moved: dict[str, Any], action: str):
+        """A row holds neither value, so its action alone says a result moved, and only its label says on which fixture."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_patch(database, client, VIERTELFINALE, await payload_for(database, VIERTELFINALE, **moved))
+            rows = database[Collection.ACTION_LOG].find({"action": {"$in": ["spiel.changed", "spiel.ergebnis_changed"]}})
+            return [(row["action"], row["record_id"], row["label"]) async for row in rows]
+
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season()) == [
+            (action, VIERTELFINALE, f"{SAISON_ID} / {VIERTELFINALE_NR}")
+        ]
+
+
 class TestASavedResultCarriesThroughTheBracket:
     def test_the_refilled_slot_loses_its_result_and_its_shoot_out(self, mongo_replica_set_url: str):
         """Alpha replaces Beta in the semi-final, and the rule says both halves of the old result go."""
