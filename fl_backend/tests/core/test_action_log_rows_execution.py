@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -7,10 +8,12 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.action_log.admin_router import get_action_log
 from app.api.action_log.crud import reattribute_administrator_in_session
-from app.api.action_log.schemas import FLActionLogRecord
+from app.api.action_log.schemas import FLActionLogFilterParams, FLActionLogRecord
 from app.core.collections import Collection
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, record_act
+from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -22,6 +25,8 @@ DATABASE_NAME = worker_database("fl_action_log_rows_test")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607600001")
 
 SEEDED_NAME = "Lessing"
+
+AT = datetime(2026, 3, 15, 18, 0, tzinfo=UTC)
 
 FAIL_POINT = "failCommand"
 REFUSED_COMMIT_APP = "act-refused-commit"
@@ -137,3 +142,41 @@ def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(mongo_replica_
     assert (rows[0]["by"], rows[0]["team"], rows[0]["record_id"]) == (ACT_BY_KONTAKT, SEEDED_NAME, TEAM_OID)
     # The premise last: the act ran twice, so one row is the rollback's work.
     assert attempts == 2
+
+
+def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_set_url: str):
+    """Nothing else holds a seam: a bound off by one repeats a row or loses it, and every page still reads as a page."""
+
+    async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> tuple[list[ObjectId], list[list[ObjectId]]]:
+        log = database[Collection.ACTION_LOG]
+        rows = [
+            {
+                "at": AT,
+                "by": ACT_BY_SYSTEM,
+                "team": None,
+                "action": "team.changed",
+                "record_id": None,
+                "label": None,
+                "count": None,
+                "trace_id": "0" * 32,
+            }
+            for _ in range(2 * ACTION_LOG_PAGE_SIZE + 1)
+        ]
+        await log.insert_many(rows)
+
+        pages: list[list[ObjectId]] = []
+        cursor: str | None = None
+        # Bounded, so a cursor that never ends fails here rather than running for ever.
+        for _ in range(3):
+            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterParams.model_validate({"cursor": cursor}))
+            pages.append([row.id for row in page.action_log])
+            if page.cursor is None:
+                break
+            cursor = str(page.cursor)
+
+        return sorted((row["_id"] for row in rows), reverse=True), pages
+
+    newest_first, pages = on_a_replica_set(mongo_replica_set_url, body)
+
+    assert [len(page) for page in pages] == [ACTION_LOG_PAGE_SIZE, ACTION_LOG_PAGE_SIZE, 1]
+    assert [row for page in pages for row in page] == newest_first
