@@ -71,10 +71,7 @@ class FLBanListResponse(BaseAPIResponse):
 
 
 class FLPostBanListEntryResponse(BaseAPIResponse):
-    """The ban's id and the last season it covers."""
-
     created_id: CustomObjectId
-    barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
 class FLBanListWriteResponse(BaseAPIResponse):

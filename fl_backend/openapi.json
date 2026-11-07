@@ -8585,14 +8585,7 @@
         "type": "object"
       },
       "FLPostBanListEntryResponse": {
-        "description": "The ban's id and the last season it covers.",
         "properties": {
-          "barred_until_saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Barred Until Saison Id",
-            "type": "string"
-          },
           "created_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id",
@@ -8600,8 +8593,7 @@
           }
         },
         "required": [
-          "created_id",
-          "barred_until_saison_id"
+          "created_id"
         ],
         "title": "FLPostBanListEntryResponse",
         "type": "object"
@@ -18942,7 +18934,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the\nfifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives\nthat person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
+        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the\nfifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives\nthat person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
         "operationId": "ban_list_post_ban_list_entry",
         "requestBody": {
           "content": {

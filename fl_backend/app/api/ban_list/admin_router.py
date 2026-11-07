@@ -111,7 +111,7 @@ async def post_ban_list_entry(
     Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
     is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
     a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
-    fifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives
+    fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
     that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
 
     `ban_reason` is served, mailed to the address and kept past that person's erasure.
@@ -119,7 +119,7 @@ async def post_ban_list_entry(
 
     address = str(ban_list_data.email)
 
-    async def judge_and_ban(session: AsyncClientSession) -> tuple[InsertOneResult, str]:
+    async def judge_and_ban(session: AsyncClientSession) -> InsertOneResult:
         """Ask the grants, read the season, then write. Each takes this transaction's session, so a retry re-runs all three."""
 
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
@@ -160,15 +160,12 @@ async def post_ban_list_entry(
                 now=now,
             )
 
-        return created, barred_until_saison_id
+        return created
 
     async with transaction_session(db) as session:
-        post_operation, barred_until_saison_id = await session.with_transaction(judge_and_ban)
+        post_operation = await session.with_transaction(judge_and_ban)
 
-    return FLPostBanListEntryResponse(
-        created_id=post_operation.inserted_id,
-        barred_until_saison_id=barred_until_saison_id,
-    )
+    return FLPostBanListEntryResponse(created_id=post_operation.inserted_id)
 
 
 @router.delete(

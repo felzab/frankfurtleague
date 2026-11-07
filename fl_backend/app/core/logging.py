@@ -1,7 +1,7 @@
 """
 CORE · logging
 
-One logger for the service, beside its child for the erasure journal. A message is a constant
+One logger for the service. A message is a constant
 `<slice>.<event>` and every value travels in `extra=`, as a field of its own; a field names what a
 request got wrong and never the value submitted for it, which can be personal data.
 """
@@ -16,7 +16,6 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 
 FL_LOGGER_NAME = "frankfurtleague"
-JOURNAL_LOGGER_SUFFIX = "erasure"
 
 # A sentinel rather than an absent field, so a reader can rely on the key on every line.
 NO_REQUEST_SENTINEL = "SYSTEM"
@@ -120,4 +119,3 @@ def setup_logging() -> None:
 
 
 fl_logger = logging.getLogger(FL_LOGGER_NAME)
-journal_logger = fl_logger.getChild(JOURNAL_LOGGER_SUFFIX)
