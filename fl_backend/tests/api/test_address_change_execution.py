@@ -749,17 +749,25 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
                     "_id": VERA_ROW_OID,
                 }
             )
-        case "an-application-seat":
+        case "a-confirmed-application-seat" | "an-application-seat":
+            seat = confirmed if what == "a-confirmed-application-seat" else vera
             await database[Collection.BEWERBUNGEN].insert_one(
                 documents.bewerbung_document(
-                    ObjectId(), SAISON_ID, "submitted", kontakte=documents.kontakte_document(trainer=vera), submitted_at="2126-03-10"
+                    ObjectId(), SAISON_ID, "submitted", kontakte=documents.kontakte_document(trainer=seat), submitted_at="2126-03-10"
                 )
             )
-        case "an-unconfirmed-referee":
-            await database[Collection.SCHIEDSRICHTER].insert_one(
-                documents.schiedsrichter_document(ObjectId(), email=NEW_EMAIL, name="Vera Zwirnbach", default_payment=20, einwilligung=None)
+        case "a-referee" | "an-unconfirmed-referee":
+            einwilligung = (
+                documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02")
+                if what == "a-referee"
+                else None
             )
-        case "an-unconfirmed-registration":
+            await database[Collection.SCHIEDSRICHTER].insert_one(
+                documents.schiedsrichter_document(
+                    ObjectId(), email=NEW_EMAIL, name="Vera Zwirnbach", default_payment=20, einwilligung=einwilligung
+                )
+            )
+        case "a-registration" | "an-unconfirmed-registration":
             await database[Collection.REGISTRIERUNGEN].insert_one(
                 documents.registrierung_document(
                     ObjectId(),
@@ -771,12 +779,20 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
                     token="veras-registration-link",
                     submitted_at="2126-03-30",
                     deadline="2126-04-06",
-                    confirmed=None,
+                    confirmed=documents.registrierung_confirmed(
+                        birth_date="2010-01-01", today="2126-03-31", at="2126-03-31T08:00:00+00:00", scope="internal", media=False
+                    )
+                    if what == "a-registration"
+                    else None,
                 )
             )
         case "a-pupil":
             await database[Collection.SPIELER].insert_one(
                 documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, birth_date="2010-01-01")
+            )
+        case "an-unconfirmed-pupil":
+            await database[Collection.SPIELER].insert_one(
+                documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, birth_date="2010-01-01", einwilligung=None)
             )
         case "an-owed-carry":
             # Another person's change off it, ended, whose account still stands there until the frontend carries it.
@@ -1162,9 +1178,28 @@ class TestAHoldersOwnChange:
 
         assert on_a_person(mongo_replica_set_url, body) == (COMMITTED, Code.ADMIN_ADDRESS, 0)
 
-    @pytest.mark.parametrize("what", ["an-unconfirmed-seat", "an-application-seat", "an-unconfirmed-referee", "an-unconfirmed-registration"])
-    def test_an_entry_nobody_confirmed_ends_no_holder_s_change_at_the_pass(self, mongo_replica_set_url: str, what: str):
-        """Anyone can name an address in a form, and only the owner stops a holder's change: one colleague could stop it every time."""
+    @pytest.mark.parametrize(
+        ("what", "moves"),
+        [
+            *(
+                (what, True)
+                for what in (
+                    "an-unconfirmed-seat",
+                    "an-application-seat",
+                    "an-unconfirmed-referee",
+                    "an-unconfirmed-registration",
+                    "an-unconfirmed-pupil",
+                )
+            ),
+            *((what, False) for what in ("a-seat", "a-confirmed-application-seat", "a-referee", "a-registration", "a-pupil", "an-owed-carry")),
+        ],
+    )
+    def test_only_what_a_person_confirmed_ends_a_holder_s_change_at_the_pass(self, mongo_replica_set_url: str, what: str, moves: bool):
+        """Anyone can name an address in a form, and only the owner stops a holder's change: one colleague could stop it every time.
+
+        A confirmed entry does stop it, or the grant joins a stranger's records. The starter holds no pupil of their own, whose
+        `taken` is judged ahead of this rule and would answer for the pupil arms.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             grant = await granted(database)
@@ -1172,9 +1207,9 @@ class TestAHoldersOwnChange:
             await answer(database, client, minted.token)
             await held_by_another(database, what)
             passed = await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
-            return passed.effective, (await row(database, Collection.GRANTS, grant))["address"]
+            return passed.effective, passed.discarded, (await row(database, Collection.GRANTS, grant))["address"]
 
-        assert on_a_person(mongo_replica_set_url, body) == (1, NEW_EMAIL)
+        assert on_a_person(mongo_replica_set_url, body, pupil=False) == ((1, 0, NEW_EMAIL) if moves else (0, 1, EMAIL))
 
     def test_an_entry_nobody_confirmed_still_ends_a_non_holder_s_change_at_the_pass(self, mongo_replica_set_url: str):
         """Only a holder's change has the owner as its one stop: a pupil's moved onto a stranger's seat would join two people."""
