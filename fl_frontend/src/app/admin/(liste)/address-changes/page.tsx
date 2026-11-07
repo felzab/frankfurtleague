@@ -2,7 +2,7 @@ import { ListPage } from "@/kit/ListPage";
 
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { formatInstantShort } from "@/core/format";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAddressChanges } from "@/features/address-change/queries";
-import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -38,10 +38,10 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /** The running changes, and the address the page is drawn for: one read for the list and the toolbar's act alike. */
 async function readChanges() {
-  const [{ changes }, judged] = await Promise.all([getAddressChanges(), judgeAdminRequest()]);
+  const [{ changes }, session] = await Promise.all([getAddressChanges(), getAdminSession()]);
   // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in by
   // passkey alone, so every act here asks the touch.
-  return { changes, holder: "session" in judged ? judged.session.user.email : "" };
+  return { changes, holder: session?.user.email ?? "" };
 }
 
 const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>> = {
@@ -96,7 +96,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   columns: [
-    { key: "after", label: COPY.admin.facts.after, hideOnPhone: true },
+    { key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true },
     { key: "until", label: WORDS.until },
   ],
   acts: [COPY.shared.withObject(COPY.account.address.link, "send"), COPY.shared.verb.discard],
@@ -107,7 +107,7 @@ const { shape } = AddressChangePostAddressChangeAdminBody;
 const START_RULES: StartRules = {
   required: {
     address: requires(SignInPayloadSchema.shape.email, ""),
-    email: requires(SignInPayloadSchema.shape.email, ""),
+    email: requires(SignInAddressSchema, ""),
     change_reason: requires(shape.change_reason, ""),
   },
   reasonMax: addressChangePostAddressChangeAdminBodyChangeReasonMax,

@@ -58,6 +58,18 @@ describe("a start, an account standing at the new address", () => {
   });
 });
 
+// The API takes every atext character and the sign-in library does not: the person moved there meets a sign-in that
+// answers as sent, and no code ever comes.
+describe("a start onto an address the sign-in library refuses", () => {
+  it("is refused on the new address's box, and nothing is posted", async () => {
+    expect(await startLostMailboxChange({ ...START, email: "a~b@example.de" })).toMatchObject({
+      ok: false,
+      fieldErrors: { email: COPY.shared.field.format(COPY.shared.field.exampleAddress) },
+    });
+    expect(calls).toHaveLength(0);
+  });
+});
+
 // Left to the shared failure line, each words a retry the same rule refuses.
 describe("a start the backend refuses for its new address", () => {
   it.each(["address_change_taken", "address_change_occupied"] as const)("answers %s on the box", async (code) => {

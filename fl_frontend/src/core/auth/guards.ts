@@ -18,7 +18,7 @@ import type { ServedSession } from "./session";
 
 /**
  * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey on a session the
- * touch made within its window alone, and a person holding none as they stand. The browser asks the touch before every
+ * touch made within its window alone, and a person holding none as they stand. The browser asks the touch on every final
  * press, so a second act inside one window is a request no page sends. `false` where no guard recorded an actor.
  */
 export async function passesPasskeyTouch(actor: RequestActor | undefined): Promise<boolean> {
@@ -56,7 +56,7 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
 });
 
 /**
- * A served session beside the grant this request read for its address, which a step-up judges it by.
+ * A served session beside the verdict on the grant this request read for its address.
  * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
  */
 export type JudgedSession = ServedSession & { readonly isAdmin: boolean };
@@ -140,4 +140,10 @@ export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSes
   setRequestActor(judged.actor);
 
   return { session: judged.session };
+}
+
+/** The session the administrator's guard admits, `null` for any it refuses, whatever the reason. */
+export async function getAdminSession(): Promise<JudgedSession | null> {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
 }

@@ -18,7 +18,6 @@ import type {
   FLAction,
   FLActionLogPageSize,
   FLAddressChangeWaitsOn,
-  FLAddressChangeWay,
   FLKontaktRolle,
   FLSchulform,
   FLSpielerRolle,
@@ -73,7 +72,6 @@ const VERB = {
   oppose: "Widersprechen",
   adopt: "Übernehmen",
   discard: "Verwerfen",
-  lineUp: "Aufstellen",
   signIn: "Anmelden",
   signOut: "Abmelden",
   setUp: "Einrichten",
@@ -243,7 +241,7 @@ export const COPY = catalogue({
     /** The spinner's accessible name; a busy button keeps its own label. */
     loading: "Lädt",
 
-    /** The plural is the list's own title entry. */
+    /** The plural is the list's own title entry where the title is a plural, else the noun the catalogue keeps for its rows. */
     empty: {
       search: (plural: Copy) => `Keine ${plural} für diese Suche.`,
       filter: (plural: Copy) => `Keine ${plural} für diese Filter.`,
@@ -677,8 +675,9 @@ export const COPY = catalogue({
           ? `Eingerichtet am ${formatDate(created)}`
           : `Eingerichtet am ${formatDate(created)} · Zuletzt verwendet am ${formatDate(lastUsed)}`,
       /**
-       * The deletion's consequence, worded after the passkey touch, whose sign-in the session then is: the devices
-       * the passkey signed in, this one among them where the touch was made with it.
+       * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
+       * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
+       * then has to be.
        */
       endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
       endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
@@ -831,25 +830,17 @@ export const COPY = catalogue({
       after: "Neu",
       fromNow: "Ab sofort",
       mailTo: "E-Mail an",
-      enteredBy: "Eingetragen von",
       enteredOn: "Eingetragen am",
       effectiveFrom: EFFECTIVE_FROM,
     },
-    /** A waiting row's line under its address. */
-    effectiveFrom: (moment: string) => `${EFFECTIVE_FROM} ${formatInstant(moment)}`,
-    /** The place of an address the log's erasure step replaced, „Eingetragen von“'s and „Wer“'s alike. */
+    /** The place of an address the log's erasure step replaced, in „Wer“. */
     erasedActor: "Gelöschte Person",
-    /** A locked act only the owner may press. */
-    ownerOnly: `Nur für die ${OWNER_TIER}`,
     /** Löschungen' and the address change's answer to an address holding no record. */
     nothingAtAddress: "Unter dieser Adresse steht nichts.",
-    /** A confirmation's line where its final button asks the touch. */
-    passkeyLine: "Du bestätigst mit deinem Passkey.",
     /** „E-Mail an“'s values across the access pages. */
     mailTo: {
       holders: "Alle Administratoren",
       holdersAndPerson: "Alle Administratoren und die Person",
-      withAccount: "Diese Adresse, wenn sie ein Konto hat",
       bothAddresses: "Beide Adressen",
     },
     /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
@@ -1283,8 +1274,6 @@ export const COPY = catalogue({
         FLAddressChangeWaitsOn,
         string
       >,
-      /** A row's way, by who started the change. */
-      way: { account: "Im Konto", waiting_period: "Auf Anfrage" } satisfies Record<FLAddressChangeWay, string>,
       /** The column of the moment a row's step ends. */
       until: "Bis",
       /** That column's value while a link is open, and in the wait. */

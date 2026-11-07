@@ -418,10 +418,7 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} gelöscht`,
-        lead: "Nicht alle Kontaktpersonen haben rechtzeitig bestätigt.",
-        deleted: "Wir löschen die Bewerbung mit allen Angaben.",
         again: "Solange das Bewerbungsfenster offen ist, kann sich deine Schule neu bewerben.",
-        pending: "Nicht bestätigt",
       },
       objection: {
         subject: (saison: string) => `Widerspruch zum Eintrag: ${COPY.shared.saisonName(saison)}`,
@@ -1144,7 +1141,6 @@ export const SERVER_COPY = catalogue({
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
     deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
-    objectionRight: OBJECTION_RIGHT,
     more: MORE,
   },
 

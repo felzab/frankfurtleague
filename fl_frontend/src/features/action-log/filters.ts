@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { parseDate } from "@internationalized/date";
 
 import { now } from "@/core/clock";
@@ -81,18 +83,28 @@ const ROLE_WORDS: ReadonlyMap<string, Copy> = new Map([
 /** Who `by` names: a role's word, an erased person's, or an administrator's own address. */
 export const actorWords = (by: string): Words => ROLE_WORDS.get(by) ?? { record: by };
 
+/**
+ * A „Wer“ option's id, opaque because it stands in the page's URL, which the edge's log, the next page's referer and
+ * Cloudflare's log keep, and an address reaches none of them. A digest rather than a position, so a shared link goes on
+ * naming the same actor as the log grows.
+ */
+const optionId = (by: string) => createHash("sha256").update(by).digest("hex").slice(0, 16);
+
 /** What „Wer“ offers: every `by` the log holds, by what it reads. */
 export function byOptions(held: readonly string[]): readonly Option[] {
   return held
-    .map((id) => ({ id, label: actorWords(id) }))
+    .map((by) => ({ id: optionId(by), label: actorWords(by) }))
     .sort(({ label: one }, { label: other }) => textOf(one).localeCompare(textOf(other), "de"));
 }
 
-/** The filters as the address holds them, none where it names none. */
+/** The `by` a „Wer“ option stands for, read back on the server from what the log holds. */
+export const byOf = (held: readonly string[], id: string | null) => held.find((by) => optionId(by) === id) ?? null;
+
+/** The filters a read narrows by, none where it names none. */
 export type ChosenFilters = { by?: string | null; type?: ActionTypeChoice | null; time?: PeriodChoice | null };
 
 /**
- * The address's values as the read asks them: one „Art“ may stand for several categories, and a preset is the German
+ * The filters as the read asks them: one „Art“ may stand for several categories, and a preset is the German
  * day it reaches back to, counted from the day it is read.
  */
 export function logParams({ by = null, type = null, time = null }: ChosenFilters): FLActionLogFilterPayload {

@@ -41,18 +41,18 @@ export async function postAddressChangeStop(payload: FLTokenPayload): Promise<FL
 }
 
 /** The hourly pass's: a timer holds no session, and a lapsed change or a due one is the clock's. `after` is the previous call's answer. */
-export async function postAdresswechselSweep(after: string | null): Promise<FLAddressChangeSweepResponse> {
+export async function postAddressChangeSweep(after: string | null): Promise<FLAddressChangeSweepResponse> {
   // Left out on a pass's first call: the server takes `after` as an id wherever it is present.
   return addressChangeSweepAddressChange(after === null ? {} : { after });
 }
 
 /** The sign-in accounts the effects still owe to carry, for this server alone: the answer names addresses. */
-export async function getAdresswechselUmzuege(): Promise<FLAddressChangeMovesResponse> {
+export async function getAddressChangeMoves(): Promise<FLAddressChangeMovesResponse> {
   return addressChangeGetAddressChangeMoves();
 }
 
 /** Takes the carries done off their changes. */
-export async function postAdresswechselUmzuegeErledigt(payload: FLAddressChangeMovesDonePayload): Promise<FLAddressChangeMovesDoneResponse> {
+export async function postAddressChangeMovesDone(payload: FLAddressChangeMovesDonePayload): Promise<FLAddressChangeMovesDoneResponse> {
   return addressChangePostAddressChangeMovesDone(payload);
 }
 
@@ -60,6 +60,6 @@ export async function postAdresswechselUmzuegeErledigt(payload: FLAddressChangeM
  * The new address of the live change a link's token or a change's id names, on the system tier alone: the link's own read
  * serves no address, and this one reaches this server and never a page.
  */
-export async function postAdresswechselAdresse(payload: FLAddressChangeAddressPayload): Promise<FLAddressChangeAddressResponse> {
+export async function postAddressChangeAddress(payload: FLAddressChangeAddressPayload): Promise<FLAddressChangeAddressResponse> {
   return addressChangeGetAddressChangeAddress(payload);
 }

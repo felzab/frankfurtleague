@@ -21,6 +21,7 @@ export function BanFields() {
         name="email"
         width="W3"
         kind="email"
+        autofill="off"
         isRequired={requires(SignInPayloadSchema.shape.email, "")}
         maxLength={banListPostBanListEntryBodyEmailMax}
       />

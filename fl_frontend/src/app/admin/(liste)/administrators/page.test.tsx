@@ -17,13 +17,9 @@ const FUTURE = "2999-01-01T10:00:00Z";
 const state = vi.hoisted(() => ({ grants: [] as unknown[], changes: [] as unknown[], reader: "" }));
 
 vi.mock("@/features/grants/schemas", () => ({ GRANT_RULES: { required: { email: true, grant_id: true }, emailMax: 254 } }));
-vi.mock("@/features/grants/queries", () => ({
-  getGrants: () => Promise.resolve({ grants: state.grants }),
-  getAddressChanges: () => Promise.resolve({ changes: state.changes }),
-}));
-vi.mock("@/core/auth/guards", () => ({
-  judgeAdminRequest: () => Promise.resolve({ session: { user: { email: state.reader } } }),
-}));
+vi.mock("@/features/grants/queries", () => ({ getGrants: () => Promise.resolve({ grants: state.grants }) }));
+vi.mock("@/features/address-change/queries", () => ({ getAddressChanges: () => Promise.resolve({ changes: state.changes }) }));
+vi.mock("@/core/auth/guards", () => ({ getAdminSession: () => Promise.resolve({ user: { email: state.reader } }) }));
 vi.mock("@/features/grants/actions", () => ({
   addAdministrator: () => undefined,
   removeAdministrator: () => undefined,
@@ -44,8 +40,8 @@ const grant = (address: string, overrides: Partial<FLGrantRow> = {}) =>
 
 const THE_OWNER = grant(OWNER, { admin_tier: "owner" });
 
-const change = (address: string, effective_from: string | null) =>
-  ({ id: `change-${address}`, address, email: "neu@example.org", effective_from }) as FLAddressChangeAdminOpen;
+const change = (address: string, effective_from: string | null, holder: FLAddressChangeAdminOpen["holder"] = "administration") =>
+  ({ id: `change-${address}`, address, email: "neu@example.org", effective_from, holder }) as FLAddressChangeAdminOpen;
 
 type Drawn = {
   props: {
@@ -89,7 +85,7 @@ describe("who holds access and what waits", () => {
 
   /* A person's change waiting on its mail, or anyone's without a grant, moves no access and has its own page. */
   it("lists a holder's change in its wait and no other", async () => {
-    const changes = [change("anna@example.org", FUTURE), change("ben@example.org", null), change("pupil@example.org", FUTURE)];
+    const changes = [change("anna@example.org", FUTURE), change("ben@example.org", null), change("pupil@example.org", FUTURE, null)];
 
     const { waiting } = await read(OWNER, [THE_OWNER, grant("anna@example.org"), grant("ben@example.org")], changes);
 

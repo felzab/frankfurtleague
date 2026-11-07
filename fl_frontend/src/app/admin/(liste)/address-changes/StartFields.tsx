@@ -32,6 +32,7 @@ export function StartFields({
         name="address"
         width="W3"
         kind="email"
+        autofill="off"
         isRequired={required.address}
         maxLength={addressMax}
         onChange={setTyped}
@@ -47,6 +48,7 @@ export function StartFields({
         name="email"
         width="W3"
         kind="email"
+        autofill="off"
         isRequired={required.email}
         maxLength={addressMax}
       />

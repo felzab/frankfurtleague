@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
+import { byOptions } from "@/features/action-log/filters";
 
 import ActionLogPage from "./page";
 
@@ -51,15 +52,23 @@ describe("the Protokoll's reads", () => {
   /* A next page read past the filters would run on with rows the page says it left out. */
   it("carries the address's filters into every later read", async () => {
     state.answer = answer({ cursor: "a".repeat(24) });
-    const { more } = await read({ by: "system", type: "ban", time: "30-days" });
+    const id = byOptions(["system"]).at(0)?.id ?? "";
+    const { more } = await read({ by: id, type: "ban", time: "30-days" });
     expect(more.carry).toStrictEqual({ by: "system", type: "ban", time: "30-days" });
+  });
+
+  /* The page's URL names the actor by an opaque id, so the read has to be handed what the id stands for. */
+  it("reads the actor the address's option stands for", async () => {
+    state.answer = answer({});
+    await read({ by: byOptions(["anna@example.de"]).at(0)?.id ?? "" });
+    expect(state.asked.map(({ by }) => by)).toStrictEqual([null, "anna@example.de"]);
   });
 
   /* The filter cannot show a value it does not offer, so honouring one would empty a list under a select reading „Alle“. */
   it("reads the whole log for a `by` it does not hold", async () => {
     state.answer = answer({});
     const { more, table } = await read({ by: "gone@example.de" });
-    expect(state.asked.map(({ by }) => by)).toStrictEqual(["gone@example.de", null]);
+    expect(state.asked.map(({ by }) => by)).toStrictEqual([null]);
     expect(more.carry).toStrictEqual({});
     expect(table.empty.kind).toBe("none");
   });

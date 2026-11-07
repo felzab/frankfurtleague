@@ -1,4 +1,6 @@
+import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
+import { SAISON_WORDS } from "@/kit/Skeleton";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
@@ -47,7 +49,8 @@ export default function SaisonsPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSaisons" } }}
-      create={readCreate(read)}
+      // Any season's name is as wide as the one the read names.
+      create={{ label: actLabel({ verb: "create", object: SAISON_WORDS }), act: readCreate(read) }}
       list={{ kind: "table", head: HEAD, wait: 4, content: readSaisons(read) }}
     />
   );

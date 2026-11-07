@@ -122,12 +122,7 @@ beforeEach(() => {
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("./auth/library.ts");
-const { judgeAdminRequest } = await import("./auth/guards.ts");
-/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
-const getAdminSession = async () => {
-  const judged = await judgeAdminRequest();
-  return "session" in judged ? judged.session : null;
-};
+const { getAdminSession } = await import("./auth/guards.ts");
 const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");

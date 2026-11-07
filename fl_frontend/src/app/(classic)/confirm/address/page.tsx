@@ -14,7 +14,7 @@ import { readsAsDeadLink } from "@/features/address-change/refusals";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
-import { doneOnEnd, stoppedOn } from "./ends";
+import { confirmedAgain, doneOnEnd, stoppedOn } from "./ends";
 
 import type { Copy } from "@/core/copy";
 import type {
@@ -129,7 +129,7 @@ function previousState(view: FLAddressChangeViewPrevious, token: string): Mailed
 async function newState(view: FLAddressChangeViewNew, token: string): Promise<MailedState> {
   if (view.state === "confirmed") {
     const confirmed = dayOf(view.confirmed_on);
-    return confirmed === null ? INVALID : doneOnEnd("new", "confirmed", confirmed, view.way);
+    return confirmed === null ? INVALID : confirmedAgain(confirmed, view.effective_from, view.way);
   }
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
   if (view.state !== "valid" || view.email === null || (await accountAtTheNewAddress(token))) return INVALID;

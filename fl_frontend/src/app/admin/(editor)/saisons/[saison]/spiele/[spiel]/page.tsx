@@ -64,6 +64,8 @@ const REQUIRED = {
 /** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it, and the wait its bars. */
 const REPORT_HEAD: TableHead = {
   nameLabel: COPY.shared.spieler,
+  linked: false,
+  stack: true,
   columns: [
     { key: "event", label: WORDS.event },
     { key: "minute", label: WORDS.minute, figures: true },
@@ -155,8 +157,6 @@ export default function SpielEditorPage({ params }: Props) {
               rows={3}
               plaques
               bare
-              linked={false}
-              stack
             />,
           ],
           [

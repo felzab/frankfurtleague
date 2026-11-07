@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
+import { asSignInIdentifier, isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
+import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
 
 /**
  * The address the send and the code step both take: one rule, so a code is never typed for an address the send
@@ -10,7 +11,6 @@ import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddr
  * answer is the one such an address meets.
  */
 export const SignInPayloadSchema = z.object({
-  // This box is the only route to a session, so a grant made to an address it refuses admits nobody.
   email: z
     .string()
     // Pydantic strips before it validates, so a pasted trailing space is an address the API takes.
@@ -20,3 +20,11 @@ export const SignInPayloadSchema = z.object({
     // The ASCII local part and the special-use domains are in this predicate too, each worded alike here.
     .refine(isDeliverableAddress),
 });
+
+/**
+ * An address a person will sign in at: the box's rule and the sign-in library's own. The API takes addresses the library
+ * refuses, and at such an address the sign-in answers as sent and no code ever comes, so a grant there admits nobody and
+ * a change onto it locks its person out. A ban and an erasure name an address that may already stand on file, and keep
+ * the box's rule.
+ */
+export const SignInAddressSchema = SignInPayloadSchema.shape.email.refine((email) => isSignInLibraryAddress(asSignInIdentifier(email)));
