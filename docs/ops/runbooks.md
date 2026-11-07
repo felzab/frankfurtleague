@@ -292,8 +292,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
   „Administratoren“ page, each behind the passkey touch.** An addition holds
   `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after it, a removal at once,
   and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
-  and the person named are mailed when a wait starts, stops or completes and at any removal, but for
-  an old address while a lost-mailbox change stands on it (§5), and only the `owner` stops a wait, on
+  and the person named are mailed when a wait starts or stops, when a handover completes and at any
+  removal, but for an old address while a lost-mailbox change stands on it (§5); an addition's wait
+  ends with no mail, no pass running then. Only the `owner` stops a wait, on
   the same page: the mail tells the others to reach the owner.
 - **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
   never a row still waiting, and one at a time; the pass demotes then promotes in one transaction.
@@ -488,8 +489,9 @@ links and the delivery records go with the block
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an
 answer for that season names nobody to send.
 
-`/admin/log` holds no person's name or address but an administrator's and a grantee's, so it answers an administrator's
-request alone, under the who filter. Each of its rows is gone twelve months after the act it recorded, which is the period an answer gives for it.
+`/admin/log` holds no person's name or address but an administrator's and a grantee's, so it answers those two people's
+requests alone: the who filter finds the rows they wrote (`action_log.by`), and the search over `label` the rows naming them as
+grantee, the one way to a person who wrote no row, whom the who filter does not offer. Each of its rows is gone twelve months after the act it recorded, which is the period an answer gives for it.
 
 **There is no export route, so an access request is answered by composing what those pages show.**
 Send the categories, the values, where each came from, who receives them
@@ -505,8 +507,8 @@ it as the proof of that consent.
 says the row's reason, its day and the last season it covers.
 
 **How long a record is kept is answered by its own clock rather than by hand.** A declined
-application, an accepted one and a season's contact block are each removed by the retention sweep; a season row's unconfirmed seat is emptied on the first pass past its day; an application nobody confirmed is deleted after its deadline, its
-Ansprechperson told; an application nobody decided is deleted once
+application, an accepted one and a season's contact block are each removed by the retention sweep; a season row's unconfirmed seat is emptied on the first pass past its day; an application with a seat unconfirmed past its deadline is deleted, everyone who confirmed a seat
+told; an application nobody decided is deleted once
 the season it applied for has ended, whatever its seats answered; and a log row expires after twelve months.
 
 **A rectification is the ordinary admin edit**, made on the page above. Two carry a trap worth
@@ -536,15 +538,18 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   checks it for a name. Start the change in the address tool
   with it. The new address confirms
   by link within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours,
-  and the change takes effect `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days later, judged again then, when only an address already
-  taken, a grant of the new address or a confirmed entry ends it; until
+  and the change takes effect `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days later, judged again then: nothing left to move ends it, and so does any
+  entry naming the new address, confirmed or not, a grant and an account still owed its carry among them,
+  a holder's change taking the next bullet's rule; until
   then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change waits whole:
   `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after the new mailbox confirmed, `:: OWNER_WAIT_DAYS`
   days for the owner and for an administrator a handover names, and `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days on a lost
   mailbox, the old address working until the
-  hourly pass switches it. Every holder in effect is mailed when the wait starts, when it is stopped or withdrawn and when
+  hourly pass switches it. That pass judges it on less, an entry nobody confirmed joining no two people: nothing left to
+  move ends it, and so do another pupil signing in on the new address where a pupil row moves, a grant of the new address,
+  an entry a person confirmed and an account still owed its carry. Every holder in effect is mailed when the wait starts, when it is stopped or withdrawn and when
   it completes, the new address masked. On a lost mailbox those notices name no actor, and the old address, which may
   have passed to a stranger, receives no such mail while the change stands, hearing only through the change's own notice
   and its effect's. The tool starts a holder's change for the owner alone (`admin_address`). The owner
@@ -567,8 +572,9 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   re-send (`address_change_new_taken`). **Discard** a change that turns out to be
   wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
-- **Once a change takes effect**, the replaced address is told where an administrator started it;
-  the person's own change mails nothing past its two links. Where the person started it,
+- **Once a change takes effect**, the replaced address is told where an administrator started it or
+  a holder's own change waited, and every holder in effect too where the address held a grant; any
+  other own change mails nothing past its two links. Where the person started it,
   their sign-in account moves to the new address and every session of
   it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
   old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
@@ -1269,10 +1275,12 @@ answer may name an act that never landed, and running it again wrongs nobody, th
 for it.
 
 **A withdrawal is set again on its record, on a seat's in the `einwilligung` of each slot its `seats`
-name and no other, a Widerspruch's seats emptied again**, each in the
+name and no other, a seat's Widerspruch's seats emptied again, and a referee's stamped again in
+`confirmation.declined_at` with the line's German day**, each in the
 Playground, from the fields of its line, the person's evidence having gone with the lost window.
-A line names the choice and no value, so where a choice holds several withholding values the one
-that withholds most is set. A choice granted since by evidence later than the line stands. A person who made one of these acts
+A line names the choice and no value, and each choice withholds by one value on each kind of record:
+`scope` is set to `internal` on a pupil, a referee or a registration and to `kontakt_data` on a seat,
+and `media` to `false`. A choice granted since by evidence later than the line stands. A person who made one of these acts
 and whose record the restore does not hold needs nothing.
 
 **Then run each erasure again on „Löschungen“, with the address its line shows**: keyed on the
