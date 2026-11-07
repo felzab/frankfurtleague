@@ -1,5 +1,5 @@
 """
-API · the season-after rule's run and its preview, against the shipped indexes and the whole database
+API · the season-after rule's run, against the shipped indexes and the whole database
 
 The league has two seasons ended, one running and one planned, so the rule keeps a squad row in the
 latest ended one and every later one. Every pupil a case seeds is held against what the rule says of
@@ -14,14 +14,14 @@ import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import erasure_due_page, saison_statuses
@@ -34,12 +34,9 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db
-from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import JSONFormatter
 from app.main import create_app
 from tests.app_client import app_client
-from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
@@ -128,7 +125,7 @@ def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
 
 
 def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
-    """A report naming that due pupil among its scorers, whose repoint writes a log row: what makes a pupil's erasure its costliest."""
+    """A report naming that due pupil among its scorers: what makes a pupil's erasure its costliest."""
 
     report = spielbericht_document({"_id": numbered(7000 + position), "saison_id": "2024"})
     report["bericht"]["scorers"][0]["spieler_id"] = numbered(position)
@@ -140,18 +137,6 @@ async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict
     for shape in shapes:
         for collection, documents in shape.items():
             await database[collection].insert_many(documents)
-
-
-async def edited(database: AsyncDatabase, collection: Collection, document_id: Any, update: Mapping[str, Any]) -> None:
-    """One recorded edit, so the log holds an image of the document as it stood."""
-
-    await patch_one_in_db(
-        collection=database[collection],
-        db_filter={"_id": document_id},
-        update=update,
-        expected_version=None,
-        return_document=ReturnDocument.BEFORE,
-    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -176,9 +161,7 @@ async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any =
     return await sweep_erasure(
         params=FLErasureSweepParams(after=after),
         **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
-        ban_list=ban_list(database),
         db=client,
-        config=CONFIG,
         germany_now=NOW,
     )
 
@@ -198,29 +181,14 @@ async def a_pass(database: AsyncDatabase, client: AsyncMongoClient, **replaced: 
     return answers
 
 
+# A schema no seeded report meets, so any write to one is refused and a pupil no report names passes.
+NO_REPORT_WRITTEN: Final = {"required": ["a_field_no_report_holds"]}
+
+
 async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
     """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
 
     await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
-
-
-def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
-    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
-
-    return {
-        "at": "2025-01-01T00:00:00+00:00",
-        "at_date": datetime.now(UTC),
-        "actor": {"kind": "system", "email": "SYSTEM"},
-        "request": None,
-        "collection": str(Collection.SPIELER),
-        "operation": "patch_one",
-        "document_id": spieler_id,
-        "db_filter": None,
-        "before": pupil(spieler_id, "vorher@beispielschule.de"),
-        "modified_count": None,
-        "redacted_at": None,
-        "erasure_reason": None,
-    }
 
 
 def counts(answer: Any) -> dict[str, Any]:
@@ -348,7 +316,7 @@ GRANT = numbered(17)
 
 
 async def one_address_in_four_roles(database: AsyncDatabase) -> None:
-    """A due pupil, and a contact seat, a referee row and a grant held at the same address, each with its log images."""
+    """A due pupil, and a contact seat, a referee row and a grant held at the same address."""
 
     await database[Collection.SPIELER].insert_one(pupil(REACHED, ADDRESS, last_name="Pupillensloot"))
     await database[Collection.SAISON_SPIELER].insert_many(
@@ -378,17 +346,9 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
             "address": ADDRESS,
             "admin_tier": "administration",
             "granted_by": "PLAYGROUND",
-            "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
+            "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         }
     )
-
-    await edited(database, Collection.SPIELER, REACHED, {"$set": {"birth_date": "2008-04-04"}})
-    for row_id in REACHED_ROWS:
-        await edited(database, Collection.SAISON_SPIELER, row_id, {"$set": {"nummer": "7"}})
-    await edited(database, Collection.REGISTRIERUNGEN, REACHED_REGISTRATION, {"$set": {"nummer": "7"}})
-    await edited(database, Collection.SAISON_TEAMS, SEAT_ROW, {"$set": {"gruppe": "B"}})
-    await edited(database, Collection.SCHIEDSRICHTER, REFEREE, {"$set": {"schule": "Lindenschule"}})
-    await edited(database, Collection.GRANTS, GRANT, {"$set": {"admin_tier": "administration"}})
 
 
 class TestThePupilsOwnDataAlone:
@@ -399,20 +359,9 @@ class TestThePupilsOwnDataAlone:
             await one_address_in_four_roles(database)
             answer = await run(database, client)
 
-            return (
-                counts(answer),
-                await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS),
-                await database[Collection.ACTION_LOG]
-                .find(
-                    {
-                        "collection": {"$in": [str(Collection.SPIELER), str(Collection.SAISON_SPIELER), str(Collection.REGISTRIERUNGEN)]},
-                        "before": {"$ne": None},
-                    }
-                )
-                .to_list(None),
-            )
+            return counts(answer), await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS)
 
-        answer, held, unredacted = on_a_league(mongo_replica_set_url, body)
+        answer, held = on_a_league(mongo_replica_set_url, body)
 
         assert answer == {
             "completed_saison_id": JUST_ENDED,
@@ -425,11 +374,10 @@ class TestThePupilsOwnDataAlone:
         }
         assert held == {
             "Pupillensloot": [],
-            "Sitzsloot": ["action_log", "saison_teams"],
-            "Schiedssloot": ["action_log", "schiedsrichter"],
-            ADDRESS: ["action_log", "grants", "saison_teams", "schiedsrichter"],
+            "Sitzsloot": ["saison_teams"],
+            "Schiedssloot": ["schiedsrichter"],
+            ADDRESS: ["grants", "saison_teams", "schiedsrichter"],
         }
-        assert unredacted == []
 
 
 class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
@@ -563,15 +511,14 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 class TestOneRecordHoldsBackNobody:
     def test_a_refused_loeschung_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A log image refusing the redaction's update, a real failure under strict validation.
+        """A report refusing the pupil's repoint, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
         """
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.ACTION_LOG].insert_one(refusing_its_redaction(numbered(1)))
-            await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
+            await seeded(database, a_due_pupil(1), a_due_pupil(2), a_report_naming(1))
+            await refuse_writes_breaking(database, Collection.SPIELBERICHTE, NO_REPORT_WRITTEN)
 
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
@@ -724,9 +671,8 @@ class TestEachCallTakesAShare:
         last = ERASURES_PER_PASS + 1
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
-            await database[Collection.ACTION_LOG].insert_many([refusing_its_redaction(numbered(position)) for position in failing])
-            await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
+            await seeded(database, *(a_due_pupil(position) for position in [*failing, last]), *map(a_report_naming, failing))
+            await refuse_writes_breaking(database, Collection.SPIELBERICHTE, NO_REPORT_WRITTEN)
             answers = await a_pass(database, client)
 
             return [(answer.spieler, answer.failed) for answer in answers], await database[Collection.SPIELER].count_documents(
@@ -741,7 +687,7 @@ class TestEachCallTakesAShare:
 
 class TestNoJournalLine:
     def test_the_run_writes_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A restore's replay would erase the whole address, where the rule deletes the pupil again on its own."""
+        """Repeating it by hand after a restore would erase the whole address, where the rule deletes the pupil again on its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await seeded(database, a_due_pupil(1))
@@ -752,7 +698,7 @@ class TestNoJournalLine:
             erased_count = on_a_league(mongo_replica_set_url, body)
 
         assert erased_count == 1
-        assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
+        assert "journal.act" not in [record.getMessage() for record in caplog.records]
 
 
 # --- What a call costs on the wire, which the share is sized at.
@@ -762,7 +708,7 @@ class TestNoJournalLine:
 FIRST_BATCH = 101
 
 
-# One pupil's commands on the wire at their costliest, a report naming them, whose repoint writes a log row.
+# One pupil's commands on the wire at their costliest, a report naming them.
 COMMANDS_A_PERSON = 22
 
 # The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first

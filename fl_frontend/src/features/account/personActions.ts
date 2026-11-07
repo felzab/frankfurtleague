@@ -61,7 +61,7 @@ export const eraseAccount = action({
   run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
     // Refused before the library spends the link, so the same link completes after a handover.
     if (subject.records.admin_tier === "owner") {
-      return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
+      return { ok: false, reason: SERVER_COPY.refusalLine.owner_erasure };
     }
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;

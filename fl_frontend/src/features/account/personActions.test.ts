@@ -74,11 +74,6 @@ const erasures: { method: string; actor: string | null }[] = [];
 
 const ERASURE_PATH = "/api/v0/identity/account/erasure";
 
-const VIEW_PATH = "/api/v0/identity/account/erasure/view";
-
-/** Whether the preview reads the press as the last owner's. */
-let lastOwner = false;
-
 /** The person's own address change, and the method of every request sent to it. */
 const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
 const addressChanges: string[] = [];
@@ -91,10 +86,6 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   if (path.endsWith("/einwilligung")) {
     consentWrites.push(path);
     return Promise.resolve(Response.json({}));
-  }
-  if (path === VIEW_PATH) {
-    const empty = { spieler: [], schiedsrichter: [], seats: [], bewerbungen: [], registrierungen: [], address_change: 0 };
-    return Promise.resolve(Response.json({ ...empty, admin_tier: "owner", last_owner: lastOwner }));
   }
   if (path === ERASURE_PATH) {
     erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
@@ -135,7 +126,6 @@ beforeEach(() => {
   addressChanges.length = 0;
   consentWrites.length = 0;
   HELD.clear();
-  lastOwner = false;
 });
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
@@ -184,7 +174,6 @@ async function ownerWithLink(email: string): Promise<{ row: SessionRow; token: s
     ...NO_RECORDS,
     admin_tier: "owner",
     granted_since: "2026-01-01T00:00:00Z",
-    owner_since: "2026-01-01T00:00:00Z",
     account: false,
   });
   const byPasskey = await sessionByCode(auth, store, email);
@@ -216,15 +205,15 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(deletedCookies, "the used link stayed in the browser for its hour").toStrictEqual([ERASURE_LINK_COOKIE]);
   });
 
-  it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
-    const { row, token, holder } = await ownerWithLink("letzte-inhaberin@example.org");
-    lastOwner = true;
+  it("refuses the league's owner before the link is spent, and deletes on the same link after a handover", async () => {
+    const email = "letzte-inhaberin@example.org";
+    const { row, token, holder } = await ownerWithLink(email);
 
-    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure });
-    expect(erasures, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
+    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: SERVER_COPY.refusalLine.owner_erasure });
+    expect(erasures, "the erasure was asked for although the subject read the owner").toStrictEqual([]);
     assert.ok(linkStands(token), "the refused press spent the link, which the owner can no longer open");
 
-    lastOwner = false;
+    HELD.set(email, { ...NO_RECORDS, seats: [SEAT], account: true });
     await ledToTheDonePage(eraseAccount({ token, holder }));
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
     expect(deletedCookies, "the refused press forgot the link, or the completed one kept it").toStrictEqual([ERASURE_LINK_COOKIE]);

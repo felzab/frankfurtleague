@@ -8,7 +8,6 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -66,9 +65,6 @@ REGISTERED_OPEN = "rita.offen@schule.de"
 GHOST_SCHIEDSRICHTER = "geist.pfeife@schule.de"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NOBODY = "Niemand.Hier@Example.COM"
-
-# The league's owner, asked about nowhere: what lets the read answer at all.
-OWNER = "olga.inhaberin@schule.de"
 
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 5)]
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607990051")
@@ -137,9 +133,7 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
     )
 
 
-async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
-    """`owner` is the `owner` grant's address as stored, or `None` for a league whose grants hold no owner."""
-
+async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -181,17 +175,8 @@ async def _seed(database: AsyncDatabase, *, owner: str | None) -> None:
     )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
-        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
+        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "effective_from": granted}
     )
-    # The address changed in place in the database, which the comparison has not seen: the grant is in
-    # effect for nobody until it does, and its account still stays.
-    await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "address": "verena.vorher@schule.de", "admin_tier": "administration", "announced_at": granted}
-    )
-    if owner is not None:
-        await database[Collection.GRANTS].insert_one(
-            {"_id": ObjectId(), "address": owner, "admin_tier": "owner", "granted_by": "PLAYGROUND", "granted_at": granted}
-        )
 
 
 @functools.cache
@@ -215,7 +200,7 @@ def answered(url: str) -> tuple[int, Mapping[str, Any]]:
 
     async def _run() -> tuple[int, Mapping[str, Any]]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database, owner=OWNER)
+            await _seed(database)
 
             return await _ask(url, ASKED)
 
@@ -272,18 +257,3 @@ class TestWhatLetsAnAccountGo:
                 "unreferenced": [NOBODY, GHOST_SCHIEDSRICHTER, REGISTERED_OPEN, BARRED, OUTSIDE_THE_RULE],
             },
         )
-
-
-@pytest.mark.db
-class TestALeagueWithoutAnOwner:
-    """An empty or foreign database answers every address unreferenced, and the sweep would delete every account on it."""
-
-    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
-        async def _run() -> tuple[int, Mapping[str, Any]]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
-                return await _ask(mongo_replica_set_url, [NOBODY, SEAT_OPEN])
-
-        status, body = on_the_seed_loop(_run())
-
-        assert (status, body["error_code"]) == (409, Code.NO_OWNER), body
-        assert "unreferenced" not in body

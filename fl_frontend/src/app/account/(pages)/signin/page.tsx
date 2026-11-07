@@ -46,7 +46,7 @@ async function SignInContent() {
       email={subject.email}
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
-      lastOwner={subject.records.admin_tier === "owner" ? SERVER_COPY.refusalLine.last_owner_erasure : undefined}
+      lastOwner={subject.records.admin_tier === "owner" ? SERVER_COPY.refusalLine.owner_erasure : undefined}
       addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );
