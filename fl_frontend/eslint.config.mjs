@@ -713,6 +713,7 @@ const SOURCE_BANS = [
     {
       only: [
         "account",
+        "action-log",
         "address-change",
         "ban-list",
         "bewerbungen",
