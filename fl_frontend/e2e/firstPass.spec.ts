@@ -7,6 +7,7 @@
  */
 import { expect, test as sinkRead } from "@playwright/test";
 
+import { chooseWho } from "./support/actionLog";
 import { SAISON, SUBJECT } from "./support/application";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
 import { mailedMessage } from "./support/mailSink";
@@ -35,9 +36,11 @@ sinkRead("the referee booked on a departed club's fixture is told", async () => 
 // Behind the two above: the pass runs its jobs in order (`fl_frontend/src/instrumentationNode.ts :: loadJobs`), and the
 // referee's notice comes of the job after those that delete, so both rows stand once it is filed.
 test("each deletion the pass made stands in the Protokoll, counted and naming nobody", async ({ page }) => {
-  await page.goto("/admin/log?by=system");
+  await page.goto("/admin/log");
+  const main = page.getByRole("main");
+  await chooseWho(page, main, "Automatisch");
 
-  const rows = page.getByRole("main").getByRole("row");
+  const rows = main.getByRole("row");
   await expect(rows.filter({ hasText: "Nach Frist gelöscht · Bewerbungen: 1" })).toBeVisible();
   await expect(rows.filter({ hasText: "Nach Frist gelöscht · Spieler: 1" })).toBeVisible();
 });

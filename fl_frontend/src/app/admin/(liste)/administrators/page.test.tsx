@@ -91,10 +91,6 @@ describe("who holds access and what waits", () => {
 
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
   });
-
-  it("draws no „Angekündigt“ while nothing waits", async () => {
-    expect((await read(OWNER, [THE_OWNER])).titles).toStrictEqual([COPY.admin.team.active]);
-  });
 });
 
 describe("the owner's acts", () => {

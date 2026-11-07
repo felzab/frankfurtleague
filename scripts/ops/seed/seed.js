@@ -1091,7 +1091,8 @@ const PLANNED_ROWS = [
 const BANS = [
   {
     _id: ObjectId(),
-    address: "gesperrt@example.com",
+    // Long enough for a phone's row to have to wrap it, which `fl_frontend/e2e/phone/access.spec.ts` measures.
+    address: "gesperrte.person.mit.langer.adresse@example.com",
     ban_reason: "Beleidigungen am Spielfeldrand",
     created_by: "inhaber@example.com",
     created_at: day(-30),
@@ -1146,8 +1147,8 @@ const logged = (hoursAgo, by, action, { team = null, label = null, count = null 
 const ACTION_LOG = [
   logged(50, "person", "erasure.own"),
   logged(40, "system", "retention.kontakte", { label: "2026", count: 2 }),
-  logged(30, "schiedsrichter", "spielbericht.saved", { label: "Birke vs. Linde" }),
-  logged(20, "kontakt", "spielbestaetigung.answered", { team: "Birke", label: "Birke vs. Linde" }),
+  logged(30, "schiedsrichter", "spielbericht.saved", { label: "2026 / 1" }),
+  logged(20, "kontakt", "spielbestaetigung.answered", { team: "Birke", label: "2026" }),
   logged(10, "inhaber@example.com", "grant.added", { label: "admin.wartet@example.com" }),
 ];
 
