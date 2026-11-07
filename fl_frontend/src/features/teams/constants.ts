@@ -61,8 +61,6 @@ export const KONTAKT_ROLLEN = [
   { value: "stellvertretung", label: "Stellvertretung", langform: KONTAKT_ROLLE_LONG_FORM.stellvertretung },
 ] as const;
 
-export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
-
 /**
  * The seat a double-seated Trainer's row stands for, on an application and on a club alike: one person holds both and
  * one link answers both, so a second row would offer a second press for one mail. An emptied Trainer's seat stands for

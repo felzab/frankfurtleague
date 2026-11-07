@@ -32,5 +32,10 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   lint keeps React Aria's date segments in), since a changed text fails hydration and discards its
   whole boundary. Pages call the kit: React Aria and
   a raw control are banned outside it. The old HeroUI pages keep the loss until their session rebuilds them.
+- An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
+  `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box or the
+  one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind
+  anything slower than the sign-in client's own request, has lost the press Safari asks of WebAuthn:
+  `tsc` and every unit test pass, and the passkey journeys run in Chromium alone.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.

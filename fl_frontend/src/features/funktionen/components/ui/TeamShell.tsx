@@ -18,7 +18,7 @@ import type { TeamIconName } from "../../constants";
 const teamPrefixOf = ({ team_id, saison_id }: AddressParams): string => teamHref(String(team_id), String(saison_id));
 
 /**
- * A client wrapper for `AdminShell`'s reason: the icons and the sign-out cross no server
+ * A client wrapper: the icons and the sign-out cross no server
  * boundary as props. What the seats decide arrives as slots, each streamed on its own.
  */
 export function TeamShell({

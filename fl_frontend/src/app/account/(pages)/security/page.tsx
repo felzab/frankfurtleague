@@ -25,7 +25,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 /**
  * Why the set-up is closed, where the page knows it at render: the cap, or a first passkey asked of a code session
  * older than the library's `freshAge`, which refuses it. A session the passkey made is fresh by the touch the set-up
- * asks first.
+ * asks.
  */
 function setUpClosedOf(
   served: { readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },

@@ -1,12 +1,9 @@
-import { rollenText } from "@/core/teamVocabulary";
-
 import type {
   FLBewerbungConfirmationDeadlineDays,
   FLBewerbungKontaktMinAgeYears,
   FLSignatoryMinAgeYears,
   FLTeamShorthandLength,
 } from "@/core/generated/client/types";
-import type { KontaktRolle } from "@/features/teams/constants";
 
 /**
  * A club's Kürzel is exactly this many letters. A client control cannot import the generated module that holds the
@@ -23,13 +20,6 @@ export const SHORTHAND_LENGTH = 3 satisfies FLTeamShorthandLength;
  */
 export const BEWERBUNG_MIN_AGE = 16 satisfies FLBewerbungKontaktMinAgeYears;
 export const BEWERBUNG_MAX_AGE = 120;
-
-/**
- * Every seat a contact person holds on one row, as the one phrase the contact page, the account page and the mails
- * name them by (`fl_frontend/src/core/teamVocabulary.ts :: rollenText`); an emptied seat names nobody.
- */
-export const rollenLongForm = (rollen: readonly (KontaktRolle | null)[]): string =>
-  rollenText(rollen.filter((rolle): rolle is KontaktRolle => rolle !== null));
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, checked against

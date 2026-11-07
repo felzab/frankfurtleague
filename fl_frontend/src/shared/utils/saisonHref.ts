@@ -1,9 +1,9 @@
-/** The parameter the season selector writes and every season-scoped admin read resolves. */
+/** The parameter a season-scoped shell keeps in its links. */
 export const SAISON_PARAM = "saison_id";
 
 /**
- * Keeps the shell on the season the reader chose: the sidemenu and `SaisonSelector` both read the
- * CURRENT url, so a link dropping the parameter returns the whole shell to the default season.
+ * Keeps the shell on the season the reader chose: the sidemenu reads the CURRENT url, so a link
+ * dropping the parameter returns the whole shell to the default season.
  */
 export function withSaisonId(path: string, saisonId: string | null | undefined): string {
   if (!saisonId) return path;
