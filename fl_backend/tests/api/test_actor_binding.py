@@ -139,7 +139,7 @@ class _LogDouble:
 
 
 def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fails():
-    """The suite binds an administrator for direct calls, so nothing else sees a forgotten `by` take the wrong who."""
+    """What a request served over the wire meets on a route that forgot its `by`; a direct call runs with the suite's administrator bound."""
 
     log = _LogDouble()
 

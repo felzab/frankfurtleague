@@ -45,6 +45,7 @@ from app.core.exceptions import APIError
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import deletions_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
@@ -587,9 +588,9 @@ class TestTheClock:
             late = await sweep(database, client, now=clock)
             left = await database[Collection.SCHIEDSRICHTER].find({}, {"_id": 1}).to_list(length=None)
 
-            return (early.erased, standing), (late.erased, late.failed), left
+            return (early.erased, standing), (late.erased, late.failed), left, await deletions_of(database, "retention.schiedsrichter")
 
-        early, late, left = on_a_league(
+        early, late, left, deletions = on_a_league(
             mongo_replica_set_url,
             body,
             referees=[referee_document(), referee_document(_id=CONFIRMED_OID, name="Roberto Rosetti", email=CONFIRMED_EMAIL)],
@@ -597,6 +598,7 @@ class TestTheClock:
 
         assert early == (0, 1)
         assert late == (1, 0)
+        assert deletions == [("system", None, 1, None)]
         assert {row["_id"] for row in left} >= {CONFIRMED_OID}
         assert SCHIEDSRICHTER_OID not in {row["_id"] for row in left}
 

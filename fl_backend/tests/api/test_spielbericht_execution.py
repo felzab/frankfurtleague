@@ -28,6 +28,7 @@ from app.api.spiele.schemas import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
+from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
@@ -260,15 +261,17 @@ class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
                 response=corrected,
             )
 
-            return first, (created.status_code, corrected.status_code), await stored(database)
+            return first, (created.status_code, corrected.status_code), await stored(database), await acts_of(database)
 
-        first, statuses, documents_now = on_the_league(mongo_replica_set_url, body)
+        first, statuses, documents_now, acts = on_the_league(mongo_replica_set_url, body)
 
         # RFC 9110's PUT: the write creating the report answers 201, a later one 200.
         assert statuses == (201, 200)
         assert first.bericht.version == 1
         assert first.kader.team1[0].spieler_id == LINA and [spieler.spieler_id for spieler in first.kader.team1] == [LINA]
         [document] = documents_now
+        # The first save and the correction, each its own row and neither naming a person.
+        assert acts == [("spielbericht.saved", "schiedsrichter", None, document["_id"])] * 2
         block = document["bericht"]
         assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["remarks"]) == (2, 1, "Starker Regen ab der Pause.")
         assert block["submitted_by"] == {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}

@@ -56,7 +56,8 @@ def _factory(base: dict[str, Any]) -> PayloadFactory:
 def an_administrator_bound() -> Iterator[None]:
     """What `bind_actor` binds on a request, for the suite's direct calls of an admin handler, which `record_act` reads.
 
-    Set in the test's own context, which `tests/database.py :: on_the_seed_loop` copies into a seed's task.
+    Set in the test's own context, which `tests/database.py :: on_the_seed_loop` copies into a seed's task, and bound to
+    nobody again for what `tests/app_client.py :: app_client` serves.
     """
 
     token = actor_var.set("admin@frankfurtleague.de")
