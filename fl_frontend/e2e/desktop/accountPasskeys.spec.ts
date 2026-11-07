@@ -8,27 +8,13 @@ import { expect } from "@playwright/test";
 
 import { test } from "../support/journey";
 import { filedMessages, mailedLink } from "../support/mailSink";
-import { signInWithCode } from "../support/signIn";
-
-import type { BrowserContext } from "@playwright/test";
+import { assertionsSigned, signInWithCode } from "../support/signIn";
 
 /** The person the removal's journey alone signs in as (`scripts/ops/seed/seed.js`). */
 const REMOVER = "emil.ernst@example.com";
 
 /** The person the touched acts' journey alone signs in as, and the one its last step erases. */
 const HOLDER = "jana.jansen@example.com";
-
-/** The relying party the local `AUTH_URL` names. */
-const RELYING_PARTY = "localhost";
-
-/**
- * The assertions the browser's authenticator has signed for the site: its signature counter rises by one on each
- * (https://playwright.dev/docs/api/class-credentials#credentials-create-option-sign-count), so a press behind the touch
- * moves it by exactly one, and an act whose end shows ran past the touch that moved it.
- */
-async function assertionsSigned(context: BrowserContext): Promise<number> {
-  return (await context.credentials.get({ rpId: RELYING_PARTY })).reduce((signed, passkey) => signed + passkey.signCount, 0);
-}
 
 test("a person's passkey on Sicherheit: set up, then removed, which ends this device's session", async ({ page, context }) => {
   await signInWithCode(page, REMOVER);
