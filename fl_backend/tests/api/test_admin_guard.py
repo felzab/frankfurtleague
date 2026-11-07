@@ -7,7 +7,6 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.spieler import schemas as spieler_schemas
 from app.api.spieler.public_router import router as spieler_public_router
@@ -221,7 +220,7 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
 
 
-# The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
+# The operations a signed-in person reaches on the admin key through `get_person_identifier`, whose session
 # is a person no grant names: the one exemption from the check below, by name.
 PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     {
@@ -293,12 +292,11 @@ def test_every_person_operation_binds_a_person_after_the_key():
     for operation in sorted(PERSON_OPERATIONS):
         route = ROUTES_BY_OPERATION.get(operation)
         calls = [dependency.call for dependency in route.dependant.dependencies] if route else []
-        binders = [
-            index
-            for index, call in enumerate(calls)
-            if any(call is binder for binder in (*PERSON_ACTOR_BINDERS.values(), get_person_identifier))
-        ]
-        if verify_access_admin not in calls or not binders or binders[0] < calls.index(verify_access_admin):
+        if (
+            verify_access_admin not in calls
+            or get_person_identifier not in calls
+            or calls.index(get_person_identifier) < calls.index(verify_access_admin)
+        ):
             unearned.append(operation)
 
     assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"

@@ -151,45 +151,6 @@ class SupportIndex:
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
-    # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
-    # index and scans the whole log instead -- measured, and the log holds twelve months of writes
-    # (`app/api/action_log/admin_router.py :: get_action_log`).
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_queue",
-        (("at", DESCENDING), ("_id", DESCENDING)),
-        "the log page reads newest first",
-    ),
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_trace_id",
-        (("trace_id", ASCENDING),),
-        "a write and its fan-out are read as one action",
-    ),
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_target",
-        (("collection", ASCENDING), ("document_id", ASCENDING)),
-        "one document's history, and the rows a person's erasure must redact",
-    ),
-    # Every key `FACET_TALLY` groups on, in its `$sort`'s order: a group key missing here leaves that
-    # sort blocking in memory, and where no other index serves the match, scanning the whole log,
-    # images and all (`app/api/action_log/admin_router.py :: FACET_TALLY`).
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_facets",
-        (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
-        "the counts the log page's three facets are told, over every recorded row",
-    ),
-    # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
-    # running for a whole season at once, on both (`app/api/identity/crud.py :: unattribute_in_session`,
-    # `:: erase_pupil_actor_in_session`).
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_actor_pseudonym",
-        (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
-        "the rows a person wrote, which their erasure marks inside its transaction",
-    ),
     # Ending in the read's own sort order, `submitted_at` then `_id`: with the sort key unindexed
     # every request scans the collection and sorts it in memory, which is work proportional to an
     # archive an anonymous form can grow.
@@ -391,17 +352,14 @@ class TTLIndex:
 
 
 TTL_INDEXES: Sequence[TTLIndex] = (
-    # Not `at`, though it names the same instant: it is a string, which this index would accept and
-    # then expire nothing under, for as long as anyone left it there.
     TTLIndex(
         Collection.ACTION_LOG,
         "action_log_retention",
-        "at_date",
+        "at",
         ACTION_LOG_ENTRY_RETENTION_SECONDS,
-        "a log row is kept for twelve months after the write it recorded",
+        "a log row is kept for twelve months after the act it recorded",
     ),
-    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it, taking its address out of the
-    # log images, which a TTL deletion never would.
+    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it.
     TTLIndex(
         Collection.ADDRESS_CHANGES,
         "address_change_ended_at",
@@ -502,7 +460,7 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     lanes: dict[str, list[tuple[int, _Runner]]] = {}
     # Numbered BEFORE the split, so a rank is the DECLARED position and not the position within a lane:
     # a later-declared operation opening its own lane would rank 0 there, and per-lane numbering would
-    # report it over an earlier one standing second in its lane, as `action_log_trace_id` does.
+    # report it over an earlier one standing second in its lane.
     for position, (namespace, run) in enumerate(declared):
         lanes.setdefault(namespace, []).append((position, run))
 

@@ -775,14 +775,6 @@ def seat_answered_at(*, kontakte: Any, confirmations: Any, seat: str) -> Any:
     return confirmed_at or _declined_on(confirmations, seat)
 
 
-def seat_addresses(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
-    """The stored address of each of these seats that still holds one."""
-
-    slots = [kontakte.get(seat) for seat in seats] if isinstance(kontakte, Mapping) else []
-
-    return {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
-
-
 def seat_first_name(*, kontakte: Any, seat: str) -> str:
     """The first name in a seat's slot, or `""` where the slot is empty."""
 

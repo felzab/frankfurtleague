@@ -1,66 +1,12 @@
 from datetime import datetime
-from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import BaseModel, Field
 
 from app.api.grants.schemas import FLUtcInstant
-from app.core.recording import ActorRole, FLAction, FLActionType
-from app.shared.schemas.bounds import ACTION_LOG_SEARCH_MAX_LENGTH, ACTOR_PSEUDONYM_SHOWN
+from app.core.recording import FLAction, FLActionType
+from app.shared.schemas.bounds import ACTION_LOG_SEARCH_MAX_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
-
-# The stored operation of a row `core/recording.py :: record_write` wrote.
-type FLActionLogEntryOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
-
-
-class FLActorWithAddress(BaseModel):
-    """An actor the row names by `email`: an administrator's address, or a sentinel."""
-
-    kind: Literal["admin_session", "system", "public"]
-    email: str
-
-
-def _served_prefix(pseudonym: str) -> str:
-    return pseudonym[:ACTOR_PSEUDONYM_SHOWN]
-
-
-class FLActorPerson(BaseModel):
-    """A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address."""
-
-    kind: Literal["person_session"]
-    pseudonym: Annotated[str, AfterValidator(_served_prefix)]
-    funktion: ActorRole
-
-
-# On `kind`, so a person's row can never be read as carrying an address, nor an administrator's as
-# carrying none.
-FLAktor = Annotated[FLActorWithAddress | FLActorPerson, Field(discriminator="kind")]
-
-
-class FLActionLogEntryRequest(BaseModel):
-    method: str
-    path: str
-
-
-class FLAktionRecord(BaseModel):
-    """One row as `action_log` stores it: its actor before any address is withheld, and no derived `stand_secured`."""
-
-    id: CustomObjectId = Field(validation_alias="_id")
-    at: str
-    # The TTL index's key: the same instant as `at`, as a date.
-    at_date: datetime
-    actor: FLAktor
-    trace_id: str
-    request: FLActionLogEntryRequest | None
-    collection: str
-    operation: FLActionLogEntryOperation
-    # A list is `delete_many`'s, and a season's id is its string.
-    document_id: CustomObjectId | str | list[CustomObjectId | str] | None
-    db_filter: dict[str, str] | None
-    before: dict[str, Any] | list[dict[str, Any]] | None
-    modified_count: int | None
-    redacted_at: str | None
-    erasure_reason: str | None
 
 
 class FLActionLogRecord(BaseModel):

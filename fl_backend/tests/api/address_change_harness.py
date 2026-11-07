@@ -38,7 +38,7 @@ from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.recording import Actor, actor_var
+from app.core.recording import actor_var
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -275,7 +275,7 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     async def as_its_route_binds_it() -> Any:
-        token = actor_var.set(Actor(kind="admin_session", email=supplied["operator"])) if "operator" in supplied else None
+        token = actor_var.set(supplied["operator"]) if "operator" in supplied else None
         try:
             if "session" in parameters and "session" not in given:
                 # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.

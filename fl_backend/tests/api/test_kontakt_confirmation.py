@@ -272,7 +272,6 @@ async def replace(database: AsyncDatabase) -> Any:
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=database.client,
         today=TODAY,
-        germany_now=NOW,
     )
 
 

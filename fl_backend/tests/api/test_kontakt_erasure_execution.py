@@ -9,7 +9,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLErasureResponse, FLErasureViewResponse
+from app.api.identity.admin_router import get_erasure_view
+from app.api.identity.schemas import FLErasureAddressPayload, FLErasureResponse, FLErasureViewResponse
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.services import (
@@ -29,9 +30,9 @@ from tests.documents import confirmed_kenntnisnahme, minted_confirmations
 from tests.erasure import erased
 from tests.worker import worker_database
 
-from .test_identity_erasure_on_request import revealed
-
 DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
+
+OPERATOR = "admin@frankfurtleague.de"
 
 
 # Fixed rather than generated, so a failure names the same row every run.
@@ -282,7 +283,20 @@ async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email:
 async def call_view(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> FLErasureViewResponse:
     """The administrator's reveal of the address, whose seats are the erasure's own selection."""
 
-    return await revealed(database, client, email)
+    async with client.start_session(snapshot=True) as session:
+        return await get_erasure_view(
+            view_data=FLErasureAddressPayload(email=email),
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            spieler_collection=database[Collection.SPIELER],
+            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+            spiele_collection=database[Collection.SPIELE],
+            grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
+            session=session,
+            operator=OPERATOR,
+        )
 
 
 async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:

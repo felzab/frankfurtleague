@@ -15,7 +15,7 @@ from app.api.schiedsrichter.services import (
     build_referee_filter,
 )
 from app.core.collections import Collection
-from app.core.crud import ensure_one_in_db, erase_many_from_db, patch_many_in_db, pull_one_from_db
+from app.core.crud import delete_many_from_db, ensure_one_in_db, patch_many_in_db, pull_one_from_db
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -102,7 +102,7 @@ async def erase_referee_in_session(
         session=session,
     )
 
-    await erase_many_from_db(
+    await delete_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},
         session=session,

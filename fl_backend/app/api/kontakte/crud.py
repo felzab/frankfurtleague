@@ -1,18 +1,15 @@
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Mapping, Sequence, Set
 from typing import Any
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.action_log.crud import read_imaged_rows, redact_rows_in_session
 from app.api.bewerbungen.services import deletion_was_announced, leaving_moves_the_deletion_day
 from app.api.kontakte.services import (
     PersonName,
     build_clearing_update,
-    departing_names,
     departing_slots,
-    seat_image_edits,
 )
 from app.api.spielbestaetigungen.services import (
     HeldSeats,
@@ -21,9 +18,7 @@ from app.api.spielbestaetigungen.services import (
     seat_void_of,
 )
 from app.api.teams.crud import void_moved_seats
-from app.core.collections import Collection
 from app.core.crud import patch_many_in_db, patch_one_in_db
-from app.core.recording import RedactionTarget, build_redaction_filter
 from app.shared.folding import sign_in_identifier
 
 
@@ -135,56 +130,3 @@ async def erase_kontaktperson_in_session(
     )
 
     return cleared_slots
-
-
-async def redact_the_decliner(
-    *,
-    action_log_collection: AsyncCollection,
-    collection: Collection,
-    row_id: Any,
-    addresses: Iterable[str],
-    stamp: str,
-    session: AsyncClientSession,
-) -> None:
-    """The declining person's seats out of every log image of this one row, which is all a Widerspruch reaches.
-
-    The link's Widerspruch and a restore's replay of its journal line both run it, after the patch emptying the seats.
-    """
-
-    await redact_seats_in_documents(
-        action_log_collection=action_log_collection,
-        documents=[(collection, [row_id])],
-        identifiers={sign_in_identifier(address) for address in addresses},
-        # The link stays with the seat, its decline recorded on it, as the live write leaves it.
-        links=False,
-        stamp=stamp,
-        session=session,
-    )
-
-
-async def redact_seats_in_documents(
-    *,
-    action_log_collection: AsyncCollection,
-    documents: Sequence[RedactionTarget],
-    # Folded (`app/shared/folding.py :: sign_in_identifier`): every image is judged on the fold.
-    identifiers: Set[str],
-    links: bool,
-    stamp: str,
-    session: AsyncClientSession,
-    # Names the caller knows are theirs from outside these documents: the replacement's, off the row it hands over.
-    names: Set[PersonName] = frozenset(),
-) -> int:
-    """The departing person's seats out of every log image of documents the caller reached by id, and how many rows changed."""
-
-    # Read whole before any image is judged: a name is theirs wherever ANY image of the document
-    # seats it at their address, the write's own pre-image included.
-    rows = await read_imaged_rows(action_log_collection=action_log_collection, db_filter=build_redaction_filter(documents), session=session)
-    found = departing_names(rows, identifiers)
-
-    return await redact_rows_in_session(
-        action_log_collection=action_log_collection,
-        rows=rows,
-        judge=lambda image: seat_image_edits(image, identifiers, links=links, names=found.get(image.get("_id"), frozenset()) | names),
-        stamp=stamp,
-        session=session,
-    )

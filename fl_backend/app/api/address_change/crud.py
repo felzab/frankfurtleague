@@ -56,7 +56,7 @@ from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -697,7 +697,7 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
     if open := [row["_id"] for row in held if row["state"] == "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
     if sent := [row["_id"] for row in held if row["state"] != "open"]:
-        await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
+        await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
 
 
 def _seat_move(row: Mapping[str, Any], slots: Sequence[str], new_address: str) -> dict[str, Any]:
@@ -792,7 +792,7 @@ async def end_the_address_changes_in_session(
     """
 
     if rows:
-        await erase_many_from_db(
+        await delete_many_from_db(
             collection=outbox_collection,
             db_filter={
                 "reference.collection": str(Collection.ADDRESS_CHANGES),

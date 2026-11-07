@@ -18,8 +18,8 @@ from app.api.spieler.services import (
 )
 from app.core.crud import (
     anchor_in_db,
+    delete_many_from_db,
     ensure_one_in_db,
-    erase_many_from_db,
     pull_one_from_db,
     refuse,
 )
@@ -179,7 +179,7 @@ async def erase_person_in_session(
 
     # The squad rows first: the public read starts from them and drops a row whose person its `$lookup` cannot
     # find, so a row left behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-    erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-    erased_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+    erased_rows = await delete_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
+    erased_person = await delete_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 
     return PersonErased(spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count)

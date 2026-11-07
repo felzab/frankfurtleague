@@ -18,7 +18,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.grants.crud import OPEN_NOTICE, owe_in_session, pull_the_list_to_judge
 from app.api.grants.services import Notice, compose_notice
 from app.api.kontakte.services import same_address
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
@@ -189,7 +189,7 @@ async def erase_grants_and_authorship_in_session(
 
     # No image: a grant's image is the address itself.
     if grant_ids:
-        await erase_many_from_db(collection=grants_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
+        await delete_many_from_db(collection=grants_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
 
     # After the removal, so the person is no holder told: every holder who remains is.
     await owe_in_session(

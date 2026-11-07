@@ -5,29 +5,25 @@ from typing import Any, Final
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.action_log.crud import redact_images_in_session
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     AnsetzungState,
-    SeatVoid,
     austritt_notices_of,
     build_austritt_spiele_filter,
     build_holding_filter,
     build_referee_rows_filter,
     build_season_entries_filter,
     build_season_reasons_filter,
-    build_seat_entry_images_filter,
-    seat_entry_image_edits,
 )
 from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    erase_many_from_db,
+    delete_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
     pull_whole_from_db,
@@ -239,33 +235,7 @@ async def pull_spielorte_public(
     }
 
 
-# --- A LEAVING CONTACT'S seats in the log: an erasure's, a Widerspruch's, and the season's end.
-
-
-async def redact_seat_entries_in_images(
-    *,
-    action_log_collection: AsyncCollection,
-    voids: Sequence[SeatVoid | None],
-    stamp: str,
-    # REQUIRED for `redact_images_in_session`'s reason.
-    session: AsyncClientSession,
-) -> int:
-    """These seats' link entries out of every log image of their teams' rows, as the void took them off the rows.
-
-    A seat handed on keeps its images: only a person's leaving owes them (`build_clearing_update`'s rule for the season row).
-    """
-
-    voided = [void for void in voids if void is not None]
-    if not voided:
-        return 0
-
-    return await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_seat_entry_images_filter(voided),
-        judge=lambda image: seat_entry_image_edits(image, voided),
-        stamp=stamp,
-        session=session,
-    )
+# --- The season's end: what a contact's seats leave on its fixtures.
 
 
 async def strip_the_seasons_confirmations(
@@ -339,7 +309,7 @@ async def erase_referee_confirmations_in_session(
         return 0
 
     # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
-    removed = await erase_many_from_db(
+    removed = await delete_many_from_db(
         collection=spielbestaetigungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
         session=session,

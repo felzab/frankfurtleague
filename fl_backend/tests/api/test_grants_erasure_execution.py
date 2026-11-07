@@ -39,7 +39,7 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 QUEUED = datetime(2026, 3, 31, 9, 0, tzinfo=UTC)
 TODAY = "2026-04-01"
 RUNNING = "2026"
-STANDING = compose_barred_until_saison_id(governing_saison_id=RUNNING)
+STANDING = compose_barred_until_saison_id(running_saison_id=RUNNING)
 
 # The person erased. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"

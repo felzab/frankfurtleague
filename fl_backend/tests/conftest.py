@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient, monitoring
 from pymongo.database import Database
 
-from app.core.recording import Actor, actor_var
+from app.core.recording import actor_var
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.tier import TIER_GUARD, UNMARKED_USE, expired_transaction_kills, expired_transactions_refusal
 from tests.worker import guard_every_database, release_every_database, worker_database
@@ -59,7 +59,7 @@ def an_administrator_bound() -> Iterator[None]:
     Set in the test's own context, which `tests/database.py :: on_the_seed_loop` copies into a seed's task.
     """
 
-    token = actor_var.set(Actor(kind="admin_session", email="admin@frankfurtleague.de"))
+    token = actor_var.set("admin@frankfurtleague.de")
     yield
     actor_var.reset(token)
 

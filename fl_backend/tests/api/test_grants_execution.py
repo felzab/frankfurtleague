@@ -30,7 +30,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import Actor, actor_var
+from app.core.recording import actor_var
 from app.core.security import PASSKEY_FACTOR
 from app.main import create_app
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
@@ -127,7 +127,7 @@ def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = N
 async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
     """`call` as one request of the administrator: the actor `bind_actor` binds."""
 
-    token = actor_var.set(Actor(kind="admin_session", email=als))
+    token = actor_var.set(als)
     try:
         return await call()
     finally:

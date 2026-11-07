@@ -75,12 +75,12 @@ class TestAFullPageIsRunAgain:
     @pytest.mark.parametrize(
         "pages",
         [
-            pytest.param([(PAGE, 2, 1)], id="a page at the bound is the last"),
-            pytest.param([(PAGE + 1, 4, 2), (PAGE - 1, 2, 0)], id="a page past the bound, then a short one"),
-            pytest.param([(PAGE + 1, 4, 2), (PAGE + 1, 4, 3), (0, 0, 0)], id="two past the bound, then an empty one"),
+            pytest.param([(PAGE, 2)], id="a page at the bound is the last"),
+            pytest.param([(PAGE + 1, 4), (PAGE - 1, 2)], id="a page past the bound, then a short one"),
+            pytest.param([(PAGE + 1, 4), (PAGE + 1, 4), (0, 0)], id="two past the bound, then an empty one"),
         ],
     )
-    def test_the_pages_run_until_one_is_no_longer_than_the_bound(self, pages: list[tuple[int, int, int]]):
+    def test_the_pages_run_until_one_is_no_longer_than_the_bound(self, pages: list[tuple[int, int]]):
         """The first case is the load-bearing one.
 
         A page of exactly the bound is whole, and one its clock leaves standing would be read for ever.
@@ -89,12 +89,12 @@ class TestAFullPageIsRunAgain:
         client = _Client()
         handed: list[_Session] = []
 
-        async def erase_a_page(session: Any, _: Batch) -> tuple[int, int, int]:
+        async def erase_a_page(session: Any, _: Batch) -> tuple[int, int]:
             assert session.open, "a page ran outside the session it was handed"
             handed.append(session)
             return pages[len(handed) - 1]
 
-        erased, redacted, _ = asyncio.run(
+        erased, _ = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, client),
                 page_of=erase_a_page,
@@ -106,7 +106,7 @@ class TestAFullPageIsRunAgain:
 
         assert handed == client.sessions
         assert len(handed) == len(pages)
-        assert (erased, redacted) == (sum(page[1] for page in pages), sum(page[2] for page in pages))
+        assert erased == sum(page[1] for page in pages)
 
 
 class _FailedInTheCallback(Exception):
@@ -146,7 +146,7 @@ class _Rows:
         self.raises = raises
         self.read: list[list[int]] = []
 
-    async def erase(self, _: Any, batch: Batch) -> tuple[int, int, int]:
+    async def erase(self, _: Any, batch: Batch) -> tuple[int, int]:
         rows = [row["_id"] for row in await batch.saw(_page(self.standing, batch))]
         self.read.append(rows)
         if (failure := self.raises(rows)) is not None:
@@ -154,10 +154,10 @@ class _Rows:
 
         for row in rows:
             self.standing.remove(row)
-        return len(rows), len(rows), 0
+        return len(rows), len(rows)
 
 
-def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int, int]], list[Any]]:
+def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int]], list[Any]]:
     return asyncio.run(
         run_isolated(
             db=cast(AsyncMongoClient, _Client()),
@@ -225,7 +225,7 @@ class TestARowFailingAloneIsPassedOver:
         rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            erased, _, passed = asyncio.run(
+            erased, passed = asyncio.run(
                 drain(
                     db=cast(AsyncMongoClient, _Client()),
                     page_of=rows.erase,
@@ -251,7 +251,7 @@ class TestARowFailingAloneIsPassedOver:
 
         rows = _Rows(2 * PAGE + 1, lambda read: _FailedInTheCallback() if 5 in read else None)
 
-        erased, _, passed = asyncio.run(
+        erased, passed = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, _Client()),
                 page_of=rows.erase,
@@ -275,7 +275,7 @@ class TestARowFailingAloneIsPassedOver:
         rows = _Rows(4, raises)
 
         if owes:
-            assert _isolated(rows, owes=owes) == ([(1, 1, 0)], [1])
+            assert _isolated(rows, owes=owes) == ([(1, 1)], [1])
         else:
             with pytest.raises(ExecutionTimeout):
                 _isolated(rows, owes=owes)
@@ -294,7 +294,7 @@ class TestARowFailingAloneIsPassedOver:
         with caplog.at_level(logging.WARNING, logger=fl_logger.name):
             answered = _isolated(_Rows(4, raises), owes=True)
 
-        assert answered == ([(1, 1, 0)], [1])
+        assert answered == ([(1, 1)], [1])
         assert [
             (getattr(record, "error_code", None), record.getMessage(), getattr(record, "what", None), getattr(record, "row_ids", None))
             for record in caplog.records
@@ -306,7 +306,7 @@ class TestARowFailingAloneIsPassedOver:
 
         attempts: list[Batch] = []
 
-        async def unread(_: Any, batch: Batch) -> tuple[int, int, int]:
+        async def unread(_: Any, batch: Batch) -> tuple[int, int]:
             attempts.append(batch)
             raise _FailedInTheCallback
 
@@ -346,9 +346,9 @@ class TestARowFailingAloneIsPassedOver:
                 raise _FailedInTheCallback
             return [{"_id": row} for row in range(PAGE + 1)]
 
-        async def read(_: Any, batch: Batch) -> tuple[int, int, int]:
+        async def read(_: Any, batch: Batch) -> tuple[int, int]:
             rows = await batch.saw(failing_the_second_time())
-            return len(rows), 0, 0
+            return len(rows), 0
 
         with pytest.raises(_FailedInTheCallback):
             asyncio.run(
@@ -477,7 +477,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
     """Once a half owing a message has committed, the call answers it whatever stops the rest."""
 
     @staticmethod
-    def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int, int]], list[Any]]:
+    def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int]], list[Any]]:
         token = request_deadline_var.set(None if deadline_s is None else RequestDeadline(time.monotonic() + deadline_s))
         try:
             return _isolated(rows, owes=True)
@@ -492,7 +492,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
         with caplog.at_level(logging.WARNING, logger=fl_logger.name):
             answered = self._owing(rows, deadline_s=-1.0)
 
-        assert (answered, rows.read) == (([(2, 2, 0)], []), [[0, 1, 2, 3], [0, 1]])
+        assert (answered, rows.read) == (([(2, 2)], []), [[0, 1, 2, 3], [0, 1]])
         assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", Code.DATABASE_FAILED)]
 
     def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
@@ -508,7 +508,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
         with caplog.at_level(logging.WARNING, logger=fl_logger.name):
             answered = self._owing(_Rows(4, raises), deadline_s=None)
 
-        assert answered == ([(2, 2, 0)], [])
+        assert answered == ([(2, 2)], [])
         assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.UNHANDLED_CRASH]
 
 

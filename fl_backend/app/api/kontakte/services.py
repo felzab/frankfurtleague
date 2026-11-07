@@ -3,9 +3,7 @@
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any
 
-from app.core.collections import Collection
 from app.core.crud import literal_pattern
-from app.core.recording import row_images
 from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -55,25 +53,6 @@ def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list
     ]
 
 
-# The collections whose log images seat a contact person.
-SEAT_IMAGE_COLLECTIONS: tuple[Collection, ...] = (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
-
-
-def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
-    """Log rows whose images seat this person; `seat_image_edits` decides which slot.
-
-    By what an image holds, never by row id: a swap orphans an image carrying the address out, and
-    the log keeps it its whole retention (`app/core/constraints.py :: TTL_INDEXES`).
-    """
-
-    return {
-        # `collection` first, the one half of this an index serves: `action_log_target` is a prefix
-        # match here, and nothing indexes inside `before`.
-        "collection": {"$in": [str(collection) for collection in SEAT_IMAGE_COLLECTIONS]},
-        "$or": [{f"before.kontakte.{slot}.email": sign_in_identifier(identifier)} for slot in KONTAKT_ROLLEN],
-    }
-
-
 def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, ...]:
     """Which of this row's slots name the asker, each stored address on the sign-in fold the identifier was taken on."""
 
@@ -86,32 +65,6 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     named = zip(KONTAKT_ROLLEN, emails, strict=True)
 
     return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
-
-
-def seat_address_carry_edits(image: Mapping[str, Any], *, old: str, new_address: str, staying: Set[tuple[Any, str]]) -> dict[str, str]:
-    """Each seat of one log image at the replaced address carried to the new one, but one `staying` names.
-
-    A seat still standing there is nobody's proven own, and that address's erasure reaches its images.
-    """
-
-    return {f"kontakte.{slot}.email": new_address for slot in find_matching_slots(image, old) if (image.get("_id"), slot) not in staying}
-
-
-def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) -> dict[str, None]:
-    if not slots:
-        return {}
-
-    edits: dict[str, None] = {f"kontakte.{slot}": None for slot in slots}
-    # Where the live write takes the link with the seat, and only where the image holds the block: a
-    # Widerspruch keeps it, its day recorded on it.
-    if links and isinstance(image.get("confirmations"), Mapping):
-        edits.update({f"confirmations.{slot}": None for slot in slots})
-
-    # The submission digest was taken over every seat's details, theirs among them.
-    if "idempotency_fingerprint" in image:
-        edits["idempotency_fingerprint"] = None
-
-    return edits
 
 
 # A seat's name as `app/shared/folding.py :: person_name_key` compares it, first name and surname apart.
@@ -127,26 +80,6 @@ def seat_name(seat: Any) -> PersonName | None:
     name = (person_name_key(seat.get("first_name")), person_name_key(seat.get("last_name")))
 
     return name if all(name) else None
-
-
-def departing_names(rows: Iterable[Mapping[str, Any]], identifiers: Set[str]) -> dict[Any, frozenset[PersonName]]:
-    """Per document, by the `_id` its images carry, every name its log images seat these addresses under.
-
-    Each write's own pre-image is among them, so the live seat's name always is.
-    """
-
-    names: dict[Any, set[PersonName]] = {}
-    for row in rows:
-        for _, image in row_images(row):
-            if not isinstance(image, Mapping):
-                continue
-
-            slots = {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}
-            # Each slot was found in a block `find_matching_slots` has checked is a mapping.
-            held = (seat_name(image["kontakte"][slot]) for slot in slots)
-            names.setdefault(image.get("_id"), set()).update(name for name in held if name is not None)
-
-    return {document: frozenset(held) for document, held in names.items() if held}
 
 
 def departing_slots(row: Mapping[str, Any], identifiers: Iterable[str], names: Set[PersonName] = frozenset()) -> tuple[str, ...]:
@@ -174,32 +107,6 @@ def seated_people(row: Mapping[str, Any]) -> tuple[frozenset[str], frozenset[Per
     addresses = frozenset(sign_in_identifier(seat["email"]) for seat in seats if isinstance(seat.get("email"), str))
 
     return addresses, frozenset(name for name in map(seat_name, seats) if name is not None)
-
-
-def seat_image_edits(
-    image: Mapping[str, Any], identifiers: Iterable[str], *, links: bool, names: Set[PersonName] = frozenset()
-) -> dict[str, None]:
-    """The seats these people hold in one log image, emptied as the live write empties them.
-
-    On the fold, image by image: a slot somebody else held keeps them, their earlier states being
-    their consent trail.
-    """
-
-    return _emptied_seats(image, set(departing_slots(image, identifiers, names)), links=links)
-
-
-def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
-    """One season row image's contacts and links, emptied as the write clearing them empties them.
-
-    Every person the row ever seated goes, earlier holders included, and a declined seat's link with
-    them; nothing else does.
-    """
-
-    blocks = {key: image.get(key) for key in ("kontakte", "confirmations")}
-    held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks.values())
-
-    # The fields the image holds alone: a row no save has minted a link on holds no `confirmations`.
-    return {key: None for key, block in blocks.items() if block is not None} if held else {}
 
 
 def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False, takes_the_notice_back: bool = False) -> Mapping[str, Any]:

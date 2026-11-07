@@ -72,7 +72,7 @@ from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_sess
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.journal import lost_its_answer, privacy_line
 from app.core.logging import fl_logger
@@ -425,7 +425,7 @@ async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, iden
     )
     ids = [row["_id"] for row in rows if isinstance(row["to"], str) and sign_in_identifier(row["to"]) == identifier]
     if ids:
-        await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
+        await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
     return len(ids)
 

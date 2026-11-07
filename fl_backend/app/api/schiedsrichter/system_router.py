@@ -44,7 +44,7 @@ async def sweep_schiedsrichter(
     pass. No body: the clock takes no season.
     """
 
-    async def erase_the_lapsed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def erase_the_lapsed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """One page: erase each entry due, the ghost written first. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -59,7 +59,7 @@ async def sweep_schiedsrichter(
         )
         taken = batch.took(rows[:SCHIEDSRICHTER_ERASED_PER_PAGE])
         if not taken:
-            return len(rows), 0, 0
+            return len(rows), 0
 
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
         for row in taken:
@@ -73,9 +73,9 @@ async def sweep_schiedsrichter(
             collection=schiedsrichter_collection, action="retention.schiedsrichter", by=ACT_BY_SYSTEM, count=len(taken), session=session
         )
 
-        return len(rows), len(taken), 0
+        return len(rows), len(taken)
 
-    erased, _, passed = await drain(
+    erased, passed = await drain(
         db=db,
         page_of=erase_the_lapsed,
         page=SCHIEDSRICHTER_ERASED_PER_PAGE,

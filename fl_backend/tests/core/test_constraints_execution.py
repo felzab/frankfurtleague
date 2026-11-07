@@ -6,13 +6,12 @@ from typing import Any, Final
 
 import pytest
 from bson import ObjectId
-from pymongo import ASCENDING, AsyncMongoClient, monitoring
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
-from app.api.identity.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -66,9 +65,8 @@ ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
-CONFLICTING_SUPPORT_INDEX = "action_log_trace_id"
-# The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
-# also the shape of the mistake this index exists against.
+CONFLICTING_SUPPORT_INDEX = "address_change_token_hashes"
+# The same planting for the TTL kind: the name is claimed and the keys disagree.
 CONFLICTING_TTL_INDEX = "action_log_retention"
 ADDRESS = {"street": "Hanauer Landstraße", "house_number": "12a", "postcode": "60314", "district": "Ostend", "city": "Frankfurt am Main"}
 
@@ -217,20 +215,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "action_log": {
             "_id": ACTION_LOG_ENTRY_OID,
-            "at": "2026-03-15T09:30:00+00:00",
-            "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
-            "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
+            "at": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
+            "by": "admin@example.invalid",
+            "team": None,
+            "action": "team.changed",
+            "record_id": TEAM_OID,
+            "label": "Lessing",
+            "count": None,
             "trace_id": secrets.token_hex(16),
-            "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
-            # Any collection but its own: the log records every other one and never itself.
-            "collection": "teams",
-            "operation": "patch_one",
-            "document_id": TEAM_OID,
-            "db_filter": None,
-            "before": {"name": "Lessing"},
-            "modified_count": None,
-            "redacted_at": None,
-            "erasure_reason": None,
         },
         "ban_list": {
             "_id": BAN_LIST_OID,
@@ -537,7 +529,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database.address_changes.create_index([("email", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -551,7 +543,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
-        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
+        await database.action_log.create_index([("by", ASCENDING)], name=CONFLICTING_TTL_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -876,72 +868,6 @@ def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
 
     assert "COLLSCAN" not in stages, f"read under {collation} scans the squads: {stages}"
     assert indexes == [index], f"read under {collation} walked {indexes}, not {index}"
-
-
-class _SentUpdates(monitoring.CommandListener):
-    """Every update statement this client sends, with its collection, as the server receives it."""
-
-    def __init__(self) -> None:
-        self.sent: list[tuple[str, dict[str, Any]]] = []
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        if event.command_name == "update":
-            self.sent.extend((str(event.command["update"]), dict(statement)) for statement in event.command["updates"])
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        """Required by the listener interface; an update is judged as it is sent."""
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        """Required by the listener interface; a failed update was still sent with its filter."""
-
-
-ERASED_PSEUDONYM: Final = "e" * 64
-
-
-def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
-    """The updates the two steps send, never a copy of their filters, explained over a log large enough that the planner prefers an index."""
-
-    async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
-        await database[Collection.ACTION_LOG].insert_many(
-            [
-                valid_documents()["action_log"]
-                | {
-                    "_id": ObjectId(),
-                    "actor": {
-                        "kind": "person_session",
-                        "pseudonym": ERASED_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
-                        "funktion": ("spieler", "kontakt", "schiedsrichter")[row % 3],
-                    },
-                }
-                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
-            ]
-        )
-
-        listener = _SentUpdates()
-        watched = AsyncMongoClient(mongo_url, event_listeners=[listener])
-        try:
-            log = watched[database.name][Collection.ACTION_LOG]
-            async with watched.start_session() as session:
-                await unattribute_in_session(
-                    action_log_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
-                )
-                await erase_pupil_actor_in_session(action_log_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
-        finally:
-            await watched.close()
-
-        explained = [
-            (statement["q"], await database.command({"explain": {"update": collection, "updates": [statement]}, "verbosity": "queryPlanner"}))
-            for collection, statement in listener.sent
-            if collection == Collection.ACTION_LOG
-        ]
-        return [(db_filter, winning_stages(plan)) for db_filter, plan in explained]
-
-    planned = on_the_shipped_schema(mongo_url, body)
-
-    # The control: a listener hearing nothing would pass the loop below over no update at all.
-    assert sum("actor.pseudonym" in db_filter for db_filter, _ in planned) == 2, planned
-    for db_filter, stages in planned:
-        assert "COLLSCAN" not in stages, f"marking {db_filter} scans the whole log: {stages}"
 
 
 OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")

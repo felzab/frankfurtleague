@@ -49,7 +49,7 @@ from app.api.spieler.crud import refuse_a_full_squad
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
-    erase_many_from_db,
+    delete_many_from_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
@@ -304,7 +304,7 @@ async def admit(
                 return_document=ReturnDocument.BEFORE,
             )
 
-        await erase_many_from_db(
+        await delete_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
         # The seat check just found this junction row, so it stands.

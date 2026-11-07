@@ -18,7 +18,7 @@ from app.api.registrierungen.services import (
     build_offene_filter,
     build_registrierungen_sort,
 )
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
 from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
@@ -124,7 +124,7 @@ async def erase_registrierungen_in_session(
     if not registrierungen:
         return 0
 
-    erased = await erase_many_from_db(
+    erased = await delete_many_from_db(
         collection=registrierungen_collection,
         db_filter={
             "saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})},

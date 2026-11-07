@@ -28,7 +28,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
-from app.core.recording import Actor, actor_var
+from app.core.recording import actor_var
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from tests.app_client import app_client
@@ -139,7 +139,7 @@ async def erased_by_the_handler(
 ) -> FLErasureResponse:
     """The route's own function outside a request, as `OPERATOR`, for a case driving the driver itself."""
 
-    token = actor_var.set(Actor(kind="admin_session", email=OPERATOR))
+    token = actor_var.set(OPERATOR)
     try:
         return await post_erasure(
             erasure_data=FLErasurePayload(email=email, reason=reason),

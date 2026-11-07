@@ -21,7 +21,7 @@ from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_governing_saison_id
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, erase_many_from_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BanListCollection,
     DBClient,
@@ -183,7 +183,7 @@ async def delete_ban_list_entry(
         # Resolved first so a miss is a 404: a removal taking no row is an ordinary empty result and would answer 200.
         await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, projection=["_id"], session=session)
 
-        await erase_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
+        await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
         await record_act(collection=ban_list_collection, action="ban.removed", record_id=ban_list_entry_id, session=session)
 
     async with transaction_session(db) as session:

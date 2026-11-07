@@ -43,7 +43,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     anchor_in_db,
-    erase_many_from_db,
+    delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     pull_many_from_db,
@@ -170,7 +170,7 @@ async def sweep_saison(
     async def erase_page(ids: list[Any], session: AsyncClientSession) -> int:
         """One page of one clock gone, its one row in the page's transaction, so no deletion stands without its row."""
 
-        result = await erase_many_from_db(
+        result = await delete_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         await record_act(
@@ -184,7 +184,7 @@ async def sweep_saison(
 
         return result.deleted_count
 
-    async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The season's own end, undecided having served nothing: owe the notice and erase. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -209,7 +209,7 @@ async def sweep_saison(
         )
         taken = batch.took([row for row, _ in owed])
         if not taken:
-            return len(rows), 0, 0
+            return len(rows), 0
 
         # Owed in the erasure's own write: nothing of the application is left to read once this commits.
         await enqueue_mails(
@@ -220,7 +220,7 @@ async def sweep_saison(
         )
         ids = [row["_id"] for row in taken]
 
-        return len(rows), await erase_page(ids, session), 0
+        return len(rows), await erase_page(ids, session)
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each seat due its one reminder and owe its person the mail, in one transaction. Read in-session, so a retry re-judges.
@@ -314,7 +314,7 @@ async def sweep_saison(
 
         return len(taken)
 
-    async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The fourteen-day clock: owe the notice and erase in one transaction. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -337,7 +337,7 @@ async def sweep_saison(
         taken = batch.took([row for row, _ in owed])
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="deletion", saison_id=saison_id)
         if not taken:
-            return len(rows), 0, 0
+            return len(rows), 0
 
         # Owed in the erasure's own write: nothing of the application is left to read once this commits.
         await enqueue_mails(
@@ -348,9 +348,9 @@ async def sweep_saison(
         )
         ids = [row["_id"] for row in taken]
 
-        return len(rows), await erase_page(ids, session), 0
+        return len(rows), await erase_page(ids, session)
 
-    async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The decline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -373,13 +373,13 @@ async def sweep_saison(
         taken = batch.took([row for row in rows if decline_loeschung_is_due(bewerbung_raw=row, today=today)])
         if not taken:
             refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
-            return len(rows), 0, 0
+            return len(rows), 0
 
         ids = [row["_id"] for row in taken]
 
-        return len(rows), await erase_page(ids, session), 0
+        return len(rows), await erase_page(ids, session)
 
-    async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The season-and-one clock's first half. Read in-session, the season with it, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -402,11 +402,11 @@ async def sweep_saison(
         if not taken:
             # Read as nothing, so the drain stops: a page of accepted rows it takes none of is one an activation
             # since the call's own read keeps, and reading it again would find the same.
-            return 0, 0, 0
+            return 0, 0
 
         ids = [row["_id"] for row in taken]
 
-        return len(rows), await erase_page(ids, session), 0
+        return len(rows), await erase_page(ids, session)
 
     async def clear_the_blocks(session: AsyncClientSession, batch: Batch) -> int:
         """The season-and-one clock's second half, a share a pass. Read in-session, the season with it, so a retry re-judges."""
@@ -523,18 +523,9 @@ async def sweep_saison(
         # and every pass strips what is still left whether or not a block clears on it.
         batch.took([{"_id": saison_id}])
 
-        # A pass finding nothing left to strip writes no row.
-        if stripped := await strip_the_seasons_confirmations(
+        await strip_the_seasons_confirmations(
             spielbestaetigungen_collection=spielbestaetigungen_collection, saison_id=saison_id, session=session
-        ):
-            await record_act(
-                collection=spielbestaetigungen_collection,
-                action="retention.spielbestaetigungen",
-                by=ACT_BY_SYSTEM,
-                label=saison_id,
-                count=stripped,
-                session=session,
-            )
+        )
 
     async def strip_the_reports(session: AsyncClientSession, batch: Batch) -> None:
         """The season-and-one clock's report part, a transaction apart from the confirmations' strip, for that strip's reason."""
@@ -545,22 +536,14 @@ async def sweep_saison(
             return
         batch.took([{"_id": saison_id}])
 
-        if stripped := await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session):
-            await record_act(
-                collection=spielberichte_collection,
-                action="retention.spielberichte",
-                by=ACT_BY_SYSTEM,
-                label=saison_id,
-                count=stripped,
-                session=session,
-            )
+        await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
     ohne_entscheidung, failed = 0, 0
     # AHEAD of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, _, passed = await drain(
+        ohne_entscheidung, passed = await drain(
             db=db,
             page_of=loeschen_the_undecided,
             page=SWEEP_PAGE,
@@ -569,7 +552,7 @@ async def sweep_saison(
         )
         failed += len(passed)
 
-    abgelehnte, _, passed = await drain(
+    abgelehnte, passed = await drain(
         db=db,
         page_of=loeschen_declined,
         page=SWEEP_PAGE,
@@ -581,7 +564,7 @@ async def sweep_saison(
     accepted, emptied, seats_emptied = 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
     if season_after_has_ended(later_saison_status=later_saison_status):
-        accepted, _, passed = await drain(
+        accepted, passed = await drain(
             db=db,
             page_of=erase_accepted,
             page=SWEEP_PAGE,
@@ -639,7 +622,7 @@ async def sweep_saison(
 
     # The fourteen-day clock after the season's end and before the reminder: an application erased leaves nobody to
     # chase, and a season that has ended took its undecided rows already.
-    erased_count, _, passed = await drain(
+    erased_count, passed = await drain(
         db=db,
         page_of=loeschen_the_unconfirmed,
         page=SWEEP_PAGE,

@@ -21,7 +21,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
@@ -182,12 +181,9 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
         invitations_collection=database[Collection.INVITATIONS],
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         today=TODAY,
         operator=ADMIN,
-        auth_time=0,
     )
 
 
@@ -203,7 +199,6 @@ async def editor(database: AsyncDatabase) -> Any:
         teams_collection=database[Collection.TEAMS],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         invitations_collection=database[Collection.INVITATIONS],
-        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -216,7 +211,6 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=database.client,
         created_by=ADMIN,
         today=TODAY,
@@ -648,7 +642,6 @@ class TestTheSeasonWidePress:
                 invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
-                ban_list=ban_list(database),
                 db=database.client,
                 created_by=ADMIN,
                 today=TODAY,

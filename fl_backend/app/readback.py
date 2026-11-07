@@ -12,7 +12,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 
-from app.api.action_log.schemas import FLAktionRecord
+from app.api.action_log.schemas import FLActionLogRecord
 from app.api.address_change.schemas import FLAddressChangeRecord
 from app.api.ban_list.schemas import FLBanListEntry
 from app.api.bewerbungen.schemas import FLBewerbungRecord, FLMailboxAnchorRecord
@@ -45,7 +45,7 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SPIELORTE: FLSpielort,
     Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
     Collection.BEWERBUNGEN: FLBewerbungRecord,
-    Collection.ACTION_LOG: FLAktionRecord,
+    Collection.ACTION_LOG: FLActionLogRecord,
     Collection.BAN_LIST: FLBanListEntry,
     Collection.INVITATIONS: FLInvitationRecord,
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
