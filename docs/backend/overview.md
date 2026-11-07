@@ -24,7 +24,7 @@ for that tier**: `public_router.py` for the base key, the public reads and the a
 alike; `person_router.py` for a signed-in person's own records; `admin_router.py` for the
 administration; and `system_router.py` for the frontend process's own calls, such as a retention
 pass. `system/router.py`, holding the liveness probe, is the one router without a guard. A person's
-file binding two Funktionen holds one `APIRouter` per binder (`spieler/person_router.py`).
+file serving two Funktionen holds one `APIRouter` per prefix (`spieler/person_router.py`).
 `app/main.py` mounts them all, each under its slice's tag, which with the handler's name makes the
 operation's id in `openapi.json`.
 
