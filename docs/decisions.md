@@ -14,6 +14,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
   slice's `components/<category>/`
 - **images** — Merge the two images into one package; make either package private
 - **migrations** — Add a one-off database migration to the tree, to a test or to a runbook
+- **patches** — Patch a dependency without its upstream issue named beside the entry; key a patch
+  past one exact version; carry a patch across a bump unread
 
 ## The gate and CI
 

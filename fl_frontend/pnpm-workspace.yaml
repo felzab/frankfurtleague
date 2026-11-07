@@ -38,3 +38,16 @@ strictPeerDependencies: true
 # writes it into `minimumReleaseAgeExclude` here.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+# Each entry is keyed to one exact version, because pnpm fails an install when a patch applies to
+# nothing (`allowUnusedPatches` stays at its default, false): a bump stops here and someone reads the
+# patch. The comment above an entry names its upstream issue and what removes it, which
+# `scripts/tests/test_patched_dependencies.py` holds.
+patchedDependencies:
+  # https://github.com/adobe/react-spectrum/issues/10937 -- an enter frame at the viewport's edge
+  # reports ratio 0 while intersecting, and a sheet resting below ratio 1 hears nothing more, so it
+  # never counts as entered. A release that no longer reads `intersectionRatio > 0` there removes
+  # this. A sheet as tall as the viewport would never finish its exit under this patch, since it
+  # rests edge-adjacent at scroll 0; `fl_frontend/src/kit/Sheet.tsx` stops every sheet at 92%. Read
+  # the next release before moving the key: `skipOffscreenTravel` (adobe/react-spectrum#10815) jumps
+  # onto that frame, which may make the defect more frequent.
+  react-aria-components@1.22.1: patches/react-aria-components@1.22.1.patch

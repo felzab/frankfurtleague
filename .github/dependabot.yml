@@ -60,6 +60,10 @@ updates:
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
   # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
   # update, and `fl_frontend/Dockerfile :: ARG PNPM_VERSION` moves with it.
+
+  # A package `fl_frontend/pnpm-workspace.yaml :: patchedDependencies` keys to its version cannot move
+  # here: pnpm refuses the update with ERR_PNPM_UNUSED_PATCH, which Dependabot reports in its log
+  # under Insights -> Dependency graph -> Dependabot. The move is by hand, once the patch is re-read.
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:

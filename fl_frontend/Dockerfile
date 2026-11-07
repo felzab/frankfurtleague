@@ -37,6 +37,8 @@ WORKDIR /app
 # Only what `pnpm fetch` reads (pnpm.io/cli/fetch): with package.json in this layer's key, renaming
 # a script re-downloads every package.
 COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
+# `pnpm fetch` fails on a `patchedDependencies` entry whose file it cannot read.
+COPY patches ./patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
 
@@ -55,8 +57,8 @@ ENV SKIP_ENV_VALIDATION=true
 
 # Everything but what `deps` installed from: a `deps` layer restored from the cache ran its install
 # before this context was checked out, and pnpm's check before each `pnpm run` re-validates any
-# manifest or lockfile written after it.
-COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
+# manifest, lockfile or patch written after it.
+COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* --exclude=patches . .
 
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     pnpm run build
