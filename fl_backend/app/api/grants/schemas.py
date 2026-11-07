@@ -37,14 +37,6 @@ FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 FLBerechtigungVorenthalten = Literal["barred", "erased"]
 
 
-class FLGrantCarried(BaseModel):
-    """The since-whens a grant moved by its holder's own address change carries of the row it replaced."""
-
-    granted_since: datetime
-    # Null where the replaced row held no owner's power.
-    owner_since: datetime | None
-
-
 class FLGrantRecord(Anchored):
     """One grant as the collection stores it, its address folded as the sign-in folds it."""
 
@@ -54,18 +46,11 @@ class FLGrantRecord(Anchored):
     # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
     # once they are erased, and the marker the paste names itself by for one made in the Playground.
     granted_by: CustomNonEmptyString
-    granted_at: datetime
-    # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
-    # `granted_at` is whatever was typed, and an address changed in place keeps the old one.
-    found_at: datetime | None = None
-    # Written once, by the first pass to read the row, or by the write here that first
-    # records it: a row carrying it and no record was edited after it was seen.
-    seen_at: datetime | None = None
-    # When the row last became `owner` by a promotion, written by the tier change and by a comparison
-    # finding one made in the database: an older session holds no owner's power.
-    appointed_at: datetime | None = None
-    # Written by an address change's move alone, read by the four-eyes rule and never by a session's check.
-    carried: FLGrantCarried | None = None
+    # When the grant holds: the future while an addition waits, and the moment of the last address switch or handover, so a
+    # session older than it holds nothing.
+    effective_from: datetime
+    # When a waiting handover makes this row the owner's, stored only while one waits.
+    owner_from: datetime | None = None
     # 0 until a write raises it, as the grant's insert stamps it.
     version: int = 0
 

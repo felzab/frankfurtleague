@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from bson import ObjectId
-from pymongo import ASCENDING
+from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -34,6 +34,7 @@ from app.core.crud import (
     delete_many_from_db,
     erase_many_from_db,
     patch_many_in_db,
+    patch_one_in_db,
     post_one_to_db,
 )
 from app.core.readonly import ReadCollection
@@ -293,6 +294,29 @@ async def grant_in_session(
     )
 
     return created.inserted_id
+
+
+async def move_the_grant_in_session(
+    grant: Mapping[str, Any],
+    *,
+    new_address: str,
+    grants_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Move a holder's grant to their new address at the switch, a session older than the switch holding nothing of it.
+
+    `$max` rather than `$set`: a grant still waiting keeps its own later date, or the move would cut its wait short.
+    """
+
+    await patch_one_in_db(
+        collection=grants_collection,
+        db_filter={"_id": grant["_id"]},
+        update={"$set": {"address": new_address}, "$max": {"effective_from": now}},
+        expected_version=None,
+        session=session,
+        return_document=ReturnDocument.BEFORE,
+    )
 
 
 async def revoke_in_session(
