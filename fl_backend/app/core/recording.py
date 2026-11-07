@@ -17,6 +17,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core import clock
 from app.core.collections import Collection
+from app.core.crud import post_one_to_db
 from app.core.logging import trace_id_var
 
 # What a write made by no administrator and no person states as its `changed_by`. The spelling matches
@@ -149,8 +150,9 @@ async def record_act(
     """Append the one row of an act, inside its transaction."""
 
     # The target's own database handle, not an injected one, so an act needs no dependency of its own.
-    await collection.database[Collection.ACTION_LOG].insert_one(
-        {
+    await post_one_to_db(
+        collection=collection.database[Collection.ACTION_LOG],
+        document={
             # A BSON date, the key a TTL index expires on (`app/core/constraints.py :: TTL_INDEXES`).
             "at": clock.now(),
             "by": by if by is not None else _bound_administrator(),
