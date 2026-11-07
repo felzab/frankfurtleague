@@ -1907,7 +1907,6 @@ export interface FLBewerbungSweepResponse {
   failed: number;
   kontakt_blocks_emptied: number;
   kontakt_seats_emptied: number;
-  redacted_action_log: number;
   reminded: number;
   saison_id: string;
 }
@@ -4504,7 +4503,6 @@ export interface FLRegistrierungSweepResponse {
   erased_unconfirmed: number;
   erased_without_decision: number;
   failed: number;
-  redacted_action_log: number;
   reminded: number;
   saison_id: string;
 }

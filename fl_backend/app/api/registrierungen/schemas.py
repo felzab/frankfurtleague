@@ -255,7 +255,6 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     erased_unconfirmed: int
     erased_without_decision: int
     erased_declined: int
-    redacted_action_log: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     failed: int
 

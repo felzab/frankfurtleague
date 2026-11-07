@@ -79,10 +79,9 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_self_media_refusal
-from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
+from app.api.kontakte.crud import remove_the_seats_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_row_of
@@ -99,7 +98,6 @@ from app.core.crud import (
     refuse,
 )
 from app.core.dependencies import (
-    ActionLogCollection,
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
@@ -523,7 +521,6 @@ async def post_einwilligung(
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    action_log_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
@@ -636,24 +633,10 @@ async def post_einwilligung(
             )
         ]
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        await redact_seat_entries_in_images(action_log_collection=action_log_collection, voids=voids, stamp=at, session=session)
         # As an erasure takes them: every reason typed from the emptied seats on the team's confirmations.
         await remove_the_seats_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            action_log_collection=action_log_collection,
             held=[HeldSeats(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats)],
-            stamp=at,
-            session=session,
-        )
-
-        # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,
-        # which still holds the person who refused to be held.
-        await redact_the_decliner(
-            action_log_collection=action_log_collection,
-            collection=Collection.SAISON_TEAMS,
-            row_id=row["_id"],
-            addresses=seat_addresses(kontakte=kontakte, seats=seats),
-            stamp=at,
             session=session,
         )
         journal_the_objection(Collection.SAISON_TEAMS, row, seat, seats)
@@ -750,16 +733,6 @@ async def post_einwilligung(
             return_document=ReturnDocument.AFTER,
         )
 
-        # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
-        await redact_the_decliner(
-            action_log_collection=action_log_collection,
-            collection=Collection.BEWERBUNGEN,
-            row_id=bewerbung_raw["_id"],
-            addresses=seat_addresses(kontakte=kontakte, seats=seats),
-            stamp=at,
-            session=session,
-        )
         journal_the_objection(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats)
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and

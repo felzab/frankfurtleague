@@ -26,9 +26,8 @@ from app.api.registrierungen.services import (
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db, redact_log_rows_in_db
+from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
-    ActionLogCollection,
     DBClient,
     OutboxCollection,
     RegistrierungenCollection,
@@ -69,7 +68,6 @@ async def sweep_registrierungen(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     teams_collection: TeamsCollection,
-    action_log_collection: ActionLogCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -86,7 +84,7 @@ async def sweep_registrierungen(
     named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
     `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
     inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
-    removal names this season alone, is made inside a transaction and takes its log rows with it.
+    removal names this season alone and is made inside a transaction.
 
     A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
     its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
@@ -103,7 +101,7 @@ async def sweep_registrierungen(
     stamp = log_stamp(germany_now)
 
     async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
+        """The season's own end. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -132,14 +130,11 @@ async def sweep_registrierungen(
         result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
-        )
 
-        return len(rows), result.deleted_count, redacted
+        return len(rows), result.deleted_count, 0
 
     async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The deadline clock: erase, then redact. Read in-session, so a retry re-judges."""
+        """The deadline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -159,16 +154,11 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        # The filter names the season and the ids and nothing else: it is stored as text, and any
-        # other key would preserve what this call destroys.
         result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
-        )
 
-        return len(rows), result.deleted_count, redacted
+        return len(rows), result.deleted_count, 0
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each reminder and owe its mail in one transaction, a share a pass. Read in-session, so a retry re-judges."""
@@ -237,7 +227,7 @@ async def sweep_registrierungen(
         return len(taken)
 
     async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The one-month clock: erase, then redact. Read in-session, so a retry re-judges."""
+        """The one-month clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -257,13 +247,10 @@ async def sweep_registrierungen(
         result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await redact_log_rows_in_db(
-            action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
-        )
 
-        return len(rows), result.deleted_count, redacted
+        return len(rows), result.deleted_count, 0
 
-    abgelehnte, redacted_declined, passed = await drain(
+    abgelehnte, _, passed = await drain(
         db=db,
         page_of=loeschen_declined,
         page=SWEEP_PAGE,
@@ -273,12 +260,11 @@ async def sweep_registrierungen(
     failed = len(passed)
 
     reminded_count = 0
-    ohne_entscheidung, redacted_undecided = 0, 0
-    unconfirmed, redacted_unconfirmed = 0, 0
+    ohne_entscheidung, unconfirmed = 0, 0
     # The season's end takes every row the two clocks in the other arm read, so a link minted
     # for one of them would be a credential nobody can spend.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, redacted_undecided, passed = await drain(
+        ohne_entscheidung, _, passed = await drain(
             db=db,
             page_of=loeschen_the_undecided,
             page=SWEEP_PAGE,
@@ -287,7 +273,7 @@ async def sweep_registrierungen(
         )
         failed += len(passed)
     else:
-        unconfirmed, redacted_unconfirmed, passed = await drain(
+        unconfirmed, _, passed = await drain(
             db=db,
             page_of=loeschen_the_unconfirmed,
             page=SWEEP_PAGE,
@@ -314,6 +300,5 @@ async def sweep_registrierungen(
         erased_unconfirmed=unconfirmed,
         erased_without_decision=ohne_entscheidung,
         erased_declined=abgelehnte,
-        redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,
         failed=failed,
     )

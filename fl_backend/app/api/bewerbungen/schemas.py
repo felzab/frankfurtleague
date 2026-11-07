@@ -711,6 +711,5 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     kontakt_blocks_emptied: int
     # A season row's seats past their own day unconfirmed, whatever the season's status.
     kontakt_seats_emptied: int
-    redacted_action_log: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     failed: int

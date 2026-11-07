@@ -1541,15 +1541,6 @@ def compose_lapsed_seats_update(*, kontakte: Any, seats: Sequence[str]) -> Mappi
     return {"$set": {**slots, **{f"confirmations.{seat}": None for seat in seats}}}
 
 
-def addresses_leaving(*, kontakte: Any, seats: Sequence[str]) -> set[str]:
-    """These seats' addresses no other seat of the row keeps, on the fold: a person staying in a seat they confirmed keeps their images."""
-
-    staying = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
-    kept = {sign_in_identifier(address) for address in seat_addresses(kontakte=kontakte, seats=staying)}
-
-    return {sign_in_identifier(address) for address in seat_addresses(kontakte=kontakte, seats=seats)} - kept
-
-
 def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the one-month clock takes this declined application, counted from the day the decision was taken."""
 

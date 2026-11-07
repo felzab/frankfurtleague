@@ -56,11 +56,9 @@ from app.core.crud import (
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
-    redact_log_rows_in_db,
     refuse,
 )
 from app.core.dependencies import (
-    ActionLogCollection,
     DBClient,
     OutboxCollection,
     RegistrierungenCollection,
@@ -189,10 +187,8 @@ async def admit(
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     records: SubjectLookup,
-    action_log_collection: ActionLogCollection,
     ban_list: BanListLookup,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungAdmissionResponse:
     """
     Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
@@ -208,7 +204,7 @@ async def admit(
     The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
     the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
     row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
-    deleted and its values redacted from the log in the same transaction, so a second press meets no row. Its
+    deleted in the same transaction, so a second press meets no row. Its
     submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
@@ -323,16 +319,8 @@ async def admit(
                 return_document=ReturnDocument.BEFORE,
             )
 
-        # An ID filter alone: the log keeps a filter as text, so one naming the pupil would keep
-        # what this erasure destroys.
         await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
-        )
-        await redact_log_rows_in_db(
-            action_log_collection=action_log_collection,
-            targets=[(Collection.REGISTRIERUNGEN, [registrierung_id])],
-            at=log_stamp(germany_now),
-            session=session,
         )
 
         return FLRegistrierungAdmissionResponse(

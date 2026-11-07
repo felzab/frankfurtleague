@@ -1505,7 +1505,7 @@ export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
  * named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
  * `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
  * inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
- * removal names this season alone, is made inside a transaction and takes its log rows with it.
+ * removal names this season alone and is made inside a transaction.
  *
  * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
  * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
@@ -1532,7 +1532,7 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
  * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted and its values redacted from the log in the same transaction, so a second press meets no row. Its
+ * deleted in the same transaction, so a second press meets no row. Its
  * submission key moves onto the squad row, so the submission replayed later stores nothing.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
