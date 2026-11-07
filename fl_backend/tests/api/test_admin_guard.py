@@ -110,7 +110,7 @@ SYSTEM_WRITES = [
     ("/api/v0/identity/references", "post"),
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.
-    ("/api/v0/grants/reconciliation", "post"),
+    ("/api/v0/grants/handover", "post"),
     # The season-after rule, the lapsed address's clock and the unconfirmed referee's, whichever caller runs them: a
     # timer holds no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identity/erasure/sweep", "post"),
