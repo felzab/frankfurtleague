@@ -295,11 +295,19 @@ export interface FLAccountAddressChangePayload {
   email: string;
 }
 
+export type FLAdminTier = (typeof FLAdminTier)[keyof typeof FLAdminTier];
+
+export const FLAdminTier = {
+  owner: "owner",
+  administration: "administration",
+} as const;
+
 /**
  * The change pending on the signed-in address.
  */
 export interface FLAccountAddressChangeResponse {
   open: FLAccountAddressChangeOpen | null;
+  wait_tier: FLAdminTier | null;
 }
 
 /**
@@ -525,13 +533,6 @@ export interface FLAccountErasureSpieler {
   first_name: string;
   last_name: string | null;
 }
-
-export type FLAdminTier = (typeof FLAdminTier)[keyof typeof FLAdminTier];
-
-export const FLAdminTier = {
-  owner: "owner",
-  administration: "administration",
-} as const;
 
 export interface FLAccountErasureViewResponse {
   /** @minimum 0 */

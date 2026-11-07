@@ -45,14 +45,13 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held] = await Promise.all([getAccountAddressChange(), passkeysOf(served.user.id).then((rows) => rows.length > 0)]);
-  const tier = subject.records.admin_tier;
   return (
     <SignInBoxes
       email={subject.email}
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
-      holderWait={tier === null ? undefined : COPY.account.address.holderWait(HOLDER_WAIT[tier])}
-      lastOwner={tier === "owner" ? SERVER_COPY.refusalLine.owner_erasure : undefined}
+      holderWait={change.wait_tier === null ? undefined : COPY.account.address.holderWait(HOLDER_WAIT[change.wait_tier])}
+      lastOwner={subject.records.admin_tier === "owner" ? SERVER_COPY.refusalLine.owner_erasure : undefined}
       addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );

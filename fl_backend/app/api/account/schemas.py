@@ -8,6 +8,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (
     FLAddressChangeWaitsOn,
     FLAddressChangeWay,
+    FLAdminTier,
     FLEinwilligungScope,
     FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
@@ -126,6 +127,9 @@ class FLAccountAddressChangeResponse(BaseAPIResponse):
     """The change pending on the signed-in address."""
 
     open: FLAccountAddressChangeOpen | None
+    # The tier whose wait a change of this address serves, `None` for an address holding no grant. Never the stored
+    # `admin_tier`, which the erasure lock reads: a row a handover names waits the owner's (`app/api/address_change/services.py :: wait_tier`).
+    wait_tier: FLAdminTier | None
 
 
 class FLAccountAddressChangePayload(BaseModel):

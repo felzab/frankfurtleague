@@ -229,14 +229,15 @@ export const getAccountGetAddressChangeUrl = () => {
 };
 
 /**
- * Answer the change pending on the signed-in address, null where none is.
+ * Answer the change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
  *
  * PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
  * `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
  * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
  * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
  * mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,
- * whose press is refused until the hourly pass ends the change.
+ * whose press is refused until the hourly pass ends the change. `wait_tier` is null for an address holding no grant, and
+ * `owner` for a row a handover names, whatever its stored tier.
  * @summary The address change pending on a signed-in person
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {

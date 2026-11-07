@@ -1073,6 +1073,17 @@ class TestAHoldersOwnChange:
         assert effective_from == (NOW + timedelta(days=OWNER_WAIT_DAYS)).astimezone(UTC)
         assert holders == ["owner", "owner"]
 
+    def test_the_account_page_is_told_the_wait_a_handover_s_row_serves(self, mongo_replica_set_url: str):
+        """The page words the wait from this read: the stored tier would promise a day where the row waits a week."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            grant = await granted(database)
+            before = await read(database, client)
+            await database[Collection.GRANTS].update_one({"_id": grant}, {"$set": {"owner_from": NOW + timedelta(days=1)}})
+            return before.wait_tier, (await read(database, client)).wait_tier
+
+        assert on_a_person(mongo_replica_set_url, body) == ("administration", "owner")
+
     def test_a_lost_mailbox_start_landing_beside_an_addition_of_its_address_meets_the_grant(self, mongo_replica_set_url: str):
         """Unanchored, the two share no row and both commit: a change an administrator may not start stands at a grant."""
 
