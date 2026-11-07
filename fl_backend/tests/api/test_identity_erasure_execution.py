@@ -44,7 +44,7 @@ from app.main import create_app
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY
+from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
@@ -135,11 +135,7 @@ DECLINED_OID = ObjectId("6890a1b2c3d4e5f607b00042")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b00051")
 THEIR_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00061")
 OTHER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00062")
-# The records the person made as an administrator and as a seat holder, and their own grant.
 THEIR_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00071")
-# A second owner, granted by nobody the person is, so no record of theirs ties the two erasures together.
-OTHER_OWNER_OID = ObjectId("6890a1b2c3d4e5f607b00077")
-OTHER_OWNER = "ortwin.inhaber@example.com"
 # Another pupil, moving to the person's address: the row is theirs until the change is confirmed.
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 # A pupil once entered under the person's address and corrected to another: the row is the other's.
@@ -310,7 +306,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
                 stellvertretung=kontaktperson_document("Quillhilde", confirmed_at="2126-03-21"),
-                trainer=kontaktperson_document("Bramblewick", confirmed_at="2126-03-21"),
+                # A day of its own: the journal's seat entry is read from the person's slot, never the row's first confirmed one.
+                trainer=kontaktperson_document("Bramblewick", confirmed_at="2126-03-19"),
             ),
         )
     )
@@ -599,6 +596,17 @@ async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str
         return await http.post(PATH, headers=headers or as_person(email))
 
 
+async def erased_on_request(url: str, *, by: str) -> Any:
+    """The administrator's route, as `by` presses it on a mailed request."""
+
+    async with app_client(url, app=_app(), now=NOW) as http:
+        return await http.post(
+            f"/api/v{API_VERSION}/identity/erasure",
+            json={"email": TYPED, "reason": "Mail vom 30.03.2126, Betreff: Bitte löscht alle meine Daten"},
+            headers=StampedHeaders(by, ADMIN_KEY),
+        )
+
+
 async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER, **replaced: Any) -> Any:
     """The route's own function, outside a request: what a case needs to catch the driver's failure itself."""
 
@@ -865,8 +873,14 @@ class TestTheMail:
 
 
 class TestTheJournal:
-    def test_one_line_per_loeschung_names_its_records_by_id_and_no_address(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches the line built from the wrong rows, or holding what it outlives: it stays in the stream after the person has gone."""
+    @pytest.mark.parametrize("route", ["the person's own", "an administrator's"])
+    def test_one_line_per_loeschung_names_its_records_by_id_and_no_address(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, route: str
+    ):
+        """Catches the line built from the wrong rows, or holding what it outlives: it stays in the stream after the person has gone.
+
+        The administrator's route is the one the runbook's „Löschungen“ replays, for a person who cannot sign in.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
@@ -875,8 +889,14 @@ class TestTheJournal:
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": BLOCKLESS_BEWERBUNG_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.confirmed_at": None}}
             )
+            if route == "an administrator's":
+                # Only an owner erases a grant holder's address.
+                await database[Collection.GRANTS].insert_one(grants_for_the_suite()[0])
+                response = await erased_on_request(mongo_replica_set_url, by=ADMINISTRATORS[0])
+            else:
+                response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).status_code, team_row["_id"], mail["_id"]
+            return response.status_code, team_row["_id"], mail["_id"]
 
         with caplog.at_level(logging.INFO):
             status, team_row_id, mail_id = on_a_league(mongo_replica_set_url, body)

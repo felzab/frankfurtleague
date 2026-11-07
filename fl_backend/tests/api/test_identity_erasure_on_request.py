@@ -34,7 +34,7 @@ from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import address_change_document
+from tests.documents import address_change_document, spieler_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.session_headers import StampedHeaders
@@ -43,8 +43,10 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 from .test_identity_erasure_execution import (
+    FIRST_NAME,
     HOME_TEAM_OID,
     IDENTIFIER,
+    LAST_NAME,
     NOW,
     OTHER_REFEREE_CHANGE_OID,
     PUPIL_OID,
@@ -297,13 +299,16 @@ class TestAGrantHoldersAddress:
     def test_a_grant_landing_inside_the_loeschung_is_refused_by_its_retry(self, mongo_replica_set_url: str):
         """The rival adds the address after the first attempt's judgement and before its first write.
 
-        Judged once ahead of the transaction instead, the retry ends a grant this administrator could not revoke.
+        Judged once ahead of the transaction instead, the retry ends a grant this administrator could not revoke. The person
+        holds one pupil row, so nothing the erasure writes but the grants' anchor meets what the addition writes: on a fuller
+        seed another row conflicts, and the case passes with the anchor gone.
         """
 
         granted: list[int] = []
         racing: list[PupilsReadMeetingARival] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, FIRST_NAME, LAST_NAME, email=IDENTIFIER))
             held = await where_held(database, *THEIR_VALUES)
             served = _app()
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
@@ -327,7 +332,7 @@ class TestAGrantHoldersAddress:
                 await database[Collection.GRANTS].find_one({"address": IDENTIFIER}),
             )
 
-        response, held, left, row = on_a_league(mongo_replica_set_url, body)
+        response, held, left, row = on_a_league_of_its_own(mongo_replica_set_url, body)
 
         assert (response.status_code, response.json().get("error_code"), granted) == (403, Code.ADMIN_ADDRESS, [201])
         assert row is not None and row["admin_tier"] == "administration"
@@ -439,7 +444,7 @@ class PupilsReadMeetingARival(InterleavedCollection):
         return await self._collection.aggregate(*args, **kwargs)
 
 
-# Where a grant's creation names its address: its row, its notice and its act's label.
+# Where a grant's creation names its address: the grant, its notice and its act's label.
 THE_GRANTS_OWN_ROWS = frozenset({Collection.GRANTS, Collection.OUTBOX, Collection.ACTION_LOG})
 
 

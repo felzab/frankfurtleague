@@ -266,17 +266,14 @@ async def discard_spielbestaetigung(
                 projection=["team_id", "name", "kontakte"],
                 session=session,
             )
-            verein = next((verein for verein in vereine if verein["team_id"] == row["party"]["team_id"]), None)
+            # An open proposal's club stands on the fixture, whose every side holds a season row: a replacement moves both.
+            verein = next(verein for verein in vereine if verein["team_id"] == row["party"]["team_id"])
             names = vereinsnamen_of(spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=vereine))
             data = notice_data_of(
                 reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             )
-            mails = (
-                []
-                if verein is None
-                else team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
-            )
-            if verein is not None and mails:
+            mails = team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
+            if mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
                 await anchor_the_mailboxes_told(
                     saison_teams_collection=saison_teams_collection, saison_team_ids=[verein["_id"]], session=session

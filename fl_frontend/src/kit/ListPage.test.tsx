@@ -2,7 +2,7 @@
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToString } from "react-dom/server";
+import { renderToReadableStream, renderToString } from "react-dom/server";
 import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +15,7 @@ import { RailPage } from "./RailFrame";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
 import type { ComponentProps } from "react";
+import type { ListRoleActs, SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
 vi.mock("next/link", () => ({
@@ -138,6 +139,31 @@ describe("the toolbar's acts the read decides", () => {
     page.innerHTML = await new Response(prelude).text();
 
     expect(page.querySelector("[class*='flex-wrap']")).toBe(null);
+  });
+
+  // The harm: React's reveal throttle holds each reveal 300 ms after the last, so a toolbar in a boundary of its own can
+  // land after the rows and lift them under a finger on „Entfernen“. Each boundary's reveal is one `$RC` call in the stream.
+  it("reveals the toolbar and the list as one", async () => {
+    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
+    const acts = Promise.withResolvers<ListRoleActs>();
+    const list = Promise.withResolvers<SpieltageContent>();
+    const stream = await renderToReadableStream(
+      <ListPage
+        head={HEAD}
+        acts={acts.promise}
+        list={{ ...LIST, content: list.promise }}
+      />,
+    );
+
+    acts.resolve({
+      side: null,
+      create: { title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null },
+    });
+    list.resolve(await LIST.content);
+    const page = await new Response(stream).text();
+
+    expect(page).toContain(name);
+    expect(page.match(/\$RC\("/g)).toHaveLength(1);
   });
 });
 
