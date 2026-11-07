@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/kit/Button";
-import { ConfirmDialog } from "@/kit/ConfirmDialog";
+import { RowAct } from "@/kit/RowAct";
 import { appToast } from "@/kit/Toast";
 import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
@@ -56,20 +56,15 @@ export function ChangeActs({
           }
         />
       )}
-      <ConfirmDialog
+      <RowAct
         verb={verb}
         subject={COPY.account.address.change}
         consequence={COPY.admin.addressChange.previousStays}
         facts={facts}
-        tone="danger"
-        touch={{ holder }}
-        onConfirm={() => discardChange({ id, holder })}
-        trigger={
-          <Button
-            variant={resends ? "quiet" : "secondary"}
-            label={COPY.shared.verb[verb]}
-          />
-        }
+        act={discardChange}
+        id={id}
+        holder={holder}
+        quiet={resends}
       />
     </>
   );
