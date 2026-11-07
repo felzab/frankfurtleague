@@ -1447,9 +1447,9 @@ export const getIdentityPostErasureUrl = () => {
  * where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
  * change, a discard only the owner makes of it.
  *
- * `reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
- * changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
- * answered.
+ * `reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count
+ * zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not touched
+ * here: deleting it is the caller's, once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identityPostErasure = async (
