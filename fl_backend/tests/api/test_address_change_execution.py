@@ -416,6 +416,17 @@ class TestTheAddressOnFileConfirmsFirst:
         # Its question names the address the change goes to, and no day it was answered on.
         assert (bisherig.view.email, bisherig.view.released_on) == (NEW_EMAIL, None)
 
+    def test_its_confirmation_answers_that_nothing_moved(self, mongo_replica_set_url: str):
+        """The new mailbox is yet to confirm: `effective` true here has the frontend carry the sign-in account while every record stays."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client, released=False)
+            return await answer(database, client, minted.stop_token), (await everything(database))["pupil"]["email"]
+
+        confirmed, address = on_a_person(mongo_replica_set_url, body)
+
+        assert (confirmed.answer, confirmed.effective, confirmed.effective_from, address) == ("confirmed", False, None, EMAIL)
+
     def test_its_decline_ends_the_change_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client, released=False)
@@ -425,6 +436,8 @@ class TestTheAddressOnFileConfirmsFirst:
         declined, record, bisherig = on_a_person(mongo_replica_set_url, body)
 
         assert (declined.answer, record["email"], record["ended"]["kind"], record["token_hashes"]) == ("declined", None, "declined", [])
+        # `effective` true has the frontend carry the sign-in account to a mailbox nothing moved to.
+        assert declined.effective is False
         assert (bisherig.view.state, bisherig.view.kind, bisherig.view.ended_on) == ("ended", "declined", TODAY)
         # Declined before it confirmed anything: the link names no day of a confirmation.
         assert (bisherig.view.way, bisherig.view.released_on) == ("account", None)
