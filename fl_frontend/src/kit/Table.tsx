@@ -202,6 +202,10 @@ const table = tv({
     label: "",
     // Under the name line, cut as a name is: the row keeps its height at the least, and a phone's width cuts no chip.
     refusal: "block truncate text-xs text-danger",
+    // A second chip on the name's line, its own line under it on a phone, over the name's and the first chip's tracks: a
+    // row with a date holds about 230 px there, which two chips of some 100 and 88 px and their gaps leave the name 26 px
+    // of at 400 px wide, and overrun by 14 at 360, where one chip leaves it 122 and 82. The name stays the row's first read.
+    delivery: "flex max-lg:col-span-2 max-lg:col-start-1 max-lg:row-start-2 max-lg:justify-self-start",
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
     // least width, as the name's does (`nameLine`).
     line: "grid grid-cols-[minmax(0,max-content)] text-xs text-fg-muted",
@@ -507,7 +511,11 @@ function NameCell({
           )}
         </CutText>
         {row.chip !== undefined && <Chip {...row.chip} />}
-        {row.delivery !== undefined && <Chip {...row.delivery} />}
+        {row.delivery !== undefined && (
+          <span className={s.delivery()}>
+            <Chip {...row.delivery} />
+          </span>
+        )}
       </span>
       {row.line !== undefined && (
         <span className={s.line()}>
