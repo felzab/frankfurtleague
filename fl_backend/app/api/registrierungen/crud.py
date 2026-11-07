@@ -113,7 +113,7 @@ async def nummern_rows(
 async def erase_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
-    # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
+    # Each carrying its `_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
@@ -125,12 +125,7 @@ async def erase_registrierungen_in_session(
         return 0
 
     erased = await delete_many_from_db(
-        collection=registrierungen_collection,
-        db_filter={
-            "saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})},
-            "_id": {"$in": [row["_id"] for row in registrierungen]},
-        },
-        session=session,
+        collection=registrierungen_collection, db_filter={"_id": {"$in": [row["_id"] for row in registrierungen]}}, session=session
     )
 
     return erased.deleted_count
