@@ -1156,12 +1156,15 @@ class TestTheRunningChanges:
             second = await start(database, client, identifier=SECOND_ADMIN, email=FOREIGN_EMAIL)
             ended = await start(database, client, identifier=OTHER_EMAIL, email="jonte.neu@anderswo.example")
             await stop_by_link(database, client, ended.stop_token)
+            own = await start(database, client, identifier=OWNER, email="inhaber.neu@anderswo.example")
             seen = {reader: (await running(database, client, operator=reader)).changes for reader in (ADMIN, OWNER)}
-            return (person.id, admin.id, second.id), seen
+            return (person.id, admin.id, second.id, own.id), seen
 
-        (person, admin, second), seen = on_a_person(mongo_replica_set_url, body)
+        (person, admin, second, own), seen = on_a_person(mongo_replica_set_url, body)
 
         assert [row.id for row in seen[ADMIN]] == [person]
+        # The owner reads every holder's row but their own, whose acts the server refuses.
+        assert own not in [row.id for row in seen[OWNER]]
         assert [row.holder for row in seen[OWNER]] == ["administration", "administration", None]
         # Newest first, each row its two addresses and the step it waits on.
         assert [row.id for row in seen[OWNER]] == [second, admin, person]
