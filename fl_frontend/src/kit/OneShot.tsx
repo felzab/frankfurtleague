@@ -84,7 +84,10 @@ export function OneShotForm({
   acts: { primary: Copy; secondary?: Copy };
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
-  /** The main act asks the passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
+  /**
+   * The main act's press asks the passkey touch ahead of `action`, for a person holding a passkey (`usePasskeyTouch`).
+   * Such a form is a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
+   */
   touch?: boolean;
   /** The bot check's public key, on a form whose action declares the check (`fl_frontend/src/core/action.ts`). */
   botCheck?: { siteKey: string };
@@ -99,16 +102,17 @@ export function OneShotForm({
   children?: ReactNode;
 }) {
   const answered = useContext(AnsweredEnd);
+  const touched = usePasskeyTouch(touch, carry.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
-      const reached = await action(formData);
+      // The quieter act posts without the touch: an objection hands nothing over.
+      const reached = await (formData.get(ACT_FIELD) === "primary" ? touched(action) : action)(formData);
       // Handed up before the answer settles here: the same response may already have replaced this form.
       if (reached.ok) answered?.(reached.value);
       return reached;
     },
     { resetOnLeave: false },
   );
-  const { run, refusal, isTouching } = usePasskeyTouch(touch, carry.holder);
   const check = useBotCheck({ siteKey: botCheck?.siteKey ?? null, size: "flexible" });
   const [replayKey] = useState(() => crypto.randomUUID());
   const form = useRef<HTMLFormElement>(null);
@@ -121,9 +125,8 @@ export function OneShotForm({
   if (answer?.ok === true) return null;
 
   const refused = answer !== null && !answer.ok ? answer : null;
-  const held = refusal ?? checkRefusal;
-  const status: FormStatus = held !== null ? { tone: "error", text: held } : statusOf(refused, isBlocked, isPending);
-  const isBusy = isPending || isTouching || isChecking;
+  const status: FormStatus = checkRefusal !== null ? { tone: "error", text: checkRefusal } : statusOf(refused, isBlocked, isPending);
+  const isBusy = isPending || isChecking;
 
   /** The token Cloudflare minted joins the form's data, or the press ends on the check's own sentence. */
   const checked = async (formData: FormData) => {
@@ -138,20 +141,14 @@ export function OneShotForm({
     formData.set(TURNSTILE_FIELD, request.token);
     submit(formData);
   };
-  const post = (formData: FormData) => {
-    if (botCheck === undefined) submit(formData);
-    else void checked(formData);
-  };
 
-  // The form's data is read before the prompt, which the browser may hold for as long as the person takes.
   const send = (formData: FormData, act: Act) => {
     setPressed(act);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
     if (replayField !== undefined) formData.set(replayField, replayKey);
     formData.set(ACT_FIELD, act);
-    // The quieter act posts without the touch: an objection hands nothing over.
-    if (act === "primary") void run(() => post(formData));
-    else post(formData);
+    if (botCheck === undefined) submit(formData);
+    else void checked(formData);
   };
 
   return (
