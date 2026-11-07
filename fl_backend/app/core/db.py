@@ -70,7 +70,7 @@ NO_OWNER = "grants.no_owner"
 
 
 async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
-    """Name a list that admits nobody or protects nobody: at boot, and after an erasure took a grant.
+    """Name a list that admits nobody or protects nobody, at boot.
 
     Counts alone reach the line and never an address: the log outlives the grants it describes.
     """

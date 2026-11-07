@@ -615,7 +615,7 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
 
 
 def find_no_owner_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`no_owner`: no grant is an `owner`'s, so this is an empty or a foreign database rather than the league's."""
+    """`no_owner`: no grant is an `owner`'s, as in an empty database; a foreign one holding such a row passes, nothing telling it apart."""
 
     if any(grant.get("admin_tier") == OWNER for grant in grant_rows):
         return None

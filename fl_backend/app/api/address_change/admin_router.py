@@ -9,7 +9,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.address_change.crud import (
     Occupancy,
     address_taken,
-    denied_addresses,
     end_the_change_in_session,
     owe_the_link_in_session,
     owe_the_notice_in_session,
@@ -44,7 +43,7 @@ from app.api.address_change.services import (
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_admin_address_refusal, find_own_address_refusal
+from app.api.identity.services import address_change_viewable_denied, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION
@@ -105,14 +104,9 @@ def _pending_addresses(
         id=record["_id"],
         address=record["address"],
         email=record["email"],
-        way=record["way"],
-        change_reason=record.get("change_reason"),
         holder=holder,
         waits_on=waits_on(record),
-        sent_at=record["sent_at"],
         valid_until=stored_instant(record.get("valid_until")),
-        released_at=stored_instant(record.get("released_at")),
-        confirmed_at=stored_instant(record.get("confirmed_at")),
         effective_from=stored_instant(record.get("effective_from")),
         delivery=delivery,
         expired=is_expired(record, now=now),
@@ -133,7 +127,7 @@ async def get_address_changes(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeAdminListResponse:
     """
-    Answer every running change, newest first: its two addresses, its way and the step it waits on.
+    Answer every running change, newest first: its two addresses and the step it waits on.
 
     ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
     their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
@@ -145,13 +139,8 @@ async def get_address_changes(
         pipeline=[{"$match": dict(LIVE_KEYED_TERMS)}, {"$sort": {"_id": -1}}],
         session=session,
     )
-    denied = await denied_addresses(
-        [str(row["address"]) for row in rows], actor=sign_in_identifier(operator), grants_collection=grants_collection, session=session
-    )
-    tiers = {
-        sign_in_identifier(str(grant["address"])): grant["admin_tier"]
-        for grant in await read_grants(grants_collection=grants_collection, session=session)
-    }
+    grants = await read_grants(grants_collection=grants_collection, session=session)
+    tiers = {sign_in_identifier(str(grant["address"])): grant["admin_tier"] for grant in grants}
 
     return FLAddressChangeAdminListResponse(
         changes=[
@@ -162,7 +151,7 @@ async def get_address_changes(
                 now=germany_now,
             )
             for row in rows
-            if str(row["address"]) not in denied
+            if address_change_viewable_denied(str(row["address"]), actor=operator, grants=grants) is None
         ]
     )
 
@@ -204,11 +193,10 @@ async def post_address_change_admin(
         str(address_change_data.email),
         address_change_data.change_reason,
     )
-    actor_identifier = sign_in_identifier(operator)
     way: FLAddressChangeWay = "waiting_period"
 
     async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
-        await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
+        await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
@@ -232,7 +220,7 @@ async def post_address_change_admin(
         record = compose_record(address=identifier, email=email, way=way, change_reason=change_reason, now=germany_now)
         address_change_id = await start_the_change_in_session(
             record=record,
-            actor=actor_identifier,
+            actor=operator,
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
@@ -308,12 +296,10 @@ async def invite_address_change(
     re-send.
     """
 
-    actor_identifier = sign_in_identifier(operator)
-
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeAdminMintResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
-        await _refuse_the_address(identifier, actor=actor_identifier, grants_collection=grants_collection, session=session)
+        await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
         email = str(record["email"])
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         taken = holdings.spieler is not None and await another_pupil_holds(
@@ -343,7 +329,7 @@ async def invite_address_change(
             email=email,
             way=updated["way"],
             valid_until=valid_until,
-            holder=holdings.admin_tier if updated["way"] == "account" else None,
+            holder=holdings.waits_as if updated["way"] == "account" else None,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
@@ -379,11 +365,9 @@ async def delete_address_change(
     (`address_change_ended`); 404 for an id naming no change.
     """
 
-    actor_identifier = sign_in_identifier(operator)
-
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
-        await _refuse_the_address(str(record["address"]), actor=actor_identifier, grants_collection=grants_collection, session=session)
+        await _refuse_the_address(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
         await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": address_change_id},
@@ -393,8 +377,9 @@ async def delete_address_change(
         )
         await tell_the_holders_of_the_end_in_session(
             record,
-            changed_by=actor_identifier,
+            changed_by=operator,
             grants_collection=grants_collection,
+            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

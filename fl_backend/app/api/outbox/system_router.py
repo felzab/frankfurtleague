@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, status
+from pydantic import TypeAdapter, ValidationError
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -12,6 +13,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.ban_list.crud import read_barred_addresses
 from app.api.bewerbungen.services import compose_chase_update, reopened_chases
 from app.api.outbox.schemas import (
+    FLOutboxData,
     FLOutboxEventPayload,
     FLOutboxEventResponse,
     FLOutboxHandout,
@@ -36,6 +38,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
+from app.core.logging import fl_logger
 from app.core.security import verify_access_system
 from app.core.transactions import transaction_session
 from app.shared.tokens import mint_token
@@ -45,6 +48,20 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/outbox",
     dependencies=[Depends(verify_access_system)],
 )
+
+
+_OUTBOX_DATA: TypeAdapter[FLOutboxData] = TypeAdapter(FLOutboxData)
+
+
+def _is_readable(row: Mapping[str, Any]) -> bool:
+    """Whether a row's facts are a member of `FLOutboxData`: one a release left in an older shape fails the whole answer otherwise."""
+
+    try:
+        _OUTBOX_DATA.validate_python(row["data"])
+    except ValidationError:
+        return False
+
+    return True
 
 
 # Open, and no live claim holding it.
@@ -89,7 +106,8 @@ async def post_handout(
     Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
 
     The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
-    is given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as
+    is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
+    hold every claim until its deadline. A mail to an address a ban holds is stopped as
     `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
     the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
     holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
@@ -100,7 +118,7 @@ async def post_handout(
     and secrets.
     """
 
-    async def claim(session: AsyncClientSession) -> tuple[list[FLOutboxHandout], str | None, int]:
+    async def claim(session: AsyncClientSession) -> tuple[list[FLOutboxHandout], str | None, int, list[Mapping[str, Any]]]:
         overdue = await patch_many_in_db(
             collection=outbox_collection,
             db_filter={**_free(now), "deadline": {"$lte": now}},
@@ -122,7 +140,19 @@ async def post_handout(
                 session=session,
             )
         if not due:
-            return [], None, overdue.modified_count
+            return [], None, overdue.modified_count, []
+
+        unreadable = [row for row in due if not _is_readable(row)]
+        if unreadable:
+            await patch_many_in_db(
+                collection=outbox_collection,
+                db_filter={"_id": {"$in": [row["_id"] for row in unreadable]}},
+                update=final_update("abandoned", now=now),
+                session=session,
+            )
+            given_up = {row["_id"] for row in unreadable}
+            due = [row for row in due if row["_id"] not in given_up]
+        abandoned = overdue.modified_count + len(unreadable)
 
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
         judged = {str(row["to"]) for row in due if row["kind"] not in UNBARRED}
@@ -163,7 +193,7 @@ async def post_handout(
 
         handed = [row for row in due if row["_id"] not in barred_ids and row["_id"] not in dropped_ids]
         if not handed:
-            return [], None, overdue.modified_count
+            return [], None, abandoned, unreadable
 
         lease = secrets.token_urlsafe(24)
         # Every claimed row written, so two overlapping claims conflict on the rows both read and the retry finds them held;
@@ -188,11 +218,16 @@ async def post_handout(
                 for row in handed
             ],
             lease,
-            overdue.modified_count,
+            abandoned,
+            unreadable,
         )
 
     async with transaction_session(db_client) as session:
-        mails, lease, abandoned = await session.with_transaction(claim)
+        mails, lease, abandoned, unreadable = await session.with_transaction(claim)
+
+    # Past the commit, so a retried claim logs each once; the kind and the row alone, the facts holding addresses.
+    for row in unreadable:
+        fl_logger.warning("outbox.row_unreadable", extra={"kind": row["kind"], "row_id": str(row["_id"])})
 
     return FLOutboxHandoutResponse(
         lease=lease,

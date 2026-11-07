@@ -7,10 +7,10 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.address_change.services import build_incoming_filter
-from app.api.ban_list.crud import read_ban_list_page
+from app.api.ban_list.crud import read_ban_list
 from app.api.ban_list.schemas import (
-    FLBanListEntry,
     FLBanListResponse,
+    FLBanListRow,
     FLBanListWriteResponse,
     FLPostBanListEntryPayload,
     FLPostBanListEntryResponse,
@@ -38,7 +38,6 @@ from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -78,15 +77,14 @@ async def _pull_the_season_a_ban_counts_from(
 @router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
 async def get_ban_list_entries(ban_list_collection: BanListCollection) -> FLBanListResponse:
     """
-    List the bans, newest first: the address, why, by whom, on which day and the last season covered, with how many the list holds.
+    List every ban, newest first: the address, why, on which day and the last season covered.
 
-    **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the
-    rows served, bans are enforced that this answer does not show, and a ban nobody can see is one nobody can lift.
+    Read whole: the list holds few rows, and a ban left out is one nobody can lift.
     """
 
-    rows, count_total = await read_ban_list_page(ban_list_collection=ban_list_collection, limit=LIST_LIMIT_DEFAULT)
+    rows = await read_ban_list(ban_list_collection=ban_list_collection)
 
-    return FLBanListResponse(ban_list=[FLBanListEntry.model_validate(row) for row in rows], count_total=count_total)
+    return FLBanListResponse(ban_list=[FLBanListRow.model_validate(row) for row in rows])
 
 
 @router.post(
@@ -113,7 +111,7 @@ async def post_ban_list_entry(
     Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
     is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
     a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
-    fifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives
+    fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
     that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
 
     `ban_reason` is served, mailed to the address and kept past that person's erasure.
@@ -121,7 +119,7 @@ async def post_ban_list_entry(
 
     address = str(ban_list_data.email)
 
-    async def judge_and_ban(session: AsyncClientSession) -> tuple[InsertOneResult, str]:
+    async def judge_and_ban(session: AsyncClientSession) -> InsertOneResult:
         """Ask the grants, read the season, then write. Each takes this transaction's session, so a retry re-runs all three."""
 
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
@@ -162,15 +160,12 @@ async def post_ban_list_entry(
                 now=now,
             )
 
-        return created, barred_until_saison_id
+        return created
 
     async with transaction_session(db) as session:
-        post_operation, barred_until_saison_id = await session.with_transaction(judge_and_ban)
+        post_operation = await session.with_transaction(judge_and_ban)
 
-    return FLPostBanListEntryResponse(
-        created_id=post_operation.inserted_id,
-        barred_until_saison_id=barred_until_saison_id,
-    )
+    return FLPostBanListEntryResponse(created_id=post_operation.inserted_id)
 
 
 @router.delete(

@@ -1589,34 +1589,11 @@
         "type": "object"
       },
       "FLAddressChangeAdminOpen": {
-        "description": "One live change whole, admin tier: both addresses and the reason included, never a hash.",
+        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash.",
         "properties": {
           "address": {
             "title": "Address",
             "type": "string"
-          },
-          "change_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Change Reason"
-          },
-          "confirmed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmed At"
           },
           "delivery": {
             "anyOf": [
@@ -1663,23 +1640,6 @@
             "title": "Id",
             "type": "string"
           },
-          "released_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Released At"
-          },
-          "sent_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Sent At",
-            "type": "string"
-          },
           "valid_until": {
             "anyOf": [
               {
@@ -1694,23 +1654,15 @@
           },
           "waits_on": {
             "$ref": "#/components/schemas/FLAddressChangeWaitsOn"
-          },
-          "way": {
-            "$ref": "#/components/schemas/FLAddressChangeWay"
           }
         },
         "required": [
           "id",
           "address",
           "email",
-          "way",
-          "change_reason",
           "holder",
           "waits_on",
-          "sent_at",
           "valid_until",
-          "released_at",
-          "confirmed_at",
           "effective_from",
           "delivery",
           "expired"
@@ -1898,11 +1850,6 @@
             "title": "Kind",
             "type": "string"
           },
-          "valid_until": {
-            "format": "date-time",
-            "title": "Valid Until",
-            "type": "string"
-          },
           "way": {
             "$ref": "#/components/schemas/FLAddressChangeWay"
           }
@@ -1910,7 +1857,6 @@
         "required": [
           "kind",
           "way",
-          "valid_until",
           "holder"
         ],
         "title": "FLAddressChangeLinkData",
@@ -1996,11 +1942,6 @@
             "title": "Kind",
             "type": "string"
           },
-          "valid_until": {
-            "format": "date-time",
-            "title": "Valid Until",
-            "type": "string"
-          },
           "way": {
             "$ref": "#/components/schemas/FLAddressChangeWay"
           }
@@ -2008,7 +1949,6 @@
         "required": [
           "kind",
           "way",
-          "valid_until",
           "first_name",
           "holder"
         ],
@@ -2218,18 +2158,6 @@
             "title": "State",
             "type": "string"
           },
-          "valid_until": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid Until"
-          },
           "way": {
             "$ref": "#/components/schemas/FLAddressChangeWay"
           }
@@ -2237,7 +2165,6 @@
         "required": [
           "side",
           "state",
-          "valid_until",
           "effective_from",
           "way",
           "email",
@@ -2299,18 +2226,6 @@
             "title": "State",
             "type": "string"
           },
-          "valid_until": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid Until"
-          },
           "way": {
             "$ref": "#/components/schemas/FLAddressChangeWay"
           }
@@ -2318,7 +2233,6 @@
         "required": [
           "side",
           "state",
-          "valid_until",
           "effective_from",
           "way",
           "email",
@@ -2328,7 +2242,7 @@
         "type": "object"
       },
       "FLAddressChangeViewResponse": {
-        "description": "What one address link opens: never a name or the id, and the new address only where a link asks its question.",
+        "description": "What one address link opens: never a name or the id.\n\nThe new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while\nthe change stands, masked on `waiting_period`.",
         "properties": {
           "view": {
             "discriminator": {
@@ -2675,8 +2589,25 @@
         "const": 5,
         "type": "integer"
       },
-      "FLBanListEntry": {
-        "description": "One ban, as `ban_list` stores it and as the list serves it.",
+      "FLBanListResponse": {
+        "description": "Every ban, newest first.",
+        "properties": {
+          "ban_list": {
+            "items": {
+              "$ref": "#/components/schemas/FLBanListRow"
+            },
+            "title": "Ban List",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ban_list"
+        ],
+        "title": "FLBanListResponse",
+        "type": "object"
+      },
+      "FLBanListRow": {
+        "description": "One ban as the list serves it.",
         "properties": {
           "address": {
             "minLength": 1,
@@ -2699,11 +2630,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "created_by": {
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -2714,34 +2640,10 @@
           "id",
           "address",
           "ban_reason",
-          "created_by",
           "created_at",
           "barred_until_saison_id"
         ],
-        "title": "FLBanListEntry",
-        "type": "object"
-      },
-      "FLBanListResponse": {
-        "description": "The bans, newest first, and how many there are.\n\n`count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
-        "properties": {
-          "ban_list": {
-            "items": {
-              "$ref": "#/components/schemas/FLBanListEntry"
-            },
-            "title": "Ban List",
-            "type": "array"
-          },
-          "count_total": {
-            "minimum": 0.0,
-            "title": "Count Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "ban_list",
-          "count_total"
-        ],
-        "title": "FLBanListResponse",
+        "title": "FLBanListRow",
         "type": "object"
       },
       "FLBanListWriteResponse": {
@@ -5567,10 +5469,6 @@
             "title": "Effective From",
             "type": "string"
           },
-          "granted_by": {
-            "title": "Granted By",
-            "type": "string"
-          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -5593,7 +5491,6 @@
           "id",
           "address",
           "admin_tier",
-          "granted_by",
           "effective_from",
           "owner_from"
         ],
@@ -8688,14 +8585,7 @@
         "type": "object"
       },
       "FLPostBanListEntryResponse": {
-        "description": "Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.",
         "properties": {
-          "barred_until_saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Barred Until Saison Id",
-            "type": "string"
-          },
           "created_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id",
@@ -8703,8 +8593,7 @@
           }
         },
         "required": [
-          "created_id",
-          "barred_until_saison_id"
+          "created_id"
         ],
         "title": "FLPostBanListEntryResponse",
         "type": "object"
@@ -18140,7 +18029,7 @@
     },
     "/api/v0/address_change": {
       "get": {
-        "description": "Answer every running change, newest first: its two addresses, its way and the step it waits on.\n\nADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which\ntheir account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:\neach lasts days at most, and an ended one holds no address.",
+        "description": "Answer every running change, newest first: its two addresses and the step it waits on.\n\nADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which\ntheir account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:\neach lasts days at most, and an ended one holds no address.",
         "operationId": "address_change_get_address_changes",
         "responses": {
           "200": {
@@ -18514,7 +18403,7 @@
     },
     "/api/v0/address_change/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new\nmailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever\nthe press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on\nand until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,\nnever whether the new mailbox could confirm, and the day it confirmed once it has.",
+        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by\nit, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.\nA POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever\nthe press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on,\n`release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,\nnever whether the new mailbox could confirm, and the day it confirmed once it has.",
         "operationId": "address_change_get_address_change_view",
         "requestBody": {
           "content": {
@@ -18592,7 +18481,7 @@
     },
     "/api/v0/address_change/sweep": {
       "post": {
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:\nits address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged\nagain as its confirmation was: another pupil signing in on the new address, a grant at it, or nothing left to move\nends it discarded, and `discarded` counts it, its new address owed a notice that it did not take effect and never\nwhy; otherwise everything the replaced address holds moves, a grant included, and `effective` counts it, its\ncompletion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on\nthis answer.\n\nA page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of\nits own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.\n**A pass is a run of calls, each handing the next the `after` the last\nanswered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the\nchanges after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:\nits address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged\nagain as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or\nnothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take\neffect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts\nit, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an\napplication nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is\nowed in the Postausgang in its change's own transaction, so none rides on this answer.\n\nA page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of\nits own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.\n**A pass is a run of calls, each handing the next the `after` the last\nanswered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the\nchanges after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
         "operationId": "address_change_sweep_address_change",
         "parameters": [
           {
@@ -18980,7 +18869,7 @@
     },
     "/api/v0/ban_list": {
       "get": {
-        "description": "List the bans, newest first: the address, why, by whom, on which day and the last season covered, with how many the list holds.\n\n**The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the\nrows served, bans are enforced that this answer does not show, and a ban nobody can see is one nobody can lift.",
+        "description": "List every ban, newest first: the address, why, on which day and the last season covered.\n\nRead whole: the list holds few rows, and a ban left out is one nobody can lift.",
         "operationId": "ban_list_get_ban_list_entries",
         "responses": {
           "200": {
@@ -19045,7 +18934,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the\nfifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives\nthat person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
+        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the\nfifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives\nthat person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
         "operationId": "ban_list_post_ban_list_entry",
         "requestBody": {
           "content": {
@@ -20301,7 +20190,7 @@
     },
     "/api/v0/grants": {
       "get": {
-        "description": "List every grant by address: its tier, who granted it, when it holds, and when a handover to it completes.\n\nUncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
+        "description": "List every grant by address: its tier, when it holds, and when a handover to it completes.\n\nUncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
         "operationId": "grants_get_grants",
         "responses": {
           "200": {
@@ -20510,7 +20399,7 @@
     },
     "/api/v0/grants/{grant_id}": {
       "delete": {
-        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it. Every holder in effect and the person named are told in the same transaction.",
+        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
         "operationId": "grants_delete_grant",
         "parameters": [
           {
@@ -20589,7 +20478,7 @@
     },
     "/api/v0/grants/{grant_id}/handover": {
       "delete": {
-        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`). 404 where the row waits on no handover, one the pass has completed among them.\nEvery holder in effect is told in the same transaction.",
+        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on\nno handover. Every holder in effect is told in the same transaction.",
         "operationId": "grants_delete_handover",
         "parameters": [
           {
@@ -21431,7 +21320,7 @@
     },
     "/api/v0/outbox/handout": {
       "post": {
-        "description": "Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nThe sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline\nis given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as\n`barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to\nthe record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer\nholding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is\nanswered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every\noutcome, with `lease`, to `POST /outbox/result`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
+        "description": "Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nThe sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline\nis given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would\nhold every claim until its deadline. A mail to an address a ban holds is stopped as\n`barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to\nthe record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer\nholding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is\nanswered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every\noutcome, with `lease`, to `POST /outbox/result`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
         "operationId": "outbox_post_handout",
         "responses": {
           "200": {
