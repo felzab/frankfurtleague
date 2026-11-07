@@ -1,6 +1,7 @@
 import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
 import { OpenFoldPlaceholder, ReadFolds } from "@/kit/ReadFolds";
+import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
 import { judgeAdminRequest } from "@/core/auth/guards";
@@ -14,12 +15,11 @@ import { getAddressChanges, getGrants } from "@/features/grants/queries";
 import { GRANT_RULES } from "@/features/grants/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { HandoverFields } from "./HandoverFields";
 import { RowAct } from "./RowAct";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { FLAddressChangeAdminOpen, FLGrantRow, FLGrantWaitHours } from "@/core/generated/client/types";
+import type { FLAddressChangeAdminOpen, FLGrantRow, FLGrantWaitHours, FLOwnerWaitDays } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
 import type { TableHead, TableProps, TableRow } from "@/kit/Table";
@@ -31,8 +31,10 @@ const MAIL_TO = COPY.admin.mailTo;
 const ADDRESS = COPY.signIn.address;
 
 const ADDITION_WAIT = { hours: 24 } as const satisfies { hours: FLGrantWaitHours };
+const OWNER_WAIT = { days: 7 } as const satisfies { days: FLOwnerWaitDays };
+const DAY_MS = 86_400_000;
 
-/** The owner's way to the two toolbar acts, and the words their wait draws. */
+/** The two toolbar acts, each naming its button, its wait and its dialog. */
 const ADD = { verb: "enter", object: WORDS.object } as const;
 const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
 
@@ -260,6 +262,7 @@ function addOf({ actor }: Access): ListCreate | null {
     act: ADD,
     action: addAdministrator,
     touch: { holder: actor },
+    consequence: WORDS.additionConsequence(ADDITION_WAIT),
     children: (
       <TextField
         label={ADDRESS}
@@ -268,7 +271,7 @@ function addOf({ actor }: Access): ListCreate | null {
         kind="email"
         isRequired={GRANT_RULES.required.email}
         maxLength={GRANT_RULES.emailMax}
-        description={WORDS.additionConsequence(ADDITION_WAIT)}
+        description={COPY.shared.field.format(COPY.shared.field.exampleAddress)}
       />
     ),
   };
@@ -284,11 +287,19 @@ function handoverOf({ actor, active, handover }: Access): ListCreate | null {
     action: startHandover,
     touch: { holder: actor },
     ...(handover === undefined ? {} : { locked: WORDS.handoverRunning }),
+    consequence: WORDS.handoverConsequence(OWNER_WAIT),
+    facts: [
+      { label: FACTS.before, value: { record: owner.address } },
+      // Counted from this read: the press sets the date itself, and the row and the mail then state it.
+      { label: FACTS.effectiveFrom, value: instantOf(new Date(now().getTime() + OWNER_WAIT.days * DAY_MS).toISOString()) },
+      { label: FACTS.mailTo, value: MAIL_TO.holders },
+    ],
     children: (
-      <HandoverFields
+      <Select
+        label={FACTS.after}
+        name="grant_id"
+        options={administrators.map((grant) => ({ id: grant.id, label: { record: grant.address } }))}
         isRequired={GRANT_RULES.required.grant_id}
-        owner={owner.address}
-        administrators={administrators.map((grant) => ({ id: grant.id, label: { record: grant.address } }))}
       />
     ),
   };

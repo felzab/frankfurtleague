@@ -128,8 +128,8 @@ describe("the owner's acts", () => {
     const locked = await read(OWNER, [THE_OWNER, grant("anna@example.org", { owner_from: FUTURE })]);
     const alone = await read(OWNER, [THE_OWNER]);
 
-    const { administrators } = (open.side?.children as ReactElement<{ administrators: ReadonlyArray<{ id: string }> }>).props;
-    expect(administrators.map(({ id }) => id)).toStrictEqual(["anna@example.org"]);
+    const { options } = (open.side?.children as ReactElement<{ options: ReadonlyArray<{ id: string }> }>).props;
+    expect(options.map(({ id }) => id)).toStrictEqual(["anna@example.org"]);
     expect(open.side?.locked).toBeUndefined();
     expect(locked.side?.locked).toBe(COPY.admin.administrators.handoverRunning);
     expect(alone.side).toBeNull();
