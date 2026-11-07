@@ -1,50 +1,36 @@
-import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { isRefusal, isRuleRefusal } from "@/shared/utils/actionError";
 
-import type { AddressChangeLinkState } from "./link";
+import type { Code } from "@/core/generated/client/types";
 
 /**
- * A refused link read as the panel it renders, or `null` where the read failed instead. Every state a live
- * or ended change can be in answers in a 200, so a refusal is a token nothing could place.
+ * Whether a refused link read means the dead link rather than a failed read. Every state a live or ended change can be
+ * in answers in a 200, so a refusal is a token nothing could place, and a token the backend will not parse matches no
+ * record.
  */
-export function mapAddressChangeViewRefusal(error: unknown): "invalid" | null {
-  if (!isRefusal(error)) return null;
-
-  // A token the backend will not parse matches no record, so the page calls the link void.
-  if (error.serverErrorCode === "payload_refused") return "invalid";
-
-  return isRuleRefusal(error) ? "invalid" : null;
+export function readsAsDeadLink(error: unknown): boolean {
+  if (!isRefusal(error)) return false;
+  return error.serverErrorCode === "payload_refused" || isRuleRefusal(error);
 }
 
-/** What a refused press leaves the page showing: a panel, a re-read of the link, or the sentence of a drifted body. */
-export type AddressChangePressRefusal = { state: AddressChangeLinkState } | { neuLesen: true } | ReturnType<typeof refusedPayloadAnswer>;
+/**
+ * Every refusal of an answer or a stop, one end for all, so the link's holder learns nothing about who holds an address:
+ * a drifted page, a link spent or lapsed, a change ended since the page opened, a new address now somebody's, or an
+ * address on file left holding nothing to move.
+ */
+const LINK_ENDED: ReadonlySet<Code> = new Set<Code>([
+  "body_unreadable",
+  "payload_refused",
+  "link_invalid",
+  "link_expired",
+  "address_change_ended",
+  "address_change_nothing",
+  "address_change_taken",
+  "address_change_new_granted",
+  "address_change_occupied",
+  "duplicate_key",
+]);
 
-/** A refused answer or stop, or `null` where the code is none of these. */
-export function mapAddressChangePressRefusal(error: unknown): AddressChangePressRefusal | null {
-  if (!isRefusal(error)) return null;
-
-  switch (error.serverErrorCode) {
-    // The body shape is mirrored, so a refused one is a drifted page, which the mail's link replaces.
-    case "body_unreadable":
-    case "payload_refused":
-      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    case "link_invalid":
-      return { state: "invalid" };
-    // The change ended, or this link was answered, since the page opened: the link's own read says which,
-    // so the page states how it ended rather than calling a live or a finished change void.
-    case "address_change_ended":
-      return { neuLesen: true };
-    case "link_expired":
-      return { state: "expired" };
-    // The new address another pupil's, the administration's or holding entries of its own, or the address on file left
-    // holding nothing to move: one panel, so the link's holder learns nothing about who holds an address.
-    case "address_change_nothing":
-    case "address_change_taken":
-    case "address_change_new_granted":
-    case "address_change_occupied":
-    case "duplicate_key":
-      return { state: "not_confirmable" };
-    default:
-      return null;
-  }
+/** Whether a press was refused as the link no longer valid, rather than failing. */
+export function endsTheLink(error: unknown): boolean {
+  return isRefusal(error) && error.serverErrorCode !== undefined && LINK_ENDED.has(error.serverErrorCode);
 }

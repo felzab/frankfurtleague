@@ -204,8 +204,17 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "giving_not_allowed",
   // A choice moved onto a grant under a label reworded since the page was served.
   "grant_wording_stale",
+  // An act on an administrator or on what waits, each of which Administratoren closes off its own read before it is
+  // pressed: the owner role, the list or the change moved since the page was served.
+  "grant_only_owner",
+  "grant_owner",
+  "grant_handover_waiting",
+  "grant_not_in_effect",
+  "address_change_ended",
   // The address holds nothing a change moves, its records erased since the page was served.
   "address_change_nothing",
+  // A running change ended, or a newer one replaced it, since the list offering its acts was read.
+  "address_change_ended",
   // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
   // setting one words them as its own.
   "ergebnis_side_emptied",

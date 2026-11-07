@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate, formatDateWithWeekdayAndYear, formatDayAndTime, formatErgebnis, formatInstant, formatTime } from "./format.ts";
+import {
+  formatDate,
+  formatDateWithWeekdayAndYear,
+  formatDayAndTime,
+  formatErgebnis,
+  formatInstant,
+  formatInstantShort,
+  formatTime,
+} from "./format.ts";
 
 describe("formatDate", () => {
   // Late evening UTC is already the next day in Berlin; the runtime's own zone would print the 24th.
@@ -37,6 +45,17 @@ describe("formatInstant", () => {
 
   it("prints an unreadable stored instant as it was stored rather than throw and lose the page or the mail", () => {
     expect(formatInstant("kein Zeitpunkt")).toBe("kein Zeitpunkt");
+  });
+});
+
+describe("formatInstantShort", () => {
+  // Late evening UTC is the next day in Berlin, and a list's row must name the day the league's clock read.
+  it("writes the numeric date and the time on the league's clock", () => {
+    expect(formatInstantShort(new Date("2026-11-07T23:04:00Z"))).toBe("08.11.2026, 00:04");
+  });
+
+  it("prints an unreadable stored instant as it was stored rather than throw and lose the page", () => {
+    expect(formatInstantShort("kein Zeitpunkt")).toBe("kein Zeitpunkt");
   });
 });
 

@@ -1,4 +1,11 @@
-import type { FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays } from "./generated/client/types";
+import type { Wait } from "./copy";
+import type {
+  FLAddressChangeValidHours,
+  FLAddressChangeWaitingPeriodDays,
+  FLAdminTier,
+  FLGrantWaitHours,
+  FLOwnerWaitDays,
+} from "./generated/client/types";
 
 /**
  * How long an address change's link stays open, so a page and a mail state the instant the backend refuses at;
@@ -13,6 +20,11 @@ export const ADDRESS_CHANGE_VALID_HOURS = 24 satisfies FLAddressChangeValidHours
  */
 export const ADDRESS_CHANGE_WAIT_DAYS = 7 satisfies FLAddressChangeWaitingPeriodDays;
 
-// Indexed by the constant, so a waiting time this map has no words for fails the type check rather
-// than printing a numeral beside every other duration the pages spell out.
-export const ADDRESS_CHANGE_WAIT_SPAN = ({ 7: "eine Woche" } as const)[ADDRESS_CHANGE_WAIT_DAYS];
+/**
+ * How long a holder's own change waits once both addresses confirmed, by their tier, each checked against the bound
+ * `fl_backend/app/shared/schemas/bounds.py` publishes, so the backend moving one fails the type check here.
+ */
+export const HOLDER_WAIT: Readonly<Record<FLAdminTier, Wait>> = {
+  administration: { hours: 24 satisfies FLGrantWaitHours },
+  owner: { days: 7 satisfies FLOwnerWaitDays },
+};

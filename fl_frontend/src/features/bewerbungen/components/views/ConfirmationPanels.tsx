@@ -15,7 +15,7 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { ReactNode, RefObject } from "react";
 
-// Redesign: this file goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
+// Redesign: this file goes with the old link pages in `features/registrierungen` and `features/spielbestaetigungen`.
 /** The heading of a page whose link could not be checked, on every page a token link opens. */
 export const LINK_UNREADABLE_TITLE = "Link nicht geprüft";
 

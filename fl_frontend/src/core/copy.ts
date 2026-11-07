@@ -4,6 +4,7 @@ import {
   formatDateWithWeekday,
   formatErgebnis,
   formatInstant,
+  formatInstantShort,
   formatList,
   formatNumber,
   formatOrdinal,
@@ -1224,6 +1225,9 @@ export const COPY = catalogue({
       /** A grant's `effective_from`, as a date under this label. */
       since: "Seit",
       pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
+      /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
+      pendingLine: (kind: Copy, address: string | null, moment: string) =>
+        [kind, address, `${EFFECTIVE_FROM} ${formatInstantShort(moment)}`].filter((part) => part !== null).join(" · "),
       additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
       removeConsequence: "Der Zugang endet sofort.",
       handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,
@@ -1243,6 +1247,8 @@ export const COPY = catalogue({
       /** The list's plural in its empty states, and a pass's noun. */
       plural: BANS,
       search: `${BANS} suchen`,
+      /** Over a list the read's cap cut: a ban it does not show still bars its address, and nobody can lift it here. */
+      cut: `Nicht alle ${BANS} sind geladen.`,
       consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
       duration: "Dauer",
       durationSaisons: (count: number) => (count === 1 ? "1 Saison" : `${formatNumber(count)} Saisons`),
@@ -1283,8 +1289,11 @@ export const COPY = catalogue({
       >,
       /** A row's way, by who started the change. */
       way: { account: "Im Konto", waiting_period: "Auf Anfrage" } satisfies Record<FLAddressChangeWay, string>,
-      /** A row's line while a link is open. */
-      validUntil: (moment: string) => `${VALID_UNTIL} ${formatInstant(moment)}`,
+      /** The column of the moment a row's step ends. */
+      until: "Bis",
+      /** That column's value while a link is open, and in the wait. */
+      untilCell: (moment: string) => `bis ${formatInstantShort(moment)}`,
+      fromCell: (moment: string) => `ab ${formatInstantShort(moment)}`,
       startConsequence: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span} nach ihrer Bestätigung.`,
       /** A callout, the typed address matching a listed row. */
       replaces: "Eine laufende Änderung wird ersetzt.",
@@ -1306,7 +1315,7 @@ export const COPY = catalogue({
         months: (count: number) => `Letzte ${formatNumber(count)} Monate`,
       },
       /** „Wer“ of a team's representative. */
-      actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}` },
+      actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
       /** A pass's label: one form, so a count of 1 needs no singular. */
       passCount: (noun: Copy, count: number) => `${noun}: ${formatNumber(count)}`,
       /** What a pass deleted, the noun of `passCount`, by the pass's stored action. */

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS } from "./addressChange";
+import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "./addressChange";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
@@ -14,9 +14,6 @@ import type {
   FLAddressChangeEffectiveData,
   FLAddressChangeLinkData,
   FLAddressChangeNoticeData,
-  FLAdminTier,
-  FLGrantWaitHours,
-  FLOwnerWaitDays,
 } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
@@ -35,12 +32,6 @@ const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADDRESS_CHANGE_VALI
 
 /** The lost-mailbox change's wait, which both its mails state. */
 const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
-
-/** A holder's own wait by their tier, each checked against the bound the backend publishes, so a moved bound fails the type check. */
-const HOLDER_WAIT: Readonly<Record<FLAdminTier, Wait>> = {
-  administration: { hours: 24 satisfies FLGrantWaitHours },
-  owner: { days: 7 satisfies FLOwnerWaitDays },
-};
 
 /**
  * The link to the new address, asking only whether the mailbox is theirs. It greets nobody: behind a
