@@ -42,9 +42,11 @@ const accountActs = await import("@/features/account/personActions");
 const erasureActs = await import("@/app/admin/(liste)/erasures/erasureActs");
 const passkeyActs = await import("@/features/passkeys/actions");
 const grantActs = await import("@/features/grants/actions");
+const addressChangeActs = await import("@/app/admin/(liste)/address-changes/addressChangeActs");
 
 const HOLDER = "pia@example.org";
 const GRANT = "64b000000000000000000002";
+const ADDRESS_CHANGE = "64b000000000000000000002";
 
 /**
  * Every act on the passkey touch's fixed list, each with an input its schema takes. The lane is the only place the
@@ -66,6 +68,18 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ["a handover's stop", () => grantActs.stopHandover({ id: GRANT, holder: HOLDER })],
   ["a holder's address change's stop", () => grantActs.stopAddressChange({ id: GRANT, holder: HOLDER })],
   ["an address's erasure", () => erasureActs.eraseAddress({ email: "max@example.org", reason: "Mail vom 3.11.2026", holder: HOLDER })],
+  [
+    "a lost-mailbox change's start",
+    () =>
+      addressChangeActs.startLostMailboxChange({
+        address: "paul@example.org",
+        email: "paul.neu@example.org",
+        change_reason: "Am Telefon bestätigt.",
+        holder: HOLDER,
+      }),
+  ],
+  ["a change's fresh link", () => addressChangeActs.resendChangeLink({ address_change_id: ADDRESS_CHANGE, holder: HOLDER })],
+  ["a change's discard", () => addressChangeActs.discardChange({ address_change_id: ADDRESS_CHANGE, holder: HOLDER })],
 ];
 
 describe("the acts behind the passkey touch", () => {

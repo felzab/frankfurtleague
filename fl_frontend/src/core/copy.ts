@@ -1289,8 +1289,11 @@ export const COPY = catalogue({
       >,
       /** A row's way, by who started the change. */
       way: { account: "Im Konto", waiting_period: "Auf Anfrage" } satisfies Record<FLAddressChangeWay, string>,
-      /** A row's line while a link is open. */
-      validUntil: (moment: string) => `${VALID_UNTIL} ${formatInstant(moment)}`,
+      /** The column of the moment a row's step ends. */
+      until: "Bis",
+      /** That column's value while a link is open, and in the wait. */
+      untilCell: (moment: string) => `bis ${formatInstantShort(moment)}`,
+      fromCell: (moment: string) => `ab ${formatInstantShort(moment)}`,
       startConsequence: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span} nach ihrer Bestätigung.`,
       /** A callout, the typed address matching a listed row. */
       replaces: "Eine laufende Änderung wird ersetzt.",
