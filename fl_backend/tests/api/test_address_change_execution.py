@@ -1415,7 +1415,7 @@ class TestTheTool:
 
     @pytest.mark.parametrize(("way", "holders"), [("account", ["owner", "owner"]), ("waiting_period", [None, None])])
     def test_a_re_send_words_the_wait_the_first_link_worded(self, mongo_replica_set_url: str, way: str, holders: list[str | None]):
-        """The link's mail words the wait: a holder's own change serves their tier's, and a lost-mailbox change the league's, whatever it moves."""
+        """The link's mail words the wait: a holder's own change serves their tier's, and a lost-mailbox change the league's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             grant = await granted(database)

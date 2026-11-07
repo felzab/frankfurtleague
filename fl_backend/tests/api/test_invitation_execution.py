@@ -232,6 +232,12 @@ async def owed_for(database: AsyncDatabase, team_id: ObjectId) -> list[str]:
     return [row["to"] for row in rows]
 
 
+async def dispatched(database: AsyncDatabase) -> list[str | None]:
+    """The season named by each row a press wrote: nameless, the Protokoll cannot say which season was mailed."""
+
+    return [row["label"] async for row in database[Collection.ACTION_LOG].find({"action": "saison.invitations_dispatched"})]
+
+
 async def live_count(database: AsyncDatabase, team_id: ObjectId) -> int:
     return await database[Collection.INVITATIONS].count_documents({"saison_id": SAISON_ID, "team_id": team_id, "revoked_at": None})
 
@@ -533,6 +539,26 @@ class TestTheTeamsMailPress:
         assert on_a_league(mongo_replica_set_url, body) == []
 
 
+class TestTheTeamEditorsRead:
+    def test_it_serves_the_live_link_with_what_became_of_its_last_mail(self, mongo_replica_set_url: str):
+        """The editor's one read of a link: a failure here breaks the page for every club holding one."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            minted = await mint(database, TWO_SEATS)
+            return (
+                ObjectId(minted.invitation_id),
+                (await read_state(database, TWO_SEATS)).link.invitation,
+                (await read_state(database, ALREADY_MAILED)).link.invitation,
+                (await read_state(database, UNCONFIRMED)).link.invitation,
+            )
+
+        minted, never_mailed, mailed, none = on_a_league(mongo_replica_set_url, body)
+
+        assert (never_mailed.id, never_mailed.delivery) == (minted, None)
+        assert (mailed.id, mailed.delivery.state) == (SEEDED_INVITATION, "sent")
+        assert none is None
+
+
 class TestTheDayALinkWasSent:
     """The season press skips a team on its link's stored day, so a press owing the link's mails and stamping none has it mailed over."""
 
@@ -610,15 +636,15 @@ class TestTheSeasonWidePress:
             # Every link gone, so the press mails several teams, each in its own transaction.
             await database[Collection.INVITATIONS].delete_many({})
             mailed = (await press(database)).mailed
-            first = await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
+            first = await dispatched(database)
             await press(database, resend=True)
 
-            return mailed, first, await database[Collection.ACTION_LOG].count_documents({"action": "saison.invitations_dispatched"})
+            return mailed, first, await dispatched(database)
 
         mailed, first, after_the_re_send = on_a_league(mongo_replica_set_url, body)
 
         assert mailed > 1
-        assert (first, after_the_re_send) == (1, 1)
+        assert (first, after_the_re_send) == ([SAISON_ID], [SAISON_ID])
 
     def test_a_re_send_replaces_the_mailed_teams_link(self, mongo_replica_set_url: str):
         """The raw value is recoverable from nothing, so a link to be mailed again is one that has just been minted."""

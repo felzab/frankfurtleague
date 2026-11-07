@@ -257,7 +257,10 @@ async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, str 
     for row in rows:
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["to"]))
 
-    return [(data["change"], data["stage"], data["address"], data["changed_by"], sorted(to), data["effective_from"]) for data, to in notices.values()]
+    return [
+        (data["change"], data["stage"], data["address"], data["changed_by"], sorted(to), data["effective_from"])
+        for data, to in notices.values()
+    ]
 
 
 async def acts_on(database: AsyncDatabase, grant_id: ObjectId) -> list[tuple[str, str, str | None]]:
@@ -498,7 +501,12 @@ class TestAHandover:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await hand_over(database, client)
 
-            return (await row_of(database, ANNA_ID))["owner_from"], await tiers(database), await owed(database), await acts_on(database, ANNA_ID)
+            return (
+                (await row_of(database, ANNA_ID))["owner_from"],
+                await tiers(database),
+                await owed(database),
+                await acts_on(database, ANNA_ID),
+            )
 
         owner_from, held, notices, acts = on_a_league(mongo_replica_set_url, body)
 
