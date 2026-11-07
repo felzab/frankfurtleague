@@ -19,10 +19,6 @@ from app.core import clock
 from app.core.collections import Collection
 from app.core.logging import trace_id_var
 
-# What a write made by no administrator and no person states as its `changed_by`. The spelling matches
-# `app/core/logging.py :: NO_REQUEST_SENTINEL`, so one grep finds both.
-SYSTEM_ACTOR_EMAIL = "SYSTEM"
-
 # Stands where an erased person's address stood in a record or a log row: fixed, so it singles nobody out. No `@`, so
 # no address equals it.
 ERASED_ACTOR_MARKER = "ERASED"

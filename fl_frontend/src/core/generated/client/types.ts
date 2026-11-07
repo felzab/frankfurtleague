@@ -3934,15 +3934,7 @@ export interface FLPostBanListEntryPayload {
   notify: boolean;
 }
 
-/**
- * The ban's id and the last season it covers.
- */
 export interface FLPostBanListEntryResponse {
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  barred_until_saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
 }

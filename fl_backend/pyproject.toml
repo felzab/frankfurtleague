@@ -128,7 +128,7 @@ select = [
 ignore = ["B008"]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
 # passes unread without these names.
-logger-objects = ["app.core.logging.fl_logger", "app.core.logging.journal_logger"]
+logger-objects = ["app.core.logging.fl_logger"]
 
 [tool.ruff.lint.per-file-ignores]
 # `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
