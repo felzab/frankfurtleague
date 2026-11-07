@@ -6,6 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.address_change.services import build_incoming_filter
 from app.api.ban_list.crud import read_ban_list_page
 from app.api.ban_list.schemas import (
     FLBanListEntry,
@@ -23,6 +24,7 @@ from app.api.saisons.crud import pull_governing_saison_id
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
+    AddressChangeReadCollection,
     BanListCollection,
     DBClient,
     GrantsCollection,
@@ -35,6 +37,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -97,6 +100,7 @@ async def post_ban_list_entry(
     ban_list_collection: BanListCollection,
     saisons_collection: SaisonsCollection,
     grants_collection: GrantsCollection,
+    address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     created_by: str = Depends(get_actor_email),
@@ -108,9 +112,9 @@ async def post_ban_list_entry(
 
     Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
     is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
-    a row in `grants`, in effect or waiting (`ban_list_admin`). The ban covers the fifth season after the one running now,
-    the last one it covers answered as `barred_until_saison_id`, and it survives that person's erasure. Where `notify` is
-    set the ban's own notice is owed to the address in the same transaction.
+    a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
+    fifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives
+    that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
 
     `ban_reason` is served, mailed to the address and kept past that person's erasure.
     """
@@ -123,7 +127,11 @@ async def post_ban_list_entry(
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
         # same rows, so one of the two retries and meets the other's refusal.
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_admin_refusal(address=address, administrators=[str(grant["address"]) for grant in grants]))
+        holders = [sign_in_identifier(str(grant["address"])) for grant in grants]
+        incoming = await address_changes_collection.find_one(
+            build_incoming_filter(email=address, holders=holders), projection={"_id": 1}, session=session
+        )
+        refuse(find_admin_refusal(address=address, administrators=holders, incoming=incoming is not None))
 
         running_saison_id = await _pull_the_season_a_ban_counts_from(saisons_collection=saisons_collection, session=session)
         barred_until_saison_id = compose_barred_until_saison_id(running_saison_id=running_saison_id)

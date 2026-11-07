@@ -169,6 +169,12 @@ def build_addresses_filter(addresses: list[str]) -> dict[str, Any]:
     return {"address": {"$in": addresses, "$type": "string"}, **LIVE_TERMS}
 
 
+def build_incoming_filter(*, email: str, holders: list[str]) -> dict[str, Any]:
+    """A live change of one of these folded addresses, moving it to `email`."""
+
+    return {**build_addresses_filter(holders), "email": email}
+
+
 def build_resendable_terms() -> dict[str, Any]:
     """A change waiting on the new mailbox: the person's own awaiting its address on file, or one confirmed, has no link to re-send."""
 

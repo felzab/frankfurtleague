@@ -33,6 +33,7 @@ async def ban_through_the_route(
             ban_list_collection=database[Collection.BAN_LIST],
             saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
             grants_collection=database[Collection.GRANTS] if grants is None else grants,
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             created_by=by,

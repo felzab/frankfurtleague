@@ -18,7 +18,7 @@ from app.core.recording import actor_var
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, spieler_document
+from tests.documents import address_change_document, rules_document, saison_document, spieler_document
 from tests.erasure import erased
 from tests.worker import worker_database
 
@@ -37,6 +37,8 @@ BANNED_RETYPED = "zorbanax@beispielschule.de"
 OTHER = "quillhilde@beispielschule.de"
 # A row whose wait has not run out, which counts as held.
 WAITING = "wartet@beispielschule.de"
+# Where a holder's live change moves them.
+INCOMING = "neue.adresse@beispielschule.de"
 
 BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 
@@ -129,6 +131,26 @@ class TestABanOfAnAdministratorsAddress:
             return raised.value.error_code
 
         assert on_a_clean_list(mongo_replica_set_url, body) == Code.BAN_LIST_ADMIN
+
+    def test_the_address_a_holder_s_live_change_moves_to_is_refused_and_a_non_holder_s_is_not(self, mongo_replica_set_url: str):
+        """Nothing judges a ban at the switch, so the hourly pass would move the grant onto an address that cannot sign in."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            await database[Collection.ADDRESS_CHANGES].insert_many(
+                [
+                    address_change_document(address=ADMIN, email=INCOMING, token_hash=None, day=TODAY),
+                    address_change_document(address=OTHER, email=BANNED_RETYPED, token_hash=None, day=TODAY),
+                ]
+            )
+
+            with pytest.raises(APIError) as raised:
+                await ban(database, client, email=INCOMING)
+            # The control: the same read answering every change would refuse this one too.
+            await ban(database, client)
+
+            return raised.value.error_code, await database[Collection.BAN_LIST].count_documents({})
+
+        assert on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 1)
 
 
 class TestTheCheckASignInAsks:
