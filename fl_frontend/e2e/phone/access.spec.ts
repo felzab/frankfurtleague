@@ -86,6 +86,9 @@ test("the Protokoll narrows to each who", async ({ page }) => {
     await main.getByRole("button", { name: "Filter" }).click();
     // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
     const sheet = page.getByRole("dialog", { name: "Filter" });
+    // It takes the focus once it has risen. Playwright retries a press on a moving button behind a `scrollIntoView`, which
+    // carries the sheet back down its scroller and the page under it, and React Aria closes a sheet the viewport has lost.
+    await expect(sheet).toBeFocused();
     await chooseWho(page, sheet, option);
     await sheet.getByRole("button", { name: "Fertig" }).click();
     await expect(sheet).toBeHidden();
