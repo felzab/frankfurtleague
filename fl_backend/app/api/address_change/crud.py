@@ -347,7 +347,8 @@ async def owe_the_link_in_session(
     """Owe the new mailbox its link, minted at the hand-out in place of any before it, in the caller's transaction.
 
     `email` as the record stores it: the hand-out mints only while the record still names it, so a change ended or
-    replaced since mails nothing. Keyed by the write's instant, a re-send owing a mail of its own.
+    replaced since mails nothing. Keyed by the write's instant, a re-send owing a mail of its own. The row ends with the
+    link: the mail promises its hours, and a late one would carry a dead link.
     """
 
     await enqueue_mails(
@@ -357,9 +358,10 @@ async def owe_the_link_in_session(
             OwedMail(
                 key=f"address_changes/{address_change_id}/link/{now.isoformat()}",
                 to=email,
-                data=FLAddressChangeLinkData(kind="address_change_link", way=way, valid_until=valid_until, holder=holder),
+                data=FLAddressChangeLinkData(kind="address_change_link", way=way, holder=holder),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=True),
+                valid_until=valid_until,
             )
         ],
         now=now,
@@ -378,7 +380,11 @@ async def owe_the_notice_in_session(
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Owe the address on file its notice of the change, with the stop link, minted beside any earlier hand-out's."""
+    """Owe the address on file its notice of the change, with the stop link, minted beside any earlier hand-out's.
+
+    The person's own change asks it a question, whose row ends with its deadline; a lost-mailbox notice's stop answers past
+    every deadline, so it keeps the mail's own.
+    """
 
     await enqueue_mails(
         outbox_collection=outbox_collection,
@@ -387,11 +393,10 @@ async def owe_the_notice_in_session(
             OwedMail(
                 key=f"address_changes/{address_change_id}/notice",
                 to=address,
-                data=FLAddressChangeNoticeData(
-                    kind="address_change_notice", way=way, valid_until=valid_until, first_name=first_name, holder=holder
-                ),
+                data=FLAddressChangeNoticeData(kind="address_change_notice", way=way, first_name=first_name, holder=holder),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["stop.token_hashes"], addresses=["address"], replaced=False),
+                valid_until=valid_until if way == "account" else None,
             )
         ],
         now=now,

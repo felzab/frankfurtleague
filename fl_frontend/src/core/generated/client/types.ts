@@ -845,7 +845,6 @@ export interface FLAddressChangeIdResponse {
 export interface FLAddressChangeLinkData {
   holder: FLAdminTier | null;
   kind: "address_change_link";
-  valid_until: string;
   way: FLAddressChangeWay;
 }
 
@@ -889,7 +888,6 @@ export interface FLAddressChangeNoticeData {
   first_name: string | null;
   holder: FLAdminTier | null;
   kind: "address_change_notice";
-  valid_until: string;
   way: FLAddressChangeWay;
 }
 

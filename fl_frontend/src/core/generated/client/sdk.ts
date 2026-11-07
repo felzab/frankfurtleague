@@ -1696,7 +1696,8 @@ export const getOutboxPostHandoutUrl = () => {
  * Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
  *
  * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
- * is given up rather than handed out, and counted in `abandoned`. A mail to an address a ban holds is stopped as
+ * is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
+ * hold every claim until its deadline. A mail to an address a ban holds is stopped as
  * `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
  * the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
  * holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is

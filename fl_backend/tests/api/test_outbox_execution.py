@@ -299,6 +299,21 @@ class TestTheDrain:
         assert record is not None
         assert record["token_hashes"] == []
 
+    def test_a_row_of_an_older_shape_is_given_up_inside_the_claim_and_the_mail_behind_it_goes(self, mongo_replica_set_url: str):
+        """One row left by an earlier release would fail every claim until its deadline, and every mail behind it with it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            old = await owe(database, client, "ban/old")
+            await database[Collection.OUTBOX].update_one({"_id": old}, {"$unset": {"data.ban_reason": ""}})
+            behind = await owe(database, client, "ban/behind")
+            answer = await claimed(database, client)
+
+            return [mail.id for mail in answer.mails], answer.abandoned, behind, (await stored(database, old))["state"]
+
+        handed, abandoned, behind, state = on_a_database(mongo_replica_set_url, body)
+
+        assert (handed, abandoned, state) == ([behind], 1, "abandoned")
+
     def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
         """The row is a send's one record, so the provider's name for its refusal is the only answer to why it waited."""
 

@@ -18,7 +18,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.address_change.schemas import FLAddressChangeAddressPayload
+from app.api.address_change.admin_router import post_address_change_admin
+from app.api.address_change.schemas import FLAddressChangeAddressPayload, FLAddressChangeAdminPayload
 from app.api.address_change.services import (
     ADDRESS_CHANGE_RESTART_SECONDS,
     build_address_filter,
@@ -32,6 +33,7 @@ from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
 from app.api.invitations.services import compose_invitation
+from app.api.outbox.system_router import post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
@@ -815,6 +817,23 @@ class TestTheNewAddressesOwnRecords:
             return started.value.fields, pressed.value.fields
 
         assert on_a_person(mongo_replica_set_url, body) == ((("email",),), ())
+
+    def test_a_link_mail_the_drain_reaches_past_its_link_is_given_up_and_the_lost_mailbox_notice_goes(self, mongo_replica_set_url: str):
+        """The mail promises the link's hours: sent late it carries a dead link, and the stop link beside it answers past every deadline."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            payload = FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL, "change_reason": CHANGE_REASON})
+            await call(post_address_change_admin, database, client, address_change_data=payload)
+            late = await post_handout(
+                outbox_collection=database[Collection.OUTBOX],
+                ban_list_collection=database[Collection.BAN_LIST],
+                db=database,
+                db_client=client,
+                now=AFTER_THE_DEADLINE,
+            )
+            return [mail.data.kind for mail in late.mails], late.abandoned
+
+        assert on_a_person(mongo_replica_set_url, body) == (["address_change_notice"], 1)
 
     def test_a_pupil_there_refuses_a_starter_holding_no_pupil_of_their_own(self, mongo_replica_set_url: str):
         """A starter holding a pupil is refused `address_change_taken` first, so a seat-only starter is the one this kind reaches."""
