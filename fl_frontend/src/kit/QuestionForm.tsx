@@ -95,15 +95,15 @@ export function QuestionForm<Input>({
         <Fragment key={emptied}>{children}</Fragment>
         <div className={ROW_CLASSES}>
           <ActRow>
+            <StatusLine
+              status={status}
+              placement="row"
+            />
             <Button
               variant={tone}
               type="submit"
               label={COPY.shared.verb[verb]}
               isBusy={isPending}
-            />
-            <StatusLine
-              status={status}
-              placement="row"
             />
           </ActRow>
         </div>
@@ -147,8 +147,8 @@ export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; childr
       {children}
       <div className={ROW_CLASSES}>
         <ActRow>
-          <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
           <span className={statusLine({ placement: "row", tone: "none" })} />
+          <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
         </ActRow>
       </div>
     </Waiting>
