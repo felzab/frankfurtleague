@@ -802,7 +802,7 @@ no log above outlives its bound.
 **Every deploy stops both application containers and copies their streams to
 `/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
 file per service stamped to the second, so a line written in the seconds before the recreate — an
-erasure's `journal.act` line among them (§13) — is in the copy. A container already stopped, a failed
+erasure's `journal.act` lines among them (§13) — is in the copy. A container already stopped, a failed
 build's backend that exited among them, is copied as well and left stopped; one that keeps
 restarting is running to the engine, and is stopped and copied with the other.
 A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
