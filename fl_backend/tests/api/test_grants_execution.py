@@ -539,7 +539,7 @@ class TestThePass:
         assert (held[OWNER], held[ANNA]) == ("owner", "administration")
 
     def test_a_stop_landing_beside_the_pass_keeps_the_role_with_the_owner(self, mongo_replica_set_url: str):
-        """The rival is the owner's stop in the last hour: with no anchor both commit, and the role moves after the owner stopped it."""
+        """The rival is the owner's stop in the last hour: judged outside the transaction, the role moves after the owner stopped it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, dict[str, str]]:
             await hand_over(database, client)

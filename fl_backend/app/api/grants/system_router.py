@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.crud import complete_the_handover_in_session, pull_the_list_to_judge, read_grants
+from app.api.grants.crud import complete_the_handover_in_session, read_grants
 from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
 from app.core.config import API_VERSION
@@ -36,13 +36,12 @@ async def post_handover_pass(
     """
 
     async def judge_and_complete(session: AsyncClientSession) -> int:
-        """Judge the list in this transaction, then anchor it, so a stop or a removal beside the pass conflicts and is judged afresh."""
+        """Judge the list in this transaction: a stop or a removal beside the pass writes a row this writes, so it conflicts and is judged afresh."""
 
         due = handover_due(await read_grants(grants_collection=grants_collection, session=session), now)
         if due is None:
             return 0
 
-        await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         await complete_the_handover_in_session(
             due, grants_collection=grants_collection, outbox_collection=outbox_collection, now=now, session=session
         )
