@@ -1315,7 +1315,7 @@ export const COPY = catalogue({
         months: (count: number) => `Letzte ${formatNumber(count)} Monate`,
       },
       /** „Wer“ of a team's representative. */
-      actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}` },
+      actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
       /** A pass's label: one form, so a count of 1 needs no singular. */
       passCount: (noun: Copy, count: number) => `${noun}: ${formatNumber(count)}`,
       /** What a pass deleted, the noun of `passCount`, by the pass's stored action. */

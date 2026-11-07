@@ -20,9 +20,11 @@ function aboutOf({ action, label, count }: FLActionLogEntry): Words | null {
   return label === ERASED_ACTOR_MARKER ? COPY.admin.erasedActor : { record: label };
 }
 
-/** A contact person is named by role and team, and never by name. */
-const whoOf = ({ by, team }: FLActionLogEntry): Words =>
-  by === "kontakt" && team !== null ? WORDS.actor.contact({ record: team }) : actorWords(by);
+/** A contact person is named by role and team, and never by name. A fixture's answer may stand with no team. */
+function whoOf({ by, team }: FLActionLogEntry): Words {
+  if (by !== "kontakt") return actorWords(by);
+  return team === null ? WORDS.actor.contactNoTeam : WORDS.actor.contact({ record: team });
+}
 
 /** One recorded act: what, about what, who and when. */
 export function rowOf(entry: FLActionLogEntry): TableRow {

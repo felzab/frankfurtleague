@@ -32,9 +32,9 @@ describe("a row", () => {
     );
   });
 
-  /* The address a person's act never names: a contact person reads by role and team, and `kontakt` alone by its word. */
+  /* The address a person's act never names: a contact person reads by role and team, and by role alone with no team. */
   it("names a contact person by role and team", () => {
     expect(rowOf(entry({ by: "kontakt", team: "Goethe-Gymnasium" })).cells.who).toBe("Kontaktperson · Goethe-Gymnasium");
-    expect(rowOf(entry({ by: "kontakt" })).cells.who).toBe("Teams");
+    expect(rowOf(entry({ by: "kontakt" })).cells.who).toBe("Kontaktperson");
   });
 });
