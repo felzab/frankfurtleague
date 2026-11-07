@@ -37,6 +37,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import acts_of
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
@@ -356,10 +357,11 @@ class TestWhatAnAdmissionWrites:
             registrierung_id = await seed(database, registrierung_document())
             answer = await admit(database, client, registrierung_id)
 
-            return answer, await persons(database), await squad_rows(database, spieler_id=answer.spieler_id)
+            return answer, await persons(database), await squad_rows(database, spieler_id=answer.spieler_id), await acts_of(database)
 
-        answer, stored, rows = on_a_league(mongo_replica_set_url, body)
+        answer, stored, rows, acts = on_a_league(mongo_replica_set_url, body)
 
+        assert acts == [("registrierung.admitted", "kontakt", "Zorbanax", answer.registrierung_id)]
         assert [person["_id"] for person in stored] == [answer.spieler_id]
         person = stored[0]
         assert (person["email"], person["first_name"], person["last_name"], person["birth_date"]) == (
@@ -1111,11 +1113,14 @@ class TestTheDecline:
             before = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
             await decline(database, client, registrierung_id, reason=reason, identifier=THEO)
 
-            return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), await notes_owed(database)
+            stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
 
-        before, after, owed = on_a_league(mongo_replica_set_url, body)
+            return before, stored, await notes_owed(database), await acts_of(database)
+
+        before, after, owed, acts = on_a_league(mongo_replica_set_url, body)
 
         assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "reason": reason}}
+        assert acts == [("registrierung.declined", "kontakt", "Zorbanax", before["_id"])]
         # The confirmed pupil's note, owed in the decline's own transaction.
         assert [(row["to"], row["data"]["team"], row["data"]["reason"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", reason)]
 

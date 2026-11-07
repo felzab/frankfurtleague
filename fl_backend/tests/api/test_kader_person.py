@@ -26,6 +26,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from tests.acts import acts_of
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
@@ -373,14 +374,15 @@ class TestATrainerOnlySeat:
 
 class TestAnEdit:
     def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
             response = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "07"})
 
-            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
+            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}), await acts_of(database)
 
-        response, row = on_a_league(mongo_replica_set_url, run)
+        response, row, acts = on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
+        assert acts == [("spieler.changed", "kontakt", "Adler", SHARES_THE_SEVEN)]
         assert (row["nummer"], row["position"], row["stufe"], row["rolle"]) == ("07", "Tor", "Q1", None)
         assert (row["team_id"], row["is_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
         # Now wearing `07` beside `ZERO_SEVEN`, judged against the squad after the write.
@@ -495,14 +497,15 @@ class SquadRowsRunningTheSameRival:
 
 class TestRetire:
     def test_it_stamps_the_row_and_leaves_the_person(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
             response = await send(mongo_replica_set_url, "DELETE", row_url(SHARES_THE_SEVEN), ANSPRECH)
 
-            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
+            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}), await acts_of(database)
 
-        response, row = on_a_league(mongo_replica_set_url, run)
+        response, row, acts = on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
+        assert acts == [("spieler.deregistered", "kontakt", "Adler", SHARES_THE_SEVEN)]
         assert row["inactive_since"] == TODAY
         # The live `7` it shared is the captain's alone now, and an ausgetragen row wears nothing.
         assert response.json()["nummer_double"] is False

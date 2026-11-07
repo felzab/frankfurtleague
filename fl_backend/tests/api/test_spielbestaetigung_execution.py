@@ -51,6 +51,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection, outcome_of
@@ -328,6 +329,17 @@ class TestTheSeatTheAnswerRecords:
         assert second == Code.ANSETZUNG_ANSWERED
         # The other club's row is its own question.
         assert other["answer"] is None
+
+    @pytest.mark.parametrize(("team_id", "row_id"), [(TEAM1, ROW1), (TEAM2, ROW2)], ids=["the first club", "the second club"])
+    def test_the_log_names_the_club_the_answered_row_asks(self, mongo_replica_set_url: str, team_id: ObjectId, row_id: ObjectId):
+        """Both clubs of the fixture are read for the answer, and a link names neither: the name is the row's `party.team_id`'s."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await press_answer(database, client, token(team_id, "trainer"))
+
+            return await acts_of(database)
+
+        assert on_a_spiel(mongo_replica_set_url, body) == [("spielbestaetigung.answered", "kontakt", NAMES[team_id][0], row_id)]
 
     def test_a_mirrored_pair_sharing_one_link_records_the_first_seat_in_order(self, mongo_replica_set_url: str):
         """One person on two seats holds one hash: resolved to a seat rather than to nothing."""
@@ -1174,10 +1186,18 @@ class TestARefereesDeclineReturnsTheSpiel:
             async with client.start_session() as session:
                 await session.with_transaction(resolve)
 
-            return before, after, halbfinale, await spiel_now(database, HALBFINALE), await row_now(database, REFEREE_ROW)
+            return (
+                before,
+                after,
+                halbfinale,
+                await spiel_now(database, HALBFINALE),
+                await row_now(database, REFEREE_ROW),
+                await acts_of(database),
+            )
 
-        before, after, halbfinale, resolved, row = on_a_refereed_spiel(mongo_replica_set_url, body, spiele=DUE_RESOLUTION)
+        before, after, halbfinale, resolved, row, acts = on_a_refereed_spiel(mongo_replica_set_url, body, spiele=DUE_RESOLUTION)
 
+        assert acts == [("spielbestaetigung.answered", "schiedsrichter", None, REFEREE_ROW)]
         # Seeded without a version, so the one write leaves it at 1.
         assert after == {**before, "schiedsrichter": None, "version": 1}
         assert halbfinale["team1"] is None and resolved["team1"]["team_id"] == TEAM1
