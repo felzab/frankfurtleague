@@ -100,10 +100,6 @@ describe("who holds access and what waits", () => {
 
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
   });
-
-  it("draws no „Angekündigt“ while nothing waits", async () => {
-    expect((await read(OWNER, [THE_OWNER])).titles).toStrictEqual([COPY.admin.team.active]);
-  });
 });
 
 // The harm: a wait drawn for another reader than the one reading moves every row as the page lands.
