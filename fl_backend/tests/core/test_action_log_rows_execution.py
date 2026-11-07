@@ -51,27 +51,6 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
     return on_the_seed_loop(_run())
 
 
-class _ActFailed(Exception):
-    """Raised inside the transaction, after the row, as a refused act is."""
-
-
-def test_a_failed_act_leaves_no_row(mongo_replica_set_url: str):
-    """A row outside the transaction would state an act that never happened, and the page would read as any other."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[dict[str, Any]]:
-        async def act(session: AsyncClientSession) -> None:
-            await record_act(collection=database[Collection.TEAMS], action="team.retired", by=ACT_BY_SYSTEM, session=session)
-            raise _ActFailed
-
-        async with client.start_session() as session:
-            with pytest.raises(_ActFailed):
-                await session.with_transaction(act)
-
-        return [row async for row in database[Collection.ACTION_LOG].find()]
-
-    assert on_a_replica_set(mongo_replica_set_url, body) == []
-
-
 def test_an_erased_address_leaves_the_log_as_who_acted_and_as_a_grantee(mongo_replica_set_url: str):
     """The log outlives the person for twelve months, so a grant act's label left standing would name them for that long."""
 

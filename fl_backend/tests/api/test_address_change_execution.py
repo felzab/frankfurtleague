@@ -42,7 +42,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMINISTRATORS, SYSTEM_AUTH
+from tests.config import ADMINISTRATORS, SYSTEM_AUTH, grants_for_the_suite
 from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -1272,11 +1272,14 @@ THIRD_EMAIL = "lenore.dritte@nochwoanders.example.org"
 class TestTheAdministratorFollowsTheirMove:
     """An administrator's identity is their address: an effect carries every record they made, or the rules keyed on it lapse."""
 
-    def test_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_loeschung(self, mongo_replica_set_url: str):
+    def test_a_grant_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_loeschung(self, mongo_replica_set_url: str):
         """Each record names its author by address alone, so one left at the replaced address outlives the erasure at the new."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
+            await database[Collection.GRANTS].insert_one(
+                {**grants_for_the_suite()[1], "_id": ObjectId(), "address": FOREIGN_EMAIL, "granted_by": EMAIL}
+            )
             await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOREIGN_EMAIL, until="2030", created_by=EMAIL))
             await database[Collection.INVITATIONS].insert_one(
                 compose_invitation(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)

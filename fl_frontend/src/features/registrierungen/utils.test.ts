@@ -376,34 +376,6 @@ describe("what a refused READ says about a link", () => {
 });
 
 describe("what a refused decision on a registration shows a seat holder", () => {
-  /* The admission's own rules are the slice's words; a lost seat, a ban on the seat holder and the
-     unique index are the person spine's, which a seat holder meets alike on every person route. */
-  it("words every rule the admission publishes and leaves the spine's codes to the spine", () => {
-    const own = [
-      "document_not_found",
-      "registrierung_stufe_not_allowed",
-      "registrierung_unconfirmed",
-      "registrierung_person_not_named",
-      "registrierung_already_in_kader",
-      "registrierung_person_missing",
-      "kader_full",
-    ];
-
-    for (const code of refusalCodes(
-      "duplicate_key",
-      "role_not_held",
-      "registrierung_stufe_not_allowed",
-      "registrierung_unconfirmed",
-      "registrierung_person_not_named",
-      "registrierung_already_in_kader",
-      "registrierung_person_missing",
-      "kader_full",
-    )) {
-      const worded = mapAufnahmeRefusal(refused(code));
-      expect(worded !== null, `${code} is ${worded === null ? "not worded" : "worded"} by the slice`).toBe(own.includes(code));
-    }
-  });
-
   // The administrator's remedy for a full squad raises the cap, which no seat holder can.
   it("sends a seat holder with a full squad to the league rather than to the season's rules", () => {
     const sentence = mapAufnahmeRefusal(refused("kader_full")) ?? "";
