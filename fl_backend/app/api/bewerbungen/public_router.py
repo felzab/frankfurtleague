@@ -66,7 +66,6 @@ from app.api.bewerbungen.services import (
     saison_link_pair,
     saison_schule,
     saison_state_of,
-    seat_addresses,
     seat_answered_at,
     seat_deadline_of,
     seat_first_name,
@@ -83,7 +82,7 @@ from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, se
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_row_of
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -111,10 +110,10 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.journal import Journal, JournalLine
+from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, erasure_journal_hash, verify_access_base
+from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -125,14 +124,7 @@ from app.shared.tokens import hash_token
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here,
 # and nothing served below reaches a stored application (`READ-BEWERBUNG-001`). The confirmation
 # link's two endpoints are base-tier too: its token is the whole credential, as a sign-in code is.
-
-# `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
-# every submission with `missing_actor`. The write still passes `app/core/crud.py`, and an insert
-# records no `before`.
-router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/bewerbungen",
-    dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
-)
+router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_base)])
 
 
 # The state a submission arrives in, and the only one it may arrive in: the other two are the
@@ -495,7 +487,6 @@ async def post_einwilligung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
@@ -508,15 +499,9 @@ async def post_einwilligung(
     """
 
     token_hash = hash_token(answer_data.token)
-    # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
+    # One instant for every attempt, so a retry owes the objection's one mail.
     at = log_stamp(germany_now)
     journal = Journal()
-
-    def journal_the_objection(home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...]) -> None:
-        # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
-        for address in seat_addresses(kontakte=row.get("kontakte"), seats=(seat,)):
-            hashed = erasure_journal_hash(address, key=config.sperrliste_key)
-            journal.note(JournalLine(person_hash=hashed, kind="objection", collection=home, record_id=row["_id"], at=at, seats=seats))
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAnswerResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -599,7 +584,7 @@ async def post_einwilligung(
             held=[HeldSeats(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats)],
             session=session,
         )
-        journal_the_objection(Collection.SAISON_TEAMS, row, seat, seats)
+        journal.note("objection", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], seats=seats)
 
         return FLSaisonTeamEinwilligungAnswerResponse(ergebnis="declined", birth_date=None, whatsapp=False, media=False)
 
@@ -687,7 +672,7 @@ async def post_einwilligung(
             return_document=ReturnDocument.AFTER,
         )
 
-        journal_the_objection(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats)
+        journal.note("objection", [f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}"], seats=seats)
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is owed to nobody.

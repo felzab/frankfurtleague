@@ -37,17 +37,13 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.recording import log_stamp
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.recording import ACT_BY_SYSTEM, log_stamp, record_act
+from app.core.security import verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 
-# System tier and the system actor, as the application sweep's own router is: this pass holds no
-# session, so `bind_actor` would refuse it.
-router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/sweep",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
-)
+# System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=[Depends(verify_access_system)])
 
 _TEAM_UNBEKANNT = ""
 
@@ -100,6 +96,23 @@ async def sweep_registrierungen(
 
     stamp = log_stamp(germany_now)
 
+    async def erase_page(ids: list[Any], session: AsyncClientSession) -> int:
+        """One page of one clock gone, its one row in the page's transaction, so no deletion stands without its row."""
+
+        result = await erase_many_from_db(
+            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
+        )
+        await record_act(
+            collection=registrierungen_collection,
+            action="retention.registrierungen",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=result.deleted_count,
+            session=session,
+        )
+
+        return result.deleted_count
+
     async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season's own end. Read in-session, so a retry re-judges."""
 
@@ -127,11 +140,8 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The deadline clock. Read in-session, so a retry re-judges."""
@@ -154,11 +164,8 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each reminder and owe its mail in one transaction, a share a pass. Read in-session, so a retry re-judges."""
@@ -244,11 +251,8 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     abgelehnte, _, passed = await drain(
         db=db,

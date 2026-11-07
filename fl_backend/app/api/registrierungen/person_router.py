@@ -9,7 +9,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_withdrawal
 from app.api.account.services import compose_person_move, find_own_entry_refusal, withdrawal_line
-from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_registrierung
@@ -48,7 +47,7 @@ from app.api.registrierungen.services import (
 from app.api.saisons.services import entry_is_a_nominee
 from app.api.spieler.crud import refuse_a_full_squad
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import (
     erase_many_from_db,
     patch_one_in_db,
@@ -68,21 +67,18 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import log_stamp
+from app.core.recording import ACT_BY_KONTAKT, log_stamp, record_act
 from app.core.routing import by_id
-from app.core.security import erasure_journal_hash, verify_access_admin
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 
-# The person lane's binder in place of `bind_actor`: a seat holder signs in by code and holds no
-# grant, so the administrator's actor check would refuse every one of them.
-router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
-)
+# A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
+# administrator's actor check would refuse every one of them.
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
 
 
 @router.get(
@@ -94,7 +90,7 @@ async def get_open_registrierungen(
     team_id: CustomRouteObjectId,
     saison_id: str,
     params: Annotated[FLOffeneRegistrierungenParams, Query()],
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
@@ -179,9 +175,10 @@ async def get_open_registrierungen(
 async def admit(
     registrierung_id: CustomRouteObjectId,
     aufnahme_data: Annotated[FLRegistrierungAdmitPayload, Body()],
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     records: SubjectLookup,
@@ -310,6 +307,18 @@ async def admit(
         await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
+        # The seat check just found this junction row, so it stands.
+        junction_raw = await pull_one_from_db(
+            collection=saison_teams_collection, db_filter={"saison_id": saison_id, "team_id": team_id}, projection=["name"], session=session
+        )
+        await record_act(
+            collection=registrierungen_collection,
+            action="registrierung.admitted",
+            by=ACT_BY_KONTAKT,
+            team=str(junction_raw["name"]),
+            record_id=registrierung_id,
+            session=session,
+        )
 
         return FLRegistrierungAdmissionResponse(
             registrierung_id=registrierung_id,
@@ -337,7 +346,7 @@ async def admit(
 async def decline(
     registrierung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLRegistrierungDeclinePayload, Body()],
-    identifier: KontaktIdentifier,
+    identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
@@ -382,6 +391,14 @@ async def decline(
         junction_raw = await pull_one_from_db(
             collection=saison_teams_collection, db_filter={"saison_id": saison_id, "team_id": team_id}, projection=["name"], session=session
         )
+        await record_act(
+            collection=registrierungen_collection,
+            action="registrierung.declined",
+            by=ACT_BY_KONTAKT,
+            team=str(junction_raw["name"]),
+            record_id=registrierung_id,
+            session=session,
+        )
 
         if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
             await enqueue_mails(
@@ -411,12 +428,9 @@ async def decline(
         return await session.with_transaction(decline_for_the_team)
 
 
-# A router of its own, for `app/api/spieler/person_router.py :: spieler_router`'s reason: `router`
-# binds the `kontakt` Funktion at router level, and a pending registrant writes as the pupil they
-# registered as.
+# A prefix of its own: a pending registrant reaches their own row, and no team's.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/account",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
+    prefix=f"/api/v{API_VERSION}/registrierungen/account", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)]
 )
 
 
@@ -428,10 +442,9 @@ spieler_router = APIRouter(
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
     einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
-    identifier: SpielerIdentifier,
+    identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
@@ -441,7 +454,7 @@ async def patch_einwilligung(
     """
 
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    # One instant for every attempt, as `app/api/spieler/person_router.py :: patch_einwilligung` stamps its own.
     at = log_stamp(germany_now)
     journal = Journal()
 
@@ -473,17 +486,8 @@ async def patch_einwilligung(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        line = withdrawal_line(
-            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
-            collection=Collection.REGISTRIERUNGEN,
-            record_id=row["_id"],
-            blocks=[saved],
-            chosen=chosen,
-            at=at,
-            text_versions=by_choice(einwilligung_data.text_versions),
-        )
-        if line is not None:
-            journal.note(line)
+        if moved := withdrawal_line(blocks=[saved], chosen=chosen):
+            journal.note("withdrawal", [f"{Collection.REGISTRIERUNGEN}/{row['_id']}"], choices=list(moved))
 
     async with journal:
         async with transaction_session(db) as session:

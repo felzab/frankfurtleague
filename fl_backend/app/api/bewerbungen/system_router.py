@@ -61,18 +61,15 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.security import bind_system_actor, verify_access_system
+from app.core.recording import ACT_BY_SYSTEM, record_act
+from app.core.security import verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
-# System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
-# and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
-router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/bewerbungen/sweep",
-    dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
-)
+# System tier: the sweep holds no session, so `bind_actor` would refuse it.
+router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=[Depends(verify_access_system)])
 
 # Both shares at three commands a row beside the worst call's other 75: 252 commands at 36 ms plus 1.38 ms take 9.42 s
 # of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
@@ -170,6 +167,23 @@ async def sweep_saison(
     ended_raw = None if saison_status == "active" else await saisons_collection.find_one(ended_after, {"status": 1})
     later_saison_status = ended_raw.get("status") if ended_raw is not None else None
 
+    async def erase_page(ids: list[Any], session: AsyncClientSession) -> int:
+        """One page of one clock gone, its one row in the page's transaction, so no deletion stands without its row."""
+
+        result = await erase_many_from_db(
+            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
+        )
+        await record_act(
+            collection=bewerbungen_collection,
+            action="retention.bewerbungen",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=result.deleted_count,
+            session=session,
+        )
+
+        return result.deleted_count
+
     async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season's own end, undecided having served nothing: owe the notice and erase. Read in-session, so a retry re-judges."""
 
@@ -205,11 +219,8 @@ async def sweep_saison(
             now=germany_now,
         )
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
         """Stamp each seat due its one reminder and owe its person the mail, in one transaction. Read in-session, so a retry re-judges.
@@ -336,11 +347,8 @@ async def sweep_saison(
             now=germany_now,
         )
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The decline clock. Read in-session, so a retry re-judges."""
@@ -368,11 +376,8 @@ async def sweep_saison(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season-and-one clock's first half. Read in-session, the season with it, so a retry re-judges."""
@@ -400,11 +405,8 @@ async def sweep_saison(
             return 0, 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
-            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
 
-        return len(rows), result.deleted_count, 0
+        return len(rows), await erase_page(ids, session), 0
 
     async def clear_the_blocks(session: AsyncClientSession, batch: Batch) -> int:
         """The season-and-one clock's second half, a share a pass. Read in-session, the season with it, so a retry re-judges."""
@@ -444,6 +446,14 @@ async def sweep_saison(
         # Once for the share, so voiding its people's match links costs the pass the same however many rows it
         # clears.
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        await record_act(
+            collection=saison_teams_collection,
+            action="retention.kontakte",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=len(voids),
+            session=session,
+        )
 
         return len(voids)
 
@@ -490,34 +500,60 @@ async def sweep_saison(
         # Once for the share, as the blocks' void is: the seats' people leave as a Widerspruch's do.
         await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         await remove_the_seats_reasons(spielbestaetigungen_collection=spielbestaetigungen_collection, held=held, session=session)
+        if emptied:
+            await record_act(
+                collection=saison_teams_collection,
+                action="retention.kontakte",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=emptied,
+                session=session,
+            )
 
         return emptied
 
-    async def strip_the_confirmations(session: AsyncClientSession, batch: Batch) -> int:
+    async def strip_the_confirmations(session: AsyncClientSession, batch: Batch) -> None:
         """The season-and-one clock's last part, a transaction apart from the blocks' share, so a failing strip holds back no block."""
 
         if not season_after_has_ended(
             later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
         ):
-            return 0
+            return
         # The season the step's one row: a strip failing is passed over alone under the season's id, never charged to a block,
         # and every pass strips what is still left whether or not a block clears on it.
         batch.took([{"_id": saison_id}])
 
-        return await strip_the_seasons_confirmations(
+        # A pass finding nothing left to strip writes no row.
+        if stripped := await strip_the_seasons_confirmations(
             spielbestaetigungen_collection=spielbestaetigungen_collection, saison_id=saison_id, session=session
-        )
+        ):
+            await record_act(
+                collection=spielbestaetigungen_collection,
+                action="retention.spielbestaetigungen",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=stripped,
+                session=session,
+            )
 
-    async def strip_the_reports(session: AsyncClientSession, batch: Batch) -> int:
+    async def strip_the_reports(session: AsyncClientSession, batch: Batch) -> None:
         """The season-and-one clock's report part, a transaction apart from the confirmations' strip, for that strip's reason."""
 
         if not season_after_has_ended(
             later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
         ):
-            return 0
+            return
         batch.took([{"_id": saison_id}])
 
-        return await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
+        if stripped := await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session):
+            await record_act(
+                collection=spielberichte_collection,
+                action="retention.spielberichte",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=stripped,
+                session=session,
+            )
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
     ohne_entscheidung, failed = 0, 0

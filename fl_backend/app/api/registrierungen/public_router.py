@@ -76,20 +76,14 @@ from app.core.dependencies import (
 from app.core.readonly import ReadCollection
 from app.core.recording import log_stamp
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
-# `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
-# every registration with `missing_actor`. The write still passes `app/core/crud.py`, and an insert
-# records no `before`.
-router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen",
-    dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
-)
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=[Depends(verify_access_base)])
 
 
 # What a season read serves this tier: the two rules a form is bounded by, the window, whose `end`

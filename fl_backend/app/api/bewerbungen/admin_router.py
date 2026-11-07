@@ -94,6 +94,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -426,6 +427,7 @@ async def accept_bewerbung(
             expected_version=acceptance_data.version,
             return_document=ReturnDocument.BEFORE,
         )
+        await record_act(collection=bewerbungen_collection, action="bewerbung.accepted", record_id=bewerbung_id, label=name, session=session)
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
@@ -509,6 +511,7 @@ async def decline_bewerbung(
             return_document=ReturnDocument.BEFORE,
         )
         team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
+        await record_act(collection=bewerbungen_collection, action="bewerbung.declined", record_id=bewerbung_id, label=team, session=session)
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
@@ -733,6 +736,10 @@ async def post_kontakt_seat(
             expected_version=seat_data.version,
             return_document=ReturnDocument.AFTER,
         )
+        schule = await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session)
+        await record_act(
+            collection=bewerbungen_collection, action="bewerbung.seat_changed", record_id=bewerbung_id, label=schule, session=session
+        )
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
@@ -742,7 +749,7 @@ async def post_kontakt_seat(
                     kontakte=after["kontakte"],
                     seats=seats,
                     saison_id=str(bewerbung_raw["saison_id"]),
-                    schule=await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
+                    schule=schule,
                     deadline=confirmation_deadline,
                     key=_key(bewerbung_id, "seat", seats[0], nonce),
                 )
