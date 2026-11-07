@@ -27,13 +27,13 @@ import type {
   FLActivateSaisonResponse,
   FLAddressChangeAddressPayload,
   FLAddressChangeAddressResponse,
+  FLAddressChangeAdminListResponse,
   FLAddressChangeAdminMintResponse,
   FLAddressChangeAdminPayload,
   FLAddressChangeAdminViewPayload,
   FLAddressChangeAdminViewResponse,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
-  FLAddressChangeApprovalResponse,
   FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
   FLAddressChangeMovesDoneResponse,
@@ -148,7 +148,6 @@ import type {
   FLSchiedsrichterSweepResponse,
   FLSeatEinwilligungPayload,
   FLSignInResponse,
-  FLSignOutResponse,
   FLSpielberichteSaisonResponse,
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
@@ -211,10 +210,11 @@ export const getAccountDeleteAddressChangeUrl = () => {
 };
 
 /**
- * Stop the change pending on the signed-in address at any step: its new address goes, out of every log image too.
+ * Stop the change pending on the signed-in address at any step: its new address goes.
  *
  * Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
- * confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
+ * confirmation and counts nothing: a stop hands nothing over. A holder's change in its wait tells every holder. 404 where no
+ * change is pending on the address.
  * @summary Stop the address change pending on the signed-in person
  */
 export const accountDeleteAddressChange = async (
@@ -237,9 +237,8 @@ export const getAccountGetAddressChangeUrl = () => {
  * `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
  * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
  * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
- * mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
- * person's grant waits on;
- * `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+ * mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,
+ * whose press is refused until the hourly pass ends the change.
  * @summary The address change pending on a signed-in person
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {
@@ -258,16 +257,15 @@ export const getAccountPostAddressChangeUrl = () => {
  *
  * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
  * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
- * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on
- * another administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an
- * administrator's too: a sign-in at the address on file proves the mailbox is not lost.
- * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
- * answers alike whatever the new address holds.
+ * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
+ * from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the
+ * hourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on
+ * file proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it
+ * holds -- so this start answers alike whatever the new address holds.
  *
  * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
  * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
- * address holds nothing a change moves; `address_change_unchanged` where the typed address is the one signed in; and
- * `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
+ * address holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
@@ -343,6 +341,27 @@ export const actionLogGetActionLog = async (
   });
 };
 
+export const getAddressChangeGetAddressChangesUrl = () => {
+  return `/api/v0/address_change`;
+};
+
+/**
+ * Answer every running change, newest first: its two addresses, its way and the step it waits on.
+ *
+ * ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
+ * their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
+ * each lasts days at most, and an ended one holds no address.
+ * @summary List the running address changes
+ */
+export const addressChangeGetAddressChanges = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAddressChangeAdminListResponse> => {
+  return adminKeyTransport<FLAddressChangeAdminListResponse>(getAddressChangeGetAddressChangesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getAddressChangePostAddressChangeAdminUrl = () => {
   return `/api/v0/address_change`;
 };
@@ -353,15 +372,14 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
  * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
  * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
  * and the address on file a notice with its stop link; the change then takes effect
- * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
- * waits on another administrator's approval, never this one's. No link is answered. The address's live change ends
- * replaced.
+ * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
+ * answered. The address's live change ends replaced.
  *
- * Refused the administrator's own address (`own_address`), a grant holder's without an owner's power
- * (`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds
- * (`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on
- * where the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a
- * grant nobody could approve (`address_change_no_approver`).
+ * Refused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),
+ * the address on file typed again (`address_change_unchanged`), an address holding nothing a change moves
+ * (`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil
+ * (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new
+ * address is refused nothing: its link stops at the hand-out.
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const addressChangePostAddressChangeAdmin = async (
@@ -396,7 +414,7 @@ export const getAddressChangeGetAddressChangeAddressUrl = () => {
  * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
  *
  * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
- * view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
+ * view or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,
  * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
  * error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
  * address only in the answer.
@@ -434,32 +452,29 @@ export const getAddressChangePostAddressChangeAnswerUrl = () => {
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
  * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet, answering `confirmed` with `effective` false, `effective_from` null and `approval_open` saying
- * whether the change will wait on another administrator's approval of the grant it moves; refused `link_expired` past
- * that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
+ * and nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`
+ * past that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
  * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
  * address on file was mailed answers no confirmation (`link_invalid`).
  *
- * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
- * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
- * transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
- * file holds moves to the new one, asking no consent and writing none, and `effective` says so; its completion notice is
- * owed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,
- * answering `effective_from` or `approval_open`.
+ * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox
+ * way, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,
+ * confirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing
+ * none, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's
+ * carry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass
+ * moves it; a holder's tells every holder in effect, in this transaction.
  * Either answer spends the link, which keeps answering what became of the change.
  *
  * Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
- * (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
- * an address the ban list holds now (`link_barred`), one past its deadline (`link_expired`), one whose change would replace an address
- * the ban list holds now (`address_change_replaced_barred`), so a barred person cannot move their records off the address the ban keys on,
- * one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one whose address came to hold a grant its approval
- * does not cover (`address_change_not_covered`), one moving a grant onto an address holding one (`address_change_new_granted`), and one
- * whose new address any entry names, confirmed or not, an open grant request among them (`address_change_occupied`): moving the person onto it
- * would join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the
- * change too.
+ * (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline
+ * (`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a
+ * grant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed
+ * or not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused
+ * none of these**: it removes an address nobody proved.
  *
- * A change whose address has come to hold nothing to move ends discarded, and the press answers `address_change_ended`. The codes past
- * `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
+ * A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and
+ * the change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps
+ * alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
 export const addressChangePostAddressChangeAnswer = async (
@@ -491,14 +506,15 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 };
 
 /**
- * Stop the change the address on file was mailed about: its new address goes, out of every log image of the change too.
+ * Stop the change the address on file was mailed about: its new address goes.
  *
- * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on file
- * confirmed it**: a stop hands nothing over, so it answers past every deadline, a barred address's holder too, until
- * the change ends. A token no change holds answers `link_invalid` and an ended change `address_change_ended`. The
- * person's own change offers this link no stop until its address on file confirmed it, and answers `link_invalid` as
- * the unknown token does, the page offering no stop then: the question's decline is the one way that link ends it
- * before, so one act keeps one ending. From that confirmation on, the same link is the change's stop on every way.
+ * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on
+ * file confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no
+ * change holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this
+ * link no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page
+ * offering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.
+ * From that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells
+ * every holder.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStop = async (
@@ -537,9 +553,8 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
  * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
  * links answer `ended`, how it ended and on which day, for as long as its record is kept.
  *
- * The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
- * approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
- * `expired`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
+ * The new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever
+ * the press would be refused for the address on file's sake or would
  * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
  * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
  * the proxy routes no public call to this service. The address on file's side answers the step the change waits on
@@ -580,18 +595,17 @@ export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSwee
 /**
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
  *
- * **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
- * another administrator -- ends as `expired`: its address and reason out of the record and every log image of it
- * (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
- * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
- * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
- * ends it discarded, and
- * `discarded` counts it, its new address owed a notice that it did not take effect and never why; otherwise
- * everything the replaced address holds moves, and `effective` counts it, its completion notice owed. Each notice is owed
- * in the Postausgang in its change's own transaction, so none rides on this answer.
+ * **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
+ * its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
+ * again as its confirmation was: another pupil signing in on the new address, a grant at it, or nothing left to move
+ * ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take effect and never
+ * why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts it, its
+ * completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
+ * this answer.
  *
- * Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
- * replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `after` the last
+ * A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
+ * its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
+ * **A pass is a run of calls, each handing the next the `after` the last
  * answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
  * changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
  * logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
@@ -673,9 +687,9 @@ export const getAddressChangeGetAddressChangeAdminViewUrl = () => {
  * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
  * never a hash. `possible` where the address holds anything a change moves, a grant included. Stores nothing.
  *
- * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a live
- * grant unless the administrator holds an owner's power (`admin_address`). A change id answers 404 where no change is
- * kept, and `address_change_ended` where it ended.
+ * Refused as the erasure's reveal is: the administrator's own address (`own_address`), and an address holding a grant
+ * unless the owner asks (`admin_address`). A change id answers 404 where no change is kept, and `address_change_ended`
+ * where it ended.
  * @summary Show what an address holds that a change moves, and its live change
  */
 export const addressChangeGetAddressChangeAdminView = async (
@@ -709,10 +723,8 @@ export const getAddressChangeDeleteAddressChangeUrl = (addressChangeId: string) 
 /**
  * Discard the change this id names: its links open nothing to press, and the address on file stays.
  *
- * **Its address goes from the action log too**: every image the log holds of the change
- * loses its new address and reason, the rest of each image standing. Journalled as the stop is, so a restore does not
- * bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
- * alone, so a page showing a change since replaced discards nothing.
+ * A holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page
+ * showing a change since replaced discards nothing.
  *
  * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
  * (`address_change_ended`); 404 for an id naming no change.
@@ -728,38 +740,6 @@ export const addressChangeDeleteAddressChange = async (
   });
 };
 
-export const getAddressChangePostAddressChangeApprovalUrl = (addressChangeId: string) => {
-  return `/api/v0/address_change/${encodeURIComponent(String(addressChangeId))}/approval`;
-};
-
-/**
- * Approve the move of an administrator's grant with the change of their address, the second pair of eyes the change waits on.
- *
- * Where the new mailbox has confirmed and no waiting time remains, the change takes effect in this transaction: the grant
- * is revoked at the replaced address and granted at the new one under this administrator's name, announced to every
- * administrator as a grant and a revoke are, and everything else the address holds moves, its completion notice queued
- * in this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation
- * or at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.
- *
- * Refused where the change asks no approval or was given it (`address_change_no_approval_open`), where its seven days have passed
- * (`link_expired`), to the changed address and to the administrator who started it (`address_change_approval_denied`), to anyone but an
- * owner, signed in since becoming one, where the grant is an owner's (`address_change_approval_owner`), and where the change ended
- * (`address_change_ended`); and, where it would take effect, as the confirmation is (`link_barred`, `address_change_replaced_barred`,
- * `address_change_taken`, `address_change_not_covered`, `address_change_new_granted`, `address_change_occupied`). A change whose address
- * has come to hold nothing to move ends discarded, its new address told it did not take effect, answering `address_change_nothing`. 404 for an
- * id naming no change. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
- * @summary Approve the move of an administrator's access with their address change
- */
-export const addressChangePostAddressChangeApproval = async (
-  addressChangeId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeApprovalResponse> => {
-  return adminKeyTransport<FLAddressChangeApprovalResponse>(getAddressChangePostAddressChangeApprovalUrl(addressChangeId), {
-    ...options,
-    method: "POST",
-  });
-};
-
 export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) => {
   return `/api/v0/address_change/${encodeURIComponent(String(addressChangeId))}/invite`;
 };
@@ -772,11 +752,11 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
  * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
  * nothing.
  *
- * Refused as the start is about who asks (`own_address`, `admin_address`), where the ban list holds the pending address
- * (`address_change_barred`), where another pupil has come to sign in on it (`address_change_taken`), where an entry has come to name it,
- * confirmed or not (`address_change_occupied`), where a grant's approval week has passed (`link_expired`), and where the change ended
- * (`address_change_ended`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
- * file's confirmation, or confirmed, has no link to re-send.
+ * Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
+ * pending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change
+ * ended (`address_change_ended`). 404 for an id naming no change, and
+ * unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
+ * re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChange = async (
@@ -1416,25 +1396,23 @@ export const getIdentityPostAccountErasureUrl = () => {
 /**
  * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
  *
- * PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
- * (`last_owner_erasure`), since nobody else could ever make an owner again, and a person holding a live grant erases it with
- * the rest. No other precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
- * to be played included. Nothing is counted against the person's day.
+ * PERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a
+ * person holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a
+ * pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the
+ * person's day.
  *
  * Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
  * every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
  * confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
  * address's pending change naming this one as its new address, every record it would move standing at its own; every
- * grant the address holds, an `owner` grant and the last two among them, every administrator being told it ended.
+ * grant the address holds, every administrator being told it ended.
  * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
  * and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
- * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row and its log
- * images, the answer standing. Every match report the referee record sent stands, its remarks and entries included,
- * naming the row that holds no person in its place, in its log images too. Every record the person made as an
- * administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's
- * decision -- and every log row they wrote name a fixed marker in their place, this erasure's own rows included. The
- * log images of the removed records are emptied, and every other image holding the address loses it, the people beside
- * them keeping theirs.
+ * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
+ * standing. Every match report the referee record sent stands, its remarks and entries included, naming the row that
+ * holds no person in its place. Every record the person made as an administrator or decided as a seat holder -- a grant,
+ * a ban, an invitation, an application's or a registration's decision -- and every log row naming their address name a
+ * fixed marker in their place.
  *
  * An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
  * changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
@@ -1459,24 +1437,14 @@ export const getIdentityGetAccountErasureViewUrl = () => {
  * Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
  * removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
  * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
- * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking
- * their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
- * confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
- * the match reports their referee record sent, which stand naming the ghost, in their log images too;
- * the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
- * answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
- * they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
- * answer standing; what the person made or decided for others, which names a marker in their place; every
- * request for a grant about their address or made by it, which goes; their rows in the
- * log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
- * other log image holding the address; each grant's announced row, and an announced row holding the address under
- * another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their
- * grant ended, which every administrator is sent. `admin_tier` is the tier of the live grant the address holds, or
- * null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
- *
- * `last_owner` says whether the press would be refused `last_owner_erasure` as the grants stand at this read: the address
- * holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
- * the press judges again, and its answer alone decides.
+ * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
+ * booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
+ * the match reports their referee record sent, which stand naming the ghost; the links their contact seats were mailed on
+ * their teams' match confirmations, which stop answering; every reason they typed answering a match confirmation, from any
+ * seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
+ * marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which
+ * every administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the
+ * address, which admits nobody, goes with the erasure unnamed.
  * @summary Show what an erasure of the signed-in address would remove
  */
 export const identityGetAccountErasureView = async (
@@ -1495,22 +1463,18 @@ export const getIdentityPostErasureUrl = () => {
 /**
  * Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
  *
- * ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
- * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
- * Three refusals are about who asks. The administrator's own address is refused (`own_address`): their account page
- * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
- * signed in since becoming one (`admin_address`), judged inside the write: erasing it removes the grant, whatever grants
- * remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
- * other address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An
- * address another address's pending change would move to is refused, judged inside the write, where that address holds a
- * live grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an
- * owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
+ * ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
+ * state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
+ * refusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,
+ * or the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),
+ * judged inside the write. An address another address's pending change would move to is refused, judged inside the write,
+ * where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
+ * change, a discard only the owner makes of it.
  *
- * `reason` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
- * No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
- * as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
- * answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
- * the caller's, once this has answered.
+ * `reason` names the request the erasure answers, as free text. The grant notice names this administrator as ending the
+ * person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
+ * changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
+ * answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identityPostErasure = async (
@@ -1557,9 +1521,7 @@ export const getIdentitySweepErasureUrl = (params?: IdentitySweepErasureParams) 
  * writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
  * Two calls at once therefore delete each pupil once. Deleted are
  * the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
- * one included, each with its log images; every log row they wrote as a pupil keeps a
- * fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
- * address stand, and so do the log images naming them.
+ * one included. A contact seat, a referee record, a grant and anything else held at the same address stand.
  *
  * **A pass is a run of calls, each handing the next the `after` the last answered**, the first naming none; it ends at the call
  * answering `after` null. A call reaches at most a fixed share of the due pupils after `after`, in `_id` order, and the pass
@@ -1589,36 +1551,16 @@ export const getIdentityGetErasureViewUrl = () => {
 };
 
 /**
- * Answer which of this address's records `POST /identity/erasure` would remove or empty, by kind, name and the ids a page links each by.
+ * Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.
  *
- * ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
- * every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
- * and no other. Another address's pending change to this address is named by its id, the change going and that address's
- * records standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change
- * of an address holding a grant is left out for an administrator without an owner's power, as the administrators page
- * withholds it, since naming it would answer whether a typed address is its new one. The address's own live change is
- * named by its id, ending with the records it would move. Every request for a grant about the address (`target`) or
- * made by it (`requester`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
- * left out, though the erasure removes its row too. A squad
- * row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
- * fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
- * booking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which
- * goes; the match reports a referee row sent, which stand naming the ghost, in
- * their log images too; the confirmations a referee row was asked for, which go, and its id
- * and reason in a removed season's log images; the links its contact seats were mailed on their teams' open match
- * confirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,
- * which goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for
- * others, which name a marker in its place; its rows in the log; every log image of a record the
- * erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
- * a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
- * address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
- * notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
- * `admin_tier` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
- * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
+ * ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`
+ * counts the fixtures still to be played that a referee row is booked on. `address_change` counts the address's own live
+ * change and each other address's change naming it, leaving out a grant holder's for an administrator without an owner's
+ * power, since counting it would answer whether a typed address is its new one. Stores nothing.
  *
- * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a live grant unless
- * the administrator holds an owner's power (`admin_address`).
- * @summary Show what an erasure of an address would remove
+ * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the
+ * administrator holds an owner's power (`admin_address`).
+ * @summary Count what an erasure of an address would remove
  */
 export const identityGetErasureView = async (
   fLErasureAddressPayload: FLErasureAddressPayload,
@@ -1650,8 +1592,6 @@ export const getIdentityGetReferencesUrl = () => {
 
 /**
  * Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
- *
- * The whole batch is refused while no live grant is an owner's, since such a database would call every address unreferenced.
  * @summary Say which of these sign-in addresses no record references
  */
 export const identityGetReferences = async (
@@ -1712,53 +1652,12 @@ export const identityGetSignIn = async (
   });
 };
 
-export const getIdentityPostSignOutUrl = () => {
-  return `/api/v0/identity/sign_out`;
-};
-
-/**
- * File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.
- *
- * ADMIN TIER, a step-up write. The sessions live in the sign-in store, which the caller holds and this backend does not, so
- * the row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,
- * and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
- *
- * Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
- * administrator's own address (`own_address`), an address holding an `owner` grant unless the administrator holds an
- * owner's power (`admin_address`). Unlike the erasure, it
- * ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
- * @summary Log the ending of every session an address holds
- */
-export const identityPostSignOut = async (
-  fLErasureAddressPayload: FLErasureAddressPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSignOutResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return adminKeyTransport<FLSignOutResponse>(getIdentityPostSignOutUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAddressPayload),
-  });
-};
-
 export const getIdentityGetSubjectUrl = () => {
   return `/api/v0/identity/subject`;
 };
 
 /**
- * Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
+ * Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.
  *
  * The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
  * than a 404.
