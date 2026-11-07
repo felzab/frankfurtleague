@@ -566,7 +566,6 @@ def address_change_document(
     token_hash: str | None,
     day: str,
     way: FLAddressChangeWay = "account",
-    approval: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """A live change's record as a start inserts it at noon of `day` in Germany, its links as their hand-outs minted them.
 
@@ -579,7 +578,7 @@ def address_change_document(
     asked_first = way == "account"
 
     return {
-        **compose_record(address=address, email=email, way=way, change_reason=None, approval=approval, now=started),
+        **compose_record(address=address, email=email, way=way, change_reason=None, now=started),
         "token_hashes": [] if token_hash is None else [token_hash],
         "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
         "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,
