@@ -1,9 +1,10 @@
 from datetime import date, datetime
+from typing import get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.recording import FLAction, FLActionType
-from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH
+from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -31,9 +32,9 @@ class FLActionLogFilterPayload(BaseModel):
     cursor: CustomObjectId | None = None
     # A case-blind search over the team and the label: German action words are reached by `type`.
     q: str | None = Field(default=None, max_length=ACTION_LOG_SEARCH_MAX_LENGTH)
-    by: str | None = None
-    # LIST, one key per value: a filter's one option may stand for several categories.
-    type: list[FLActionType] | None = None
+    by: str | None = Field(default=None, max_length=KONTAKT_EMAIL_MAX_LENGTH)
+    # A list: a filter's one option may stand for several categories.
+    type: list[FLActionType] | None = Field(default=None, max_length=len(get_args(FLActionType.__value__)))
     # German days, both inclusive.
     from_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
     until_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)

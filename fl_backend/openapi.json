@@ -1298,6 +1298,7 @@
           "by": {
             "anyOf": [
               {
+                "maxLength": 254,
                 "type": "string"
               },
               {
@@ -1348,6 +1349,7 @@
                 "items": {
                   "$ref": "#/components/schemas/FLActionType"
                 },
+                "maxItems": 16,
                 "type": "array"
               },
               {

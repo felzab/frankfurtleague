@@ -34,37 +34,43 @@ export const AccountPostAddressChangeBody = zod.object({
  * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
  * @summary List recorded acts
  */
+export const actionLogGetActionLogBodyByOneMax = 254;
+
 export const actionLogGetActionLogBodyCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const actionLogGetActionLogBodyQOneMax = 200;
 
+export const actionLogGetActionLogBodyTypeOneMax = 16;
+
 export const ActionLogGetActionLogBody = zod
   .object({
-    by: zod.union([zod.string(), zod.null()]).optional(),
+    by: zod.union([zod.string().max(actionLogGetActionLogBodyByOneMax), zod.null()]).optional(),
     cursor: zod.union([zod.string().regex(actionLogGetActionLogBodyCursorOneRegExp), zod.null()]).optional(),
     from_day: zod.union([zod.iso.date(), zod.null()]).optional(),
     q: zod.union([zod.string().max(actionLogGetActionLogBodyQOneMax), zod.null()]).optional(),
     type: zod
       .union([
-        zod.array(
-          zod.enum([
-            "saison",
-            "spieltag",
-            "spiel",
-            "spielbestaetigung",
-            "spielbericht",
-            "team",
-            "bewerbung",
-            "registrierung",
-            "spieler",
-            "schiedsrichter",
-            "spielort",
-            "grant",
-            "ban",
-            "address_change",
-            "erasure",
-            "retention",
-          ]),
-        ),
+        zod
+          .array(
+            zod.enum([
+              "saison",
+              "spieltag",
+              "spiel",
+              "spielbestaetigung",
+              "spielbericht",
+              "team",
+              "bewerbung",
+              "registrierung",
+              "spieler",
+              "schiedsrichter",
+              "spielort",
+              "grant",
+              "ban",
+              "address_change",
+              "erasure",
+              "retention",
+            ]),
+          )
+          .max(actionLogGetActionLogBodyTypeOneMax),
         zod.null(),
       ])
       .optional(),
