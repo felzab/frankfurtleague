@@ -89,7 +89,7 @@ export const enterBan = action({
 
     // After the write is acknowledged, so nobody is signed out by a request that then failed.
     const note = partialOutcome(await sessionsEndedAt(email), account !== null);
-    return note === undefined ? { ok: true, value: undefined } : { ok: true, value: undefined, note };
+    return note === undefined ? { ok: true, value: undefined } : { ok: true, value: undefined, note, warn: true };
   },
 });
 

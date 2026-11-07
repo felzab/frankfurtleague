@@ -79,7 +79,7 @@ describe("a ban", () => {
   ])("stands and says what did not follow where %s", async (_case, failures, note) => {
     Object.assign(store, failures);
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note });
+    expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note, warn: true });
 
     expect(store.reached).toContain("post");
   });
