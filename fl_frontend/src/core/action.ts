@@ -210,7 +210,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "grant_owner",
   "grant_handover_waiting",
   "grant_not_in_effect",
-  "address_change_ended",
   // The address holds nothing a change moves, its records erased since the page was served.
   "address_change_nothing",
   // A running change ended, or a newer one replaced it, since the list offering its acts was read.

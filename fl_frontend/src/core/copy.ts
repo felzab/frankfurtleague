@@ -656,9 +656,7 @@ export const COPY = catalogue({
       },
       /** The step the change waits on lapsed; the hourly pass ends it. */
       lapsed: "Die Änderung ist abgelaufen.",
-      /** A grant's move waits on another administrator, who approves it apart from both links. */
       unchanged: "Das ist schon deine E-Mail-Adresse.",
-      /** A grant's move nobody but its holder could approve: the last owner's, or the one grant standing. */
       /** The address on file's one act, on its link's page and on its mail's button. */
       stop: "Änderung stoppen",
       /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
