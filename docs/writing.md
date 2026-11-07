@@ -44,10 +44,10 @@ check is on this page.
 - **A file or folder is cased by its kind.** A React component's file is PascalCase after the
   component it exports (`LinkRows.tsx`), every other TypeScript module camelCase after its main
   export (`signInGate.ts`), a Python module or package and a shell script snake_case
-  (`journal_replay.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
+  (`check_public_routes.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
   folder is lowercase kebab-case (`features/address-change/`), and a dynamic route segment is named
   as its param (`[saison_id]`). A test file is named after the module it tests (`routes.test.ts`,
-  `test_journal.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
+  `test_recording.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
   `README.md`). The lint's `check-file/folder-naming-convention` and
   `check-file/filename-naming-convention` (`eslint-plugin-check-file`, `fl_frontend/eslint.config.mjs`)
   and ruff's pep8-naming module rule `N999`, over the packages `namespace-packages` names

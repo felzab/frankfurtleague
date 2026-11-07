@@ -304,7 +304,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   one: an older sign-in keeps administering and is offered no owner's control. A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
   the application only an `owner` revokes; an erasure of the
   holder's own data removes the grant whatever its tier, the last
-  live owner's own erasure refused (`last_owner_erasure`).
+  live owner's own erasure refused (`owner_erasure`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `grants` collection of the application database (`DB_BASE_NAME`,
