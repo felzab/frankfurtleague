@@ -153,6 +153,28 @@ describe("the toolbar's acts the read decides", () => {
   });
 });
 
+describe("the toolbar's wait", () => {
+  // The harm: the buttons' wait going with the read lifts the list under them for an administrator, who never holds them.
+  it("draws nothing for an act the first read says the reader never holds, whatever the act's own read does", async () => {
+    const { prelude } = await prerender(
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        create={{ label: COPY.page.spielplan, act: new Promise(() => undefined), held: Promise.resolve(false) }}
+        list={{
+          kind: "spieltage",
+          wait: { tabs: 1, matches: 1 },
+          content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } }),
+        }}
+      />,
+      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+    );
+    const page = document.createElement("div");
+    page.innerHTML = await new Response(prelude).text();
+
+    expect(page.querySelector("[class*='only-child']")?.firstElementChild?.children).toHaveLength(0);
+  });
+});
+
 describe("the list template's wait", () => {
   // Under `prefers-reduced-motion: reduce` the motion tokens are unset, and a declaration reading one is
   // invalid whole: were it the `animation` shorthand, the name would fall to `none` and the skeleton, at its

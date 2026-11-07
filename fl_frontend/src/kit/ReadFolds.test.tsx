@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { ReadFolds } from "./ReadFolds";
+import { OpenFoldPlaceholder, ReadFolds } from "./ReadFolds";
 
 import type { TableProps } from "./Table";
 
@@ -20,6 +20,19 @@ const OPEN = { title: { record: "Aktiv" }, tables: [TABLE], open: true } as cons
 const FOLDED = { title: { record: "Angekündigt" }, tables: [TABLE] } as const;
 
 describe("a page's folded cards", () => {
+  // The harm: a row's act drawn where the row holds none stands that row taller than it lands, and every row under it rises.
+  it("waits with no act on the rows the page says hold none", () => {
+    render(
+      <OpenFoldPlaceholder
+        title={COPY.shared.saison}
+        head={{ nameLabel: COPY.shared.name, columns: [], acts: [COPY.shared.verb.remove] }}
+        rows={3}
+        plain={1}
+      />,
+    );
+    expect(screen.getAllByText(COPY.shared.verb.remove)).toHaveLength(2);
+  });
+
   // The harm: Administratoren's list of who holds access would start closed, or its waits open, both reading as a page.
   it("starts open only the card that says so", () => {
     render(

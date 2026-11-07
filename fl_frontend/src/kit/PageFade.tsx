@@ -38,3 +38,20 @@ export function PageWait({ fallback, children }: { fallback: ReactNode; children
     </Suspense>
   );
 }
+
+async function WaitOnceRead({ wait, children }: { wait: Promise<ReactNode>; children: ReactNode }) {
+  return <PageWait fallback={await wait}>{children}</PageWait>;
+}
+
+/**
+ * A `PageWait` whose shape depends on who reads, such as a role's acts: `wait` is the page's first read turned into its
+ * wait, and the content waits in it. `fallback` is the page's usual shape, which the static shell draws knowing no reader,
+ * and which stands while that read runs, as a rule past nobody's eye, inside `--loading-delay`.
+ */
+export function PageWaitOnceRead({ fallback, wait, children }: { fallback: ReactNode; wait: Promise<ReactNode>; children: ReactNode }) {
+  return (
+    <Suspense fallback={<PageFade>{fallback}</PageFade>}>
+      <WaitOnceRead wait={wait}>{children}</WaitOnceRead>
+    </Suspense>
+  );
+}

@@ -34,10 +34,11 @@ type TableColumn = {
    * What the column holds, which sets the least it takes, on a table that waits: its values are the read's, so without
    * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
    */
-  width?: "count" | "pair" | "marked" | "date" | "phone" | "line";
+  width?: "count" | "pair" | "marked" | "date" | "instant" | "phone" | "line";
   /**
    * Free text of any length, such as a ban's Grund: cut with „…“ at the column `width` sets, whole in its tooltip while
-   * it is cut. Every other column widens to its longest value.
+   * it is cut, and wrapping on a stacked phone row, where a touch reaches no tooltip. Every other column widens to its
+   * longest value.
    */
   cut?: true;
 } &
@@ -269,13 +270,15 @@ const table = tv({
     // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
     // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
     // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
-    // slots, a date ten characters, a phone number 20, a line of an address 35. A date stands at the start in the body's
-    // face, never as `figures`, which would centre it and set it apart from every other date column.
+    // slots, a date ten characters, an instant 20, „bis“ before its date and time, a phone number 20, a line of an address
+    // 35. A date stands at the start in the body's face, never as `figures`, which would centre it and set it apart from
+    // every other date column.
     width: {
       count: { head: "min-w-12" },
       pair: { head: "min-w-16 max-lg:min-w-13" },
       marked: { head: "min-w-16 max-lg:min-w-11" },
       date: { head: "min-w-28" },
+      instant: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-72" },
     },
@@ -755,25 +758,28 @@ export function Table({
  * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
  * centred, a name from the start after a club's plaque where the rows hold clubs, the chevron where rows lead on.
  * Drawn with the table's own recipe and the columns' stated widths, so it stands as the table will at every width, a
- * phone's left-out columns left out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons.
+ * phone's left-out columns left out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons. Each
+ * cell's bar stands in a line of the cell's own height, so a row holds its height wherever its lines stack.
  */
 export function TablePlaceholder({
   head,
   rows,
   plaques = false,
   bare = false,
+  plain = 0,
 }: {
   head: TableHead;
   rows: number;
   /** Whether each row holds a plaque before its name. */
   plaques?: boolean;
   bare?: boolean;
+  /** How many rows at the head of a table with acts carry none, such as the owner's own on Administratoren. */
+  plain?: number;
 }) {
   const { nameLabel, rankLabel, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts, stack = false } = head;
   const linked = head.linked !== false && acts === undefined;
   const phoneEnd = { stack, chevronOnPhone: linked && chevronOnPhone };
   const tableActs = acts === undefined ? undefined : "table";
-  const rowActs = acts === undefined ? undefined : "row";
   const parts = table({ acts: tableActs });
   return (
     <div className={bare ? "@container w-full overflow-hidden" : cardSurface({ class: "@container w-full overflow-hidden" })}>
@@ -796,58 +802,67 @@ export function TablePlaceholder({
           </tr>
         </thead>
         <tbody className={parts.part()}>
-          {Array.from({ length: rows }, (_, index) => (
-            <tr
-              key={index}
-              className={table({ ...phoneEnd, acts: rowActs }).row()}>
-              {rankLabel !== undefined && (
-                <td className={table({ align: "centre", compact }).cell()}>
-                  <span className={placeholderBar("mx-auto h-3 w-3")} />
-                </td>
-              )}
-              <td className={table({ compact, stack, acts: rowActs }).name()}>
-                <span className={table({ acts: rowActs }).whole({ class: "flex min-w-0 items-center gap-2" })}>
-                  {plaques && <span className={placeholderBar("h-6 w-10")} />}
-                  <PlaceholderLine
-                    text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
-                    width="w-1/2"
-                  />
-                </span>
-                <span className={table({ acts: rowActs }).chips()} />
-              </td>
-              {columns.map((column) => {
-                const s = table({ ...columnLook(column), compact, stack, acts: rowActs });
-                return (
-                  <td
-                    key={column.key}
-                    className={s.cell()}>
-                    {stack && <span className={s.label()}>{column.label}</span>}
-                    <span className={placeholderBar(column.figures === true ? "mx-auto h-3 w-4" : "h-3 w-20")} />
+          {Array.from({ length: rows }, (_, index) => {
+            const holdsActs = acts !== undefined && index >= plain;
+            const rowActs = acts === undefined ? undefined : holdsActs ? "row" : "table";
+            return (
+              <tr
+                key={index}
+                className={table({ ...phoneEnd, acts: rowActs }).row()}>
+                {rankLabel !== undefined && (
+                  <td className={table({ align: "centre", compact }).cell()}>
+                    <span className={placeholderBar("mx-auto h-3 w-3")} />
                   </td>
-                );
-              })}
-              {linked && (
-                <td
-                  className={table(phoneEnd).end()}
-                  style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
-                  <RowEnd />
-                </td>
-              )}
-              {acts !== undefined && (
-                <td className={table({ acts: rowActs }).acts()}>
-                  <span className="flex items-center gap-2 lg:justify-end">
-                    {acts.map((act) => (
-                      <span
-                        key={act}
-                        className={buttonPlaceholder()}>
-                        {act}
-                      </span>
-                    ))}
+                )}
+                <td className={table({ compact, stack, acts: rowActs }).name()}>
+                  <span className={table({ acts: rowActs }).whole({ class: "flex min-w-0 items-center gap-2" })}>
+                    {plaques && <span className={placeholderBar("h-6 w-10")} />}
+                    <PlaceholderLine
+                      text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
+                      width="w-1/2"
+                    />
                   </span>
+                  <span className={table({ acts: rowActs }).chips()} />
                 </td>
-              )}
-            </tr>
-          ))}
+                {columns.map((column) => {
+                  const s = table({ ...columnLook(column), compact, stack, acts: rowActs });
+                  return (
+                    <td
+                      key={column.key}
+                      className={s.cell()}>
+                      {stack && <span className={s.label()}>{column.label}</span>}
+                      <PlaceholderLine
+                        text=""
+                        width={column.figures === true ? "mx-auto w-4" : "w-20"}
+                      />
+                    </td>
+                  );
+                })}
+                {linked && (
+                  <td
+                    className={table(phoneEnd).end()}
+                    style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
+                    <RowEnd />
+                  </td>
+                )}
+                {acts !== undefined && (
+                  <td className={table({ acts: rowActs }).acts()}>
+                    {holdsActs && (
+                      <span className="flex items-center gap-2 lg:justify-end">
+                        {acts.map((act) => (
+                          <span
+                            key={act}
+                            className={buttonPlaceholder()}>
+                            {act}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
