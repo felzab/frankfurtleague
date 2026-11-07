@@ -42,7 +42,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
@@ -1255,6 +1255,13 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
 
 class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
+
+    def test_the_system_key_reaches_it(self, mongo_replica_set_url: str):
+        """`test_admin_guard.py` reads the key's guard alone: `bind_actor` on this router would refuse every pass, both refusals unmoved."""
+
+        status, _ = through_the_app(mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}", None, auth=SYSTEM_AUTH)
+
+        assert status == 200
 
     @pytest.mark.parametrize("auth", [BASE_AUTH, ADMIN_AUTH], ids=("base", "admin"))
     def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
