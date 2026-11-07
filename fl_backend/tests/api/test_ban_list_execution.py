@@ -14,6 +14,7 @@ from app.api.ban_list.crud import address_is_barred, read_ban_list_page
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.recording import Actor, actor_var
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -69,6 +70,14 @@ async def listed(database: AsyncDatabase) -> Any:
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, ban_reason: str = BAN_REASON, by: str = ADMIN) -> Any:
     return await ban_through_the_route(database, client, email=email, ban_reason=ban_reason, by=by, today=TODAY)
+
+
+async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry_id: ObjectId) -> Any:
+    token = actor_var.set(Actor(kind="admin_session", email=ADMIN))
+    try:
+        return await delete_ban_list_entry(ban_list_entry_id=ban_list_entry_id, ban_list_collection=database[Collection.BAN_LIST], db=client)
+    finally:
+        actor_var.reset(token)
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -181,11 +190,7 @@ class TestLiftingABan:
             created = await ban(database, client)
             await ban(database, client, email=OTHER, ban_reason="Bleibt stehen")
 
-            await delete_ban_list_entry(
-                ban_list_entry_id=ObjectId(created.created_id),
-                ban_list_collection=database[Collection.BAN_LIST],
-                db=client,
-            )
+            await lift(database, client, ObjectId(created.created_id))
 
             return [str(row["ban_reason"]) for row in await rows_of(database)]
 
@@ -198,11 +203,7 @@ class TestLiftingABan:
             await ban(database, client)
 
             with pytest.raises(DocumentNotFoundError):
-                await delete_ban_list_entry(
-                    ban_list_entry_id=ObjectId("6890a1b2c3d4e5f60794ffff"),
-                    ban_list_collection=database[Collection.BAN_LIST],
-                    db=client,
-                )
+                await lift(database, client, ObjectId("6890a1b2c3d4e5f60794ffff"))
 
             return await database[Collection.BAN_LIST].count_documents({})
 

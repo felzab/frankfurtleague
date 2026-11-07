@@ -137,6 +137,7 @@ from app.core.dependencies import (
 from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLGruppenNames
@@ -808,11 +809,20 @@ async def activate_saison(
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season AFTER it.
-        await erase_many_from_db(
+        lapsed = await erase_many_from_db(
             collection=ban_list_collection,
             db_filter={"barred_until_saison_id": {"$lt": saison_id}},
             session=session,
         )
+        if lapsed.deleted_count:
+            await record_act(
+                collection=ban_list_collection,
+                action="retention.bans",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=lapsed.deleted_count,
+                session=session,
+            )
 
         return FLActivateSaisonResponse(deactivated=demoted.modified_count)
 

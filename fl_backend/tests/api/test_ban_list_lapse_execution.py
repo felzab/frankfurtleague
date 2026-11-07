@@ -230,3 +230,25 @@ class TestTheSweepAtAnActivation:
             return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 0
+
+    @pytest.mark.parametrize(
+        ("target", "recorded"),
+        [
+            pytest.param("2040", [("system", "2040", 2, None)], id="a lapse"),
+            pytest.param(LAST_COVERED, [], id="an activation lapsing nothing"),
+        ],
+    )
+    def test_a_lapse_writes_one_nameless_row_counting_what_it_took(self, mongo_replica_set_url: str, target: str, recorded: list[Any]):
+        """No deletion stands without its row, and the row names no one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            await ban(database, client)
+            await ban(database, client, email=OTHER)
+            await a_drawn_target(database, target)
+            await activate(database, client, target)
+
+            rows = database[Collection.ACTION_LOG].find({"action": "retention.bans"})
+
+            return [(row["by"], row["label"], row["count"], row["record_id"]) async for row in rows]
+
+        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == recorded

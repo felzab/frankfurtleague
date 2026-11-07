@@ -31,6 +31,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.core.transactions import transaction_session
@@ -137,6 +138,8 @@ async def post_ban_list_entry(
         }
 
         created = await post_one_to_db(collection=ban_list_collection, document=document, session=session)
+        # No label: the log holds no person's address.
+        await record_act(collection=ban_list_collection, action="ban.added", record_id=created.inserted_id, session=session)
         if ban_list_data.notify:
             await enqueue_mails(
                 outbox_collection=outbox_collection,
@@ -181,6 +184,7 @@ async def delete_ban_list_entry(
         await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, projection=["_id"], session=session)
 
         await erase_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
+        await record_act(collection=ban_list_collection, action="ban.removed", record_id=ban_list_entry_id, session=session)
 
     async with transaction_session(db) as session:
         await session.with_transaction(lift_the_ban)
