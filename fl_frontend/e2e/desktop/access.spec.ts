@@ -39,7 +39,6 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   const dialog = page.getByRole("dialog", { name: "Änderung eintragen" });
   await typeInto(dialog.getByRole("textbox", { name: /^Bisherige E-Mail-Adresse/ }), MOVER);
   await typeInto(dialog.getByRole("textbox", { name: /^Neue E-Mail-Adresse/ }), newAddress);
-  await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), "Postfach verloren");
   await dialog.getByRole("button", { name: "Änderung eintragen" }).click();
   await expect(dialog).toBeHidden();
 
