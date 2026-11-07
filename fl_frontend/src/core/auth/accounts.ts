@@ -66,7 +66,8 @@ export async function carryAccount(previous: string, next: string): Promise<Acco
     return "moved";
   } catch (failed) {
     // `user_email_uidx` refusing a second account: the new address signs in to its own, the old one waits for the account sweep.
-    // Every press and approval refuses such an address (`accountStandsAt`), so only an account opened there since reaches this.
+    // The tool's start and re-send and the link's confirmation each refuse such an address (`accountStandsAt`), so only
+    // an account opened there since reaches this.
     if (failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "email" in (failed.keyPattern ?? {})) return "taken";
     throw failed;
   }
