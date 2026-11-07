@@ -115,11 +115,15 @@ describe("a ban", () => {
       expect(store.reached).toStrictEqual([`end ${ADDRESS}`]);
     });
 
-    it("says so where they did not end", async () => {
-      store.stand = async () => true;
+    // The harm: a field error stands on the box until its value changes, so the browser holds back the press that still could.
+    it.each([
+      ["they run", async () => true],
+      ["the store did not say", failing],
+    ])("says so where they did not end and %s, and leaves the address free to press again", async (_case, stand) => {
+      store.stand = stand;
       store.end = failing;
 
-      expect(await enterBan(BAN)).toMatchObject({ ok: false, reason: PARTIAL.sessions });
+      expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
     });
   });
 
