@@ -1015,8 +1015,8 @@ class TestAHoldersOwnChange:
         assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None) for address in sorted(recipients)]
 
     @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link", "a lost-mailbox start replacing a waiting change"])
-    def test_a_lost_mailbox_hears_nothing_of_any_holder_notice_and_none_names_an_actor(self, mongo_replica_set_url: str, ended_by: str):
-        """That mailbox may be a stranger's, and these mails carry the owner's private address and every grantee's."""
+    def test_a_lost_mailbox_hears_nothing_of_any_holder_notice(self, mongo_replica_set_url: str, ended_by: str):
+        """That mailbox may be a stranger's, and these mails carry every grantee's address."""
 
         replacing = ended_by.startswith("a lost-mailbox start")
 
@@ -1030,7 +1030,7 @@ class TestAHoldersOwnChange:
             else:
                 minted = await administrator_starts(database, client, operator=OWNER)
                 await answer(database, client, minted.token)
-            another = compose_notice(grant_id=ObjectId(), change="granted", stage="started", address=FOREIGN_EMAIL, changed_by=OWNER, now=NOW)
+            another = compose_notice(grant_id=ObjectId(), change="granted", stage="started", address=FOREIGN_EMAIL)
 
             async def owe(session: Any) -> None:
                 await owe_in_session(
@@ -1049,18 +1049,18 @@ class TestAHoldersOwnChange:
             elif not replacing:
                 await discard(database, client, minted.id, operator=OWNER)
             rows = database[Collection.OUTBOX].find({"kind": "grant"}, sort=[("_id", 1)])
-            return [(row["data"]["change"], row["data"]["stage"], row["to"], row["data"]["changed_by"]) async for row in rows]
+            return [(row["data"]["change"], row["data"]["stage"], row["to"]) async for row in rows]
 
         notices = on_a_person(mongo_replica_set_url, body)
 
-        assert EMAIL not in [to for _, _, to, _ in notices]
+        assert EMAIL not in [to for _, _, to in notices]
         # A replaced change's start was told before this case's rows.
-        assert [(change, stage, actor) for change, stage, _, actor in notices if change == "address"] == [
-            *([] if replacing else [("address", "started", None)] * len(ADMINISTRATORS)),
-            *[("address", "withdrawn", None)] * len(ADMINISTRATORS),
+        assert [(change, stage) for change, stage, _ in notices if change == "address"] == [
+            *([] if replacing else [("address", "started")] * len(ADMINISTRATORS)),
+            *[("address", "withdrawn")] * len(ADMINISTRATORS),
         ]
         # The other notice still goes to everybody else.
-        assert sorted(to for change, _, to, _ in notices if change == "granted") == sorted((*ADMINISTRATORS, FOREIGN_EMAIL))
+        assert sorted(to for change, _, to in notices if change == "granted") == sorted((*ADMINISTRATORS, FOREIGN_EMAIL))
 
     def test_a_row_a_handover_names_waits_the_owner_s_week_and_its_mails_say_so(self, mongo_replica_set_url: str):
         """A day's wait would land after the role did, and the mailbox holding the owner's role would have moved in a day."""

@@ -189,9 +189,7 @@ async def grant_in_session(
                 change="granted",
                 stage="started",
                 address=address,
-                changed_by=granted_by,
                 effective_from=effective_from,
-                now=now,
             )
         ],
         outbox_collection=outbox_collection,
@@ -230,7 +228,6 @@ async def move_the_grant_in_session(
 async def revoke_in_session(
     *,
     grant: Mapping[str, Any],
-    revoked_by: str,
     grants_collection: AsyncCollection,
     address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
@@ -259,10 +256,8 @@ async def revoke_in_session(
                 change="revoked" if holds else "granted",
                 stage="completed" if holds else "withdrawn",
                 address=str(grant["address"]),
-                changed_by=revoked_by,
-                now=now,
             ),
-            *compose_handover_end(grant, changed_by=revoked_by, now=now),
+            *compose_handover_end(grant),
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
@@ -275,7 +270,6 @@ async def revoke_in_session(
 async def start_the_handover_in_session(
     grant: Mapping[str, Any],
     *,
-    started_by: str,
     grants_collection: AsyncCollection,
     address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
@@ -303,9 +297,7 @@ async def start_the_handover_in_session(
                 change="handover",
                 stage="started",
                 address=str(grant["address"]),
-                changed_by=started_by,
                 effective_from=owner_from,
-                now=now,
             )
         ],
         outbox_collection=outbox_collection,
@@ -319,7 +311,6 @@ async def start_the_handover_in_session(
 async def stop_the_handover_in_session(
     grant: Mapping[str, Any],
     *,
-    stopped_by: str,
     grants_collection: AsyncCollection,
     address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
@@ -341,9 +332,7 @@ async def stop_the_handover_in_session(
     )
     await owe_in_session(
         [
-            compose_notice(
-                grant_id=grant["_id"], change="handover", stage="withdrawn", address=str(grant["address"]), changed_by=stopped_by, now=now
-            )
+            compose_notice(grant_id=grant["_id"], change="handover", stage="withdrawn", address=str(grant["address"])),
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
@@ -390,7 +379,7 @@ async def complete_the_handover_in_session(
         session=session,
     )
     await owe_in_session(
-        [compose_notice(grant_id=grant["_id"], change="handover", stage="completed", address=str(grant["address"]), changed_by=None, now=now)],
+        [compose_notice(grant_id=grant["_id"], change="handover", stage="completed", address=str(grant["address"]))],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
         address_changes_collection=address_changes_collection,

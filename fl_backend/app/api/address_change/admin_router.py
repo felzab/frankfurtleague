@@ -215,7 +215,6 @@ async def post_address_change_admin(
         record = compose_record(address=identifier, email=email, way=way, now=germany_now)
         address_change_id = await start_the_change_in_session(
             record=record,
-            actor=operator,
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
@@ -370,7 +369,6 @@ async def delete_address_change(
         )
         await tell_the_holders_of_the_end_in_session(
             record,
-            changed_by=operator,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,

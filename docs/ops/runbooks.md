@@ -548,7 +548,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   hourly pass switches it. That pass judges it on less, an entry nobody confirmed joining no two people: nothing left to
   move ends it, and so do another pupil signing in on the new address where a pupil row moves, a grant of the new address,
   an entry a person confirmed and an account still owed its carry. Every holder in effect is mailed when the wait starts, when it is stopped or withdrawn and when
-  it completes, the new address masked. On a lost mailbox those notices name no actor, and the old address, which may
+  it completes, the new address masked. On a lost mailbox the old address, which may
   have passed to a stranger, receives no such mail while the change stands, hearing only through the change's own notice
   and its effect's. The tool starts a holder's change for the owner alone (`admin_address`). The owner
   discards it there; the holder withdraws it on Konto; the old address's stop link ends it too. At the switch the grant row

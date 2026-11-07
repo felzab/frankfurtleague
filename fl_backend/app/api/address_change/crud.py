@@ -239,8 +239,6 @@ async def end_the_change_in_session(
 async def start_the_change_in_session(
     *,
     record: Mapping[str, Any],
-    # Who replaces a live change, for the holders' notice where it was waiting.
-    actor: str,
     address_changes_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
@@ -269,11 +267,10 @@ async def start_the_change_in_session(
     # Two starts on one address meet at `uniq_address_change_address` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=address_changes_collection, document=record, session=session)
 
-    # After the insert, so a lost-mailbox row already silences the mailbox it declares lost, and that row's notices name no actor.
+    # After the insert, so a lost-mailbox row already silences the mailbox it declares lost.
     if ended is not None:
         await tell_the_holders_of_the_end_in_session(
             ended,
-            changed_by=None if record["way"] == "waiting_period" else actor,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
@@ -418,8 +415,6 @@ async def tell_the_holders_in_session(
     record: Mapping[str, Any],
     *,
     stage: FLGrantNoticeStage,
-    # Null for the hourly pass, which is nobody.
-    changed_by: str | None,
     effective_from: datetime | None,
     grants_collection: AsyncCollection,
     address_changes_collection: ReadCollection,
@@ -432,8 +427,8 @@ async def tell_the_holders_in_session(
     """Tell every holder in effect of a holder's change, in the caller's transaction, `record` as it stood.
 
     The new address masked: it is the holder's private mailbox, and the readers need to recognise it, never to write to it.
-    A lost-mailbox change names no actor and passes over its old address, ended or not: whoever holds that mailbox now may
-    be a stranger, and these mails name people.
+    A lost-mailbox change passes over its old address, ended or not: whoever holds that mailbox now may be a stranger, and these
+    mails name people.
     """
 
     lost_mailbox = record["way"] == "waiting_period"
@@ -443,9 +438,7 @@ async def tell_the_holders_in_session(
         stage=stage,
         address=str(record["address"]),
         new_address=masked_address(str(record["email"])) if names_the_new_address else None,
-        changed_by=None if lost_mailbox else changed_by,
         effective_from=effective_from,
-        now=now,
     )
     await owe_in_session(
         [notice],
@@ -461,7 +454,6 @@ async def tell_the_holders_in_session(
 async def tell_the_holders_of_the_end_in_session(
     record: Mapping[str, Any],
     *,
-    changed_by: str | None,
     grants_collection: AsyncCollection,
     address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
@@ -479,7 +471,6 @@ async def tell_the_holders_of_the_end_in_session(
     await tell_the_holders_in_session(
         record,
         stage="withdrawn",
-        changed_by=changed_by,
         effective_from=None,
         grants_collection=grants_collection,
         address_changes_collection=address_changes_collection,
@@ -708,7 +699,6 @@ async def move_the_address_in_session(
         await tell_the_holders_in_session(
             record,
             stage="completed",
-            changed_by=None,
             effective_from=None,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
@@ -802,8 +792,8 @@ async def end_the_address_changes_in_session(
     """End every change naming the erased address.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
-    change. A holder's change in its wait tells the holders, who hold a date it will not reach, naming no actor and no new
-    address: either may be the erased one.
+    change. A holder's change in its wait tells the holders, who hold a date it will not reach, naming no new address: it may
+    be the erased one.
     """
 
     if rows:
@@ -827,7 +817,6 @@ async def end_the_address_changes_in_session(
         )
         await tell_the_holders_of_the_end_in_session(
             row,
-            changed_by=None,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,

@@ -96,7 +96,7 @@ def grant_row(grant_id: ObjectId, address: str, admin_tier: str, granted_by: str
 
 
 def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | None, by: str) -> dict[str, Any]:
-    composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address, changed_by=by, now=QUEUED)
+    composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address)
 
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
     return {
@@ -208,9 +208,7 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def erase(
-    database: AsyncDatabase, client: AsyncMongoClient, *, changed_by: str = DORA, identifier: str = ERIKA
-) -> ErasedGrantsAndAuthorship:
+async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ERIKA) -> ErasedGrantsAndAuthorship:
     async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
         return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
@@ -221,7 +219,6 @@ async def erase(
             invitations_collection=database[Collection.INVITATIONS],
             ban_list_collection=database[Collection.BAN_LIST],
             identifier=identifier,
-            changed_by=changed_by,
             now=NOW,
             session=session,
         )
@@ -242,7 +239,7 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
         data = row["data"]
         notices.setdefault(
             row["key"].rpartition("/")[0],
-            {"change": data["change"], "stage": data["stage"], "address": data["address"], "changed_by": data["changed_by"]},
+            {"change": data["change"], "stage": data["stage"], "address": data["address"]},
         )
 
     return list(notices.values())
@@ -290,15 +287,7 @@ class TestTheNotices:
 
             return await queued_for(database, ERIKA_ID)
 
-        assert on_a_league(mongo_replica_set_url, body) == [{"change": "revoked", "stage": "completed", "address": None, "changed_by": DORA}]
-
-    def test_geloescht_on_her_own_request_her_grants_end_names_its_maker_by_the_marker(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            await erase(database, client, changed_by=ERIKA_TYPED)
-
-            return [row["changed_by"] for row in await queued_for(database, ERIKA_ID)]
-
-        assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER]
+        assert on_a_league(mongo_replica_set_url, body) == [{"change": "revoked", "stage": "completed", "address": None}]
 
     def test_every_notice_queued_before_her_erasure_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
         """Her address emptied, her as the actor given the marker."""
@@ -342,7 +331,7 @@ class TestTheNotices:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
             row = notice(row_id, BERND_ID, "address", BERND, DORA)
-            data = {**row["data"], "stage": stage, "changed_by": None, "new_address": masked_address(ERIKA)}
+            data = {**row["data"], "stage": stage, "new_address": masked_address(ERIKA)}
             await database[Collection.OUTBOX].insert_one({**row, "data": data})
             await erase(database, client)
             stored = await database[Collection.OUTBOX].find_one({"_id": row_id})
@@ -378,8 +367,8 @@ class TestTheNotices:
             return await queued_for(database, ERIKA_ID)
 
         assert on_a_league(mongo_replica_set_url, body) == [
-            {"change": "revoked", "stage": "completed", "address": None, "changed_by": DORA},
-            {"change": "handover", "stage": "withdrawn", "address": None, "changed_by": DORA},
+            {"change": "revoked", "stage": "completed", "address": None},
+            {"change": "handover", "stage": "withdrawn", "address": None},
         ]
 
 

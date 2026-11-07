@@ -169,7 +169,6 @@ async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
-            revoked_by=als,
             now=NOW,
         )
 
@@ -193,7 +192,6 @@ async def hand_over(
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            started_by=als,
             now=now,
         )
 
@@ -208,7 +206,6 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            stopped_by=als,
             now=NOW,
         )
 
@@ -249,15 +246,15 @@ async def row_of(database: AsyncDatabase, grant_id: ObjectId) -> Mapping[str, An
     return row
 
 
-async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, str | None, list[str]]]:
-    """Each notice owed, in order: its change, stage, address, actor, and everybody it is owed to."""
+async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, list[str]]]:
+    """Each notice owed, in order: its change, stage, address, and everybody it is owed to."""
 
     rows = [row async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}).sort([("recorded_at", 1), ("_id", 1)])]
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
     for row in rows:
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["to"]))
 
-    return [(data["change"], data["stage"], data["address"], data["changed_by"], sorted(to)) for data, to in notices.values()]
+    return [(data["change"], data["stage"], data["address"], sorted(to)) for data, to in notices.values()]
 
 
 async def refusal_of(call: Awaitable[Any]) -> str:
@@ -309,7 +306,7 @@ class TestAnAddition:
             "granted_by": OWNER,
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
         }
-        assert notices == [("granted", "started", NEU, OWNER, sorted([*EVERY_HOLDER, NEU]))]
+        assert notices == [("granted", "started", NEU, sorted([*EVERY_HOLDER, NEU]))]
 
     def test_a_waiting_holder_is_told_of_nothing_but_their_own_row(self, mongo_replica_set_url: str):
         """The holder list is who is in effect: a row still waiting may yet be withdrawn, and hears only of itself."""
@@ -350,9 +347,7 @@ class TestAnAddition:
         """A transaction retried after a conflict runs its enqueue again under the instant it was first handed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            notice = compose_notice(
-                grant_id=ANNA_ID, change="handover", stage="started", address=ANNA, changed_by=OWNER, effective_from=NOW, now=NOW
-            )
+            notice = compose_notice(grant_id=ANNA_ID, change="handover", stage="started", address=ANNA, effective_from=NOW)
 
             async def owe(session: AsyncClientSession) -> None:
                 await owe_in_session(
@@ -429,7 +424,7 @@ class TestARemoval:
         held, notices = on_a_league(mongo_replica_set_url, body)
 
         assert held == sorted([OWNER, ANNA])
-        assert notices == [("revoked", "completed", BERND, OWNER, EVERY_HOLDER)]
+        assert notices == [("revoked", "completed", BERND, EVERY_HOLDER)]
 
     def test_a_waiting_row_is_withdrawn_by_the_same_press(self, mongo_replica_set_url: str):
         """Mailed as a withdrawal: „hat keinen Zugang mehr“ would tell the person they once held one."""
@@ -443,7 +438,7 @@ class TestARemoval:
 
         notices, logged = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        assert notices == [("granted", "withdrawn", NEU, OWNER, sorted([*EVERY_HOLDER, NEU]))]
+        assert notices == [("granted", "withdrawn", NEU, sorted([*EVERY_HOLDER, NEU]))]
         assert logged == 1
 
     def test_a_handover_waiting_on_the_row_is_withdrawn_in_words(self, mongo_replica_set_url: str):
@@ -457,8 +452,8 @@ class TestARemoval:
             return await owed(database)
 
         assert on_a_league(mongo_replica_set_url, body) == [
-            ("revoked", "completed", ANNA, OWNER, EVERY_HOLDER),
-            ("handover", "withdrawn", ANNA, OWNER, EVERY_HOLDER),
+            ("revoked", "completed", ANNA, EVERY_HOLDER),
+            ("handover", "withdrawn", ANNA, EVERY_HOLDER),
         ]
 
     def test_the_owners_row_goes_by_no_removal(self, mongo_replica_set_url: str):
@@ -490,7 +485,7 @@ class TestAHandover:
 
         assert owner_from == stored(NOW + timedelta(days=OWNER_WAIT_DAYS))
         assert (held[OWNER], held[ANNA]) == ("owner", "administration")
-        assert notices == [("handover", "started", ANNA, OWNER, EVERY_HOLDER)]
+        assert notices == [("handover", "started", ANNA, EVERY_HOLDER)]
 
     def test_a_row_still_waiting_is_refused_so_an_addition_then_a_handover_waits_both(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -517,7 +512,7 @@ class TestAHandover:
 
         assert "owner_from" not in row
         assert handed_over == 0
-        assert notices[-1] == ("handover", "withdrawn", ANNA, OWNER, EVERY_HOLDER)
+        assert notices[-1] == ("handover", "withdrawn", ANNA, EVERY_HOLDER)
 
     def test_a_row_waiting_on_no_handover_has_nothing_to_stop(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -558,7 +553,7 @@ class TestThePass:
         assert (held[OWNER], held[ANNA], held[BERND]) == ("administration", "owner", "administration")
         assert row["effective_from"] == stored(moment)
         assert "owner_from" not in row
-        assert notice == ("handover", "completed", ANNA, None, EVERY_HOLDER)
+        assert notice == ("handover", "completed", ANNA, EVERY_HOLDER)
         assert (logged["by"], logged["label"], logged["record_id"]) == ("system", ANNA, ANNA_ID)
 
     def test_the_swap_is_one_transaction(self, mongo_replica_set_url: str):
@@ -760,7 +755,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
     def test_an_addition_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
-        """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the grant, the notice and the log alike."""
+        """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the grant and the log alike."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
@@ -769,9 +764,8 @@ class TestTheMountedRouteReadsTheGrants:
                 )
 
             row = await database[Collection.GRANTS].find_one({"address": NEU})
-            [(_, _, _, actor, _)] = await owed(database)
             logged = await database[Collection.ACTION_LOG].find_one({"action": "grant.added"})
 
-            return response.status_code, row and row["granted_by"], actor, logged and (logged["by"], logged["label"])
+            return response.status_code, row and row["granted_by"], logged and (logged["by"], logged["label"])
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER, OWNER, (OWNER, NEU))
+        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER, (OWNER, NEU))

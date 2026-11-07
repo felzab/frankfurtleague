@@ -1,7 +1,6 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
-import { ERASED_ACTOR_MARKER } from "./erasedActor";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -22,7 +21,7 @@ function leadOf({ change, stage, address, new_address }: FLGrantData): string {
   // The lead's object, after „an“: an erased address reads lower-case there.
   const object = address ?? WORDS.unnamedTarget;
   // An address change's alone, and masked: a holder learns which mailbox moves, and not all of where to.
-  const next = new_address ?? WORDS.unnamedActor;
+  const next = new_address ?? WORDS.unnamedNewAddress;
 
   switch (change) {
     case "revoked":
@@ -42,17 +41,6 @@ function leadOf({ change, stage, address, new_address }: FLGrantData): string {
   }
 }
 
-/** Who acted and when, then when it takes effect; a press or a pass naming nobody states its date alone. */
-function factsOf({ change, stage, changed_by, changed_at, effective_from }: FLGrantData): Paragraph | null {
-  const takesEffect = effective_from === null ? null : WORDS.effectiveFrom(effective_from);
-  if (changed_by === null) return takesEffect === null ? null : [takesEffect];
-
-  const actor = changed_by === ERASED_ACTOR_MARKER ? WORDS.unnamedActor : changed_by;
-  const by = stage === "withdrawn" ? WORDS.by.withdrawn : change === "revoked" ? WORDS.by.removed : WORDS.by.entered;
-
-  return takesEffect === null ? [by(actor, changed_at)] : [by(actor, changed_at), takesEffect];
-}
-
 /**
  * **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice.
  * An addition's start is a first contact, the address having come from the owner and perhaps been mistyped, so it
@@ -60,13 +48,14 @@ function factsOf({ change, stage, changed_by, changed_at, effective_from }: FLGr
  */
 export function buildGrantEmail(data: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
   const origin = mailOrigin(rawOrigin);
-  const facts = factsOf(data);
+  const { effective_from: effectiveFrom } = data;
+  const takesEffect: Paragraph[] = effectiveFrom === null ? [] : [[WORDS.effectiveFrom(effectiveFrom)]];
 
   return {
     kind: data.change === "granted" && data.stage === "started" ? "firstContact" : "notice",
     subjectLine: subjectOf(data),
     origin,
-    paragraphs: [[leadOf(data)], ...(facts === null ? [] : [facts]), [WORDS.warn]],
+    paragraphs: [[leadOf(data)], ...takesEffect, [WORDS.warn]],
     ...(data.stage === "started" ? { button: { label: WORDS.button, href: `${origin}${ROUTES.adminAdministrators.path()}` } } : {}),
   };
 }

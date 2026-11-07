@@ -164,7 +164,6 @@ async def delete_grant(
         refuse(find_owner_row_refusal(grant=grant))
         await revoke_in_session(
             grant=grant,
-            revoked_by=revoked_by,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
@@ -217,7 +216,6 @@ async def post_handover(
         )
         await start_the_handover_in_session(
             grant,
-            started_by=started_by,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
@@ -260,7 +258,6 @@ async def delete_handover(
 
         await stop_the_handover_in_session(
             grant,
-            stopped_by=stopped_by,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,

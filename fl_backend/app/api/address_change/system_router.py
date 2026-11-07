@@ -189,7 +189,6 @@ async def _make_the_due_change_take_effect(
         await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
         await tell_the_holders_of_the_end_in_session(
             record,
-            changed_by=None,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,

@@ -692,7 +692,6 @@ async def erased_in_scope(
             identifier,
             scope=scope,
             **erasure_collections(database, **replaced),
-            changed_by=IDENTIFIER,
             now=NOW,
             session=session,
         )
@@ -1059,7 +1058,7 @@ class TestTheJournal:
             await database[Collection.ADDRESS_CHANGES].insert_one({**change, "confirmed_at": GRANTED})
             # Another person's change, whose new address masks as this one's does.
             masked = {"change": "address", "stage": "started", "address": "dritte@example.org", "new_address": masked_address(former)}
-            await database[Collection.OUTBOX].insert_one({**a_mail("grant", to=other), "state": "open", "data": {**masked, "changed_by": None}})
+            await database[Collection.OUTBOX].insert_one({**a_mail("grant", to=other), "state": "open", "data": masked})
             status = (await erased_over_http(mongo_replica_set_url, email=former)).status_code
             withdrawn = database[Collection.OUTBOX].find({"data.change": "address", "data.stage": "withdrawn"})
 

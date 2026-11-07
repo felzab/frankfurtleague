@@ -2435,8 +2435,6 @@ export const FLGrantDataStage = {
 export interface FLGrantData {
   address: string | null;
   change: FLGrantDataChange;
-  changed_at: string;
-  changed_by: string | null;
   effective_from: string | null;
   kind: "grant";
   new_address: string | null;

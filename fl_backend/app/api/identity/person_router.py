@@ -120,7 +120,6 @@ async def post_account_erasure(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             address_changes_collection=address_changes_collection,
-            changed_by=identifier,
             for_the_person=True,
             now=germany_now,
             session=session,

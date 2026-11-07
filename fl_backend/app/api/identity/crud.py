@@ -562,9 +562,6 @@ async def erase_everything(
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
-    # Whom the grant notice names as ending the person's grant: the person on their own request, the administrator on
-    # theirs. Read by the grants step alone, which the pupil scope never runs.
-    changed_by: str = ERASED_ACTOR_MARKER,
     # The person's own request, whose answer counts no change whose link has not reached this mailbox, as their preview
     # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
     # typed their address. Every change naming it ends all the same.
@@ -697,7 +694,6 @@ async def erase_everything(
             ban_list_collection=ban_list_collection,
             identifier=identifier,
             address_changes_collection=address_changes_collection,
-            changed_by=changed_by,
             now=now,
             session=session,
         )

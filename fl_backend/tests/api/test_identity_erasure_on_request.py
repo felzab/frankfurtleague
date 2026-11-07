@@ -467,8 +467,7 @@ class TestAnotherAdministratorsAddress:
         response, left, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (response.status_code, response.json()["grants"], left) == (200, 1, 0)
-        # The end's notice names who ended the grant: the pressing owner, on the person's request.
-        assert [(notice["change"], notice["changed_by"]) for notice in notices] == [("revoked", OWNER)]
+        assert [notice["change"] for notice in notices] == ["revoked"]
 
 
 @pytest.mark.db

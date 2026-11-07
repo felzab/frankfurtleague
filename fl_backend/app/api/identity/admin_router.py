@@ -232,7 +232,6 @@ async def post_erasure(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             address_changes_collection=address_changes_collection,
-            changed_by=operator,
             now=germany_now,
             session=session,
         )

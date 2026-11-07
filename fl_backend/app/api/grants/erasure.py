@@ -25,7 +25,7 @@ from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
 # The sites of a grant notice naming an address in full.
-_QUEUED_SITES = ("data.address", "data.changed_by")
+_QUEUED_SITES = ("data.address",)
 
 
 @dataclass(frozen=True)
@@ -70,7 +70,7 @@ async def _rows_naming(
 
 
 def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
-    """What takes this person out of one notice's facts: the address emptied, the actor given the marker.
+    """What takes this person out of one notice's facts: the address emptied.
 
     A change's new address is stored masked, so it is matched as masked: another person's mask reading alike loses a word
     from a mail and no more. A completed change's old address was this person's own, which the erasure's fold cannot find.
@@ -82,8 +82,6 @@ def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
         update["address"] = None
         if data.get("change") == "address":
             update["new_address"] = None
-    if _names(data.get("changed_by"), identifier):
-        update["changed_by"] = ERASED_ACTOR_MARKER
     if data.get("change") == "address" and data.get("new_address") == masked_address(identifier):
         update["new_address"] = None
         if data.get("stage") == "completed":
@@ -198,9 +196,6 @@ async def erase_grants_and_authorship_in_session(
     ban_list_collection: AsyncCollection,
     # Folded (`app/shared/folding.py :: sign_in_identifier`).
     identifier: str,
-    # Who the erasure is attributed to: an administrator's address, or `identifier` itself on the
-    # person's own request, which the notice then names by the marker.
-    changed_by: str,
     now: datetime,
     # REQUIRED: the grants, the notices and the authored records go in one transaction or none.
     session: AsyncClientSession,
@@ -221,10 +216,8 @@ async def erase_grants_and_authorship_in_session(
         _withheld(notice, identifier)
         for grant in grants
         for notice in (
-            compose_notice(
-                grant_id=grant["_id"], change="revoked", stage="completed", address=str(grant["address"]), changed_by=changed_by, now=now
-            ),
-            *compose_handover_end(grant, changed_by=changed_by, now=now),
+            compose_notice(grant_id=grant["_id"], change="revoked", stage="completed", address=str(grant["address"])),
+            *compose_handover_end(grant),
         )
     ]
 
