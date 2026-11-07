@@ -1,4 +1,3 @@
-import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -10,20 +9,9 @@ import {
 } from "@/core/generated/zod/inputs";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 
-import type { FLBanDurationSaisons } from "@/core/generated/client/types";
-
-const WORDS = COPY.admin.banList;
-
 /**
- * How many seasons a ban runs, which the dialog states ahead of the act; checked against the bound
- * `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS` publishes, so the backend moving it fails the type
- * check here.
- */
-const BAN_SAISONS = 5 satisfies FLBanDurationSaisons;
-
-/**
- * The ban dialog's inputs and how long the ban runs: the address and the Grund, which a mail hands to the address, so
- * it holds no names. Drawn on the server, so the schema never reaches the browser.
+ * The ban dialog's inputs: the address and the Grund, which a mail hands to the address, so it holds no names. Drawn on
+ * the server, so the schema never reaches the browser.
  */
 export function BanFields() {
   return (
@@ -45,7 +33,6 @@ export function BanFields() {
         isRequired={requires(BanListPostBanListEntryBody.shape.ban_reason, "")}
         maxLength={banListPostBanListEntryBodyBanReasonMax}
       />
-      <Facts facts={[{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_SAISONS) }]} />
     </>
   );
 }

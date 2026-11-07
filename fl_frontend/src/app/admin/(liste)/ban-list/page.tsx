@@ -11,12 +11,19 @@ import { enterBan } from "./banActs";
 import { BanFields } from "./BanFields";
 import { LiftBan } from "./LiftBan";
 
-import type { FLBanListEntry } from "@/core/generated/client/types";
+import type { FLBanDurationSaisons, FLBanListEntry } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = COPY.admin.banList;
 const ENTER = COPY.shared.withObject(WORDS.object, "enter");
+
+/**
+ * How many seasons a ban runs, which the dialog states ahead of the act; checked against the bound
+ * `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS` publishes, so the backend moving it fails the type
+ * check here.
+ */
+const BAN_SAISONS = 5 satisfies FLBanDurationSaisons;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminBanList, ROUTES.adminBanList.path());
@@ -84,7 +91,8 @@ export default function BanListPage() {
           title: ENTER,
           act: { verb: "enter", object: WORDS.object },
           action: enterBan,
-          lead: WORDS.consequence,
+          consequence: WORDS.consequence,
+          facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_SAISONS) }],
           touch: { holder: address },
           children: <BanFields />,
         })),
