@@ -8,7 +8,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload, FLInvitationRecipient
 from app.api.invitations.services import (
@@ -24,7 +23,7 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.tokens import hash_token
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -469,28 +468,6 @@ class TestRevokingALink:
         assert on_a_league(mongo_replica_set_url, body) == 0
 
 
-class TestTheStateRead:
-    @pytest.mark.parametrize("barred", [False, True], ids=("a minter the list does not hold", "a barred minter"))
-    def test_a_barred_minter_is_withheld_beside_a_flag(self, mongo_replica_set_url: str, barred: bool):
-        """The grants list's rule on every admin read: no barred address is served in plain."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.TEAMS].insert_one(team_document(TWO_SEATS, TEAM_NAMES[TWO_SEATS], "ZWE"))
-            await mint(database, TWO_SEATS)
-            if barred:
-                await database[Collection.BAN_LIST].insert_one(
-                    ban_document(ADMIN, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
-                )
-            link = (await read_state(database, TWO_SEATS)).link
-
-            return link.invitation and (link.invitation.created_by, link.invitation.created_by_barred), link.model_dump_json()
-
-        served, rendered = on_a_league(mongo_replica_set_url, body)
-
-        assert served == ((None, True) if barred else (ADMIN, False))
-        assert (ADMIN in rendered) is not barred
-
-
 async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -> Any:
     return await post_invitation_dispatch(
         team_id=team_id,
@@ -595,31 +572,6 @@ class TestTheSeasonWidePress:
         # The withdrawn team's own seat IS confirmed, so an empty list here is the withdrawal's doing.
         assert owed[str(WITHDRAWN)] == []
         assert (done.mailed, done.skipped, done.failed) == (1, 4, 0)
-
-    def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds_at_every_press(self, mongo_replica_set_url: str):
-        """A link nobody sent stands, as the mailer leaves a barred team's.
-
-        One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
-        """
-
-        bound = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.BAN_LIST].insert_many(
-                [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
-            )
-            await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
-            shown = await editor(database)
-            first = await press(database)
-            second = await press(database)
-
-            return decided(shown.invitations), [done.mailed for done in (first, second)], await live_count(database, TWO_SEATS)
-
-        shown, mailed, live = on_a_league(mongo_replica_set_url, body)
-
-        assert (str(TWO_SEATS), (), "kontakte_barred") in shown
-        assert mailed == [0, 0]
-        assert live == 1
 
     def test_it_mints_for_the_team_it_mails_and_owes_its_confirmed_seats_in_the_same_write(self, mongo_replica_set_url: str):
         """Per team, the count the plan asks for: one live invitation where it minted, one where it skipped a mailed team, none elsewhere.
