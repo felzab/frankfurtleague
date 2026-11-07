@@ -2594,6 +2594,10 @@
         "title": "FLBanData",
         "type": "object"
       },
+      "FLBanDurationSaisons": {
+        "const": 5,
+        "type": "integer"
+      },
       "FLBanListEntry": {
         "description": "One ban, as `ban_list` stores it and as the list serves it.",
         "properties": {

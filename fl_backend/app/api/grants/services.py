@@ -60,6 +60,7 @@ def find_exists_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) ->
     return WriteRefusal(
         error_code=Code.GRANT_EXISTS,
         status=HTTPStatus.CONFLICT,
+        fields=(("email",),),
     )
 
 

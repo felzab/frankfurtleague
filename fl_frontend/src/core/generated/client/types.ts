@@ -1135,6 +1135,8 @@ export interface FLBanData {
   kind: "ban";
 }
 
+export type FLBanDurationSaisons = 5;
+
 /**
  * One ban, as `ban_list` stores it and as the list serves it.
  */

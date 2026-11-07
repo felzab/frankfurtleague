@@ -142,7 +142,8 @@ ERASURE_REASON_MAX_LENGTH: Final = 200
 
 # How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
-BAN_DURATION_SAISONS: Final = 5
+type FLBanDurationSaisons = Literal[5]
+BAN_DURATION_SAISONS: Final[FLBanDurationSaisons] = 5
 
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
