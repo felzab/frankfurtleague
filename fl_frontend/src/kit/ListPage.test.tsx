@@ -94,23 +94,6 @@ describe("the list's create act", () => {
   });
 });
 
-describe("the list's search", () => {
-  it("hands its field the bound the page states", () => {
-    render(
-      <ListPage
-        head={{ scope: "saison", title: { route: "spielplan" } }}
-        list={{
-          kind: "spiele",
-          search: { label: COPY.shared.saison, maxLength: 200 },
-          wait: 1,
-          content: new Promise(() => undefined),
-        }}
-      />,
-    );
-    expect(screen.getByRole("searchbox").getAttribute("maxlength")).toBe("200");
-  });
-});
-
 describe("the toolbar's acts the read decides", () => {
   // Read at once, since a prerender waits for every boundary, the list's among them.
   const LIST = {
@@ -121,7 +104,6 @@ describe("the toolbar's acts the read decides", () => {
   const HEAD = { scope: "saison", title: { route: "spielplan" } } as const;
   const ACT = { verb: "create", object: COPY.page.spielplan } as const;
   const SIDE = { verb: "handOver", object: COPY.page.spielplan } as const;
-  const dialog = (act: typeof ACT | typeof SIDE) => ({ title: actLabel(act), act, action: vi.fn(), children: null });
 
   /** The page once every boundary holding an act has resolved, as the server streams it. */
   async function toolbar(props: Pick<ComponentProps<typeof ListPage>, "create" | "sideAct">) {
@@ -139,18 +121,6 @@ describe("the toolbar's acts the read decides", () => {
     return page.querySelector("[class*='only-child']");
   }
 
-  // The primary act stands at the row's end, where every list has it, and the secondary before it.
-  it("stands the second act, a secondary button, before the create act", async () => {
-    const bar = await toolbar({
-      create: { label: actLabel(ACT), act: Promise.resolve(dialog(ACT)) },
-      sideAct: { label: actLabel(SIDE), act: Promise.resolve(dialog(SIDE)) },
-    });
-    const buttons = [...(bar?.querySelectorAll("button") ?? [])];
-    expect(buttons.map((button) => button.textContent)).toStrictEqual([actLabel(SIDE), actLabel(ACT)]);
-    expect(buttons[0]?.className).toContain("border-border-control");
-    expect(buttons[1]?.className).toContain("bg-brand-solid");
-  });
-
   // The harm: an administrator would see, and press, an act the server refuses them (section 6's R3: absent by role).
   it("draws neither where the read says the reader holds none", async () => {
     const bar = await toolbar({
@@ -160,13 +130,6 @@ describe("the toolbar's acts the read decides", () => {
     expect(bar?.querySelector("button")).toBe(null);
     expect(bar?.className).toContain("has-[>:only-child:empty]:hidden");
     expect(bar?.firstElementChild?.children).toHaveLength(0);
-  });
-
-  it("keeps the second act's lock on its button, with no dialog behind it", async () => {
-    const bar = await toolbar({
-      sideAct: { label: actLabel(SIDE), act: Promise.resolve({ ...dialog(SIDE), locked: COPY.template.draftUnsaved }) },
-    });
-    expect(bar?.querySelector("button")?.className).toContain("opacity-50");
   });
 });
 

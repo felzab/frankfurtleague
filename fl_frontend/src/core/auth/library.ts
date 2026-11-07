@@ -416,7 +416,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             const factor = ctx ? SESSION_FACTOR_BY_PATH.get(ctx.path) : undefined;
             if (!ctx || factor === undefined) throw new SessionFromUnlistedPath();
 
-            // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a step-up --
+            // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a passkey touch --
             // and never at one method's own callback, which the next method would walk past.
             const admittedAsOf = await refuseUnadmitted(ctx, session.userId);
 

@@ -6,10 +6,6 @@ import { Button } from "@heroui/react/button";
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { Hint } from "@/shared/components/ui/Hint";
-import { STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
-import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
-
-import type { StepUpGate } from "@/shared/hooks/useStepUp";
 
 /**
  * **Never disabled on a client verdict** (it can be stale), but disabled while nothing has changed:
@@ -19,14 +15,11 @@ export function FormActionBar({
   isPending,
   isLeaving,
   onCancel,
-  stepUp,
 }: {
   isPending: boolean;
   /** True while `leavePage` runs — see `EditFormLayout` for the hover it clears. */
   isLeaving: boolean;
   onCancel: () => void;
-  /** The editor's gate, where its save may be a step-up write: the bar says the prompt and its refusal. */
-  stepUp?: Pick<StepUpGate, "isPrompting" | "refused">;
 }) {
   const status = useDraftStatus();
 
@@ -85,12 +78,11 @@ export function FormActionBar({
               isPending={isPending}
               isDisabled={saveRefusal !== null}
               className={`${formButton({ intent: "submit" })} w-full`}>
-              {stepUp?.isPrompting === true ? STEP_UP_RUNNING : isPending ? "Speichert..." : "Speichern"}
+              {isPending ? "Speichert..." : "Speichern"}
             </Button>
           </Hint>
         </div>
       </div>
-      <StepUpRefused refused={stepUp?.refused === true} />
     </div>
   );
 }

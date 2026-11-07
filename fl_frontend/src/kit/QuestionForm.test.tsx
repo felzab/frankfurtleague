@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { Activity } from "react";
+
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,23 +34,25 @@ vi.mock("@/core/auth/browserClient", () => ({
 
 const box = () => screen.getByRole<HTMLInputElement>("textbox");
 
+const FORM = (
+  <QuestionForm
+    verb="delete"
+    tone="danger"
+    read={acts.read}
+    act={acts.act}
+    holder={HOLDER}>
+    <TextField
+      label={COPY.signIn.address}
+      name="email"
+      width="W3"
+      kind="email"
+    />
+  </QuestionForm>
+);
+
 /** The form typed and pressed. */
 async function press() {
-  render(
-    <QuestionForm
-      verb="delete"
-      tone="danger"
-      read={acts.read}
-      act={acts.act}
-      holder={HOLDER}>
-      <TextField
-        label={COPY.signIn.address}
-        name="email"
-        width="W3"
-        kind="email"
-      />
-    </QuestionForm>,
-  );
+  render(FORM);
   await userEvent.type(box(), ADDRESS);
   await userEvent.click(screen.getByRole("button", { name: VERB }));
 }
@@ -86,6 +90,29 @@ describe("a form asking its question over what the press read", () => {
     expect(acts.act).toHaveBeenCalledWith({ email: ADDRESS, holder: HOLDER });
     await waitFor(() => {
       expect(box().value).toBe("");
+    });
+  });
+
+  // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
+  it("clears a done act's line at the next press and once the page hides", async () => {
+    acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
+    const { rerender } = render(<Activity mode="visible">{FORM}</Activity>);
+    await userEvent.type(box(), ADDRESS);
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await screen.findByText(COPY.admin.erased);
+
+    await userEvent.type(box(), ADDRESS);
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await screen.findByRole("alertdialog");
+    expect(screen.queryByText(COPY.admin.erased)).toBeNull();
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await screen.findByText(COPY.admin.erased);
+
+    rerender(<Activity mode="hidden">{FORM}</Activity>);
+    rerender(<Activity mode="visible">{FORM}</Activity>);
+    await waitFor(() => {
+      expect(screen.queryByText(COPY.admin.erased)).toBeNull();
     });
   });
 

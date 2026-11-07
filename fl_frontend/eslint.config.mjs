@@ -310,13 +310,13 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["address_change_sweep_address_change"],
-    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAdresswechselSweep"] },
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAddressChangeSweep"] },
     runners: ["src/features/address-change/sweep.ts"],
   },
   {
     operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
-    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
-    runners: ["src/features/address-change/umzug.ts"],
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAddressChangeMoves", "postAddressChangeMovesDone"] },
+    runners: ["src/features/address-change/moves.ts"],
   },
   {
     operations: ["identity_get_references"],

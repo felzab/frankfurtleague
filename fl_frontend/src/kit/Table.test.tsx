@@ -77,6 +77,17 @@ describe("a row's acts", () => {
     expect(screen.getByRole("table").style.gridTemplateColumns).toBe("minmax(0, 1fr) repeat(1, auto)");
   });
 
+  // The harm: `repeat(0, …)` voids the declaration, so a browser draws no track at all, and the row still reads.
+  it("gives a phone's grid the name's track alone where the phone keeps no column", () => {
+    render(
+      <Table
+        {...props([ACTING])}
+        columns={[]}
+      />,
+    );
+    expect(screen.getByRole("table").style.gridTemplateColumns).toBe("minmax(0, 1fr)");
+  });
+
   it("leaves a table none of whose rows acts as a table: no act column and no grid", () => {
     render(
       <Table
@@ -87,6 +98,60 @@ describe("a row's acts", () => {
     expect(screen.getByRole("table").getAttribute("style")).toBe(null);
     expect(screen.getByRole("table").className).not.toContain("max-lg:grid");
     expect(screen.getAllByRole("row").at(-1)?.children).toHaveLength(3);
+  });
+});
+
+describe("a row's phone lines in an act table", () => {
+  const ROW: TableProps["rows"][number] = {
+    id: "1",
+    name: { record: "anna.katharina.mustermann@example.org" },
+    chip: { tone: "warn", label: COPY.admin.expired },
+    cells: { bis: { record: "2030" } },
+    acts: <button type="button">{COPY.shared.verb.remove}</button>,
+  };
+  const COLUMNS: TableProps["columns"] = [{ key: "bis", label: COPY.shared.startelf }];
+
+  // The harm: a chip and a column beside it cut an address to a third, its `title` out of a touch's reach, and the name
+  // is what tells the rows apart. No check reads a phone's layout.
+  it("gives the name a line of its own across the row, wrapping, with the chips under it", () => {
+    render(
+      <Table
+        {...props([ROW])}
+        columns={COLUMNS}
+      />,
+    );
+    const name = screen.getByText("anna.katharina.mustermann@example.org");
+    expect(name.className).toContain("max-lg:col-span-full");
+    expect(name.className).toContain("max-lg:whitespace-normal");
+    expect(screen.getByText(COPY.admin.expired).parentElement?.className).toContain("max-lg:col-start-1");
+    expect(name.closest("td")?.className).toContain("max-lg:contents");
+    expect(name.parentElement?.className).toContain("max-lg:contents");
+    expect(screen.getByText("2030").closest("td")?.className).toContain("max-lg:order-1");
+  });
+
+  // The harm: with its name out of the first track a row without chips would drop its column into that track.
+  it("keeps a row's column in its own track where the row has no chip", () => {
+    render(
+      <Table
+        {...props([{ ...ROW, chip: undefined } as TableProps["rows"][number]])}
+        columns={COLUMNS}
+      />,
+    );
+    const name = screen.getByText("anna.katharina.mustermann@example.org");
+    expect(name.nextElementSibling?.className).toContain("max-lg:col-start-1");
+  });
+
+  it("leaves a table no row of which acts as it stood", () => {
+    const { acts: _acts, ...plain } = ROW;
+    render(
+      <Table
+        {...props([plain])}
+        columns={COLUMNS}
+      />,
+    );
+    const name = screen.getByText("anna.katharina.mustermann@example.org");
+    expect(name.className).not.toContain("max-lg:col-span-full");
+    expect(name.closest("td")?.className).not.toContain("max-lg:contents");
   });
 });
 
@@ -106,7 +171,7 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText(COPY.admin.expired).parentElement;
+    const nameLine = screen.getByText(COPY.admin.expired).parentElement?.parentElement;
     expect(nameLine?.textContent).toContain(COPY.admin.delivery.undeliverable);
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });

@@ -224,12 +224,7 @@ const { runWithEndpointContext } = (await import(
 const { auth } = await import("./auth/library.ts");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getAccountSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
-/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
-const getAdminSession = async () => {
-  const judged = await judgeAdminRequest();
-  return "session" in judged ? judged.session : null;
-};
+const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
 const { getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");

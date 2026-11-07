@@ -41,7 +41,7 @@ function mintedBefore(row: { id: string; updatedAt: Date | string }, minted: { i
 }
 
 /**
- * Ends the sessions minted earlier to replace the same cookie: two step-ups from one browser at once
+ * Ends the sessions minted earlier to replace the same cookie: two passkey touches from one browser at once
  * each mint one, and only one `Set-Cookie` survives in the browser.
  */
 async function endEarlierSiblings(
@@ -71,7 +71,7 @@ async function endEarlierSiblings(
 }
 
 /**
- * Ends the session the request's cookie named once a sign-in has minted its successor: a step-up
+ * Ends the session the request's cookie named once a sign-in has minted its successor: a passkey touch
  * would otherwise leave the session it replaced alive beside the new one.
  */
 export async function endReplacedSession(

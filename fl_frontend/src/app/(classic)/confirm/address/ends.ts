@@ -52,6 +52,12 @@ export function doneOnEnd(side: Side, answer: "confirmed" | "declined", day: Cal
     : { state: "alreadyDone" as const, title: COPY.shared.end.doneOn(DONE[side], day), next: wayOn(way) };
 }
 
+/** The new mailbox's link opened again in the wait, saying what the press's own done state said. */
+export function confirmedAgain(day: CalendarDay, effectiveFrom: string | null, way: FLAddressChangeWay) {
+  if (effectiveFrom === null) return doneOnEnd("new", "confirmed", day, way);
+  return { state: "alreadyDone" as const, title: WORDS.new.confirmedFrom(dayIn(new Date(effectiveFrom))), next: wayOn(way) };
+}
+
 /** The stop link opened again, on the tint its done state took. */
 export function stoppedOn(day: CalendarDay) {
   return { state: "alreadyDone" as const, title: COPY.shared.end.doneOn(WORDS.previous.stopped, day), next: TO_HOME, declined: true };

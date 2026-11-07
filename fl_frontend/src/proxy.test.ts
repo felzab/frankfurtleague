@@ -47,12 +47,7 @@ const store = memoryStore(STORE);
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
-const { judgeAdminRequest } = await import("./core/auth/guards.ts");
-/** The guard's verdict as a session, or null, for a case asserting whether it admitted. */
-const getAdminSession = async () => {
-  const judged = await judgeAdminRequest();
-  return "session" in judged ? judged.session : null;
-};
+const { getAdminSession } = await import("./core/auth/guards.ts");
 const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
@@ -350,7 +345,7 @@ describe("where a session that is only read slides", () => {
     }
   });
 
-  it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {
+  it("leaves an administrator's twenty-four-hour cap, and the touch's window, where the sign-in set them", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     const signedIn = new Date(Date.now() - 25 * 60 * MINUTE_MS);
@@ -360,7 +355,7 @@ describe("where a session that is only read slides", () => {
     const answer = await visit(ADMIN_URL, cookie);
 
     assert.ok(setSessionCookie(answer, cookie), "the administrator's session did not slide, so the case proves nothing");
-    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the step-up are judged from").toBe(signedIn.getTime());
+    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the touch are judged from").toBe(signedIn.getTime());
     arriveAs(cookie);
     expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
   });

@@ -5,11 +5,12 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHandover } from "@/core/generated/client/sdk";
+import { SignInAddressSchema } from "@/features/auth/schemas";
 
-import { GRANT_ID, NEW_GRANT_EMAIL } from "./schemas";
+import { GRANT_ID } from "./schemas";
 
 /** The add dialog. */
-const NewGrant = z.object({ email: NEW_GRANT_EMAIL, ...PAGE_HOLDER });
+const NewGrant = z.object({ email: SignInAddressSchema, ...PAGE_HOLDER });
 
 /** A row's act, naming the grant it presses on. */
 const OfGrant = z.object({ id: GRANT_ID, ...PAGE_HOLDER });

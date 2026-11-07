@@ -21,10 +21,11 @@ export const ADDRESS_CHANGE_VALID_HOURS = 24 satisfies FLAddressChangeValidHours
 export const ADDRESS_CHANGE_WAIT_DAYS = 7 satisfies FLAddressChangeWaitingPeriodDays;
 
 /**
- * How long a holder's own change waits once both addresses confirmed, by their tier, each checked against the bound
- * `fl_backend/app/shared/schemas/bounds.py` publishes, so the backend moving one fails the type check here.
+ * How long an addition waits, and a handover, each checked against the bound `fl_backend/app/shared/schemas/bounds.py`
+ * publishes, so the backend moving one fails the type check here.
  */
-export const HOLDER_WAIT: Readonly<Record<FLAdminTier, Wait>> = {
-  administration: { hours: 24 satisfies FLGrantWaitHours },
-  owner: { days: 7 satisfies FLOwnerWaitDays },
-};
+export const GRANT_WAIT = { hours: 24 } as const satisfies { hours: FLGrantWaitHours };
+export const OWNER_WAIT = { days: 7 } as const satisfies { days: FLOwnerWaitDays };
+
+/** How long a holder's own change waits once both addresses confirmed, by their tier: what taking the tier waits. */
+export const HOLDER_WAIT: Readonly<Record<FLAdminTier, Wait>> = { administration: GRANT_WAIT, owner: OWNER_WAIT };
