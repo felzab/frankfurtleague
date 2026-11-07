@@ -9,7 +9,7 @@ what keeps a repeated send of one hand-out from being a second mail in the inbox
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -156,7 +156,9 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     if mail.link is not None and mail.reference is None:
         raise ValueError("a link is minted on the record a mail is about, and this mail names none")
 
-    deadline = valid_until if valid_until is not None else now + DELIVERY_DEADLINE
+    # Every span here is added to a UTC value: added to a Berlin one it would count the wall clock, an hour out across a
+    # clock change.
+    deadline = valid_until if valid_until is not None else now.astimezone(UTC) + DELIVERY_DEADLINE
     reference = mail.reference
 
     return {
@@ -174,7 +176,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "deadline": deadline,
         # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
         # state brings forward (`final_update`).
-        "erase_at": deadline if secret is not None or mail.data.kind in SHORT_LIVED_KINDS else deadline + RETENTION,
+        "erase_at": deadline if secret is not None or mail.data.kind in SHORT_LIVED_KINDS else deadline.astimezone(UTC) + RETENTION,
         "lease": None,
         "leased_until": None,
         "attempts": 0,
@@ -193,11 +195,11 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
     return {
         "$set": {"state": state, "message_id": message_id, "lease": None, "leased_until": None},
         "$unset": {"data": "", "secret": ""},
-        "$min": {"erase_at": now + RETENTION},
+        "$min": {"erase_at": now.astimezone(UTC) + RETENTION},
     }
 
 
 def retry_update(*, now: datetime) -> Mapping[str, Any]:
     """A failed send handed back: no claim holds it, and no drain takes it before the wait has passed."""
 
-    return {"$set": {"lease": None, "leased_until": now + REPETITION_AFTER}}
+    return {"$set": {"lease": None, "leased_until": now.astimezone(UTC) + REPETITION_AFTER}}

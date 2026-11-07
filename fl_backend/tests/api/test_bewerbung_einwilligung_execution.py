@@ -12,10 +12,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.admin_router import post_kontakt_seat, resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLBewerbungKontaktSeatPayload
+from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import log_stamp
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -527,7 +527,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
 
         assert on_a_league(mongo_replica_set_url, body) == [
             {
-                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung/{log_stamp(MAIL_NOW)}",
+                "key": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/objection/stellvertretung/{utc_stamp(MAIL_NOW)}",
                 "to": "quillhilde@example.com",
                 "data": {
                     "kind": "bewerbung_objection",

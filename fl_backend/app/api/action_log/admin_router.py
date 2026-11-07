@@ -1,15 +1,16 @@
 import asyncio
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends
 from pymongo import DESCENDING
 
-from app.api.action_log.schemas import FLActionLogFilterParams, FLActionLogListResponse
+from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogListResponse
 from app.api.action_log.services import build_action_log_query
 from app.api.grants.guard import verify_actor_is_admin
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
-from app.core.dependencies import ActionLogCollection
+from app.core.dependencies import ActionLogReadCollection
+from app.core.routing import SAFE
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 
@@ -18,14 +19,15 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
-# it publishes no query parameter at all and answers `None` whatever the query string holds.
-FLActionLogFilters = Annotated[FLActionLogFilterParams, Query()]
 
-
-@router.get("", response_model=FLActionLogListResponse, summary="List recorded acts")
-async def get_action_log(action_log_collection: ActionLogCollection, filters: FLActionLogFilters) -> FLActionLogListResponse:
+@router.post("/view", response_model=FLActionLogListResponse, summary="List recorded acts", openapi_extra=SAFE)
+async def get_action_log(
+    action_log_collection: ActionLogReadCollection, filters: Annotated[FLActionLogFilterPayload, Body()]
+) -> FLActionLogListResponse:
     """The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
+
+    A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
+    `http.answered` line, where the log's scrubber reads no `%40`.
 
     `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
     index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.

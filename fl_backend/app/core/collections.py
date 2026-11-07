@@ -30,11 +30,11 @@ class Collection(StrEnum):
     #: A school's application to play a season. Stored as it arrived and never rewritten -- only the
     #: triage moves `status`, `decision` and `team_id`.
     BEWERBUNGEN = "bewerbungen"
-    #: What every admin write did, and what it replaced. The one collection nothing here references
-    #: and nothing references back (`fl_backend/app/core/recording.py`).
+    #: One row per recorded act, naming who acted and what they did. The one collection nothing here
+    #: references and nothing references back (`fl_backend/app/core/recording.py`).
     ACTION_LOG = "action_log"
-    #: A row survives the erasure of the person it bars: keyed, it is
-    #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker.
+    #: One barred address per row, kept past the erasure of the person it bars, whom it goes on barring.
+    #: Its author's erasure leaves the marker.
     BAN_LIST = "ban_list"
     #: One minted registration link per row. It names a team, a season and the administrator who
     #: minted it, whose erasure leaves the row standing with the marker in their place.
@@ -46,9 +46,6 @@ class Collection(StrEnum):
     #: Who may enter the Verwaltung: one row per folded address. The one stored role, the other
     #: Funktionen being derived from league records (`docs/glossary.md`, `Berechtigung`).
     GRANTS = "grants"
-    #: The grants every administrator has been told of, or will be by a notice owed in `OUTBOX`.
-    #: Its own collection because a grant removed outside the application leaves no trace in
-    #: `grants` to compare against.
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
     SPIELBESTAETIGUNGEN = "spielbestaetigungen"
@@ -59,12 +56,10 @@ class Collection(StrEnum):
     #: ended, it keeps no address but a sign-in account's carry still owed, its links answering how it ended until its
     #: TTL index removes it.
     ADDRESS_CHANGES = "address_changes"
-    #: A grant or a promotion to owner waiting on a second administrator's approval, one per address; the approval
-    #: writes the grant and removes it in one transaction, and its TTL index removes one nobody decided.
     #: Every mail the league owes, one row per recipient, each written in the transaction of the write owing it and settled
     #: by the drain that sends it; a settled row says what became of its message until its TTL index removes it.
     OUTBOX = "outbox"
-    #: One mailbox a public form named, under a keyed hash and never its address: a press writes it in its transaction, so
+    #: One mailbox a public form named, under its SHA-256 and never its address: a press writes it in its transaction, so
     #: that mailbox's presses run one after another, and its TTL index removes it once they stop.
     MAILBOX_ANCHORS = "mailbox_anchors"
 

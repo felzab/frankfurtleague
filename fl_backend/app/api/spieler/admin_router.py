@@ -256,15 +256,16 @@ async def delete_saison_spieler(
     """
 
     async def take_the_player_out(session: AsyncClientSession) -> None:
-        await set_inactive_since(
+        deregistered = await set_inactive_since(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
             when=today,
             session=session,
         )
-        await record_act(
-            collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, label=saison_id, session=session
-        )
+        if deregistered is not None:
+            await record_act(
+                collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, label=saison_id, session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(take_the_player_out)
@@ -335,15 +336,16 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-        await set_inactive_since(
+        revived = await set_inactive_since(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
             when=None,
             session=session,
         )
-        await record_act(
-            collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, label=saison_id, session=session
-        )
+        if revived is not None:
+            await record_act(
+                collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, label=saison_id, session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_player_back)

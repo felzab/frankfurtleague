@@ -11,6 +11,5 @@ class TestTheSaisonsPipeline:
         lookup = next(stage["$lookup"] for stage in build_team_saisons_pipeline(ObjectId()) if "$lookup" in stage)
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
-        # Composed after the read, off the seats' addresses; the row's id keys the read of its links' mails.
-        composed = {"address_change"}
-        assert projection == {"_id": 1} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
+        # The row's id keys the read of its links' mails.
+        assert projection == {"_id": 1} | {name: 1 for name in FLTeamMembership.model_fields}

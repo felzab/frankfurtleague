@@ -32,6 +32,7 @@ from app.api.spieler.services import (
     find_kader_stufe_refusal,
     mark_shared_nummern,
 )
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
@@ -44,7 +45,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import ACT_BY_KONTAKT, FLAction, log_stamp, record_act
+from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -373,7 +374,7 @@ async def patch_einwilligung(
 
     own_entry = build_self_pupil_filter(identifier)
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    at = log_stamp(germany_now)
+    at = utc_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted

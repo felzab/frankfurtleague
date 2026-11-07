@@ -24,6 +24,7 @@ from app.api.registrierungen.services import (
     undecided_loeschung_is_due,
 )
 from app.api.teams.crud import pull_team_names
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
@@ -37,7 +38,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.recording import ACT_BY_SYSTEM, log_stamp, record_act
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
@@ -94,7 +95,7 @@ async def sweep_registrierungen(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
     saison_status = saison_raw.get("status")
 
-    stamp = log_stamp(germany_now)
+    stamp = utc_stamp(germany_now)
 
     async def erase_page(ids: list[Any], session: AsyncClientSession) -> int:
         """One page of one clock gone, its one row in the page's transaction, so no deletion stands without its row."""

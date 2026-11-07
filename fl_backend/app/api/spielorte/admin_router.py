@@ -204,9 +204,10 @@ async def delete_spielort(
         refuse(find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked)))
 
         retired = await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=today, session=session)
-        await record_act(
-            collection=spielorte_collection, action="spielort.retired", record_id=spielort_id, label=str(retired["name"]), session=session
-        )
+        if retired is not None:
+            await record_act(
+                collection=spielorte_collection, action="spielort.retired", record_id=spielort_id, label=str(retired["name"]), session=session
+            )
 
     # The stamp inside the judgement's transaction, so a booking committing after the read above
     # conflicts on the venue it anchors rather than landing unseen
@@ -229,9 +230,14 @@ async def reactivate_spielort(
 
     async def bring_the_venue_back(session: AsyncClientSession) -> None:
         revived = await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)
-        await record_act(
-            collection=spielorte_collection, action="spielort.reactivated", record_id=spielort_id, label=str(revived["name"]), session=session
-        )
+        if revived is not None:
+            await record_act(
+                collection=spielorte_collection,
+                action="spielort.reactivated",
+                record_id=spielort_id,
+                label=str(revived["name"]),
+                session=session,
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_venue_back)

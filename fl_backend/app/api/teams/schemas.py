@@ -45,7 +45,6 @@ from app.shared.schemas.einwilligung import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
-    FLAddressChangeViewableDenied,
     FLAustrittType,
     FLGruppenNames,
     FLKontaktEnteredBy,
@@ -250,25 +249,6 @@ class FLSaisonTeamConfirmationsView(BaseModel):
     stellvertretung: FLSaisonTeamConfirmationView | None
 
 
-class FLSaisonTeamAddressChangeDenied(BaseModel):
-    trainer: FLAddressChangeViewableDenied | None
-    ansprechperson: FLAddressChangeViewableDenied | None
-    stellvertretung: FLAddressChangeViewableDenied | None
-
-
-class FLSaisonTeamAddressChange(BaseModel):
-    """The live change of each confirmed seat's address, which the address tool shows.
-
-    Null where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.
-    """
-
-    trainer: CustomObjectId | None
-    ansprechperson: CustomObjectId | None
-    stellvertretung: CustomObjectId | None
-    # Per seat, why the address tool refuses its change this administrator; null where it opens it or none stands.
-    viewable_denied: FLSaisonTeamAddressChangeDenied
-
-
 # Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
 # Pydantic cannot un-inherit a field: no payload takes a birthdate, the date being the person's own
 # to enter at their confirmation, and no payload takes a consent record, which the server composes.
@@ -430,9 +410,6 @@ class FLTeamMembership(BaseReadModel):
     # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
-    # Composed after the read from the `address_changes` collection, never projected off the season row; required, so a
-    # read that forgot to compose it fails rather than answering every seat as holding no change.
-    address_change: FLSaisonTeamAddressChange | None
     # The row's count of writes, which its two editors' saves send back.
     version: int = 0
 

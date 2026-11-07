@@ -170,9 +170,7 @@ async def sweep_saison(
     async def erase_page(ids: list[Any], session: AsyncClientSession) -> int:
         """One page of one clock gone, its one row in the page's transaction, so no deletion stands without its row."""
 
-        result = await delete_many_from_db(
-            collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
-        )
+        result = await delete_many_from_db(collection=bewerbungen_collection, db_filter={"_id": {"$in": ids}}, session=session)
         await record_act(
             collection=bewerbungen_collection,
             action="retention.bewerbungen",

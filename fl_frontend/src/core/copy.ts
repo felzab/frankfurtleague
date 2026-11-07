@@ -14,7 +14,15 @@ import {
 import { KONTAKT_ROLLE_LONG_FORM, rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
-import type { FLAction, FLAddressChangeWaitsOn, FLKontaktRolle, FLSchulform, FLSpielerRolle, FLSpielerStufe } from "./generated/client/types";
+import type {
+  FLAction,
+  FLActionLogPageSize,
+  FLAddressChangeWaitsOn,
+  FLKontaktRolle,
+  FLSchulform,
+  FLSpielerRolle,
+  FLSpielerStufe,
+} from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
 
@@ -276,7 +284,7 @@ export const COPY = catalogue({
     versus: "–",
     overview: "Übersicht",
     switchRole: "Funktion wechseln",
-    loadMore: "Weitere 50 laden",
+    loadMore: `Weitere ${50 satisfies FLActionLogPageSize} laden`,
     kORunde: K_O_RUNDE,
     kOBaum: "K.-o.-Baum",
     /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */

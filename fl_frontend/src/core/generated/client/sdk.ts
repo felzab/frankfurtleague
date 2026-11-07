@@ -11,7 +11,6 @@ import {
 } from "@/core/transport";
 
 import type {
-  ActionLogGetActionLogParams,
   AddressChangeSweepAddressChangeParams,
   BewerbungenGetBewerbungenAdminParams,
   CheckIsLiveResponse,
@@ -23,6 +22,7 @@ import type {
   FLAccountEinwilligungenResponse,
   FLAccountEinwilligungPayload,
   FLAccountErasureViewResponse,
+  FLActionLogFilterPayload,
   FLActionLogListResponse,
   FLActivateSaisonResponse,
   FLAddressChangeAddressPayload,
@@ -316,26 +316,41 @@ export const accountGetEinwilligungen = async (options?: Parameters<typeof admin
   });
 };
 
-export const getActionLogGetActionLogUrl = (params?: ActionLogGetActionLogParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/action_log?${stringifiedParams}` : `/api/v0/action_log`;
+export const getActionLogGetActionLogUrl = () => {
+  return `/api/v0/action_log/view`;
 };
 
 /**
  * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
+ *
+ * A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
+ * `http.answered` line, where the log's scrubber reads no `%40`.
  *
  * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
  * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
  * @summary List recorded acts
  */
 export const actionLogGetActionLog = async (
-  params?: ActionLogGetActionLogParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
+  fLActionLogFilterPayload: FLActionLogFilterPayload,
+  options?: Parameters<typeof adminKeyReadTransport>[1],
 ): Promise<FLActionLogListResponse> => {
-  return adminKeyTransport<FLActionLogListResponse>(getActionLogGetActionLogUrl(params), {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyReadTransport<FLActionLogListResponse>(getActionLogGetActionLogUrl(), {
     ...options,
-    method: "GET",
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLActionLogFilterPayload),
   });
 };
 
@@ -2988,9 +3003,8 @@ export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: stri
  * (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
  *
  * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
- * lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
- * beside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last
- * confirmation mail the referee was owed, null where none was.
+ * lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
+ * was owed, null where none was.
  * @summary One Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterById = async (
@@ -4483,7 +4497,7 @@ export const getTeamsGetTeamSaisonAdminUrl = (teamId: string, saisonId: string) 
 /**
  * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
  *
- * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+ * `version` is what the one save sends. `membership` serves the row with its seats' links, null for
  * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
  * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
  * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season

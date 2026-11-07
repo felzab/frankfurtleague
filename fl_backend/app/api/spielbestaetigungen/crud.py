@@ -299,20 +299,9 @@ async def erase_referee_confirmations_in_session(
     if not schiedsrichter_ids:
         return 0
 
-    rows = await aggregate_many_from_db(
-        collection=spielbestaetigungen_collection,
-        pipeline=[{"$match": build_referee_rows_filter(schiedsrichter_ids)}, {"$project": {"saison_id": 1}}],
-        session=session,
-    )
-
-    if not rows:
-        return 0
-
     # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
     removed = await delete_many_from_db(
-        collection=spielbestaetigungen_collection,
-        db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
-        session=session,
+        collection=spielbestaetigungen_collection, db_filter=build_referee_rows_filter(schiedsrichter_ids), session=session
     )
 
     return removed.deleted_count
