@@ -304,7 +304,9 @@ class TestTheNotices:
         async def stored(database: AsyncDatabase) -> dict[ObjectId, tuple[Any, ...]]:
             return {
                 row["_id"]: (row["data"]["address"], row["data"]["changed_by"])
-                async for row in database[Collection.OUTBOX].find({"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}})
+                async for row in database[Collection.OUTBOX].find(
+                    {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}}
+                )
             }
 
         async def body(

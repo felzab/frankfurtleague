@@ -205,7 +205,12 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
 
 
 async def pass_at(
-    database: AsyncDatabase, client: AsyncMongoClient, now: datetime = NOW + timedelta(days=OWNER_WAIT_DAYS), *, grants: Any = None, outbox: Any = None
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    now: datetime = NOW + timedelta(days=OWNER_WAIT_DAYS),
+    *,
+    grants: Any = None,
+    outbox: Any = None,
 ) -> int:
     answer = await post_handover_pass(
         grants_collection=grants if grants is not None else database[Collection.GRANTS],
@@ -240,10 +245,7 @@ async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, str 
     for row in rows:
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["to"]))
 
-    return [
-        (data["change"], data["stage"], data["address"], data["changed_by"], sorted(to))
-        for data, to in notices.values()
-    ]
+    return [(data["change"], data["stage"], data["address"], data["changed_by"], sorted(to)) for data, to in notices.values()]
 
 
 async def refusal_of(call: Awaitable[Any]) -> str:
@@ -280,7 +282,7 @@ EVERY_HOLDER = sorted([OWNER, ANNA, BERND])
 
 class TestAnAddition:
     def test_the_row_waits_a_day_its_address_folded_and_every_holder_and_the_person_are_told(self, mongo_replica_set_url: str):
-        """Folded, or the actor check's equality misses the person. The mail goes to the starter too: a hijacked session's owner learns of it so."""
+        """Folded, or the actor check's equality misses the person. The starter is told too: a hijacked session's owner learns of it so."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
             created = await add(database, client)
@@ -332,7 +334,9 @@ class TestAnAddition:
         """Left standing, its switch would carry the waiting row to an address the owner never named."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            change = await database[Collection.ADDRESS_CHANGES].insert_one({"address": NEU, "email": "woanders@beispielschule.de", "ended": None})
+            change = await database[Collection.ADDRESS_CHANGES].insert_one(
+                {"address": NEU, "email": "woanders@beispielschule.de", "ended": None}
+            )
             await add(database, client)
 
             return await database[Collection.ADDRESS_CHANGES].find_one({"_id": change.inserted_id})
@@ -345,7 +349,9 @@ class TestAnAddition:
         """A transaction retried after a conflict runs its enqueue again under the instant it was first handed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            notice = compose_notice(grant_id=ANNA_ID, change="handover", stage="started", address=ANNA, changed_by=OWNER, effective_from=NOW, now=NOW)
+            notice = compose_notice(
+                grant_id=ANNA_ID, change="handover", stage="started", address=ANNA, changed_by=OWNER, effective_from=NOW, now=NOW
+            )
 
             async def owe(session: AsyncClientSession) -> None:
                 await owe_in_session(
@@ -401,7 +407,9 @@ class TestARemoval:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await remove(database, client, NORA_ID)
 
-            return await owed(database), await database[Collection.ACTION_LOG].count_documents({"action": "grant.addition_withdrawn", "label": NEU})
+            return await owed(database), await database[Collection.ACTION_LOG].count_documents(
+                {"action": "grant.addition_withdrawn", "label": NEU}
+            )
 
         notices, logged = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
@@ -604,10 +612,18 @@ class TestAMove:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def move(session: AsyncClientSession) -> None:
                 await move_the_grant_in_session(
-                    await row_of(database, NORA_ID), new_address="nora@neu.de", grants_collection=database[Collection.GRANTS], now=NOW, session=session
+                    await row_of(database, NORA_ID),
+                    new_address="nora@neu.de",
+                    grants_collection=database[Collection.GRANTS],
+                    now=NOW,
+                    session=session,
                 )
                 await move_the_grant_in_session(
-                    await row_of(database, ANNA_ID), new_address="anna@neu.de", grants_collection=database[Collection.GRANTS], now=NOW, session=session
+                    await row_of(database, ANNA_ID),
+                    new_address="anna@neu.de",
+                    grants_collection=database[Collection.GRANTS],
+                    now=NOW,
+                    session=session,
                 )
 
             async with client.start_session() as session:
@@ -713,7 +729,9 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
-                response = await http.post(f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NEU_TYPED})
+                response = await http.post(
+                    f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NEU_TYPED}
+                )
 
             row = await database[Collection.GRANTS].find_one({"address": NEU})
             [(_, _, _, actor, _)] = await owed(database)

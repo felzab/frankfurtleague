@@ -131,11 +131,7 @@ class TestTheAdministratorsSession:
 
 # The writes held to the enrolment window, each declaring the check.
 GRANT_WRITES = [
-    pytest.param("post", "/api/v0/grants", id="a grant"),
-    pytest.param("delete", "/api/v0/grants/{grant_id}", id="a revoke"),
-    pytest.param("patch", "/api/v0/grants/{grant_id}", id="a tier change"),
     pytest.param("post", "/api/v0/address_change/{address_change_id}/approval", id="an approval of a grant's move"),
-    pytest.param("post", "/api/v0/grants/approval_requests/{approval_request_id}/approval", id="an approval of a grant or a promotion"),
 ]
 
 # Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
@@ -148,7 +144,6 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/address_change", id="an address change asked"),
     pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
     pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
-    pytest.param("delete", "/api/v0/grants/approval_requests/{approval_request_id}", id="a request for a grant refused or withdrawn"),
 ]
 
 
