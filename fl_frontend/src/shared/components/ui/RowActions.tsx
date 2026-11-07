@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 
 /** The tooltip only describes the control, so each is named by its `label` and then the row's `subject`. */
 const ACTION_LINK_CLASSES =
-  "flex text-foreground-muted size-10 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-hover hover:text-brand";
+  "flex size-10 shrink-0 items-center justify-center rounded-xl text-foreground-muted transition-colors hover:bg-hover hover:text-brand";
 
 export function RowActionLink({ href, label, subject, children }: { href: string; label: string; subject: string; children: ReactNode }) {
   return (
