@@ -3,6 +3,7 @@ import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -90,6 +91,82 @@ describe("the list's create act", () => {
     expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("heading", { name })).toBeNull();
+  });
+});
+
+describe("the list's search", () => {
+  it("hands its field the bound the page states", () => {
+    render(
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        list={{
+          kind: "spiele",
+          search: { label: COPY.shared.saison, maxLength: 200 },
+          wait: 1,
+          content: new Promise(() => undefined),
+        }}
+      />,
+    );
+    expect(screen.getByRole("searchbox").getAttribute("maxlength")).toBe("200");
+  });
+});
+
+describe("the toolbar's acts the read decides", () => {
+  // Read at once, since a prerender waits for every boundary, the list's among them.
+  const LIST = {
+    kind: "spieltage",
+    wait: { tabs: 7, matches: 8 },
+    content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } as const }),
+  } as const;
+  const HEAD = { scope: "saison", title: { route: "spielplan" } } as const;
+  const ACT = { verb: "create", object: COPY.page.spielplan } as const;
+  const SIDE = { verb: "handOver", object: COPY.page.spielplan } as const;
+  const dialog = (act: typeof ACT | typeof SIDE) => ({ title: actLabel(act), act, action: vi.fn(), children: null });
+
+  /** The page once every boundary holding an act has resolved, as the server streams it. */
+  async function toolbar(props: Pick<ComponentProps<typeof ListPage>, "create" | "sideAct">) {
+    const { prelude } = await prerender(
+      <ListPage
+        head={HEAD}
+        {...props}
+        list={LIST}
+      />,
+      // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
+      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+    );
+    const page = document.createElement("div");
+    page.innerHTML = await new Response(prelude).text();
+    return page.querySelector("[class*='only-child']");
+  }
+
+  // The primary act stands at the row's end, where every list has it, and the secondary before it.
+  it("stands the second act, a secondary button, before the create act", async () => {
+    const bar = await toolbar({
+      create: { label: actLabel(ACT), act: Promise.resolve(dialog(ACT)) },
+      sideAct: { label: actLabel(SIDE), act: Promise.resolve(dialog(SIDE)) },
+    });
+    const buttons = [...(bar?.querySelectorAll("button") ?? [])];
+    expect(buttons.map((button) => button.textContent)).toStrictEqual([actLabel(SIDE), actLabel(ACT)]);
+    expect(buttons[0]?.className).toContain("border-border-control");
+    expect(buttons[1]?.className).toContain("bg-brand-solid");
+  });
+
+  // The harm: an administrator would see, and press, an act the server refuses them (section 6's R3: absent by role).
+  it("draws neither where the read says the reader holds none", async () => {
+    const bar = await toolbar({
+      create: { label: actLabel(ACT), act: Promise.resolve(null) },
+      sideAct: { label: actLabel(SIDE), act: Promise.resolve(null) },
+    });
+    expect(bar?.querySelector("button")).toBe(null);
+    expect(bar?.className).toContain("has-[>:only-child:empty]:hidden");
+    expect(bar?.firstElementChild?.children).toHaveLength(0);
+  });
+
+  it("keeps the second act's lock on its button, with no dialog behind it", async () => {
+    const bar = await toolbar({
+      sideAct: { label: actLabel(SIDE), act: Promise.resolve({ ...dialog(SIDE), locked: COPY.template.draftUnsaved }) },
+    });
+    expect(bar?.querySelector("button")?.className).toContain("opacity-50");
   });
 });
 

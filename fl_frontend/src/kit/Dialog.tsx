@@ -12,6 +12,7 @@ import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
 import { actLabel } from "./dialogAct";
+import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -177,9 +178,11 @@ function ActForm({
   touched,
   carry = {},
   lead,
+  consequence,
+  facts,
   tone = "primary",
   children,
-}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "tone" | "children"> & {
+}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "children"> & {
   label: Copy;
   close: () => void;
   touched: ReturnType<typeof usePasskeyTouch>;
@@ -224,6 +227,8 @@ function ActForm({
         </Heading>
         {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
         <div className="grid justify-items-start gap-4">{children}</div>
+        {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
+        {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
         <ActRow>
           <StatusLine
             status={status}
@@ -264,8 +269,8 @@ type Opening =
  * One act done where its record shows, in a centred dialog: its title, its few inputs, „Zurück“ and its
  * verb. A record's creation opens it over its list, or from the create entry of a field choosing among its
  * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog, one
- * noting more than it was asked leaves it open on its note, and a refused one leaves it open with the input kept and
- * the refusal shown.
+ * noting more than it was asked leaves it open on its note, in the warn tone where the answer marks it `warn`, and a
+ * refused one leaves it open with the input kept and the refusal shown.
  */
 export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Opening) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
