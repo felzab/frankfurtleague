@@ -154,7 +154,7 @@ async def add(
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
-            granted_by=als,
+            operator=als,
             now=now,
         )
 
@@ -168,7 +168,7 @@ async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
             grants_collection=database[Collection.GRANTS],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
-            revoked_by=als,
+            operator=als,
             now=NOW,
         )
 
@@ -191,7 +191,7 @@ async def hand_over(
             ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            started_by=als,
+            operator=als,
             now=now,
         )
 
@@ -205,7 +205,7 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
             grants_collection=database[Collection.GRANTS],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            stopped_by=als,
+            operator=als,
             now=NOW,
         )
 

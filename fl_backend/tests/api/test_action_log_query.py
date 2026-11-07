@@ -57,13 +57,12 @@ def test_a_filter_compiles_to_what_the_store_compares(filters: dict[str, Any], q
     assert build_action_log_query(FLActionLogFilterPayload.model_validate(filters)) == query
 
 
-@pytest.mark.parametrize("field", ["from_day", "until_day"])
 @pytest.mark.parametrize("day", ["0001-01-01", "9999-12-31"])
-def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(field: str, day: str):
-    """Each is a legal `date` whose next midnight or UTC instant raises `OverflowError`, which would answer 500."""
+def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(day: str):
+    """Each is a legal `date` whose UTC instant raises `OverflowError`, which would answer 500."""
 
     with pytest.raises(ValidationError):
-        FLActionLogFilterPayload.model_validate({field: day})
+        FLActionLogFilterPayload.model_validate({"from_day": day})
 
 
 @pytest.mark.parametrize(

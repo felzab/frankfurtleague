@@ -1092,7 +1092,7 @@ class TestAHoldersOwnChange:
             async def addition() -> Any:
                 token = actor_var.set(OWNER)
                 try:
-                    return await call(post_grant, database, client, payload=FLPostGrantPayload(email=EMAIL), granted_by=OWNER)
+                    return await call(post_grant, database, client, payload=FLPostGrantPayload(email=EMAIL), operator=OWNER)
                 finally:
                     actor_var.reset(token)
 
