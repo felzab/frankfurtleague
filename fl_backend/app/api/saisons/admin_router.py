@@ -1317,6 +1317,7 @@ async def _mail_one_team(
     saison_id: str,
     team: Mapping[str, Any],
     resend: bool,
+    records_the_press: bool,
     created_by: str,
     today: str,
     now: datetime,
@@ -1381,6 +1382,8 @@ async def _mail_one_team(
             ),
             now=now,
         )
+        if records_the_press:
+            await record_act(collection=invitations_collection, action="saison.invitations_dispatched", label=saison_id, session=session)
 
         return "mailed"
 
@@ -1452,29 +1455,24 @@ async def post_invitations_dispatch(
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
-    outcomes = [
-        await _mail_one_team(
-            invitations_collection=invitations_collection,
-            outbox_collection=outbox_collection,
-            db=db,
-            saison_id=saison_id,
-            team=team,
-            resend=dispatch_data.resend,
-            created_by=created_by,
-            today=today,
-            now=germany_now,
+    outcomes: list[_PressOutcome] = []
+    for team in entered:
+        outcomes.append(
+            await _mail_one_team(
+                invitations_collection=invitations_collection,
+                outbox_collection=outbox_collection,
+                db=db,
+                saison_id=saison_id,
+                team=team,
+                resend=dispatch_data.resend,
+                # One press across a transaction per team is one act, its row in the first team's that mails: a write
+                # after the loop would meet the deadline the loop spent, and answer 500 over teams already mailed.
+                records_the_press=not dispatch_data.resend and "mailed" not in outcomes,
+                created_by=created_by,
+                today=today,
+                now=germany_now,
+            )
         )
-        for team in entered
-    ]
-
-    # A transaction of its own: one press across a transaction per team is one act, and a press mailing nobody changed nothing.
-    if "mailed" in outcomes and not dispatch_data.resend:
-
-        async def record_the_press(session: AsyncClientSession) -> None:
-            await record_act(collection=saisons_collection, action="saison.invitations_dispatched", label=saison_id, session=session)
-
-        async with transaction_session(db) as session:
-            await session.with_transaction(record_the_press)
 
     return FLInvitationDispatchResponse(
         saison_id=saison_id,
