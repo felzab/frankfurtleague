@@ -16,4 +16,6 @@ import type { Locator, Page } from "@playwright/test";
 export async function chooseWho(page: Page, scope: Locator, who: string): Promise<void> {
   await choose(page, scope, /Wer$/, who);
   await expect(scope.getByRole("button", { name: `${who} Wer` })).toBeVisible();
+  // The list leaving is the select's exit, and until it has gone the overlay takes the next press outside it for itself.
+  await expect(page.getByRole("listbox")).toBeHidden();
 }
