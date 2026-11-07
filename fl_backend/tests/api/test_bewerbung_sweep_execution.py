@@ -41,6 +41,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import deletions_of
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
@@ -1487,15 +1488,17 @@ class TestTheSeasonRowSeatClock:
                 await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
                 confirmation,
                 refused.value.error_code,
+                await deletions_of(database, "retention.kontakte"),
             )
 
-        response, row, confirmation, refusal = on_a_league(mongo_replica_set_url, body)
+        response, row, confirmation, refusal, deletions = on_a_league(mongo_replica_set_url, body)
 
         assert (row["kontakte"]["ansprechperson"], row["kontakte"]["stellvertretung"]) == (None, None)
         assert (row["confirmations"]["ansprechperson"], row["confirmations"]["stellvertretung"]) == (None, None)
         assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == MAILED_ON_THE_MARK
         assert row["confirmations"]["trainer"] is not None
         assert response.kontakt_seats_emptied == 2
+        assert deletions == [("system", SAISON_ID, 2, None)]
         assert refusal == Code.LINK_INVALID
 
         assert confirmation["answer"]["reason"] is None
@@ -1788,12 +1791,14 @@ class TestTheSeasonsEndStripsItsConfirmations:
             response = await sweep(database, client)
             stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
 
-            return response, stored
+            return response, stored, await deletions_of(database, "retention.spielbestaetigungen")
 
-        response, stored = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        response, stored, deletions = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         # The premise: the pass cleared the season's one block, which is what owes the strip.
         assert response.kontakt_blocks_emptied == 1
+        # This season's two rows, each counted for its entries and again for its reason.
+        assert deletions == [("system", SAISON_ID, 4, None)]
         kept = rows["own"]["answer"]
         stripped = {**kept, "reason": None}
         for name in ("own", "replaced"):

@@ -33,6 +33,7 @@ from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import deletions_of
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
@@ -249,11 +250,12 @@ class TestADueChangeTakesEffect:
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await stored(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
-            return await sweep(database, client), await owed(database)
+            return await sweep(database, client), await owed(database), await deletions_of(database, "retention.address_changes")
 
-        answer, notices = on_a_league(mongo_replica_set_url, body)
+        answer, notices, deletions = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.discarded, answer.effective, [notice["to"] for notice in notices]) == (1, 0, [pending(1)])
+        assert deletions == [("system", None, 1, None)]
 
 
 class WrittenAfterTheRead:
