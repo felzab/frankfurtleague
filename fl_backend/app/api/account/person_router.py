@@ -224,6 +224,7 @@ async def post_address_change(
             way="account",
             valid_until=record["valid_until"],
             first_name=holdings.first_name,
+            holder=holdings.admin_tier,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

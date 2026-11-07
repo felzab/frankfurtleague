@@ -61,7 +61,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay, FLAdminTier
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"first_name": 1, "last_name": 1, "email": 1}
 # The whole consent record: `is_own_schiedsrichter` judges its stamp.
@@ -84,6 +84,10 @@ class Holdings:
     registrierungen: Sequence[Mapping[str, Any]]
     # The grant row, a waiting one too: it moves with the rest, and its tier sets how long the change waits.
     grant: Mapping[str, Any] | None
+
+    @property
+    def admin_tier(self) -> FLAdminTier | None:
+        return None if self.grant is None else self.grant["admin_tier"]
 
     @property
     def empty(self) -> bool:
@@ -302,6 +306,7 @@ async def owe_the_link_in_session(
     email: str,
     way: FLAddressChangeWay,
     valid_until: datetime,
+    holder: FLAdminTier | None,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -319,7 +324,7 @@ async def owe_the_link_in_session(
             OwedMail(
                 key=f"address_changes/{address_change_id}/link/{now.isoformat()}",
                 to=email,
-                data=FLAddressChangeLinkData(kind="address_change_link", way=way, valid_until=valid_until),
+                data=FLAddressChangeLinkData(kind="address_change_link", way=way, valid_until=valid_until, holder=holder),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=True),
             )
@@ -335,6 +340,7 @@ async def owe_the_notice_in_session(
     way: FLAddressChangeWay,
     valid_until: datetime,
     first_name: str | None,
+    holder: FLAdminTier | None,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -348,7 +354,9 @@ async def owe_the_notice_in_session(
             OwedMail(
                 key=f"address_changes/{address_change_id}/notice",
                 to=address,
-                data=FLAddressChangeNoticeData(kind="address_change_notice", way=way, valid_until=valid_until, first_name=first_name),
+                data=FLAddressChangeNoticeData(
+                    kind="address_change_notice", way=way, valid_until=valid_until, first_name=first_name, holder=holder
+                ),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["stop.token_hashes"], addresses=["address"], replaced=False),
             )

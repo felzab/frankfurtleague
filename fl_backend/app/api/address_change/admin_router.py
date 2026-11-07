@@ -305,6 +305,7 @@ async def post_address_change_admin(
             valid_until=record["valid_until"],
             # Greeting nobody: the lost address on file may have passed to a stranger.
             first_name=None,
+            holder=None,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
@@ -314,6 +315,7 @@ async def post_address_change_admin(
             email=email,
             way=way,
             valid_until=record["valid_until"],
+            holder=None,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
@@ -400,6 +402,7 @@ async def invite_address_change(
             email=email,
             way=updated["way"],
             valid_until=valid_until,
+            holder=holdings.admin_tier if updated["way"] == "account" else None,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

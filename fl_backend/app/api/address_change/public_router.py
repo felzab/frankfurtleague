@@ -11,6 +11,7 @@ from app.api.address_change.crud import (
     Occupancy,
     end_the_change_in_session,
     judge_the_effect_in_session,
+    live_grant_of,
     move_the_address_in_session,
     owe_the_link_in_session,
     read_the_holdings,
@@ -271,6 +272,7 @@ async def post_address_change_answer(
                 answer=answer_data.answer,
                 stop_hash=token_hash,
                 address_changes_collection=address_changes_collection,
+                grants_collection=grants_collection,
                 outbox_collection=outbox_collection,
                 germany_now=germany_now,
                 session=session,
@@ -304,7 +306,7 @@ async def post_address_change_answer(
         # Refused rather than ended, so this 409 keeps the promise of `app/core/codes.py`: the hourly pass ends the change as its link lapses.
         refuse(find_nothing_refusal(empty=verdict.empty))
 
-        wait = wait_after_confirmation(way=record["way"], admin_tier=None if holdings.grant is None else str(holdings.grant["admin_tier"]))
+        wait = wait_after_confirmation(way=record["way"], admin_tier=holdings.admin_tier)
         if wait is None:
             await move_the_address_in_session(
                 record=record,
@@ -368,6 +370,7 @@ async def _answer_for_the_address_on_file(
     answer: FLAddressChangeAnswer,
     stop_hash: str,
     address_changes_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     germany_now: datetime,
     session: AsyncClientSession,
@@ -400,11 +403,13 @@ async def _answer_for_the_address_on_file(
     )
     valid_until = as_utc(released["valid_until"])
     assert valid_until is not None
+    grant = await live_grant_of(str(released["address"]), grants_collection=grants_collection, session=session)
     await owe_the_link_in_session(
         address_change_id=released["_id"],
         email=str(released["email"]),
         way="account",
         valid_until=valid_until,
+        holder=None if grant is None else grant["admin_tier"],
         outbox_collection=outbox_collection,
         now=germany_now,
         session=session,
