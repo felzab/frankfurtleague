@@ -644,6 +644,10 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
+def action_log_row(row_id: ObjectId, *, by: str) -> dict[str, Any]:
+    return {"_id": row_id, "at": NOW, "by": by, "team": None, "action": "ban.added", "record_id": None, "label": None, "count": None, "trace_id": "t"}
+
+
 def journal_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
     return [record for record in caplog.records if record.getMessage() == "journal.act"]
 
@@ -962,22 +966,59 @@ class TestTheJournal:
         [record] = journal_records(caplog)
         line = vars(record)
         records = {
-            f"{Collection.SAISON_TEAMS}/{team_row_id}",
-            f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}",
-            f"{Collection.BEWERBUNGEN}/{BLOCKLESS_BEWERBUNG_OID}",
             f"{Collection.SCHIEDSRICHTER}/{REFEREE_OID}",
             f"{Collection.SPIELER}/{PUPIL_OID}",
             f"{Collection.REGISTRIERUNGEN}/{PENDING_OID}",
             f"{Collection.REGISTRIERUNGEN}/{DECLINED_OID}",
+            f"{Collection.GRANTS}/{THEIR_GRANT_OID}",
+        }
+        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them.
+        seats = {
+            f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson",
+            f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer",
+            f"{Collection.BEWERBUNGEN}/{BLOCKLESS_BEWERBUNG_OID}/ansprechperson",
+        }
+        # Another address's change stands here, never in `records`: read there, its `address` is that other person's.
+        rows = {
             f"{Collection.ADDRESS_CHANGES}/{OTHER_REFEREE_CHANGE_OID}",
             f"{Collection.ADDRESS_CHANGES}/{MOVING_PUPIL_CHANGE_OID}",
-            f"{Collection.GRANTS}/{THEIR_GRANT_OID}",
+            f"{Collection.GRANTS}/{GRANTED_BY_THEM_OID}",
+            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_OID}",
+            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_PASTED_OID}",
+            f"{Collection.INVITATIONS}/{INVITED_BY_THEM_OID}",
+            f"{Collection.BEWERBUNGEN}/{DECIDED_BY_THEM_OID}",
+            f"{Collection.REGISTRIERUNGEN}/{DECLINED_BY_THEM_OID}",
         }
 
         assert status == 200
-        assert (line["act"], set(line["records"]), line["choices"], line["seats"]) == ("erasure", records, [], [])
+        assert (line["act"], set(line["records"]), line["choices"]) == ("erasure", records, [])
+        # A mail to the address stands among them, under an id the seed mints.
+        assert (set(line["seats"]), {row for row in line["rows"] if not row.startswith(f"{Collection.OUTBOX}/")}) == (seats, rows)
         assert len(line["records"]) == len(records)
         assert not [value for value in THEIR_VALUES if value.lower() in JSONFormatter().format(record).lower()]
+
+    def test_an_address_holding_no_record_of_its_own_still_names_where_it_stood(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches the line left empty: a former administrator's address comes back with a restore, and no replay would know it."""
+
+        former = "ehemals.verwaltung@example.org"
+        log_row, ban_row = ObjectId(), ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.ACTION_LOG].insert_one(action_log_row(log_row, by=former))
+            await database[Collection.BAN_LIST].insert_one(ban_document("gebannt-drei@beispiel.de", until="2199", _id=ban_row, created_by=former))
+
+            return (await erased_over_http(mongo_replica_set_url, email=former)).status_code
+
+        with caplog.at_level(logging.INFO):
+            status = on_a_league(mongo_replica_set_url, body)
+
+        [record] = journal_records(caplog)
+        line = vars(record)
+
+        assert status == 200
+        assert (line["records"], line["seats"]) == ([], [])
+        assert set(line["rows"]) == {f"{Collection.ACTION_LOG}/{log_row}", f"{Collection.BAN_LIST}/{ban_row}"}
+        assert former not in JSONFormatter().format(record).lower()
 
 
 class TestTheOwner:

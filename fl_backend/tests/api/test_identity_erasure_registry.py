@@ -28,6 +28,8 @@ IDENTIFIER = "zorbanax.quillfeather@example.org"
 A_GRANT_TAKEN = Erasure(
     counts=FLErasure(spieler=0, saison_spieler=0, schiedsrichter=0, spiele=0, kontakt_seats=0, registrierungen=0, address_change=0, grants=1),
     records=["grants/6890a1b2c3d4e5f607b00071"],
+    seats=[],
+    rows=[],
 )
 
 

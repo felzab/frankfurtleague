@@ -337,19 +337,32 @@ class Subject:
         return _read(self._grants, "grants")
 
     def records(self) -> list[str]:
-        """Each top-level record of the address as `collection/id`, in the full scope alone: what repeats its erasure after a restore."""
+        """Each record this address alone holds as `collection/id`, in the full scope alone: what repeats its erasure after a restore.
+
+        A seat's row holds up to three people and another address's change names a second one, so neither stands here.
+        """
 
         kinds: tuple[tuple[Collection, Rows], ...] = (
-            (Collection.SAISON_TEAMS, self.saison_teams),
-            (Collection.BEWERBUNGEN, self.bewerbungen),
             (Collection.SCHIEDSRICHTER, self.schiedsrichter),
             (Collection.SPIELER, self.spieler),
             (Collection.REGISTRIERUNGEN, self.registrierungen),
-            (Collection.ADDRESS_CHANGES, self.address_change),
+            (Collection.ADDRESS_CHANGES, [row for row in self.address_change if row["address"] == self.identifier]),
             (Collection.GRANTS, self.grants),
         )
 
         return [f"{collection}/{row['_id']}" for collection, rows in kinds for row in rows]
+
+    def seats(self) -> list[str]:
+        """Each slot the address sits in as `collection/id/slot`, in the full scope alone, so a restore's replay reads this person's address."""
+
+        kinds: tuple[tuple[Collection, Rows], ...] = ((Collection.SAISON_TEAMS, self.saison_teams), (Collection.BEWERBUNGEN, self.bewerbungen))
+
+        return [f"{collection}/{row['_id']}/{slot}" for collection, rows in kinds for row, slot in seats_naming(rows, self.identifier)]
+
+    def changes_naming_it(self) -> list[str]:
+        """Each other address's change whose new address this is, as `collection/id`."""
+
+        return [f"{Collection.ADDRESS_CHANGES}/{row['_id']}" for row in others_naming(self.address_change, self.identifier)]
 
 
 async def resolve_subject(
@@ -411,12 +424,12 @@ async def resolve_subject(
     )
 
 
-async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
+async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
     """Every mail to this folded address removed, owed or settled, every kind but those `ERASURE_SPARED_KINDS` names.
 
     A settled row's retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index
     serves the read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its
-    mail was owed.
+    mail was owed. Answers each as `collection/id`.
     """
 
     rows = await aggregate_many_from_db(
@@ -428,15 +441,30 @@ async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, iden
     if ids:
         await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
-    return len(ids)
+    return [f"{outbox_collection.name}/{row_id}" for row_id in ids]
+
+
+async def log_rows_naming(*, action_log_collection: ReadCollection, identifier: str, session: AsyncClientSession) -> list[str]:
+    """The log rows `reattribute_administrator_in_session` takes this folded address off, as `collection/id`, read ahead of it."""
+
+    rows = await aggregate_many_from_db(
+        collection=action_log_collection,
+        pipeline=[{"$match": {"$or": [{"by": identifier}, {"label": identifier}]}}, {"$project": {"_id": 1}}],
+        session=session,
+    )
+
+    return [f"{Collection.ACTION_LOG}/{row['_id']}" for row in rows]
 
 
 @dataclass(frozen=True)
 class Erasure:
-    """What one erasure took: the counts its route answers, and each top-level record for its line, empty in a narrower scope."""
+    """What one erasure took: the counts its route answers, and where the person stood for its line, by id, all empty in a narrower scope."""
 
     counts: FLErasure
     records: list[str]
+    seats: list[str]
+    # Every other row that named the address, so an address holding no record of its own still replays after a restore.
+    rows: list[str]
 
 
 @dataclass(frozen=True)
@@ -649,26 +677,28 @@ async def erase_everything(
         )
 
     grants = 0
+    named: list[str] = []
     if _runs(erase_grants_and_authorship_in_session, scope):
-        grants = (
-            await erase_grants_and_authorship_in_session(
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                invitations_collection=invitations_collection,
-                ban_list_collection=ban_list_collection,
-                identifier=identifier,
-                changed_by=changed_by,
-                now=now,
-                session=session,
-            )
-        ).removed_grants
+        erased_grants = await erase_grants_and_authorship_in_session(
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            registrierungen_collection=registrierungen_collection,
+            invitations_collection=invitations_collection,
+            ban_list_collection=ban_list_collection,
+            identifier=identifier,
+            changed_by=changed_by,
+            now=now,
+            session=session,
+        )
+        grants = erased_grants.removed_grants
+        named += [*subject.changes_naming_it(), *erased_grants.rows]
 
     if _runs(erase_the_mails_in_session, scope):
-        await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
+        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
 
     if _runs(reattribute_administrator_in_session, scope):
+        named += await log_rows_naming(action_log_collection=action_log_collection, identifier=identifier, session=session)
         await reattribute_administrator_in_session(
             action_log_collection=action_log_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
         )
@@ -685,6 +715,9 @@ async def erase_everything(
             grants=grants,
         ),
         records=subject.records() if scope == EACH_PERSON_GROUP else [],
+        seats=subject.seats() if scope == EACH_PERSON_GROUP else [],
+        # One row twice where a withheld notice was also a mail to the address.
+        rows=list(dict.fromkeys(named)),
     )
 
 
@@ -716,7 +749,7 @@ class ErasureJournal:
         if self._erasure is None:
             raise RuntimeError("an erasure route left its journal without handing it the transaction's erasure")
 
-        privacy_line("erasure", self._erasure.records)
+        privacy_line("erasure", self._erasure.records, seats=self._erasure.seats, rows=self._erasure.rows)
         # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
         # grant short: the ended grant's queued notice is what tells the other administrators. Unwarned on a
         # lost answer: the warning's read would meet the deadline that lost the answer.

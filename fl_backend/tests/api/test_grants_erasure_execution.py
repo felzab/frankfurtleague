@@ -309,22 +309,18 @@ class TestTheNotices:
                 )
             }
 
-        async def body(
-            database: AsyncDatabase, client: AsyncMongoClient
-        ) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]], int]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]]]:
             before = await stored(database)
-            result = await erase(database, client)
+            await erase(database, client)
 
-            return before, await stored(database), result.withheld_outbox
+            return before, await stored(database)
 
-        before, after, withheld = on_a_league(mongo_replica_set_url, body)
+        before, after = on_a_league(mongo_replica_set_url, body)
 
         assert after[NAMING_HER_GRANT] == (None, DORA)
         assert after[MADE_BY_HER] == (BERND, ERASED_ACTOR_MARKER)
         assert after[NOT_HERS] == before[NOT_HERS]
         assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
-        # The notice made at her local part elsewhere is counted nowhere: the fold drops it before any write is sent.
-        assert withheld == 2
 
 
 class TestTheRecordsSheMade:
@@ -359,15 +355,12 @@ class TestTheRecordsSheMade:
         return value
 
     def test_every_record_she_made_reads_the_marker_whatever_spelling_stored_her(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Any], int]:
-            result = await erase(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
+            await erase(database, client)
 
-            return [await self.author(database, collection, row_id, path) for collection, row_id, path in self.AUTHORS], result.marked
+            return [await self.author(database, collection, row_id, path) for collection, row_id, path in self.AUTHORS]
 
-        authors, marked = on_a_league(mongo_replica_set_url, body)
-
-        assert authors == [ERASED_ACTOR_MARKER] * len(self.AUTHORS)
-        assert marked == len(self.AUTHORS)
+        assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER] * len(self.AUTHORS)
 
     def test_another_administrators_records_keep_their_author_a_similar_address_included(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
