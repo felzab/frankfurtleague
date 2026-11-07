@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import ValidationError
 
 from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.api.action_log.services import build_action_log_query
@@ -56,6 +57,15 @@ def test_a_filter_compiles_to_what_the_store_compares(filters: dict[str, Any], q
     """A wrong term hides rows and nothing fails: the page reads as a shorter log."""
 
     assert build_action_log_query(FLActionLogFilterPayload.model_validate(filters)) == query
+
+
+@pytest.mark.parametrize("field", ["from_day", "until_day"])
+@pytest.mark.parametrize("day", ["0001-01-01", "9999-12-31"])
+def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(field: str, day: str):
+    """Each is a legal `date` whose next midnight or UTC instant raises `OverflowError`, which would answer 500."""
+
+    with pytest.raises(ValidationError):
+        FLActionLogFilterPayload.model_validate({field: day})
 
 
 def test_the_read_puts_nothing_in_a_query_string():

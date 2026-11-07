@@ -5,6 +5,7 @@ Named here so two slices spelling the same limit cannot drift apart. A bound onl
 stays at that field, and a derived one is never re-spelled as a literal.
 """
 
+from datetime import date
 from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
@@ -124,6 +125,11 @@ ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
 # One page of the Protokoll, as „Weitere 50 laden“ words it.
 ACTION_LOG_PAGE_SIZE: Final = 50
+
+# The days the Protokoll's filters may name: wider than any row's, and each with a next midnight and a UTC instant that
+# `date` and BSON can hold, so a day past them is refused rather than overflowing into a 500.
+ACTION_LOG_DAY_MIN: Final = date(2000, 1, 1)
+ACTION_LOG_DAY_MAX: Final = date(2999, 12, 31)
 
 # The longest word a row stores, an erasure's reference: a longer search matches nothing.
 ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200

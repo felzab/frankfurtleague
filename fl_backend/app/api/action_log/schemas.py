@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.recording import FLAction, FLActionType
-from app.shared.schemas.bounds import ACTION_LOG_SEARCH_MAX_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, FLUtcInstant
+from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH
+from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -35,8 +35,8 @@ class FLActionLogFilterPayload(BaseModel):
     # LIST, one key per value: a filter's one option may stand for several categories.
     type: list[FLActionType] | None = None
     # German days, both inclusive.
-    from_day: CustomDateString | None = None
-    until_day: CustomDateString | None = None
+    from_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
+    until_day: date | None = Field(default=None, ge=ACTION_LOG_DAY_MIN, le=ACTION_LOG_DAY_MAX)
 
 
 class FLActionLogEntry(BaseModel):

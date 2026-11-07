@@ -35,16 +35,13 @@ export const AccountPostAddressChangeBody = zod.object({
  * @summary List recorded acts
  */
 export const actionLogGetActionLogBodyCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const actionLogGetActionLogBodyFromDayOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const actionLogGetActionLogBodyQOneMax = 200;
-
-export const actionLogGetActionLogBodyUntilDayOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 
 export const ActionLogGetActionLogBody = zod
   .object({
     by: zod.union([zod.string(), zod.null()]).optional(),
     cursor: zod.union([zod.string().regex(actionLogGetActionLogBodyCursorOneRegExp), zod.null()]).optional(),
-    from_day: zod.union([zod.string().regex(actionLogGetActionLogBodyFromDayOneRegExp), zod.null()]).optional(),
+    from_day: zod.union([zod.iso.date(), zod.null()]).optional(),
     q: zod.union([zod.string().max(actionLogGetActionLogBodyQOneMax), zod.null()]).optional(),
     type: zod
       .union([
@@ -71,7 +68,7 @@ export const ActionLogGetActionLogBody = zod
         zod.null(),
       ])
       .optional(),
-    until_day: zod.union([zod.string().regex(actionLogGetActionLogBodyUntilDayOneRegExp), zod.null()]).optional(),
+    until_day: zod.union([zod.iso.date(), zod.null()]).optional(),
   })
   .describe("What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.");
 

@@ -30,9 +30,9 @@ def build_action_log_query(filters: FLActionLogFilterPayload) -> dict[str, Any]:
         compiled["action"] = {"$in": _actions_of(filters.type)}
     span: dict[str, datetime] = {}
     if filters.from_day is not None:
-        span["$gte"] = _german_midnight(date.fromisoformat(filters.from_day))
+        span["$gte"] = _german_midnight(filters.from_day)
     if filters.until_day is not None:
-        span["$lt"] = _german_midnight(date.fromisoformat(filters.until_day) + timedelta(days=1))
+        span["$lt"] = _german_midnight(filters.until_day + timedelta(days=1))
     if span:
         compiled["at"] = span
     # A blank search is none: an empty pattern would keep only the rows holding a team or a label.
