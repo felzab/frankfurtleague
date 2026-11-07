@@ -1473,6 +1473,7 @@ export interface FLBewerbung {
  * A decline, to one person of the application, with the administrator's reason verbatim.
  */
 export interface FLBewerbungAbsageData {
+  deletion_days: number;
   kind: "bewerbung_absage";
   reason: string;
   /** @minItems 1 */

@@ -3231,6 +3231,10 @@
       "FLBewerbungAbsageData": {
         "description": "A decline, to one person of the application, with the administrator's reason verbatim.",
         "properties": {
+          "deletion_days": {
+            "title": "Deletion Days",
+            "type": "integer"
+          },
           "kind": {
             "const": "bewerbung_absage",
             "title": "Kind",
@@ -3262,7 +3266,8 @@
           "team",
           "saison_id",
           "rollen",
-          "reason"
+          "reason",
+          "deletion_days"
         ],
         "title": "FLBewerbungAbsageData",
         "type": "object"
