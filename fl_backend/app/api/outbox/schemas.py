@@ -65,7 +65,8 @@ class FLGrantData(BaseModel):
     address: str | None
     # An address change's new address, masked (`app/api/address_change/services.py :: masked_address`), null on every other change.
     new_address: str | None
-    # The folded administrator who acted, null where a pass completed it, `app/core/recording.py :: ERASED_ACTOR_MARKER` once erased.
+    # The folded administrator who acted, null where a pass completed it or the change is a lost mailbox's, whose actor no reader
+    # is told, `app/core/recording.py :: ERASED_ACTOR_MARKER` once erased.
     changed_by: str | None
     changed_at: AwareDatetime
     # When what waits takes effect, on a start alone.
@@ -77,8 +78,6 @@ class FLAddressChangeLinkData(BaseModel):
 
     kind: Literal["address_change_link"]
     way: FLAddressChangeWay
-    # When the link lapses, which the mail states.
-    valid_until: AwareDatetime
     # The tier of a holder's own change, whose wait the mail states; null otherwise.
     holder: FLAdminTier | None
 
@@ -92,8 +91,6 @@ class FLAddressChangeNoticeData(BaseModel):
 
     kind: Literal["address_change_notice"]
     way: FLAddressChangeWay
-    # The deadline of what the address on file is asked, which the person's own change's mail states.
-    valid_until: AwareDatetime
     # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
     first_name: str | None
     # The tier of a holder's own change, whose wait the mail states; null otherwise.
@@ -525,7 +522,7 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
 
     lease: str | None
     mails: list[FLOutboxHandout]
-    # Rows this claim found past their deadline and gave up, which no report will count.
+    # Rows this claim gave up, past their deadline or unreadable, which no report will count.
     abandoned: int = Field(ge=0)
 
 

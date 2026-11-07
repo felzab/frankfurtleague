@@ -29,7 +29,6 @@ from app.api.identity.crud import find_subject_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.db import NO_OWNER
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
@@ -196,7 +195,7 @@ class TestThePersonsOwnErasure:
     def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal written inside the callback, ahead of a commit that can still fail.
 
-        The refusal is transient, so the driver reruns the erasure and the rerun commits: one line and one warning, none of the
+        The refusal is transient, so the driver reruns the erasure and the rerun commits: one line, none of the
         first attempt's.
         """
 
@@ -224,9 +223,7 @@ class TestThePersonsOwnErasure:
         with caplog.at_level(logging.INFO):
             refused, removed = on_their_league(mongo_replica_set_url, body)
 
-        warnings = [record.getMessage() for record in caplog.records].count(NO_OWNER)
-
-        assert (len(journal_records(caplog)), warnings) == (1, 1)
+        assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
         assert (refused, removed) == ([WRITE_CONFLICT, None], 1)
 

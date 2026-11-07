@@ -47,10 +47,8 @@ class TestWhatALeakedLinkLearns:
     @pytest.mark.parametrize(
         ("model", "fields"),
         [
-            pytest.param(FLAddressChangeViewNew, {"side", "state", "valid_until", "effective_from", "way", "email", "confirmed_on"}, id="new"),
-            pytest.param(
-                FLAddressChangeViewPrevious, {"side", "state", "valid_until", "effective_from", "way", "email", "released_on"}, id="on file"
-            ),
+            pytest.param(FLAddressChangeViewNew, {"side", "state", "effective_from", "way", "email", "confirmed_on"}, id="new"),
+            pytest.param(FLAddressChangeViewPrevious, {"side", "state", "effective_from", "way", "email", "released_on"}, id="on file"),
             pytest.param(FLAddressChangeViewEnded, {"side", "state", "kind", "ended_on", "way", "released_on", "confirmed_on"}, id="ended"),
         ],
     )

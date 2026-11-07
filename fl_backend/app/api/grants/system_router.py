@@ -7,7 +7,7 @@ from app.api.grants.crud import complete_the_handover_in_session, read_grants
 from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
 from app.core.config import API_VERSION
-from app.core.dependencies import DBClient, GrantsCollection, OutboxCollection, get_germany_now
+from app.core.dependencies import AddressChangeCollection, DBClient, GrantsCollection, OutboxCollection, get_germany_now
 from app.core.security import verify_access_system
 from app.core.transactions import transaction_session
 
@@ -25,6 +25,7 @@ router = APIRouter(
 )
 async def post_handover_pass(
     grants_collection: GrantsCollection,
+    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -43,7 +44,12 @@ async def post_handover_pass(
             return 0
 
         await complete_the_handover_in_session(
-            due, grants_collection=grants_collection, outbox_collection=outbox_collection, now=now, session=session
+            due,
+            grants_collection=grants_collection,
+            address_changes_collection=address_changes_collection,
+            outbox_collection=outbox_collection,
+            now=now,
+            session=session,
         )
 
         return 1

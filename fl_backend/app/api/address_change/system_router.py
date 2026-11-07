@@ -136,7 +136,7 @@ async def _make_the_due_change_take_effect(
     db: AsyncMongoClient,
     now: datetime,
 ) -> Literal["effective", "discarded"]:
-    """One due change in its own transaction, judged again as its confirmation was.
+    """One due change in its own transaction, judged again as its confirmation was, a holder's by confirmed entries alone.
 
     Answers how it ended, its notice owed; `DocumentNotFoundError` where stopped, discarded or replaced since the page was read.
     """
@@ -155,6 +155,7 @@ async def _make_the_due_change_take_effect(
             occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
             expired=False,
             session=session,
+            at_the_pass=True,
         )
         if verdict.cause is None and not verdict.empty:
             await move_the_address_in_session(
@@ -190,6 +191,7 @@ async def _make_the_due_change_take_effect(
             record,
             changed_by=None,
             grants_collection=grants_collection,
+            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -229,11 +231,12 @@ async def sweep_address_change(
 
     **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
     its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
-    again as its confirmation was: another pupil signing in on the new address, a grant at it, or nothing left to move
-    ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take effect and never
-    why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts it, its
-    completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
-    this answer.
+    again as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or
+    nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
+    effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
+    it, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an
+    application nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is
+    owed in the Postausgang in its change's own transaction, so none rides on this answer.
 
     A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
     its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
@@ -383,7 +386,6 @@ async def post_address_change_moves_done(
 ) -> FLAddressChangeMovesDoneResponse:
     """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
 
-    # By id alone: the log keeps the filter, and an address would stand in it.
     result = await patch_many_in_db(
         collection=address_changes_collection,
         db_filter={"_id": {"$in": sorted(set(done_data.ids))}, "move": {"$type": "object"}},

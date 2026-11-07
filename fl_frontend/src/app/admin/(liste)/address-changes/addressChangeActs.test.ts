@@ -1,11 +1,13 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { refused } from "@/test-support/refusals";
+import { bodyField } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { APIBadStatusError } from "@/core/errors";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import type { Code } from "@/core/generated/client/types";
+import type { Code, FLRefusedField } from "@/core/generated/client/types";
 
 const held = vi.hoisted(() => ({ accountStands: false, accountAtNew: false }));
 
@@ -21,8 +23,13 @@ vi.mock("@/features/address-change/account", () => ({ accountAtNewAddress: async
 
 /** The code the case's backend refuses with, `null` for a write it takes. */
 let refusal: Code | null = null;
+/** The body fields that refusal names, as the backend's answer carries them. */
+let refusedFields: readonly FLRefusedField[] = [];
 const calls = doubleApiClient(() => {
-  if (refusal !== null) throw refused(refusal);
+  if (refusal !== null) {
+    const raised = refused(refusal);
+    throw new APIBadStatusError({ ...raised, message: raised.message, refusedFields });
+  }
   return {};
 });
 
@@ -36,6 +43,7 @@ beforeEach(() => {
   held.accountStands = false;
   held.accountAtNew = false;
   refusal = null;
+  refusedFields = [];
   calls.length = 0;
 });
 
@@ -50,13 +58,19 @@ describe("a start, an account standing at the new address", () => {
   });
 });
 
-// No such refusal names a field, so a code left to the builder reaches the shared failure line, which words a retry the
-// same rule refuses; `address_change_unchanged` left to `ownWords` would say Konto's „deine“ of somebody else's address.
+// Left to the shared failure line, each words a retry the same rule refuses.
 describe("a start the backend refuses for its new address", () => {
-  it.each(["address_change_taken", "address_change_occupied", "address_change_unchanged"] as const)("answers %s on the box", async (code) => {
+  it.each(["address_change_taken", "address_change_occupied"] as const)("answers %s on the box", async (code) => {
     refusal = code;
+    refusedFields = [bodyField(["email"], code)];
 
     expect(await startLostMailboxChange(START)).toMatchObject({ ok: false, errorCode: code, fieldErrors: { email: COPY.shared.field.taken } });
+  });
+
+  it("answers the address on file typed again in the sentence Konto reads", async () => {
+    refusal = "address_change_unchanged";
+
+    expect(await startLostMailboxChange(START)).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.address_change_unchanged });
   });
 });
 

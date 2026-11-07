@@ -9,8 +9,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.api.ban_list.admin_router import delete_ban_list_entry, get_ban_list_entries
-from app.api.ban_list.crud import address_is_barred, read_ban_list_page
+from app.api.ban_list.admin_router import delete_ban_list_entry
+from app.api.ban_list.crud import address_is_barred
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -64,10 +64,6 @@ def on_a_clean_list(url: str, body: Body) -> Any:
             return await body(database, client)
 
     return on_the_seed_loop(_run())
-
-
-async def listed(database: AsyncDatabase) -> Any:
-    return await get_ban_list_entries(ban_list_collection=database[Collection.BAN_LIST])
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, ban_reason: str = BAN_REASON, by: str = ADMIN) -> Any:
@@ -166,26 +162,6 @@ class TestTheCheckASignInAsks:
             ]
 
         assert on_a_clean_list(mongo_replica_set_url, body) == [True, True, True, False]
-
-
-class TestWhatTheListServes:
-    def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
-        """A ban past the cap is enforced and not rendered, so the count is what says one is there to lift.
-
-        The cap is driven rather than named: a total copied off the served rows passes otherwise.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            await ban(database, client)
-            await ban(database, client, email=OTHER)
-
-            served = await listed(database)
-            capped = await read_ban_list_page(ban_list_collection=database[Collection.BAN_LIST], limit=1)
-
-            return served.count_total, capped[1]
-
-        # The cap is what makes the pair differ: one row served, two held, and both reads say two.
-        assert on_a_clean_list(mongo_replica_set_url, body) == (2, 2)
 
 
 class TestLiftingABan:

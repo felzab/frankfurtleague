@@ -655,7 +655,6 @@ export const COPY = catalogue({
       },
       /** The step the change waits on lapsed; the hourly pass ends it. */
       lapsed: "Die Änderung ist abgelaufen.",
-      unchanged: "Das ist schon deine E-Mail-Adresse.",
       /** The address on file's one act, on its link's page and on its mail's button. */
       stop: "Änderung stoppen",
       /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
@@ -1237,8 +1236,6 @@ export const COPY = catalogue({
       /** The list's plural in its empty states, and a pass's noun. */
       plural: BANS,
       search: `${BANS} suchen`,
-      /** Over a list the read's cap cut: a ban it does not show still bars its address, and nobody can lift it here. */
-      cut: `Nicht alle ${BANS} sind geladen.`,
       consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
       duration: "Dauer",
       durationSaisons: (count: number) => (count === 1 ? "1 Saison" : `${formatNumber(count)} Saisons`),
