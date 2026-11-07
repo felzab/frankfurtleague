@@ -71,8 +71,6 @@ TEAM_NAME = "Adler"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 ADMIN = "admin@frankfurtleague.de"
 
-# Past the step-up window by a minute.
-
 PHONE = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
 
 SEATS = ("trainer", "ansprechperson", "stellvertretung")

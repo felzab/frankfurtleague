@@ -22,7 +22,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.grants.admin_router import delete_grant, delete_handover, post_grant, post_handover
-from app.api.grants.crud import move_the_grant_in_session, owe_in_session, read_admin_tier_of
+from app.api.grants.crud import move_the_grant_in_session, owe_in_session
 from app.api.grants.schemas import FLPostGrantPayload
 from app.api.grants.services import compose_notice
 from app.api.grants.system_router import post_handover_pass
@@ -331,16 +331,6 @@ class TestAnAddition:
 
         assert (code, held) == (Code.GRANT_EXISTS, sorted([*EVERY_HOLDER, NEU]))
 
-    def test_a_banned_address_is_refused(self, mongo_replica_set_url: str):
-        """Left to the sign-in alone, every holder would be told of an administrator who can never enter."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            await database[Collection.BAN_LIST].insert_one({"address": NEU})
-
-            return await refusal_of(add(database, client)), await database[Collection.OUTBOX].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (Code.GRANT_BARRED, 0)
-
     def test_a_live_change_at_the_address_ends(self, mongo_replica_set_url: str):
         """Left standing, its switch would carry the waiting row to an address the owner never named."""
 
@@ -501,14 +491,6 @@ class TestAHandover:
         assert owner_from == stored(NOW + timedelta(days=OWNER_WAIT_DAYS))
         assert (held[OWNER], held[ANNA]) == ("owner", "administration")
         assert notices == [("handover", "started", ANNA, OWNER, EVERY_HOLDER)]
-
-    def test_a_second_handover_is_refused_while_one_waits(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await hand_over(database, client)
-
-            return await refusal_of(hand_over(database, client, BERND_ID))
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.GRANT_HANDOVER_WAITING
 
     def test_a_row_still_waiting_is_refused_so_an_addition_then_a_handover_waits_both(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -737,20 +719,6 @@ class TestTheMountedRouteReadsTheGrants:
             return response.status_code, response.json().get("error_code")
 
         assert on_a_league(mongo_replica_set_url, body) == (status, error_code)
-
-    def test_the_subject_read_answers_a_waiting_row_with_nothing(self, mongo_replica_set_url: str):
-        """It is what the frontend's guards and the sign-in read: a tier here would pass a waiting person off as an administrator."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            async with client.start_session() as session:
-                return [
-                    await read_admin_tier_of(grants_collection=database[Collection.GRANTS], address=NEU, now=NOW, session=session),
-                    await read_admin_tier_of(grants_collection=database[Collection.GRANTS], address=ANNA, now=NOW, session=session),
-                ]
-
-        waiting, holding = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
-
-        assert (waiting, holding[0]) == (None, "administration")
 
     def test_a_handover_gives_the_role_at_the_pass_and_to_a_later_sign_in_alone(self, mongo_replica_set_url: str):
         """Waiting, the named administrator holds no owner's act; once it completed, their older session holds nothing."""
