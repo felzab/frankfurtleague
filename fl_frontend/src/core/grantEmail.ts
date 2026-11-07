@@ -3,6 +3,7 @@ import "server-only";
 import { mailOrigin } from "./emailShell";
 import { ERASED_ACTOR_MARKER } from "./erasedActor";
 import { formatInstant } from "./format";
+import { ROUTES } from "./routes";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 import type { Mail, Run } from "./emailShell";
@@ -11,8 +12,6 @@ import type { MailOrigin } from "./mailKinds";
 
 const BETREFF = "Änderung beim Zugang zur Verwaltung";
 const ZIEL_LABEL = "Zur Verwaltung";
-
-const ZIEL_PFAD = "/area/admin/administratoren";
 
 /** A change made outside the application names nobody, and says where it was made instead. */
 const OHNE_VERWALTUNG = "Diese Änderung wurde nicht in der Verwaltung vorgenommen, sondern direkt in der Datenbank.";
@@ -156,6 +155,6 @@ export function buildGrantEmail(data: FLGrantData, { origin: rawOrigin }: MailOr
       [urheberSatz(urheber, approvalRequest === null ? "Geändert" : "Beantragt")],
       approvalRequest?.aufgabe ?? [WARNSATZ],
     ],
-    button: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
+    button: { label: ZIEL_LABEL, href: `${origin}${ROUTES.adminAdministrators.path()}` },
   };
 }
