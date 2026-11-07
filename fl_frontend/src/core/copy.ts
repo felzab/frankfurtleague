@@ -4,6 +4,7 @@ import {
   formatDateWithWeekday,
   formatErgebnis,
   formatInstant,
+  formatInstantShort,
   formatList,
   formatNumber,
   formatOrdinal,
@@ -1224,6 +1225,9 @@ export const COPY = catalogue({
       /** A grant's `effective_from`, as a date under this label. */
       since: "Seit",
       pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
+      /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
+      pendingLine: (kind: Copy, address: string | null, moment: string) =>
+        [kind, address, `${EFFECTIVE_FROM} ${formatInstantShort(moment)}`].filter((part) => part !== null).join(" · "),
       additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
       removeConsequence: "Der Zugang endet sofort.",
       handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,

@@ -38,6 +38,7 @@ const DATE_WITH_WEEKDAY_AND_YEAR = new Intl.DateTimeFormat("de-DE", {
 });
 const DATE_LONG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "numeric", month: "long", year: "numeric" });
 const INSTANT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
+const INSTANT_SHORT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "medium", timeStyle: "short" });
 const TIME = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 // A stored time of day names no instant, so it is read in UTC, where no clock change can move it.
 const TIME_SAVED = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
@@ -110,6 +111,15 @@ export function formatTime(time: TimeOfDay | Date): string {
 export function formatInstant(instant: string | Date): string {
   const date = typeof instant === "string" ? new Date(instant) : instant;
   return Number.isNaN(date.getTime()) ? String(instant) : INSTANT.format(date);
+}
+
+/**
+ * „07.11.2026, 18:04“: an instant in a list's narrow cell, where `formatInstant`'s words would not fit. An unreadable
+ * stored instant is printed as stored, as `formatInstant` prints it.
+ */
+export function formatInstantShort(instant: string | Date): string {
+  const date = typeof instant === "string" ? new Date(instant) : instant;
+  return Number.isNaN(date.getTime()) ? String(instant) : INSTANT_SHORT.format(date);
 }
 
 /**
