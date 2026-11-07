@@ -113,20 +113,6 @@
       "count": 24
     }
   },
-  "src/features/address-change/components/views/AdresswechselLinkView.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 4
-    },
-    "no-restricted-syntax": {
-      "count": 23
-    },
-    "react/forbid-component-props": {
-      "count": 4
-    },
-    "react/jsx-no-literals": {
-      "count": 16
-    }
-  },
   "src/features/bewerbungen/components/ui/Filled.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -1172,7 +1158,7 @@
   },
   "src/shared/components/ui/EditPageHeader.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 6
+      "count": 5
     },
     "no-restricted-syntax": {
       "count": 8
@@ -1235,7 +1221,7 @@
   },
   "src/shared/components/ui/FormActionBar.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 6
+      "count": 4
     },
     "no-restricted-syntax": {
       "count": 13
@@ -1395,11 +1381,6 @@
       "count": 1
     }
   },
-  "src/shared/components/ui/StepUpRefused.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/shared/components/ui/Switch.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 2
@@ -1486,18 +1467,7 @@
       "count": 1
     }
   },
-  "src/shared/hooks/useStepUp.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/shared/hooks/useTwoPressConfirm.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 2
     }
