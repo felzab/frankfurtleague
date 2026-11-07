@@ -159,11 +159,12 @@ class TestTheSeatsStateDecidesTheWrite:
 
         async def body(database: AsyncDatabase) -> Any:
             answer = await write_seat(database, "trainer", {**sent_person("Ida"), "phone": "+4915110000009"})
+            acts = database[Collection.ACTION_LOG].find({"action": "team.seat_changed"})
 
-            return (answer, *await row_and_mails(database))
+            return (answer, *await row_and_mails(database), [(act["record_id"], act["label"]) async for act in acts])
 
         seated = stored_person("Ida", confirmed_at=CONFIRMED_ON)
-        answer, row, mails = on_a_row(
+        answer, row, mails, acts = on_a_row(
             mongo_replica_set_url,
             body,
             kontakte=block(trainer=seated),
@@ -173,6 +174,7 @@ class TestTheSeatsStateDecidesTheWrite:
         assert answer.email is None
         assert mails == []
         assert row["kontakte"]["trainer"] == {**seated, "phone": "+4915110000009"}
+        assert acts == [(TEAM_OID, "Adler")]
         assert row["confirmations"]["trainer"] == link_entry()
 
     @pytest.mark.parametrize("kontakte", [block(), None], ids=["an emptied seat", "a row holding no block"])

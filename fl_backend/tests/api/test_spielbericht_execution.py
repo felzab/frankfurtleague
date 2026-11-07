@@ -278,6 +278,21 @@ class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
         assert block["adopted_version"] is None
 
 
+class TestASaveSayingWhatTheReportSays:
+    def test_it_writes_nothing_and_logs_nothing(self, mongo_replica_set_url: str):
+        """A second press of the form: a raised version refuses the page's next correction, and the Protokoll would hold a save of nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            before = await stored(database)
+            again = Response()
+            answered = await put(database, client, bericht(stand=1), response=again)
+
+            return again.status_code, answered.bericht.version, before == await stored(database), len(await acts_of(database))
+
+        assert on_the_league(mongo_replica_set_url, body) == (200, 1, True, 1)
+
+
 class TestAFormOpenedBeforeAnotherWrite:
     """Each write replaces the whole block, so one composed on an older version would put back what a later write changed."""
 

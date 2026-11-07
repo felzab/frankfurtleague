@@ -1,6 +1,8 @@
 import json
 import re
+from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -11,6 +13,7 @@ from app.shared.schemas.custom import (
     CustomExternalUrl,
     CustomObjectId,
     CustomTimeString,
+    as_utc,
 )
 
 
@@ -101,6 +104,12 @@ def test_rejects_non_http_schemes_and_bare_hosts(value):
 def test_returns_the_text_it_validated_rather_than_the_raw_value(stored, expected):
     """`urlsplit` discards tabs and newlines before parsing, so the host that passes `DOMAIN_REGEX` is not the raw string."""
     assert _Url.model_validate({"value": stored}).value == expected
+
+
+def test_an_aware_instant_stays_the_moment_it_was():
+    """The PUT of a report answers its Berlin `now` through this: relabelled, a page reads two hours ahead of the stored row."""
+
+    assert as_utc(datetime(2026, 7, 1, 18, 0, tzinfo=ZoneInfo("Europe/Berlin"))) == datetime(2026, 7, 1, 16, 0, tzinfo=UTC)
 
 
 def test_object_id_round_trips_as_a_24_hex_string():

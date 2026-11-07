@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.admin_router import get_bewerbung, get_bewerbungen_admin
-from app.api.bewerbungen.services import with_delivery
+from app.api.bewerbungen.services import saison_state_of, with_delivery
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -233,6 +233,23 @@ class TestEachSeatServesWhereItStands:
 
     def test_an_erased_seat_serves_no_entry(self):
         assert self.read()["stellvertretung"] is None
+
+    def test_a_row_its_season_stripped_serves_as_it_stands(self):
+        """The strip nulls the block, and the review page still opens the application it leaves."""
+
+        stripped = {"_id": "bewerbung", "kontakte": None, "confirmations": None}
+
+        assert with_delivery(stripped, {}, today="2026-04-10") == stripped
+
+    def test_a_season_row_s_confirmed_seat_reads_confirmed_and_offers_its_link_no_press(self):
+        """Read off anything but the row's block, its link asks a person who answered to confirm again."""
+
+        row = {
+            "kontakte": {"trainer": documents.kontaktperson_document("Anke", confirmed_at="2026-04-02")},
+            "confirmations": {"trainer": self.LIVE},
+        }
+
+        assert saison_state_of(row=row, seat="trainer", today="2026-04-10", saison_status="active") == "confirmed"
 
 
 class TestEachSeatReadsItsLastMail:

@@ -1344,6 +1344,18 @@ class TestAPersonHoldingNoFunktion:
 class TestThePreview:
     """What the page shows before the press: every record of the person's own the erasure takes, by name, and no address or birthdate."""
 
+    @pytest.mark.parametrize("admin_tier", ["owner", None])
+    def test_it_answers_the_tier_of_the_person_s_own_grant_and_no_other_s(self, mongo_replica_set_url: str, admin_tier: str | None):
+        """The page draws its grant line from this: read null, a holder erases their administration unwarned."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if admin_tier is not None:
+                await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, admin_tier)
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                return (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["admin_tier"]
+
+        assert on_a_league(mongo_replica_set_url, body) == admin_tier
+
     def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
         """A change still awaiting its address on file has told the new mailbox nothing, and neither its preview nor its answer.
 
