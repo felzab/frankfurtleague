@@ -12,9 +12,6 @@ from pymongo.results import InsertOneResult
 
 from app.api.ban_list.lookup import BanList, BanListLookup, barred_addresses
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.identity.crud import due_count, saison_statuses
-from app.api.identity.schemas import FLErasurePreviewResponse
-from app.api.identity.services import closed_by, statuses_after_activating
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
@@ -119,7 +116,6 @@ from app.core.dependencies import (
     DBClient,
     InvitationsCollection,
     OutboxCollection,
-    RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -127,7 +123,6 @@ from app.core.dependencies import (
     SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
-    SpielerCollection,
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsCollection,
@@ -1411,39 +1406,6 @@ async def _mail_one_team(
         )
 
         return "failed"
-
-
-@router.get(
-    "/{saison_id}/erasure/preview",
-    response_model=FLErasurePreviewResponse,
-    summary="How many pupils activating this season would delete",
-)
-async def get_erasure_preview(
-    saison_id: str,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    registrierungen_collection: RegistrierungenCollection,
-) -> FLErasurePreviewResponse:
-    """
-    How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.
-
-    Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
-    `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
-    refusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run
-    keeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.
-    `completed_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
-    """
-
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
-
-    statuses = await saison_statuses(saisons_collection=saisons_collection)
-    spieler = await due_count(
-        statuses_after_activating(statuses, saison_id),
-        spieler_collection=spieler_collection,
-        registrierungen_collection=registrierungen_collection,
-    )
-
-    return FLErasurePreviewResponse(completed_saison_id=closed_by(statuses, saison_id), spieler=spieler)
 
 
 @router.post(

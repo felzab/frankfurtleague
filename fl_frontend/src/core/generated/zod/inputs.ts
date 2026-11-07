@@ -1761,20 +1761,6 @@ export const SaisonsGetSaisonAdminParams = zod.object({
 });
 
 /**
- * How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.
- *
- * Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
- * `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
- * refusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run
- * keeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.
- * `completed_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
- * @summary How many pupils activating this season would delete
- */
-export const SaisonsGetErasurePreviewParams = zod.object({
-  saison_id: zod.string(),
-});
-
-/**
  * Exchange the groups of two clubs entered in this season, as one write.
  *
  * Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
@@ -2126,8 +2112,8 @@ export const SchiedsrichterPostConfirmationBody = zod.object({
  *
  * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
  * unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
- * re-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's
- * objection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.
+ * re-send or reactivation asks the person again. The objection is journalled, so a restore from a snapshot taken before
+ * it replays it.
  *
  * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
  * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list

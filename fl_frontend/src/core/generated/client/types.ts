@@ -2382,14 +2382,6 @@ export interface FLErasurePayload {
   reason: string;
 }
 
-/**
- * How many pupils the run erases once this season is activated, counted and never named.
- */
-export interface FLErasurePreviewResponse {
-  completed_saison_id: string | null;
-  spieler: number;
-}
-
 export interface FLErasureResponse {
   /** @minimum 0 */
   address_change: number;

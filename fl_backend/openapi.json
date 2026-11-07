@@ -5565,32 +5565,6 @@
         "title": "FLErasurePayload",
         "type": "object"
       },
-      "FLErasurePreviewResponse": {
-        "description": "How many pupils the run erases once this season is activated, counted and never named.",
-        "properties": {
-          "completed_saison_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed Saison Id"
-          },
-          "spieler": {
-            "title": "Spieler",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "completed_saison_id",
-          "spieler"
-        ],
-        "title": "FLErasurePreviewResponse",
-        "type": "object"
-      },
       "FLErasureResponse": {
         "properties": {
           "address_change": {
@@ -24888,84 +24862,6 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/erasure/preview": {
-      "get": {
-        "description": "How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.\n\nJudged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one\n`active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own\nrefusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run\nkeeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.\n`completed_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.",
-        "operationId": "saisons_get_erasure_preview",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLErasurePreviewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "How many pupils activating this season would delete",
-        "tags": [
-          "saisons"
-        ]
-      }
-    },
     "/api/v0/saisons/{saison_id}/gruppen/swap": {
       "post": {
         "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery Gruppenphase fixture fielding either club has that side rewritten in the same transaction,\nso each group stays a round robin. Neither `tore` nor `austritt` moves.",
@@ -26240,7 +26136,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/decline": {
       "post": {
-        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no\nre-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's\nobjection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
+        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no\nre-send or reactivation asks the person again. The objection is journalled, so a restore from a snapshot taken before\nit replays it.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list\nis not asked: an objection gives the league nothing a ban withholds.",
         "operationId": "schiedsrichter_post_decline",
         "requestBody": {
           "content": {
@@ -26455,7 +26351,7 @@
     },
     "/api/v0/schiedsrichter/sweep": {
       "post": {
-        "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nErased as an administrator's erasure erases: the entry goes, every fixture naming it names the ghost, and every log\nimage of it is redacted, so the person's name and address leave the log with the entry, as the privacy notice says\nof an unconfirmed or declined one. A confirmed entry and the ghost hold no deletion date and are never due.\n\nA page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an\nentry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next\npass. No body: the clock takes no season.",
+        "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nErased as an administrator's erasure erases: the entry goes and every fixture naming it names the ghost, as the\nprivacy notice says of an unconfirmed or declined one. A confirmed entry and the ghost hold no deletion date and are\nnever due.\n\nA page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an\nentry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next\npass. No body: the clock takes no season.",
         "operationId": "schiedsrichter_sweep_schiedsrichter",
         "responses": {
           "200": {

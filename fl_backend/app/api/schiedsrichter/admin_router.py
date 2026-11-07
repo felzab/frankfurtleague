@@ -65,7 +65,6 @@ from app.core.crud import (
 from app.core.dependencies import (
     AddressChangeCollection,
     DBClient,
-    GrantsAnnouncedCollection,
     GrantsCollection,
     OutboxCollection,
     SchiedsrichterCollection,
@@ -134,7 +133,6 @@ async def get_schiedsrichter_by_id(
     schiedsrichter_collection: SchiedsrichterCollection,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
@@ -161,7 +159,6 @@ async def get_schiedsrichter_by_id(
         actor=sign_in_identifier(operator),
         auth_time=auth_time,
         grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
         session=None,
     )
 

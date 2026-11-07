@@ -61,7 +61,6 @@ import type {
   FLDeclineBewerbungResponse,
   FLErasureAddressPayload,
   FLErasurePayload,
-  FLErasurePreviewResponse,
   FLErasureResponse,
   FLErasureSweepResponse,
   FLErasureViewResponse,
@@ -2654,30 +2653,6 @@ export const saisonsGetSaisonAdmin = async (
   });
 };
 
-export const getSaisonsGetErasurePreviewUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/erasure/preview`;
-};
-
-/**
- * How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.
- *
- * Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
- * `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
- * refusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run
- * keeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.
- * `completed_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
- * @summary How many pupils activating this season would delete
- */
-export const saisonsGetErasurePreview = async (
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLErasurePreviewResponse> => {
-  return adminKeyTransport<FLErasurePreviewResponse>(getSaisonsGetErasurePreviewUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSaisonsSwapGruppenUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/gruppen/swap`;
 };
@@ -3138,8 +3113,8 @@ export const getSchiedsrichterPostDeclineUrl = () => {
  *
  * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
  * unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
- * re-send or reactivation asks the person again. Every log image of the entry is redacted at the press, as a contact's
- * objection redacts theirs, and the objection is journalled, so a restore from a snapshot taken before it replays it.
+ * re-send or reactivation asks the person again. The objection is journalled, so a restore from a snapshot taken before
+ * it replays it.
  *
  * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
  * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`). The ban list
@@ -3240,9 +3215,9 @@ export const getSchiedsrichterSweepSchiedsrichterUrl = () => {
 /**
  * Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
  *
- * Erased as an administrator's erasure erases: the entry goes, every fixture naming it names the ghost, and every log
- * image of it is redacted, so the person's name and address leave the log with the entry, as the privacy notice says
- * of an unconfirmed or declined one. A confirmed entry and the ghost hold no deletion date and are never due.
+ * Erased as an administrator's erasure erases: the entry goes and every fixture naming it names the ghost, as the
+ * privacy notice says of an unconfirmed or declined one. A confirmed entry and the ghost hold no deletion date and are
+ * never due.
  *
  * A page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an
  * entry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next

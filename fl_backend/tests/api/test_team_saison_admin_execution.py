@@ -127,7 +127,6 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Any:
         invitations_collection=database[Collection.INVITATIONS],
         address_changes_collection=database[Collection.ADDRESS_CHANGES],
         grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
         ban_list=ban_list(database),
         today=TODAY,

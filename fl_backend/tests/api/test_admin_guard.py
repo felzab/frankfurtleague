@@ -159,8 +159,6 @@ ADMIN_READS = [
     ("/api/v0/ban_list", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
-    # How many pupils an activation deletes, which only the person able to press it may weigh.
-    ("/api/v0/saisons/{saison_id}/erasure/preview", "get"),
     # The team editor's read serves its link's `created_by`, an administrator's address.
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/admin", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
