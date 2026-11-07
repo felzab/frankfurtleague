@@ -31,7 +31,7 @@ _QUEUED_SITES = ("data.address", "data.changed_by")
 @dataclass(frozen=True)
 class ErasedGrantsAndAuthorship:
     removed_grants: int
-    # Each field this step took the person off, as `collection/id/path`: for the journal's line, which holds no value.
+    # Each field this step took the person off, as `collection/id/path`: for the journal's lines, which hold no address.
     rows: list[str]
 
 
