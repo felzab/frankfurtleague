@@ -63,6 +63,9 @@ RECORDS_CLOSING_THE_WINDOW = (
 # server refuses -- by which point both removals have already run.
 WATERMARK_REQUIRED: dict[str, Any] = {"$jsonSchema": {"bsonType": "object", "required": ["spielplan"]}}
 
+# The undraw's last write, after the clear.
+REFUSING_THE_UNDRAW_S_ROW: dict[str, Any] = {"action": {"$ne": "saison.spielplan_deleted"}}
+
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
     """`spielplan` is OMITTED where absent rather than nulled, which is the shape a season nobody has drawn carries."""
@@ -282,6 +285,38 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         # On the code, so this cannot pass because the undraw fell before it removed anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele), "a rolled-back undraw removed rows"
+        assert aborted.watermark == {"generated_at": TODAY}
+
+    def test_a_log_row_refused_after_the_clear_takes_the_cleared_watermark_back(self, mongo_replica_set_url: str):
+        """Drop `session=` from the watermark clear and this fails.
+
+        Not the case above: refusing the `$unset` aborts bound or not. Here it succeeds and its own
+        log row is refused, so an unbound clear would already have committed, past the abort's reach.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
+            drawn = await call_draw(database, client)
+
+            # After the draw, which writes a `saison.*` row of its own.
+            await database.command("collMod", str(Collection.ACTION_LOG), validator=REFUSING_THE_UNDRAW_S_ROW, validationLevel="strict")
+
+            with pytest.raises(OperationFailure) as failure:
+                await call_undraw(database, client)
+
+            spieltage, spiele = await counts_now(database)
+
+            return AbortedUndraw(
+                drawn=drawn,
+                write_error=server_code(failure.value),
+                spieltage=spieltage,
+                spiele=spiele,
+                watermark=await watermark_now(database),
+            )
+
+        aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
+
+        assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
+        assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele)
         assert aborted.watermark == {"generated_at": TODAY}
 
 
