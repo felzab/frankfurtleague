@@ -303,12 +303,14 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when the owner cannot sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `grants` collection of the application database (`DB_BASE_NAME`,
-  which `fl_backend/.env` names). The row holds five fields: `address`,
+  which `fl_backend/.env` names). The row holds four fields: `address`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   which the application then reads as typed; `admin_tier`, `owner` or `administration`; `granted_by`, a marker naming the
-  paste, such as `PLAYGROUND`; `effective_from`, `new Date()`, which any sign-in after the paste passes; and `version: 0`.
-  A recovery demotes any other `owner` row first, which `uniq_grant_owner` otherwise refuses, and
+  paste, such as `PLAYGROUND`; and `effective_from`, `new Date()`, which any sign-in after the paste passes.
+  A recovery first clears every waiting handover's `owner_from` and deletes every addition still
+  waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
+  `uniq_grant_owner` otherwise refuses, and
   writes a new row rather than repointing the old one, whose sign-in account stays at the old address. Removing the row by its
   folded address removes the grant. A paste mails nobody, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
@@ -534,7 +536,8 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   checks it for a name. Start the change in the address tool
   with it. The new address confirms
   by link within `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS` hours,
-  and the change takes effect `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days later, judged again then; until
+  and the change takes effect `:: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` days later, judged again then, when only an address already
+  taken, a grant of the new address or a confirmed entry ends it; until
   then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
   person before starting again.
 - **The address holds a grant of access.** The change waits whole:
@@ -1240,9 +1243,10 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
 own rows about it included. Every erasure a person or an administrator asked for left one line in the
 backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
-seat's link or a referee's, whether its commit landed or lost its answer. A line names its act, each
-record as `collection/id`, a withdrawal's `choices` and a Widerspruch's `seats`, and no value, address
-or name. The season rule's deletions write none, the rule deleting the same pupils again on its own.
+seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no value, address or name, where its person stood:
+`records`, each record one address alone holds, as `collection/id`; `seats`, a Widerspruch's slots by
+name, an erasure's as `collection/id/slot`, its row holding other people; `rows`, an erasure's every
+other row that named the address; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
 
 **List the lines between the two moments**, from the running backend and the deploys' copies (§7),
 each in the `journal.act` message, every value in a field of its own:
@@ -1259,13 +1263,25 @@ for it.
 
 **A withdrawal is set again on its record, a Widerspruch's seats emptied again**, each in the
 Playground, from the fields of its line, the person's evidence having gone with the lost window.
-A choice granted since by evidence later than the line stands. A person who made one of these acts
+A line names the choice and no value, so where a choice holds several withholding values the one
+that withholds most is set. A choice granted since by evidence later than the line stands. A person who made one of these acts
 and whose record the restore does not hold needs nothing.
 
-**Then run each erasure again on „Löschungen“, with the address one of its line's records
-shows** on the page §5's table names for that collection: keyed on the address, the erasure reaches
-every other record it names. A line naming no record took a sign-in account alone, which goes with
-the account sweep's first pass after the hold, and needs nothing. A restored row does not look erased,
+**Then run each erasure again on „Löschungen“, with the address its line shows**: keyed on the
+address, the erasure reaches every other record it names. Read it in the restored rows, in this order,
+never elsewhere on the row, since a seat's row and another person's change hold other people:
+
+- a `records` entry: the address on that record, as §5's table names it;
+- a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row;
+- a `rows` entry, by its collection: `address_changes`, `email`, this being another address's change
+  that named this one as its new address; `grants`, `granted_by`; `bewerbungen` and `registrierungen`,
+  `decision.by`; `ban_list` and `invitations`, `created_by`; `action_log`, `by`, or `label` on a grant
+  act; `outbox`, `to`, or on a `grant` notice `data.address` or `data.changed_by`.
+
+The entries a restored row no longer holds, written after the snapshot, are read past. An address
+with no entry the snapshot holds left nothing the restore brought back. A line naming nothing at all
+took a sign-in account alone, which goes with the account sweep's first pass after the hold, and needs
+nothing. A restored row does not look erased,
 and each role's guard reads something the restore took away:
 
 - **A referee.** The whole row is back, with its name, school and contact members, and every fixture
@@ -1281,8 +1297,13 @@ and each role's guard reads something the restore took away:
   them, and so is their address on every grant, ban, invitation and decision they made. The erasure
   removes the grants and marks the rest again, where a `DELETE` of the grant would not do: it refuses
   an `owner` grant. **The owner runs it again, behind the passkey touch**: the page refuses a grant
-  holder's address to anyone else
-  ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)).
+  holder's address to anyone else ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **A former
+  owner** who handed the role over and was then erased comes back as the `owner` row, the handover being
+  undone with everything else, and the person the role passed to is an administrator again or holds
+  nothing. Nobody who holds no owner's power can erase that address, and the row's holder is the erased
+  person. So the recovery paste runs first: it demotes that row and writes the true owner's, as §3's
+  recovery says; only then does the owner run the erasure. The same applies to a handover the restore
+  undid with the old owner still present: that person is the owner again until it is started afresh.
 - **A record holding no address.** No erasure reaches one
   ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so no line names
   it.
