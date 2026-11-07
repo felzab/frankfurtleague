@@ -51,7 +51,7 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
-from app.api.schiedsrichter.services import build_self_referee_filter, first_name_of
+from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
@@ -64,11 +64,11 @@ from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWay, FLAdminTier
 
-_SPIELER_FIELDS: Final[Mapping[str, int]] = {"first_name": 1, "last_name": 1, "email": 1, "einwilligung": 1}
+_SPIELER_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1}
 # The whole consent record: `is_own_schiedsrichter` judges its stamp.
-_SCHIEDSRICHTER_FIELDS: Final[Mapping[str, int]] = {"name": 1, "kontakt.email": 1, "einwilligung": 1}
+_SCHIEDSRICHTER_FIELDS: Final[Mapping[str, int]] = {"kontakt.email": 1, "einwilligung": 1}
 _SEAT_FIELDS: Final[Mapping[str, int]] = {"saison_id": 1, "team_id": 1, "kontakte": 1, "confirmations": 1}
-_REGISTRIERUNG_FIELDS: Final[Mapping[str, int]] = {"email": 1, "first_name": 1, "last_name": 1, "einwilligung": 1, "confirmation": 1}
+_REGISTRIERUNG_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1, "confirmation": 1}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -93,20 +93,6 @@ class Holdings:
     @property
     def empty(self) -> bool:
         return not (self.spieler or self.schiedsrichter or self.seats or self.bewerbung_seats or self.registrierungen or self.grant)
-
-    @property
-    def first_name(self) -> str:
-        """Whom the notices greet: the first name the first record holding one stores, or none."""
-
-        candidates = [
-            *([] if self.spieler is None else [self.spieler.get("first_name")]),
-            *(first_name_of(row.get("name")) for row in self.schiedsrichter),
-            *((row.get("kontakte") or {}).get(slot, {}).get("first_name") for row, slots in self.seats for slot in slots),
-            *((row.get("kontakte") or {}).get(slot, {}).get("first_name") for row, slots in self.bewerbung_seats for slot in slots),
-            *(row.get("first_name") for row in self.registrierungen),
-        ]
-
-        return next((str(name) for name in candidates if isinstance(name, str) and name), "")
 
 
 async def live_grant_of(identifier: str, *, grants_collection: ReadCollection, session: AsyncClientSession | None) -> Mapping[str, Any] | None:
@@ -378,7 +364,6 @@ async def owe_the_notice_in_session(
     address: str,
     way: FLAddressChangeWay,
     valid_until: datetime,
-    first_name: str | None,
     holder: FLAdminTier | None,
     outbox_collection: AsyncCollection,
     now: datetime,
@@ -397,7 +382,7 @@ async def owe_the_notice_in_session(
             OwedMail(
                 key=f"address_changes/{address_change_id}/notice",
                 to=address,
-                data=FLAddressChangeNoticeData(kind="address_change_notice", way=way, first_name=first_name, holder=holder),
+                data=FLAddressChangeNoticeData(kind="address_change_notice", way=way, holder=holder),
                 reference=_reference(address_change_id),
                 link=FLOutboxLink(paths=["stop.token_hashes"], addresses=["address"], replaced=False),
                 valid_until=valid_until if way == "account" else None,
@@ -714,12 +699,7 @@ async def move_the_address_in_session(
                 OwedMail(
                     key=f"address_changes/{record['_id']}/effective",
                     to=old,
-                    # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
-                    data=FLAddressChangeEffectiveData(
-                        kind="address_change_effective",
-                        instant=now,
-                        first_name=None if record["way"] == "waiting_period" else holdings.first_name,
-                    ),
+                    data=FLAddressChangeEffectiveData(kind="address_change_effective", instant=now),
                 )
             ],
             now=now,

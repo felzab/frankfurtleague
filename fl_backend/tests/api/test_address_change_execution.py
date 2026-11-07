@@ -652,8 +652,8 @@ class TestTheConfirmation:
         assert (waiting["pupil"]["email"], waiting["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert (early.removed, early.discarded, early.effective) == (0, 0, 0)
         assert late.effective == 1
-        # The lost-mailbox way greets nobody, and carries no account: that mailbox may have passed to a stranger.
-        assert (notices, owed_carries) == ([{"kind": "effective", "to": EMAIL, "first_name": None}], [])
+        # The lost-mailbox way carries no account: that mailbox may have passed to a stranger.
+        assert (notices, owed_carries) == ([{"kind": "effective", "to": EMAIL}], [])
         assert (after["pupil"]["email"], after["referee"]["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
 
     def test_a_press_finding_nothing_left_to_move_writes_nothing_and_the_link_lapses(self, mongo_replica_set_url: str):
@@ -1282,17 +1282,6 @@ class TestTheToolsStart:
 
         assert (plain.way, plain.token is not None) == ("waiting_period", True)
         assert (refused, record["ended"], record["change_reason"]) == (Code.ADDRESS_CHANGE_OCCUPIED, None, CHANGE_REASON)
-
-    def test_the_notice_names_the_person_only_where_the_address_on_file_is_asked_first(self, mongo_replica_set_url: str):
-        """On the lost-mailbox way the address on file may be a stranger's by now, so its notice is given no name to greet."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await start(database, client, released=False)
-            await administrator_starts(database, client, change_reason=CHANGE_REASON)
-            rows = database[Collection.OUTBOX].find({"kind": "address_change_notice"}, sort=[("recorded_at", 1), ("_id", 1)])
-            return [(row["data"]["way"], row["data"]["first_name"]) async for row in rows]
-
-        assert on_a_person(mongo_replica_set_url, body) == [("account", "Lenore"), ("waiting_period", None)]
 
     @staticmethod
     def refused_start(url: str, setup: str = "", **payload: Any) -> tuple[str, int]:

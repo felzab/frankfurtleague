@@ -1790,17 +1790,6 @@
       "FLAddressChangeEffectiveData": {
         "description": "The replaced address's notice that the change took effect.",
         "properties": {
-          "first_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
@@ -1814,8 +1803,7 @@
         },
         "required": [
           "kind",
-          "instant",
-          "first_name"
+          "instant"
         ],
         "title": "FLAddressChangeEffectiveData",
         "type": "object"
@@ -1929,17 +1917,6 @@
       "FLAddressChangeNoticeData": {
         "description": "The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.\n\nOn the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once\nit confirmed, stops the change; on the lost-mailbox way it stops the change.",
         "properties": {
-          "first_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
           "holder": {
             "anyOf": [
               {
@@ -1962,7 +1939,6 @@
         "required": [
           "kind",
           "way",
-          "first_name",
           "holder"
         ],
         "title": "FLAddressChangeNoticeData",
@@ -6251,7 +6227,7 @@
         "type": "string"
       },
       "FLKontaktLinkData": {
-        "description": "One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.",
+        "description": "One person an administrator seated on a team's season row, asked to confirm.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -9138,10 +9114,6 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
-          "first_name": {
-            "title": "First Name",
-            "type": "string"
-          },
           "kind": {
             "const": "registrierung_absage",
             "title": "Kind",
@@ -9170,7 +9142,6 @@
         },
         "required": [
           "kind",
-          "first_name",
           "team",
           "saison_id",
           "reason"

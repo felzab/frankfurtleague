@@ -27,7 +27,7 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=UTC)
     "data",
     [
         pytest.param(FLDeletionNoticeData(kind="deletion_notice", saison_id=None), id="the notice an erasure spares"),
-        pytest.param(FLAddressChangeEffectiveData(kind="address_change_effective", instant=NOW, first_name=None), id="the replaced address's"),
+        pytest.param(FLAddressChangeEffectiveData(kind="address_change_effective", instant=NOW), id="the replaced address's"),
     ],
 )
 def test_a_row_no_erasure_reaches_goes_at_its_deadline(data: Any):

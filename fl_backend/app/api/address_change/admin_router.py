@@ -233,8 +233,6 @@ async def post_address_change_admin(
             address=identifier,
             way=way,
             valid_until=record["valid_until"],
-            # Greeting nobody: the lost address on file may have passed to a stranger.
-            first_name=None,
             holder=None,
             outbox_collection=outbox_collection,
             now=germany_now,

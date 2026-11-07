@@ -233,18 +233,6 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {TOKEN_HASHES_PATH: token_hash}
 
 
-def first_name_of(name: Any) -> str | None:
-    """The forename inside the one `name` field this collection stores.
-
-    Split rather than stored apart, as every other referee surface reads the whole name. Only the
-    account page fills a slot with it.
-    """
-
-    parts = str(name).split() if isinstance(name, str) else []
-
-    return parts[0] if parts else None
-
-
 def link_is_over(*, deadline: str, today: str) -> bool:
     """Whether the deadline has passed: its own day still takes the answer."""
 

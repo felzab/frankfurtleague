@@ -439,7 +439,7 @@ async def change(database: AsyncDatabase, address_change_id: ObjectId) -> Mappin
 
 
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
-    """The notices the ends owe, in the order the drain hands them out: their kind, their recipient and whom they greet."""
+    """The notices the ends owe, in the order the drain hands them out: their kind and their recipient."""
 
     rows = database[Collection.OUTBOX].find(
         {"kind": {"$in": ["address_change_effective", "address_change_discarded"]}, "state": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
@@ -448,7 +448,6 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
         {
             "kind": row["kind"].removeprefix("address_change_"),
             "to": row["to"],
-            **({"first_name": row["data"]["first_name"]} if "first_name" in row["data"] else {}),
         }
         async for row in rows
     ]
