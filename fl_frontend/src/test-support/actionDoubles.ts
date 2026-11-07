@@ -192,6 +192,7 @@ const signInStore = (answers: SignInAnswers) => ({
       answers.signedOut.push(String(address));
       return answering(answers.signOutFailure ?? answers.accountHeld);
     },
+    sessionsStandAt: () => Promise.resolve(false),
   },
   accounts: {
     deleteAccountFor: (address: unknown) => {

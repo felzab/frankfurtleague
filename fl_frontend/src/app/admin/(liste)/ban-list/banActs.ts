@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
-import { endSessionsOfAddress } from "@/core/auth/accountSessions";
+import { endSessionsOfAddress, sessionsStandAt } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { banListDeleteBanListEntry, banListPostBanListEntry } from "@/core/generated/client/sdk";
@@ -56,6 +56,16 @@ async function sessionsEndedAt(address: string): Promise<boolean> {
   }
 }
 
+/** Whether a second ban has sessions to end; where the store did not say, the ending itself finds that out. */
+async function sessionsRunAt(address: string): Promise<boolean> {
+  try {
+    return await sessionsStandAt(address);
+  } catch (failed) {
+    logger.error("ban_list.sessions_unread", undefined, { name: nameOf(failed) });
+    return false;
+  }
+}
+
 /** What did not follow a ban that stands; `undefined` where everything did. */
 function partialOutcome(sessionsEnded: boolean, noticeOwed: boolean): Copy | undefined {
   if (sessionsEnded) return noticeOwed ? undefined : PARTIAL.notice;
@@ -65,9 +75,10 @@ function partialOutcome(sessionsEnded: boolean, noticeOwed: boolean): Copy | und
 /**
  * Bans an address from the dialog over the list, behind the passkey touch: its next sign-in is refused, its live
  * sessions end here, and an address holding an account is owed its notice in the ban's own transaction. Nothing that
- * fails after the write undoes the ban, so the dialog stays open on what did not follow. A second ban is the unique
- * index's refusal, which the shared 409 answers with no field, and the address is the one box it can be about; its
- * sessions end all the same.
+ * fails after the write undoes the ban, so the dialog stays open on what did not follow, its button pressable where a
+ * second press can still end the sessions. A second ban is the unique index's refusal, which the shared 409 answers with
+ * no field, and the address is the one box it can be about; its sessions end all the same, and a press that ended some
+ * says so rather than refusing.
  */
 export const enterBan = action({
   lane: "admin",
@@ -85,9 +96,12 @@ export const enterBan = action({
       await banListPostBanListEntry({ email, ban_reason, notify: account === true });
     } catch (failed) {
       if (!(failed instanceof APIBadStatusError) || failed.serverErrorCode !== "duplicate_key") throw failed;
-      // A first press whose answer was lost left the ban standing and its sessions running, and this press is the only
-      // one that can still end them. A session of an address banned earlier is already gone, so this costs nobody anything.
+      // A first press whose answer was lost or whose sign-out failed left the ban standing and its sessions running, and
+      // this press is the only one that can still end them. A session of an address banned earlier is already gone, so this
+      // costs nobody anything, and finding one is what tells this press from a true second ban.
+      const stood = await sessionsRunAt(email);
       const ended = await sessionsEndedAt(email);
+      if (stood && ended) return { ok: true, value: undefined, note: PARTIAL.ended };
       return {
         ok: false,
         errorCode: "duplicate_key",
@@ -97,8 +111,11 @@ export const enterBan = action({
     }
 
     // After the write is acknowledged, so nobody is signed out by a request that then failed.
-    const note = partialOutcome(await sessionsEndedAt(email), account !== null);
-    return note === undefined ? { ok: true, value: undefined } : { ok: true, value: undefined, note, warn: true };
+    const ended = await sessionsEndedAt(email);
+    const note = partialOutcome(ended, account !== null);
+    if (note === undefined) return { ok: true, value: undefined };
+    // Marked as an erasure's partial is, so its button stays for the second press; no press sends a notice the first left.
+    return ended ? { ok: true, value: undefined, note, warn: true } : { ok: false, reason: note, warn: true };
   },
 });
 

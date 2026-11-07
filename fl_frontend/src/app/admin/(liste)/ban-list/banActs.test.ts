@@ -15,6 +15,7 @@ const PARTIAL = COPY.admin.banList.partial;
 const store = vi.hoisted(() => ({
   account: async (): Promise<boolean> => true,
   end: async (): Promise<boolean> => true,
+  stand: async (): Promise<boolean> => false,
   reached: [] as string[],
 }));
 
@@ -33,6 +34,7 @@ vi.mock("@/core/auth/accountSessions", () => ({
     store.reached.push(`end ${address}`);
     return store.end();
   },
+  sessionsStandAt: () => store.stand(),
 }));
 
 const { calls, answerWith } = doubleApiAnswers(async () => {
@@ -49,6 +51,7 @@ const failing = async (): Promise<never> => {
 beforeEach(() => {
   store.account = async () => true;
   store.end = async () => true;
+  store.stand = async () => false;
   store.reached = [];
 });
 
@@ -74,14 +77,19 @@ describe("a ban", () => {
   // Each stands behind a write that cannot be taken back, so the dialog must say what did not follow.
   it.each([
     ["the sign-out failed", { end: failing }, PARTIAL.sessions],
-    ["the store did not say whether an account stands", { account: failing }, PARTIAL.notice],
     ["both", { end: failing, account: failing }, PARTIAL.both],
-  ])("stands and says what did not follow where %s", async (_case, failures, note) => {
+  ])("keeps its button for a second press and says what did not follow where %s", async (_case, failures, reason) => {
     Object.assign(store, failures);
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note, warn: true });
+    expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason, warn: true });
 
     expect(store.reached).toContain("post");
+  });
+
+  it("stands done and says so where the store did not say whether an account stands, which no press repairs", async () => {
+    store.account = failing;
+
+    expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note: PARTIAL.notice, warn: true });
   });
 
   // A POST whose answer was lost leaves the ban standing and the sign-out never run, and nothing but this press ends it.
@@ -92,13 +100,23 @@ describe("a ban", () => {
       });
     });
 
-    it("is refused on the address's box and ends the sessions the first left running", async () => {
+    it("is refused on the address's box where nothing was left to end", async () => {
       expect(await enterBan(BAN)).toMatchObject({ ok: false, fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } });
 
       expect(store.reached).toStrictEqual([`end ${ADDRESS}`]);
     });
 
+    // The harm: „Schon vergeben“ over a press that did what the warn line left open reads as nothing having happened.
+    it("says the sessions the first left running ended, and refuses nothing", async () => {
+      store.stand = async () => true;
+
+      expect(await enterBan(BAN)).toStrictEqual({ ok: true, value: undefined, note: PARTIAL.ended });
+
+      expect(store.reached).toStrictEqual([`end ${ADDRESS}`]);
+    });
+
     it("says so where they did not end", async () => {
+      store.stand = async () => true;
       store.end = failing;
 
       expect(await enterBan(BAN)).toMatchObject({ ok: false, reason: PARTIAL.sessions });
