@@ -293,7 +293,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   `fl_backend/app/shared/schemas/bounds.py :: GRANT_WAIT_HOURS` hours after it, a removal at once,
   and a handover at the first hourly pass `:: OWNER_WAIT_DAYS` days after it. Every holder in effect
   and the person named are mailed when a wait starts or stops, when a handover completes and at any
-  removal, but for an old address while a lost-mailbox change stands on it (§5); an addition's wait
+  removal; an addition's wait
   ends with no mail, no pass running then. Only the `owner` stops a wait, on
   the same page: the mail tells the others to reach the owner.
 - **Exactly one `owner` stands**, by `uniq_grant_owner`. A handover names a current administrator,
@@ -304,11 +304,10 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when the owner cannot sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `grants` collection of the application database (`DB_BASE_NAME`,
-  which `fl_backend/.env` names). The row holds four fields: `address`,
+  which `fl_backend/.env` names). The row holds three fields: `address`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
-  which the application then reads as typed; `admin_tier`, `owner` or `administration`; `granted_by`, a marker naming the
-  paste, such as `PLAYGROUND`; and `effective_from`, `new Date()`, which any sign-in after the paste passes.
+  which the application then reads as typed; `admin_tier`, `owner` or `administration`; and `effective_from`, `new Date()`, which any sign-in after the paste passes.
   A recovery first clears every waiting handover's `owner_from` and deletes every addition still
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and
@@ -448,14 +447,13 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then |
 | Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                           |
-| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.decision.by`), which no page renders and a read-only Playground query on that field finds; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                  |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and as the author of every ban, invite and application decision they made (`ban_list.created_by`, `invitations.created_by`, `bewerbungen.decision.by`), and the grants: their own in `grants`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.address`, `data.changed_by`), which a read-only Playground query on those fields finds                                                                                                                                       |
+| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only Playground query on those fields finds                                                                                                                                                                                                                                                                                                                                                         |
 | Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
-holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A change's reason no read
-serves (`address_changes.change_reason`). A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
+holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders any of these, and a read-only Playground query on those
 fields finds them.
 
@@ -549,9 +547,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   hourly pass switches it. That pass judges it on less, an entry nobody confirmed joining no two people: nothing left to
   move ends it, and so do another pupil signing in on the new address where a pupil row moves, a grant of the new address,
   an entry a person confirmed and an account still owed its carry. Every holder in effect is mailed when the wait starts, when it is stopped or withdrawn and when
-  it completes, the new address masked. On a lost mailbox those notices name no actor, and the old address, which may
-  have passed to a stranger, receives no such mail while the change stands, hearing only through the change's own notice
-  and its effect's. The tool starts a holder's change for the owner alone (`admin_address`). The owner
+  it completes, the new address masked. The tool starts a holder's change for the owner alone (`admin_address`). The owner
   discards it there; the holder withdraws it on Konto; the old address's stop link ends it too. At the switch the grant row
   keeps its id and moves, dated by the switch, so a session older than the switch holds nothing.
 - **The mailbox has passed to somebody else**, a school account given to a new pupil say. Whoever
@@ -579,7 +575,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   other own change mails nothing past its two links. Where the person started it,
   their sign-in account moves to the new address and every session of
   it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
-  old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
+  old account keeps its sessions until the sweep below; after a lost-mailbox change, or one onto such an address, they
   sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
   references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
@@ -1098,8 +1094,8 @@ mailbox's.
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
-administrator started with a reason takes effect its waiting time after its confirmation. While no
-pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
+administrator started takes effect its waiting time after its confirmation. While no
+pass runs neither is kept: a lapsed change keeps its new address, and a change past
 its waiting time stands until the next pass.
 
 **The fixture confirmations run on every pass**
@@ -1317,8 +1313,8 @@ and each role's guard reads something the restore took away:
   address, so the matched address is the whole input — and its counts take in records written since
   the snapshot as well, which is why section 5 says to read them before pressing.
 - **An administrator.** Every grant the address held, an `owner` grant included, is back and admits
-  them, and so is their address on every grant, ban, invitation and decision they made. The erasure
-  removes the grants and marks the rest again, where a `DELETE` of the grant would not do: it refuses
+  them. The erasure
+  removes the grants again, where a `DELETE` of the grant would not do: it refuses
   an `owner` grant. **The owner runs it again, behind the passkey touch**: the page refuses a grant
   holder's address to anyone else ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). **A former
   owner** who handed the role over and was then erased comes back as the `owner` row, the handover being

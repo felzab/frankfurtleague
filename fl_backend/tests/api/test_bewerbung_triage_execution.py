@@ -226,7 +226,6 @@ async def accept(
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        by=ADMIN_EMAIL,
         germany_now=MAIL_NOW,
     )
 
@@ -244,7 +243,6 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, reason: st
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         today=TODAY,
-        by=ADMIN_EMAIL,
         db=database.client,
         germany_now=MAIL_NOW,
     )
@@ -319,7 +317,7 @@ class TestAnAcceptanceEntersTheSchool:
 
         # The write the acceptance owes the application: without it a new school's row names no club.
         assert (stored["status"], stored["team_id"]) == ("accepted", created["_id"])
-        assert stored["decision"] == {"made_at": TODAY, "by": ADMIN_EMAIL, "reason": None}
+        assert stored["decision"] == {"made_at": TODAY, "reason": None}
         assert (response.team_id, response.created_team, response.gruppe) == (created["_id"], True, "A")
 
     def test_an_application_naming_an_existing_club_creates_none(self, mongo_replica_set_url: str):
@@ -747,16 +745,13 @@ class TestTheCodeAnAcceptanceIsSent:
 
 
 @pytest.mark.db
-class TestWhoTheDecisionNames:
-    """`decision.by` is the request's bound actor, and so is the `action_log` row's `by`.
+class TestWhatTheDecisionRecords:
+    """A decision stores its day, and the `action_log` row's `by` is the request's bound actor.
 
-    Served rather than called: calling the endpoint directly would resolve neither
-    `bind_actor` nor `get_actor_email`, proving nothing about their order.
+    Served rather than called: calling the endpoint directly would not resolve `bind_actor`.
     """
 
-    def test_the_stored_decision_carries_the_administrators_own_address(self, mongo_replica_set_url: str):
-        """Catches `get_actor_email` resolving BEFORE the router-level binder, which would file every decision under SYSTEM."""
-
+    def test_the_stored_decision_carries_the_request_s_day(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await through_the_app(
                 mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot", "shorthand": None, "version": 0}
@@ -768,26 +763,23 @@ class TestWhoTheDecisionNames:
         status_code, entscheidung = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served acceptance did not succeed, so what it stored proves nothing"
-        assert entscheidung["by"] == ADMIN_EMAIL
         # The injected clock reached it too, so the date is the request's rather than the wall's.
         assert (entscheidung["made_at"], entscheidung["reason"]) == (TODAY, None)
 
-    def test_the_log_row_for_that_write_names_the_same_person(self, mongo_replica_set_url: str):
-        """The pairing the field exists for: two sources for one name is two names waiting to disagree."""
+    def test_the_log_row_for_that_write_names_the_administrator(self, mongo_replica_set_url: str):
+        """Catches an actor resolved before the router-level binder, which would file every decision under SYSTEM."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await through_the_app(
                 mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot", "shorthand": None, "version": 0}
             )
-            rows = await database[Collection.ACTION_LOG].find({"action": "bewerbung.accepted"}).to_list(length=None)
+            return await database[Collection.ACTION_LOG].find({"action": "bewerbung.accepted"}).to_list(length=None)
 
-            return rows, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
+        rows = on_a_league(mongo_replica_set_url, body)
 
-        rows, entscheidung = on_a_league(mongo_replica_set_url, body)
+        assert [(row["by"], row["record_id"]) for row in rows] == [(ADMIN_EMAIL, PICKED_BEWERBUNG)]
 
-        assert [(row["by"], row["record_id"]) for row in rows] == [(entscheidung["by"], PICKED_BEWERBUNG)]
-
-    def test_a_served_decline_names_the_administrator_as_well(self, mongo_replica_set_url: str):
+    def test_a_served_decline_stores_the_day_as_well(self, mongo_replica_set_url: str):
         """The decline is a second endpoint writing a block of its own, so the acceptance's proof says nothing about it.
 
         Its block also carries a `reason` the acceptance's does not, which is what makes the two
@@ -802,7 +794,6 @@ class TestWhoTheDecisionNames:
         status_code, entscheidung = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
-        assert entscheidung["by"] == ADMIN_EMAIL
         assert entscheidung["made_at"] == TODAY
 
 
@@ -851,7 +842,7 @@ class TestADeclineTouchesNothingElse:
         status, entscheidung, team_id, rows = on_a_league(mongo_replica_set_url, body)
 
         assert status == "declined"
-        assert entscheidung == {"made_at": TODAY, "by": ADMIN_EMAIL, "reason": DECISION_REASON}
+        assert entscheidung == {"made_at": TODAY, "reason": DECISION_REASON}
         # Left as the applicant picked it: a decline creates no reference and clears none.
         assert (team_id, rows) == (EXISTING_OID, [])
 
@@ -936,9 +927,8 @@ class TestADecisionIsNotTakenTwice:
         assert (after_second["status"], len(rows)) == (expected_status, expected_rows)
 
 
-# The second administrator: a different address and a different reason, so a decline that overwrote
-# the first one's is visible in the stored block rather than only in a timestamp.
-OTHER_ADMIN_EMAIL = "triage.bramblewick@example.com"
+# A second reason, so a decline that overwrote the first one's is visible in the stored block rather than only in a
+# timestamp.
 OTHER_DECISION_REASON = "Die Anmeldefrist für diese Saison ist verstrichen."
 
 
@@ -981,7 +971,6 @@ class TestTwoDeclinesAtOnce:
                     outbox_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
-                    by=OTHER_ADMIN_EMAIL,
                     db=database.client,
                 )
             # With the first committed before it, the second is refused at its read and never reaches the write.
@@ -1147,7 +1136,6 @@ class TestADeclineLandingInsideAnAcceptance:
                     germany_now=MAIL_NOW,
                     db=client,
                     today=TODAY,
-                    by=OTHER_ADMIN_EMAIL,
                 )
             # With the decline committed before it, the acceptance is refused at its read and never reaches the patch.
             racing.assert_landed_inside(serially=0)

@@ -348,9 +348,8 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
 
-# The decision block is written from these two, and this case reads neither back.
+# The decision block is written from this, and this case does not read it back.
 ACCEPTED_ON = "2026-02-20"
-ACCEPTED_BY = "triage.quillhilde@example.com"
 
 
 class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
@@ -371,7 +370,6 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
                     outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=ACCEPTED_ON,
-                    by=ACCEPTED_BY,
                     germany_now=MAIL_NOW,
                 )
 

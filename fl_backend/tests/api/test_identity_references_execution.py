@@ -180,8 +180,8 @@ async def _seed(database: AsyncDatabase) -> None:
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_many(
         [
-            {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "effective_from": granted},
-            {"_id": ObjectId(), "address": OWNER, "admin_tier": "owner", "granted_by": "PLAYGROUND", "effective_from": granted},
+            {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "effective_from": granted},
+            {"_id": ObjectId(), "address": OWNER, "admin_tier": "owner", "effective_from": granted},
         ]
     )
 

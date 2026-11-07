@@ -90,8 +90,8 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
-  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin, account }),
-  passkey_erased: ({ instant, account }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin, account }),
+  passkey_added: ({ instant }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin }),
+  passkey_erased: ({ instant }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin }),
   account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterConfirmationEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielRequestEmail(data, minted(handout)),

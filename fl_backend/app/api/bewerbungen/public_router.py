@@ -53,6 +53,7 @@ from app.api.bewerbungen.services import (
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
+    first_name_of,
     form_window_state,
     leaving_moves_the_deletion_day,
     mailbox_anchor_ids,
@@ -68,7 +69,6 @@ from app.api.bewerbungen.services import (
     saison_state_of,
     seat_answered_at,
     seat_deadline_of,
-    seat_first_name,
     seat_holding,
     seat_opens_nobody,
     seats_past_the_bound,
@@ -623,7 +623,7 @@ async def post_einwilligung(
 
         # Read before either branch writes: a decline empties this slot, and the message reporting
         # it is the one thing that has to name the person who refused.
-        first_name = seat_first_name(kontakte=kontakte, seat=seat)
+        first_name = first_name_of(kontakte=kontakte, seat=seat)
         saison_id = str(bewerbung_raw["saison_id"])
 
         if answer_data.answer == "given":

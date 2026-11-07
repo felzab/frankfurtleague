@@ -359,7 +359,7 @@ async def decline(
     """
     Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
 
-    The decision records the declining seat holder's address and a reason from a closed set, never free text:
+    The decision records a reason from a closed set, never free text:
     `other_person` where the team answered that the registration is not the person its address belongs to. The
     row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
     where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
@@ -382,7 +382,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(by=identifier, reason=ablehnung_data.reason, today=today),
+            update=compose_ablehnung_update(reason=ablehnung_data.reason, today=today),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,

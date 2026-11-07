@@ -1299,7 +1299,6 @@ export const COPY = catalogue({
       /** „Zeitraum“'s presets. */
       time: {
         days: (count: number) => `Letzte ${formatNumber(count)} Tage`,
-        months: (count: number) => `Letzte ${formatNumber(count)} Monate`,
       },
       /** „Wer“ of a team's representative. */
       actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },

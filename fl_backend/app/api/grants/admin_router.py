@@ -80,7 +80,7 @@ async def post_grant(
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    granted_by: str = Depends(get_actor_email),
+    operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
     """
@@ -99,7 +99,7 @@ async def post_grant(
         """Anchor and read the list, judge the actor and the address, end a change standing at it, then write the row, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=granted_by, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, grants=grants))
         refuse(find_exists_refusal(address=address, grants=grants))
         refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
 
@@ -115,9 +115,7 @@ async def post_grant(
 
         grant_id = await grant_in_session(
             address=address,
-            granted_by=granted_by,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -133,10 +131,9 @@ async def post_grant(
 async def delete_grant(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
-    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    revoked_by: str = Depends(get_actor_email),
+    operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
     """
@@ -145,7 +142,7 @@ async def delete_grant(
     Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
     Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
     and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
-    transaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a
+    transaction. An address change standing on the row is left to run, as a
     change of an address holding no grant.
     """
 
@@ -153,7 +150,7 @@ async def delete_grant(
         """Anchor and read the list, judge the actor and the row against it, then remove the row, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=revoked_by, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -164,9 +161,7 @@ async def delete_grant(
         refuse(find_owner_row_refusal(grant=grant))
         await revoke_in_session(
             grant=grant,
-            revoked_by=revoked_by,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -183,10 +178,9 @@ async def post_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
-    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    started_by: str = Depends(get_actor_email),
+    operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
     """
@@ -202,7 +196,7 @@ async def post_handover(
         """Anchor and read the list, judge the actor and the row against it, then date the handover, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=started_by, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
@@ -217,9 +211,7 @@ async def post_handover(
         )
         await start_the_handover_in_session(
             grant,
-            started_by=started_by,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -235,10 +227,9 @@ async def post_handover(
 async def delete_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
-    address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    stopped_by: str = Depends(get_actor_email),
+    operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
     """
@@ -252,7 +243,7 @@ async def delete_handover(
         """Anchor and read the list, judge the actor and the row against it, then take the date off, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
-        refuse(find_only_owner_refusal(actor=stopped_by, grants=grants))
+        refuse(find_only_owner_refusal(actor=operator, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id and row.get("owner_from") is not None), None)
         if grant is None:
@@ -260,9 +251,7 @@ async def delete_handover(
 
         await stop_the_handover_in_session(
             grant,
-            stopped_by=stopped_by,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,

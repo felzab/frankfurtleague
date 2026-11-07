@@ -96,7 +96,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -245,10 +245,10 @@ async def get_bewerbung(
     )
 
 
-def _decision(*, today: str, by: str, reason: str | None) -> dict[str, Any]:
+def _decision(*, today: str, reason: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
-    return {"made_at": today, "by": by, "reason": reason}
+    return {"made_at": today, "reason": reason}
 
 
 async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
@@ -282,7 +282,6 @@ async def accept_bewerbung(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    by: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAcceptBewerbungResponse:
     """
@@ -422,7 +421,7 @@ async def accept_bewerbung(
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _decision(today=today, by=by, reason=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _decision(today=today, reason=None)}},
             session=session,
             expected_version=acceptance_data.version,
             return_document=ReturnDocument.BEFORE,
@@ -481,7 +480,6 @@ async def decline_bewerbung(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    by: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLDeclineBewerbungResponse:
     """
@@ -505,7 +503,7 @@ async def decline_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "declined", "decision": _decision(today=today, by=by, reason=ablehnung_data.reason)}},
+            update={"$set": {"status": "declined", "decision": _decision(today=today, reason=ablehnung_data.reason)}},
             session=session,
             expected_version=ablehnung_data.version,
             return_document=ReturnDocument.BEFORE,

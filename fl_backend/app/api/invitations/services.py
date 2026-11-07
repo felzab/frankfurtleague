@@ -10,11 +10,11 @@ from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
-from app.api.invitations.schemas import FLInvitationRecipient, FLInvitationSkipReason
+from app.api.invitations.schemas import FLInvitationSkipReason
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 
 # An exclusion rather than an inclusion list, as `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is: what it subtracts is the whole credential, where a list of everything
@@ -93,9 +93,7 @@ def find_live_invitation_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"token_hashes": token_hash, **LIVE_INVITATION}
 
 
-def compose_invitation(
-    *, saison_id: str, team_id: Any, token_hashes: list[str], created_by: str, today: str, sent_at: str | None
-) -> dict[str, Any]:
+def compose_invitation(*, saison_id: str, team_id: Any, token_hashes: list[str], today: str, sent_at: str | None) -> dict[str, Any]:
     """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link.
 
     `sent_at` is today where the same write owes the link's mails, as the season's press does, and null on a mint for copying.
@@ -106,7 +104,6 @@ def compose_invitation(
         "team_id": team_id,
         "token_hashes": token_hashes,
         "created_at": today,
-        "created_by": created_by,
         "revoked_at": None,
         "sent_at": sent_at,
     }
@@ -145,10 +142,17 @@ def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
     return entry if is_confirmed(entry.get("einwilligung")) else None
 
 
-def confirmed_recipients(*, kontakte: Any) -> list[FLInvitationRecipient]:
+class InvitationRecipient(NamedTuple):
+    """One mailbox a link goes to, and the seat it is addressed as."""
+
+    rolle: FLKontaktRolle
+    email: str
+
+
+def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
     """The mailboxes a link may be sent to, one entry per stored address, each the fold every payload stores."""
 
-    recipients: list[FLInvitationRecipient] = []
+    recipients: list[InvitationRecipient] = []
     seen: set[str] = set()
 
     for seat in KONTAKT_ROLLEN:
@@ -162,7 +166,7 @@ def confirmed_recipients(*, kontakte: Any) -> list[FLInvitationRecipient]:
             continue
 
         seen.add(address)
-        recipients.append(FLInvitationRecipient(rolle=rolle, email=address))
+        recipients.append(InvitationRecipient(rolle=rolle, email=address))
 
     return recipients
 
@@ -170,7 +174,7 @@ def confirmed_recipients(*, kontakte: Any) -> list[FLInvitationRecipient]:
 class InvitationDispatchPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
-    recipient: list[FLInvitationRecipient]
+    recipient: list[InvitationRecipient]
     skipped: FLInvitationSkipReason | None
 
 

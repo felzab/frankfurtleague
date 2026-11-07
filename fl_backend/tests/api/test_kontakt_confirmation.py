@@ -1030,7 +1030,7 @@ def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
         kontakte=dict(kontakte),
         submitted_at="2026-03-01",
         team_id=TEAM_OID,
-        decision={"made_at": "2026-03-25", "by": ADMIN, "reason": None},
+        decision={"made_at": "2026-03-25", "reason": None},
     )
 
 

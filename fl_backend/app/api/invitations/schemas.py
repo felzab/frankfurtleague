@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -15,8 +14,6 @@ class FLInvitation(BaseReadModel):
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
     created_at: CustomDateString
-    # The bound actor, on no payload: a link and its `action_log` row cannot then name two people.
-    created_by: CustomNonEmptyString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
@@ -50,7 +47,6 @@ class FLInvitationMintResponse(BaseAPIResponse):
     invitation_id: CustomObjectId
     token: CustomNonEmptyString
     created_at: CustomDateString
-    created_by: CustomNonEmptyString
 
 
 class FLInvitationWriteResponse(BaseAPIResponse):
@@ -59,13 +55,6 @@ class FLInvitationWriteResponse(BaseAPIResponse):
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
     invitation_id: CustomObjectId
-
-
-class FLInvitationRecipient(BaseModel):
-    """One mailbox a link goes to, and the seat it is addressed as."""
-
-    rolle: FLKontaktRolle
-    email: CustomNonEmptyString
 
 
 type FLInvitationSkipReason = Literal[
@@ -126,7 +115,6 @@ class FLInvitationMailPayload(BaseModel):
 class FLInvitationMailResponse(BaseAPIResponse):
     """How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed."""
 
-    invitation_id: CustomObjectId
     mailed: int = Field(ge=0)
 
 

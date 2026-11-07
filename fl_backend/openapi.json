@@ -1368,18 +1368,6 @@
               }
             ],
             "title": "Type"
-          },
-          "until_day": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Until Day"
           }
         },
         "title": "FLActionLogFilterPayload",
@@ -1570,39 +1558,8 @@
         "title": "FLAddressChangeAdminListResponse",
         "type": "object"
       },
-      "FLAddressChangeAdminMintResponse": {
-        "description": "A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "valid_until": {
-            "format": "date-time",
-            "title": "Valid Until",
-            "type": "string"
-          },
-          "way": {
-            "$ref": "#/components/schemas/FLAddressChangeWay"
-          }
-        },
-        "required": [
-          "id",
-          "way",
-          "valid_until",
-          "email"
-        ],
-        "title": "FLAddressChangeAdminMintResponse",
-        "type": "object"
-      },
       "FLAddressChangeAdminOpen": {
-        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash.",
+        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.",
         "properties": {
           "address": {
             "title": "Address",
@@ -1685,18 +1642,11 @@
       },
       "FLAddressChangeAdminPayload": {
         "additionalProperties": false,
-        "description": "The address a change starts on, the address it goes to, and how the administrator established who asks for it.",
+        "description": "The address a change starts on, and the address it goes to.",
         "properties": {
           "address": {
             "maxLength": 254,
             "title": "Address",
-            "type": "string"
-          },
-          "change_reason": {
-            "maxLength": 200,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Change Reason",
             "type": "string"
           },
           "email": {
@@ -1707,8 +1657,7 @@
         },
         "required": [
           "address",
-          "email",
-          "change_reason"
+          "email"
         ],
         "title": "FLAddressChangeAdminPayload",
         "type": "object"
@@ -1820,6 +1769,7 @@
         "type": "string"
       },
       "FLAddressChangeIdResponse": {
+        "description": "A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered.",
         "properties": {
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -2967,12 +2917,8 @@
         "type": "object"
       },
       "FLBewerbungDecision": {
-        "description": "Who decided this application, when, and on a decline why.",
+        "description": "When this application was decided, and on a decline why.",
         "properties": {
-          "by": {
-            "title": "By",
-            "type": "string"
-          },
           "made_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Made At",
@@ -2992,7 +2938,6 @@
         },
         "required": [
           "made_at",
-          "by",
           "reason"
         ],
         "title": "FLBewerbungDecision",
@@ -5362,22 +5307,6 @@
             "title": "Change",
             "type": "string"
           },
-          "changed_at": {
-            "format": "date-time",
-            "title": "Changed At",
-            "type": "string"
-          },
-          "changed_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Changed By"
-          },
           "effective_from": {
             "anyOf": [
               {
@@ -5422,8 +5351,6 @@
           "stage",
           "address",
           "new_address",
-          "changed_by",
-          "changed_at",
           "effective_from"
         ],
         "title": "FLGrantData",
@@ -5682,11 +5609,6 @@
       "FLInvitationMailResponse": {
         "description": "How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.",
         "properties": {
-          "invitation_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Invitation Id",
-            "type": "string"
-          },
           "mailed": {
             "minimum": 0.0,
             "title": "Mailed",
@@ -5694,7 +5616,6 @@
           }
         },
         "required": [
-          "invitation_id",
           "mailed"
         ],
         "title": "FLInvitationMailResponse",
@@ -5706,11 +5627,6 @@
           "created_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Created At",
-            "type": "string"
-          },
-          "created_by": {
-            "minLength": 1,
-            "title": "Created By",
             "type": "string"
           },
           "invitation_id": {
@@ -5739,8 +5655,7 @@
           "team_id",
           "invitation_id",
           "token",
-          "created_at",
-          "created_by"
+          "created_at"
         ],
         "title": "FLInvitationMintResponse",
         "type": "object"
@@ -5751,11 +5666,6 @@
           "created_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Created At",
-            "type": "string"
-          },
-          "created_by": {
-            "minLength": 1,
-            "title": "Created By",
             "type": "string"
           },
           "delivery": {
@@ -5813,7 +5723,6 @@
           "saison_id",
           "team_id",
           "created_at",
-          "created_by",
           "revoked_at",
           "sent_at",
           "delivery"
@@ -7775,12 +7684,6 @@
       },
       "FLPasskeyData": {
         "properties": {
-          "account": {
-            "maxLength": 256,
-            "pattern": "^/[a-z0-9/_-]*$",
-            "title": "Account",
-            "type": "string"
-          },
           "instant": {
             "format": "date-time",
             "title": "Instant",
@@ -7797,8 +7700,7 @@
         },
         "required": [
           "kind",
-          "instant",
-          "account"
+          "instant"
         ],
         "title": "FLPasskeyData",
         "type": "object"
@@ -18043,7 +17945,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is\nanswered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),\nthe address on file typed again (`address_change_unchanged`), an address holding nothing a change moves\n(`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil\n(`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new\naddress is refused nothing: its link stops at the hand-out.",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The\nnew mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is\nanswered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),\nthe address on file typed again (`address_change_unchanged`), an address holding nothing a change moves\n(`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil\n(`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new\naddress is refused nothing: its link stops at the hand-out.",
         "operationId": "address_change_post_address_change_admin",
         "requestBody": {
           "content": {
@@ -18060,7 +17962,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAdminMintResponse"
+                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
                 }
               }
             },
@@ -18758,7 +18660,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeAdminMintResponse"
+                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
                 }
               }
             },
@@ -20348,7 +20250,7 @@
     },
     "/api/v0/grants/{grant_id}": {
       "delete": {
-        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
+        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
         "operationId": "grants_delete_grant",
         "parameters": [
           {
@@ -22260,7 +22162,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/decline": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`role_not_held`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`role_not_held`).",
         "operationId": "registrierungen_decline",
         "parameters": [
           {

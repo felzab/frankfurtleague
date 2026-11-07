@@ -254,7 +254,6 @@ const GRANTS = [
   _id: ObjectId(),
   address,
   admin_tier,
-  granted_by: "MADE-UP-SEED",
   effective_from,
   // Stored only while a handover waits.
   ...(owner_from === undefined ? {} : { owner_from }),
@@ -766,7 +765,6 @@ function invitation(clubName) {
     team_id: club[clubName]._id,
     token_hashes: [linkHash(`${clubName.toLowerCase()}-invitation`)],
     created_at: day(-30),
-    created_by: "admin@example.com",
     revoked_at: null,
     sent_at: null,
   };
@@ -810,7 +808,7 @@ function registration(person, submittedOn, { confirmed = false, decision = null 
 const REGISTRATIONS = [
   registration(pupil("Ole", "Sommer"), -1),
   registration(pupil("Pia", "Sander", day(-2)), -3, { confirmed: true }),
-  registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), by: "admin@example.com", reason: "Nicht an dieser Schule" } }),
+  registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), reason: "Nicht an dieser Schule" } }),
 ];
 
 // Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted the next morning: a named scorer, a
@@ -864,7 +862,7 @@ const PLANNED_SAISON = {
 };
 
 function decided(madeOn, reason = null) {
-  return { made_at: day(madeOn), by: "admin@example.com", reason };
+  return { made_at: day(madeOn), reason };
 }
 
 /**
@@ -1094,7 +1092,6 @@ const BANS = [
     // Long enough for a phone's row to have to wrap it, which `fl_frontend/e2e/phone/access.spec.ts` measures.
     address: "gesperrte.person.mit.langer.adresse@example.com",
     ban_reason: "Beleidigungen am Spielfeldrand",
-    created_by: "inhaber@example.com",
     created_at: day(-30),
     barred_until_saison_id: "2031",
   },
@@ -1111,7 +1108,6 @@ const addressChange = (address, way, label, step) => ({
   sent_at: day(-1),
   valid_until: null,
   released_at: null,
-  change_reason: null,
   confirmed_at: null,
   effective_from: null,
   ended: null,
@@ -1125,10 +1121,7 @@ const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "umzug
   effective_from: WAITING,
 });
 
-const ADDRESS_CHANGES = [
-  addressChange("nina.noll@example.com", "waiting_period", "noll", { valid_until: WAITING, change_reason: "Postfach verloren" }),
-  HOLDER_CHANGE,
-];
+const ADDRESS_CHANGES = [addressChange("nina.noll@example.com", "waiting_period", "noll", { valid_until: WAITING }), HOLDER_CHANGE];
 
 /** One act as `fl_backend/app/core/recording.py :: record_act` writes it, `hoursAgo` before the seed. */
 const logged = (hoursAgo, by, action, { team = null, label = null, count = null } = {}) => ({

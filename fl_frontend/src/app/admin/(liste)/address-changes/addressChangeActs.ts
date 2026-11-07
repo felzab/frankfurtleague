@@ -6,14 +6,14 @@ import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { COPY } from "@/core/copy";
 import { addressChangeInviteAddressChange, addressChangePostAddressChangeAdmin } from "@/core/generated/client/sdk";
-import { AddressChangeInviteAddressChangeParams, AddressChangePostAddressChangeAdminBody } from "@/core/generated/zod/inputs";
+import { AddressChangeInviteAddressChangeParams } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 
 /**
- * A change started for a person who says they cannot sign in: the address on file, the new one, held as an address the
- * person will sign in at, and the reason. An account standing at the new address is refused before the mint, which writes: the backend cannot see the sign-in store. The address's running change ends
+ * A change started for a person who says they cannot sign in: the address on file, and the new one, held as an address
+ * the person will sign in at. An account standing at the new address is refused before the mint, which writes: the backend cannot see the sign-in store. The address's running change ends
  * replaced, which the dialog says as the address is typed.
  */
 export const startLostMailboxChange = action({
@@ -23,7 +23,6 @@ export const startLostMailboxChange = action({
   input: z.object({
     address: SignInPayloadSchema.shape.email,
     email: SignInAddressSchema,
-    change_reason: AddressChangePostAddressChangeAdminBody.shape.change_reason,
     ...PAGE_HOLDER,
   }),
   ownWords: [
@@ -34,13 +33,12 @@ export const startLostMailboxChange = action({
     "address_change_occupied",
     "address_change_unchanged",
     "email_not_accepted",
-    "address_in_free_text",
   ],
-  paths: { address: "address", email: "email", change_reason: "change_reason" },
+  paths: { address: "address", email: "email" },
   examples: { address: COPY.shared.field.exampleAddress, email: COPY.shared.field.exampleAddress },
-  run: async ({ address, email, change_reason }) => {
+  run: async ({ address, email }) => {
     if (await accountStandsAt(email)) return { ok: false, fieldErrors: { email: COPY.shared.field.taken } };
-    await addressChangePostAddressChangeAdmin({ address, email, change_reason });
+    await addressChangePostAddressChangeAdmin({ address, email });
     return { ok: true, value: undefined };
   },
 });

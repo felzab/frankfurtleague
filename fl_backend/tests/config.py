@@ -78,7 +78,6 @@ def grants_for_the_suite() -> list[dict[str, Any]]:
             "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
             "address": address,
             "admin_tier": "owner" if index == 0 else "administration",
-            "granted_by": "PLAYGROUND",
             "effective_from": pasted,
         }
         for index, address in enumerate(ADMINISTRATORS)

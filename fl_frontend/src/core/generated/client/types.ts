@@ -658,7 +658,6 @@ export interface FLActionLogFilterPayload {
   from_day?: string | null;
   q?: string | null;
   type?: FLActionType[] | null;
-  until_day?: string | null;
 }
 
 export interface FLActionLogListResponse {
@@ -745,7 +744,7 @@ export interface FLOutboxStatus {
 }
 
 /**
- * One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash.
+ * One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.
  */
 export interface FLAddressChangeAdminOpen {
   address: string;
@@ -768,29 +767,11 @@ export interface FLAddressChangeAdminListResponse {
 }
 
 /**
- * A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.
- */
-export interface FLAddressChangeAdminMintResponse {
-  /** @minLength 1 */
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  valid_until: string;
-  way: FLAddressChangeWay;
-}
-
-/**
- * The address a change starts on, the address it goes to, and how the administrator established who asks for it.
+ * The address a change starts on, and the address it goes to.
  */
 export interface FLAddressChangeAdminPayload {
   /** @maxLength 254 */
   address: string;
-  /**
-   * @minLength 1
-   * @maxLength 200
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  change_reason: string;
   /** @maxLength 254 */
   email: string;
 }
@@ -848,6 +829,9 @@ export const FLAddressChangeEndKind = {
   discarded: "discarded",
 } as const;
 
+/**
+ * A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered.
+ */
 export interface FLAddressChangeIdResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -1201,10 +1185,9 @@ export interface FLBewerbungConfirmations {
 }
 
 /**
- * Who decided this application, when, and on a decline why.
+ * When this application was decided, and on a decline why.
  */
 export interface FLBewerbungDecision {
-  by: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
   reason: string | null;
@@ -2441,8 +2424,6 @@ export const FLGrantDataStage = {
 export interface FLGrantData {
   address: string | null;
   change: FLGrantDataChange;
-  changed_at: string;
-  changed_by: string | null;
   effective_from: string | null;
   kind: "grant";
   new_address: string | null;
@@ -2546,8 +2527,6 @@ export interface FLInvitationMailPayload {
  * How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.
  */
 export interface FLInvitationMailResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  invitation_id: string;
   /** @minimum 0 */
   mailed: number;
 }
@@ -2560,8 +2539,6 @@ export interface FLInvitationMailResponse {
 export interface FLInvitationMintResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  /** @minLength 1 */
-  created_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   invitation_id: string;
   /** @minLength 1 */
@@ -2578,8 +2555,6 @@ export interface FLInvitationMintResponse {
 export interface FLInvitationRow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  /** @minLength 1 */
-  created_by: string;
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -3061,11 +3036,6 @@ export const FLPasskeyDataKind = {
 } as const;
 
 export interface FLPasskeyData {
-  /**
-   * @maxLength 256
-   * @pattern ^/[a-z0-9/_-]*$
-   */
-  account: string;
   instant: string;
   kind: FLPasskeyDataKind;
 }

@@ -1103,7 +1103,7 @@ class TestTheDecline:
 
         passes, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "reason": "other_person"}
+        assert stored is not None and stored["decision"] == {"made_at": TODAY, "reason": "other_person"}
         assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
 
     @pytest.mark.parametrize("reason", [None, "other_person"])
@@ -1119,7 +1119,7 @@ class TestTheDecline:
 
         before, after, owed, acts = on_a_league(mongo_replica_set_url, body)
 
-        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "reason": reason}}
+        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "reason": reason}}
         assert acts == [("registrierung.declined", "kontakt", "Zorbanax", before["_id"])]
         # The confirmed pupil's note, owed in the decline's own transaction.
         assert [(row["to"], row["data"]["team"], row["data"]["reason"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", reason)]

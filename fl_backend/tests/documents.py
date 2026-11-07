@@ -470,7 +470,6 @@ def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
         "_id": ObjectId(),
         "address": league_address(address),
         "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
-        "created_by": "admin@frankfurtleague.de",
         "created_at": "2026-03-15",
         "barred_until_saison_id": until,
         **fields,
@@ -575,7 +574,7 @@ def address_change_document(
     asked_first = way == "account"
 
     return {
-        **compose_record(address=address, email=email, way=way, change_reason=None, now=started),
+        **compose_record(address=address, email=email, way=way, now=started),
         "token_hashes": [] if token_hash is None else [token_hash],
         "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
         "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,

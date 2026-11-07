@@ -74,16 +74,14 @@ export const ActionLogGetActionLogBody = zod
         zod.null(),
       ])
       .optional(),
-    until_day: zod.union([zod.iso.date(), zod.null()]).optional(),
   })
   .describe("What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.");
 
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
- * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
- * and the address on file a notice with its stop link; the change then takes effect
+ * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
+ * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
  * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
  * answered. The address's live change ends replaced.
  *
@@ -96,22 +94,14 @@ export const ActionLogGetActionLogBody = zod
  */
 export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
-export const addressChangePostAddressChangeAdminBodyChangeReasonMax = 200;
-
-export const addressChangePostAddressChangeAdminBodyChangeReasonRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
     address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
-    change_reason: zod
-      .string()
-      .min(1)
-      .max(addressChangePostAddressChangeAdminBodyChangeReasonMax)
-      .regex(addressChangePostAddressChangeAdminBodyChangeReasonRegExp),
     email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
   })
-  .describe("The address a change starts on, the address it goes to, and how the administrator established who asks for it.");
+  .describe("The address a change starts on, and the address it goes to.");
 
 /**
  * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
@@ -873,7 +863,7 @@ export const GrantsPostGrantBody = zod.object({
  * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
  * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
  * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
- * transaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a
+ * transaction. An address change standing on the row is left to run, as a
  * change of an address holding no grant.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
@@ -1115,9 +1105,6 @@ export const OutboxPostResultBody = zod
  * or not.
  * @summary Owe one mail of the sign-in library
  */
-export const outboxPostSignInBodyDataTwoAccountMax = 256;
-
-export const outboxPostSignInBodyDataTwoAccountRegExp = new RegExp("^/[a-z0-9/_-]*$");
 export const outboxPostSignInBodySecretOneMax = 4096;
 
 export const outboxPostSignInBodyToMax = 254;
@@ -1129,7 +1116,6 @@ export const OutboxPostSignInBody = zod
         kind: zod.literal("sign_in_code").meta({ title: "Kind" }),
       }),
       zod.object({
-        account: zod.string().max(outboxPostSignInBodyDataTwoAccountMax).regex(outboxPostSignInBodyDataTwoAccountRegExp),
         instant: zod.iso.datetime({ offset: true }),
         kind: zod.enum(["passkey_added", "passkey_erased"]),
       }),
@@ -1418,7 +1404,7 @@ export const RegistrierungenAdmitBody = zod
 /**
  * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
  *
- * The decision records the declining seat holder's address and a reason from a closed set, never free text:
+ * The decision records a reason from a closed set, never free text:
  * `other_person` where the team answered that the registration is not the person its address belongs to. The
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.

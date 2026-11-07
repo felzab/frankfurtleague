@@ -495,7 +495,7 @@ export const SERVER_COPY = catalogue({
       lead: "Die Verwaltung hat deine E-Mail-Adresse gesperrt.",
       effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
       ends: (saison: string) => `Die Sperre endet nach der ${COPY.shared.saisonName(saison)} von selbst.`,
-      stored: "In der Sperrliste stehen deine Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
+      stored: "In der Sperrliste stehen deine Adresse, der Grund und das Datum.",
       account:
         "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht. Die Sperre bleibt auch nach einer Löschung bis zu ihrem Ende.",
       basis:
@@ -524,19 +524,10 @@ export const SERVER_COPY = catalogue({
           handover: (address: string) => `Die ${ownerTier} geht nicht an ${address}.`,
           address: (previous: string, next: string) => `${previous} wechselt nicht zu ${next}.`,
         },
-        /** A wait a pass completed, so no `by` line follows. */
         completed: {
           handover: (address: string) => `${address} leitet jetzt die Verwaltung.`,
           address: (previous: string, next: string) => `Die Adresse ${previous} heißt jetzt ${next}.`,
-          /** A completion queued when its person was erased: both its addresses are theirs. */
-          unnamedAddress: "Eine nicht genannte Adresse hat gewechselt.",
         },
-      },
-      /** Who acted and when, by the act. */
-      by: {
-        entered: (actor: string, moment: string) => `Eingetragen von ${actor} am ${formatInstant(moment)}.`,
-        removed: (actor: string, moment: string) => `Entfernt von ${actor} am ${formatInstant(moment)}.`,
-        withdrawn: (actor: string, moment: string) => `Zurückgezogen von ${actor} am ${formatInstant(moment)}.`,
       },
       /** On what waits. */
       effectiveFrom: (moment: string) => `Die Änderung gilt ab ${formatInstant(moment)}.`,
@@ -544,10 +535,10 @@ export const SERVER_COPY = catalogue({
       button: "Zur Verwaltung",
       /** An erased person's address, in the subject's place. */
       unnamedAddress: "Eine nicht genannte Adresse",
-      /** The same, as a lead's object after „an“ or „heißt jetzt“. */
+      /** The same, as a lead's object after „an“. */
       unnamedTarget: "eine nicht genannte Adresse",
-      /** An erased actor, after „von“, and an erased new address, after „zu“. */
-      unnamedActor: "einer nicht genannten Adresse",
+      /** An erased new address, after „zu“. */
+      unnamedNewAddress: "einer nicht genannten Adresse",
     },
 
     /** The one notice of a deletion: an account's, or an application's that did not come about, to each seat that confirmed. */
@@ -878,7 +869,7 @@ export const SERVER_COPY = catalogue({
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
           `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
         changes: (linkHours: number, stopDays: number, administratorWait: Wait, ownerWait: Wait) =>
-          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage und vermerkt den Grund; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon, mit der Adresse der Person aus der Verwaltung, die es veranlasst hat; bei einer Änderung auf Anfrage steht dort keine, und die bisherige Adresse erfährt nur von dieser Änderung. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. Mit der ${ownerTier} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. Mit der ${ownerTier} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
         ban: "Stört eine Adresse den Spielbetrieb, kann die Verwaltung sie sperren. Mit ihr meldet sich dann niemand an, und sie bekommt keine E-Mails. Hat sie ein Konto, schreiben wir das dorthin.",
       },
       mail: {
@@ -962,13 +953,13 @@ export const SERVER_COPY = catalogue({
           { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
           {
             name: "Gesperrte Adresse",
-            content: "Adresse, Grund, Datum, wer sie eingetragen hat",
+            content: "Adresse, Grund, Datum",
             period: "bis zum Ende der 5. Saison danach",
           },
           {
             name: "Zugang zur Verwaltung",
-            content: "Adresse, Stufe, Beginn, wer ihn vergeben hat",
-            period: "bis er endet; eine Sperre oder ein Zugang, den du eingetragen hast, nennt dich weiter, bis wir deine Daten löschen",
+            content: "Adresse, Stufe, Beginn",
+            period: "bis er endet",
           },
           { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
           {
@@ -987,9 +978,9 @@ export const SERVER_COPY = catalogue({
           // ADDRESS_CHANGE_RETENTION_DAYS`.
           {
             name: "Adressänderung",
-            content: "Beide Adressen; bei einer Änderung auf Anfrage der Grund",
+            content: "Beide Adressen",
             period: (bound: RetentionBounds) =>
-              `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen und Grund bis zu ihrem Ende, der Rest 30 Tage danach`,
+              `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen bis zu ihrem Ende, der Rest 30 Tage danach`,
           },
           { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse", period: "12 Monate" },
           // The end state's one store: the erasure journal is written as the server's own journald lines, kept nine days,

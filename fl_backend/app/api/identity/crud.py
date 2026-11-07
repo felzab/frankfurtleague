@@ -16,9 +16,9 @@ from app.api.address_change.crud import (
     known_to_the_new_mailbox,
     others_naming,
 )
-from app.api.address_change.services import build_owed_carry_filter
+from app.api.address_change.services import build_owed_carry_filter, masked_address
 from app.api.grants.crud import read_grants
-from app.api.grants.erasure import erase_grants_and_authorship_in_session, outbox_rows_older_than
+from app.api.grants.erasure import erase_grants_in_session
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
@@ -410,11 +410,7 @@ async def resolve_subject(
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
-    grants = (
-        await read(grants_collection, build_erasure_grant_pipeline(identifier))
-        if _runs(erase_grants_and_authorship_in_session, scope)
-        else None
-    )
+    grants = await read(grants_collection, build_erasure_grant_pipeline(identifier)) if _runs(erase_grants_in_session, scope) else None
 
     return Subject(
         identifier=identifier,
@@ -428,27 +424,42 @@ async def resolve_subject(
     )
 
 
-async def erase_the_mails_in_session(
-    *, outbox_collection: AsyncCollection, identifier: str, now: datetime, session: AsyncClientSession
-) -> list[str]:
-    """Every mail to this folded address removed, owed or settled, every kind but those `ERASURE_SPARED_KINDS` names.
+def _mail_sites_naming(row: Mapping[str, Any], identifier: str) -> list[str]:
+    """Where one `outbox` row names this folded address in full: its recipient, and a grant notice's address."""
 
-    A settled row's retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index
-    serves the read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its
-    mail was owed. Answers each row that stood before this erasure as `collection/id/path`.
+    held = {"to": row["to"], "data.address": (row.get("data") or {}).get("address") if row["kind"] == "grant" else None}
+
+    return [path for path, value in held.items() if isinstance(value, str) and sign_in_identifier(value) == identifier]
+
+
+async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
+    """Every mail to this folded address removed, owed or settled, and every grant notice about it still owed.
+
+    Every kind but those `ERASURE_SPARED_KINDS` names. A settled row's retention bounds a row nobody erases; no reader serves
+    an erased person's delivery history. No index serves the read, the collection holding a month of mail. Matched on the
+    sign-in fold, a recipient being stored as its mail was owed. A notice stores a change's new address masked, so it is
+    matched as masked: a completed change's old address was this person's own, which the fold cannot find, and another
+    person's mask reading alike costs that notice. Answers each field naming the address in full as `collection/id/path`. A
+    row matched by a mask alone stands on no line: a mask fits many people, so that row names nobody a replay could read
+    off it.
     """
 
+    mask = masked_address(identifier)
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[{"$match": {"kind": {"$nin": sorted(ERASURE_SPARED_KINDS)}}}, {"$project": {"to": 1}}],
+        pipeline=[
+            {"$match": {"kind": {"$nin": sorted(ERASURE_SPARED_KINDS)}}},
+            {"$project": {"to": 1, "kind": 1, "data.address": 1, "data.new_address": 1}},
+        ],
         session=session,
     )
-    ids = [row["_id"] for row in rows if isinstance(row["to"], str) and sign_in_identifier(row["to"]) == identifier]
-    standing = await outbox_rows_older_than(outbox_collection, ids, now, session)
+    masked = {row["_id"] for row in rows if row["kind"] == "grant" and (row.get("data") or {}).get("new_address") == mask}
+    named = {row["_id"]: sites for row in rows if (sites := _mail_sites_naming(row, identifier))}
+    ids = [*named, *(masked - named.keys())]
     if ids:
         await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
-    return [f"{outbox_collection.name}/{row_id}/to" for row_id in ids if row_id in standing]
+    return [f"{outbox_collection.name}/{row_id}/{path}" for row_id, sites in named.items() for path in sites]
 
 
 async def log_rows_naming(*, action_log_collection: ReadCollection, identifier: str, session: AsyncClientSession) -> list[str]:
@@ -506,22 +517,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # After the pupil's records went: the season's erasure leaves the address's other records, and their change, standing.
     ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES}), person_group="spieler", run=end_an_emptied_change_in_session),
-    # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
-    # the pupil scope must never run it.
-    ErasureStep(
-        reaches=frozenset(
-            {
-                Collection.GRANTS,
-                Collection.OUTBOX,
-                Collection.BEWERBUNGEN,
-                Collection.REGISTRIERUNGEN,
-                Collection.BAN_LIST,
-                Collection.INVITATIONS,
-            }
-        ),
-        person_group=None,
-        run=erase_grants_and_authorship_in_session,
-    ),
+    # No kind's alone: a grant is an address's whatever else it holds, so the pupil scope must never run it.
+    ErasureStep(reaches=frozenset({Collection.GRANTS, Collection.OUTBOX}), person_group=None, run=erase_grants_in_session),
     # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
     # erasure's notices to the administrators who remain.
     ErasureStep(reaches=frozenset({Collection.OUTBOX}), person_group=None, run=erase_the_mails_in_session),
@@ -556,15 +553,10 @@ async def erase_everything(
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
-    # Whom the grant notice names as ending the person's grant: the person on their own request, the administrator on
-    # theirs. Read by the grants step alone, which the pupil scope never runs.
-    changed_by: str = ERASED_ACTOR_MARKER,
     # The person's own request, whose answer counts no change whose link has not reached this mailbox, as their preview
     # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
     # typed their address. Every change naming it ends all the same.
@@ -687,25 +679,18 @@ async def erase_everything(
 
     grants = 0
     named: list[str] = []
-    if _runs(erase_grants_and_authorship_in_session, scope):
-        erased_grants = await erase_grants_and_authorship_in_session(
+    if _runs(erase_grants_in_session, scope):
+        grants = await erase_grants_in_session(
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            invitations_collection=invitations_collection,
-            ban_list_collection=ban_list_collection,
             identifier=identifier,
-            address_changes_collection=address_changes_collection,
-            changed_by=changed_by,
             now=now,
             session=session,
         )
-        grants = erased_grants.removed_grants
-        named += [*subject.changes_naming_it(), *erased_grants.rows]
+        named += subject.changes_naming_it()
 
     if _runs(erase_the_mails_in_session, scope):
-        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, now=now, session=session)
+        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
 
     if _runs(reattribute_administrator_in_session, scope):
         named += await log_rows_naming(action_log_collection=action_log_collection, identifier=identifier, session=session)
@@ -840,8 +825,6 @@ async def erase_if_still_due(
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     now: datetime,
     # REQUIRED: the judgement and the erasure commit together, so a squad row or a registration
@@ -901,8 +884,6 @@ async def erase_if_still_due(
         action_log_collection=action_log_collection,
         grants_collection=grants_collection,
         outbox_collection=outbox_collection,
-        invitations_collection=invitations_collection,
-        ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
         now=now,
         session=session,

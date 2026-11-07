@@ -118,7 +118,7 @@ type FLConfirmationState = Literal["valid", "confirmed", "expired"]
 type FLAdminTier = Literal["owner", "administration"]
 
 # How an address change takes effect: the person's own start, confirmed at the address on file and then at the new
-# one, or an administrator's for a person who lost the address on file, with a recorded reason, waiting after its
+# one, or an administrator's for a person who lost the address on file, waiting after its
 # confirmation. No third: whoever can still sign in at the address on file changes it themselves.
 type FLAddressChangeWay = Literal["account", "waiting_period"]
 

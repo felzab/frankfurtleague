@@ -16,7 +16,6 @@ from bson import ObjectId
 from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import as_utc
 
 OWNER: Final = "owner"
@@ -130,15 +129,8 @@ def compose_notice(
     stage: FLGrantNoticeStage,
     address: str | None,
     new_address: str | None = None,
-    changed_by: str | None,
     effective_from: datetime | None = None,
-    now: datetime,
 ) -> Notice:
-    """One notice; `changed_by` null is a pass completing it, or a change whose actor no reader is told.
-
-    The actor stored folded, the spelling a later erasure matches queued notices by.
-    """
-
     return Notice(
         grant_id=grant_id,
         data={
@@ -147,21 +139,15 @@ def compose_notice(
             "stage": stage,
             "address": address,
             "new_address": new_address,
-            "changed_by": None if changed_by is None else sign_in_identifier(changed_by),
-            "changed_at": now,
             "effective_from": effective_from,
         },
     )
 
 
-def compose_handover_end(grant: Mapping[str, Any], *, changed_by: str | None, now: datetime) -> list[Notice]:
+def compose_handover_end(grant: Mapping[str, Any], *, address: str | None) -> list[Notice]:
     """The withdrawal's notice of a handover a row's end takes with it, whose holders hold a date; none where none waits."""
 
     if grant.get("owner_from") is None:
         return []
 
-    return [
-        compose_notice(
-            grant_id=grant["_id"], change="handover", stage="withdrawn", address=str(grant["address"]), changed_by=changed_by, now=now
-        )
-    ]
+    return [compose_notice(grant_id=grant["_id"], change="handover", stage="withdrawn", address=address)]

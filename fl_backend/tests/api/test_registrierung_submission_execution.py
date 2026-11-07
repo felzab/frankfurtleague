@@ -104,7 +104,6 @@ def invitation_document(
         "team_id": team_id,
         "token_hashes": [hash_token(token)],
         "created_at": "2026-03-15",
-        "created_by": "admin@frankfurtleague.de",
         "revoked_at": revoked_at,
     }
 

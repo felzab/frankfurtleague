@@ -7,7 +7,6 @@ import { authSecret } from "../config";
 import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { outboxPostSignIn } from "../generated/client/sdk";
 import { logger } from "../logging";
-import { ROUTES } from "../routes";
 import { HOUR_MS } from "../timeUnits";
 
 import type { FLOutboxSignInPayload, FLPasskeyDataKind } from "../generated/client/types";
@@ -38,7 +37,7 @@ export async function oweSignInMail(
  */
 export async function notifyPasskey(kind: FLPasskeyDataKind, email: string): Promise<void> {
   try {
-    await oweSignInMail(email, { kind, instant: now().toISOString(), account: ROUTES.accountSecurity.path() });
+    await oweSignInMail(email, { kind, instant: now().toISOString() });
   } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {

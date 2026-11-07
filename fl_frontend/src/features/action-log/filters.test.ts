@@ -32,7 +32,6 @@ describe("the read a filter asks", () => {
   it("counts a preset from the German day", () => {
     vi.useFakeTimers({ now: new Date("2026-11-07T23:30:00Z") });
     expect(logParams({ time: "7-days" }).from_day).toBe("2026-11-01");
-    expect(logParams({ time: "12-months" }).from_day).toBe("2025-11-08");
   });
 
   it("asks nothing of a filter left on „Alle“", () => {

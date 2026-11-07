@@ -9,8 +9,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.invitations.crud import owed_invitation_mails
-from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload, FLInvitationRecipient
+from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload
 from app.api.invitations.services import (
+    InvitationRecipient,
     find_live_invitation_filter,
     find_unknown_invitation_refusal,
 )
@@ -96,7 +97,6 @@ def invitation_row(team_id: ObjectId, *, _id: ObjectId | None = None, sent_at: s
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
         "created_at": "2026-03-15",
-        "created_by": ADMIN,
         "revoked_at": None,
         "sent_at": sent_at,
     }
@@ -144,7 +144,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str)
                 invitation_id=invitation_id,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
-                recipient=[FLInvitationRecipient(rolle="trainer", email=to)],
+                recipient=[InvitationRecipient(rolle="trainer", email=to)],
                 occasion="dispatch",
             ),
             now=MAIL_NOW,
@@ -160,7 +160,6 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any =
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
-        created_by=ADMIN,
         today=TODAY,
     )
 
@@ -217,7 +216,6 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
-        created_by=ADMIN,
         today=TODAY,
         germany_now=MAIL_NOW,
     )
@@ -697,7 +695,6 @@ class TestTheSeasonWidePress:
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=database.client,
-                created_by=ADMIN,
                 today=TODAY,
                 germany_now=MAIL_NOW,
             )

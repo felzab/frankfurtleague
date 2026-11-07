@@ -15,7 +15,7 @@ import type {
 export const ADDRESS_CHANGE_VALID_HOURS = 24 satisfies FLAddressChangeValidHours;
 
 /**
- * The days a change started with a reason waits after its confirmation, so the address on file can still stop it;
+ * The days a lost-mailbox change waits after its confirmation, so the address on file can still stop it;
  * checked against `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_WAITING_PERIOD_DAYS` as the link's hours are.
  */
 export const ADDRESS_CHANGE_WAIT_DAYS = 7 satisfies FLAddressChangeWaitingPeriodDays;

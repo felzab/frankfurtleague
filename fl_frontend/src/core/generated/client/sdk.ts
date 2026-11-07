@@ -28,7 +28,6 @@ import type {
   FLAddressChangeAddressPayload,
   FLAddressChangeAddressResponse,
   FLAddressChangeAdminListResponse,
-  FLAddressChangeAdminMintResponse,
   FLAddressChangeAdminPayload,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
@@ -383,9 +382,8 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
- * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
- * and the address on file a notice with its stop link; the change then takes effect
+ * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
+ * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
  * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
  * answered. The address's live change ends replaced.
  *
@@ -399,7 +397,7 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 export const addressChangePostAddressChangeAdmin = async (
   fLAddressChangeAdminPayload: FLAddressChangeAdminPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeAdminMintResponse> => {
+): Promise<FLAddressChangeIdResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -412,7 +410,7 @@ export const addressChangePostAddressChangeAdmin = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLAddressChangeAdminMintResponse>(getAddressChangePostAddressChangeAdminUrl(), {
+  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangePostAddressChangeAdminUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -739,8 +737,8 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
 export const addressChangeInviteAddressChange = async (
   addressChangeId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeAdminMintResponse> => {
-  return adminKeyTransport<FLAddressChangeAdminMintResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
+): Promise<FLAddressChangeIdResponse> => {
+  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
     ...options,
     method: "POST",
   });
@@ -1315,7 +1313,7 @@ export const getGrantsDeleteGrantUrl = (grantId: string) => {
  * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
  * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
  * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
- * transaction, but for an address a lost-mailbox change stands on. An address change standing on the row is left to run, as a
+ * transaction. An address change standing on the row is left to run, as a
  * change of an address holding no grant.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
@@ -2151,7 +2149,7 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
 /**
  * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
  *
- * The decision records the declining seat holder's address and a reason from a closed set, never free text:
+ * The decision records a reason from a closed set, never free text:
  * `other_person` where the team answered that the registration is not the person its address belongs to. The
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.

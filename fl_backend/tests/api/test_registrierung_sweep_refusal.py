@@ -152,7 +152,7 @@ class TestTheDeclineClock:
         ],
     )
     def test_each_boundary_falls_fourteen_days_after_the_decision(self, made_at: str, due: bool):
-        declined = registrierung(status="declined", decision={"made_at": made_at, "by": "admin", "reason": "kein Platz"})
+        declined = registrierung(status="declined", decision={"made_at": made_at, "reason": "kein Platz"})
 
         assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
 

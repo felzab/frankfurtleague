@@ -215,10 +215,9 @@ async def post_address_change(
         refuse(find_nothing_refusal(empty=holdings.empty))
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
-        record = compose_record(address=identifier, email=email, way="account", change_reason=None, now=germany_now)
+        record = compose_record(address=identifier, email=email, way="account", now=germany_now)
         address_change_id = await start_the_change_in_session(
             record=record,
-            actor=identifier,
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
@@ -278,9 +277,7 @@ async def delete_address_change(
         )
         await tell_the_holders_of_the_end_in_session(
             stopped,
-            changed_by=identifier,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

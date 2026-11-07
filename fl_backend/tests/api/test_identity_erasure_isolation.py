@@ -96,7 +96,6 @@ async def a_league(database: AsyncDatabase) -> None:
             "team_id": TEAM_OID,
             "token_hashes": [hash_token(INVITATION_TOKEN)],
             "created_at": "2026-03-15",
-            "created_by": "admin@frankfurtleague.de",
             "revoked_at": None,
         }
     )

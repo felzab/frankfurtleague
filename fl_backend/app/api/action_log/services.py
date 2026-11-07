@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from typing import Any, get_args
 
 from app.api.action_log.schemas import FLActionLogFilterPayload
@@ -28,13 +28,8 @@ def build_action_log_query(filters: FLActionLogFilterPayload) -> dict[str, Any]:
         compiled["_id"] = {"$lt": filters.cursor}
     if filters.type is not None:
         compiled["action"] = {"$in": _actions_of(filters.type)}
-    span: dict[str, datetime] = {}
     if filters.from_day is not None:
-        span["$gte"] = _german_midnight(filters.from_day)
-    if filters.until_day is not None:
-        span["$lt"] = _german_midnight(filters.until_day + timedelta(days=1))
-    if span:
-        compiled["at"] = span
+        compiled["at"] = {"$gte": _german_midnight(filters.from_day)}
     # A blank search is none: an empty pattern would keep only the rows holding a team or a label.
     if filters.q is not None and filters.q.strip():
         pattern = {"$regex": literal_pattern(filters.q.strip()), "$options": "i"}

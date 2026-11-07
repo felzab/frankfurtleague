@@ -3,6 +3,7 @@ import "server-only";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { formatInstant } from "./format";
+import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
@@ -27,10 +28,10 @@ const ERASED: PasskeyEvent = {
   paragraph: (time) => [[`${passkeyRemoved.lead.before} `, { strong: time }, ` ${passkeyRemoved.lead.after}`], passkeyRemoved.devices],
 };
 
-/** What a builder is handed; `account` is a path on `origin`, the account's Sicherheit page, which the row carries. */
-type Occasion = { instant: Date; origin: string; account: string };
+/** What a builder is handed. */
+type Occasion = { instant: Date; origin: string };
 
-function build(event: PasskeyEvent, { instant, origin, account }: Occasion): Mail {
+function build(event: PasskeyEvent, { instant, origin }: Occasion): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -39,7 +40,7 @@ function build(event: PasskeyEvent, { instant, origin, account }: Occasion): Mai
     origin: site,
     paragraphs: [event.paragraph(formatInstant(instant))],
     // The one place either event can be acted on.
-    button: { label: COPY.shared.end.toAccount, href: `${site}${account}` },
+    button: { label: COPY.shared.end.toAccount, href: `${site}${ROUTES.accountSecurity.path()}` },
   };
 }
 

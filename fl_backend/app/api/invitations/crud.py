@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Any, Final
 
-from app.api.invitations.schemas import FLInvitationRecipient
+from app.api.invitations.services import InvitationRecipient
 from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxReference
 from app.api.outbox.services import OwedMail
 from app.core.collections import Collection
@@ -18,7 +18,7 @@ def invitation_reference(invitation_id: Any) -> FLOutboxReference:
 
 
 def owed_invitation_mails(
-    *, invitation_id: Any, team_name: str, saison_id: str, recipient: Sequence[FLInvitationRecipient], occasion: str
+    *, invitation_id: Any, team_name: str, saison_id: str, recipient: Sequence[InvitationRecipient], occasion: str
 ) -> list[OwedMail]:
     """One mail per confirmed seat, each keyed by the invite, the occasion and the seat, so a replayed write owes nothing twice."""
 

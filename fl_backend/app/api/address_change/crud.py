@@ -34,7 +34,6 @@ from app.api.address_change.services import (
     wait_tier,
 )
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
-from app.api.grants.erasure import carry_authorship_in_session
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
 from app.api.identity.lookup import RecordCollections
@@ -239,8 +238,6 @@ async def end_the_change_in_session(
 async def start_the_change_in_session(
     *,
     record: Mapping[str, Any],
-    # Who replaces a live change, for the holders' notice where it was waiting.
-    actor: str,
     address_changes_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
@@ -269,13 +266,10 @@ async def start_the_change_in_session(
     # Two starts on one address meet at `uniq_address_change_address` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=address_changes_collection, document=record, session=session)
 
-    # After the insert, so a lost-mailbox row already silences the mailbox it declares lost, and that row's notices name no actor.
     if ended is not None:
         await tell_the_holders_of_the_end_in_session(
             ended,
-            changed_by=None if record["way"] == "waiting_period" else actor,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -418,53 +412,44 @@ async def tell_the_holders_in_session(
     record: Mapping[str, Any],
     *,
     stage: FLGrantNoticeStage,
-    # Null for the hourly pass, which is nobody.
-    changed_by: str | None,
     effective_from: datetime | None,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
+    # Off where the new address is the erased one: a mask of it is no fact left to tell.
+    names_the_new_address: bool = True,
 ) -> None:
     """Tell every holder in effect of a holder's change, in the caller's transaction, `record` as it stood.
 
     The new address masked: it is the holder's private mailbox, and the readers need to recognise it, never to write to it.
-    A lost-mailbox change names no actor and passes over its old address, ended or not: whoever holds that mailbox now may
-    be a stranger, and these mails name people.
     """
 
-    lost_mailbox = record["way"] == "waiting_period"
     notice = compose_notice(
         grant_id=record["_id"],
         change="address",
         stage=stage,
         address=str(record["address"]),
-        new_address=masked_address(str(record["email"])),
-        changed_by=None if lost_mailbox else changed_by,
+        new_address=masked_address(str(record["email"])) if names_the_new_address else None,
         effective_from=effective_from,
-        now=now,
     )
     await owe_in_session(
         [notice],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
-        passing_over=[str(record["address"])] if lost_mailbox else [],
     )
 
 
 async def tell_the_holders_of_the_end_in_session(
     record: Mapping[str, Any],
     *,
-    changed_by: str | None,
     grants_collection: AsyncCollection,
-    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
+    names_the_new_address: bool = True,
 ) -> None:
     """The withdrawal's notice of a holder's change ended in its wait, `record` as it stood: one not yet started told nobody."""
 
@@ -476,13 +461,12 @@ async def tell_the_holders_of_the_end_in_session(
     await tell_the_holders_in_session(
         record,
         stage="withdrawn",
-        changed_by=changed_by,
         effective_from=None,
         grants_collection=grants_collection,
-        address_changes_collection=address_changes_collection,
         outbox_collection=outbox_collection,
         now=now,
         session=session,
+        names_the_new_address=names_the_new_address,
     )
 
 
@@ -565,8 +549,6 @@ async def move_the_address_in_session(
     spielbestaetigungen_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -648,18 +630,6 @@ async def move_the_address_in_session(
 
     # A record the effect leaves naming the replaced address by address alone would outlive the person's erasure at the new one.
     old, new = holdings.identifier, sign_in_identifier(new_address)
-    # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
-    # decisions included.
-    await carry_authorship_in_session(
-        grants_collection=grants_collection,
-        bewerbungen_collection=bewerbungen_collection,
-        registrierungen_collection=registrierungen_collection,
-        invitations_collection=invitations_collection,
-        ban_list_collection=ban_list_collection,
-        old=old,
-        new_address=new,
-        session=session,
-    )
     await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
     if holdings.grant is not None:
         await record_act(
@@ -704,10 +674,8 @@ async def move_the_address_in_session(
         await tell_the_holders_in_session(
             record,
             stage="completed",
-            changed_by=None,
             effective_from=None,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
@@ -798,9 +766,8 @@ async def end_the_address_changes_in_session(
     """End every change naming the erased address.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
-    change. A holder's change in its wait tells the holders, who hold a date it will not reach, naming no actor: it may be
-    the erased one. The new address's mask leaves that notice at the erasure's own step, later in this transaction
-    (`app/api/grants/erasure.py :: _withholding`), which takes the erased person out of every notice still owed.
+    change. Another holder's change in its wait tells the holders, who hold a date it will not reach, naming no new address:
+    that is the erased one. The erased holder's own tells nothing, their grant's end telling the holders that.
     """
 
     if rows:
@@ -822,14 +789,15 @@ async def end_the_address_changes_in_session(
             now=now,
             session=session,
         )
+
+    for row in others_naming(rows, identifier):
         await tell_the_holders_of_the_end_in_session(
             row,
-            changed_by=None,
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
+            names_the_new_address=False,
         )
 
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address

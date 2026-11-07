@@ -40,20 +40,13 @@ class FLBanListRow(BaseModel):
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLBanListEntry(FLBanListRow):
-    """One ban as `ban_list` stores it."""
-
-    # The bound actor, on no payload; the ban's mail tells the person it is stored, and no page shows it.
-    created_by: CustomNonEmptyString
-
-
 class FLPostBanListEntryPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     email: CustomEmail
     # Whether the address is told of its ban: only where it has a sign-in account, which the frontend's store alone knows.
     notify: bool
-    # Stripped on the WRITE side alone, and single-line because the admin card renders it beside the author and the day.
+    # Stripped on the WRITE side alone, and single-line because the admin card renders it beside the day.
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     ban_reason: Annotated[
         str,

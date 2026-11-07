@@ -57,12 +57,10 @@ from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
-    BanListCollection,
     BewerbungenCollection,
     DBClient,
     GrantsCollection,
     GrantsReadCollection,
-    InvitationsCollection,
     OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
@@ -85,7 +83,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base)],
 )
 
-# What a link's view reads: never `change_reason`, the addresses for the judgement alone, and the new link's hashes, which say
+# What a link's view reads: the addresses for the judgement alone, and the new link's hashes, which say
 # which of the two links a token is.
 _FIELDS: Mapping[str, int] = {
     "address": 1,
@@ -231,8 +229,6 @@ async def post_address_change_answer(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
-    invitations_collection: InvitationsCollection,
-    ban_list_collection: BanListCollection,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
@@ -328,8 +324,6 @@ async def post_address_change_answer(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 grants_collection=grants_collection,
                 outbox_collection=outbox_collection,
-                invitations_collection=invitations_collection,
-                ban_list_collection=ban_list_collection,
                 action_log_collection=action_log_collection,
                 now=germany_now,
                 session=session,
@@ -357,10 +351,8 @@ async def post_address_change_answer(
             await tell_the_holders_in_session(
                 record,
                 stage="started",
-                changed_by=holdings.identifier,
                 effective_from=effective_from,
                 grants_collection=grants_collection,
-                address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
                 now=germany_now,
                 session=session,
@@ -469,9 +461,7 @@ async def post_address_change_stop(
         )
         await tell_the_holders_of_the_end_in_session(
             record,
-            changed_by=str(record["address"]),
             grants_collection=grants_collection,
-            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

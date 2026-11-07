@@ -108,9 +108,7 @@ def registration(registrierung_id: ObjectId, email: str, *, declined: bool = Fal
         deadline="2026-03-09",
     )
 
-    return (
-        {**document, **compose_ablehnung_update(by="sitz@beispielschule.de", reason=None, today="2026-03-05")["$set"]} if declined else document
-    )
+    return {**document, **compose_ablehnung_update(reason=None, today="2026-03-05")["$set"]} if declined else document
 
 
 def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
@@ -346,7 +344,6 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
             "_id": GRANT,
             "address": ADDRESS,
             "admin_tier": "administration",
-            "granted_by": "PLAYGROUND",
             "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         }
     )

@@ -23,19 +23,19 @@ def utc(month: int, day: int, hour: int) -> datetime:
     ("filters", "query"),
     [
         pytest.param(
-            {"from_day": "2026-07-01", "until_day": "2026-07-01"},
-            {"at": {"$gte": utc(6, 30, 22), "$lt": utc(7, 1, 22)}},
+            {"from_day": "2026-07-01"},
+            {"at": {"$gte": utc(6, 30, 22)}},
             id="a summer day, two hours ahead of UTC",
         ),
         pytest.param(
-            {"from_day": "2026-01-15", "until_day": "2026-01-15"},
-            {"at": {"$gte": utc(1, 14, 23), "$lt": utc(1, 15, 23)}},
+            {"from_day": "2026-01-15"},
+            {"at": {"$gte": utc(1, 14, 23)}},
             id="a winter day, one hour ahead",
         ),
         pytest.param(
-            {"from_day": "2026-03-29", "until_day": "2026-03-29"},
-            {"at": {"$gte": utc(3, 28, 23), "$lt": utc(3, 29, 22)}},
-            id="the day the clock moves, 23 hours long",
+            {"from_day": "2026-03-29"},
+            {"at": {"$gte": utc(3, 28, 23)}},
+            id="the day the clock moves, which starts an hour ahead",
         ),
         pytest.param(
             {"q": " Adler (U17) "},
@@ -57,13 +57,12 @@ def test_a_filter_compiles_to_what_the_store_compares(filters: dict[str, Any], q
     assert build_action_log_query(FLActionLogFilterPayload.model_validate(filters)) == query
 
 
-@pytest.mark.parametrize("field", ["from_day", "until_day"])
 @pytest.mark.parametrize("day", ["0001-01-01", "9999-12-31"])
-def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(field: str, day: str):
-    """Each is a legal `date` whose next midnight or UTC instant raises `OverflowError`, which would answer 500."""
+def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(day: str):
+    """Each is a legal `date` whose UTC instant raises `OverflowError`, which would answer 500."""
 
     with pytest.raises(ValidationError):
-        FLActionLogFilterPayload.model_validate({field: day})
+        FLActionLogFilterPayload.model_validate({"from_day": day})
 
 
 @pytest.mark.parametrize(
