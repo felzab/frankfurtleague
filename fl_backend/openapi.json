@@ -1602,7 +1602,7 @@
         "type": "object"
       },
       "FLAddressChangeAdminOpen": {
-        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash.",
+        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.",
         "properties": {
           "address": {
             "title": "Address",
@@ -1685,18 +1685,11 @@
       },
       "FLAddressChangeAdminPayload": {
         "additionalProperties": false,
-        "description": "The address a change starts on, the address it goes to, and how the administrator established who asks for it.",
+        "description": "The address a change starts on, and the address it goes to.",
         "properties": {
           "address": {
             "maxLength": 254,
             "title": "Address",
-            "type": "string"
-          },
-          "change_reason": {
-            "maxLength": 200,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Change Reason",
             "type": "string"
           },
           "email": {
@@ -1707,8 +1700,7 @@
         },
         "required": [
           "address",
-          "email",
-          "change_reason"
+          "email"
         ],
         "title": "FLAddressChangeAdminPayload",
         "type": "object"
@@ -18043,7 +18035,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is\nanswered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),\nthe address on file typed again (`address_change_unchanged`), an address holding nothing a change moves\n(`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil\n(`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new\naddress is refused nothing: its link stops at the hand-out.",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The\nnew mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is\nanswered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),\nthe address on file typed again (`address_change_unchanged`), an address holding nothing a change moves\n(`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil\n(`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new\naddress is refused nothing: its link stops at the hand-out.",
         "operationId": "address_change_post_address_change_admin",
         "requestBody": {
           "content": {

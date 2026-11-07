@@ -74,7 +74,6 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
       addressChangeActs.startLostMailboxChange({
         address: "paul@example.org",
         email: "paul.neu@example.org",
-        change_reason: "Am Telefon bestätigt.",
         holder: HOLDER,
       }),
   ],

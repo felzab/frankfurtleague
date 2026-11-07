@@ -1,15 +1,13 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
-from app.api.ban_list.schemas import refuse_an_address_in_the_reason
 from app.api.outbox.schemas import FLOutboxStatus
-from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
-    SINGLE_LINE_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
@@ -20,17 +18,6 @@ from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeW
 from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
-
-# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling.
-# The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
-CustomAddressChangeReason = Annotated[
-    str,
-    StringConstraints(max_length=ERASURE_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
-    AfterValidator(str.strip),
-    StringConstraints(min_length=1),
-    AfterValidator(refuse_an_address_in_the_reason),
-]
-
 
 # --- The record as `address_changes` stores it.
 
@@ -51,14 +38,13 @@ class FLAddressChange(BaseModel):
     """One change. Its hashes are whole credentials, read by their links' lookups alone and on no read model."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Null once ended, as `email` and `change_reason` are: a tombstone holds no address.
+    # Null once ended, as `email` is: a tombstone holds no address.
     address: str | None
     email: str | None
     way: FLAddressChangeWay
     sent_at: CustomDateString
     valid_until: datetime | None
     released_at: datetime | None
-    change_reason: str | None
     confirmed_at: datetime | None
     effective_from: datetime | None
     ended: FLAddressChangeEnded | None
@@ -214,7 +200,7 @@ class FLAddressChangeStopResponse(BaseAPIResponse):
 
 
 class FLAddressChangeAdminOpen(BaseModel):
-    """One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash."""
+    """One live change as Adressänderungen shows it, admin tier: both addresses, and no hash."""
 
     id: CustomObjectId
     address: str
@@ -237,14 +223,12 @@ class FLAddressChangeAdminListResponse(BaseAPIResponse):
 
 
 class FLAddressChangeAdminPayload(BaseModel):
-    """The address a change starts on, the address it goes to, and how the administrator established who asks for it."""
+    """The address a change starts on, and the address it goes to."""
 
     model_config = ConfigDict(extra="forbid")
 
     address: CustomEmail
     email: CustomEmail
-    # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
-    change_reason: CustomAddressChangeReason
 
 
 class FLAddressChangeAdminMintResponse(BaseAPIResponse):

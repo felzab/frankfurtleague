@@ -383,9 +383,8 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
- * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
- * and the address on file a notice with its stop link; the change then takes effect
+ * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
+ * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
  * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
  * answered. The address's live change ends replaced.
  *

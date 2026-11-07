@@ -58,7 +58,6 @@ from .address_change_harness import (
     ADMIN,
     AFTER_THE_DEADLINE,
     AFTER_THE_WAIT,
-    CHANGE_REASON,
     EMAIL,
     FOREIGN_EMAIL,
     NEW_EMAIL,
@@ -134,7 +133,7 @@ class TestTheAccountPagesRead:
         """It may be a pretext whose target the holder of the address on file must not learn: unmask it and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            await administrator_starts(database, client)
             return await read(database, client)
 
         seen = on_a_person(mongo_replica_set_url, body)
@@ -239,7 +238,7 @@ class TestThePersonsStart:
         """A sign-in at the address on file proves the mailbox is not lost, so its own start replaces a change asked without it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await administrator_starts(database, client, change_reason=CHANGE_REASON, email=FOREIGN_EMAIL)
+            first = await administrator_starts(database, client, email=FOREIGN_EMAIL)
             second = await start(database, client, germany_now=NOW + RESTART)
 
             return (
@@ -252,7 +251,7 @@ class TestThePersonsStart:
 
         first, second, replaced, seen, held = on_a_person(mongo_replica_set_url, body)
 
-        assert (replaced["ended"]["kind"], replaced["address"], replaced["email"], replaced["change_reason"]) == ("replaced", None, None, None)
+        assert (replaced["ended"]["kind"], replaced["address"], replaced["email"]) == ("replaced", None, None)
         assert (seen.view.state, seen.view.kind) == ("ended", "replaced")
         # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
         assert held == {FOREIGN_EMAIL: ["outbox"]}
@@ -311,7 +310,7 @@ class TestTheLinks:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if step == "an administrator's start":
-                minted = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+                minted = await administrator_starts(database, client)
             elif step == "previous_address":
                 minted = await start(database, client, released=False)
             else:
@@ -382,7 +381,7 @@ class TestTheLinks:
 
     def test_a_confirmed_link_answers_its_state_and_takes_no_second_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await answer(database, client, started.token)
             return await view(database, client, started.token), await refused_code(answer(database, client, started.token, "declined"))
 
@@ -452,7 +451,7 @@ class TestTheAddressOnFileConfirmsFirst:
         """Every other way's link to the address on file offers its stop alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             return await refused_code(answer(database, client, started.stop_token)), (await change(database, started.id))["ended"]
 
         assert on_a_person(mongo_replica_set_url, body) == (Code.LINK_INVALID, None)
@@ -472,7 +471,7 @@ class TestTheAddressOnFileConfirmsFirst:
 class TestTheSystemsReadOfTheNewAddress:
     def test_a_live_change_answers_its_new_address_folded_by_its_link_and_by_its_id(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON, email="Lenore.Q@NeuPost.example.org")
+            started = await administrator_starts(database, client, email="Lenore.Q@NeuPost.example.org")
             before = [
                 await the_new_address(database, client, token=started.token),
                 await the_new_address(database, client, address_change_id=started.id),
@@ -637,7 +636,7 @@ class TestTheConfirmation:
 
     def test_a_change_started_with_a_reason_is_confirmed_and_waits_for_the_pass(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             confirmed = await answer(database, client, started.token)
             waiting = await everything(database)
             early = await sweep(database, client, germany_now=NOW + timedelta(days=1))
@@ -810,7 +809,7 @@ class TestTheNewAddressesOwnRecords:
                 await answer(database, client, minted.token)
             await stop_here(database, client)
             with pytest.raises(APIError) as started:
-                await administrator_starts(database, client, change_reason=CHANGE_REASON)
+                await administrator_starts(database, client)
 
             return started.value.fields, pressed.value.fields
 
@@ -820,7 +819,7 @@ class TestTheNewAddressesOwnRecords:
         """The mail promises the link's hours: sent late it carries a dead link, and the stop link beside it answers past every deadline."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            payload = FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL, "change_reason": CHANGE_REASON})
+            payload = FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL})
             await call(post_address_change_admin, database, client, address_change_data=payload)
             late = await post_handout(
                 outbox_collection=database[Collection.OUTBOX],
@@ -849,7 +848,7 @@ class TestTheNewAddressesOwnRecords:
         """A waiting time lets them arrive after the press judged none, so the pass judges again and tells the new mailbox."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await answer(database, client, started.token)
             await held_by_another(database, "a-seat")
             swept = await sweep(database, client, germany_now=AFTER_THE_WAIT)
@@ -986,9 +985,7 @@ class TestAHoldersOwnChange:
         """Holders hear of access alone: a parent's new mailbox is no business of theirs."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await (
-                start(database, client) if way == "account" else administrator_starts(database, client, change_reason=CHANGE_REASON)
-            )
+            minted = await (start(database, client) if way == "account" else administrator_starts(database, client))
             await answer(database, client, minted.token)
             await sweep(database, client, germany_now=AFTER_THE_WAIT)
             return await told(database)
@@ -1029,11 +1026,9 @@ class TestAHoldersOwnChange:
                 own = await start(database, client)
                 await answer(database, client, own.token)
                 await database[Collection.OUTBOX].delete_many({"kind": "grant"})
-                minted = await administrator_starts(
-                    database, client, change_reason=CHANGE_REASON, operator=OWNER, email="lenore.ersatz@neupost.example.org"
-                )
+                minted = await administrator_starts(database, client, operator=OWNER, email="lenore.ersatz@neupost.example.org")
             else:
-                minted = await administrator_starts(database, client, change_reason=CHANGE_REASON, operator=OWNER)
+                minted = await administrator_starts(database, client, operator=OWNER)
                 await answer(database, client, minted.token)
             another = compose_notice(grant_id=ObjectId(), change="granted", stage="started", address=FOREIGN_EMAIL, changed_by=OWNER, now=NOW)
 
@@ -1106,7 +1101,7 @@ class TestAHoldersOwnChange:
                     actor_var.reset(token)
 
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], addition)
-            outcome = await outcome_of(administrator_starts(database, client, change_reason=CHANGE_REASON, grants_collection=cast(Any, racing)))
+            outcome = await outcome_of(administrator_starts(database, client, grants_collection=cast(Any, racing)))
             racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await database[Collection.ADDRESS_CHANGES].count_documents(build_address_filter(EMAIL))
@@ -1131,7 +1126,7 @@ class TestAHoldersOwnChange:
         """Only a holder's change has the owner as its one stop: a pupil's moved onto a stranger's seat would join two people."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            minted = await administrator_starts(database, client)
             await answer(database, client, minted.token)
             await held_by_another(database, "an-unconfirmed-seat")
             return (await sweep(database, client, germany_now=AFTER_THE_WAIT)).discarded
@@ -1160,7 +1155,7 @@ class TestAHoldersOwnChange:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
-            minted = await administrator_starts(database, client, change_reason=CHANGE_REASON, operator=OWNER)
+            minted = await administrator_starts(database, client, operator=OWNER)
             await answer(database, client, minted.token)
             rows = database[Collection.ACTION_LOG].find({"record_id": minted.id, "action": "grant.address_change_started"})
             return [row["by"] async for row in rows]
@@ -1200,7 +1195,7 @@ class TestTheRunningChanges:
         """The two acts the page records, neither with a label: a typed reason would outlive the record's own clearing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await discard(database, client, started.id)
             rows = database[Collection.ACTION_LOG].find({"record_id": started.id}, sort=[("_id", 1)])
             return [(row["action"], row["by"], row["label"]) async for row in rows]
@@ -1217,9 +1212,7 @@ class TestTheAccountSweepWaitsForTheCarry:
         """Swept before it is carried, the account and its passkeys would be gone when the carry runs; a change carrying none holds nothing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await (
-                administrator_starts(database, client, change_reason=CHANGE_REASON) if way == "waiting_period" else start(database, client)
-            )
+            minted = await (administrator_starts(database, client) if way == "waiting_period" else start(database, client))
             await answer(database, client, minted.token)
             if way == "waiting_period":
                 await sweep(database, client, germany_now=AFTER_THE_WAIT)
@@ -1269,19 +1262,19 @@ class TestTheStop:
 
 
 class TestTheToolsStart:
-    def test_with_a_reason_it_mints_the_new_mailbox_its_link_and_refuses_a_new_address_holding_entries(self, mongo_replica_set_url: str):
+    def test_it_mints_the_new_mailbox_its_link_and_refuses_a_new_address_holding_entries(self, mongo_replica_set_url: str):
         """Its reader trusted, the tool refuses at its start what the confirmation would, and the change it would replace stands."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            plain = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            plain = await administrator_starts(database, client)
             await granted(database, FOREIGN_EMAIL)
-            refused = await refused_code(administrator_starts(database, client, change_reason=CHANGE_REASON, email=FOREIGN_EMAIL))
+            refused = await refused_code(administrator_starts(database, client, email=FOREIGN_EMAIL))
             return plain, refused, await change(database, plain.id)
 
         plain, refused, record = on_a_person(mongo_replica_set_url, body)
 
         assert (plain.way, plain.token is not None) == ("waiting_period", True)
-        assert (refused, record["ended"], record["change_reason"]) == (Code.ADDRESS_CHANGE_OCCUPIED, None, CHANGE_REASON)
+        assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_OCCUPIED, None)
 
     @staticmethod
     def refused_start(url: str, setup: str = "", **payload: Any) -> tuple[str, int]:
@@ -1290,7 +1283,7 @@ class TestTheToolsStart:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if setup == "grant":
                 await granted(database)
-            refused = await refused_code(administrator_starts(database, client, **{"change_reason": CHANGE_REASON, **payload}))
+            refused = await refused_code(administrator_starts(database, client, **payload))
             return refused, await database[Collection.ADDRESS_CHANGES].count_documents({})
 
         return on_a_person(url, body)
@@ -1305,7 +1298,7 @@ class TestTheToolsStart:
 class TestTheTool:
     def test_an_ended_change_s_id_is_refused_and_an_unknown_one_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await discard(database, client, started.id)
             with pytest.raises(DocumentNotFoundError):
                 await discard(database, client, ObjectId())
@@ -1315,7 +1308,7 @@ class TestTheTool:
 
     def test_the_re_send_replaces_the_link_and_keeps_the_stop_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             before = await change(database, started.id)
             sent = await resend(database, client, started.id, germany_now=NOW + timedelta(hours=2))
             return started, before, sent, await change(database, started.id), await refused_code(view(database, client, started.token))
@@ -1331,7 +1324,7 @@ class TestTheTool:
         """A deadline set again on a change waiting out its time would make the pass end it lapsed rather than let it take effect."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await answer(database, client, started.token)
             with pytest.raises(DocumentNotFoundError):
                 await resend(database, client, started.id)
@@ -1344,7 +1337,7 @@ class TestTheTool:
         """Another code falls through to the shared failure line, which sends the administrator to a retry refused alike."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await held_by_another(database, what)
             return await refused_code(resend(database, client, started.id))
 
@@ -1360,7 +1353,7 @@ class TestTheTool:
             if whose == "grant-holder":
                 await granted(database)
             # An owner may start either; the suite's first administrator then asks.
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON, address=address, operator=OWNER)
+            started = await administrator_starts(database, client, address=address, operator=OWNER)
             before = await change(database, started.id)
             asked = {
                 "re-send": lambda: resend(database, client, started.id),
@@ -1374,7 +1367,7 @@ class TestTheTool:
         """A page showing a change since replaced discards nothing: key the discard on the address and the later change goes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            first = await administrator_starts(database, client)
             later = await start(database, client, germany_now=NOW + RESTART)
             stale = await refused_code(discard(database, client, first.id))
             await discard(database, client, later.id)
@@ -1517,7 +1510,7 @@ class TestTheDecline:
 class TestTheWaitingTime:
     def test_the_stop_link_ends_it_during_the_wait(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client, change_reason=CHANGE_REASON)
+            started = await administrator_starts(database, client)
             await answer(database, client, started.token)
             seen = await view(database, client, started.stop_token, germany_now=NOW + timedelta(days=3))
             await stop_by_link(database, client, started.stop_token)
@@ -1698,7 +1691,7 @@ class TestTwoStartsAtOnce:
             task = asyncio.ensure_future(start(database, client, address_changes_collection=cast(Any, held), germany_now=NOW + RESTART))
             await held.until_held(task)
             try:
-                rival = await administrator_starts(database, client, change_reason=CHANGE_REASON, email=FOREIGN_EMAIL)
+                rival = await administrator_starts(database, client, email=FOREIGN_EMAIL)
             except BaseException:
                 await held.abandon(task)
                 raise

@@ -86,13 +86,12 @@ def a_change(position: int, *, minted: str, **fields: Any) -> dict[str, Any]:
 
 
 def confirmed_on(change: dict[str, Any], confirmed_at: datetime) -> dict[str, Any]:
-    """`change` started with a reason and confirmed at `confirmed_at`, as the new mailbox's press leaves it."""
+    """`change` on the lost-mailbox way and confirmed at `confirmed_at`, as the new mailbox's press leaves it."""
 
     return {
         **change,
         "way": "waiting_period",
         "valid_until": None,
-        "change_reason": "Postfach gelöscht, telefonisch bestätigt",
         "confirmed_at": confirmed_at,
         "effective_from": confirmed_at + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS),
     }

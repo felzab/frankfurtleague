@@ -745,7 +745,7 @@ export interface FLOutboxStatus {
 }
 
 /**
- * One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash.
+ * One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.
  */
 export interface FLAddressChangeAdminOpen {
   address: string;
@@ -780,17 +780,11 @@ export interface FLAddressChangeAdminMintResponse {
 }
 
 /**
- * The address a change starts on, the address it goes to, and how the administrator established who asks for it.
+ * The address a change starts on, and the address it goes to.
  */
 export interface FLAddressChangeAdminPayload {
   /** @maxLength 254 */
   address: string;
-  /**
-   * @minLength 1
-   * @maxLength 200
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  change_reason: string;
   /** @maxLength 254 */
   email: string;
 }

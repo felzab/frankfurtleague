@@ -5,11 +5,7 @@ import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { formatInstantShort } from "@/core/format";
-import {
-  AddressChangePostAddressChangeAdminBody,
-  addressChangePostAddressChangeAdminBodyAddressMax,
-  addressChangePostAddressChangeAdminBodyChangeReasonMax,
-} from "@/core/generated/zod/inputs";
+import { addressChangePostAddressChangeAdminBodyAddressMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAddressChanges } from "@/features/address-change/queries";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
@@ -102,15 +98,11 @@ const HEAD: TableHead = {
   acts: [COPY.shared.withObject(COPY.account.address.link, "send"), COPY.shared.verb.discard],
 };
 
-const { shape } = AddressChangePostAddressChangeAdminBody;
-
 const START_RULES: StartRules = {
   required: {
     address: requires(SignInPayloadSchema.shape.email, ""),
     email: requires(SignInAddressSchema, ""),
-    change_reason: requires(shape.change_reason, ""),
   },
-  reasonMax: addressChangePostAddressChangeAdminBodyChangeReasonMax,
   addressMax: addressChangePostAddressChangeAdminBodyAddressMax,
 };
 

@@ -170,11 +170,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     held in `verification` before the send gate is consulted; sessions with their factor, expiry and
     last use; passkeys with their public key, the reported authenticator model and any name the holder
     gives one, never a private key (`fl_frontend/src/core/auth/library.ts` configures the store); the
-    per-address code counts under a keyed hash; an address change's two addresses until it ends,
-    and the reason an administrators' change for a lost mailbox records, until the same end.
+    per-address code counts under a keyed hash; an address change's two addresses until it ends.
   - Recipients: the person; administrators, of a non-holder's running change, both addresses; the
-    owner alone, of a holder's; every holder by mail, its old address and its new one masked. The
-    reason stays in the store, served by no read.
+    owner alone, of a holder's; every holder by mail, its old address and its new one masked.
 - **Administration access and the ban list** (`grants`, `ban_list`).
   - Purpose and basis: who may administer the league, and refusing an address the league declined;
     Art. 6(1)(f).
@@ -351,7 +349,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                                                                            | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                                |
 | A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                                                               | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                        |
 | A grant                                      | Until removed or erased, a waiting addition until withdrawn too                                                                                                                       | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                                              |
-| An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and no reason and goes 30 days after its end                                              | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                              |
+| An address change                            | Each link 24 hours, a lapsed change ended within the hour; an ended change keeps no address and goes 30 days after its end                                                            | `fl_backend/app/shared/schemas/bounds.py :: ADDRESS_CHANGE_VALID_HOURS`, `:: ADDRESS_CHANGE_RETENTION_DAYS`                                                              |
 | A sign-in account and its passkeys           | Within the hour of no league record or grant holding its address, a ban holding none                                                                                                  | `fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`                                                                                                        |
 | A session                                    | A person's 14 days unused, 30 at most; an administrator's 1 hour unused, 24 at most                                                                                                   | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                       |
 | A sign-in code; the code counts              | 10 minutes; failed codes a day and requested codes an hour, under a keyed hash                                                                                                        | `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                                         |

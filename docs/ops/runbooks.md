@@ -454,8 +454,7 @@ One person can hold several — a referee is a pupil, and a contact person can b
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
-holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A change's reason no read
-serves (`address_changes.change_reason`). A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
+holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders any of these, and a read-only Playground query on those
 fields finds them.
 
@@ -579,7 +578,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   other own change mails nothing past its two links. Where the person started it,
   their sign-in account moves to the new address and every session of
   it ends, unless the new address holds an account of its own (`address_change.account_not_moved` at `WARN`), where the
-  old account keeps its sessions until the sweep below; after a change started on a recorded reason, or onto such an address, they
+  old account keeps its sessions until the sweep below; after a lost-mailbox change, or one onto such an address, they
   sign in anew, and the account sweep
   deletes the replaced address's account within the hour, its passkeys with it, once nothing else
   references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
@@ -1098,8 +1097,8 @@ mailbox's.
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAddressChange`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/addressChangeEmail.ts`), that a change an
-administrator started with a reason takes effect its waiting time after its confirmation. While no
-pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
+administrator started takes effect its waiting time after its confirmation. While no
+pass runs neither is kept: a lapsed change keeps its new address, and a change past
 its waiting time stands until the next pass.
 
 **The fixture confirmations run on every pass**

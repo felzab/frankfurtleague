@@ -85,7 +85,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base)],
 )
 
-# What a link's view reads: never `change_reason`, the addresses for the judgement alone, and the new link's hashes, which say
+# What a link's view reads: the addresses for the judgement alone, and the new link's hashes, which say
 # which of the two links a token is.
 _FIELDS: Mapping[str, int] = {
     "address": 1,

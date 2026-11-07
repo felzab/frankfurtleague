@@ -165,7 +165,7 @@ SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS: Final[FLSchiedsrichterConfirmationDea
 type FLAddressChangeValidHours = Literal[24]
 ADDRESS_CHANGE_VALID_HOURS: Final[FLAddressChangeValidHours] = 24
 
-# A change an administrator started with a reason waits this long after its confirmation, the address
+# A lost-mailbox change waits this long after its confirmation, the address
 # on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
 type FLAddressChangeWaitingPeriodDays = Literal[7]
 ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7

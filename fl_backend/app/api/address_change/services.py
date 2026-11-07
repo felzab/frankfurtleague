@@ -84,7 +84,6 @@ def compose_record(
     address: str,
     email: str,
     way: FLAddressChangeWay,
-    change_reason: str | None,
     now: datetime,
 ) -> dict[str, Any]:
     """The WHOLE record a start inserts.
@@ -101,7 +100,6 @@ def compose_record(
         "sent_at": german_day(now),
         "valid_until": valid_until_from(now),
         "released_at": None,
-        "change_reason": change_reason,
         "confirmed_at": None,
         "effective_from": None,
         "ended": None,
@@ -142,7 +140,7 @@ def build_owed_carry_filter(addresses: list[str]) -> dict[str, Any]:
 
 
 def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[str, Any]:
-    """An ended change's tombstone: its addresses and its reason go; its hashes stay.
+    """An ended change's tombstone: its addresses go; its hashes stay.
 
     The hashes let each link answer how the change ended until the TTL removes the record.
     """
@@ -151,7 +149,6 @@ def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[s
         "$set": {
             "address": None,
             "email": None,
-            "change_reason": None,
             "ended": {"kind": kind, "at": now.astimezone(UTC)},
         }
     }

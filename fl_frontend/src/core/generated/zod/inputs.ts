@@ -81,9 +81,8 @@ export const ActionLogGetActionLogBody = zod
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
- * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
- * and the address on file a notice with its stop link; the change then takes effect
+ * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
+ * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
  * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
  * answered. The address's live change ends replaced.
  *
@@ -96,22 +95,14 @@ export const ActionLogGetActionLogBody = zod
  */
 export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
-export const addressChangePostAddressChangeAdminBodyChangeReasonMax = 200;
-
-export const addressChangePostAddressChangeAdminBodyChangeReasonRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
     address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
-    change_reason: zod
-      .string()
-      .min(1)
-      .max(addressChangePostAddressChangeAdminBodyChangeReasonMax)
-      .regex(addressChangePostAddressChangeAdminBodyChangeReasonRegExp),
     email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
   })
-  .describe("The address a change starts on, the address it goes to, and how the administrator established who asks for it.");
+  .describe("The address a change starts on, and the address it goes to.");
 
 /**
  * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.

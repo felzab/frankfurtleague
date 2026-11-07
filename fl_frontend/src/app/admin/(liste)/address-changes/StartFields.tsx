@@ -9,11 +9,11 @@ import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 
 /** What the start's write asks of its boxes, read on the server, where the schema stays. */
-export type StartRules = { required: Readonly<Record<"address" | "email" | "change_reason", boolean>>; reasonMax: number; addressMax: number };
+export type StartRules = { required: Readonly<Record<"address" | "email", boolean>>; addressMax: number };
 
 /**
  * The start's boxes: the address on file, its warning as soon as the typed address has a change on the list, since the
- * start ends that one; the new address; the reason, one line, as the server keeps it. Each posts under its name.
+ * start ends that one; the new address. Each posts under its name.
  */
 export function StartFields({
   running,
@@ -24,7 +24,7 @@ export function StartFields({
   rules: StartRules;
 }) {
   const [typed, setTyped] = useState("");
-  const { required, reasonMax, addressMax } = rules;
+  const { required, addressMax } = rules;
   return (
     <>
       <TextField
@@ -51,15 +51,6 @@ export function StartFields({
         autofill="off"
         isRequired={required.email}
         maxLength={addressMax}
-      />
-      <TextField
-        label={COPY.admin.spiel.reason}
-        name="change_reason"
-        width="W3L"
-        kind="text"
-        description={COPY.admin.noNames}
-        isRequired={required.change_reason}
-        maxLength={reasonMax}
       />
     </>
   );

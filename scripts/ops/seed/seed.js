@@ -1111,7 +1111,6 @@ const addressChange = (address, way, label, step) => ({
   sent_at: day(-1),
   valid_until: null,
   released_at: null,
-  change_reason: null,
   confirmed_at: null,
   effective_from: null,
   ended: null,
@@ -1125,10 +1124,7 @@ const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "umzug
   effective_from: WAITING,
 });
 
-const ADDRESS_CHANGES = [
-  addressChange("nina.noll@example.com", "waiting_period", "noll", { valid_until: WAITING, change_reason: "Postfach verloren" }),
-  HOLDER_CHANGE,
-];
+const ADDRESS_CHANGES = [addressChange("nina.noll@example.com", "waiting_period", "noll", { valid_until: WAITING }), HOLDER_CHANGE];
 
 /** One act as `fl_backend/app/core/recording.py :: record_act` writes it, `hoursAgo` before the seed. */
 const logged = (hoursAgo, by, action, { team = null, label = null, count = null } = {}) => ({

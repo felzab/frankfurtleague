@@ -36,7 +36,7 @@ const calls = doubleApiClient(() => {
 const { resendChangeLink, startLostMailboxChange } = await import("./addressChangeActs");
 
 const HOLDER = "anna@example.org";
-const START = { address: "paul@example.org", email: "paul.neu@example.org", change_reason: "Am Telefon bestätigt.", holder: HOLDER };
+const START = { address: "paul@example.org", email: "paul.neu@example.org", holder: HOLDER };
 const ID = "64b000000000000000000002";
 
 beforeEach(() => {
