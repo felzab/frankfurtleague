@@ -5,7 +5,7 @@ from typing import Annotated, Any, Final, Literal, get_args
 from bson import ObjectId
 from pydantic import AfterValidator, BaseModel, Field, TypeAdapter, field_validator, model_validator
 
-from app.core.recording import ActorRole
+from app.core.recording import ActorRole, FLAction
 from app.shared.schemas.bounds import ACTOR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSortOrder
@@ -192,6 +192,20 @@ class FLAktionRecord(BaseModel):
     modified_count: int | None
     redacted_at: str | None
     erasure_reason: str | None
+
+
+class FLActionLogRecord(BaseModel):
+    """One act as `action_log` stores it, written by `app/core/recording.py :: record_act` alone."""
+
+    id: CustomObjectId = Field(validation_alias="_id")
+    at: datetime
+    by: str
+    team: str | None
+    action: FLAction
+    record_id: CustomObjectId | None
+    label: str | None
+    count: int | None
+    trace_id: str
 
 
 FLAktionenListAdapter = TypeAdapter(list[FLActionLogEntry])
