@@ -22,10 +22,8 @@ import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
 import type { FormStatus } from "./useFormAction";
 
-/** The form column as one box, the fields at their own widths in it. */
-const BOX_CLASSES = formColumn({ class: cardSurface({ class: "justify-items-start gap-4 p-4" }) });
-/** The row of the act and its status line, filling the box, which sets every other child at its own width. */
-const ROW_CLASSES = "w-full";
+/** One box as wide as the sign-in's column from `lg`, its fields filling it: a page that is one question reads as that page does. */
+const BOX_CLASSES = formColumn({ class: cardSurface({ class: "gap-4 p-4 lg:max-w-signin" }) });
 
 /** What the press read: the question's words, and the input the final press sends as the read held it to its rules. */
 export type AskedInput<Input> = {
@@ -100,20 +98,18 @@ export function QuestionForm<Input>({
         }}
         className={BOX_CLASSES}>
         <Fragment key={emptied}>{children}</Fragment>
-        <div className={ROW_CLASSES}>
-          <ActRow>
-            <StatusLine
-              status={status}
-              placement="row"
-            />
-            <Button
-              variant={tone}
-              type="submit"
-              label={COPY.shared.verb[verb]}
-              isBusy={isPending}
-            />
-          </ActRow>
-        </div>
+        <ActRow>
+          <StatusLine
+            status={status}
+            placement="row"
+          />
+          <Button
+            variant={tone}
+            type="submit"
+            label={COPY.shared.verb[verb]}
+            isBusy={isPending}
+          />
+        </ActRow>
       </HeldForm>
       {/* Mounted closed from the first render, the sign-in client's chunk with it (`usePasskeyTouch`), and one component
           type in both arms: a swapped one would unmount, and its unmount closes the question it opens
@@ -155,12 +151,10 @@ export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; childr
   return (
     <Waiting layout={BOX_CLASSES}>
       {children}
-      <div className={ROW_CLASSES}>
-        <ActRow>
-          <span className={statusLine({ placement: "row", tone: "none" })} />
-          <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
-        </ActRow>
-      </div>
+      <ActRow>
+        <span className={statusLine({ placement: "row", tone: "none" })} />
+        <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
+      </ActRow>
     </Waiting>
   );
 }
