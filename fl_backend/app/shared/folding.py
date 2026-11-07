@@ -69,21 +69,6 @@ def league_address(address: str) -> str:
     return sign_in_identifier(validated.ascii_email)
 
 
-def ban_key(address: str) -> str:
-    """The form a ban is keyed on: `league_address`'s, its domain decoded from punycode; `ValueError` where the rule refuses it.
-
-    Decoded because every stored ban was keyed so, and the list holds only keyed hashes, which nothing can re-key: an
-    `xn--` key would leave each ban on an international domain standing for an address no lookup asks again. For an
-    address with no `xn--` label it is `league_address`'s own.
-    """
-
-    validated = _validated(address)
-    assert validated.ascii_local_part is not None
-    # `domain` is the library's decoding of the punycode; `lower` rather than the ASCII fold, as the stored keys were
-    # lowered, a decoded domain holding letters beyond ASCII.
-    return f"{validated.ascii_local_part.translate(_ASCII_LOWER)}@{validated.domain.lower()}"
-
-
 def sign_in_identifier(address: str) -> str:
     """`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`'s spelling in Python: trimmed and lower-cased.
 

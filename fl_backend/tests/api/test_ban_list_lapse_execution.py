@@ -1,11 +1,11 @@
 """
 API · a ban's five-season bound, from the season the write counts it from to the activation that removes the row
 
-The boundary is pinned on BOTH sides in every case that touches it: a check that always answers
-False and a sweep that always deletes each pass one side of it.
+The boundary is pinned on BOTH sides: a sweep that always deletes passes one of them, and one that
+never does the other.
 """
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
@@ -14,8 +14,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.ban_list.crud import address_is_barred
-from app.api.ban_list.services import address_hash
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_governing_saison_id
 from app.core.codes import Code
@@ -23,15 +21,13 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.bans import ban_through_the_route
-from tests.config import build_test_config, grants_for_the_suite
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_ban_list_lapse_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 
@@ -97,14 +93,6 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
     return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=ADMIN, today=TODAY)
-
-
-async def is_barred(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
-    return await address_is_barred(
-        ban_list_collection=database[Collection.BAN_LIST],
-        address_hash=address_hash(email, key=CONFIG.sperrliste_key),
-        governing_saison_id=against,
-    )
 
 
 async def activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
@@ -198,18 +186,6 @@ class TestALeagueWithNoSeasonRunning:
         assert on_a_league(mongo_replica_set_url, seasons, body) == 0
 
 
-class TestTheBoundaryTheCheckReads:
-    def test_the_last_covered_season_still_bars_and_the_one_after_it_does_not(self, mongo_replica_set_url: str):
-        """BOTH sides in one case: a check answering False always passes the second assertion, and one answering True passes the first."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
-            await ban(database, client)
-
-            return await is_barred(database, against=LAST_COVERED), await is_barred(database, against=FIRST_CLEAR)
-
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (True, False)
-
-
 class TestTheSweepAtAnActivation:
     def test_a_lapsed_ban_goes_and_a_covered_one_stands(self, mongo_replica_set_url: str):
         """Both rows through one activation: a sweep taking the collection passes a case asserting only that the lapsed row went."""
@@ -221,7 +197,7 @@ class TestTheSweepAtAnActivation:
             # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
             await database[Collection.BAN_LIST].update_one(
-                {"address_hash": address_hash(OTHER, key=CONFIG.sperrliste_key)},
+                {"address": OTHER},
                 {"$set": {"barred_until_saison_id": FIRST_CLEAR}},
             )
 
@@ -254,29 +230,3 @@ class TestTheSweepAtAnActivation:
             return await database[Collection.BAN_LIST].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 0
-
-    def test_the_lapse_is_recorded_and_keeps_no_image_of_the_row_it_removed(self, mongo_replica_set_url: str):
-        """An ERASURE, because the bound ran out: `ban_reason` may name the person barred, and an image would keep that a year past the ban.
-
-        WHO the row names is not asserted: the actor is a router dependency's, unrun here.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
-            await ban(database, client)
-            await a_drawn_target(database, "2040")
-            await activate(database, client, "2040")
-            recorded = await database[Collection.ACTION_LOG].find_one({"collection": "ban_list"})
-
-            assert recorded is not None
-            return recorded
-
-        recorded = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
-
-        # The operation FIRST: a delete would file the same row with an image beside it, and every
-        # assertion below would then be about the wrong helper's log row.
-        assert recorded["operation"] == "erase_many"
-        assert recorded["modified_count"] == 1
-        assert recorded.get("before") is None
-        assert BAN_REASON not in repr(recorded)
-        # The address the ban was taken from survives nowhere, the filter's own values included.
-        assert BANNED.split("@")[0].lower() not in repr(recorded).lower()

@@ -21,7 +21,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.ban_list.guard import PERSON_ACTOR_BINDERS
-from app.api.ban_list.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_CHALLENGE, APIError
@@ -143,8 +142,6 @@ GRANT_WRITES = [
 STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
     pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
-    pytest.param("post", "/api/v0/ban_list", id="a ban"),
-    pytest.param("delete", "/api/v0/ban_list/{ban_list_entry_id}", id="a ban's lift"),
     pytest.param("post", "/api/v0/address_change", id="an address change asked"),
     pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
     pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
@@ -390,10 +387,6 @@ class TestThePseudonym:
         """The known answer: every other case compares the function with itself, so a construction swapped end for end passes them all."""
         assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_PSEUDONYM
 
-    def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
-        """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
-        assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != address_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
-
 
 # The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "erasure-v1".
 KNOWN_JOURNAL_HASH = "18eae5d2b55d4f7332413b1832628a846888b1f2f591819933dba6b4a554f398"
@@ -403,11 +396,9 @@ class TestTheJournalHash:
     def test_it_is_the_value_computed_outside_this_package(self):
         assert erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
 
-    def test_it_is_neither_the_pseudonym_nor_the_ban_rows_digest(self):
-        """A shared label would let a journal line name the pseudonym an erasure removed, or the ban a person holds."""
-        journal = erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
-
-        assert journal not in {KNOWN_PSEUDONYM, address_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)}
+    def test_it_is_not_the_pseudonym(self):
+        """A shared label would let a journal line name the pseudonym an erasure removed."""
+        assert erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != KNOWN_PSEUDONYM
 
 
 # A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.

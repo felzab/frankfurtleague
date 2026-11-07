@@ -47,9 +47,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("saison_id", "saison_phase", "position"),
         "one matchday per position within a phase of a season",
     ),
-    # It is also the READ path: the sign-up check is one indexed equality against this key, so
-    # dropping the index costs a collection scan per submission as well as the rule.
-    UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address_hash", ("address_hash",), "one entry per banned address"),
+    # It is also the READ path: the sign-in and the Postausgang's hand-out each ask by this key, so
+    # dropping the index costs a collection scan per read as well as the rule.
+    UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address", ("address",), "one entry per banned address"),
     # `$type` rather than the equality `{"revoked_at": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
     # supports and names no null form at all

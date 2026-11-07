@@ -42,7 +42,6 @@ from app.api.outbox.system_router import post_event, post_handout, post_result, 
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document
 from tests.outbox import claimable
@@ -115,7 +114,11 @@ async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
     return await post_handout(
-        outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
+        outbox_collection=database[Collection.OUTBOX],
+        ban_list_collection=database[Collection.BAN_LIST],
+        db=database,
+        db_client=client,
+        now=claimable(now),
     )
 
 
@@ -271,17 +274,30 @@ class TestTheDrain:
         assert (dropped, states) == ([], ["dropped", "dropped"])
 
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
+        """The second of the ban's two checkpoints, and every spelling of the address on the mail's row meets it."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(NORA, until="2999"))
+            await database[Collection.BAN_LIST].insert_one(ban_document(NORA.upper(), until="2999"))
             code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
+            linked = await owe(database, client, "link/1", data=FLSignInCodeData(kind="sign_in_code"), link=True)
             ban = await owe(database, client, "ban/1")
+            await database[Collection.OUTBOX].update_one({"_id": code}, {"$set": {"to": NORA.upper()}})
             answer = await claimed(database, client)
 
-            return [mail.id for mail in answer.mails], ban, (await stored(database, code))["state"]
+            return (
+                [mail.id for mail in answer.mails],
+                ban,
+                [await stored(database, row) for row in (code, linked)],
+                await database[Collection.INVITATIONS].find_one({"_id": INVITATION}),
+            )
 
-        handed, ban, state = on_a_database(mongo_replica_set_url, body)
+        handed, ban, rows, record = on_a_database(mongo_replica_set_url, body)
 
-        assert (handed, state) == ([ban], "barred")
+        assert handed == [ban]
+        assert [(row["state"], "data" in row, "secret" in row) for row in rows] == [("barred", False, False)] * 2
+        # Nothing left the league: a stopped mail mints no link either.
+        assert record is not None
+        assert record["token_hashes"] == []
 
     def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
         """The row is a send's one record, so the provider's name for its refusal is the only answer to why it waited."""

@@ -236,12 +236,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "redacted_at": None,
             "erasure_reason": None,
         },
-        # A hash rather than anything recognisable: the collection's whole point is that a row
-        # carries no address, and a fixture holding one would be a corpus nobody could sweep for it.
         "ban_list": {
             "_id": BAN_LIST_OID,
-            "address_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-            "key_version": "ban-list-v1",
+            "address": "gesperrt@example.invalid",
             "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
             "created_by": "admin@example.invalid",
             "created_at": "2026-03-15",
@@ -393,9 +390,9 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["spieltage"],
         valid_document("spieltage", _id=SPIELORT_OID, end="2026-03-22"),
     ),
-    # The second row differs in its reason and its author: the index refuses on the hash alone, and
+    # The second row differs in its reason and its author: the index refuses on the address alone, and
     # a pair agreeing in everything would pass while keyed on anything at all.
-    "uniq_ban_list_address_hash": (
+    "uniq_ban_list_address": (
         valid_documents()["ban_list"],
         valid_document("ban_list", _id=TEAM_OID, ban_reason="Zweiter Eintrag", created_by="zweite@example.invalid"),
     ),

@@ -9,6 +9,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
+from app.api.ban_list.crud import address_is_barred
 from app.api.ban_list.lookup import BanList, BanListLookup, hash_barred
 from app.api.grants.crud import read_admin_tier_of
 from app.api.identity.crud import erase_if_still_due, erasure_due_page, find_sign_in, find_subject, saison_statuses, unreferenced_of
@@ -31,6 +32,7 @@ from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
     BanListCollection,
+    BanListReadCollection,
     BewerbungenCollection,
     DBClient,
     GrantApprovalRequestsCollection,
@@ -112,7 +114,7 @@ async def get_subject(
 async def get_sign_in(
     sign_in_data: Annotated[FLSubjectPayload, Body()],
     records: SubjectLookup,
-    ban_list: BanListLookup,
+    ban_list_collection: BanListReadCollection,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
 ) -> FLSignInResponse:
@@ -123,12 +125,11 @@ async def get_sign_in(
 
     # Keyed as `get_subject` keys, for its reason.
     identifier = sign_in_identifier(str(sign_in_data.email))
-    ban_key = ban_list.hash_of(str(sign_in_data.email))
 
     # Concurrently, for `get_subject`'s reason: a sign-in waits on this answer.
     sign_in, barred, grant = await asyncio.gather(
         find_sign_in(identifier, records),
-        hash_barred(ban_list, ban_key),
+        address_is_barred(ban_list_collection=ban_list_collection, address=identifier),
         read_admin_tier_of(grants_collection=grants_collection, address=identifier, session=session),
     )
 
