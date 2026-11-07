@@ -448,9 +448,9 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`action_log.actor.email`, `/area/admin/aktionen`) and as the author of every ban, invite and application decision they made (`ban_list.created_by`, `invitations.created_by`, `bewerbungen.decision.by`), and the grants: their own in `grants` and `berechtigungen_angekuendigt`, `granted_by` on every grant they made, and each notice naming them still owed in `outbox` (`data.changed_by`, `data.current.address`, `data.before.address`); plus every request for a grant they asked or one is asked for them (`berechtigungen_antraege.approval.started_by`, `berechtigungen_antraege.address`), listed under „Offene Anträge“ on `/area/admin/administratoren`, and every address change of a grant holder they started or approved (`address_changes.approval.started_by`, `address_changes.approval.approved_by`), which a read-only Playground query on those fields finds |
 | Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below, and a request for a grant typed for it (`berechtigungen_antraege.address`), listed under „Offene Anträge“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
-**Whatever the role, a pending change of their address and its owed notices are read apart.** Type
-the address on file into the address tool, `/area/admin/adresswechsel`
-(`POST /address_change/view`), the one read serving a live change's new address and reason; the
+**Whatever the role, a pending change of their address and its owed notices are read apart.** Find
+the address on file among the running changes, `/admin/address-changes`
+(`GET /address_change`), the one read serving a live change's new address and reason; the
 editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
 `data.first_name`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders either, and a read-only Playground query on those fields
@@ -730,7 +730,7 @@ rule.** The one date anybody enters for themselves is a contact person's, at the
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
 Decline the application and bar the address at `/area/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up-and-from-the-leagues-mail)). An
+([`../glossary.md`](../glossary.md#sperrliste--ban_list--the-addresses-barred-from-signing-in-and-from-the-leagues-mail)). An
 address holding a grant is refused (`ban_list_admin`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself where the address holds a sign-in account**, naming the reason you typed and
