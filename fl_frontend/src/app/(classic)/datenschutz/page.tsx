@@ -65,6 +65,7 @@ export default function PrivacyNoticePage() {
       ),
     ),
     paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+    paragraph(words.account.ban),
     heading(words.mail.heading),
     paragraph(words.mail.senders),
     paragraph(words.mail.forwarding),
