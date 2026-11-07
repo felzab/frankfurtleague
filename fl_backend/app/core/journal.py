@@ -12,7 +12,7 @@ Invariants:
 """
 
 import re
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from types import MappingProxyType, TracebackType
@@ -78,6 +78,19 @@ SEATED_OBJECTION_HOMES: Final = frozenset({Collection.SAISON_TEAMS, Collection.B
 _HASH: Final = re.compile(r"[0-9a-f]{64}")
 # A label, a seat or a choice's value: one word, so no value can carry a second token or an address.
 _WORD: Final = re.compile(r"[0-9a-z_-]+")
+
+
+# The three acts a restore would undo, which a runbook step repeats from these lines.
+PrivacyAct = Literal["erasure", "withdrawal", "objection"]
+
+
+def privacy_line(act: PrivacyAct, records: Sequence[str], choices: Sequence[str] = (), seats: Sequence[str] = ()) -> None:
+    """One INFO line naming the act and each record as `collection/id`, with a withdrawal's choices and an objection's slots by name.
+
+    Never a value, an address or a name: the line outlives the erasure it reports. Every key stands on every line, so a reader can rely on it.
+    """
+
+    journal_logger.info("journal.act", extra={"act": act, "records": list(records), "choices": list(choices), "seats": list(seats)})
 
 
 def lost_its_answer(failure: BaseException | None) -> bool:
