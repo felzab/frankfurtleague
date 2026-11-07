@@ -5,7 +5,7 @@ import { buildRefusal } from "@/shared/utils/refusal";
  * The reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the
  * endpoint's `payload_refused` marks an over-long box with a generic sentence rather than the bound's German.
  */
-export const SPERRLISTE_GRUND_MAX_LENGTH = 500;
+export const BAN_REASON_MAX_LENGTH = 500;
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SPERRLISTE_CRUD_COPY = {
@@ -69,7 +69,7 @@ export const SPERRE_ANSICHT_COPY = {
   // A record, never „nichts“: the account and the log below stand whatever the read found, as the erasure's reveal says.
   leer: "Unter dieser Adresse ist kein Eintrag gespeichert.",
   // The account sweep's criterion in the ban mail's kinds, a grant left out: no barred address holds one
-  // (`sperrliste_verwaltung`). The sweep, and never the ban, ends it.
+  // (`ban_list_admin`). The sweep, and never the ban, ends it.
   konto:
     "Ein Konto mit dieser Adresse bleibt nur bestehen, solange unter der Adresse noch etwas davon gespeichert ist: ein Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, ein Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat. Bis die Sperre endet, kann sich damit niemand anmelden.",
   // What no record read lists and the ban changes nothing of, named as the erasure's reveal names it.

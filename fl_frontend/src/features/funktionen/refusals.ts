@@ -3,7 +3,7 @@ import { isRefusal } from "@/shared/utils/actionError";
 
 import type { Code } from "@/core/generated/client/types";
 
-/** An administrator's own address: their records go through the account page, or through an owner (`verwaltung_adresse`). */
+/** An administrator's own address: their records go through the account page, or through an owner (`admin_address`). */
 const EIGENE_ADRESSE_LOESCHEN =
   "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder lass Deine Adresse von einer Inhaberin oder einem Inhaber der Verwaltung löschen.";
 

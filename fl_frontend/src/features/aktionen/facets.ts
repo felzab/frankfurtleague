@@ -9,7 +9,7 @@ import type { ActionLogGetActionLogParams, FLActionLogEntry, FLActionLogListResp
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
 
 /**
- * Spelled as `fl_backend/app/api/aktionen/schemas.py :: FLAktionenFilterParams` spells its own terms,
+ * Spelled as `fl_backend/app/api/action_log/schemas.py :: FLAktionenFilterParams` spells its own terms,
  * so a selection is forwarded rather than translated: a second spelling is a mapping table to drift.
  */
 export const AKTIONEN_COLLECTION_PARAM = "collection";

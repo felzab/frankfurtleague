@@ -139,7 +139,7 @@ function urheberOf(data: FLGrantData): Urheber {
 }
 
 /** **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice. */
-export function buildBerechtigungEmail(data: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
+export function buildGrantEmail(data: FLGrantData, { origin: rawOrigin }: MailOrigin): Mail {
   const aenderung = zugangsaenderungOf(data);
   const urheber = urheberOf(data);
   const origin = mailOrigin(rawOrigin);

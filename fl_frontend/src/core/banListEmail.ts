@@ -25,7 +25,7 @@ const EINLEITUNG = [
   "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
 ] as const;
 
-export function buildSperreEmail({ grund, barred_until_saison_id }: FLBanData, { origin }: MailOrigin): Mail {
+export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",
@@ -41,7 +41,7 @@ export function buildSperreEmail({ grund, barred_until_saison_id }: FLBanData, {
         // What the form's hint promises the mail explains, so the two say one thing.
         "Danach endet die Sperre von selbst. Du musst dafür nichts tun.",
       ],
-      [`Angegebener Grund: ${grund}`],
+      [`Angegebener Grund: ${ban_reason}`],
       GESPEICHERT_SAETZE,
       // The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
       // request is the address holder's.

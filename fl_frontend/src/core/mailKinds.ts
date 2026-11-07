@@ -7,7 +7,7 @@ import {
   buildAddressChangeNoticeEmail,
 } from "./addressChangeEmail";
 import { buildCodeEmail } from "./authEmail";
-import { buildBerechtigungEmail } from "./berechtigungEmail";
+import { buildBanEmail } from "./banListEmail";
 import {
   buildBewerbungAbsageEmail,
   buildBewerbungConfirmationEmail,
@@ -19,12 +19,12 @@ import {
 } from "./bewerbungEmail";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
+import { buildGrantEmail } from "./grantEmail";
 import { buildInvitationEmail } from "./invitationEmail";
 import { buildKontaktConfirmationEmail } from "./kontaktEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
-import { buildSperreEmail } from "./sperrlisteEmail";
 import {
   buildAustrittNoticeEmail,
   buildSpielEinteilungEmail,
@@ -107,8 +107,8 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
   invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),
-  ban: buildSperreEmail,
-  grant: buildBerechtigungEmail,
+  ban: buildBanEmail,
+  grant: buildGrantEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
   address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),

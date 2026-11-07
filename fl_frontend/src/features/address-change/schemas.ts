@@ -34,7 +34,7 @@ export const FLAdresswechselVerwaltungAnsichtPayloadSchema = z
 export const FLAdresswechselVerwaltungPayloadSchema = z.object({
   address: KontaktEmailSchema,
   email: KontaktEmailSchema,
-  grund: AdresswechselGrundSchema,
+  change_reason: AdresswechselGrundSchema,
 });
 
 /** The re-send, the discard and the approval: the id in the path, no request body. One schema per control. */

@@ -10,11 +10,11 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";
 import { mapAnsichtRefusal, mapSperreRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
-import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
+import { FLBanListEntryKeyPayloadSchema, FLPostBanListEntryPayloadSchema } from "./schemas";
 
 import type { FLErasureViewResponse } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
+import type { FLBanListEntryKeyPayload, SperreEntwurf } from "./schemas";
 
 /**
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
@@ -23,7 +23,7 @@ import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
 export type SperreAnsicht = Omit<FLErasureViewResponse, "admin_tier" | "barred">;
 
 /** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
-const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
+const AnsichtPayloadSchema = FLPostBanListEntryPayloadSchema.pick({ email: true });
 
 const SPERRE_STEHT = "Die Sperre steht.";
 const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht verschickt werden.";
@@ -99,7 +99,7 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
 
 export async function postSperreAction(rawPayload: SperreEntwurf): Promise<ActionResult<{ warn: boolean }>> {
   return runAdminMutation("postSperreAction", { stepUp: true }, async () => {
-    const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
+    const validated = FLPostBanListEntryPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {
@@ -142,9 +142,9 @@ export async function postSperreAction(rawPayload: SperreEntwurf): Promise<Actio
  * uncached list. A row another administrator has already lifted answers 404, which
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
-export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
+export async function deleteSperreAction(rawPayload: FLBanListEntryKeyPayload): Promise<ActionResult> {
   return runAdminMutation("deleteSperreAction", { stepUp: true }, async () => {
-    const validated = FLSperrlisteKeyPayloadSchema.safeParse(rawPayload);
+    const validated = FLBanListEntryKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {

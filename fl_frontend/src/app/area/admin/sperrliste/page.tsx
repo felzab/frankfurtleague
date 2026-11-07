@@ -43,7 +43,7 @@ async function Sperrliste() {
 
   return (
     <AdminSperrlisteView
-      sperrliste={sperrlisteRes.sperrliste}
+      sperrliste={sperrlisteRes.ban_list}
       anzahlGesamt={sperrlisteRes.count_total}
     />
   );

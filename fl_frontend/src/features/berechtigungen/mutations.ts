@@ -10,7 +10,7 @@ import {
 import type {
   FLGrantApprovalRequestDeclinedResponse,
   FLGrantReconciliationResponse,
-  FLGrantStufeResponse,
+  FLGrantTierResponse,
   FLGrantWriteResponse,
   FLPostGrantPayload,
   FLPostGrantResponse,
@@ -26,7 +26,7 @@ export async function deleteBerechtigung({ id }: FLBerechtigungKeyPayload): Prom
   return grantsDeleteGrant(id);
 }
 
-export async function patchBerechtigung({ id, admin_tier }: FLPatchGrantPayload): Promise<FLGrantStufeResponse> {
+export async function patchBerechtigung({ id, admin_tier }: FLPatchGrantPayload): Promise<FLGrantTierResponse> {
   return grantsPatchGrant(id, { admin_tier });
 }
 

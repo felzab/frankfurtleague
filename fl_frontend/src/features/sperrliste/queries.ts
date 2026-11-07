@@ -1,7 +1,7 @@
-import { sperrlisteGetSperrliste } from "@/core/generated/client/sdk";
+import { banListGetBanListEntries } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import type { FLSperrlisteListResponse } from "@/core/generated/client/types";
+import type { FLBanListResponse } from "@/core/generated/client/types";
 
 /**
  * Every ban, newest first. Admin-tier: a row names the administrator who entered it, which no public
@@ -9,7 +9,7 @@ import type { FLSperrlisteListResponse } from "@/core/generated/client/types";
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
  */
-export async function getSperrliste(): Promise<FLSperrlisteListResponse> {
+export async function getSperrliste(): Promise<FLBanListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() => sperrlisteGetSperrliste());
+  return runAdminRead(() => banListGetBanListEntries());
 }
