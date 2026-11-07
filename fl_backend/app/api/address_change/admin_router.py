@@ -10,6 +10,7 @@ from app.api.address_change.crud import (
     Holdings,
     Occupancy,
     address_taken,
+    denied_addresses,
     end_the_change_in_session,
     owe_the_link_in_session,
     owe_the_notice_in_session,
@@ -20,6 +21,7 @@ from app.api.address_change.crud import (
 )
 from app.api.address_change.schemas import (
     FLAddressChangeAdminHoldings,
+    FLAddressChangeAdminListResponse,
     FLAddressChangeAdminMintResponse,
     FLAddressChangeAdminOpen,
     FLAddressChangeAdminPayload,
@@ -28,6 +30,7 @@ from app.api.address_change.schemas import (
     FLAddressChangeIdResponse,
 )
 from app.api.address_change.services import (
+    LIVE_KEYED_TERMS,
     as_utc,
     build_address_filter,
     build_live_filter,
@@ -49,7 +52,7 @@ from app.api.identity.services import EACH_ADMIN, find_admin_address_refusal, fi
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
@@ -102,6 +105,7 @@ async def _pull_the_change(
 def _pending_addresses(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeAdminOpen:
     return FLAddressChangeAdminOpen(
         id=record["_id"],
+        address=record["address"],
         email=record["email"],
         way=record["way"],
         change_reason=record.get("change_reason"),
@@ -124,6 +128,49 @@ def _holdings(holdings: Holdings) -> FLAddressChangeAdminHoldings:
         bewerbung_seats=sum(len(slots) for _, slots in holdings.bewerbung_seats),
         registrierungen=len(holdings.registrierungen),
         grant=None if holdings.grant is None else holdings.grant["admin_tier"],
+    )
+
+
+@router.get(
+    "",
+    response_model=FLAddressChangeAdminListResponse,
+    summary="List the running address changes",
+)
+async def get_address_changes(
+    address_changes_collection: AddressChangeReadCollection,
+    outbox_collection: OutboxReadCollection,
+    grants_collection: GrantsReadCollection,
+    session: SnapshotSession,
+    operator: str = Depends(get_actor_email),
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLAddressChangeAdminListResponse:
+    """
+    Answer every running change, newest first: its two addresses, its way and the step it waits on.
+
+    ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
+    their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
+    each lasts days at most, and an ended one holds no address.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=address_changes_collection,
+        pipeline=[{"$match": dict(LIVE_KEYED_TERMS)}, {"$sort": {"_id": -1}}],
+        session=session,
+    )
+    denied = await denied_addresses(
+        [str(row["address"]) for row in rows], actor=sign_in_identifier(operator), grants_collection=grants_collection, session=session
+    )
+
+    return FLAddressChangeAdminListResponse(
+        changes=[
+            _pending_addresses(
+                row,
+                delivery=await state_of_the_link(outbox_collection=outbox_collection, address_change_id=row["_id"], session=session),
+                now=germany_now,
+            )
+            for row in rows
+            if str(row["address"]) not in denied
+        ]
     )
 
 

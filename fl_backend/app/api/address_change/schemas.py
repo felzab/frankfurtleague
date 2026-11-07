@@ -237,9 +237,10 @@ class FLAddressChangeAdminHoldings(BaseModel):
 
 
 class FLAddressChangeAdminOpen(BaseModel):
-    """The address's live change whole, admin tier: the new address and the reason included, never a hash."""
+    """One live change whole, admin tier: both addresses and the reason included, never a hash."""
 
     id: CustomObjectId
+    address: str
     email: str
     way: FLAddressChangeWay
     change_reason: str | None
@@ -253,6 +254,12 @@ class FLAddressChangeAdminOpen(BaseModel):
     delivery: FLOutboxStatus | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
     expired: bool
+
+
+class FLAddressChangeAdminListResponse(BaseAPIResponse):
+    """The running changes this administrator may act on, newest first."""
+
+    changes: list[FLAddressChangeAdminOpen]
 
 
 class FLAddressChangeAdminViewResponse(BaseAPIResponse):
