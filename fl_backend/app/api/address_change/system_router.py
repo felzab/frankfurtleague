@@ -8,7 +8,15 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.address_change.crud import end_the_change_in_session, owe_the_refusal_notice_in_session, take_effect_in_session
+from app.api.address_change.crud import (
+    Occupancy,
+    end_the_change_in_session,
+    judge_the_effect_in_session,
+    move_the_address_in_session,
+    owe_the_refusal_notice_in_session,
+    read_the_holdings,
+    tell_the_holders_of_the_end_in_session,
+)
 from app.api.address_change.schemas import (
     FLAddressChangeAddressPayload,
     FLAddressChangeAddressResponse,
@@ -19,18 +27,10 @@ from app.api.address_change.schemas import (
     FLAddressChangeSweepParams,
     FLAddressChangeSweepResponse,
 )
-from app.api.address_change.services import (
-    HELD,
-    LIVE_TERMS,
-    build_due_terms,
-    build_lapsed_terms,
-    build_parked_terms,
-    is_expired,
-)
+from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, is_expired
 from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -40,8 +40,6 @@ from app.core.dependencies import (
     BanListCollection,
     BewerbungenCollection,
     DBClient,
-    GrantApprovalRequestsCollection,
-    GrantsAnnouncedCollection,
     GrantsCollection,
     InvitationsCollection,
     OutboxCollection,
@@ -83,20 +81,8 @@ def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
 
     return [
         {"$match": {"$or": [build_lapsed_terms(now), build_due_terms(now)]}},
-        # A change parked on an owed approval while its grant stands is neither due nor the pass's remainder.
-        {
-            "$lookup": {
-                "from": Collection.GRANTS,
-                "localField": "address",
-                "foreignField": "address",
-                "pipeline": [{"$project": {"_id": 1}}],
-                "as": HELD,
-            }
-        },
-        {"$match": {"$nor": [build_parked_terms(now)]}},
-        # What `is_expired` labels a lapse by: a confirmed change whose approval's week passed holds a `effective_from` too,
-        # and is no due change for that.
-        {"$project": {"_id": 1, "valid_until": 1, "approval.until": 1, "approval.approved_at": 1}},
+        # What `is_expired` labels a lapse by.
+        {"$project": {"_id": 1, "valid_until": 1}},
         {"$facet": {"page": page if after is None else [{"$match": {"_id": {"$gt": after}}}, *page], "count": [{"$count": "count"}]}},
     ]
 
@@ -105,24 +91,19 @@ async def _end_the_lapsed_change(
     row: Mapping[str, Any],
     *,
     address_changes_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
 ) -> None:
     """One change in a transaction of its own, judged again there: `DocumentNotFoundError` where it has not lapsed."""
 
     async def end_the_lapsed_change(session: AsyncClientSession) -> None:
-        stored = await end_the_change_in_session(
+        await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": row["_id"], **build_lapsed_terms(now)},
             kind="expired",
             now=now,
             session=session,
         )
-        # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
-        # told it did not take effect, as a refused due change's is.
-        if stored.get("confirmed_at") is not None:
-            await owe_the_refusal_notice_in_session(stored, outbox_collection=outbox_collection, now=now, session=session)
 
     async with transaction_session(db) as session:
         await session.with_transaction(end_the_lapsed_change)
@@ -142,66 +123,73 @@ async def _make_the_due_change_take_effect(
     registrierungen_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    grant_approval_requests_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
-) -> Literal["effective", "discarded"] | None:
+) -> Literal["effective", "discarded"]:
     """One due change in its own transaction, judged again as its confirmation was.
 
-    Answers how it ended, its notice owed, or `None` where it waits on an approval; `DocumentNotFoundError` where stopped,
-    discarded or replaced since the page was read.
+    Answers how it ended, its notice owed; `DocumentNotFoundError` where stopped, discarded or replaced since the page was read.
     """
 
-    async def take_effect(session: AsyncClientSession) -> Literal["effective", "discarded"] | None:
+    async def take_effect(session: AsyncClientSession) -> Literal["effective", "discarded"]:
         record = await pull_one_from_db(
             collection=address_changes_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
         )
-        verdict, effective = await take_effect_in_session(
+        holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=session)
+        verdict = await judge_the_effect_in_session(
             record=record,
+            holdings=holdings,
             records=records,
+            spieler_collection=spieler_collection,
+            grants_collection=grants_collection,
             ban_list=ban_list,
             governing_saison_id=governing_saison_id,
-            address_changes_collection=address_changes_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            grants_collection=grants_collection,
-            grants_announced_collection=grants_announced_collection,
-            outbox_collection=outbox_collection,
-            grant_approval_requests_collection=grant_approval_requests_collection,
-            invitations_collection=invitations_collection,
-            ban_list_collection=ban_list_collection,
-            action_log_collection=action_log_collection,
-            now=now,
+            occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+            expired=False,
             session=session,
-            # Confirmed and due: its new mailbox was told it waits on this pass.
-            notify=True,
         )
-        if effective:
-            return "effective"
-        # Waits on an approval: one owed while its address holds a grant again since the page's read, or one given whose
-        # approver could not give it now, taken off.
-        if verdict.waits:
-            return None
-
-        # Every judgement the confirmation makes, at the end of the waiting time as at its start.
-        if not verdict.empty:
-            await end_the_change_in_session(
+        if verdict.cause is None and not verdict.empty:
+            await move_the_address_in_session(
+                record=record,
+                holdings=holdings,
                 address_changes_collection=address_changes_collection,
-                db_filter={"_id": record["_id"]},
-                kind="discarded",
+                spieler_collection=spieler_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+                saison_teams_collection=saison_teams_collection,
+                bewerbungen_collection=bewerbungen_collection,
+                registrierungen_collection=registrierungen_collection,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                grants_collection=grants_collection,
+                outbox_collection=outbox_collection,
+                invitations_collection=invitations_collection,
+                ban_list_collection=ban_list_collection,
+                action_log_collection=action_log_collection,
                 now=now,
                 session=session,
             )
-            await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
+            return "effective"
+
+        # Every judgement the confirmation makes, at the end of the waiting time as at its start.
+        await end_the_change_in_session(
+            address_changes_collection=address_changes_collection,
+            db_filter={"_id": record["_id"]},
+            kind="discarded",
+            now=now,
+            session=session,
+        )
+        await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
+        await tell_the_holders_of_the_end_in_session(
+            record,
+            changed_by=None,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
+            now=now,
+            session=session,
+        )
         return "discarded"
 
     async with transaction_session(db) as session:
@@ -224,9 +212,7 @@ async def sweep_address_change(
     registrierungen_collection: RegistrierungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    grant_approval_requests_collection: GrantApprovalRequestsCollection,
     invitations_collection: InvitationsCollection,
     ban_list_collection: BanListCollection,
     ban_list: BanListLookup,
@@ -237,14 +223,13 @@ async def sweep_address_change(
     """
     End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
 
-    **A lapsed change** -- its new mailbox's link, the question it asked the address on file, or its grant's approval by
-    another administrator -- ends as `expired`: its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still
-    holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
-    signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
-    ends it discarded, and
-    `discarded` counts it, its new address owed a notice that it did not take effect and never why; otherwise
-    everything the replaced address holds moves, and `effective` counts it, its completion notice owed. Each notice is owed
-    in the Postausgang in its change's own transaction, so none rides on this answer.
+    **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`: its
+    address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged again as
+    its confirmation was: a ban on either address, another pupil signing in on the new one, a grant at the new address, or
+    nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
+    effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
+    it, its completion notice owed. Each notice is owed in the Postausgang in its change's own transaction, so none rides on
+    this answer.
 
     Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
     replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `after` the last
@@ -290,9 +275,7 @@ async def sweep_address_change(
                     registrierungen_collection=registrierungen_collection,
                     spielbestaetigungen_collection=spielbestaetigungen_collection,
                     grants_collection=grants_collection,
-                    grants_announced_collection=grants_announced_collection,
                     outbox_collection=outbox_collection,
-                    grant_approval_requests_collection=grant_approval_requests_collection,
                     invitations_collection=invitations_collection,
                     ban_list_collection=ban_list_collection,
                     action_log_collection=action_log_collection,
@@ -303,7 +286,6 @@ async def sweep_address_change(
                 await _end_the_lapsed_change(
                     row,
                     address_changes_collection=address_changes_collection,
-                    outbox_collection=outbox_collection,
                     db=db,
                     now=germany_now,
                 )
@@ -342,9 +324,6 @@ async def sweep_address_change(
 
         if not row["due"]:
             removed += 1
-        elif ergebnis is None:
-            # Waiting on an approval, as the pipeline parks one: neither an effect nor the remainder.
-            skipped += 1
         elif ergebnis == "discarded":
             discarded += 1
         else:
@@ -418,7 +397,7 @@ async def get_address_change_address(
     Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
 
     For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
-    view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
+    view or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,
     ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
     error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
     address only in the answer.

@@ -27,14 +27,12 @@ from app.api.address_change.crud import (
     owe_the_notice_in_session,
     read_the_holdings,
     start_the_change_in_session,
+    tell_the_holders_of_the_end_in_session,
 )
-from app.api.address_change.schemas import FLAddressChangeApprovalState
 from app.api.address_change.services import (
     as_utc,
     build_address_filter,
-    compose_approval,
     compose_record,
-    find_no_approver_refusal,
     find_nothing_refusal,
     find_restart_refusal,
     find_unchanged_refusal,
@@ -43,9 +41,7 @@ from app.api.address_change.services import (
     waits_on,
 )
 from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.ban_list.lookup import BanListLookup, barred_addresses
-from app.api.grants.crud import read_grants, read_the_announced
-from app.api.grants.services import approver_of
+from app.api.ban_list.lookup import BanListLookup
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
@@ -54,7 +50,6 @@ from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
     DBClient,
-    GrantsAnnouncedCollection,
     GrantsCollection,
     OutboxCollection,
     SpielerCollection,
@@ -126,20 +121,11 @@ async def get_einwilligungen(
     )
 
 
-# --- The ADDRESS CHANGE the person starts, approves and stops for themselves. Recorded under `kontakt`, as the erasure
+# --- The ADDRESS CHANGE the person starts and stops for themselves. Recorded under `kontakt`, as the erasure
 # is: the change crosses every Funktion the address holds.
 
 
 def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChangeOpen:
-    approval = record.get("approval")
-    approval_state = None
-    if isinstance(approval, Mapping):
-        until = as_utc(approval.get("until"))
-        assert until is not None
-        approval_state = FLAddressChangeApprovalState(
-            admin_tier=approval["admin_tier"], approved=approval.get("approved_at") is not None, until=until
-        )
-
     return FLAccountAddressChangeOpen(
         id=record["_id"],
         # The address the person typed here is theirs to see; one an administrator typed is shown recognisable alone.
@@ -148,7 +134,6 @@ def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccount
         waits_on=waits_on(record),
         valid_until=as_utc(record.get("valid_until")),
         effective_from=as_utc(record.get("effective_from")),
-        approval=approval_state,
         expired=is_expired(record, now=now),
     )
 
@@ -178,9 +163,7 @@ async def get_address_change(
     `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
     only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
     the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
-    mailed the address on file, which this page answers nothing of. `approval` is the approval a change moving the
-    person's grant waits on;
-    `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
+    mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed, whose press is refused until the hourly pass ends the change.
     """
 
     return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=None)
@@ -197,7 +180,6 @@ async def post_address_change(
     records: SubjectLookup,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     ban_list: BanListLookup,
     db: DBClient,
@@ -208,19 +190,19 @@ async def post_address_change(
 
     **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
     second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
-    `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change also waits on
-    another administrator's approval, an owner's for an owner's grant. The address's live change ends replaced, an
-    administrator's too: a sign-in at the address on file proves the mailbox is not lost.
+    `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
+    from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the hourly
+    pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
 
     Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
     live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
-    address holds nothing a change moves; `address_change_unchanged` where the typed address is the one signed in; and
-    `address_change_no_approver` where nobody could approve the grant's move, the last owner making another first.
+    address holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.
     """
 
     email = address_change_data.email
+
     async def start_the_change(session: AsyncClientSession) -> FLAccountAddressChangeMintResponse:
         # First: a press repeated inside the interval asks nothing of the records.
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"valid_until": 1}, session=session)
@@ -231,29 +213,13 @@ async def post_address_change(
         refuse(find_nothing_refusal(empty=holdings.empty))
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
-        approval = None
-        if holdings.grant is not None:
-            grants = await read_grants(grants_collection=grants_collection, session=session)
-            announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
-            barred = await barred_addresses(ban_list, [str(row["address"]) for row in grants], session=session)
-            admin_tier = str(holdings.grant["admin_tier"])
-            approver = approver_of(
-                admin_tier=admin_tier, excepted={identifier}, grants=grants, announced=announced, barred=barred, before=germany_now
-            )
-            refuse(find_no_approver_refusal(approver=len(approver)))
-            approval = compose_approval(admin_tier=admin_tier, started_by=identifier, now=germany_now)
-
-        record = compose_record(
-            address=identifier,
-            email=email,
-            way="account",
-            change_reason=None,
-            approval=approval,
-            now=germany_now,
-        )
+        record = compose_record(address=identifier, email=email, way="account", change_reason=None, now=germany_now)
         address_change_id = await start_the_change_in_session(
             record=record,
+            actor=identifier,
             address_changes_collection=address_changes_collection,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
@@ -283,6 +249,8 @@ async def post_address_change(
 async def delete_address_change(
     identifier: KontaktIdentifier,
     address_changes_collection: AddressChangeCollection,
+    grants_collection: GrantsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
@@ -290,7 +258,8 @@ async def delete_address_change(
     Stop the change pending on the signed-in address at any step: its new address goes.
 
     Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
-    confirmation and counts nothing: a stop hands nothing over. 404 where no change is pending on the address.
+    confirmation and counts nothing: a stop hands nothing over. A holder's change in its wait tells every holder. 404 where no
+    change is pending on the address.
     """
 
     async def stop_the_change(session: AsyncClientSession) -> FLAccountAddressChangeResponse:
@@ -298,10 +267,18 @@ async def delete_address_change(
         if live is None:
             raise DocumentNotFoundError()
 
-        await end_the_change_in_session(
+        stopped = await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": live["_id"]},
             kind="stopped",
+            now=germany_now,
+            session=session,
+        )
+        await tell_the_holders_of_the_end_in_session(
+            stopped,
+            changed_by=identifier,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )

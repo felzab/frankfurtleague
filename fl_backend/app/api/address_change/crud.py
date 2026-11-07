@@ -25,22 +25,19 @@ from app.api.address_change.services import (
     asks_the_address_on_file,
     build_address_filter,
     build_owed_carry_filter,
-    compose_approval_withdrawn_update,
     compose_end_update,
-    covers,
     find_confirmation_barred_refusal,
     find_expired_refusal,
     find_new_granted_refusal,
-    find_not_covered_refusal,
     find_occupied_refusal,
     find_replaced_barred_refusal,
     find_taken_refusal,
+    masked_address,
 )
 from app.api.ban_list.lookup import BanList, Saison, barred_addresses
-from app.api.grants.antraege import build_open_filter, end_the_approval_requests_about_in_session
-from app.api.grants.crud import grant_in_session, read_grants, read_the_announced, revoke_in_session
+from app.api.grants.crud import move_the_grant_in_session, owe_in_session, read_grants
 from app.api.grants.erasure import carry_authorship_in_session
-from app.api.grants.services import approval_stands, compose_carried
+from app.api.grants.services import compose_notice
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.services import address_change_viewable_denied, is_own_schiedsrichter, own_seats
 from app.api.kontakte.services import rows_seating, same_address
@@ -64,7 +61,6 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
 from app.core.readonly import ReadCollection
-from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeViewableDenied, FLAddressChangeWay
 
@@ -87,7 +83,7 @@ class Holdings:
     # Every registration, its pupil's confirmation or not: an open one left here, an admission would make a second person,
     # and a declined one an erasure of the new address would miss until its month is out.
     registrierungen: Sequence[Mapping[str, Any]]
-    # The live grant, which moves with the rest once another administrator approved it.
+    # The grant row, a waiting one too: it moves with the rest, and its tier sets how long the change waits.
     grant: Mapping[str, Any] | None
 
     @property
@@ -172,12 +168,10 @@ async def read_the_holdings(
 
 @dataclass(frozen=True, kw_only=True)
 class Occupancy:
-    """What `address_taken` reads beyond the records: the grants, their open requests and the changes owing a carry."""
+    """What `address_taken` reads beyond the records: the grants and the changes owing a carry."""
 
     grants_collection: ReadCollection
-    grant_approval_requests_collection: ReadCollection
     address_changes_collection: ReadCollection
-    now: datetime
 
 
 async def address_taken(email: str, *, records: RecordCollections, occupancy: Occupancy, session: AsyncClientSession | None) -> bool:
@@ -195,7 +189,6 @@ async def address_taken(email: str, *, records: RecordCollections, occupancy: Oc
         (records.registrierungen_collection, build_erasure_registrierung_filter(folded)),
         # As stored, as the account sweep reads it: a row the comparison has not seen yet still keeps an account.
         (occupancy.grants_collection, {"address": folded}),
-        (occupancy.grant_approval_requests_collection, {"address": folded, **build_open_filter(occupancy.now)}),
         # The account still standing there until its own carry moves it off.
         (occupancy.address_changes_collection, build_owed_carry_filter([folded])),
     ]
@@ -231,18 +224,30 @@ async def end_the_change_in_session(
 async def start_the_change_in_session(
     *,
     record: Mapping[str, Any],
+    # Who replaces a live change, for the holders' notice where it was waiting.
+    actor: str,
     address_changes_collection: AsyncCollection,
+    grants_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> ObjectId:
     """End the address's live change as replaced, then insert the new one, answering its id."""
 
-    replaced = await address_changes_collection.find_one(build_address_filter(str(record["address"])), {"email": 1}, session=session)
+    replaced = await address_changes_collection.find_one(build_address_filter(str(record["address"])), {"_id": 1}, session=session)
     if replaced is not None:
-        await end_the_change_in_session(
+        ended = await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
             db_filter={"_id": replaced["_id"]},
             kind="replaced",
+            now=now,
+            session=session,
+        )
+        await tell_the_holders_of_the_end_in_session(
+            ended,
+            changed_by=actor,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
@@ -254,22 +259,18 @@ async def start_the_change_in_session(
 
 
 # Why the effect is refused, in the order the link's view ranks its states.
-FLAddressChangeCause = Literal["new_barred", "expired", "replaced_barred", "taken", "not_covered", "new_granted", "occupied"]
+FLAddressChangeCause = Literal["new_barred", "expired", "replaced_barred", "taken", "new_granted", "occupied"]
 
 
 @dataclass(frozen=True, kw_only=True)
 class Verdict:
-    """What the effect's judgement found: a cause refusing it, nothing to move, or an approval still owed.
+    """What the effect's judgement found: a cause refusing it, or nothing to move.
 
     A cause rather than its refusal, so the link's view and the pass read it without a check they never raise.
     """
 
     cause: FLAddressChangeCause | None
     empty: bool
-    waits: bool
-    # The approval given does not stand: its approver lost the grant, the tier or their standing since, so the change
-    # waits on another (`app/api/grants/services.py :: approval_stands`).
-    withdrawn: bool = False
 
 
 def _reference(address_change_id: ObjectId) -> FLOutboxReference:
@@ -379,6 +380,64 @@ async def owe_the_refusal_notice_in_session(
     )
 
 
+async def tell_the_holders_in_session(
+    record: Mapping[str, Any],
+    *,
+    stage: Literal["started", "withdrawn", "completed"],
+    # Null for the hourly pass, which is nobody.
+    changed_by: str | None,
+    effective_from: datetime | None,
+    grants_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """Tell every holder in effect of a holder's change, in the caller's transaction, `record` as it stood.
+
+    The new address masked: it is the holder's private mailbox, and the readers need to recognise it, never to write to it.
+    """
+
+    notice = compose_notice(
+        grant_id=record["_id"],
+        change="address",
+        stage=stage,
+        address=str(record["address"]),
+        new_address=masked_address(str(record["email"])),
+        changed_by=changed_by,
+        effective_from=effective_from,
+        now=now,
+    )
+    await owe_in_session([notice], outbox_collection=outbox_collection, grants_collection=grants_collection, now=now, session=session)
+
+
+async def tell_the_holders_of_the_end_in_session(
+    record: Mapping[str, Any],
+    *,
+    changed_by: str | None,
+    grants_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """The withdrawal's notice of a holder's change ended in its wait, `record` as it stood: one not yet started told nobody."""
+
+    if record.get("confirmed_at") is None:
+        return
+    if await live_grant_of(str(record["address"]), grants_collection=grants_collection, session=session) is None:
+        return
+
+    await tell_the_holders_in_session(
+        record,
+        stage="withdrawn",
+        changed_by=changed_by,
+        effective_from=None,
+        grants_collection=grants_collection,
+        outbox_collection=outbox_collection,
+        now=now,
+        session=session,
+    )
+
+
 async def judge_the_effect_in_session(
     *,
     record: Mapping[str, Any],
@@ -386,7 +445,6 @@ async def judge_the_effect_in_session(
     records: RecordCollections,
     spieler_collection: ReadCollection,
     grants_collection: ReadCollection,
-    grants_announced_collection: ReadCollection,
     ban_list: BanList,
     governing_saison_id: Saison,
     occupancy: Occupancy,
@@ -396,7 +454,7 @@ async def judge_the_effect_in_session(
 ) -> Verdict:
     """Every judgement the effect makes, in the order the link's view ranks its states, read in `session`.
 
-    The confirmation, the approval, the hourly pass and the link's view all ask it, so none of them parts on what refuses.
+    The confirmation, the hourly pass and the link's view all ask it, so none of them parts on what refuses.
     """
 
     new_address, old = str(record["email"]), str(record["address"])
@@ -408,48 +466,27 @@ async def judge_the_effect_in_session(
     ]
     for cause, applies in first:
         if applies:
-            return Verdict(cause=cause, empty=False, waits=False)
+            return Verdict(cause=cause, empty=False)
 
     if holdings.empty:
-        return Verdict(cause=None, empty=True, waits=False)
+        return Verdict(cause=None, empty=True)
 
     if holdings.spieler is not None and await another_pupil_holds(
         spieler_collection=spieler_collection, identifier=sign_in_identifier(new_address), spieler_id=holdings.spieler["_id"], session=session
     ):
-        return Verdict(cause="taken", empty=False, waits=False)
+        return Verdict(cause="taken", empty=False)
 
-    grant = holdings.grant
-    approval = record.get("approval")
-    if grant is not None:
-        if not covers(approval, grant.get("admin_tier")):
-            return Verdict(cause="not_covered", empty=False, waits=False)
-        if await live_grant_of(sign_in_identifier(new_address), grants_collection=grants_collection, session=session) is not None:
-            return Verdict(cause="new_granted", empty=False, waits=False)
+    if holdings.grant is not None and (
+        await live_grant_of(sign_in_identifier(new_address), grants_collection=grants_collection, session=session) is not None
+    ):
+        return Verdict(cause="new_granted", empty=False)
 
     # After the causes naming one kind of entry, so a press names the specific one; judged in the effect's own read, so
     # nothing reaches the new address between this judgement and the move.
     if await address_taken(new_address, records=records, occupancy=occupancy, session=session):
-        return Verdict(cause="occupied", empty=False, waits=False)
+        return Verdict(cause="occupied", empty=False)
 
-    if grant is None:
-        return Verdict(cause=None, empty=False, waits=False)
-
-    assert isinstance(approval, Mapping)
-    if approval.get("approved_at") is None:
-        return Verdict(cause=None, empty=False, waits=True)
-
-    # Judged again here rather than kept from the press: a revoke, a demotion, a ban or an erasure of the approver since
-    # leaves no approval standing.
-    by = approval.get("approved_by")
-    stands = approval_stands(
-        target=old,
-        approval=approval,
-        grants=await read_grants(grants_collection=grants_collection, session=session),
-        announced=await read_the_announced(grants_announced_collection=grants_announced_collection, session=session),
-        barred=await barred_addresses(ban_list, [by], session=session) if isinstance(by, str) else set(),
-    )
-
-    return Verdict(cause=None, empty=False, waits=not stands, withdrawn=not stands)
+    return Verdict(cause=None, empty=False)
 
 
 def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
@@ -466,125 +503,16 @@ def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
             return find_replaced_barred_refusal(barred=True)
         case "taken":
             return find_taken_refusal(taken=True)
-        case "not_covered":
-            return find_not_covered_refusal(covered=False)
         case "new_granted":
             return find_new_granted_refusal(granted=True)
         case "occupied":
             return find_occupied_refusal(occupied=True)
 
 
-async def take_effect_in_session(
-    *,
-    record: Mapping[str, Any],
-    records: RecordCollections,
-    ban_list: BanList,
-    governing_saison_id: Saison,
-    address_changes_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    grant_approval_requests_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    now: datetime,
-    session: AsyncClientSession,
-    # Whether a change finding nothing to move tells its new mailbox so: a confirmed one was told it waits on the effect,
-    # the press's own page shows it instead.
-    notify: bool,
-    expired: bool = False,
-    # False for a confirmation that starts a waiting time: judged as the effect will be, and moving nothing yet.
-    immediately: bool = True,
-) -> tuple[Verdict, bool]:
-    """Judge the change and move it where nothing refuses it or is owed, answering whether it took effect.
-
-    A change finding nothing to move ends discarded; a refusal, an owed approval and a waiting time write nothing
-    (`Verdict.waits`).
-    """
-
-    holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=session)
-    verdict = await judge_the_effect_in_session(
-        record=record,
-        holdings=holdings,
-        records=records,
-        spieler_collection=spieler_collection,
-        grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
-        ban_list=ban_list,
-        governing_saison_id=governing_saison_id,
-        occupancy=Occupancy(
-            grants_collection=grants_collection,
-            grant_approval_requests_collection=grant_approval_requests_collection,
-            address_changes_collection=address_changes_collection,
-            now=now,
-        ),
-        expired=expired,
-        session=session,
-    )
-    if verdict.withdrawn:
-        # Taken off the record, so the administrators page offers the approval again and the pass finds it due nowhere.
-        await patch_one_in_db(
-            collection=address_changes_collection,
-            db_filter={"_id": record["_id"], **LIVE_TERMS},
-            update=compose_approval_withdrawn_update(),
-            session=session,
-            expected_version=None,
-            return_document=ReturnDocument.BEFORE,
-        )
-    if verdict.cause is not None or verdict.waits:
-        return verdict, False
-    if not immediately and not verdict.empty:
-        return Verdict(cause=None, empty=False, waits=True), False
-
-    if verdict.empty:
-        await end_the_change_in_session(
-            address_changes_collection=address_changes_collection,
-            db_filter={"_id": record["_id"]},
-            kind="discarded",
-            now=now,
-            session=session,
-        )
-        if notify:
-            await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
-        return verdict, False
-
-    await move_the_address_in_session(
-        record=record,
-        holdings=holdings,
-        ban_list=ban_list,
-        address_changes_collection=address_changes_collection,
-        spieler_collection=spieler_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        saison_teams_collection=saison_teams_collection,
-        bewerbungen_collection=bewerbungen_collection,
-        registrierungen_collection=registrierungen_collection,
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
-        outbox_collection=outbox_collection,
-        grant_approval_requests_collection=grant_approval_requests_collection,
-        invitations_collection=invitations_collection,
-        ban_list_collection=ban_list_collection,
-        action_log_collection=action_log_collection,
-        now=now,
-        session=session,
-    )
-
-    return verdict, True
-
-
 async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     holdings: Holdings,
-    ban_list: BanList,
     address_changes_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
     schiedsrichter_collection: AsyncCollection,
@@ -593,9 +521,7 @@ async def move_the_address_in_session(
     registrierungen_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    grant_approval_requests_collection: AsyncCollection,
     invitations_collection: AsyncCollection,
     ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
@@ -668,20 +594,8 @@ async def move_the_address_in_session(
         )
 
     if holdings.grant is not None:
-        by = (record.get("approval") or {}).get("approved_by")
-        # The judgement refuses a grant its approval does not cover; this guards the replay, which judges differently.
-        if not isinstance(by, str):
-            raise RuntimeError("a grant moves only on an approval naming its approver")
-        await _move_the_grant(
-            holdings.grant,
-            new_address=sign_in_identifier(new_address),
-            by=by,
-            ban_list=ban_list,
-            grants_collection=grants_collection,
-            grants_announced_collection=grants_announced_collection,
-            outbox_collection=outbox_collection,
-            now=now,
-            session=session,
+        await move_the_grant_in_session(
+            holdings.grant, new_address=sign_in_identifier(new_address), grants_collection=grants_collection, now=now, session=session
         )
 
     await end_the_change_in_session(
@@ -692,21 +606,12 @@ async def move_the_address_in_session(
         session=session,
     )
 
-    await end_the_approval_requests_about_in_session(
-        grant_approval_requests_collection=grant_approval_requests_collection,
-        outbox_collection=outbox_collection,
-        address=holdings.identifier,
-        now=now,
-        session=session,
-    )
-
     # A record the effect leaves naming the replaced address by address alone would outlive the person's erasure at the new one.
     old, new = holdings.identifier, sign_in_identifier(new_address)
     # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
-    # decisions included: the starter of a change stays excluded from approving it.
+    # decisions included.
     await carry_authorship_in_session(
         grants_collection=grants_collection,
-        grant_approval_requests_collection=grant_approval_requests_collection,
         bewerbungen_collection=bewerbungen_collection,
         registrierungen_collection=registrierungen_collection,
         invitations_collection=invitations_collection,
@@ -715,7 +620,6 @@ async def move_the_address_in_session(
         new_address=new,
         session=session,
     )
-    await _reattribute_the_changes(address_changes_collection, old, new, session=session)
     await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     # Read, then written by id: the log keeps a fan-out's filter as text, address and all.
@@ -740,8 +644,8 @@ async def move_the_address_in_session(
             session=session,
         )
     # The person's own change taking effect at the new mailbox's press owes the replaced mailbox nothing more: it confirmed
-    # the change through its own link, and the new mailbox confirmed it last, so both already know. One that waited on a
-    # grant's approval takes effect later, at that approval or the hourly pass, and tells the replaced mailbox then.
+    # the change through its own link, and the new mailbox confirmed it last, so both already know. A holder's takes effect
+    # later, at the hourly pass, and tells the replaced mailbox then.
     if record["way"] != "account" or record.get("confirmed_at") is not None:
         await enqueue_mails(
             outbox_collection=outbox_collection,
@@ -759,6 +663,17 @@ async def move_the_address_in_session(
                 )
             ],
             now=now,
+        )
+    if holdings.grant is not None:
+        await tell_the_holders_in_session(
+            record,
+            stage="completed",
+            changed_by=None,
+            effective_from=None,
+            grants_collection=grants_collection,
+            outbox_collection=outbox_collection,
+            now=now,
+            session=session,
         )
 
 
@@ -780,53 +695,6 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
     if sent := [row["_id"] for row in held if row["state"] != "open"]:
         await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
-
-
-async def _move_the_grant(
-    grant: Mapping[str, Any],
-    *,
-    new_address: str,
-    by: str,
-    ban_list: BanList,
-    grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    now: datetime,
-    session: AsyncClientSession,
-) -> None:
-    """Revoked at the replaced address and granted at the new by the approver, as the administrators page does both.
-
-    Granted now, never the old row repointed: a session signed in before it holds none of it.
-    """
-
-    announced = await aggregate_many_from_db(
-        collection=grants_announced_collection, pipeline=[{"$match": {"_id": grant["_id"]}}], session=session
-    )
-    barred = await barred_addresses(ban_list, [by], session=session)
-    await revoke_in_session(
-        grant=grant,
-        announced=announced,
-        revoked_by=by,
-        barred=barred,
-        grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
-        outbox_collection=outbox_collection,
-        now=now,
-        session=session,
-    )
-    await grant_in_session(
-        address=new_address,
-        admin_tier=str(grant["admin_tier"]),
-        granted_by=by,
-        barred=barred,
-        grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
-        outbox_collection=outbox_collection,
-        now=now,
-        session=session,
-        # The four-eyes rule dates the person, not the mailbox.
-        carried=compose_carried(grant, announced[0] if announced else None),
-    )
 
 
 def _seat_move(row: Mapping[str, Any], slots: Sequence[str], new_address: str) -> dict[str, Any]:
@@ -870,9 +738,7 @@ async def denied_addresses(
     addresses: Iterable[str],
     *,
     actor: str,
-    auth_time: int,
-    grants_collection: AsyncCollection,
-    grants_announced_collection: AsyncCollection,
+    grants_collection: ReadCollection,
     session: AsyncClientSession | None,
 ) -> dict[str, FLAddressChangeViewableDenied]:
     """Which of these folded addresses' changes the address tool refuses this administrator, and why; one absent opens.
@@ -885,13 +751,11 @@ async def denied_addresses(
     if not asked:
         return {}
     grants = await read_grants(grants_collection=grants_collection, session=session)
-    announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
 
     return {
         address: viewable_denied
         for address in asked
-        if (viewable_denied := address_change_viewable_denied(address, actor=actor, auth_time=auth_time, grants=grants, announced=announced))
-        is not None
+        if (viewable_denied := address_change_viewable_denied(address, actor=actor, grants=grants)) is not None
     }
 
 
@@ -907,9 +771,6 @@ def known_to_the_new_mailbox(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[
     return [row for row in rows if not asks_the_address_on_file(row)]
 
 
-_APPROVAL_ACTORS: Final = ("approval.started_by", "approval.approved_by")
-
-
 async def end_the_address_changes_in_session(
     *,
     address_changes_collection: AsyncCollection,
@@ -921,7 +782,7 @@ async def end_the_address_changes_in_session(
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """End every change naming the erased address, and give the marker where it started or approved one.
+    """End every change naming the erased address.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
     change.
@@ -947,9 +808,6 @@ async def end_the_address_changes_in_session(
             session=session,
         )
 
-    # Read after the endings, which took the approval off every change they ended.
-    await _reattribute_the_changes(address_changes_collection, identifier, ERASED_ACTOR_MARKER, session=session)
-
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address
     # it would move one to. By id, as every write here.
     owed = await aggregate_many_from_db(
@@ -966,30 +824,6 @@ async def end_the_address_changes_in_session(
         )
 
     return len(rows)
-
-
-async def _reattribute_the_changes(
-    address_changes_collection: AsyncCollection, identifier: str, value: str, *, session: AsyncClientSession
-) -> None:
-    """Put `value` where this folded administrator started or approved a live change: the erasure's marker, or their new address.
-
-    Read, then written by id: the log keeps a fan-out's filter as text, address and all.
-    """
-
-    for path in _APPROVAL_ACTORS:
-        # Folded, as `app/core/security.py :: bind_actor` stores every administrator's address.
-        named = await aggregate_many_from_db(
-            collection=address_changes_collection,
-            pipeline=[{"$match": {**LIVE_TERMS, path: sign_in_identifier(identifier)}}, {"$project": {"_id": 1}}],
-            session=session,
-        )
-        if named:
-            await patch_many_in_db(
-                collection=address_changes_collection,
-                db_filter={"_id": {"$in": [row["_id"] for row in named]}},
-                update={"$set": {path: value}},
-                session=session,
-            )
 
 
 async def end_an_emptied_change_in_session(

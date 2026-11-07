@@ -132,9 +132,8 @@ type FLAddressChangeWay = Literal["account", "waiting_period"]
 type FLAddressChangeViewableDenied = Literal["own_address", "admin_address"]
 
 # What the change waits on: the address on file's confirmation of the person's own change through the link it was
-# mailed, the new mailbox's link, another administrator's approval of a grant's move once the new mailbox confirmed,
-# or its waiting time.
-type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "approval", "waiting_period"]
+# mailed, the new mailbox's link, or its waiting time.
+type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "waiting_period"]
 
 # How a change ended. `discarded` is every discard: an administrator's, the pass's refusal when due,
 # nothing left to move, and an erasure's.

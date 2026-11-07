@@ -5,10 +5,7 @@ published document lists them once, as the failure body's `error_code`. A 4xx an
 the request wrote nothing, and the frontend clears the site's cache by that promise
 (`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`); a write that may stand answers
 `unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
-db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
-address change, whose records no cached read serves:
-`app/api/address_change/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/address_change/public_router.py :: post_address_change_answer` (`address_change_ended`).
+db_exception_handler`).
 """
 
 from enum import StrEnum, auto
@@ -62,16 +59,7 @@ class Code(StrEnum):
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
-    ADDRESS_CHANGE_NO_APPROVER = auto()
-    ADDRESS_CHANGE_NO_APPROVAL_OPEN = auto()
-    # 403: the refusal is about who asks, and another administrator's press is what lifts it.
-    ADDRESS_CHANGE_APPROVAL_DENIED = auto()
-    ADDRESS_CHANGE_APPROVAL_OWNER = auto()
-    ADDRESS_CHANGE_NOT_COVERED = auto()
     ADDRESS_CHANGE_NEW_GRANTED = auto()
-    # 403 as `address_change_approval_denied`: about who asks; an administrator holding their grant since before the
-    # start lifts it.
-    ADDRESS_CHANGE_APPROVAL_YOUNGER = auto()
     ADDRESS_CHANGE_OCCUPIED = auto()
     ANSETZUNG_ANSWERED = auto()
     ANSETZUNG_DEADLINE_PAST = auto()
