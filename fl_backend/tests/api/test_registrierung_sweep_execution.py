@@ -390,6 +390,23 @@ class TestOneRowHoldsBackNoOther:
         # The two registrations at their reminder mark.
         assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == (0, [], 2)
 
+    def test_a_refused_retention_row_leaves_its_rows_and_stops_no_later_clock(self, mongo_replica_set_url: str):
+        """No deletion stands without its row, and a clock that raised would end the pass ahead of every clock behind it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_writes_breaking(
+                database, Collection.ACTION_LOG, {"properties": {"action": {"not": {"enum": ["retention.registrierungen"]}}}}
+            )
+            answer = await sweep(database, client)
+
+            return answer, await standing(database), set(await reminded_ids(database))
+
+        answer, left, chased = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+
+        assert (answer.erased_declined, answer.erased_unconfirmed, answer.failed) == (0, 0, 2)
+        assert {DECLINED_OID, EXPIRED_OID} <= set(left)
+        assert chased == {REMIND_OID, INSIDE_OID}
+
 
 # A page and a short one after it. At a page plus ONE the first read takes every row, so a clock
 # that stopped after one erasure would leave nothing behind and pass.

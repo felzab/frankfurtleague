@@ -1199,6 +1199,26 @@ class TestOneRowHoldsBackNoOther:
 
         assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == (0, 1, set())
 
+    def test_a_refused_retention_row_leaves_its_rows_owes_no_notice_and_stops_no_later_clock(self, mongo_replica_set_url: str):
+        """No deletion stands without its row, and nobody is told of an erasure that did not happen."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirm_the_seats(database, DELETE_OID, "stellvertretung")
+            await refuse_writes_breaking(
+                database, Collection.ACTION_LOG, {"properties": {"action": {"not": {"enum": ["retention.bewerbungen"]}}}}
+            )
+            answer = await sweep(database, client, now=MAIL_NOW)
+            left = [await stored(database, row) is not None for row in (DECLINED_OID, DELETE_OID)]
+
+            return answer, left, await owed(database, "deletion_notice"), await reminded(database)
+
+        answer, left, notices, chased = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+
+        assert (answer.erased_declined, answer.erased, answer.failed) == (0, 0, 2)
+        assert left == [True, True]
+        assert notices == []
+        assert chased == {REMIND_OID}
+
 
 @functools.cache
 def _served() -> FastAPI:
