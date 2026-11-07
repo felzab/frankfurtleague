@@ -69,7 +69,7 @@ def compose_barred_until_saison_id(*, governing_saison_id: str) -> str:
     return bound
 
 
-def find_keine_saison_refusal(*, governing_saison_id: str | None) -> WriteRefusal | None:
+def find_no_saison_refusal(*, governing_saison_id: str | None) -> WriteRefusal | None:
     """`ban_list_no_saison`: while no season is running there is nothing to count five seasons from.
 
     A ban written there would need an unbounded row, which is the shape the lapse exists to refuse.
@@ -105,8 +105,8 @@ def berechtigte_hashes(administrators: Iterable[str], *, key: SecretStr) -> set[
     return {hashed for hashed in hashes if hashed is not None}
 
 
-def find_verwaltung_refusal(*, hashed: str, granted: set[str]) -> WriteRefusal | None:
-    """`ban_list_admin`: the address holds a grant in `berechtigungen`, which is revoked first.
+def find_admin_refusal(*, hashed: str, granted: set[str]) -> WriteRefusal | None:
+    """`ban_list_admin`: the address holds a grant in `grants`, which is revoked first.
 
     The target's state, so 409: the ban is refused for what the address is, and revoking the grant
     is what changes it.
@@ -121,7 +121,7 @@ def find_verwaltung_refusal(*, hashed: str, granted: set[str]) -> WriteRefusal |
     )
 
 
-def find_sperrliste_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_ban_list_refusal(*, barred: bool) -> WriteRefusal | None:
     """`duplicate_key`: the list already holds this address.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.

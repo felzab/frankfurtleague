@@ -40,7 +40,7 @@ export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
 
 /**
  * `vonOderGesperrt` after „von“, where a withheld actor takes the dative: „von Gesperrte Adresse“ reads as a typing
- * error. The words are the grant notice's (`fl_frontend/src/core/berechtigungEmail.ts :: urheberName`).
+ * error. The words are the grant notice's (`fl_frontend/src/core/grantEmail.ts :: urheberName`).
  */
 export function nachVonOderGesperrt(von: string | null, gesperrt: boolean): string {
   if (gesperrt || von === null) return "einer gesperrten Adresse";

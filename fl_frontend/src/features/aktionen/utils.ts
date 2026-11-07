@@ -17,7 +17,7 @@ export function herkunftOfAktor(actor: FLActionLogEntry["actor"]): AktionHerkunf
 
 /**
  * How a signed-in person's row names them: the kind of person the write was made as and their pseudonym,
- * served cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLActorPerson`), or the
+ * served cut to the start a page may show (`fl_backend/app/api/action_log/schemas.py :: FLActorPerson`), or the
  * admin cards' word for one erased since.
  */
 export function personAkteurLabel(actor: FLActorPerson): string {

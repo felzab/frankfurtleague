@@ -10,8 +10,8 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.sperrliste.lookup import BanListLookup
+from app.api.ban_list.lookup import BanListLookup
+from app.api.grants.crud import live_unbarred_grant_since
 from app.core.codes import Code
 from app.core.dependencies import GrantsReadCollection, SnapshotSession
 from app.core.exceptions import APIError

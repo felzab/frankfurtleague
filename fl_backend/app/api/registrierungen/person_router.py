@@ -9,6 +9,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_withdrawal
 from app.api.account.services import compose_person_move, find_own_entry_refusal, withdrawal_line
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
+from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_registrierung
@@ -46,8 +48,6 @@ from app.api.registrierungen.services import (
     traegt_wahlen,
 )
 from app.api.saisons.services import entry_is_a_nominee
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spieler.crud import refuse_a_full_squad
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -221,7 +221,7 @@ async def admit(
     written on any of them.
     """
 
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:

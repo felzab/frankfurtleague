@@ -18,7 +18,7 @@ export async function runAddressChangeMoves(): Promise<void> {
 
     for (const { old: oldAddress, new: newAddress } of moves) {
       // The new address holding its own account, opened since every press refused one there: it signs in to that one.
-      if ((await carryAccount(oldAddress, newAddress)) === "taken") logger.warn("address_change.account_not_moved", { grund: "occupied" });
+      if ((await carryAccount(oldAddress, newAddress)) === "taken") logger.warn("address_change.account_not_moved", { reason: "occupied" });
     }
     await postAdresswechselUmzuegeErledigt({ ids: moves.map(({ id }) => id) });
   }

@@ -12,7 +12,7 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.services import (
+from app.api.action_log.services import (
     EFFECT_IMAGE_COLLECTIONS,
     IMAGE_ADDRESSES,
     address_image_edits,

@@ -14,7 +14,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminSperreAufhebenPanel } from "../forms/AdminSperreAufhebenPanel";
 
-import type { FLSperrlisteRow } from "@/core/generated/client/types";
+import type { FLBanListRow } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -36,13 +36,13 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
   filteredSperren,
   emptiness,
 }: {
-  filteredSperren: FLSperrlisteRow[];
+  filteredSperren: FLBanListRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
   /* The day leads, being the one short token that tells two rows apart: the address is a keyed hash
      and the reason is a sentence. */
-  const renderIdentity = (eintrag: FLSperrlisteRow) => (
+  const renderIdentity = (eintrag: FLBanListRow) => (
     <div className={IDENTITY_ROW_CLASSES}>
       <Ban
         aria-hidden="true"
@@ -85,7 +85,7 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
           <div className="flex w-full flex-col gap-1 border-t border-border/50 pt-3">
             <span className={FACT_LABEL_CLASSES}>Grund</span>
             {/* `wrap-break-word`: a reason may quote an address or a link, one word wider than the card on a phone. */}
-            <p className="fluid-sm font-medium wrap-break-word text-foreground">{eintrag.grund}</p>
+            <p className="fluid-sm font-medium wrap-break-word text-foreground">{eintrag.ban_reason}</p>
           </div>
 
           {/* Its own track under the reason rather than a line inside it: the bound is the one fact

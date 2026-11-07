@@ -14,11 +14,11 @@ from app.api.account.services import (
     find_own_entry_refusal,
     withdrawal_line,
 )
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_spieler
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.schemas import (
     FLKaderResponse,

@@ -19,7 +19,7 @@ export async function postReferenzen(payload: FLReferencesPayload): Promise<FLRe
 }
 
 /**
- * The address travels in the BODY: a path or a query would file it in the access log and in `aktionen.request.path`.
+ * The address travels in the BODY: a path or a query would file it in the access log and in `action_log.request.path`.
  * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
  */
 export async function readLoeschungAnsicht(payload: FLErasureAddressPayload): Promise<FLErasureViewResponse> {

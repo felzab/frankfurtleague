@@ -114,7 +114,7 @@ class FLActionLogEntry(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: str
     # As served, so a row reaches the wire only through
-    # `app/api/aktionen/services.py :: mit_vorenthaltenem_akteur`.
+    # `app/api/action_log/services.py :: mit_vorenthaltenem_akteur`.
     actor: FLAktorZeile
     trace_id: str
     request: FLActionLogEntryRequest | None
@@ -174,7 +174,7 @@ class FLActionLogEntryWithBefore(FLActionLogEntry):
 
 
 class FLAktionRecord(BaseModel):
-    """One row as `aktionen` stores it: its actor before any address is withheld, and no derived `stand_secured`."""
+    """One row as `action_log` stores it: its actor before any address is withheld, and no derived `stand_secured`."""
 
     id: CustomObjectId = Field(validation_alias="_id")
     at: str
@@ -208,7 +208,7 @@ class FLAktionenFilterParams(BaseModel):
     herkunft: list[FLActionLogEntryHerkunft] | None = None
     trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
-    # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
+    # spelling would 422. `app/api/action_log/services.py :: document_id_term` compiles it.
     document_id: str | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)

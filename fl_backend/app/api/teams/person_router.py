@@ -13,10 +13,10 @@ from app.api.account.services import (
     find_own_entry_refusal,
     withdrawal_line,
 )
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.identity.crud import refuse_without_a_seat, roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import holds_a_seat, own_seats, seat_is_confirmed
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.teams.schemas import FLTeamSeat, FLTeamSeatsResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config

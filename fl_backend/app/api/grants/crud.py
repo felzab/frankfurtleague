@@ -15,7 +15,8 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.services import (
+from app.api.ban_list.lookup import BanList, barred_addresses
+from app.api.grants.services import (
     Notice,
     compare,
     compose_announced,
@@ -26,7 +27,6 @@ from app.api.berechtigungen.services import (
 )
 from app.api.outbox.schemas import FLGrantData, FLOutboxReference
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import BanList, barred_addresses
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -40,7 +40,7 @@ from app.core.readonly import ReadCollection
 from app.shared.schemas.literals import FLAdminTier
 
 
-async def read_berechtigungen(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
+async def read_grants(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
     """Every grant, by address, and unbounded: the floor and the recipients are both judged over the whole list."""
 
     return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"address": ASCENDING}}], session=session)
@@ -59,7 +59,7 @@ async def pull_the_list_to_judge(
     lands second meets a write conflict and retries.
     """
 
-    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+    grants = await read_grants(grants_collection=grants_collection, session=session)
 
     # Exactly the rows the read returned, each named: the rows judged are the rows a rival must meet.
     await anchor_in_db(
@@ -188,7 +188,7 @@ async def owe_in_session(
         return
     holders: set[str] = set()
     if to is None:
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         holders = {str(row["address"]) for row in grants}
 
     mails: list[OwedMail] = []
@@ -247,7 +247,7 @@ async def grant_in_session(
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
-    # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_carried`).
+    # A move's alone: the replaced row's since-whens (`app/api/grants/services.py :: compose_carried`).
     carried: Mapping[str, Any] | None = None,
 ) -> ObjectId:
     """Write a grant and its announced row and owe its notice, answering its id.
@@ -258,7 +258,7 @@ async def grant_in_session(
     document: dict[str, Any] = {
         "address": address,
         "admin_tier": admin_tier,
-        # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
+        # The bound actor rather than a payload field, so the grant and its `action_log` row name one person.
         "granted_by": granted_by,
         "granted_at": now,
         # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather

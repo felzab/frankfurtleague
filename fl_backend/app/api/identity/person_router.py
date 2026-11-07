@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
-from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
+from app.api.ban_list.lookup import BanListLookup, barred_addresses
+from app.api.grants.crud import pull_the_list_to_judge, read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
 from app.api.identity.services import (
@@ -14,8 +16,6 @@ from app.api.identity.services import (
     find_last_owner_erasure_refusal,
     holds_an_owner_grant,
 )
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -110,7 +110,7 @@ async def post_account_erasure(
     """
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         if holds_an_owner_grant(identifier, grants):
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
@@ -225,7 +225,7 @@ async def get_account_erasure_view(
             else []
         )
         # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         # A live row is its own fold, so equality is the fold's judgement.
         own = next((grant for grant in grants if grant["address"] == identifier), None)
         last_owner = holds_an_owner_grant(identifier, grants) and (

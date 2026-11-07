@@ -324,7 +324,7 @@ async def answer(
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
-    return await ban_through_the_route(database, client, email=email, grund="Wiederholte Falschangaben", by=ADMIN, today=TODAY)
+    return await ban_through_the_route(database, client, email=email, ban_reason="Wiederholte Falschangaben", by=ADMIN, today=TODAY)
 
 
 async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> dict[str, Any]:

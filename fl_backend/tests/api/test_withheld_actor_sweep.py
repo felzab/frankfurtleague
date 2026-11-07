@@ -22,9 +22,9 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
-from app.api.berechtigungen.antraege import compose_approval_request
+from app.api.ban_list.services import compose_barred_until_saison_id
+from app.api.grants.antraege import compose_approval_request
 from app.api.invitations.services import compose_invitation
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import log_stamp
 from app.core.routing import SAFE_WHEN
@@ -55,7 +55,7 @@ OWNER = grants_for_the_suite()[0]["address"]
 
 SAISON_ID = "2026"
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607510001")
-AKTION_OID = ObjectId("6890a1b2c3d4e5f607510002")
+ACTION_LOG_ENTRY_OID = ObjectId("6890a1b2c3d4e5f607510002")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607510003")
 BEWERBUNG_OID = ObjectId(bewerbung_document(1)["_id"])
 
@@ -93,10 +93,10 @@ ADMIN_READS = sorted(
 # Each read an administrator's address can reach, and the request showing it the barred one's rows.
 NAMES_AN_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/action_log": "/api/v0/action_log",
-    "/api/v0/action_log/{action_log_entry_id:objectid}": f"/api/v0/action_log/{AKTION_OID}",
+    "/api/v0/action_log/{action_log_entry_id:objectid}": f"/api/v0/action_log/{ACTION_LOG_ENTRY_OID}",
     "/api/v0/grants": "/api/v0/grants",
     "/api/v0/bewerbungen/{bewerbung_id:objectid}": f"/api/v0/bewerbungen/{BEWERBUNG_OID}",
-    "/api/v0/sperrliste": "/api/v0/sperrliste",
+    "/api/v0/ban_list": "/api/v0/ban_list",
     "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/admin": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/admin",
 }
 
@@ -203,13 +203,13 @@ def _seed(url: str, *, ban_until: str | None) -> None:
         recorded = datetime.now(UTC)
         database[Collection.ACTION_LOG].insert_one(
             {
-                "_id": AKTION_OID,
+                "_id": ACTION_LOG_ENTRY_OID,
                 "at": log_stamp(recorded),
                 "at_date": recorded,
                 "actor": {"kind": "admin_session", "email": BARRED},
                 "trace_id": "0123456789abcdef",
-                "request": {"method": "POST", "path": "/api/v0/sperrliste"},
-                "collection": "sperrliste",
+                "request": {"method": "POST", "path": "/api/v0/ban_list"},
+                "collection": "ban_list",
                 "operation": "insert",
                 "document_id": ObjectId(),
                 "db_filter": None,

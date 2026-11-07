@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.grants.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin

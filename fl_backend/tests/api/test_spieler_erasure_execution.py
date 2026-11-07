@@ -27,7 +27,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_spieler_loeschung_test")
+DATABASE_NAME = worker_database("fl_spieler_erasure_test")
 
 
 SAISON_ID = "2026"

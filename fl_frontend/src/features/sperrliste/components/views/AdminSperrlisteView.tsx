@@ -6,13 +6,13 @@ import { Callout } from "@/shared/components/ui/Callout";
 
 import { AdminSperrlisteList } from "../collections/AdminSperrlisteList";
 
-import type { FLSperrlisteRow } from "@/core/generated/client/types";
+import type { FLBanListRow } from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. No address
    among the keys, a stored ban holding none; the author is read as its card prints it. */
-const SEARCH_KEYS: readonly SearchKey<FLSperrlisteRow>[] = [
-  "grund",
+const SEARCH_KEYS: readonly SearchKey<FLBanListRow>[] = [
+  "ban_reason",
   { name: "created_by", getFn: (entry) => vonOderGesperrt(entry.created_by, entry.created_by_barred) },
 ];
 
@@ -20,7 +20,7 @@ const SEARCH_KEYS: readonly SearchKey<FLSperrlisteRow>[] = [
  * **No `renderDeleteModal`**: removing a ban is confirmed on the row itself, through the shared
  * two-press control.
  */
-export function AdminSperrlisteView({ sperrliste, anzahlGesamt }: { sperrliste: FLSperrlisteRow[]; anzahlGesamt: number }) {
+export function AdminSperrlisteView({ sperrliste, anzahlGesamt }: { sperrliste: FLBanListRow[]; anzahlGesamt: number }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Not dismissible: a standing property of the answer, and a closed notice would leave a
@@ -35,7 +35,7 @@ export function AdminSperrlisteView({ sperrliste, anzahlGesamt }: { sperrliste: 
         </Callout>
       )}
 
-      <AdminCrudView<FLSperrlisteRow>
+      <AdminCrudView<FLBanListRow>
         items={sperrliste}
         searchKeys={SEARCH_KEYS}
         shape="cards"

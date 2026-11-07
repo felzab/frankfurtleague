@@ -193,7 +193,7 @@ async def resend(
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
     return await ban_through_the_route(
-        database, client, email=email, grund="Wiederholte Falschangaben", by="admin@frankfurtleague.de", today=TODAY
+        database, client, email=email, ban_reason="Wiederholte Falschangaben", by="admin@frankfurtleague.de", today=TODAY
     )
 
 

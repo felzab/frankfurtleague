@@ -155,7 +155,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAddress
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Neue Adresse">{offen.email}</Angabe>
         <Angabe label="Weg">{WEG_LABEL[offen.way]}</Angabe>
-        {offen.grund !== null && <Angabe label="Grund">{offen.grund}</Angabe>}
+        {offen.change_reason !== null && <Angabe label="Grund">{offen.change_reason}</Angabe>}
         {/* Only this step sent a link to the new mailbox: the request before it went to the address on file, and a
               confirmed change's link is spent. */}
         {offen.waits_on === "new_address" && offen.valid_until !== null && (

@@ -12,7 +12,7 @@ import { Label } from "@heroui/react/label";
 
 import { postSperreAction, readSperreAnsichtAction } from "@/features/sperrliste/actions";
 import { SPERRE_DAUER_HINWEIS, SPERRE_ERFOLG, SPERRE_MIT_FOLGEN, SPERRE_PRESS, sperreOhneUebersicht } from "@/features/sperrliste/constants";
-import { FLPostSperrlistePayloadSchema } from "@/features/sperrliste/schemas";
+import { FLPostBanListEntryPayloadSchema } from "@/features/sperrliste/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -32,7 +32,7 @@ import { AdminSperreAnsichtList } from "../collections/AdminSperreAnsichtList";
 import type { SperreAnsicht } from "@/features/sperrliste/actions";
 import type { SperreEntwurf } from "@/features/sperrliste/schemas";
 
-const EMPTY_DRAFT: SperreEntwurf = { email: "", grund: "" };
+const EMPTY_DRAFT: SperreEntwurf = { email: "", ban_reason: "" };
 
 /** What the arming read left the reveal holding, carried WITH the address it was read for, which is the one the ban sends. */
 type Gelesen = { adresse: string } & ({ status: "reading" } | { status: "read"; view: SperreAnsicht } | { status: "refused"; reason: string });
@@ -71,7 +71,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   const confirm = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, isPending } = confirm;
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
-    schemas: { ban: FLPostSperrlistePayloadSchema },
+    schemas: { ban: FLPostBanListEntryPayloadSchema },
     failureTitle: SPERRE_PRESS.nichtGesperrt,
   });
 
@@ -106,7 +106,7 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
 
   const handlePress = () => {
     // The armed press sends the address its list was read for, never the box; the reason stays editable, so it is judged again.
-    const sent = isConfirming && read !== null ? { email: read.adresse, grund: draft.grund } : draft;
+    const sent = isConfirming && read !== null ? { email: read.adresse, ban_reason: draft.ban_reason } : draft;
 
     guardSubmit({ ban: sent }, () => {
       if (!isConfirming) void lesen(sent);
@@ -181,10 +181,10 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
         </TextField>
 
         <TextField
-          name="grund"
-          value={draft.grund}
+          name="ban_reason"
+          value={draft.ban_reason}
           isDisabled={isPending}
-          onChange={(next) => setDraft({ ...draft, grund: next })}>
+          onChange={(next) => setDraft({ ...draft, ban_reason: next })}>
           <Label className={FIELD_LABEL_CLASSES}>Grund</Label>
           <Input
             placeholder="z.B. falsches Geburtsdatum angegeben"

@@ -33,7 +33,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
   claimed: SeatClaim,
   fn: (held: PersonHeld) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  const verdict: { grund: Extract<Refusal, "no_session" | "no_seat"> } = { grund: "no_session" };
+  const verdict: { reason: Extract<Refusal, "no_session" | "no_seat"> } = { reason: "no_session" };
 
   // A request can hand a server action anything at all, so the claim is read as possibly absent: an
   // address it does not carry holds no seat.
@@ -50,15 +50,15 @@ export async function runPersonMutation<T extends { success: boolean }>(
 
     if (subject !== null && first !== undefined) return { subject, seats: [first, ...rest] };
 
-    verdict.grund = subject === null ? "no_session" : "no_seat";
-    logRefused(mutationName, verdict.grund);
+    verdict.reason = subject === null ? "no_session" : "no_seat";
+    logRefused(mutationName, verdict.reason);
     return null;
   };
 
   return runGuardedMutation(
     mutationName,
     // Each refusal in the words of its repair: a sign-in for a lapsed session, a reload for a seat gone.
-    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "no_session" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
+    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.reason === "no_session" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
     fn,
   );
 }

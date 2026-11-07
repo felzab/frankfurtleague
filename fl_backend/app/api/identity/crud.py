@@ -11,6 +11,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
+from app.api.action_log.crud import reattribute_administrator_in_session, redact_address_in_images
 from app.api.address_change.crud import (
     build_erasure_address_change_pipeline,
     end_an_emptied_change_in_session,
@@ -19,10 +20,10 @@ from app.api.address_change.crud import (
     others_naming,
 )
 from app.api.address_change.services import build_owed_carry_filter
-from app.api.aktionen.crud import reattribute_administrator_in_session, redact_address_in_images
-from app.api.berechtigungen.antraege import erase_approval_requests_in_session
-from app.api.berechtigungen.crud import read_berechtigungen
-from app.api.berechtigungen.loeschung import erase_grants_and_authorship_in_session
+from app.api.ban_list.lookup import BanList
+from app.api.grants.antraege import erase_approval_requests_in_session
+from app.api.grants.crud import read_grants
+from app.api.grants.erasure import erase_grants_and_authorship_in_session
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
@@ -69,7 +70,6 @@ from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
-from app.api.sperrliste.lookup import BanList
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
@@ -820,7 +820,7 @@ async def erase_everything(
                 now=now,
                 session=session,
             )
-        ).removed_berechtigungen
+        ).removed_grants
 
     if _runs(erase_the_mails_in_session, scope):
         await erase_the_mails_in_session(
@@ -937,9 +937,9 @@ async def unreferenced_of(
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
-        # Every row as stored, never `app/api/berechtigungen/crud.py :: read_admin_tier_of`: a grant edited in
+        # Every row as stored, never `app/api/grants/crud.py :: read_admin_tier_of`: a grant edited in
         # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
-        read_berechtigungen(grants_collection=grants_collection),
+        read_grants(grants_collection=grants_collection),
         aggregate_many_from_db(
             collection=address_changes_collection,
             pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"move.old": 1}}],

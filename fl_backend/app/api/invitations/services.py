@@ -180,7 +180,7 @@ def plan_invitation_dispatch(
     """Who this team's link goes to, or why it is skipped. The season editor's rows and the press both read it.
 
     `invitation_raw` is the team's live invite, `None` where it holds none. `barred` holds the stored addresses a standing
-    ban holds, as `app/api/sperrliste/lookup.py :: barred_addresses` answers them.
+    ban holds, as `app/api/ban_list/lookup.py :: barred_addresses` answers them.
     """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the

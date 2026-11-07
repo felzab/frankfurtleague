@@ -3,10 +3,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.crud import owe_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced
-from app.api.berechtigungen.schemas import FLGrantReconciliationResponse
-from app.api.berechtigungen.services import appointed, compare, compose_announced, compose_notice, found_ids
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses
+from app.api.ban_list.lookup import BanListLookup, barred_addresses
+from app.api.grants.crud import owe_in_session, pull_the_list_to_judge, read_grants, read_the_announced
+from app.api.grants.schemas import FLGrantReconciliationResponse
+from app.api.grants.services import appointed, compare, compose_announced, compose_notice, found_ids
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
@@ -51,7 +51,7 @@ async def post_grants_reconciliation(
     async def compare_and_owe(session: AsyncClientSession) -> int:
         """Read the grants, the record and the ban list, then owe and record what differs, each on this transaction's session."""
 
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         changes = compare(grants=grants, announced=announced)
         if changes:

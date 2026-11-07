@@ -13,17 +13,17 @@ from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.sperrliste.services import stored_address_hash
+from app.api.ban_list.services import stored_address_hash
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
 from app.core.readonly import ReadCollection
 
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
 # inclusion rather than an exclusion: a field added to the collection is withheld until somebody
 # names it here.
-SERVED_FIELDS: Mapping[str, int] = {"grund": 1, "created_by": 1, "created_at": 1, "barred_until_saison_id": 1}
+SERVED_FIELDS: Mapping[str, int] = {"ban_reason": 1, "created_by": 1, "created_at": 1, "barred_until_saison_id": 1}
 
 
-def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
+def build_ban_list_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
     """The page and the total, from ONE pass.
 
     `$facet`, so the count cannot disagree with the rows beside it: two reads straddle a write and
@@ -42,7 +42,7 @@ def build_sperrliste_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
     ]
 
 
-async def read_sperrliste_page(
+async def read_ban_list_page(
     *,
     ban_list_collection: AsyncCollection,
     limit: int,
@@ -51,7 +51,7 @@ async def read_sperrliste_page(
 
     # `$facet` answers one document holding every row it selected, so the page has to fit BSON's
     # 16MB ceiling. At this limit and this row shape it is four orders of magnitude clear.
-    faceted = await aggregate_many_from_db(collection=ban_list_collection, pipeline=build_sperrliste_page_pipeline(limit=limit), limit=1)
+    faceted = await aggregate_many_from_db(collection=ban_list_collection, pipeline=build_ban_list_page_pipeline(limit=limit), limit=1)
 
     if not faceted:
         return [], 0
@@ -131,7 +131,7 @@ async def read_barred_addresses(
     """Which of these stored addresses a standing ban holds, in `read_barred_hashes`' one read.
 
     One today's rule refuses is barred by none, as no ban can key it
-    (`app/api/sperrliste/services.py :: stored_address_hash`).
+    (`app/api/ban_list/services.py :: stored_address_hash`).
     """
 
     hashes = {address: hashed for address in set(addresses) if (hashed := stored_address_hash(address, key=key)) is not None}
@@ -147,6 +147,6 @@ async def read_barred_addresses(
 
 def _standing(governing_saison_id: str | None) -> Mapping[str, Any]:
     # The hash alone while no season is running, rather than an answer given without asking:
-    # `find_keine_saison_refusal` leaves no row to find, and one that reached the collection another
+    # `find_no_saison_refusal` leaves no row to find, and one that reached the collection another
     # way bars rather than passing unjudged.
     return {} if governing_saison_id is None else {"barred_until_saison_id": {"$gte": governing_saison_id}}

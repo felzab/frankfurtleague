@@ -8,8 +8,8 @@ from typing import Any, NamedTuple
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.ban_list.lookup import ban_list_saison
 from app.api.bewerbungen.services import compose_einwilligung
-from app.api.sperrliste.lookup import ban_list_saison
 from app.api.teams.admin_router import KONTAKT_WRITE_FIELDS, patch_team_saison, write_the_contact_block
 from app.api.teams.schemas import FLKontaktMint, FLKontaktSeatPayload, FLPatchTeamSaisonPayload
 from app.core.collections import Collection

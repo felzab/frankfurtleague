@@ -10,7 +10,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
     FLAcceptBewerbungResponse,
@@ -65,11 +65,11 @@ from app.api.bewerbungen.services import (
     seats_confirmed_of,
     with_delivery,
 )
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, hash_barred
 from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
@@ -727,7 +727,7 @@ async def post_kontakt_seat(
     """
 
     # Outside the transaction, whose callback may run again, as the referee editor reads both
-    # (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # (`app/api/ban_list/crud.py :: address_is_barred`).
     hashed = ban_list.hash_of(seat_data.email)
     governing_saison_id = await ban_list_saison(ban_list)
     # Outside the callback, for the re-send's reason.

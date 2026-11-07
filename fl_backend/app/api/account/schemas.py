@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.address_change.schemas import FLAddressChangeApprovalState
-from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.grants.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString

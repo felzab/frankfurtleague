@@ -60,7 +60,7 @@ export const ActionLogGetActionLogEntryParams = zod.object({
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being
+ * **Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being
  * lost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link
  * and the address on file a notice with its stop link; the change then takes effect
  * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also
@@ -76,17 +76,20 @@ export const ActionLogGetActionLogEntryParams = zod.object({
  */
 export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
 
+export const addressChangePostAddressChangeAdminBodyChangeReasonMax = 200;
+
+export const addressChangePostAddressChangeAdminBodyChangeReasonRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const addressChangePostAddressChangeAdminBodyEmailMax = 254;
-
-export const addressChangePostAddressChangeAdminBodyGrundMax = 200;
-
-export const addressChangePostAddressChangeAdminBodyGrundRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const AddressChangePostAddressChangeAdminBody = zod
   .object({
     address: zod.string().max(addressChangePostAddressChangeAdminBodyAddressMax),
+    change_reason: zod
+      .string()
+      .min(1)
+      .max(addressChangePostAddressChangeAdminBodyChangeReasonMax)
+      .regex(addressChangePostAddressChangeAdminBodyChangeReasonRegExp),
     email: zod.string().max(addressChangePostAddressChangeAdminBodyEmailMax),
-    grund: zod.string().min(1).max(addressChangePostAddressChangeAdminBodyGrundMax).regex(addressChangePostAddressChangeAdminBodyGrundRegExp),
   })
   .describe("The address a change starts on, the address it goes to, and how the administrator established who asks for it.");
 
@@ -338,6 +341,49 @@ export const addressChangeInviteAddressChangePathAddressChangeIdRegExp = new Reg
 
 export const AddressChangeInviteAddressChangeParams = zod.object({
   address_change_id: zod.string().regex(addressChangeInviteAddressChangePathAddressChangeIdRegExp),
+});
+
+/**
+ * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
+ *
+ * Refused where the list already holds the address (`duplicate_key`), while no season is
+ * running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and
+ * where the address is an administrator's (`ban_list_admin`). The ban covers the
+ * fifth season after the one running now — the last one it covers is answered as
+ * `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
+ * that names the address loses it in the same transaction, and where `notify` is set the ban's
+ * own notice is owed to it there too, the one mail a ban does not stop.
+ *
+ * `ban_reason` is served, mailed to the address and kept past that person's erasure.
+ * @summary Ban an email address
+ */
+export const banListPostBanListEntryBodyBanReasonMax = 500;
+
+export const banListPostBanListEntryBodyBanReasonRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const banListPostBanListEntryBodyEmailMax = 254;
+
+export const BanListPostBanListEntryBody = zod.object({
+  ban_reason: zod.string().min(1).max(banListPostBanListEntryBodyBanReasonMax).regex(banListPostBanListEntryBodyBanReasonRegExp),
+  email: zod.string().max(banListPostBanListEntryBodyEmailMax),
+  notify: zod.boolean(),
+});
+
+/**
+ * Lift a ban before it lapses, removing the row. HARD, no soft form.
+ *
+ * Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
+ * hash, so re-entering the ban means being told the address again. 404 where no row holds the id.
+ *
+ * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
+ * administrator who entered it, and no address of the person it barred — for the twelve months
+ * the rule gives every log row. The lifted ban is therefore readable
+ * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
+ * @summary Lift a ban
+ */
+export const banListDeleteBanListEntryPathBanListEntryIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const BanListDeleteBanListEntryParams = zod.object({
+  ban_list_entry_id: zod.string().regex(banListDeleteBanListEntryPathBanListEntryIdRegExp),
 });
 
 /**
@@ -2253,50 +2299,6 @@ export const schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp = 
 
 export const SchiedsrichterReactivateSchiedsrichterParams = zod.object({
   schiedsrichter_id: zod.string().regex(schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp),
-});
-
-/**
- * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
- *
- * Refused where the list already holds the address (`duplicate_key`), while no season is
- * running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and
- * where the address is an administrator's (`ban_list_admin`). The ban covers the
- * fifth season after the one running now — the last one it covers is answered as
- * `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
- * that names the address loses it in the same transaction, and where `notify` is set the ban's
- * own notice is owed to it there too, the one mail a ban does not stop.
- *
- * `grund` is served, mailed to the address and kept past that person's erasure.
- * @summary Ban an email address
- */
-export const sperrlistePostSperrlisteEntryBodyEmailMax = 254;
-
-export const sperrlistePostSperrlisteEntryBodyGrundMax = 500;
-
-export const sperrlistePostSperrlisteEntryBodyGrundRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-
-export const SperrlistePostSperrlisteEntryBody = zod.object({
-  email: zod.string().max(sperrlistePostSperrlisteEntryBodyEmailMax),
-  grund: zod.string().min(1).max(sperrlistePostSperrlisteEntryBodyGrundMax).regex(sperrlistePostSperrlisteEntryBodyGrundRegExp),
-  notify: zod.boolean(),
-});
-
-/**
- * Lift a ban before it lapses, removing the row. HARD, no soft form.
- *
- * Nothing reverses it from here: the address a row was taken from cannot be recovered out of the
- * hash, so re-entering the ban means being told the address again. 404 where no row holds the id.
- *
- * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
- * administrator who entered it, and no address of the person it barred — for the twelve months
- * the rule gives every log row. The lifted ban is therefore readable
- * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
- * @summary Lift a ban
- */
-export const sperrlisteDeleteSperrlisteEntryPathSperrlisteIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const SperrlisteDeleteSperrlisteEntryParams = zod.object({
-  sperrliste_id: zod.string().regex(sperrlisteDeleteSperrlisteEntryPathSperrlisteIdRegExp),
 });
 
 /**

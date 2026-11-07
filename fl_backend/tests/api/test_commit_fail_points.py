@@ -33,10 +33,10 @@ from tests.whole_database import where_held
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as spiel_saves
 from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant
-from .test_identity_erasure_execution import erased_by_the_handler as geloescht_by_the_person
+from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
 from .test_identity_erasure_execution import on_a_league as on_their_league
 from .test_identity_erasure_on_request import CONFIG as REQUEST_CONFIG
-from .test_identity_erasure_on_request import erased_by_the_handler as geloescht_on_request
+from .test_identity_erasure_on_request import erased_by_the_handler as erased_on_request
 from .test_identity_erasure_on_request import journal_lines
 from .test_identity_erasure_on_request import on_a_league as on_the_administrators_league
 from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
@@ -159,7 +159,7 @@ class TestALookupInsideATransaction:
 
 
 @pytest.mark.db
-class TestThePersonsOwnLoeschung:
+class TestThePersonsOwnErasure:
     def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
@@ -169,7 +169,7 @@ class TestThePersonsOwnLoeschung:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await geloescht_by_the_person(losing[database.name], losing)
+                    await erased_by_the_person(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -206,7 +206,7 @@ class TestThePersonsOwnLoeschung:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await geloescht_by_the_person(refusing[database.name], refusing)
+                answer = await erased_by_the_person(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -225,7 +225,7 @@ class TestThePersonsOwnLoeschung:
 
 
 @pytest.mark.db
-class TestAnLoeschungOnRequest:
+class TestAnErasureOnRequest:
     def test_one_line_follows_the_commit_and_none_the_attempt_rolled_back(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """The first commit is refused under the transient label, so the driver reruns the erasure: one line, the rerun's."""
 
@@ -242,7 +242,7 @@ class TestAnLoeschungOnRequest:
             }
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await geloescht_on_request(refusing[database.name], refusing)
+                answer = await erased_on_request(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -268,7 +268,7 @@ class TestAnLoeschungOnRequest:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await geloescht_on_request(losing[database.name], losing)
+                    await erased_on_request(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -457,7 +457,7 @@ class TestASpielSaveRefusedAtItsCommit:
 
 
 @pytest.mark.db
-class TestAPupilsLoeschungRefusedAtItsCommit:
+class TestAPupilsErasureRefusedAtItsCommit:
     def test_takes_the_repointed_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
         """Catches a repoint written off the erasure's session: the report would name the sentinel of a pupil who stands.
 

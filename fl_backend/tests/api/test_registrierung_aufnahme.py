@@ -12,6 +12,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.services import compose_person_move
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
@@ -25,7 +26,6 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection

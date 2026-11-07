@@ -124,7 +124,7 @@ directly**: a separate `auth` database holding sessions and passkeys and no leag
 `fl_frontend/src/core/db.ts :: signInStore`), because the library's adapter has no HTTP transport
 and sits on every authorization check. Application data goes through FastAPI without exception.
 
-**Administration is a stored grant, read on every request.** A row of `berechtigungen`
+**Administration is a stored grant, read on every request.** A row of `grants`
 (`Berechtigung`) makes an address an administrator; the frontend reads it through
 `fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits

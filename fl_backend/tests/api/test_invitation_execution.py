@@ -8,6 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload, FLInvitationRecipient
 from app.api.invitations.services import (
@@ -16,7 +17,6 @@ from app.api.invitations.services import (
 )
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -295,7 +295,7 @@ class TestWhatAMintStores:
 
         token, recorded = on_a_league(mongo_replica_set_url, body)
 
-        assert "einladungen" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
+        assert "invitations" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
         assert token not in recorded
 
 

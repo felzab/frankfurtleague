@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Final
 
-from app.api.aktionen.schemas import FLActorWithAddress, FLAktorAdapter
+from app.api.action_log.schemas import FLActorWithAddress, FLAktorAdapter
+from app.api.ban_list.services import withheld_actor
 from app.api.kontakte.services import same_address
-from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -124,7 +124,7 @@ EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADDRESS_CHANGES, DbCollection.GR
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
     """The log rows of one collection whose images hold this address; `address_image_edits` decides which field."""
 
-    # A grant's images by pattern, as its rows are read (`app/api/berechtigungen/loeschung.py`): a pasted row keeps its
+    # A grant's images by pattern, as its rows are read (`app/api/grants/erasure.py`): a pasted row keeps its
     # typed spelling into the image its revoke files. Every other image holds a fold a write stored.
     matched = same_address(identifier) if collection == DbCollection.GRANTS else sign_in_identifier(identifier)
 

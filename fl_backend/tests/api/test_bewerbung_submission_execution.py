@@ -14,11 +14,11 @@ from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_decline_update, compose_kontakte
 from app.api.kontakte.services import build_clearing_update
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -704,7 +704,7 @@ class TestASubmissionMadeOverTheWire:
         """The header `bind_actor` reads is the one this route must ignore, and the row is where that shows.
 
         Over the wire rather than through the binder alone: what is asserted is the stored
-        `aktionen.actor`, which is the record an erasure is audited against.
+        `action_log.actor`, which is the record an erasure is audited against.
         """
 
         forged_actor = "attacker@example.com"

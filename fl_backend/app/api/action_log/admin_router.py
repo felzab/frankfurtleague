@@ -5,7 +5,7 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends, Query
 from pymongo import ASCENDING
 
-from app.api.aktionen.schemas import (
+from app.api.action_log.schemas import (
     HERKUNFT_JE_KIND,
     FLActionLogEntrySingleResponse,
     FLActionLogEntryWithBefore,
@@ -13,9 +13,9 @@ from app.api.aktionen.schemas import (
     FLAktionenFilterParams,
     FLAktionenListAdapter,
 )
-from app.api.aktionen.services import actor_addresses, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
-from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
+from app.api.action_log.services import actor_addresses, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
+from app.api.ban_list.lookup import BanList, BanListLookup, barred_addresses
+from app.api.grants.guard import verify_actor_is_admin
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import ActionLogCollection

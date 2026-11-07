@@ -34,7 +34,7 @@ function begonnen(adresswechsel: FLGrantAddressChange): string {
       ? "Aus der Verwaltung begonnen"
       : `Begonnen von ${nachVonOderGesperrt(adresswechsel.started_by, adresswechsel.started_by_barred)}`;
 
-  return `${von}, ohne die bisherige Adresse.${adresswechsel.grund === null ? "" : ` Grund: ${adresswechsel.grund}`}`;
+  return `${von}, ohne die bisherige Adresse.${adresswechsel.change_reason === null ? "" : ` Grund: ${adresswechsel.change_reason}`}`;
 }
 
 /** The new address, or why the row withholds it. */

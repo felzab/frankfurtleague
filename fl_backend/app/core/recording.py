@@ -3,7 +3,7 @@ CORE · the action log's write side
 
 Every write in the application funnels through `app/core/crud.py`, so recording there is what makes
 the log complete by construction rather than by discipline -- a page listing some of the writes is a
-page nobody trusts. Nothing here reads the log; `app/api/aktionen/` serves it.
+page nobody trusts. Nothing here reads the log; `app/api/action_log/` serves it.
 
 This module deliberately stores the values a write REPLACED, which are forbidden in the
 log stream: a restore replays what a write replaced, so the prior document is the point. That is what

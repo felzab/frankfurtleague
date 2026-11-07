@@ -94,7 +94,7 @@ def confirmed_on(change: dict[str, Any], confirmed_at: datetime) -> dict[str, An
         **change,
         "way": "waiting_period",
         "valid_until": None,
-        "grund": "Postfach gelöscht, telefonisch bestätigt",
+        "change_reason": "Postfach gelöscht, telefonisch bestätigt",
         "confirmed_at": confirmed_at,
         "effective_from": effective_from_confirmed(confirmed_at),
     }
@@ -272,7 +272,7 @@ class TestADueChangeTakesEffect:
             await a_due_person(database, 1)
             address = on_file(1) if barred == "on_file" else pending(1)
             await ban_through_the_route(
-                database, client, email=address, grund="Falschangaben", by="admin@frankfurtleague.de", today="2126-04-16"
+                database, client, email=address, ban_reason="Falschangaben", by="admin@frankfurtleague.de", today="2126-04-16"
             )
 
             answer = await sweep(database, client)

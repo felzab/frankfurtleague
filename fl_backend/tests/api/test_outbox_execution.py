@@ -57,7 +57,7 @@ NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
 REFERENCE = FLOutboxReference(collection=Collection.INVITATIONS, id=INVITATION, seat=None)
 NORA = "nora.neu@beispielschule.de"
-BAN = FLBanData(kind="ban", grund="Falsches Geburtsdatum", barred_until_saison_id="2127")
+BAN = FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 

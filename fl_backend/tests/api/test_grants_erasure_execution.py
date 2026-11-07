@@ -16,14 +16,14 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.loeschung import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
-from app.api.berechtigungen.schemas import FLGrantSnapshot
-from app.api.berechtigungen.services import compose_notice
+from app.api.ban_list.services import compose_barred_until_saison_id
+from app.api.grants.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
+from app.api.grants.schemas import FLGrantSnapshot
+from app.api.grants.services import compose_notice
 from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.collections import Collection
 from app.core.recording import ERASED_ACTOR_MARKER
 from tests.bans import ban_list
@@ -34,7 +34,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_berechtigungen_loeschung_test")
+DATABASE_NAME = worker_database("fl_grants_erasure_test")
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # When the notices she finds still queued were, so none reads as one the erasure queued.
@@ -290,7 +290,7 @@ class TestHerGrantsGo:
 
         assert grants == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
         assert records == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
-        assert (result.removed_berechtigungen, result.removed_announced) == (2, 1)
+        assert (result.removed_grants, result.removed_announced) == (2, 1)
 
     def test_a_grant_pasted_unfolded_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
         """Catches a read asking the stored spelling alone, which leaves this grant and its authorship standing."""

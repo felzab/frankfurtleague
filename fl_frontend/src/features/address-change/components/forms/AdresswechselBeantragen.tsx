@@ -57,22 +57,22 @@ const WEG_LABEL_ID = "adresswechsel-weg";
  * The box's typing, held by the tool above every read it makes, so a read answering after a write keeps the way and
  * the reason: a way reset to its default would start a change asking the lost mailbox.
  */
-export type AdresswechselEntwurf = { email: string; weg: Weg; grund: string };
+export type AdresswechselEntwurf = { email: string; weg: Weg; change_reason: string };
 
-export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "unreachable", grund: "" };
+export const LEERER_ENTWURF: AdresswechselEntwurf = { email: "", weg: "unreachable", change_reason: "" };
 
-type Fehler = { email?: string; grund?: string };
+type Fehler = { email?: string; change_reason?: string };
 
 /** The box's two values as the write's own schema judges them, at the press and never between keystrokes. */
 function fehlerIn(adresse: string, entwurf: AdresswechselEntwurf): Fehler {
   const geprueft = FLAdresswechselVerwaltungPayloadSchema.safeParse({
     adresse,
     email: entwurf.email,
-    grund: entwurf.grund,
+    change_reason: entwurf.change_reason,
   });
   if (geprueft.success) return {};
   const fehler = toFieldErrors(geprueft.error);
-  return { email: fehler.email, grund: fehler.grund };
+  return { email: fehler.email, change_reason: fehler.change_reason };
 }
 
 /**
@@ -126,7 +126,7 @@ export function AdresswechselBeantragen({
     // The pending button is not the whole guard: Enter in the field presses too.
     if (sendet || unveraendert) return;
     const sentence = fehlerIn(adresse, entwurf);
-    if (sentence.email !== undefined || sentence.grund !== undefined) {
+    if (sentence.email !== undefined || sentence.change_reason !== undefined) {
       markiere(sentence);
       return;
     }
@@ -138,15 +138,15 @@ export function AdresswechselBeantragen({
       stepUp,
       router,
       pending: setSendet,
-      write: () => beantrageAdresswechselAction({ address: adresse, email: entwurf.email, grund: entwurf.grund }),
+      write: () => beantrageAdresswechselAction({ address: adresse, email: entwurf.email, change_reason: entwurf.change_reason }),
       repair: START_OHNE_ANTWORT,
     });
     if (res === null) return;
 
     if (!res.success) {
       // A refusal of either value stands on its box, which is the way out; any other is the press's.
-      const field = { email: res.fieldErrors?.email, grund: res.fieldErrors?.grund };
-      if ((field.email !== undefined || field.grund !== undefined) && res.outcome !== "unknown") {
+      const field = { email: res.fieldErrors?.email, change_reason: res.fieldErrors?.change_reason };
+      if ((field.email !== undefined || field.change_reason !== undefined) && res.outcome !== "unknown") {
         markiere(field);
         return;
       }
@@ -162,7 +162,7 @@ export function AdresswechselBeantragen({
 
   // A refusal is kept with the value it was about and retracted by a keystroke away from it.
   const gezeigt = fehler !== null && fehler.zu.email === entwurf.email ? (fehler.sentence.email ?? null) : null;
-  const grundGezeigt = fehler !== null && fehler.zu.grund === entwurf.grund ? (fehler.sentence.grund ?? null) : null;
+  const grundGezeigt = fehler !== null && fehler.zu.change_reason === entwurf.change_reason ? (fehler.sentence.change_reason ?? null) : null;
   const setze = (teil: Partial<AdresswechselEntwurf>) => onEntwurfChange({ ...entwurf, ...teil });
 
   return (
@@ -227,10 +227,10 @@ export function AdresswechselBeantragen({
 
         {entwurf.weg === "unreachable" && (
           <TextField
-            name="grund"
-            value={entwurf.grund}
+            name="change_reason"
+            value={entwurf.change_reason}
             isInvalid={grundGezeigt !== null}
-            onChange={(grund) => setze({ grund })}
+            onChange={(change_reason) => setze({ change_reason })}
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();

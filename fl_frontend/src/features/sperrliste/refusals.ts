@@ -30,7 +30,7 @@ export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldE
 export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  // The rule refuses a second ban, and `uniq_sperrliste_adresse_hash` refuses it again where two
+  // The rule refuses a second ban, and `uniq_ban_list_address_hash` refuses it again where two
   // administrators press together: one code for both.
   if (error.serverErrorCode === "duplicate_key") return schonGesperrtAmFeld();
 

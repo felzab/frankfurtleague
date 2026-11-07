@@ -6,30 +6,30 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
-from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.outbox.schemas import FLBanData
-from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.saisons.crud import pull_governing_saison_id
-from app.api.sperrliste.crud import read_sperrliste_page
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses, hash_barred
-from app.api.sperrliste.schemas import (
-    FLPostSperrlistePayload,
-    FLPostSperrlisteResponse,
-    FLSperrlisteEintrag,
-    FLSperrlisteListResponse,
-    FLSperrlisteRow,
-    FLSperrlisteWriteResponse,
+from app.api.ban_list.crud import read_ban_list_page
+from app.api.ban_list.lookup import BanListLookup, barred_addresses, hash_barred
+from app.api.ban_list.schemas import (
+    FLBanListEntry,
+    FLBanListResponse,
+    FLBanListRow,
+    FLBanListWriteResponse,
+    FLPostBanListEntryPayload,
+    FLPostBanListEntryResponse,
 )
-from app.api.sperrliste.services import (
+from app.api.ban_list.services import (
     BAN_LIST_KEY_VERSION,
     berechtigte_hashes,
     compose_barred_until_saison_id,
-    find_keine_saison_refusal,
-    find_sperrliste_refusal,
-    find_verwaltung_refusal,
+    find_admin_refusal,
+    find_ban_list_refusal,
+    find_no_saison_refusal,
     withheld_actor,
 )
+from app.api.grants.crud import pull_the_list_to_judge, withhold_in_the_outbox
+from app.api.grants.guard import verify_actor_is_admin
+from app.api.outbox.schemas import FLBanData
+from app.api.outbox.services import OwedMail, enqueue_mails
+from app.api.saisons.crud import pull_governing_saison_id
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -49,7 +49,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/sperrliste",
+    prefix=f"/api/v{API_VERSION}/ban_list",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
@@ -67,7 +67,7 @@ async def _pull_the_season_a_ban_counts_from(
     # transaction, and a season read outside this snapshot counts a ban one season short against
     # a list already swept.
     governing_saison_id = await pull_governing_saison_id(saisons_collection=saisons_collection, session=session)
-    refuse(find_keine_saison_refusal(governing_saison_id=governing_saison_id))
+    refuse(find_no_saison_refusal(governing_saison_id=governing_saison_id))
 
     # The rollover demotes this season, and its sweep cannot see a row inserted after its snapshot:
     # without this write both commit, and a bound the sweep never judged stands past its season.
@@ -82,8 +82,8 @@ async def _pull_the_season_a_ban_counts_from(
     return str(governing_saison_id)
 
 
-@router.get("", response_model=FLSperrlisteListResponse, summary="List the banned addresses")
-async def get_sperrliste(ban_list_collection: BanListCollection, ban_list: BanListLookup) -> FLSperrlisteListResponse:
+@router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
+async def get_ban_list_entries(ban_list_collection: BanListCollection, ban_list: BanListLookup) -> FLBanListResponse:
     """
     List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
 
@@ -95,29 +95,29 @@ async def get_sperrliste(ban_list_collection: BanListCollection, ban_list: BanLi
     served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
     """
 
-    rows, anzahl_gesamt = await read_sperrliste_page(ban_list_collection=ban_list_collection, limit=LIST_LIMIT_DEFAULT)
+    rows, anzahl_gesamt = await read_ban_list_page(ban_list_collection=ban_list_collection, limit=LIST_LIMIT_DEFAULT)
     # Each row as stored first, so a row the stored shape refuses fails here rather than being served withheld.
-    bans = [(row, FLSperrlisteEintrag.model_validate(row)) for row in rows]
+    bans = [(row, FLBanListEntry.model_validate(row)) for row in rows]
     barred = await barred_addresses(ban_list, [sign_in_identifier(ban.created_by) for _, ban in bans])
 
     served = []
     for row, ban in bans:
         created_by = withheld_actor(ban.created_by, barred)
-        served.append(FLSperrlisteRow.model_validate({**row, "created_by": created_by, "created_by_barred": created_by is None}))
+        served.append(FLBanListRow.model_validate({**row, "created_by": created_by, "created_by_barred": created_by is None}))
 
-    return FLSperrlisteListResponse(sperrliste=served, count_total=anzahl_gesamt)
+    return FLBanListResponse(ban_list=served, count_total=anzahl_gesamt)
 
 
 @router.post(
     "",
-    response_model=FLPostSperrlisteResponse,
+    response_model=FLPostBanListEntryResponse,
     status_code=201,
     summary="Ban an email address",
     # The frontend signs the address out once this answers, and nothing undoes it.
     dependencies=[Depends(verify_step_up)],
 )
-async def post_sperrliste_entry(
-    ban_list_data: Annotated[FLPostSperrlistePayload, Body()],
+async def post_ban_list_entry(
+    ban_list_data: Annotated[FLPostBanListEntryPayload, Body()],
     ban_list_collection: BanListCollection,
     saisons_collection: SaisonsCollection,
     grants_collection: GrantsCollection,
@@ -128,7 +128,7 @@ async def post_sperrliste_entry(
     created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
-) -> FLPostSperrlisteResponse:
+) -> FLPostBanListEntryResponse:
     """
     Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
 
@@ -140,7 +140,7 @@ async def post_sperrliste_entry(
     that names the address loses it in the same transaction, and where `notify` is set the ban's
     own notice is owed to it there too, the one mail a ban does not stop.
 
-    `grund` is served, mailed to the address and kept past that person's erasure.
+    `ban_reason` is served, mailed to the address and kept past that person's erasure.
     """
 
     hashed = ban_list.hash_of(str(ban_list_data.email))
@@ -153,7 +153,7 @@ async def post_sperrliste_entry(
         # same rows, so one of the two retries and meets the other's refusal.
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         refuse(
-            find_verwaltung_refusal(
+            find_admin_refusal(
                 hashed=hashed,
                 granted=berechtigte_hashes([str(grant["address"]) for grant in grants], key=config.sperrliste_key),
             )
@@ -163,16 +163,16 @@ async def post_sperrliste_entry(
         barred_until_saison_id = compose_barred_until_saison_id(governing_saison_id=governing_saison_id)
 
         barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_sperrliste_refusal(barred=barred))
+        refuse(find_ban_list_refusal(barred=barred))
 
         document: dict[str, Any] = {
             "address_hash": hashed,
             # Stored beside the hash rather than derived from it: which label a row was keyed under is
             # the one thing that would ever let an operator tell the rows a key cannot match.
             "key_version": BAN_LIST_KEY_VERSION,
-            "grund": ban_list_data.grund,
+            "ban_reason": ban_list_data.ban_reason,
             # Read from the bound actor rather than a payload, so this cannot disagree with the
-            # `aktionen` row recording the same write.
+            # `action_log` row recording the same write.
             "created_by": created_by,
             "created_at": today,
             # INCLUSIVE: the season named here is still barred, and „bis“ alone does not say so.
@@ -193,7 +193,7 @@ async def post_sperrliste_entry(
                     OwedMail(
                         key=f"ban/{created.inserted_id}",
                         to=str(ban_list_data.email),
-                        data=FLBanData(kind="ban", grund=ban_list_data.grund, barred_until_saison_id=barred_until_saison_id),
+                        data=FLBanData(kind="ban", ban_reason=ban_list_data.ban_reason, barred_until_saison_id=barred_until_saison_id),
                     )
                 ],
                 now=now,
@@ -204,23 +204,23 @@ async def post_sperrliste_entry(
     async with transaction_session(db) as session:
         post_operation, barred_until_saison_id = await session.with_transaction(judge_and_ban)
 
-    return FLPostSperrlisteResponse(
+    return FLPostBanListEntryResponse(
         created_id=post_operation.inserted_id,
         barred_until_saison_id=barred_until_saison_id,
     )
 
 
 @router.delete(
-    by_id("sperrliste_id"),
-    response_model=FLSperrlisteWriteResponse,
+    by_id("ban_list_entry_id"),
+    response_model=FLBanListWriteResponse,
     summary="Lift a ban",
     dependencies=[Depends(verify_step_up)],
 )
-async def delete_sperrliste_entry(
-    sperrliste_id: CustomRouteObjectId,
+async def delete_ban_list_entry(
+    ban_list_entry_id: CustomRouteObjectId,
     ban_list_collection: BanListCollection,
     db: DBClient,
-) -> FLSperrlisteWriteResponse:
+) -> FLBanListWriteResponse:
     """
     Lift a ban before it lapses, removing the row. HARD, no soft form.
 
@@ -238,11 +238,11 @@ async def delete_sperrliste_entry(
 
         # Resolved first so a miss is a 404 before anything is logged: `delete_many_from_db` taking
         # no row is an ordinary empty removal and would answer the caller 200.
-        await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": sperrliste_id}, projection=["_id"], session=session)
+        await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, projection=["_id"], session=session)
 
-        await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": sperrliste_id}, session=session)
+        await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
 
     async with transaction_session(db) as session:
         await session.with_transaction(lift_the_ban)
 
-    return FLSperrlisteWriteResponse(sperrliste_id=sperrliste_id)
+    return FLBanListWriteResponse(ban_list_entry_id=ban_list_entry_id)

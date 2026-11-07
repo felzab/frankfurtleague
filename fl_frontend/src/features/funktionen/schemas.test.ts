@@ -89,7 +89,7 @@ describe("the request the erasure answers", () => {
     expect(refused(REASON)).toBe(undefined);
   });
 
-  /* Each a refusal the API makes too (`fl_backend/app/api/sperrliste/schemas.py :: ADDRESS_IN_FREE_TEXT` for the
+  /* Each a refusal the API makes too (`fl_backend/app/api/ban_list/schemas.py :: ADDRESS_IN_FREE_TEXT` for the
      address): the log keeps the reason a year, past the redaction of anybody it names. */
   it("refuses a blank one, an over-long one, one of two lines and one holding an address, each in German", () => {
     expect(refused("   ")).toBe("Bitte gib einen Anlass ein.");

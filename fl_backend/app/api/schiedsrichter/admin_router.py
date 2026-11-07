@@ -8,7 +8,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import denied_addresses
 from app.api.address_change.services import build_address_filter
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.ban_list.lookup import BanListLookup, ban_list_saison, hash_barred
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
 from app.api.schiedsrichter.crud import owe_the_confirmation
@@ -46,7 +47,6 @@ from app.api.schiedsrichter.services import (
     find_retired_refusal,
     owes_reactivation_mint,
 )
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, hash_barred
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -206,7 +206,7 @@ async def post_schiedsrichter(
 
     email = schiedsrichter_data.kontakt.email
     # Outside the transaction, whose callback may run again: the hash reads nothing, and the season
-    # may be read before it (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # may be read before it (`app/api/ban_list/crud.py :: address_is_barred`).
     hashed = ban_list.hash_of(email)
     governing_saison_id = await ban_list_saison(ban_list)
 
@@ -299,7 +299,7 @@ async def patch_schiedsrichter(
     payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
     hashed = ban_list.hash_of(email)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and read on every
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`), and read on every
     # save: whether a mint is owed is decided in-session below.
     governing_saison_id = await ban_list_saison(ban_list)
 
@@ -441,7 +441,7 @@ async def reactivate_schiedsrichter(
     person behind it.
     """
 
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def reactivate_and_ask(session: AsyncClientSession) -> tuple[Mapping[str, Any], str | None]:
@@ -522,7 +522,7 @@ async def invite_schiedsrichter(
     credential that can never be spent.
     """
 
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_mint(session: AsyncClientSession) -> str:

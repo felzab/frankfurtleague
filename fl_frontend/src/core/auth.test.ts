@@ -2339,7 +2339,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {
-  /* One person, one spelling in `aktionen.actor.email`: this lane and the person's lane compose the
+  /* One person, one spelling in `action_log.actor.email`: this lane and the person's lane compose the
      actor from one address, so a log filtered on it holds every write they made. */
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
