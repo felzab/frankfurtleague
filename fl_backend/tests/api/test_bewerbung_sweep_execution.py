@@ -1797,8 +1797,8 @@ class TestTheSeasonsEndStripsItsConfirmations:
 
         # The premise: the pass cleared the season's one block, which is what owes the strip.
         assert response.kontakt_blocks_emptied == 1
-        # This season's two rows, each counted for its entries and again for its reason.
-        assert deletions == [("system", SAISON_ID, 4, None)]
+        # Both rows' reasons and the replaced club's entries: the block's clearing took the club's own entries with its seats.
+        assert deletions == [("system", SAISON_ID, 3, None)]
         kept = rows["own"]["answer"]
         stripped = {**kept, "reason": None}
         for name in ("own", "replaced"):
