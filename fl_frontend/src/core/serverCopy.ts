@@ -497,7 +497,8 @@ export const SERVER_COPY = catalogue({
       effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
       ends: (saison: string) => `Die Sperre endet nach der ${COPY.shared.saisonName(saison)} von selbst.`,
       stored: "In der Sperrliste stehen deine Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
-      account: "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht.",
+      account:
+        "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht. Die Sperre bleibt auch nach einer Löschung bis zu ihrem Ende.",
       basis:
         "Wir speichern das auf Grundlage unseres berechtigten Interesses, den Spielbetrieb vor Störungen zu schützen (Art. 6 Abs. 1 lit. f DSGVO).",
       /** Around the league's address. */
@@ -538,7 +539,7 @@ export const SERVER_COPY = catalogue({
       },
       /** On what waits. */
       effectiveFrom: (moment: string) => `Die Änderung gilt ab ${formatInstant(moment)}.`,
-      warn: `Kommt dir das falsch vor? Dann melde dich sofort bei der ${ownerTier}, nicht per E-Mail.`,
+      warn: `Stimmt das nicht, melde dich sofort bei der ${ownerTier}.`,
       button: "Zur Verwaltung",
       /** An erased person's address, in the subject's place. */
       unnamedAddress: "Eine nicht genannte Adresse",
