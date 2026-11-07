@@ -73,11 +73,7 @@ const addressBox = z
   // Pydantic strips before it validates, so a pasted trailing space is an address the API takes.
   .trim();
 
-/**
- * An address box judged by `accepts`: the erasure's lookup accepts more than a write does, and the
- * messages are one set, so a rewording reaches both.
- */
-export function addressSchema(accepts: (address: string) => boolean, box: z.ZodString = addressBox) {
+function addressSchema(accepts: (address: string) => boolean, box: z.ZodString = addressBox) {
   return (
     box
       // Ahead of `accepts` and ending the judgement: `isDeliverableAddress` holds the same ceiling in

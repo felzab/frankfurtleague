@@ -66,13 +66,6 @@ export const formButton = tv({
       // `-solid` plus its paired foreground: `bg-danger` is a tint, and under `text-foreground` it falls
       // to 4.00:1 in the dark theme, where this pair clears 4.5:1 in both.
       destructive: "bg-danger-solid text-danger-solid-foreground data-hovered:bg-danger-solid-hover",
-      /**
-       * The CRUD header's create button. Its height mirrors `SearchBar`'s group at every breakpoint, since the
-       * two share that row; below `sm` it continues the bar, with flattened left corners and its label for screen
-       * readers alone.
-       */
-      trigger:
-        "shrink-0 gap-x-2 bg-brand-solid font-bold text-brand-solid-foreground shadow-sm data-hovered:bg-brand-solid-hover max-sm:rounded-l-none max-sm:px-4 lg:min-h-15",
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "w-full" },
@@ -102,10 +95,7 @@ export const confirmButton = (isConfirming: boolean): string =>
  * The numbers cancel `ModalShell`'s body inset exactly, so this is the one place that follows if it moves.
  * **A call site must not add `w-full`**: with no `twMerge` in the path, `.w-full` is emitted last and silently wins.
  */
-export const MODAL_FOOTER_CLASSES = "-mx-4 w-[calc(100%+2rem)] border-t border-border px-4 pt-4";
-
-/** The band with a symmetrical pair in it, its flex shape declared beside the width a site must not restate. */
-export const MODAL_FOOTER_ROW_CLASSES = `${MODAL_FOOTER_CLASSES} flex flex-row items-center justify-evenly gap-3`;
+const MODAL_FOOTER_CLASSES = "-mx-4 w-[calc(100%+2rem)] border-t border-border px-4 pt-4";
 
 /**
  * The band for a pair that is not symmetrical — one of the two discards work. Stacked at every width, since

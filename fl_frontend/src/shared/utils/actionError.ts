@@ -188,17 +188,6 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
   };
 }
 
-/** The toast title of a link send whose outcome is unknown: a send saves nothing, so the title saves nothing either. */
-export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
-
-/**
- * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is,
- * never `unansweredAction`'s unclear save. One sentence for every read.
- */
-export function unansweredRead(): ActionFailure {
-  return { success: false, error: UNKNOWN_REFUSAL };
-}
-
 /** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
 function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
   // A request the running API does not take, naming only a query parameter or the body whole, or

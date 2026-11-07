@@ -1,13 +1,6 @@
-import { identityGetErasureView, identityGetReferences, identityPostErasure, identityPostSignOut } from "@/core/generated/client/sdk";
+import { identityGetReferences } from "@/core/generated/client/sdk";
 
-import type {
-  FLErasureAddressPayload,
-  FLErasurePayload,
-  FLErasureResponse,
-  FLErasureViewResponse,
-  FLReferencesPayload,
-  FLReferencesResponse,
-} from "@/core/generated/client/types";
+import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 
 /**
  * Which of these sign-in addresses no record references, for the account sweep. Here rather than in
@@ -16,22 +9,4 @@ import type {
 export async function postReferenzen(payload: FLReferencesPayload): Promise<FLReferencesResponse> {
   // A POST that reads, the addresses in the body: a query string would put them on the access line.
   return identityGetReferences(payload);
-}
-
-/**
- * The address travels in the BODY: a path or a query would file it in the access log and in `action_log.request.path`.
- * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
- */
-export async function readLoeschungAnsicht(payload: FLErasureAddressPayload): Promise<FLErasureViewResponse> {
-  return identityGetErasureView(payload);
-}
-
-/** Erases every league record of the address, the sign-in account left to the caller once this has answered. */
-export async function loeschenAufAnfrage(payload: FLErasurePayload): Promise<FLErasureResponse> {
-  return identityPostErasure(payload);
-}
-
-/** Files the sign-out on the log, naming no address, before the caller ends a single session. */
-export async function recordAbmeldung(payload: FLErasureAddressPayload): Promise<void> {
-  await identityPostSignOut(payload);
 }

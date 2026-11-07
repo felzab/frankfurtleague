@@ -14,7 +14,7 @@ const classesOf = (emitted: string): ReadonlySet<string> => new Set(emitted.spli
  * satisfied by whichever variant still carries the property and says nothing about the one that dropped it.
  */
 const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
-  ...(["submit", "cancel", "destructive", "trigger", "nav"] as const).flatMap((intent) => [
+  ...(["submit", "cancel", "destructive", "nav"] as const).flatMap((intent) => [
     { name: `formButton ${intent}`, classes: classesOf(formButton({ intent })) },
     { name: `formButton ${intent} fullWidth`, classes: classesOf(formButton({ intent, fullWidth: true })) },
   ]),

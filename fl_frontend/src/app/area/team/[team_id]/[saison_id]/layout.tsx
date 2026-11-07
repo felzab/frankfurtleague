@@ -17,8 +17,8 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 type TeamParams = Promise<{ team_id: string; saison_id: string }>;
 
 /**
- * Not async, for the reason `fl_frontend/src/app/area/admin/layout.tsx` states, and `params` is never
- * awaited here: the address is unknown to the build, so each part reading it waits in its own boundary
+ * Not async on purpose: awaiting the session here would make the whole shell a dynamic hole. `params` is never
+ * awaited here either: the address is unknown to the build, so each part reading it waits in its own boundary
  * beside the session's.
  */
 export default function TeamLayout({ children, params }: { children: React.ReactNode; params: TeamParams }) {
