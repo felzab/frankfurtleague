@@ -4,6 +4,7 @@ import { EMAIL_WORDS, FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { requires } from "@/core/action";
+import { HOLDER_WAIT } from "@/core/addressChange";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -44,12 +45,14 @@ function pendingOf(open: FLAccountAddressChangeOpen): Pending {
 async function SignInContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSignIn.path());
   const [change, held] = await Promise.all([getAccountAddressChange(), passkeysOf(served.user.id).then((rows) => rows.length > 0)]);
+  const tier = subject.records.admin_tier;
   return (
     <SignInBoxes
       email={subject.email}
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
-      lastOwner={subject.records.admin_tier === "owner" ? SERVER_COPY.refusalLine.owner_erasure : undefined}
+      holderWait={tier === null ? undefined : COPY.account.address.holderWait(HOLDER_WAIT[tier])}
+      lastOwner={tier === "owner" ? SERVER_COPY.refusalLine.owner_erasure : undefined}
       addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );
