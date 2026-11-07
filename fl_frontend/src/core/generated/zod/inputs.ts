@@ -27,48 +27,50 @@ export const AccountPostAddressChangeBody = zod.object({
 /**
  * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
  *
+ * A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
+ * `http.answered` line, where the log's scrubber reads no `%40`.
+ *
  * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
  * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
  * @summary List recorded acts
  */
-export const actionLogGetActionLogQueryCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const actionLogGetActionLogQueryQOneMax = 200;
+export const actionLogGetActionLogBodyCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const actionLogGetActionLogBodyQOneMax = 200;
 
-export const actionLogGetActionLogQueryFromDayOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const actionLogGetActionLogQueryUntilDayOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-
-export const ActionLogGetActionLogQueryParams = zod.object({
-  cursor: zod.union([zod.string().regex(actionLogGetActionLogQueryCursorOneRegExp), zod.null()]).optional(),
-  q: zod.union([zod.string().max(actionLogGetActionLogQueryQOneMax), zod.null()]).optional(),
-  by: zod.union([zod.string(), zod.null()]).optional(),
-  type: zod
-    .union([
-      zod.array(
-        zod.enum([
-          "saison",
-          "spieltag",
-          "spiel",
-          "spielbestaetigung",
-          "spielbericht",
-          "team",
-          "bewerbung",
-          "registrierung",
-          "spieler",
-          "schiedsrichter",
-          "spielort",
-          "grant",
-          "ban",
-          "address_change",
-          "erasure",
-          "retention",
-        ]),
-      ),
-      zod.null(),
-    ])
-    .optional(),
-  from_day: zod.union([zod.string().regex(actionLogGetActionLogQueryFromDayOneRegExp), zod.null()]).optional(),
-  until_day: zod.union([zod.string().regex(actionLogGetActionLogQueryUntilDayOneRegExp), zod.null()]).optional(),
-});
+export const ActionLogGetActionLogBody = zod
+  .object({
+    by: zod.union([zod.string(), zod.null()]).optional(),
+    cursor: zod.union([zod.string().regex(actionLogGetActionLogBodyCursorOneRegExp), zod.null()]).optional(),
+    from_day: zod.union([zod.iso.date(), zod.null()]).optional(),
+    q: zod.union([zod.string().max(actionLogGetActionLogBodyQOneMax), zod.null()]).optional(),
+    type: zod
+      .union([
+        zod.array(
+          zod.enum([
+            "saison",
+            "spieltag",
+            "spiel",
+            "spielbestaetigung",
+            "spielbericht",
+            "team",
+            "bewerbung",
+            "registrierung",
+            "spieler",
+            "schiedsrichter",
+            "spielort",
+            "grant",
+            "ban",
+            "address_change",
+            "erasure",
+            "retention",
+          ]),
+        ),
+        zod.null(),
+      ])
+      .optional(),
+    until_day: zod.union([zod.iso.date(), zod.null()]).optional(),
+  })
+  .describe("What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.");
 
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
@@ -2012,9 +2014,8 @@ export const SchiedsrichterDeleteSchiedsrichterParams = zod.object({
  * (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
  *
  * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
- * lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
- * beside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last
- * confirmation mail the referee was owed, null where none was.
+ * lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
+ * was owed, null where none was.
  * @summary One Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterByIdPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3439,7 +3440,7 @@ export const TeamsPatchEinwilligungBody = zod
 /**
  * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
  *
- * `version` is what the one save sends. `membership` serves the row with its seats' links and address changes, null for
+ * `version` is what the one save sends. `membership` serves the row with its seats' links, null for
  * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
  * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
  * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season

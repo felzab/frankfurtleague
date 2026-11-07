@@ -15,7 +15,7 @@ from app.shared.einwilligung_evidence import (
     is_given,
 )
 
-# Three instants, in order, as `app/core/recording.py :: log_stamp` spells one.
+# Three instants, in order, as `app/core/clock.py :: utc_stamp` spells one.
 GIVEN_AT: Final = "2026-04-01T10:30:00+00:00"
 WITHDRAWN_AT: Final = "2026-05-02T07:00:00+00:00"
 LATER: Final = "2026-07-04T12:00:00+00:00"

@@ -53,7 +53,7 @@ def _current(alias: TypeAliasType) -> str:
 class FLEinwilligungReceipt(BaseModel):
     """When a person set one consent choice, and under which wording."""
 
-    # An instant in UTC (`app/core/recording.py :: log_stamp`), where the block carries a day: two
+    # An instant in UTC (`app/core/clock.py :: utc_stamp`), where the block carries a day: two
     # acts on one day are ordered by it.
     at: str
     # The words the person was shown for this choice. Any record's label on a read, and its own kind's and choice's on

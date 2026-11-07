@@ -79,6 +79,8 @@ SaisonTeamsReadCollection = Annotated[ReadCollection, Depends(collection_depende
 
 SaisonSpielerReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SAISON_SPIELER))]
 
+ActionLogReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.ACTION_LOG))]
+
 BewerbungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.BEWERBUNGEN))]
 
 BanListReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.BAN_LIST))]

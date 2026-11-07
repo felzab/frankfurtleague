@@ -122,8 +122,8 @@ type FLAdminTier = Literal["owner", "administration"]
 # confirmation. No third: whoever can still sign in at the address on file changes it themselves.
 type FLAddressChangeWay = Literal["account", "waiting_period"]
 
-# Why the address tool refuses this reader an address's change, served beside every id a page links into
-# it: `own_address` their own address, `admin_address` a grant holder's without an owner's power.
+# Why the address tool refuses this reader an address's change: `own_address` their own address, `admin_address`
+# a grant holder's without an owner's power.
 type FLAddressChangeViewableDenied = Literal["own_address", "admin_address"]
 
 # What the change waits on: the address on file's confirmation of the person's own change through the link it was

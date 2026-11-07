@@ -8,7 +8,7 @@ import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { dayIn } from "@/core/format";
 
 import type { Copy, Words } from "@/core/copy";
-import type { ActionLogGetActionLogParams, FLActionType } from "@/core/generated/client/types";
+import type { FLActionLogFilterPayload, FLActionType } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 
 const WORDS = COPY.admin.actionLog;
@@ -107,7 +107,7 @@ export type ChosenFilters = { by?: string | null; type?: ActionTypeChoice | null
  * The filters as the read asks them: one „Art“ may stand for several categories, and a preset is the German
  * day it reaches back to, counted from the day it is read.
  */
-export function logParams({ by = null, type = null, time = null }: ChosenFilters): ActionLogGetActionLogParams {
+export function logParams({ by = null, type = null, time = null }: ChosenFilters): FLActionLogFilterPayload {
   return {
     by,
     type: type === null ? null : (Object.keys(CHOICE_OF) as FLActionType[]).filter((category) => CHOICE_OF[category] === type),

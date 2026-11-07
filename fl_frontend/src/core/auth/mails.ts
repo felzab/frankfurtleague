@@ -16,8 +16,8 @@ import type { FLOutboxSignInPayload, FLPasskeyDataKind } from "../generated/clie
  * Owes one mail of the sign-in library through the Postausgang, which the write drains at once. A secret -- the code, the
  * deletion token -- leaves sealed under this frontend's own secret by the library's own cipher
  * (`better-auth/crypto :: symmetricEncrypt`), so no backend row holds it readable; the drain opens it
- * (`fl_frontend/src/core/mail.ts :: sendHandedOut`). The backend tries the mail once: a failed send's repair is the
- * library's own, a fresh code or link.
+ * (`fl_frontend/src/core/mail.ts :: sendHandedOut`). The backend tries each of the library's own kinds once, a failed
+ * send's repair being the library's, a fresh code or link; the deletion notice, which nothing repairs, it tries again.
  */
 export async function oweSignInMail(
   to: string,

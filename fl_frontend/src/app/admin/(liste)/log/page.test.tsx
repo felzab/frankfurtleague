@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { actionLogGetActionLogQueryQOneMax } from "@/core/generated/zod/inputs";
+import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { byOptions } from "@/features/action-log/filters";
 
 import ActionLogPage from "./page";
 
-import type { ActionLogGetActionLogParams, FLActionLogListResponse } from "@/core/generated/client/types";
+import type { FLActionLogFilterPayload, FLActionLogListResponse } from "@/core/generated/client/types";
 import type { ListMore, ListSearch } from "@/kit/ListTable";
 import type { TableBody } from "@/kit/Table";
 
-const state = vi.hoisted(() => ({ asked: [] as ActionLogGetActionLogParams[], answer: null as unknown }));
+const state = vi.hoisted(() => ({ asked: [] as FLActionLogFilterPayload[], answer: null as unknown }));
 
 vi.mock("@/features/action-log/queries", () => ({
-  getActionLog: (params: ActionLogGetActionLogParams) => {
+  getActionLog: (params: FLActionLogFilterPayload) => {
     state.asked.push(params);
     return state.answer instanceof Error ? Promise.reject(state.answer) : Promise.resolve(state.answer);
   },
@@ -76,7 +76,7 @@ describe("the Protokoll's reads", () => {
   /* A paste past the bound would reach the read, which refuses it with the shared failure line and no word of why. */
   it("stops the search at the bound the read holds", () => {
     state.answer = answer({});
-    expect(pageOf({}).props.list.search.maxLength).toBe(actionLogGetActionLogQueryQOneMax);
+    expect(pageOf({}).props.list.search.maxLength).toBe(actionLogGetActionLogBodyQOneMax);
   });
 
   /* An outage answering „Noch keine Einträge.“ would read as a log with nothing in it. */

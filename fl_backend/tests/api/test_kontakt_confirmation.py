@@ -59,7 +59,7 @@ DEADLINE = confirmation_deadline_from(today=TODAY)
 # The day after the deadline a link minted on `TODAY` carries.
 AFTER_THE_DEADLINE = "2026-04-16"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
+# Written out rather than computed from `utc_stamp`, which would agree with any conversion of `NOW`.
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607a50001")
 ROW_OID = ObjectId("6890a1b2c3d4e5f607a50011")

@@ -15,8 +15,8 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
 # member written from the facts that write holds.
 
-# --- The sign-in library's mails, each owed through `POST /outbox/sign_in` and never by a league write. Each
-# secret one rides in the row's `secret`, never here.
+# --- The mails owed through `POST /outbox/sign_in`: the sign-in library's own, which no league write owes, and the
+# deletion notice, which one does too. Each secret one rides in the row's `secret`, never here.
 
 
 class FLSignInCodeData(BaseModel):

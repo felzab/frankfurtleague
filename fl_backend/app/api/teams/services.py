@@ -978,54 +978,6 @@ def with_link_state(
     return [{**team, "memberships": [served(row) for row in team.get("memberships", [])]} for team in teams_raw]
 
 
-def _seat_identifier(row: Mapping[str, Any], seat: str) -> str | None:
-    person = (row.get("kontakte") or {}).get(seat)
-    email = person.get("email") if isinstance(person, Mapping) else None
-
-    return sign_in_identifier(email) if isinstance(email, str) else None
-
-
-def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Every seat's address on the memberships read, folded as an address change is keyed."""
-
-    return sorted(
-        {
-            identifier
-            for team in teams
-            for row in team.get("memberships", [])
-            for seat in KONTAKT_ROLLEN
-            if (identifier := _seat_identifier(row, seat)) is not None
-        }
-    )
-
-
-def with_address_changes(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], denied: Mapping[str, str]) -> list[dict[str, Any]]:
-    """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
-
-    An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identity/services.py ::
-    own_seats`).
-    """
-
-    def seen(row: Mapping[str, Any], seat: str) -> Any:
-        person = row["kontakte"].get(seat)
-        identifier = _seat_identifier(row, seat)
-        if identifier is None or not isinstance(person, Mapping) or not is_confirmed(person.get("einwilligung")):
-            return None
-        return live.get(identifier)
-
-    def per_seat(row: Mapping[str, Any]) -> dict[str, Any] | None:
-        if not isinstance(row.get("kontakte"), Mapping):
-            return None
-        ids = {seat: seen(row, seat) for seat in KONTAKT_ROLLEN}
-
-        return {
-            **ids,
-            "viewable_denied": {seat: None if ids[seat] is None else denied.get(str(_seat_identifier(row, seat))) for seat in KONTAKT_ROLLEN},
-        }
-
-    return [{**team, "memberships": [{**row, "address_change": per_seat(row)} for row in team.get("memberships", [])]} for team in teams]
-
-
 def as_unconfirmed(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     """A seat's record held unconfirmed, as it stands until its person answers.
 
