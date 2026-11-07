@@ -12,7 +12,7 @@ Invariants:
 """
 
 import re
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from types import MappingProxyType, TracebackType
@@ -78,6 +78,19 @@ SEATED_OBJECTION_HOMES: Final = frozenset({Collection.SAISON_TEAMS, Collection.B
 _HASH: Final = re.compile(r"[0-9a-f]{64}")
 # A label, a seat or a choice's value: one word, so no value can carry a second token or an address.
 _WORD: Final = re.compile(r"[0-9a-z_-]+")
+
+
+# The three acts a restore would undo, which a runbook step repeats from these lines.
+PrivacyAct = Literal["erasure", "withdrawal", "objection"]
+
+
+def privacy_line(act: PrivacyAct, records: Sequence[str], choices: Sequence[str] = (), seats: Sequence[str] = ()) -> None:
+    """One INFO line naming the act and each record as `collection/id`, with a withdrawal's choices and an objection's slots by name.
+
+    Never a value, an address or a name: the line outlives the erasure it reports. Every key stands on every line, so a reader can rely on it.
+    """
+
+    journal_logger.info("journal.act", extra={"act": act, "records": list(records), "choices": list(choices), "seats": list(seats)})
 
 
 def lost_its_answer(failure: BaseException | None) -> bool:
@@ -265,7 +278,7 @@ class Journal:
     """
 
     def __init__(self) -> None:
-        self._noted: list[JournalLine] = []
+        self._noted: list[tuple[PrivacyAct | JournalLine, Sequence[str], Sequence[str], Sequence[str]]] = []
 
     def attempted[T, *Arguments](
         self, callback: Callable[[AsyncClientSession, *Arguments], Awaitable[T]]
@@ -278,8 +291,8 @@ class Journal:
 
         return noting_afresh
 
-    def note(self, line: JournalLine) -> None:
-        self._noted.append(line)
+    def note(self, act: PrivacyAct | JournalLine, records: Sequence[str] = (), choices: Sequence[str] = (), seats: Sequence[str] = ()) -> None:
+        self._noted.append((act, records, choices, seats))
 
     async def __aenter__(self) -> Journal:
         return self
@@ -287,5 +300,8 @@ class Journal:
     async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
         # A lost answer journals too: the act may have landed, and replaying what its person asked for wrongs nobody.
         if failure is None or lost_its_answer(failure):
-            for line in self._noted:
-                journal_logger.info(line.text())
+            for act, records, choices, seats in self._noted:
+                if isinstance(act, JournalLine):
+                    journal_logger.info(act.text())
+                else:
+                    privacy_line(act, records, choices, seats)
