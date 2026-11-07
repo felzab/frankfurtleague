@@ -111,7 +111,7 @@ describe("the erasure's two stores", () => {
     stand.accountFailure = failure;
 
     // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
-    expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial });
+    expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
     expect(JSON.stringify(stand.logged)).not.toContain("max@example.org");
     expect(stand.logged).toHaveLength(1);
   });

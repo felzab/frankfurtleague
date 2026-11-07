@@ -92,6 +92,6 @@ export const eraseAddress = action({
   run: async ({ email, reason }) => {
     await identityPostErasure({ email, reason });
     if (await accountCleared(email)) return { ok: true, value: undefined, note: COPY.admin.erased };
-    return { ok: false, reason: WORDS.partial };
+    return { ok: false, reason: WORDS.partial, warn: true };
   },
 });
