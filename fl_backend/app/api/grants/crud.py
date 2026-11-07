@@ -14,7 +14,6 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.grants.schemas import as_utc
 from app.api.grants.services import ADMINISTRATION, OWNER, Notice, compose_notice, in_effect
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -29,6 +28,7 @@ from app.core.crud import (
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.custom import as_utc
 from app.shared.schemas.literals import FLAdminTier
 
 

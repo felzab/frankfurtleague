@@ -1,9 +1,8 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.grants.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
-from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString, FLUtcInstant
 from app.shared.schemas.einwilligung import FLEinwilligungState
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import (

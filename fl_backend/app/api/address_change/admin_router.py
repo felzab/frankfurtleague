@@ -31,7 +31,6 @@ from app.api.address_change.schemas import (
 )
 from app.api.address_change.services import (
     LIVE_KEYED_TERMS,
-    as_utc,
     build_address_filter,
     build_live_filter,
     build_resendable_terms,
@@ -44,6 +43,7 @@ from app.api.address_change.services import (
     find_taken_refusal,
     find_unchanged_refusal,
     is_expired,
+    stored_instant,
     waits_on,
 )
 from app.api.grants.crud import read_grants
@@ -112,10 +112,10 @@ def _pending_addresses(record: Mapping[str, Any], *, delivery: FLOutboxStatus | 
         change_reason=record.get("change_reason"),
         waits_on=waits_on(record),
         sent_at=record["sent_at"],
-        valid_until=as_utc(record.get("valid_until")),
-        released_at=as_utc(record.get("released_at")),
-        confirmed_at=as_utc(record.get("confirmed_at")),
-        effective_from=as_utc(record.get("effective_from")),
+        valid_until=stored_instant(record.get("valid_until")),
+        released_at=stored_instant(record.get("released_at")),
+        confirmed_at=stored_instant(record.get("confirmed_at")),
+        effective_from=stored_instant(record.get("effective_from")),
         delivery=delivery,
         expired=is_expired(record, now=now),
     )
@@ -394,7 +394,7 @@ async def invite_address_change(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        valid_until = as_utc(updated["valid_until"])
+        valid_until = stored_instant(updated["valid_until"])
         assert valid_until is not None
 
         await owe_the_link_in_session(

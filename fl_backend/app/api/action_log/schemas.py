@@ -2,10 +2,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.api.grants.schemas import FLUtcInstant
 from app.core.recording import FLAction, FLActionType
 from app.shared.schemas.bounds import ACTION_LOG_SEARCH_MAX_LENGTH
-from app.shared.schemas.custom import CustomDateString, CustomObjectId
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, FLUtcInstant
 from app.shared.schemas.responses import BaseAPIResponse
 
 

@@ -22,6 +22,7 @@ from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from app.shared.schemas.custom import as_utc
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay
 
 ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
@@ -42,13 +43,10 @@ LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"address": {"$type": "string"}, **LIVE_TERMS}
 
 
-def as_utc(moment: Any) -> datetime | None:
-    """A stored instant marked as the UTC it is, the driver reading one back with no offset; `None` for anything else."""
+def stored_instant(moment: Any) -> datetime | None:
+    """A field a stage of the change may leave empty, as `as_utc` marks it; `None` for anything else."""
 
-    if not isinstance(moment, datetime):
-        return None
-
-    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+    return as_utc(moment) if isinstance(moment, datetime) else None
 
 
 def valid_until_from(now: datetime) -> datetime:
@@ -222,7 +220,7 @@ def build_due_terms(now: datetime) -> dict[str, Any]:
 def is_expired(record: Mapping[str, Any], *, now: datetime) -> bool:
     """Whether the link's question a live change waits on has lapsed, judged as `build_lapsed_terms` removes it."""
 
-    valid_until = as_utc(record.get("valid_until"))
+    valid_until = stored_instant(record.get("valid_until"))
 
     return valid_until is not None and valid_until <= now
 
@@ -357,7 +355,7 @@ def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | 
     start is held to one mail per interval whichever press owed the last, and nothing beside the record is stored.
     """
 
-    valid_until = as_utc(live_valid_until)
+    valid_until = stored_instant(live_valid_until)
     if valid_until is None:
         return None
 

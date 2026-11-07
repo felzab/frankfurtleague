@@ -5,7 +5,6 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 
 from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
 from app.api.ban_list.schemas import refuse_an_address_in_the_reason
-from app.api.grants.schemas import FLUtcInstant
 from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
@@ -14,6 +13,7 @@ from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
+    FLUtcInstant,
 )
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
@@ -21,8 +21,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
-# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling. The log row of
-# the start carries it as its label, so an address typed here would stand in the log for a year.
+# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling.
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAddressChangeReason = Annotated[
     str,

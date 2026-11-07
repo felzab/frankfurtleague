@@ -2,10 +2,9 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
-from app.api.grants.schemas import FLUtcInstant
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here

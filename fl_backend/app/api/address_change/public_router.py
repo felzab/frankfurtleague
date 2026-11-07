@@ -30,7 +30,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeViewResponse,
 )
 from app.api.address_change.services import (
-    as_utc,
     asks_the_address_on_file,
     build_either_link_filter,
     build_open_link_terms,
@@ -45,6 +44,7 @@ from app.api.address_change.services import (
     new_state,
     previous_state,
     side_of,
+    stored_instant,
     wait_after_confirmation,
 )
 from app.api.identity.lookup import SubjectLookup
@@ -142,9 +142,9 @@ async def get_address_change_view(
     ended = record.get("ended")
     if isinstance(ended, Mapping):
         # Marked UTC first: the driver reads the stored instant back with no offset, which a conversion would take as local.
-        ended_at = as_utc(ended["at"])
+        ended_at = stored_instant(ended["at"])
         assert ended_at is not None
-        released_at = as_utc(record.get("released_at")) if side == "previous" else None
+        released_at = stored_instant(record.get("released_at")) if side == "previous" else None
         return FLAddressChangeViewResponse(
             view=FLAddressChangeViewEnded(
                 side=side,
@@ -156,10 +156,10 @@ async def get_address_change_view(
             )
         )
 
-    valid_until, effective_from = as_utc(record.get("valid_until")), as_utc(record.get("effective_from"))
+    valid_until, effective_from = stored_instant(record.get("valid_until")), stored_instant(record.get("effective_from"))
     if side == "previous":
         state_previous = previous_state(record, now=germany_now)
-        released_at = as_utc(record.get("released_at"))
+        released_at = stored_instant(record.get("released_at"))
         return FLAddressChangeViewResponse(
             view=FLAddressChangeViewPrevious(
                 side="previous",
@@ -336,7 +336,7 @@ async def post_address_change_answer(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        effective_from = as_utc(confirmed["effective_from"])
+        effective_from = stored_instant(confirmed["effective_from"])
         if holdings.grant is not None:
             await record_act(
                 collection=address_changes_collection,
@@ -401,7 +401,7 @@ async def _answer_for_the_address_on_file(
         expected_version=None,
         return_document=ReturnDocument.AFTER,
     )
-    valid_until = as_utc(released["valid_until"])
+    valid_until = stored_instant(released["valid_until"])
     assert valid_until is not None
     grant = await live_grant_of(str(released["address"]), grants_collection=grants_collection, session=session)
     await owe_the_link_in_session(

@@ -13,10 +13,11 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage, as_utc
+from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.custom import as_utc
 
 OWNER: Final = "owner"
 ADMINISTRATION: Final = "administration"

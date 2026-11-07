@@ -1,23 +1,13 @@
-from datetime import UTC, datetime
-from typing import Annotated, Literal
+from datetime import datetime
+from typing import Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.crud import Anchored
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAdminTier
 from app.shared.schemas.responses import BaseAPIResponse
-
-
-def as_utc(moment: datetime) -> datetime:
-    """An instant marked as the UTC it is: the driver reads a stored one back with no offset, and served so it reads as local time."""
-
-    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
-
-
-# Every instant a grants route serves, which then carries its offset.
-FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 # What a notice is about: an addition, a removal, a handover, or a holder's own address change.
 FLGrantChange = Literal["granted", "revoked", "handover", "address"]

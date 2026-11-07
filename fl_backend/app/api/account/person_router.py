@@ -30,7 +30,6 @@ from app.api.address_change.crud import (
     tell_the_holders_of_the_end_in_session,
 )
 from app.api.address_change.services import (
-    as_utc,
     build_address_filter,
     compose_record,
     find_nothing_refusal,
@@ -38,6 +37,7 @@ from app.api.address_change.services import (
     find_unchanged_refusal,
     is_expired,
     masked_address,
+    stored_instant,
     waits_on,
 )
 from app.api.identity.crud import roles_from
@@ -126,8 +126,8 @@ def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccount
         email=record["email"] if record["way"] == "account" else masked_address(str(record["email"])),
         way=record["way"],
         waits_on=waits_on(record),
-        valid_until=as_utc(record.get("valid_until")),
-        effective_from=as_utc(record.get("effective_from")),
+        valid_until=stored_instant(record.get("valid_until")),
+        effective_from=stored_instant(record.get("effective_from")),
         expired=is_expired(record, now=now),
     )
 
