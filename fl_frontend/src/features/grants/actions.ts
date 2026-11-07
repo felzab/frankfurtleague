@@ -4,14 +4,7 @@ import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
 import { COPY } from "@/core/copy";
-import {
-  addressChangeDeleteAddressChange,
-  grantsDeleteGrant,
-  grantsDeleteHandover,
-  grantsPostGrant,
-  grantsPostHandover,
-} from "@/core/generated/client/sdk";
-import { AddressChangeDeleteAddressChangeParams } from "@/core/generated/zod/inputs";
+import { grantsDeleteGrant, grantsDeleteHandover, grantsPostGrant, grantsPostHandover } from "@/core/generated/client/sdk";
 
 import { GRANT_ID, NEW_GRANT_EMAIL } from "./schemas";
 
@@ -23,9 +16,6 @@ const OfGrant = z.object({ id: GRANT_ID, ...PAGE_HOLDER });
 
 /** The handover's dialog, its select posting the current administrator chosen. */
 const HandoverChoice = z.object({ grant_id: GRANT_ID, ...PAGE_HOLDER });
-
-/** The withdrawal of a holder's waiting address change. */
-const OfAddressChange = z.object({ id: AddressChangeDeleteAddressChangeParams.shape.address_change_id, ...PAGE_HOLDER });
 
 /** Adds an administrator, whose access holds once the wait has passed, every holder and the person told. */
 export const addAdministrator = action({
@@ -75,19 +65,6 @@ export const stopHandover = action({
   input: OfGrant,
   run: async ({ id }) => {
     await grantsDeleteHandover(id);
-    return { ok: true, value: undefined };
-  },
-});
-
-/** Withdraws a holder's waiting address change, the address on file staying. */
-export const stopAddressChange = action({
-  lane: "admin",
-  name: "stopAddressChange",
-  passkey: true,
-  input: OfAddressChange,
-  ownWords: ["admin_address"],
-  run: async ({ id }) => {
-    await addressChangeDeleteAddressChange(id);
     return { ok: true, value: undefined };
   },
 });

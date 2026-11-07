@@ -6,16 +6,8 @@ import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import {
-  addressChangeDeleteAddressChange,
-  addressChangeInviteAddressChange,
-  addressChangePostAddressChangeAdmin,
-} from "@/core/generated/client/sdk";
-import {
-  AddressChangeDeleteAddressChangeParams,
-  AddressChangeInviteAddressChangeParams,
-  AddressChangePostAddressChangeAdminBody,
-} from "@/core/generated/zod/inputs";
+import { addressChangeInviteAddressChange, addressChangePostAddressChangeAdmin } from "@/core/generated/client/sdk";
+import { AddressChangeInviteAddressChangeParams, AddressChangePostAddressChangeAdminBody } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
@@ -81,19 +73,6 @@ export const resendChangeLink = action({
       return { ok: false, errorCode: "address_change_new_taken", reason: SERVER_COPY.refusalLine.address_change_new_taken };
     }
     await addressChangeInviteAddressChange(address_change_id);
-    return { ok: true, value: undefined };
-  },
-});
-
-/** Ends the change the row shows and no later one: the address on file stays. */
-export const discardChange = action({
-  lane: "admin",
-  passkey: true,
-  name: "discardChange",
-  input: AddressChangeDeleteAddressChangeParams.extend(PAGE_HOLDER),
-  ownWords: ["own_address", "admin_address"],
-  run: async ({ address_change_id }) => {
-    await addressChangeDeleteAddressChange(address_change_id);
     return { ok: true, value: undefined };
   },
 });

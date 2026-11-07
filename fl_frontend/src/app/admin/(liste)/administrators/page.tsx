@@ -10,7 +10,8 @@ import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { addAdministrator, removeAdministrator, startHandover, stopAddressChange, stopHandover } from "@/features/grants/actions";
+import { discardChange } from "@/features/address-change/actions";
+import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
 import { getAddressChanges, getGrants } from "@/features/grants/queries";
 import { GRANT_RULES } from "@/features/grants/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -201,7 +202,7 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
           { label: FACTS.effectiveFrom, value: instantOf(change.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holders },
         ],
-        act: stopAddressChange,
+        act: discardChange,
       }),
     ),
   ];

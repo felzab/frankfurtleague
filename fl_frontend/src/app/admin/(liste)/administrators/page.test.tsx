@@ -28,9 +28,9 @@ vi.mock("@/features/grants/actions", () => ({
   addAdministrator: () => undefined,
   removeAdministrator: () => undefined,
   startHandover: () => undefined,
-  stopAddressChange: () => undefined,
   stopHandover: () => undefined,
 }));
+vi.mock("@/features/address-change/actions", () => ({ discardChange: () => undefined }));
 
 const grant = (address: string, overrides: Partial<FLGrantRow> = {}) =>
   ({

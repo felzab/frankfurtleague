@@ -10,8 +10,9 @@ import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import { COPY } from "@/core/copy";
+import { discardChange } from "@/features/address-change/actions";
 
-import { discardChange, resendChangeLink } from "./addressChangeActs";
+import { resendChangeLink } from "./addressChangeActs";
 
 import type { Fact } from "@/kit/Facts";
 
@@ -35,7 +36,6 @@ export function ChangeActs({
   const router = useRouter();
   const [isSending, startSending] = useTransition();
   const touched = usePasskeyTouch(true, holder);
-  const key = { address_change_id: id, holder };
 
   return (
     <>
@@ -46,7 +46,7 @@ export function ChangeActs({
           isBusy={isSending}
           onPress={() =>
             startSending(async () => {
-              const answer = await answering(touched(resendChangeLink), router.refresh)(key);
+              const answer = await answering(touched(resendChangeLink), router.refresh)({ address_change_id: id, holder });
               appToast(answer.ok ? "success" : "danger", answer.ok ? COPY.shared.toast.linkSent : (answer.reason ?? COPY.shared.toast.failure));
             })
           }
@@ -59,7 +59,7 @@ export function ChangeActs({
         facts={discardFacts}
         tone="danger"
         touch={{ holder }}
-        onConfirm={() => discardChange(key)}
+        onConfirm={() => discardChange({ id, holder })}
         trigger={
           <Button
             variant="quiet"

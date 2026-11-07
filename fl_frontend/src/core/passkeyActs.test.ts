@@ -43,6 +43,7 @@ const erasureActs = await import("@/app/admin/(liste)/erasures/erasureActs");
 const passkeyActs = await import("@/features/passkeys/actions");
 const grantActs = await import("@/features/grants/actions");
 const addressChangeActs = await import("@/app/admin/(liste)/address-changes/addressChangeActs");
+const changeActs = await import("@/features/address-change/actions");
 
 const HOLDER = "pia@example.org";
 const GRANT = "64b000000000000000000002";
@@ -66,7 +67,6 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
   ["an administrator's removal", () => grantActs.removeAdministrator({ id: GRANT, holder: HOLDER })],
   ["a handover's start", () => grantActs.startHandover({ grant_id: GRANT, holder: HOLDER })],
   ["a handover's stop", () => grantActs.stopHandover({ id: GRANT, holder: HOLDER })],
-  ["a holder's address change's stop", () => grantActs.stopAddressChange({ id: GRANT, holder: HOLDER })],
   ["an address's erasure", () => erasureActs.eraseAddress({ email: "max@example.org", reason: "Mail vom 3.11.2026", holder: HOLDER })],
   [
     "a lost-mailbox change's start",
@@ -79,7 +79,7 @@ const TOUCHED: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
       }),
   ],
   ["a change's fresh link", () => addressChangeActs.resendChangeLink({ address_change_id: ADDRESS_CHANGE, holder: HOLDER })],
-  ["a change's discard", () => addressChangeActs.discardChange({ address_change_id: ADDRESS_CHANGE, holder: HOLDER })],
+  ["a change's discard", () => changeActs.discardChange({ id: ADDRESS_CHANGE, holder: HOLDER })],
 ];
 
 describe("the acts behind the passkey touch", () => {
