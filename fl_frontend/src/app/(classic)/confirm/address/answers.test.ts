@@ -27,7 +27,7 @@ vi.mock("@/features/address-change/mutations", async (original) => ({
     return held.answered;
   },
 }));
-vi.mock("@/features/address-change/umzug", () => ({
+vi.mock("@/features/address-change/moves", () => ({
   runAddressChangeMoves: () => {
     held.carries += 1;
     return held.carry();

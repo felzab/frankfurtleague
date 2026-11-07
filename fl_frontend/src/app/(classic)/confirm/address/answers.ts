@@ -9,7 +9,7 @@ import { logger } from "@/core/logging";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { postAddressChangeAnswer, postAddressChangeStop } from "@/features/address-change/mutations";
 import { endsTheLink } from "@/features/address-change/refusals";
-import { runAddressChangeMoves } from "@/features/address-change/umzug";
+import { runAddressChangeMoves } from "@/features/address-change/moves";
 
 import { endOf, LINK_INVALID, STOPPED } from "./ends";
 
