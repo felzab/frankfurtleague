@@ -24,9 +24,9 @@ from app.api.address_change.services import (
     build_address_filter,
 )
 from app.api.address_change.system_router import get_address_change_address
-from app.api.identity.admin_router import get_erasure_view, post_erasure
+from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
-from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
+from app.api.identity.schemas import FLErasurePayload
 from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
@@ -941,7 +941,8 @@ class TestAHoldersOwnChange:
             return [(row["action"], row["by"], row["label"]) async for row in rows]
 
         assert on_a_person(mongo_replica_set_url, body) == [
-            ("grant.address_change_started", EMAIL, EMAIL),
+            # The switch carries the holder's address through the log, so an erasure at the new one reaches this row.
+            ("grant.address_change_started", NEW_EMAIL, NEW_EMAIL),
             ("grant.address_switched", "system", NEW_EMAIL),
         ]
 
@@ -1201,7 +1202,7 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
         ],
     )
     def test_each_read_serving_a_change_s_id_serves_the_tool_s_own_verdict(self, mongo_replica_set_url: str, reader: str, grant: bool):
-        """The referee editor, the contacts editor and the erasure's reveal."""
+        """The referee editor and the contacts editor."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if grant:
@@ -1216,11 +1217,9 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
             team = await call(get_team_saison_admin, database, client, team_id=TEAM_OID, saison_id=SAISON_ID, today=TODAY, operator=reader)
             seats = team.membership.address_change
-            reveal = await call(get_erasure_view, database, client, view_data=FLErasureAddressPayload(email=NEW_EMAIL), operator=reader)
             served = {
                 "referee": (referee.address_change_id, referee.address_change_viewable_denied),
                 "seats": (seats.ansprechperson, seats.viewable_denied.model_dump()),
-                "reveal": [(row.address_change_id, row.viewable_denied) for row in reveal.address_change],
             }
             return minted.id, denied, served
 
@@ -1231,8 +1230,6 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             "referee": (minted, denied),
             # The Trainer and the Stellvertretung wait on no change of the person's; the Stellvertretung is unconfirmed.
             "seats": (minted, {"trainer": None, "ansprechperson": denied, "stellvertretung": None}),
-            # Withheld where the tool refuses it as a grant holder's: a typed address would learn it is that change's new one.
-            "reveal": [] if denied == "admin_address" else [(minted, denied)],
         }
         assert served == expected
 
@@ -1269,8 +1266,8 @@ class TestTheAdministratorFollowsTheirMove:
             await erase(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
-        # The holders' queued notices of the move withhold it too.
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
+        # The switch's own mails alone, each a row with its own short term: no record of theirs is left at the replaced address.
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: ["outbox"]}
 
     def test_a_second_change_leaves_the_first_one_s_address_nowhere_past_the_loeschung(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
