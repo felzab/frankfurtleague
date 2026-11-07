@@ -1,6 +1,7 @@
 import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
 import { OpenFoldPlaceholder, ReadFolds } from "@/kit/ReadFolds";
+import { RowAct } from "@/kit/RowAct";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
@@ -17,8 +18,6 @@ import { addAdministrator, removeAdministrator, startHandover, stopHandover } fr
 import { getGrants } from "@/features/grants/queries";
 import { GRANT_RULES } from "@/features/grants/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
-
-import { RowAct } from "./RowAct";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
