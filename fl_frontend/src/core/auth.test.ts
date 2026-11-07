@@ -2432,14 +2432,14 @@ const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[
   pending: store.verification.filter((held) => pending.includes(held.identifier)).length,
 });
 
-/** The backend's refusal of the erasure for a ban entered since the request was judged, as the API client raises one. */
+/** The backend's refusal of the owner's own erasure, as the API client raises one. */
 async function erasureRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
     url: `${API_ORIGIN}/api/v0/identity/account/erasure`,
-    statusCode: 403,
-    serverErrorCode: "person_barred",
+    statusCode: 409,
+    serverErrorCode: "owner_erasure",
     endpoint: "/identity/account/erasure",
     method: "POST",
     readOnly: false,

@@ -13,9 +13,6 @@ import type { ROUTES } from "./routes";
 /** The route keys of the pages a search engine may list. */
 type ListedRoute = { [Key in keyof typeof ROUTES]: (typeof ROUTES)[Key]["crawl"] extends "index" ? Key : never }[keyof typeof ROUTES];
 
-/** Codes the catalogue words ahead of the backend, which publishes each in `Code` when its write lands. */
-type AnnouncedCode = "owner_erasure" | "address_change_new_taken";
-
 const { team1, team2 } = COPY.admin.spiel;
 const ownerTier = COPY.admin.administrators.owner;
 
@@ -136,8 +133,6 @@ export const SERVER_COPY = catalogue({
     spiel_double_booked: DOUBLE_BOOKED,
     spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.spielort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
-    /** The league's last owner, whose erasure would leave the administration owned by nobody: the glossary's screen word. */
-    last_owner_erasure: "Du bist die letzte Inhaberin oder der letzte Inhaber.",
     /** The owner's own deletion, on `/erasure` and in Konto: the handover frees the account first. */
     owner_erasure: `Mit der ${ownerTier} lässt sich das Konto nicht löschen.`,
     /** An administrator's own address, which only Konto changes or deletes. */
@@ -154,8 +149,6 @@ export const SERVER_COPY = catalogue({
     address_change_nothing: COPY.admin.nothingAtAddress,
     /** The re-send's own, which holds no box to set the field's phrase on. */
     address_change_new_taken: "Die neue Adresse ist schon vergeben.",
-    /** A grant's move nobody but the person could approve. */
-    address_change_no_approver: COPY.account.address.noApprover,
     /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
     address_change_started_recently: COPY.shared.failure.tooManyAttempts,
     /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
@@ -164,13 +157,8 @@ export const SERVER_COPY = catalogue({
     /** A referee retired while matches still to come name them, by the matches' numbers. */
     schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
       Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
-    /** A referee's or a seat's address the ban list holds, where a create, a save or a return would mail it a link. */
-    schiedsrichter_address_barred: ADDRESS_BARRED,
-    bewerbung_kontakt_barred: ADDRESS_BARRED,
-    kontakt_seat_barred: ADDRESS_BARRED,
+    /** An addition or a handover naming an address the ban list holds. */
     grant_barred: ADDRESS_BARRED,
-    /** The public form's own: it names no list, as `COPY.signIn.refusal.noRecord` names none, so nobody can probe the ban list. */
-    bewerbung_address_barred: "Mit einer dieser E-Mail-Adressen ist keine Bewerbung möglich.",
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
     /** A repeated press of the form's submit with changed details. */
@@ -206,9 +194,7 @@ export const SERVER_COPY = catalogue({
     spieltag_outside_saison: "Dieser Zeitraum liegt außerhalb der Saison.",
     spieltag_span_below_spiele: "Ein Spiel liegt außerhalb dieses Zeitraums.",
     spieltag_start_out_of_order: "Der Beginn passt nicht in die Reihenfolge der Spieltage.",
-  } satisfies Partial<
-    Record<Code | AnnouncedCode, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>
-  >,
+  } satisfies Partial<Record<Code, string | Readonly<Record<string, string>> | ((context: FLRefusedField["ctx"]) => string | undefined)>>,
 
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
@@ -605,8 +591,6 @@ export const SERVER_COPY = catalogue({
       confirmed: ADDRESS_CONFIRMED,
       /** The done page's title on a change that waits. */
       confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ab ${formatDateLong(day)}`,
-      /** A grant holder's confirmed change, which waits on another administrator's approval of the grant's move. */
-      awaitsApproval: "Genehmigung ausstehend",
     },
     declined: "Änderung abgelehnt",
   },

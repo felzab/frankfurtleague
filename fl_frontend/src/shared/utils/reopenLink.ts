@@ -1,8 +1,4 @@
 // Redesign: goes with its last importer.
-import { KONTAKT_EMAIL } from "@/core/brand";
-
-import { buildRefusal } from "./refusal";
-
 // A module of its own so the routes and the refusal mappers behind them read these sentences without
 // importing the browser's submit helper, `fl_frontend/src/shared/utils/publicSubmit.ts`.
 
@@ -14,11 +10,3 @@ export const ANTWORT_NEU_OEFFNEN = "Deine Antwort konnten wir so nicht übernehm
 /** The registration page's twin of `ANTWORT_NEU_OEFFNEN`, whose link is the team's rather than a mail's. */
 export const REGISTRIERUNG_NEU_OEFFNEN =
   "Deine Registrierung konnten wir so nicht übernehmen. Öffne den Link Deines Teams erneut und registriere Dich dort.";
-
-// Named plainly where the forms' own refusals are neutral: whoever holds a mailed link holds that
-// mailbox, as a sign-in code's holder does, and the ban's own mail has already told them.
-/** What each link confirmation tells a person whose address was barred after the link was mailed. */
-export const LINK_ADRESSE_GESPERRT = buildRefusal({
-  reason: "Deine E-Mail-Adresse ist gesperrt",
-  repair: `Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}`,
-});
