@@ -378,6 +378,17 @@ class TestAnAddition:
 
         assert on_a_league(mongo_replica_set_url, body) == len(EVERY_HOLDER)
 
+    def test_an_addition_that_aborts_at_its_notice_leaves_neither(self, mongo_replica_set_url: str):
+        """A row written outside the transaction would stand with nobody told, and telling the holders is what the wait is for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            with pytest.raises(RuntimeError):
+                await add(database, client, outbox=cast(AsyncCollection, Aborting(database[Collection.OUTBOX], "insert_many")))
+
+            return await database[Collection.GRANTS].count_documents({"address": NEU}), await database[Collection.OUTBOX].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (0, 0)
+
 
 class TestAWaitCountsHours:
     def test_both_waits_run_their_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):
@@ -628,6 +639,18 @@ class TestTheAnchorClosesEachRace:
             return racing.rival_outcome, outcome, await addresses(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.GRANT_BARRED, EVERY_HOLDER)
+
+    def test_an_addition_landing_beside_a_ban_of_its_address_refuses_the_ban(self, mongo_replica_set_url: str):
+        """The ban's retry judges again inside its callback: judged once outside it, the address ends up both banned and added."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], lambda: add(database, client))
+            outcome = await outcome_of(ban(database, client, grants=racing))
+            racing.assert_landed_inside(serially=1)
+
+            return racing.rival_outcome, outcome, await database[Collection.BAN_LIST].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.BAN_LIST_ADMIN, 0)
 
 
 class TestAMove:
