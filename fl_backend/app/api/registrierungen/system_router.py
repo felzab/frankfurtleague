@@ -47,9 +47,9 @@ router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependen
 
 _TEAM_UNBEKANNT = ""
 
-# Three commands a row (the stamp, its read-back and its log row) and two a share (the Postausgang's key lookup and its
-# insert) beside the fifteen of the worst call erasing one page per clock: 164 commands at a 37 ms round trip plus
-# 1.27 ms take 6.28 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# One command a row (the stamp) and two a share (the Postausgang's key lookup and its insert) beside the thirteen of the
+# worst call erasing one page per clock: 64 commands at a 37 ms round trip plus 1.27 ms take 2.45 s of
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 49
 
 

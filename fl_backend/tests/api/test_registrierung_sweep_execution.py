@@ -532,12 +532,12 @@ class TestASeasonNobodyHas:
         assert len(on_a_league(mongo_replica_set_url, body)) == len(the_corpus())
 
 
-# The reminder's commands a row: the stamp's update, its read-back and its log row.
-ROUND_TRIPS_A_ROW = 3
+# The reminder's one command a row: the stamp's update.
+ROUND_TRIPS_A_ROW = 1
 
 # The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert
 # among them.
-OTHER_COMMANDS = 17
+OTHER_COMMANDS = 15
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:

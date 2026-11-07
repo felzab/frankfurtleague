@@ -80,14 +80,13 @@ from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
-# System tier and the system actor, for `app/api/bewerbungen/system_router.py`'s reason: the timer
-# holds no session, and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
+# System tier, for `app/api/bewerbungen/system_router.py`'s reason: the timer holds no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
     dependencies=[Depends(verify_access_system)],
 )
 
-# Each close costs three commands; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S`
+# Each close costs one command; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S`
 # together, each step's mails owed in two commands of its own.
 CLOSES_PER_PASS: Final = 19
 

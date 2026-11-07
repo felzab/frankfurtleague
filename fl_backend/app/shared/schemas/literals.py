@@ -39,7 +39,7 @@ type FLAustrittType = Literal["disqualifikation", "rueckzug"]
 type FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
 
 # The league's kit palette, slugged for `FLSchulform`'s reason. A slug is never renamed or dropped: stored
-# rows and the action log's images hold it.
+# rows hold it.
 type FLTrikotFarbe = Literal[
     "schwarz",
     "weiss",

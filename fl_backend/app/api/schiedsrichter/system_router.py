@@ -20,7 +20,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system)],
 )
 
-# One transaction's referees. Each erasure is six commands where a pupil's is twenty-two, and ten pupils fit
+# One transaction's referees. Each erasure costs fewer commands than a pupil's, and ten pupils fit
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`app/api/identity/system_router.py :: ERASURES_PER_PASS`).
 SCHIEDSRICHTER_ERASED_PER_PAGE: Final = 10
 

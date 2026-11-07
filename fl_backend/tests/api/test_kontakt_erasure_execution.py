@@ -94,7 +94,7 @@ MATCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607813000")
 NEAR_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{4000 + index:04d}") for index, email in enumerate(NEAR_MISSES)}
 
 # The row an ordinary contact edit moves the erased person OUT of, and one it never stood in. Both
-# hold their FORMER number, which the edit then replaces, so that number lives in the log alone.
+# hold their FORMER number, which the edit then replaces.
 SWAPPED_ROW_OID = ObjectId("6890a1b2c3d4e5f607815001")
 UNTOUCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607815002")
 SWAP_SAISON = "2627"
@@ -148,8 +148,7 @@ def person(last_name: str, phone: str) -> dict[str, Any]:
 def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
     """The five seeded blocks in one of their two states, keyed by the row that holds them.
 
-    The two states differ in every telephone number and in nothing else, so a value found in the log
-    can be attributed to the state it came from.
+    The two states differ in every telephone number and in nothing else.
     """
 
     phones = {last_name: (held if live else replaced) for last_name, (_, held, replaced) in PEOPLE.items()}
@@ -204,8 +203,8 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
-# The counts, both collections keyed by `_id`, and the whole log -- what most cases below read.
-Snapshot = tuple[FLErasureResponse, dict[Any, Mapping[str, Any]], list[Mapping[str, Any]]]
+# The counts and both collections keyed by `_id`: what most cases below read.
+Snapshot = tuple[FLErasureResponse, dict[Any, Mapping[str, Any]]]
 
 
 async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id: ObjectId) -> None:
@@ -310,17 +309,6 @@ async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
     return found
 
 
-async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> list[Mapping[str, Any]]:
-    """Every log row about this document, spelled out here rather than taken from the endpoint's own filter.
-
-    A wrong filter in the endpoint cannot then make these assertions agree with it.
-    """
-
-    rows = database[Collection.ACTION_LOG].find({"collection": str(collection), "document_id": row_id})
-
-    return await rows.to_list(length=None)
-
-
 def a_block_holding(trainer: Mapping[str, Any]) -> dict[str, Any]:
     """One person in the Trainer slot, the other two empty, all four keys present."""
 
@@ -388,9 +376,8 @@ def after_erase_a_swapped_out_person(url: str) -> Snapshot:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await a_swap_moves_them_out(database)
             response = await call_erasure(database, client)
-            log = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
-            return response, await stored_rows(database), log
+            return response, await stored_rows(database)
 
     return on_the_seed_loop(_run())
 
@@ -410,13 +397,12 @@ def after_erase_the_near_misses(url: str) -> tuple[FLErasureResponse, dict[Any, 
 
 
 def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
-    """The counts, both collections and the whole log together: one seeded database serves all three."""
+    """The counts and both collections together: one seeded database serves both."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         response = await call_erasure(database, client, email)
-        log = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
-        return response, await stored_rows(database), log
+        return response, await stored_rows(database)
 
     return on_a_league(url, body)
 
@@ -436,7 +422,7 @@ class TestTheSlotsAreReadOffTheModel:
 def test_the_matching_slot_is_nulled_in_every_season(mongo_replica_set_url: str):
     """The case the endpoint exists for. Kills scoping the erasure to one row, and a transaction that never commits."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
 
     assert rows[ROW_A_EARLIER_OID]["kontakte"]["trainer"] is None
     assert rows[ROW_A_LATER_OID]["kontakte"]["trainer"] is None
@@ -446,7 +432,7 @@ def test_the_matching_slot_is_nulled_in_every_season(mongo_replica_set_url: str)
 def test_one_person_in_two_slots_of_one_row_loses_both(mongo_replica_set_url: str):
     """Kills stopping at the first match: `trainer_is_also` stores one person twice."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
     kontakte = rows[ROW_A_LATER_OID]["kontakte"]
 
     assert (kontakte["trainer"], kontakte["ansprechperson"]) == (None, None)
@@ -456,7 +442,7 @@ def test_one_person_in_two_slots_of_one_row_loses_both(mongo_replica_set_url: st
 def test_the_application_is_cleared_as_well_as_the_junction(mongo_replica_set_url: str):
     """Kills an erasure reaching one store: this branch adds a SECOND copy of the same three people."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
 
     assert rows[BEWERBUNG_OID]["kontakte"]["ansprechperson"] is None
 
@@ -465,7 +451,7 @@ def test_the_application_is_cleared_as_well_as_the_junction(mongo_replica_set_ur
 def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mongo_replica_set_url: str):
     """Kills an erasure stopping at `kontakte`: a live link would outlive the person and confirm a slot naming nobody."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
     block = rows[BEWERBUNG_OID]["confirmations"]
 
     assert block["ansprechperson"] is None
@@ -506,7 +492,7 @@ def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_moves(mong
 def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
     """Kills a clearing that nulls the seat's bookkeeping unconditionally: a dotted `$set` into an absent block creates one."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
 
     assert all("confirmations" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
 
@@ -532,7 +518,7 @@ MISTYPED_EMAIL = "wiltrudis.quastenflosser@exmaple.com"
 def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
     """The over-breadth floor. Kills nulling the whole `kontakte` block, which would destroy two records nobody asked about."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
     kontakte = rows[ROW_A_EARLIER_OID]["kontakte"]
 
     assert kontakte["ansprechperson"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["ansprechperson"]
@@ -545,7 +531,7 @@ def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
 def test_the_rows_naming_nobody_erased_are_not_reached(mongo_replica_set_url: str):
     """The other half of the floor. Kills a write that ignores its filter: every case above passes for one that clears both collections."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
 
     assert rows[ROW_B_OID]["kontakte"] == LIVE_BLOCKS[ROW_B_OID]
     assert rows[OTHER_BEWERBUNG_OID]["kontakte"] == LIVE_BLOCKS[OTHER_BEWERBUNG_OID]
@@ -585,7 +571,7 @@ def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
 def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_url: str):
     """Every seat and application row swept as text, not the seats a filter named; a bystander's number is the floor."""
 
-    _, rows, _ = after_erasure(mongo_replica_set_url)
+    _, rows = after_erasure(mongo_replica_set_url)
     rendered = str(sorted(rows.items(), key=lambda pair: str(pair[0])))
 
     assert [value for value in (ERASED_EMAIL, ERASED_PHONE, ERASED_LAST_NAME) if value in rendered] == []
@@ -594,26 +580,15 @@ def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_
 
 @pytest.mark.db
 def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
-    """Kills a redaction overwriting what the fold never judged: an address naming nobody stamps no row."""
+    """Kills an erasure overwriting what the fold never judged."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        before_count = await database[Collection.ACTION_LOG].count_documents({})
-        response = await call_erasure(database, client, UNKNOWN_EMAIL)
+        return await call_erasure(database, client, UNKNOWN_EMAIL), await stored_rows(database)
 
-        return (
-            response,
-            await stored_rows(database),
-            before_count,
-            await database[Collection.ACTION_LOG].count_documents({}),
-            await database[Collection.ACTION_LOG].count_documents({"redacted_at": {"$ne": None}}),
-        )
-
-    response, rows, before_count, after_count, stamped = on_a_league(mongo_replica_set_url, body)
+    response, rows = on_a_league(mongo_replica_set_url, body)
 
     assert response.kontakt_seats == 0
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
-    # No clearing patch ran, and the redaction records nothing about itself, so the log is untouched.
-    assert (after_count, stamped) == (before_count, 0)
 
 
 @pytest.mark.db
@@ -784,7 +759,7 @@ def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_rep
 def test_no_value_of_a_swapped_out_person_survives_anywhere(mongo_replica_set_url: str):
     """The sweep over the audited case, with a bystander's own number as its floor."""
 
-    _, rows, _ = after_erase_a_swapped_out_person(mongo_replica_set_url)
+    _, rows = after_erase_a_swapped_out_person(mongo_replica_set_url)
     rendered = str(sorted(rows.items(), key=lambda pair: str(pair[0])))
 
     assert [value for value in (ERASED_EMAIL, ERASED_FORMER_PHONE, ERASED_LAST_NAME) if value in rendered] == []

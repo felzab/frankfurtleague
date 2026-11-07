@@ -48,8 +48,6 @@ class Code(StrEnum):
     # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
     # another token.
     LINK_EXPIRED = auto()
-    # 403: this caller is the barred person, and nothing they change lifts it.
-    LINK_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
     # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
     ADDRESS_CHANGE_NEW_TAKEN = auto()
@@ -79,7 +77,6 @@ class Code(StrEnum):
     MISSING_ACTOR = auto()
     ACTOR_NOT_ADMIN = auto()
     SESSION_REFUSED = auto()
-    PERSON_BARRED = auto()
     CONFIRMATION_REQUIRED = auto()
     GRANT_EXISTS = auto()
     # A removal never takes the `owner` row, and a handover never names it: the role leaves only by a handover to another.

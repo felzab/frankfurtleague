@@ -1550,12 +1550,12 @@ class TestARefusedReminderCostsThePassNothing:
         assert carryable - with_one_refused == ROUND_TRIPS_A_ROW
 
 
-# The per-row loops' three commands a row: the update, its read-back and its log row.
-ROUND_TRIPS_A_ROW = 3
+# The per-row loops' one command a row: the update.
+ROUND_TRIPS_A_ROW = 1
 
 # The worst call's commands beside its rows, and a past season's, whose own end leaves no reminder.
-SWEEP_OTHER_COMMANDS = 49
-SWEEP_PAST_LAPSED_OTHER_COMMANDS = 34
+SWEEP_OTHER_COMMANDS = 41
+SWEEP_PAST_LAPSED_OTHER_COMMANDS = 25
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:

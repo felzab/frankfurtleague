@@ -778,8 +778,6 @@ describe("a passkey session made before its grant", () => {
   });
 });
 
-/* A session a ban's ending missed, a race or a failed sign-out, manages no passkeys and no sign-ins:
-   the account page's guard reads the ban on every request, as the person guard does. */
 describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);

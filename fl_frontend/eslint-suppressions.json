@@ -69,11 +69,6 @@
       "count": 1
     }
   },
-  "src/core/addressChangeEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/dismissControl.ts": {
     "better-tailwindcss/no-restricted-classes": {
       "count": 4
@@ -123,13 +118,13 @@
       "count": 4
     },
     "no-restricted-syntax": {
-      "count": 27
+      "count": 23
     },
     "react/forbid-component-props": {
       "count": 4
     },
     "react/jsx-no-literals": {
-      "count": 19
+      "count": 16
     }
   },
   "src/features/bewerbungen/components/ui/Filled.tsx": {
@@ -155,7 +150,7 @@
       "count": 3
     },
     "no-restricted-syntax": {
-      "count": 18
+      "count": 16
     },
     "react/forbid-component-props": {
       "count": 3
@@ -1525,11 +1520,6 @@
   "src/shared/utils/format.ts": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "src/shared/utils/reopenLink.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   }
 }

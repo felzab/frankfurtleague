@@ -1331,12 +1331,11 @@ def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]
     ]
 
 
-# Three commands a row -- the update, its read-back, its log row. A fresh row costs less, one insert taking its share's
-# rows; the bound counts it at three.
-ROUND_TRIPS_A_ROW = 3
+# One command a row, the update. A fresh row costs less, one insert taking its share's rows; the bound counts it at one.
+ROUND_TRIPS_A_ROW = 1
 
 # The worst call's commands beside its rows.
-SWEEP_OTHER_COMMANDS = 29
+SWEEP_OTHER_COMMANDS = 28
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:

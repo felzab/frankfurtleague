@@ -136,8 +136,8 @@ BAN_REASON_MAX_LENGTH: Final = 500
 # `BAN_REASON_MAX_LENGTH`'s figure for its reason.
 AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
-# The request an administrator's erasure answers, written onto every log row it files: a mail's date
-# and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.
+# The request an administrator's erasure answers, its log row's label: a mail's date and subject fit,
+# and the log keeps it twelve months, so a letter does not.
 ERASURE_REASON_MAX_LENGTH: Final = 200
 
 # How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
@@ -196,11 +196,11 @@ SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 SPIEL_REMINDER_DAYS: Final = 3
 
 # `BAN_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
-# decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
+# decline's reason is nor kept on a log row as an erasure's reference is.
 SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
 
-# A report's remarks on one match, whoever writes them, bounded on the payload alone: every correction and adoption files the
-# report whole on a log row, which this keeps far under BSON's document ceiling.
+# A report's remarks on one match, whoever writes them, bounded on the payload alone, which keeps the report far under
+# BSON's document ceiling.
 SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.
 SPIELBERICHT_ENTRIES_MAX: Final = 60

@@ -288,7 +288,7 @@ class TestWhatAMintStores:
 
         token, recorded = on_a_league(mongo_replica_set_url, body)
 
-        assert "invitations" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
+        assert "team.invitation_created" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
         assert token not in recorded
 
 

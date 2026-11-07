@@ -796,9 +796,9 @@ export const getBanListPostBanListEntryUrl = () => {
  *
  * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
  * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
- * a row in `grants`, in effect or waiting (`ban_list_admin`). The ban covers the fifth season after the one running now,
- * the last one it covers answered as `barred_until_saison_id`, and it survives that person's erasure. Where `notify` is
- * set the ban's own notice is owed to the address in the same transaction.
+ * a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
+ * fifth season after the one running now, the last one it covers answered as `barred_until_saison_id`, and it survives
+ * that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
  *
  * `ban_reason` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address

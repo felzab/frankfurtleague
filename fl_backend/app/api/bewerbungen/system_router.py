@@ -71,14 +71,14 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=[Depends(verify_access_system)])
 
-# Both shares at three commands a row beside the worst call's other 49: 226 commands at 36 ms plus 1.38 ms take 8.45 s
+# Both shares at one command a row beside the worst call's other 41: 100 commands at 36 ms plus 1.38 ms take 3.74 s
 # of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 36
 
 # Beside the reminders', which owe a deadline a block's deletion does not. A season at capacity takes more passes.
 BLOCKS_CLEARED_PER_PASS: Final = 23
 
-# The blocks' share: a pass runs the one clock or the other, each row at the same three commands.
+# The blocks' share: a pass runs the one clock or the other, each row at the same one command.
 LAPSED_SEAT_ROWS_PER_PASS: Final = BLOCKS_CLEARED_PER_PASS
 
 
@@ -295,7 +295,7 @@ async def sweep_saison(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        # One write a seat, however many rows: a page's worth at the mail's three commands a row would outrun the deadline.
+        # One write a seat, however many rows, a write a row being a page's worth of commands.
         for seat in KONTAKT_ROLLEN:
             if ids := [row_id for row_id, seats in closing.items() if seat in seats]:
                 await patch_many_in_db(
