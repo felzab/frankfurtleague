@@ -270,6 +270,7 @@ async def start_the_change_in_session(
     await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
 
     replaced = await address_changes_collection.find_one(build_address_filter(str(record["address"])), {"_id": 1}, session=session)
+    ended = None
     if replaced is not None:
         ended = await end_the_change_in_session(
             address_changes_collection=address_changes_collection,
@@ -278,18 +279,21 @@ async def start_the_change_in_session(
             now=now,
             session=session,
         )
+
+    # Two starts on one address meet at `uniq_address_change_address` as a write conflict, which the transaction retries.
+    created = await post_one_to_db(collection=address_changes_collection, document=record, session=session)
+
+    # After the insert, so a lost-mailbox row already silences the mailbox it declares lost, and that row's notices name no actor.
+    if ended is not None:
         await tell_the_holders_of_the_end_in_session(
             ended,
-            changed_by=actor,
+            changed_by=None if record["way"] == "waiting_period" else actor,
             grants_collection=grants_collection,
             address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
-
-    # Two starts on one address meet at `uniq_address_change_address` as a write conflict, which the transaction retries.
-    created = await post_one_to_db(collection=address_changes_collection, document=record, session=session)
 
     return created.inserted_id
 

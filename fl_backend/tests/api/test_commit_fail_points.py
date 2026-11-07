@@ -1,8 +1,8 @@
 """
-API · a commit refused or its answer lost, and a read held: the journal, the sweeps, an adoption's stamp, a repoint, a lookup's transaction
+API · a commit refused or its answer lost, and a read held: the journal, the log, the sweeps, a stamp, a repoint, a lookup's transaction
 
-The erasures' and a press's line, the confirmation pass's mint, an adoption's stamp and an erased pupil's repointed
-report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
+The erasures' and a press's line, a recorded act's row, the confirmation pass's mint, an adoption's stamp and an erased
+pupil's repointed report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
 a transaction runs are seen going one at a time.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
@@ -22,13 +22,16 @@ from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient, monitoring
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
+from app.api.action_log.schemas import FLActionLogRecord
 from app.api.identity.crud import find_subject_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
@@ -290,6 +293,7 @@ PERSON = "ortrud.zwiebelmayer@schule.de"
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 PRESS_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PRESS_DATABASE = worker_database("fl_commit_fail_points_test")
+RECORDED_TEAM = "Lessing"
 THEIR_CONSENT = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-09-02", media=True)
 
 
@@ -386,6 +390,52 @@ class TestAPersonsOwnPress:
         assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journal_records(caplog))) == (204, 1)
+
+
+@pytest.mark.db
+class TestARecordedActWhoseCommitIsRefused:
+    def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(self, mongo_replica_set_url: str):
+        """The driver reruns an act whose commit is refused as transient, and an insert outside the transaction would stand once per attempt.
+
+        The record model reads the row, as a drift between it and `record_act` is a page that cannot read its log.
+        """
+
+        async def _run() -> tuple[int, list[dict[str, Any]]]:
+            async with a_clean_database(mongo_replica_set_url, PRESS_DATABASE, constraints=True) as (client, database):
+                refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
+                refusal = {
+                    "failCommands": ["commitTransaction"],
+                    "appName": REFUSED_COMMIT_APP,
+                    "errorCode": WRITE_CONFLICT,
+                    "errorLabels": ["TransientTransactionError"],
+                }
+                attempts = 0
+
+                async def act(session: AsyncClientSession) -> None:
+                    nonlocal attempts
+                    attempts += 1
+                    teams = refusing[database.name][Collection.TEAMS]
+                    await record_act(
+                        collection=teams, action="spieler.changed", by=ACT_BY_KONTAKT, team=RECORDED_TEAM, record_id=PUPIL_OID, session=session
+                    )
+
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+                try:
+                    async with refusing.start_session() as session:
+                        await session.with_transaction(act)
+                finally:
+                    await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                    await refusing.close()
+
+                return attempts, [row async for row in database[Collection.ACTION_LOG].find()]
+
+        attempts, rows = on_the_seed_loop(_run())
+
+        assert len(rows) == 1
+        FLActionLogRecord.model_validate(rows[0], extra="forbid")
+        assert (rows[0]["by"], rows[0]["team"], rows[0]["record_id"]) == (ACT_BY_KONTAKT, RECORDED_TEAM, PUPIL_OID)
+        # The premise last: the act ran twice, so one row is the rollback's work.
+        assert attempts == 2
 
 
 @pytest.mark.db

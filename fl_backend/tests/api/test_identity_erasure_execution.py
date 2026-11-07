@@ -13,7 +13,7 @@ import functools
 import logging
 import sys
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -25,6 +25,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
+from app.api.address_change.services import masked_address
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
 from app.api.invitations.services import compose_invitation
@@ -442,7 +443,8 @@ def a_mail(kind: str, *, to: str) -> dict[str, Any]:
         "reference": None,
         "link": None,
         "state": "sent",
-        "recorded_at": NOW,
+        # Ahead of the erasure, whose own rows carry its `now` and stand on no line.
+        "recorded_at": NOW - timedelta(days=1),
         "deadline": NOW,
         # Far off, so the TTL monitor reads nothing a case is about.
         "erase_at": datetime(2199, 1, 1, tzinfo=UTC),
@@ -643,7 +645,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
-def action_log_row(row_id: ObjectId, *, by: str) -> dict[str, Any]:
+def action_log_row(row_id: ObjectId, *, by: str, label: str | None = None) -> dict[str, Any]:
     return {
         "_id": row_id,
         "at": NOW,
@@ -651,7 +653,7 @@ def action_log_row(row_id: ObjectId, *, by: str) -> dict[str, Any]:
         "team": None,
         "action": "ban.added",
         "record_id": None,
-        "label": None,
+        "label": label,
         "count": None,
         "trace_id": "t",
     }
@@ -949,11 +951,15 @@ class TestTheJournal:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             team_row = await the_one(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
+            mail = await the_one(database, Collection.OUTBOX, {"kind": "spiel_request"})
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": BLOCKLESS_BEWERBUNG_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.confirmed_at": None}}
+            )
 
-            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).status_code, team_row["_id"]
+            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).status_code, team_row["_id"], mail["_id"]
 
         with caplog.at_level(logging.INFO):
-            status, team_row_id = on_a_league(mongo_replica_set_url, body)
+            status, team_row_id, mail_id = on_a_league(mongo_replica_set_url, body)
 
         [record] = journal_records(caplog)
         line = vars(record)
@@ -964,28 +970,29 @@ class TestTheJournal:
             f"{Collection.REGISTRIERUNGEN}/{DECLINED_OID}",
             f"{Collection.GRANTS}/{THEIR_GRANT_OID}",
         }
-        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them.
+        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them. A confirmed
+        # one carries its day, or a snapshot seating somebody else in the slot reads as this person.
         seats = {
-            f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson",
-            f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer",
+            f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson/2126-03-21",
+            f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer/2126-03-21",
             f"{Collection.BEWERBUNGEN}/{BLOCKLESS_BEWERBUNG_OID}/ansprechperson",
         }
         # Another address's change stands here, never in `records`: read there, its `address` is that other person's.
         rows = {
-            f"{Collection.ADDRESS_CHANGES}/{OTHER_REFEREE_CHANGE_OID}",
-            f"{Collection.ADDRESS_CHANGES}/{MOVING_PUPIL_CHANGE_OID}",
-            f"{Collection.GRANTS}/{GRANTED_BY_THEM_OID}",
-            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_OID}",
-            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_PASTED_OID}",
-            f"{Collection.INVITATIONS}/{INVITED_BY_THEM_OID}",
-            f"{Collection.BEWERBUNGEN}/{DECIDED_BY_THEM_OID}",
-            f"{Collection.REGISTRIERUNGEN}/{DECLINED_BY_THEM_OID}",
+            f"{Collection.ADDRESS_CHANGES}/{OTHER_REFEREE_CHANGE_OID}/email",
+            f"{Collection.ADDRESS_CHANGES}/{MOVING_PUPIL_CHANGE_OID}/email",
+            f"{Collection.GRANTS}/{GRANTED_BY_THEM_OID}/granted_by",
+            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_OID}/created_by",
+            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_PASTED_OID}/created_by",
+            f"{Collection.INVITATIONS}/{INVITED_BY_THEM_OID}/created_by",
+            f"{Collection.BEWERBUNGEN}/{DECIDED_BY_THEM_OID}/decision.by",
+            f"{Collection.REGISTRIERUNGEN}/{DECLINED_BY_THEM_OID}/decision.by",
+            f"{Collection.OUTBOX}/{mail_id}/to",
         }
 
         assert status == 200
         assert (line["act"], set(line["records"]), line["choices"]) == ("erasure", records, [])
-        # A mail to the address stands among them, under an id the seed mints.
-        assert (set(line["seats"]), {row for row in line["rows"] if not row.startswith(f"{Collection.OUTBOX}/")}) == (seats, rows)
+        assert (set(line["seats"]), set(line["rows"])) == (seats, rows)
         assert len(line["records"]) == len(records)
         assert not [value for value in THEIR_VALUES if value.lower() in JSONFormatter().format(record).lower()]
 
@@ -1013,8 +1020,59 @@ class TestTheJournal:
 
         assert status == 200
         assert (line["records"], line["seats"]) == ([], [])
-        assert set(line["rows"]) == {f"{Collection.ACTION_LOG}/{log_row}", f"{Collection.BAN_LIST}/{ban_row}"}
+        assert set(line["rows"]) == {f"{Collection.ACTION_LOG}/{log_row}/by", f"{Collection.BAN_LIST}/{ban_row}/created_by"}
         assert former not in JSONFormatter().format(record).lower()
+
+    def test_a_log_row_naming_two_people_says_on_each_line_which_of_them_it_means(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """Read alike, a replay of the first line takes the second person's address off the row, and they asked for nothing."""
+
+        acting, grantee = "ehemals.verwaltung@example.org", "gestoppt.verwaltung@example.org"
+        log_row = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.ACTION_LOG].insert_one(action_log_row(log_row, by=acting, label=grantee))
+
+            return [(await erased_over_http(mongo_replica_set_url, email=address)).status_code for address in (acting, grantee)]
+
+        with caplog.at_level(logging.INFO):
+            statuses = on_a_league(mongo_replica_set_url, body)
+
+        assert statuses == [200, 200]
+        assert [vars(record)["rows"] for record in journal_records(caplog)] == [
+            [f"{Collection.ACTION_LOG}/{log_row}/by"],
+            [f"{Collection.ACTION_LOG}/{log_row}/label"],
+        ]
+
+    def test_a_notice_matched_by_its_mask_alone_and_a_row_this_erasure_wrote_stand_on_no_line(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """A mask fits many people and no snapshot holds a row of this transaction, so a replay reading either finds nobody it should."""
+
+        former, other = "ehemals.verwaltung@example.org", "noch.verwaltung@example.org"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, ObjectId(), former, "administration")
+            await a_grant(database, ObjectId(), other, "administration")
+            change = documents.address_change_document(address=former, email="neu.verwaltung@example.org", token_hash="t", day="2126-03-30")
+            await database[Collection.ADDRESS_CHANGES].insert_one({**change, "confirmed_at": GRANTED})
+            # Another person's change, whose new address masks as this one's does.
+            masked = {"change": "address", "stage": "started", "address": "dritte@example.org", "new_address": masked_address(former)}
+            await database[Collection.OUTBOX].insert_one({**a_mail("grant", to=other), "state": "open", "data": {**masked, "changed_by": None}})
+            status = (await erased_over_http(mongo_replica_set_url, email=former)).status_code
+            withdrawn = database[Collection.OUTBOX].find({"data.change": "address", "data.stage": "withdrawn"})
+
+            return status, [row["to"] async for row in withdrawn]
+
+        with caplog.at_level(logging.INFO):
+            status, told = on_a_league(mongo_replica_set_url, body)
+
+        [record] = journal_records(caplog)
+
+        # The premise: this erasure wrote that notice.
+        assert (status, other in told) == (200, True)
+        assert not [row for row in vars(record)["rows"] if row.startswith(f"{Collection.OUTBOX}/")]
 
 
 class TestTheOwner:

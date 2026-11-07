@@ -352,6 +352,22 @@ class TestTheNotices:
 
         assert on_a_league(mongo_replica_set_url, body) == left
 
+    def test_a_queued_notice_of_her_own_change_keeps_no_mask_of_her_new_mailbox(self, mongo_replica_set_url: str):
+        """Her new mailbox is hers alone, and its mask beside an emptied address tells the holders where she went."""
+
+        row_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
+            row = notice(row_id, ERIKA_ID, "address", ERIKA, DORA)
+            await database[Collection.OUTBOX].insert_one({**row, "data": {**row["data"], "new_address": masked_address(BERND)}})
+            await erase(database, client)
+            stored = await database[Collection.OUTBOX].find_one({"_id": row_id})
+            assert stored is not None
+
+            return stored["data"]["address"], stored["data"]["new_address"]
+
+        assert on_a_league(mongo_replica_set_url, body) == (None, None)
+
     def test_a_handover_waiting_on_her_row_is_withdrawn_naming_nobody(self, mongo_replica_set_url: str):
         """The holders hold a date for it, and the grant it waited on is gone."""
 

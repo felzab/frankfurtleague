@@ -1241,15 +1241,20 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
-own rows about it included. Every erasure a person or an administrator asked for left one line in the
+own rows about it included. Every erasure a person or an administrator asked for left its line in the
 backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
 seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no value, address or name, where its person stood:
 `records`, each record one address alone holds, as `collection/id`; `seats`, a Widerspruch's slots by
-name, an erasure's as `collection/id/slot`, its row holding other people; `rows`, an erasure's every
-other row that named the address; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
+name, an erasure's as `collection/id/slot`, its row holding other people, and a confirmed slot's with
+that slot's `einwilligung.confirmed_at` as a fourth part; `rows`, an erasure's every
+other field that named the address, as `collection/id/path`, so a row naming two people says which
+of them this is; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
 
 **List the lines between the two moments**, from the running backend and the deploys' copies (§7),
-each in the `journal.act` message, every value in a field of its own:
+each in the `journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so
+an act naming more than a line holds, as a former owner's can, takes several: each carries the same
+`act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one line.
+A part the two commands do not find leaves that act's list short, so read the mail thread for it:
 
 ```bash
 docker compose logs --since 2026-10-15T03:00:00Z --until 2026-10-15T09:40:00Z backend | grep '"journal.act"'
@@ -1272,11 +1277,16 @@ address, the erasure reaches every other record it names. Read it in the restore
 never elsewhere on the row, since a seat's row and another person's change hold other people:
 
 - a `records` entry: the address on that record, as §5's table names it;
-- a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row;
-- a `rows` entry, by its collection: `address_changes`, `email`, this being another address's change
-  that named this one as its new address; `grants`, `granted_by`; `bewerbungen` and `registrierungen`,
-  `decision.by`; `ban_list` and `invitations`, `created_by`; `action_log`, `by`, or `label` on a grant
-  act; `outbox`, `to`, or on a `grant` notice `data.address` or `data.changed_by`.
+- a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row. A seat passes from one
+  person to another, so the slot may hold someone else:
+  - An entry with a fourth part, the slot's confirmation day, whose day the restored slot's
+    `einwilligung.confirmed_at` differs from: read past it, the slot holding someone else. An empty
+    stamp is no such difference: the person may have confirmed after the snapshot, so read that
+    entry as an unconfirmed one.
+  - An entry without one, or read as such: all of a line's entries must give one address, and an
+    address they disagree on is read past. A line of unconfirmed seats alone has nothing to agree
+    with, so ask the club who sat there first;
+- a `rows` entry, `collection/id/path`: the field at that path on that row.
 
 The entries a restored row no longer holds, written after the snapshot, are read past. An address
 with no entry the snapshot holds left nothing the restore brought back. A line naming nothing at all

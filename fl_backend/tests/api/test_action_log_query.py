@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -7,6 +7,8 @@ from pydantic import ValidationError
 from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.api.action_log.services import build_action_log_query
 from app.core.config import API_VERSION
+from app.core.recording import FLActionType
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.core.app_source import application
 
 # Escaped, so a typed bracket finds a bracket: left raw it is a group that matches rows it should not, or a pattern the server refuses.
@@ -62,6 +64,20 @@ def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(field
 
     with pytest.raises(ValidationError):
         FLActionLogFilterPayload.model_validate({field: day})
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        pytest.param("by", "a" * (KONTAKT_EMAIL_MAX_LENGTH + 1), id="who, past an address's length"),
+        pytest.param("type", ["ban"] * (len(get_args(FLActionType.__value__)) + 1), id="type, past every category"),
+    ],
+)
+def test_a_filter_past_its_bound_is_refused(field: str, value: Any):
+    """An administrator's read, so nothing fails: a body this size only costs the server its `$in` and the page nothing."""
+
+    with pytest.raises(ValidationError):
+        FLActionLogFilterPayload.model_validate({field: value})
 
 
 def test_the_read_puts_nothing_in_a_query_string():
