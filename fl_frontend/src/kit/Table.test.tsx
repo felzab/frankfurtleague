@@ -110,6 +110,25 @@ describe("a row's name cell", () => {
     expect(nameLine?.textContent).toContain(COPY.admin.delivery.undeliverable);
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });
+
+  // The harm: on a phone two chips and a date column leave an address 26 px at 400 px wide and overrun the date at 360,
+  // and no check reads a phone's layout.
+  it("stands the delivery's chip on a line of its own on a phone", () => {
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "anna@example.org" },
+            chip: { tone: "warn", label: COPY.admin.expired },
+            delivery: { tone: "danger", label: COPY.admin.delivery.undeliverable },
+            cells: {},
+          },
+        ])}
+      />,
+    );
+    expect(screen.getByText(COPY.admin.delivery.undeliverable).parentElement?.className).toContain("max-lg:row-start-2");
+  });
 });
 
 describe("a cut column", () => {
