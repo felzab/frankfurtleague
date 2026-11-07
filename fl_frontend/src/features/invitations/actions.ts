@@ -39,8 +39,8 @@ export const mailInvitation = action({
   name: "mailInvitation",
   input: Key.extend(TeamsPostInvitationDispatchBody.shape),
   run: async ({ team_id, saison_id, invitation_id }) => {
-    const { recipient } = await teamsPostInvitationDispatch(team_id, saison_id, { invitation_id });
-    return recipient.length === 0
+    const { mailed } = await teamsPostInvitationDispatch(team_id, saison_id, { invitation_id });
+    return mailed === 0
       ? { ok: false, reason: COPY.admin.saison.noConfirmedAddress }
       : { ok: true, value: undefined, note: COPY.shared.toast.linkSent };
   },

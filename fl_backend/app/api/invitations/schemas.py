@@ -65,7 +65,6 @@ class FLInvitationRecipient(BaseModel):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
     rolle: FLKontaktRolle
-    first_name: CustomNonEmptyString
     email: CustomNonEmptyString
 
 
@@ -87,7 +86,6 @@ class FLInvitationLinkRow(BaseModel):
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
     # rather than needing a second read of `teams`.
     team_name: CustomNonEmptyString
-    recipient: list[FLInvitationRecipient]
     skipped: FLInvitationSkipReason | None
     # Whether the team holds a live link: the plan the row shares with the press carries no trace of the invitation itself.
     has_link: bool
@@ -126,10 +124,10 @@ class FLInvitationMailPayload(BaseModel):
 
 
 class FLInvitationMailResponse(BaseAPIResponse):
-    """Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed."""
+    """How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed."""
 
     invitation_id: CustomObjectId
-    recipient: list[FLInvitationRecipient]
+    mailed: int = Field(ge=0)
 
 
 class FLInvitationDispatchResponse(BaseAPIResponse):

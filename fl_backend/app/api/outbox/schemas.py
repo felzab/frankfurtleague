@@ -91,8 +91,6 @@ class FLAddressChangeNoticeData(BaseModel):
 
     kind: Literal["address_change_notice"]
     way: FLAddressChangeWay
-    # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
-    first_name: str | None
     # The tier of a holder's own change, whose wait the mail states; null otherwise.
     holder: FLAdminTier | None
 
@@ -103,7 +101,6 @@ class FLAddressChangeEffectiveData(BaseModel):
     kind: Literal["address_change_effective"]
     # The effect's own instant.
     instant: AwareDatetime
-    first_name: str | None
 
 
 class FLAddressChangeDiscardedData(BaseModel):
@@ -238,7 +235,6 @@ class FLRegistrierungAbsageData(BaseModel):
     """A team's decline, to a pupil whose address was confirmed."""
 
     kind: Literal["registrierung_absage"]
-    first_name: str
     team: str
     saison_id: str
     reason: FLRegistrierungDecisionReason | None
@@ -324,7 +320,7 @@ class FLBewerbungObjectionData(BaseModel):
 
 
 class FLKontaktLinkData(BaseModel):
-    """One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed."""
+    """One person an administrator seated on a team's season row, asked to confirm."""
 
     kind: Literal["kontakt_confirmation"]
     saison_id: str

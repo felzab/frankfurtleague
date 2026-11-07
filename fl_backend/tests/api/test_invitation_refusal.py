@@ -56,9 +56,7 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
         )
 
-        assert [(entry.rolle, entry.first_name, entry.email) for entry in confirmed_recipients(kontakte=block)] == [
-            ("ansprechperson", "Quillhilde", "quillhilde@example.com")
-        ]
+        assert [(entry.rolle, entry.email) for entry in confirmed_recipients(kontakte=block)] == [("ansprechperson", "quillhilde@example.com")]
 
     def test_a_repeated_address_leaves_the_seat_after_it_addressed(self):
         block = kontakte(

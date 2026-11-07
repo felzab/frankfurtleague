@@ -4661,8 +4661,8 @@ export const getTeamsPostInvitationDispatchUrl = (teamId: string, saisonId: stri
  * Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
  *
  * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
- * stays valid beside the mailed ones. `recipient` names who is owed it, one entry per stored address, and is empty where nobody has
- * confirmed a seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
+ * stays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a
+ * seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
  * twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
  * is handed out.
  *

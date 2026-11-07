@@ -22,7 +22,6 @@ export function buildCodeEmail(code: string, origin: string): Mail {
     kind: "signIn",
     subjectLine: WORDS.subject,
     origin: site,
-    firstName: "",
     paragraphs: [[WORDS.lead]],
     block: { code },
     // The host a relay page cannot wear, read off the serving origin the code signs in on: a code typed into anything

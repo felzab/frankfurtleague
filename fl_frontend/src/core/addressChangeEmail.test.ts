@@ -21,18 +21,14 @@ describe("a holder's own change", () => {
     const wait = COPY.account.address.holderWait(HOLDER_WAIT[holder]);
 
     expect(text(mailFor("address_change_link", { kind: "address_change_link", way: "account", holder }, LINK))).toContain(wait);
-    expect(text(mailFor("address_change_notice", { kind: "address_change_notice", way: "account", first_name: null, holder }, LINK))).toContain(
-      wait,
-    );
+    expect(text(mailFor("address_change_notice", { kind: "address_change_notice", way: "account", holder }, LINK))).toContain(wait);
   });
 });
 
 describe("a lost mailbox's notice", () => {
   /* Its stop answers past every deadline, so a lifetime here would turn a stranger's stop away for nothing. */
   it("states no link's lifetime", () => {
-    const notice = text(
-      mailFor("address_change_notice", { kind: "address_change_notice", way: "waiting_period", first_name: null, holder: null }, LINK),
-    );
+    const notice = text(mailFor("address_change_notice", { kind: "address_change_notice", way: "waiting_period", holder: null }, LINK));
 
     expect(notice).toContain(COPY.account.address.stop);
     expect(notice).not.toContain(SERVER_COPY.mail.linkValidFor(24));

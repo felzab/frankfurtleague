@@ -455,8 +455,7 @@ One person can hold several — a referee is a pupil, and a contact person can b
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
 holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A change's reason no read
-serves (`address_changes.change_reason`). A notice an ended change still owes either address sits in `outbox` (`to`, and on some rows
-`data.first_name`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
+serves (`address_changes.change_reason`). A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
 `address_changes.move.new`); no page renders any of these, and a read-only Playground query on those
 fields finds them.
 

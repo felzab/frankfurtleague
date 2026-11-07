@@ -833,7 +833,6 @@ export type FLAddressChangeDiscardedData = typeof FLAddressChangeDiscardedDataVa
  * The replaced address's notice that the change took effect.
  */
 export interface FLAddressChangeEffectiveData {
-  first_name: string | null;
   instant: string;
   kind: "address_change_effective";
 }
@@ -900,7 +899,6 @@ export interface FLAddressChangeMovesResponse {
  * it confirmed, stops the change; on the lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
-  first_name: string | null;
   holder: FLAdminTier | null;
   kind: "address_change_notice";
   way: FLAddressChangeWay;
@@ -2512,17 +2510,6 @@ export interface FLInvitationDispatchResponse {
   skipped: number;
 }
 
-/**
- * One mailbox a link goes to, and the seat it is addressed as.
- */
-export interface FLInvitationRecipient {
-  /** @minLength 1 */
-  email: string;
-  /** @minLength 1 */
-  first_name: string;
-  rolle: FLKontaktRolle;
-}
-
 export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeof FLInvitationSkipReason];
 
 export const FLInvitationSkipReason = {
@@ -2539,7 +2526,6 @@ export const FLInvitationSkipReason = {
  */
 export interface FLInvitationLinkRow {
   has_link: boolean;
-  recipient: FLInvitationRecipient[];
   sent_at: string | null;
   skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2557,12 +2543,13 @@ export interface FLInvitationMailPayload {
 }
 
 /**
- * Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed.
+ * How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.
  */
 export interface FLInvitationMailResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   invitation_id: string;
-  recipient: FLInvitationRecipient[];
+  /** @minimum 0 */
+  mailed: number;
 }
 
 /**
@@ -2835,7 +2822,7 @@ export interface FLKontaktInviteResponse {
 }
 
 /**
- * One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.
+ * One person an administrator seated on a team's season row, asked to confirm.
  */
 export interface FLKontaktLinkData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3219,7 +3206,6 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
-  first_name: string;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;

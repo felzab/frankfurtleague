@@ -10,7 +10,6 @@ const MAIL: Mail = {
   kind: "notice",
   subjectLine: "Spiel abgesagt",
   origin: ORIGIN,
-  firstName: "",
   paragraphs: [["Das Spiel ist abgesagt."]],
 };
 
@@ -31,7 +30,6 @@ describe("renderMail", () => {
     const { html } = renderMail({
       ...MAIL,
       subjectLine: hostile,
-      firstName: hostile,
       paragraphs: [[hostile, [{ strong: hostile }]]],
       block: { title: hostile, facts: [{ label: hostile, value: hostile }] },
       button: { label: hostile, href: `${ORIGIN}/"><script>` },

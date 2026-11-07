@@ -199,7 +199,7 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 
 - **Subject, preview, heading, paragraphs, facts, one button, one note**, nothing else. The heading
   repeats the subject and the hidden preview is the first sentence, so neither is written twice.
-- **The greeting is „Hallo {Vorname},“** where the first name is known, otherwise „Hallo,“.
+- **The greeting is „Hallo,“** on every mail.
 - **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only on
   a first contact, in its one wording.
 - **Replies go to the contact address**, so no mail says that nobody reads them.

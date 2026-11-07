@@ -16,7 +16,6 @@ export function buildBanEmail({ ban_reason, barred_until_saison_id }: FLBanData,
     kind: "notice",
     subjectLine: WORDS.subject,
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [[WORDS.lead, WORDS.effect, WORDS.ends(barred_until_saison_id)]],
     block: { title: COPY.admin.banList.object, facts: [{ label: COPY.admin.spiel.reason, value: ban_reason }] },
     afterBlock: [

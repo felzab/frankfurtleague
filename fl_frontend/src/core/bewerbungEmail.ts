@@ -61,7 +61,6 @@ export function buildBewerbungZusageEmail(
     kind: "notice",
     subjectLine: WORDS.zusage.subject(saison_id),
     origin: site,
-    firstName: "",
     paragraphs: [[[{ strong: team }, WORDS.zusage.lead.after(saison_id)], WORDS.zusage.lead.welcome]],
     block: {
       title: COPY.shared.saisonName(saison_id),
@@ -97,7 +96,6 @@ export function buildBewerbungAbsageEmail(
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [
       [
         [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
@@ -127,7 +125,6 @@ export function buildBewerbungConfirmationEmail(
     kind: "firstContact",
     subjectLine: WORDS.link.subject(saison_id),
     origin: site,
-    firstName: "",
     paragraphs: [[WORDS.link.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     block: {
       title: WORDS.entry,
@@ -147,7 +144,6 @@ export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLB
     kind: "firstContact",
     subjectLine: WORDS.reminder.subject(saison_id),
     origin: site,
-    firstName: "",
     paragraphs: [[WORDS.reminder.lead(schule), WORDS.confirmOrOppose], [deadlineSentence(deadline)]],
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
@@ -170,7 +166,6 @@ export function buildBewerbungReceivedEmail(
     kind: "firstContact",
     subjectLine: WORDS.received.subject(saison_id),
     origin: site,
-    firstName: "",
     paragraphs: [
       [WORDS.received.lead(saison_id), WORDS.received.named(rollen), WORDS.confirmOrOppose],
       [WORDS.received.others],
@@ -196,7 +191,6 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
       kind: "notice",
       subjectLine: SERVER_COPY.accountErasure.done,
       origin: site,
-      firstName: "",
       paragraphs: [[SERVER_COPY.mail.deletion.account]],
     };
   }
@@ -205,7 +199,6 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
     kind: "notice",
     subjectLine: WORDS.erasure.subject(saison_id),
     origin: site,
-    firstName: "",
     paragraphs: [[SERVER_COPY.mail.deletion.bewerbung.lead(saison_id), SERVER_COPY.mail.deletion.bewerbung.deleted], [WORDS.erasure.again]],
     button: toBewerbung(site, saison_id),
   };
@@ -225,7 +218,6 @@ export function buildBewerbungObjectionEmail(
     kind: "notice",
     subjectLine: WORDS.objection.subject(saison_id),
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [
       [[{ strong: person }, WORDS.objection.lead.after], WORDS.objection.removed],
       [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],

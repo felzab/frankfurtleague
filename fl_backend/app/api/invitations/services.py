@@ -162,7 +162,7 @@ def confirmed_recipients(*, kontakte: Any) -> list[FLInvitationRecipient]:
             continue
 
         seen.add(address)
-        recipients.append(FLInvitationRecipient(rolle=rolle, first_name=str(entry.get("first_name") or ""), email=address))
+        recipients.append(FLInvitationRecipient(rolle=rolle, email=address))
 
     return recipients
 

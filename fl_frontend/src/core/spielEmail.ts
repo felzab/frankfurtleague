@@ -102,7 +102,6 @@ export function buildSpielRequestEmail(
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [lead],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
@@ -122,7 +121,6 @@ export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: 
     kind: "notice",
     subjectLine: movedFrom === null ? WORDS.bookedSubject(dayOf(ansetzung.date)) : WORDS.movedSubject(dayOf(ansetzung.date)),
     origin: site,
-    firstName: "",
     paragraphs: [[movedFrom === null ? WORDS.booked(spiel) : WORDS.moved(spiel)]],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
@@ -136,7 +134,6 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
     kind: "notice",
     subjectLine: WORDS.unbookedSubject(dayOf(appointment.date)),
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [[around(WORDS.unbooked.before(paarung(appointment)), moment(appointment), WORDS.unbooked.after)]],
   };
 }
@@ -147,7 +144,6 @@ function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, 
     kind: "notice",
     subjectLine,
     origin: mailOrigin(origin),
-    firstName: "",
     paragraphs: [paragraph],
     ...(block ? { block } : {}),
   };
@@ -155,8 +151,8 @@ function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, 
 
 /**
  * The word that a fixture a party was asked about moved where no request about its new slot goes now, or was called off:
- * the slot it was asked about, and on a move the slot it went to where it holds one. No button and no name, nothing
- * being left to answer here and the address perhaps having changed hands since the request.
+ * the slot it was asked about, and on a move the slot it went to where it holds one. No button, nothing being left to
+ * answer here.
  */
 export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
   const { recipient, appointment } = data;
@@ -203,7 +199,7 @@ export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorsch
 
 /**
  * The word to an opponent that a club left the season, listing the fixtures left open between them, an undated one by
- * what is still to settle. No button and no name, as every notice: the league writes again about each fixture.
+ * what is still to settle. No button, as every notice: the league writes again about each fixture.
  */
 export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
   const words = SERVER_COPY.mail.austrittNotice;

@@ -412,7 +412,6 @@ async def decline(
                         to=str(registrierung_raw["email"]),
                         data=FLRegistrierungAbsageData(
                             kind="registrierung_absage",
-                            first_name=str(registrierung_raw["first_name"]),
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
                             reason=ablehnung_data.reason,

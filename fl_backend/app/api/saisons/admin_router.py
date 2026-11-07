@@ -401,7 +401,6 @@ async def get_saison_admin(
             FLInvitationLinkRow(
                 team_id=team.team["team_id"],
                 team_name=team.team["name"],
-                recipient=team.plan.recipient,
                 skipped=team.plan.skipped,
                 has_link=team.live is not None,
                 sent_at=None if team.live is None else FLInvitation.model_validate(team.live).sent_at,

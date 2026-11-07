@@ -20,8 +20,8 @@ function spielerBestaetigungsLink(origin: string, token: string): string {
 }
 
 /**
- * The link a submission mints, named for the deadline the sweep deletes on. No name, unlike the decline, which reaches a
- * confirmed address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
+ * The link a submission mints, named for the deadline the sweep deletes on. It names no pupil: this address has proved
+ * nothing, and after a typo its stranger is owed no pupil's name.
  *
  * **The number is the backend's bound, never a word here**: the mail and the page would otherwise state two
  * deadlines, and one would not move.
@@ -41,7 +41,6 @@ export function buildRegistrierungBestaetigungEmail(
     // the season alone does not tell one from the other in an inbox.
     subjectLine: `Registrierung für ${teamName} bestätigen`,
     origin: site,
-    firstName: "",
     paragraphs: [
       [["Du hast Dich für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
       [
@@ -73,7 +72,6 @@ export function buildRegistrierungErinnerungEmail(
     kind: "firstContact",
     subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
     origin: site,
-    firstName: "",
     paragraphs: [
       [["Deine Registrierung für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
       [
@@ -107,7 +105,7 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reas
  * mailbox learns that an address is taken and never by whom.
  */
 export function buildRegistrierungAbsageEmail(
-  { first_name: firstName, team: teamName, saison_id: saisonId, reason }: FLRegistrierungAbsageData,
+  { team: teamName, saison_id: saisonId, reason }: FLRegistrierungAbsageData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
@@ -116,7 +114,6 @@ export function buildRegistrierungAbsageEmail(
     kind: "notice",
     subjectLine: `Deine Registrierung für ${teamName}`,
     origin: site,
-    firstName,
     paragraphs: [
       [[{ strong: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
       ABSAGE_WEITER[reason ?? "none"],

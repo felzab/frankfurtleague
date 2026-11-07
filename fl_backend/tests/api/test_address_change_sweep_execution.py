@@ -243,8 +243,7 @@ class TestADueChangeTakesEffect:
         answer, addresses, notices = on_a_league(mongo_replica_set_url, body)
 
         assert answer.effective == 1
-        # The lost-mailbox way greets nobody.
-        assert notices == [{"kind": "effective", "to": on_file(1), "first_name": None}]
+        assert notices == [{"kind": "effective", "to": on_file(1)}]
         assert addresses == [pending(1)]
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):

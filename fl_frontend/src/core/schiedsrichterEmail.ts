@@ -21,9 +21,7 @@ function schiedsrichterConfirmationLink(origin: string, token: string): string {
 
 const PAGE = SERVER_COPY.schiedsrichterConfirmation;
 
-// No name: an administrator typed this address and nobody has confirmed it, so behind a typo its
-// reader is a stranger, owed none. No season: a referee's entry is bound to none, so the deadline is
-// the only date here.
+// No season: a referee's entry is bound to none, so the deadline is the only date here.
 /**
  * What one referee is asked to confirm, from the facts the Postausgang row holds and the link its hand-out minted: the
  * page's title and its opening and deadline sentences, as the erasure mail takes its page's words. `origin` is the
@@ -38,7 +36,6 @@ export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrich
     kind: "firstContact",
     subjectLine: COPY.page.entryConfirmation,
     origin: site,
-    firstName: "",
     // The deadline's day semibold, as the board draws it, between the page's two parts around it.
     paragraphs: [[PAGE.opening, [`${PAGE.deadline.before} `, { strong: formatDateLong(dayOf(deadline)) }, PAGE.deadline.after]]],
     button: { label: COPY.page.entryConfirmation, href: schiedsrichterConfirmationLink(site, token) },
