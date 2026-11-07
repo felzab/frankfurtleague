@@ -567,6 +567,9 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   confirmed or not (`address_change_occupied`), which the confirmation would refuse too: where the two
   addresses are one person's, the league merges their records by hand. A banned new address is refused
   nothing: its link stops at the hand-out.
+- **The owner's own mailbox, lost or hijacked.** The address on file answers an owner's own change, so
+  whoever holds it can decline or stop every attempt, and this tool refuses it: the way out is §3's
+  recovery paste.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /address_change/{address_change_id}/invite`); a new address taken since the start refuses the
   re-send (`address_change_new_taken`). **Discard** a change that turns out to be
