@@ -9,12 +9,11 @@ import { addressChangeInviteAddressChange, addressChangePostAddressChangeAdmin }
 import { AddressChangeInviteAddressChangeParams, AddressChangePostAddressChangeAdminBody } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { accountAtNewAddress } from "@/features/address-change/account";
-import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 
 /**
- * A change started for a person who says they cannot sign in: both addresses and the reason, each held to the rule the
- * sign-in box keeps, since a change onto an address it refuses admits nobody. An account standing at the new address is
- * refused before the mint, which writes: the backend cannot see the sign-in store. The address's running change ends
+ * A change started for a person who says they cannot sign in: the address on file, the new one, held as an address the
+ * person will sign in at, and the reason. An account standing at the new address is refused before the mint, which writes: the backend cannot see the sign-in store. The address's running change ends
  * replaced, which the dialog says as the address is typed.
  */
 export const startLostMailboxChange = action({
@@ -23,7 +22,7 @@ export const startLostMailboxChange = action({
   name: "startLostMailboxChange",
   input: z.object({
     address: SignInPayloadSchema.shape.email,
-    email: SignInPayloadSchema.shape.email,
+    email: SignInAddressSchema,
     change_reason: AddressChangePostAddressChangeAdminBody.shape.change_reason,
     ...PAGE_HOLDER,
   }),
