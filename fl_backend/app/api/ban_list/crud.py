@@ -10,7 +10,6 @@ from typing import Any
 
 from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
 from app.core.readonly import ReadCollection
@@ -19,47 +18,20 @@ from app.shared.folding import sign_in_identifier
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
 # inclusion rather than an exclusion: a field added to the collection is withheld until somebody
 # names it here.
-SERVED_FIELDS: Mapping[str, int] = {"address": 1, "ban_reason": 1, "created_by": 1, "created_at": 1, "barred_until_saison_id": 1}
+SERVED_FIELDS: Mapping[str, int] = {"address": 1, "ban_reason": 1, "created_at": 1, "barred_until_saison_id": 1}
 
 
-def build_ban_list_page_pipeline(*, limit: int) -> list[Mapping[str, Any]]:
-    """The page and the total, from ONE pass.
+async def read_ban_list(*, ban_list_collection: ReadCollection) -> list[Mapping[str, Any]]:
+    """Every ban, newest first, read whole: one left unread would bar an address nobody could lift it from.
 
-    `$facet`, so the count cannot disagree with the rows beside it: two reads straddle a write and
-    report a hidden ban that is not there, or miss one that is.
+    `_id` decides between two bans entered on one day: `created_at` is a date, so it orders a day's rows against each other
+    not at all.
     """
 
-    return [
-        {
-            "$facet": {
-                # `_id` decides between two bans entered on one day: `created_at` is a date, so it
-                # orders a day's rows against each other not at all.
-                "rows": [{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$limit": limit}, {"$project": dict(SERVED_FIELDS)}],
-                "total": [{"$count": "count"}],
-            }
-        }
-    ]
-
-
-async def read_ban_list_page(
-    *,
-    ban_list_collection: AsyncCollection,
-    limit: int,
-) -> tuple[list[Mapping[str, Any]], int]:
-    """One page of bans, newest first, and how many the collection holds."""
-
-    # `$facet` answers one document holding every row it selected, so the page has to fit BSON's
-    # 16MB ceiling. At this limit and this row shape it is four orders of magnitude clear.
-    faceted = await aggregate_many_from_db(collection=ban_list_collection, pipeline=build_ban_list_page_pipeline(limit=limit), limit=1)
-
-    if not faceted:
-        return [], 0
-
-    rows = list(faceted[0].get("rows") or [])
-    # `$count` emits NO document for an empty collection rather than a zero.
-    counted = faceted[0].get("total") or [{}]
-
-    return rows, int(counted[0].get("count", 0))
+    return await aggregate_many_from_db(
+        collection=ban_list_collection,
+        pipeline=[{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$project": dict(SERVED_FIELDS)}],
+    )
 
 
 async def address_is_barred(

@@ -9,7 +9,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.address_change.crud import (
     Occupancy,
     address_taken,
-    denied_addresses,
     end_the_change_in_session,
     owe_the_link_in_session,
     owe_the_notice_in_session,
@@ -44,7 +43,7 @@ from app.api.address_change.services import (
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_admin_address_refusal, find_own_address_refusal
+from app.api.identity.services import address_change_viewable_denied, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION
@@ -105,14 +104,9 @@ def _pending_addresses(
         id=record["_id"],
         address=record["address"],
         email=record["email"],
-        way=record["way"],
-        change_reason=record.get("change_reason"),
         holder=holder,
         waits_on=waits_on(record),
-        sent_at=record["sent_at"],
         valid_until=stored_instant(record.get("valid_until")),
-        released_at=stored_instant(record.get("released_at")),
-        confirmed_at=stored_instant(record.get("confirmed_at")),
         effective_from=stored_instant(record.get("effective_from")),
         delivery=delivery,
         expired=is_expired(record, now=now),
@@ -133,7 +127,7 @@ async def get_address_changes(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeAdminListResponse:
     """
-    Answer every running change, newest first: its two addresses, its way and the step it waits on.
+    Answer every running change, newest first: its two addresses and the step it waits on.
 
     ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
     their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
@@ -145,13 +139,9 @@ async def get_address_changes(
         pipeline=[{"$match": dict(LIVE_KEYED_TERMS)}, {"$sort": {"_id": -1}}],
         session=session,
     )
-    denied = await denied_addresses(
-        [str(row["address"]) for row in rows], actor=sign_in_identifier(operator), grants_collection=grants_collection, session=session
-    )
-    tiers = {
-        sign_in_identifier(str(grant["address"])): grant["admin_tier"]
-        for grant in await read_grants(grants_collection=grants_collection, session=session)
-    }
+    grants = await read_grants(grants_collection=grants_collection, session=session)
+    actor = sign_in_identifier(operator)
+    tiers = {sign_in_identifier(str(grant["address"])): grant["admin_tier"] for grant in grants}
 
     return FLAddressChangeAdminListResponse(
         changes=[
@@ -162,7 +152,7 @@ async def get_address_changes(
                 now=germany_now,
             )
             for row in rows
-            if str(row["address"]) not in denied
+            if address_change_viewable_denied(str(row["address"]), actor=actor, grants=grants) is None
         ]
     )
 

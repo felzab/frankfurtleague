@@ -58,7 +58,7 @@ from app.api.spieler.services import build_self_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
@@ -544,7 +544,10 @@ async def judge_the_effect_in_session(
 
 
 def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
-    """The refusal a press answers for the judgement's cause, where the link's view shows a state and the pass ends the change."""
+    """The refusal a press answers for the judgement's cause, where the link's view shows a state and the pass ends the change.
+
+    On no field: the press's body holds its token and its answer, and the box these two name is the address tool's.
+    """
 
     match cause:
         case None:
@@ -552,11 +555,11 @@ def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
         case "expired":
             return find_expired_refusal(expired=True)
         case "taken":
-            return find_taken_refusal(taken=True)
+            return as_judged_on_stored_state(find_taken_refusal(taken=True), twins={})
         case "new_granted":
             return find_new_granted_refusal(granted=True)
         case "occupied":
-            return find_occupied_refusal(occupied=True)
+            return as_judged_on_stored_state(find_occupied_refusal(occupied=True), twins={})
 
 
 async def move_the_address_in_session(

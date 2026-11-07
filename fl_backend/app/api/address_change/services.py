@@ -371,6 +371,7 @@ def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_TAKEN,
         status=HTTPStatus.CONFLICT,
+        fields=(("email",),),
     )
 
 
@@ -438,6 +439,7 @@ def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=Code.ADDRESS_CHANGE_OCCUPIED,
         status=HTTPStatus.CONFLICT,
+        fields=(("email",),),
     )
 
 

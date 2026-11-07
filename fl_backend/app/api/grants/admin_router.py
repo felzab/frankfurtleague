@@ -51,7 +51,7 @@ router = APIRouter(
 @router.get("", response_model=FLGrantsListResponse, summary="List who may enter the administration")
 async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListResponse:
     """
-    List every grant by address: its tier, who granted it, when it holds, and when a handover to it completes.
+    List every grant by address: its tier, when it holds, and when a handover to it completes.
 
     Uncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
     """
@@ -64,7 +64,6 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
                 id=row.id,
                 address=row.address,
                 admin_tier=row.admin_tier,
-                granted_by=row.granted_by,
                 effective_from=row.effective_from,
                 owner_from=row.owner_from,
             )

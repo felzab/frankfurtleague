@@ -125,8 +125,9 @@ async def get_address_change_view(
     """
     Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
-    **Nothing else about the change**: never a name or the id, and the new address only on the two questions, the new
-    mailbox's `valid` link and the address on file's `release_open` link of the person's own change. A POST that reads,
+    **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
+    it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
+    A POST that reads,
     so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
     links answer `ended`, how it ended and on which day, for as long as its record is kept.
 
@@ -134,8 +135,8 @@ async def get_address_change_view(
     the press would be refused for the address on file's sake or would
     find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
-    the proxy routes no public call to this service. The address on file's side answers the step the change waits on
-    and until when, `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
+    the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
+    `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
     never whether the new mailbox could confirm, and the day it confirmed once it has.
     """
 
@@ -165,7 +166,7 @@ async def get_address_change_view(
             )
         )
 
-    valid_until, effective_from = stored_instant(record.get("valid_until")), stored_instant(record.get("effective_from"))
+    effective_from = stored_instant(record.get("effective_from"))
     if side == "previous":
         state_previous = previous_state(record, now=germany_now)
         released_at = stored_instant(record.get("released_at"))
@@ -173,7 +174,6 @@ async def get_address_change_view(
             view=FLAddressChangeViewPrevious(
                 side="previous",
                 state=state_previous,
-                valid_until=valid_until,
                 effective_from=effective_from,
                 way=record["way"],
                 email=previous_side_email(record, state=state_previous),
@@ -204,7 +204,6 @@ async def get_address_change_view(
         view=FLAddressChangeViewNew(
             side="new",
             state=state,
-            valid_until=valid_until,
             effective_from=effective_from,
             way=record["way"],
             email=str(record["email"]) if state == "valid" else None,

@@ -730,12 +730,10 @@ export interface FLOutboxStatus {
 }
 
 /**
- * One live change whole, admin tier: both addresses and the reason included, never a hash.
+ * One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash.
  */
 export interface FLAddressChangeAdminOpen {
   address: string;
-  change_reason: string | null;
-  confirmed_at: string | null;
   delivery: FLOutboxStatus | null;
   effective_from: string | null;
   email: string;
@@ -743,12 +741,8 @@ export interface FLAddressChangeAdminOpen {
   holder: FLAdminTier | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  released_at: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  sent_at: string;
   valid_until: string | null;
   waits_on: FLAddressChangeWaitsOn;
-  way: FLAddressChangeWay;
 }
 
 /**
@@ -958,7 +952,6 @@ export interface FLAddressChangeViewNew {
   email: string | null;
   side: "new";
   state: FLAddressChangeViewNewState;
-  valid_until: string | null;
   way: FLAddressChangeWay;
 }
 
@@ -980,12 +973,14 @@ export interface FLAddressChangeViewPrevious {
   released_on: string | null;
   side: "previous";
   state: FLAddressChangeViewPreviousState;
-  valid_until: string | null;
   way: FLAddressChangeWay;
 }
 
 /**
- * What one address link opens: never a name or the id, and the new address only where a link asks its question.
+ * What one address link opens: never a name or the id.
+ *
+ * The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
+ * the change stands, masked on `waiting_period`.
  */
 export interface FLAddressChangeViewResponse {
   view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
@@ -1137,9 +1132,9 @@ export interface FLBanData {
 export type FLBanDurationSaisons = 5;
 
 /**
- * One ban, as `ban_list` stores it and as the list serves it.
+ * One ban as the list serves it.
  */
-export interface FLBanListEntry {
+export interface FLBanListRow {
   /** @minLength 1 */
   address: string;
   /** @minLength 1 */
@@ -1151,22 +1146,15 @@ export interface FLBanListEntry {
   barred_until_saison_id: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  /** @minLength 1 */
-  created_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
 }
 
 /**
- * The bans, newest first, and how many there are.
- *
- * `count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a
- * person barred by a row nobody can reach.
+ * Every ban, newest first.
  */
 export interface FLBanListResponse {
-  ban_list: FLBanListEntry[];
-  /** @minimum 0 */
-  count_total: number;
+  ban_list: FLBanListRow[];
 }
 
 /**
@@ -2469,7 +2457,6 @@ export interface FLGrantRow {
   address: string;
   admin_tier: FLAdminTier;
   effective_from: string;
-  granted_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   owner_from: string | null;
@@ -3950,7 +3937,7 @@ export interface FLPostBanListEntryPayload {
 }
 
 /**
- * Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.
+ * The ban's id and the last season it covers.
  */
 export interface FLPostBanListEntryResponse {
   /**

@@ -38,7 +38,6 @@ class FLGrantRow(BaseModel):
     id: CustomObjectId
     address: str
     admin_tier: FLAdminTier
-    granted_by: str
     # A future one is an addition still waiting.
     effective_from: FLUtcInstant
     # Set exactly while a handover to this row waits.

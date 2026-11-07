@@ -388,7 +388,7 @@ class TestTheLinks:
 
         seen, pressed = on_a_person(mongo_replica_set_url, body)
 
-        assert (seen.view.state, seen.view.valid_until, seen.view.effective_from is not None) == ("confirmed", None, True)
+        assert (seen.view.state, seen.view.effective_from is not None) == ("confirmed", True)
         # Answered, the new mailbox's link names its address no more.
         assert seen.view.email is None
         assert pressed == Code.ADDRESS_CHANGE_ENDED
@@ -800,6 +800,22 @@ class TestTheNewAddressesOwnRecords:
         assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert notices == []
 
+    def test_the_tool_s_refusal_names_its_box_and_the_press_s_names_none(self, mongo_replica_set_url: str):
+        """Unnamed, the tool's refusal reaches a shared failure line; on the press, it would name a field its body has not got."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await start(database, client)
+            await held_by_another(database, "a-seat")
+            with pytest.raises(APIError) as pressed:
+                await answer(database, client, minted.token)
+            await stop_here(database, client)
+            with pytest.raises(APIError) as started:
+                await administrator_starts(database, client, change_reason=CHANGE_REASON)
+
+            return started.value.fields, pressed.value.fields
+
+        assert on_a_person(mongo_replica_set_url, body) == ((("email",),), ())
+
     def test_a_pupil_there_refuses_a_starter_holding_no_pupil_of_their_own(self, mongo_replica_set_url: str):
         """A starter holding a pupil is refused `address_change_taken` first, so a seat-only starter is the one this kind reaches."""
 
@@ -1133,10 +1149,9 @@ class TestTheRunningChanges:
         assert [row.holder for row in seen[OWNER]] == ["administration", "administration", None]
         # Newest first, each row its two addresses and the step it waits on.
         assert [row.id for row in seen[OWNER]] == [second, admin, person]
-        assert (seen[OWNER][2].address, seen[OWNER][2].email, seen[OWNER][2].way, seen[OWNER][2].waits_on) == (
+        assert (seen[OWNER][2].address, seen[OWNER][2].email, seen[OWNER][2].waits_on) == (
             EMAIL,
             NEW_EMAIL,
-            "account",
             "new_address",
         )
 

@@ -139,8 +139,6 @@ class FLAddressChangeViewNew(BaseModel):
 
     side: Literal["new"]
     state: FLAddressChangeNewState
-    # Null exactly where the change is confirmed: it waits on no deadline of this link's.
-    valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
     # The address this link was mailed to, exactly where `valid`: the question its holder answers names it, and the holder
@@ -155,7 +153,6 @@ class FLAddressChangeViewPrevious(BaseModel):
 
     side: Literal["previous"]
     state: FLAddressChangePreviousState
-    valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
     # The new address while the change stands, null past this link's own deadline: the holder of the address on file cannot
@@ -182,7 +179,11 @@ class FLAddressChangeViewEnded(BaseModel):
 
 
 class FLAddressChangeViewResponse(BaseAPIResponse):
-    """What one address link opens: never a name or the id, and the new address only where a link asks its question."""
+    """What one address link opens: never a name or the id.
+
+    The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
+    the change stands, masked on `waiting_period`.
+    """
 
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
@@ -213,20 +214,15 @@ class FLAddressChangeStopResponse(BaseAPIResponse):
 
 
 class FLAddressChangeAdminOpen(BaseModel):
-    """One live change whole, admin tier: both addresses and the reason included, never a hash."""
+    """One live change as Adressänderungen shows it, admin tier: both addresses, and neither the reason nor a hash."""
 
     id: CustomObjectId
     address: str
     email: str
-    way: FLAddressChangeWay
-    change_reason: str | None
     # The tier the changing address holds, whose holders a change in its wait mails; null for anyone else.
     holder: FLAdminTier | None
     waits_on: FLAddressChangeWaitsOn
-    sent_at: CustomDateString
     valid_until: FLUtcInstant | None
-    released_at: FLUtcInstant | None
-    confirmed_at: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     # What became of the new mailbox's last link mail; null where none was owed.
     delivery: FLOutboxStatus | None

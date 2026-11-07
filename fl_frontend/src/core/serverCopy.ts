@@ -109,6 +109,9 @@ export const SERVER_COPY = catalogue({
     kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,
     grant_exists: COPY.shared.field.taken,
+    // The address tool's new address: another pupil signs in on it, or an entry names it.
+    address_change_taken: COPY.shared.field.taken,
+    address_change_occupied: COPY.shared.field.taken,
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -143,8 +146,8 @@ export const SERVER_COPY = catalogue({
     foreign_address_change: ADDRESS_OF_ADMINISTRATION,
     /** A ban's last season counts from the running one. */
     ban_list_no_saison: "Es läuft keine Saison.",
-    /** A person's own address change to the address they already sign in with. */
-    address_change_unchanged: COPY.account.address.unchanged,
+    /** The address on file typed again, on Konto's start and on the address tool's alike, so it names nobody's. */
+    address_change_unchanged: "Diese Adresse ist schon hinterlegt.",
     /** An address change's start, for an address holding no record. */
     address_change_nothing: COPY.admin.nothingAtAddress,
     /** The re-send's own, which holds no box to set the field's phrase on. */
