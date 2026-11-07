@@ -6,7 +6,7 @@ import { actionLogGetActionLogQueryQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { loadActionLog } from "@/features/action-log/actions";
-import { byOptions, logParams, PERIOD_OPTIONS, TYPE_OPTIONS } from "@/features/action-log/filters";
+import { byOf, byOptions, logParams, PERIOD_OPTIONS, TYPE_OPTIONS } from "@/features/action-log/filters";
 import { getActionLog } from "@/features/action-log/queries";
 import { rowOf } from "@/features/action-log/rows";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -28,18 +28,18 @@ async function readLog(searchParams: Props["searchParams"]) {
   const named = await searchParams;
   const type = filterValue(named.type, TYPE_OPTIONS);
   const time = filterValue(named.time, PERIOD_OPTIONS);
-  const asked = [named.by].flat()[0];
-  const first = await getActionLog(logParams({ by: asked, type, time }));
+  const first = await getActionLog(logParams({ type, time }));
   const options = byOptions(first.by_options);
-  const by = filterValue(asked, options);
-  // Who is offered is known only once the log is read: a `by` it does not hold narrows nothing, as any filter's stray value.
-  const page = asked === undefined || by !== null ? first : await getActionLog(logParams({ type, time }));
+  const who = filterValue(named.by, options);
+  // Who the address's option stands for is known only once the log is read, which answers every `by` whatever the filters keep.
+  const by = byOf(first.by_options, who);
+  const page = by === null ? first : await getActionLog(logParams({ by, type, time }));
   const filters: readonly Filter[] = [
-    { name: "by", label: WORDS.who, all: SERVER_COPY.season.filter.all, options, value: by },
+    { name: "by", label: WORDS.who, all: SERVER_COPY.season.filter.all, options, value: who },
     { name: "type", label: COPY.admin.team.austrittType, all: SERVER_COPY.season.filter.all, options: TYPE_OPTIONS, value: type },
     { name: "time", label: COPY.admin.saison.period, all: SERVER_COPY.season.filter.all, options: PERIOD_OPTIONS, value: time },
   ];
-  return { filters, page };
+  return { filters, page, by };
 }
 
 /** The table's head, drawn while the rows are read and over them once they are. Its rows stack on a phone and open nothing. */
@@ -69,7 +69,7 @@ export default function ActionLogPage({ searchParams }: Props) {
         search: { label: WORDS.search, maxLength: actionLogGetActionLogQueryQOneMax },
         head: HEAD,
         wait: 50,
-        content: log.then(({ filters, page }) => {
+        content: log.then(({ filters, page, by }) => {
           const chosen = filters.flatMap(({ name, value }) => (value === null ? [] : [[name, value] as const]));
           return {
             table: {
@@ -77,7 +77,8 @@ export default function ActionLogPage({ searchParams }: Props) {
               rows: page.action_log.map(rowOf),
               empty: { kind: chosen.length === 0 ? "none" : "filter", plural: COPY.account.entries.plural, glyph: "log" } as const,
             },
-            more: { cursor: page.cursor, carry: Object.fromEntries(chosen), load: loadActionLog },
+            // The next page's read posts what the actor's option stands for, in a body no log keeps.
+            more: { cursor: page.cursor, carry: { ...Object.fromEntries(chosen), ...(by === null ? {} : { by }) }, load: loadActionLog },
           };
         }),
       }}
