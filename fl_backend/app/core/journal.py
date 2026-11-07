@@ -27,8 +27,9 @@ def privacy_line(
     """One INFO line naming the act and each record as `collection/id`, with a withdrawal's choices and an objection's slots by name.
 
     Every key stands on every line, so a reader can rely on it. An erasure's `records` hold one person each, a seat's row
-    holds three, so its `seats` read `collection/id/slot`; its `rows` are every other row that named the address, which is
-    how an address holding no record of its own is found again.
+    holds three, so its `seats` read `collection/id/slot`; its `rows` are every other field that named the address, as
+    `collection/id/path`, which is how an address holding no record of its own is found again, and how a row naming two
+    people says which of them this is.
     """
 
     fl_logger.info(

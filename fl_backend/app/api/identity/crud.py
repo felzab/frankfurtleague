@@ -18,7 +18,7 @@ from app.api.address_change.crud import (
 )
 from app.api.address_change.services import build_owed_carry_filter
 from app.api.grants.crud import read_grants
-from app.api.grants.erasure import erase_grants_and_authorship_in_session
+from app.api.grants.erasure import erase_grants_and_authorship_in_session, outbox_rows_older_than
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
@@ -354,9 +354,9 @@ class Subject:
         return [f"{collection}/{row['_id']}/{slot}" for collection, rows in kinds for row, slot in seats_naming(rows, self.identifier)]
 
     def changes_naming_it(self) -> list[str]:
-        """Each other address's change whose new address this is, as `collection/id`."""
+        """Each other address's change whose new address this is, as `collection/id/path`."""
 
-        return [f"{Collection.ADDRESS_CHANGES}/{row['_id']}" for row in others_naming(self.address_change, self.identifier)]
+        return [f"{Collection.ADDRESS_CHANGES}/{row['_id']}/email" for row in others_naming(self.address_change, self.identifier)]
 
 
 async def resolve_subject(
@@ -418,12 +418,14 @@ async def resolve_subject(
     )
 
 
-async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
+async def erase_the_mails_in_session(
+    *, outbox_collection: AsyncCollection, identifier: str, now: datetime, session: AsyncClientSession
+) -> list[str]:
     """Every mail to this folded address removed, owed or settled, every kind but those `ERASURE_SPARED_KINDS` names.
 
     A settled row's retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index
     serves the read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its
-    mail was owed. Answers each as `collection/id`.
+    mail was owed. Answers each row that stood before this erasure as `collection/id/path`.
     """
 
     rows = await aggregate_many_from_db(
@@ -432,22 +434,23 @@ async def erase_the_mails_in_session(*, outbox_collection: AsyncCollection, iden
         session=session,
     )
     ids = [row["_id"] for row in rows if isinstance(row["to"], str) and sign_in_identifier(row["to"]) == identifier]
+    standing = await outbox_rows_older_than(outbox_collection, ids, now, session)
     if ids:
         await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
-    return [f"{outbox_collection.name}/{row_id}" for row_id in ids]
+    return [f"{outbox_collection.name}/{row_id}/to" for row_id in ids if row_id in standing]
 
 
 async def log_rows_naming(*, action_log_collection: ReadCollection, identifier: str, session: AsyncClientSession) -> list[str]:
-    """The log rows `reattribute_administrator_in_session` takes this folded address off, as `collection/id`, read ahead of it."""
+    """The log fields `reattribute_administrator_in_session` takes this folded address off, as `collection/id/path`, read ahead of it."""
 
     rows = await aggregate_many_from_db(
         collection=action_log_collection,
-        pipeline=[{"$match": {"$or": [{"by": identifier}, {"label": identifier}]}}, {"$project": {"_id": 1}}],
+        pipeline=[{"$match": {"$or": [{"by": identifier}, {"label": identifier}]}}, {"$project": {"by": 1, "label": 1}}],
         session=session,
     )
 
-    return [f"{Collection.ACTION_LOG}/{row['_id']}" for row in rows]
+    return [f"{Collection.ACTION_LOG}/{row['_id']}/{field}" for row in rows for field in ("by", "label") if row[field] == identifier]
 
 
 @dataclass(frozen=True)
@@ -457,7 +460,8 @@ class Erasure:
     counts: FLErasure
     records: list[str]
     seats: list[str]
-    # Every other row that named the address, so an address holding no record of its own still replays after a restore.
+    # Every other field that named the address as `collection/id/path`, so an address holding no record of its own still
+    # replays after a restore, and a row naming two people says which one this is.
     rows: list[str]
 
 
@@ -691,7 +695,7 @@ async def erase_everything(
         named += [*subject.changes_naming_it(), *erased_grants.rows]
 
     if _runs(erase_the_mails_in_session, scope):
-        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
+        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, now=now, session=session)
 
     if _runs(reattribute_administrator_in_session, scope):
         named += await log_rows_naming(action_log_collection=action_log_collection, identifier=identifier, session=session)
@@ -712,8 +716,7 @@ async def erase_everything(
         ),
         records=subject.records() if scope == EACH_PERSON_GROUP else [],
         seats=subject.seats() if scope == EACH_PERSON_GROUP else [],
-        # One row twice where a withheld notice was also a mail to the address.
-        rows=list(dict.fromkeys(named)),
+        rows=named,
     )
 
 

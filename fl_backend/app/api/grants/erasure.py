@@ -31,7 +31,7 @@ _QUEUED_SITES = ("data.address", "data.changed_by")
 @dataclass(frozen=True)
 class ErasedGrantsAndAuthorship:
     removed_grants: int
-    # Each row this step took the person off, as `collection/id`: for the journal's line, which holds no value.
+    # Each field this step took the person off, as `collection/id/path`: for the journal's line, which holds no value.
     rows: list[str]
 
 
@@ -95,8 +95,28 @@ def _withheld(notice: Notice, identifier: str) -> Notice:
     return Notice(grant_id=notice.grant_id, data={**notice.data, **_withholding(notice.data, identifier)})
 
 
-async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
-    """Every grant notice still owed naming this person, written by id and grouped by what each loses, answering each."""
+async def outbox_rows_older_than(
+    outbox_collection: ReadCollection, ids: Sequence[ObjectId], now: datetime, session: AsyncClientSession
+) -> set[ObjectId]:
+    """Which of these rows stood before this erasure: a row it wrote carries its `now`, and no snapshot can hold that one."""
+
+    if not ids:
+        return set()
+    rows = await aggregate_many_from_db(
+        collection=outbox_collection,
+        pipeline=[{"$match": {"_id": {"$in": list(ids)}, "recorded_at": {"$lt": now}}}, {"$project": {"_id": 1}}],
+        session=session,
+    )
+
+    return {row["_id"] for row in rows}
+
+
+async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, now: datetime, session: AsyncClientSession) -> list[str]:
+    """Every grant notice still owed naming this person, written by id and grouped by what each loses.
+
+    Answers each field that names them in full as `collection/id/path`. A row matched by a mask alone stands on no line:
+    a mask fits many people, so that row names nobody a replay could read off it.
+    """
 
     masked = await aggregate_many_from_db(
         collection=outbox_collection,
@@ -114,7 +134,15 @@ async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, 
     for update, ids in by_update.items():
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session)
 
-    return [f"{outbox_collection.name}/{row['_id']}" for row in rows]
+    standing = await outbox_rows_older_than(outbox_collection, [row["_id"] for row in named], now, session)
+
+    return [
+        f"{outbox_collection.name}/{row['_id']}/{path}"
+        for row in named
+        if row["_id"] in standing
+        for path in _QUEUED_SITES
+        if _names(_held_at(row, path), identifier)
+    ]
 
 
 async def carry_authorship_in_session(
@@ -130,7 +158,7 @@ async def carry_authorship_in_session(
     new_address: str,
     session: AsyncClientSession,
 ) -> list[str]:
-    """Re-key every record the person made to `new_address`, whatever they hold now, answering each as `collection/id`.
+    """Re-key every record the person made to `new_address`, whatever they hold now, answering each as `collection/id/field`.
 
     Each collection named by its own parameter, as the erasure names them, so the traces resolve every write.
     """
@@ -151,7 +179,7 @@ async def _set_authored(collection: AsyncCollection, field: str, identifier: str
     if ids:
         await patch_many_in_db(collection=collection, db_filter={"_id": {"$in": ids}}, update={"$set": {field: value}}, session=session)
 
-    return [f"{collection.name}/{row_id}" for row_id in ids]
+    return [f"{collection.name}/{row_id}/{field}" for row_id in ids]
 
 
 async def erase_grants_and_authorship_in_session(
@@ -198,7 +226,7 @@ async def erase_grants_and_authorship_in_session(
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
-    withheld = await _withhold_queued(outbox_collection, identifier, session)
+    withheld = await _withhold_queued(outbox_collection, identifier, now, session)
 
     if grant_ids:
         await delete_many_from_db(collection=grants_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)

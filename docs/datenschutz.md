@@ -194,8 +194,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     system's mark; the record's id, a label of league data, a pass's count, a grant act's grantee by
     address, an erasure's typed reference, and the `trace_id` joining the row to the edge's line for
     that request, stored and never served (`fl_backend/app/core/recording.py :: record_act`); each
-    line's act and record ids, an erasure's seats and the ids of the log rows and authored rows it
-    changed, a withdrawal's choices and an objection's slots, and no value
+    line's act and record ids, an erasure's seats and each other field it took the person off, by
+    row id and field name, a withdrawal's choices and an objection's slots, and no value
     (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
 - **Mail** (`outbox`; mail to the league; WhatsApp).

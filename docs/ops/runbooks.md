@@ -1246,7 +1246,8 @@ backend's stream, and so did every consent a person withdrew and every Widerspru
 seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no value, address or name, where its person stood:
 `records`, each record one address alone holds, as `collection/id`; `seats`, a Widerspruch's slots by
 name, an erasure's as `collection/id/slot`, its row holding other people; `rows`, an erasure's every
-other row that named the address; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
+other field that named the address, as `collection/id/path`, so a row naming two people says which
+of them this is; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
 
 **List the lines between the two moments**, from the running backend and the deploys' copies (§7),
 each in the `journal.act` message, every value in a field of its own:
@@ -1273,10 +1274,7 @@ never elsewhere on the row, since a seat's row and another person's change hold 
 
 - a `records` entry: the address on that record, as §5's table names it;
 - a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row;
-- a `rows` entry, by its collection: `address_changes`, `email`, this being another address's change
-  that named this one as its new address; `grants`, `granted_by`; `bewerbungen` and `registrierungen`,
-  `decision.by`; `ban_list` and `invitations`, `created_by`; `action_log`, `by`, or `label` on a grant
-  act; `outbox`, `to`, or on a `grant` notice `data.address` or `data.changed_by`.
+- a `rows` entry, `collection/id/path`: the field at that path on that row.
 
 The entries a restored row no longer holds, written after the snapshot, are read past. An address
 with no entry the snapshot holds left nothing the restore brought back. A line naming nothing at all
