@@ -1,35 +1,39 @@
 import { cache } from "react";
 
-import { ClassicPage } from "@/kit/ClassicPage";
 import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
+import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { COPY } from "@/core/copy";
-import { dayOf } from "@/core/format";
+import { dayOf, formatInstantShort } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
-import { AdresswechselLinkView } from "@/features/address-change/components/views/AdresswechselLinkView";
-import { startOf, viewOf } from "@/features/address-change/link";
 import { postAddressChangeView } from "@/features/address-change/mutations";
-import { mapAddressChangeViewRefusal } from "@/features/address-change/refusals";
+import { readsAsDeadLink } from "@/features/address-change/refusals";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { answerAddressChange, answerByAdminRoute } from "./answers";
-import { doneOnEnd } from "./ends";
+import { answerAddressChange, stopAddressChange } from "./answers";
+import { doneOnEnd, stoppedOn } from "./ends";
 
 import type { Copy } from "@/core/copy";
-import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
+import type {
+  FLAddressChangeViewEnded,
+  FLAddressChangeViewNew,
+  FLAddressChangeViewPrevious,
+  FLAddressChangeWay,
+} from "@/core/generated/client/types";
+import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Side } from "./ends";
 
 type Props = PageProps<"/confirm/address">;
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token. The old view keeps the row's title. */
+/** A row no crawler fetches, and no referrer: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.addressChangeConfirmation;
-  const title = mailedTitle(await readState(searchParams), row.title);
+  const title = mailedTitle(await readState(searchParams));
   return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
@@ -42,7 +46,7 @@ const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
     postAddressChangeView({ token }).catch((error: unknown) => {
-      if (mapAddressChangeViewRefusal(error) === null) throw error;
+      if (!readsAsDeadLink(error)) throw error;
       return null;
     }),
   ),
@@ -52,8 +56,10 @@ const readChange = cache(async (token: string) =>
 const accountAtTheNewAddress = cache(async (token: string) => accountAtNewAddress({ token }));
 
 /**
- * `/confirm/address`, both links of an address change, the token saying which: the person's own change on the
- * mailed-page template, the address on file asked first, then the new mailbox, each confirming or declining.
+ * `/confirm/address`, both links of an address change on either way, the token saying which: a question, its done state,
+ * the link opened again, or the link no longer valid. The person's own change asks the address on file first, then the
+ * new mailbox; the administration's asks the new mailbox alone, the address on file holding a stop, as a holder's does
+ * while its wait runs.
  */
 export default function AddressChangeConfirmationPage({ searchParams }: Props) {
   return (
@@ -77,81 +83,112 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
   const read = await readChange(token);
   if (read === null) return INVALID;
 
-  return read.view.way === "account" ? ownWay(read.view, token) : administratorsWay(read, token);
+  const { view } = read;
+  if (view.state === "ended") return endedState(view);
+  return view.side === "previous" ? previousState(view, token) : newState(view, token);
 }
 
-/** The person's own change, in the mailed page's four states. */
-async function ownWay(view: FLAddressChangeViewResponse["view"], token: string): Promise<MailedState> {
-  if (view.state === "ended") {
-    const ended = dayOf(view.ended_on);
-    const released = dayOf(view.released_on);
-    // The new mailbox ends it by its own answer alone; the address on file by its decline, or by the change it
-    // confirmed first, whichever way the new mailbox answered after.
-    if (view.side === "new") {
-      if (view.kind === "effective") return doneOnEnd("new", "confirmed", ended);
-      return view.kind === "declined" ? doneOnEnd("new", "declined", ended) : INVALID;
-    }
-    if (released !== null && (view.kind === "effective" || view.kind === "declined")) return doneOnEnd("previous", "confirmed", released);
-    return view.kind === "declined" ? doneOnEnd("previous", "declined", ended) : INVALID;
+/** A link opened after its change ended: what its holder did and when, or the link no longer valid for every other end. */
+function endedState(view: FLAddressChangeViewEnded): MailedState {
+  const ended = dayOf(view.ended_on);
+  const released = dayOf(view.released_on);
+  // The new mailbox ends it by its own answer alone; a waited change takes effect days after that answer.
+  if (view.side === "new") {
+    if (view.kind === "effective") return doneOnEnd("new", "confirmed", dayOf(view.confirmed_on) ?? ended, view.way);
+    return view.kind === "declined" ? doneOnEnd("new", "declined", ended, view.way) : INVALID;
   }
-
-  if (view.side === "previous") {
-    if (view.state === "release_open" && view.email !== null) {
-      return question(
-        "previous",
-        token,
-        COPY.shared.withObject(WORDS.change, "confirm"),
-        WORDS.newAddress,
-        view.email,
-        WORDS.previous.question,
-      );
-    }
-    const released = dayOf(view.released_on);
-    // Confirmed, the change waiting on the new mailbox; a holder's wait offers the old view's stop.
-    if (view.state === "open" && released !== null) return doneOnEnd("previous", "confirmed", released);
-    return view.state === "waiting_period" ? oldView(viewOf({ view }), token) : INVALID;
+  if (view.kind === "stopped") return stoppedOn(ended);
+  // The address on file ends the person's own change by its decline, or by the change it confirmed first, whichever way
+  // the new mailbox answered after.
+  if (released !== null && (view.kind === "effective" || view.kind === "declined")) {
+    return doneOnEnd("previous", "confirmed", released, view.way);
   }
+  return view.way === "account" && view.kind === "declined" ? doneOnEnd("previous", "declined", ended, view.way) : INVALID;
+}
 
-  // A holder's wait after the new mailbox confirmed: the old view's, with its date.
-  if (view.state === "confirmed") return oldView(viewOf({ view }), token);
+/** The address on file's link: the person's own question, then, while the change can still be stopped, the stop. */
+function previousState(view: FLAddressChangeViewPrevious, token: string): MailedState {
+  if (view.state === "release_open" && view.email !== null) {
+    return question({
+      side: "previous",
+      way: view.way,
+      token,
+      title: COPY.shared.withObject(WORDS.change, "confirm"),
+      label: WORDS.newAddress,
+      email: view.email,
+      sentence: WORDS.previous.question,
+    });
+  }
+  if (view.state === "waiting_period" || (view.state === "open" && view.way === "waiting_period")) return stop(view, token);
+  // Confirmed, the person's own change waiting on the new mailbox.
+  const released = dayOf(view.released_on);
+  return view.state === "open" && released !== null ? doneOnEnd("previous", "confirmed", released, view.way) : INVALID;
+}
+
+/** The new mailbox's link. */
+async function newState(view: FLAddressChangeViewNew, token: string): Promise<MailedState> {
+  if (view.state === "confirmed") {
+    const confirmed = dayOf(view.confirmed_on);
+    return confirmed === null ? INVALID : doneOnEnd("new", "confirmed", confirmed, view.way);
+  }
   // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
   if (view.state !== "valid" || view.email === null || (await accountAtTheNewAddress(token))) return INVALID;
-  return question("new", token, COPY.shared.withObject(COPY.signIn.address, "confirm"), COPY.signIn.address, view.email, WORDS.new.question);
+  return question({
+    side: "new",
+    way: view.way,
+    token,
+    title: COPY.shared.withObject(COPY.signIn.address, "confirm"),
+    label: COPY.signIn.address,
+    email: view.email,
+    sentence: WORDS.new.question,
+    ...(view.way === "waiting_period" ? { waits: WORDS.new.waits({ days: ADDRESS_CHANGE_WAIT_DAYS }) } : {}),
+  });
 }
 
 /** A link's question: the change's new address as the one fact, confirmed by the main act and declined by the other. */
-function question(side: Side, token: string, title: Copy, label: Copy, email: string, sentence: Copy): MailedState {
+function question({
+  side,
+  way,
+  token,
+  title,
+  label,
+  email,
+  sentence,
+  waits,
+}: {
+  side: Side;
+  way: FLAddressChangeWay;
+  token: string;
+  title: Copy;
+  label: Copy;
+  email: string;
+  sentence: Copy;
+  waits?: Copy;
+}): MailedState {
   return {
     state: "question",
     title,
     facts: [{ label, value: { record: email } }],
     sentence,
+    ...(waits === undefined ? {} : { sentenceAfter: waits }),
     action: answerAddressChange,
     acts: { primary: title, secondary: COPY.shared.verb.decline },
-    carry: { token, side },
+    carry: { token, side, way },
   };
 }
 
-/** Session 7: the administrator's way, which keeps the old view. */
-async function administratorsWay(read: FLAddressChangeViewResponse, token: string): Promise<MailedState> {
-  const view = viewOf(read);
-  // The backend cannot see the sign-in store, so its view offers the press an account at the new address closes.
-  if (view.state === "valid" && (await accountAtTheNewAddress(token))) {
-    return oldView({ state: "not_confirmable", way: view.way }, token);
-  }
-  return oldView(view, token);
-}
-
-function oldView(read: ReturnType<typeof viewOf>, token: string): MailedState {
+/** The stop: where the change goes, as far as this link may know, and from when, once the wait runs. */
+function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevious, token: string): MailedState {
+  const facts: Fact[] = [];
+  if (email !== null) facts.push({ label: WORDS.newAddress, value: { record: email } });
+  if (effectiveFrom !== null) facts.push({ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
   return {
-    state: "legacy",
-    view: (
-      <ClassicPage width="form">
-        <AdresswechselLinkView
-          start={startOf(read, token)}
-          beantworten={answerByAdminRoute}
-        />
-      </ClassicPage>
-    ),
+    state: "question",
+    title: COPY.account.address.stop,
+    facts,
+    sentence: WORDS.previous.question,
+    action: stopAddressChange,
+    acts: { primary: COPY.account.address.stop },
+    carry: { token },
   };
 }

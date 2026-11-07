@@ -56,6 +56,56 @@ describe("the person's own change, on a link opened again", () => {
   });
 });
 
+// `ended_on` is the effect's day, a wait after the answer: a link opened again would state a day nobody confirmed on.
+describe("a waited change, on a link opened again", () => {
+  it("names the day the new mailbox confirmed, in the wait and once it took effect", async () => {
+    const CONFIRMED = "2026-10-28";
+    const title = COPY.shared.end.doneOn(WORDS.new.confirmed, CONFIRMED);
+
+    expect(await stateFor({ ...live, side: "new", state: "confirmed", confirmed_on: CONFIRMED })).toMatchObject({
+      state: "alreadyDone",
+      title,
+    });
+    expect(await stateFor({ ...ended, side: "new", kind: "effective", confirmed_on: CONFIRMED })).toMatchObject({
+      state: "alreadyDone",
+      title,
+    });
+  });
+});
+
+// The stop is the old address's one defence, on either way; shown as a dead link, nothing fails and the change goes through.
+describe("the address on file's link", () => {
+  const stops = { ...live, side: "previous", released_on: null, email: "l***@example.org" } as const;
+
+  it("stops an administrator's change before the new mailbox confirmed", async () => {
+    const state = await stateFor({ ...stops, way: "waiting_period", state: "open" });
+
+    expect(state).toMatchObject({ state: "question", title: COPY.account.address.stop, acts: { primary: COPY.account.address.stop } });
+  });
+
+  it("stops a holder's change while its wait runs, and says from when it holds", async () => {
+    const state = await stateFor({ ...stops, state: "waiting_period", effective_from: "2026-11-05T10:00:00Z" });
+
+    expect(state).toMatchObject({ state: "question", title: COPY.account.address.stop });
+    expect(state.state === "question" ? state.facts?.map(({ label }) => label) : []).toStrictEqual([
+      WORDS.newAddress,
+      COPY.admin.facts.effectiveFrom,
+    ]);
+  });
+
+  it("says a stop was made, and when, once opened again", async () => {
+    expect(await stateFor({ ...ended, side: "previous", kind: "stopped", way: "waiting_period" })).toMatchObject({
+      title: COPY.shared.end.doneOn(WORDS.previous.stopped, DAY),
+      declined: true,
+    });
+  });
+
+  // The new mailbox's decline of an administrator's change is no answer of this link's, so naming one would be false.
+  it("calls an administrator's change the new mailbox declined void", async () => {
+    expect(await stateFor({ ...ended, side: "previous", kind: "declined", way: "waiting_period" })).toMatchObject({ state: "invalid" });
+  });
+});
+
 // The harm: a tab asking for an answer over a page saying the link is dead, which no reading of the page meets.
 describe("the tab's title", () => {
   it("says the link is dead where the page does", async () => {

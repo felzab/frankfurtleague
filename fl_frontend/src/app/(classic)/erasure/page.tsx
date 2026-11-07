@@ -27,7 +27,7 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.accountErasure;
-  const title = mailedTitle(await readState(), row.title);
+  const title = mailedTitle(await readState());
   return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 

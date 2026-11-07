@@ -61,6 +61,8 @@ export type MailedState =
       facts?: ReadonlyArray<Fact>;
       /** None on the application form, whose title says all there is before its boxes. */
       sentence?: Copy;
+      /** A second sentence, a paragraph of its own under the first: how long the answer waits. */
+      sentenceAfter?: Copy;
       /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
       more?: { before: Copy; after: Copy };
       action: OneShotAction;
@@ -80,21 +82,16 @@ export type MailedState =
     }
   | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "invalid"; next: StatusCardProps["next"] }
-  | ({ state: "end" } & EndState)
-  // Redesign: goes with the address change's old view, which the administrator's way keeps until session 7.
-  | { state: "legacy"; view: ReactNode };
+  | ({ state: "end" } & EndState);
 
 /**
- * A mailed page's tab title, its state's own heading, so the tab never asks a question the page has closed; `route` is
- * the row's title, for the old view whose heading the view keeps. Read off the same read as the page, which the page
- * memoizes with React's `cache`, since a link's state decides its heading.
+ * A mailed page's tab title, its state's own heading, so the tab never asks a question the page has closed. Read off the
+ * same read as the page, which the page memoizes with React's `cache`, since a link's state decides its heading.
  */
-export function mailedTitle(state: MailedState, route: Copy): Copy {
+export function mailedTitle(state: MailedState): Copy {
   switch (state.state) {
     case "invalid":
       return COPY.template.linkInvalid;
-    case "legacy":
-      return route;
     case "question":
     case "alreadyDone":
     case "end":
@@ -106,8 +103,6 @@ export function mailedTitle(state: MailedState, route: Copy): Copy {
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
-    case "legacy":
-      return props.view;
     case "invalid":
       return (
         <StatusPage
@@ -165,6 +160,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
                   )}
                 </p>
               )}
+              {props.sentenceAfter !== undefined && <p className="text-base">{props.sentenceAfter}</p>}
             </>
           }>
           {props.children}
