@@ -37,6 +37,7 @@ export default function ErasuresPage() {
           name: "email",
           width: "W3",
           kind: "email",
+          autofill: "off",
           isRequired: requires(email, ""),
           maxLength: identityPostErasureBodyEmailMax,
         },

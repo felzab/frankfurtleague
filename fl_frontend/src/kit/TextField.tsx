@@ -55,10 +55,11 @@ type Line =
 type Autofill = "name" | "given-name" | "family-name" | "organization" | "street-address" | "postal-code" | "address-level2";
 
 /**
- * What an address field is filled as: the person's address, or, where the address signs in, the account's
- * name, under which a password manager files what it keeps for the site.
+ * What an address field is filled as: the person's address; where the address signs in, the account's name, under
+ * which a password manager files what it keeps for the site; or nothing, `off`, where an administrator types somebody
+ * else's, which would otherwise stay in the browser and be offered to the next form.
  */
-type EmailAutofill = "email" | "username";
+type EmailAutofill = "email" | "username" | "off";
 
 /**
  * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is

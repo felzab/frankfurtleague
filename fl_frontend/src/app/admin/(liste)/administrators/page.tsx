@@ -267,6 +267,7 @@ function addOf({ actor }: Access): ListCreate | null {
         name="email"
         width="W3"
         kind="email"
+        autofill="off"
         isRequired={GRANT_RULES.required.email}
         maxLength={GRANT_RULES.emailMax}
         description={COPY.shared.field.format(COPY.shared.field.exampleAddress)}
