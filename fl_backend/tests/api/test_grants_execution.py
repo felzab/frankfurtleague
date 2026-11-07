@@ -166,6 +166,7 @@ async def remove(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Ob
         return await delete_grant(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
             revoked_by=als,
@@ -189,6 +190,7 @@ async def hand_over(
             grant_id=grant_id,
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             ban_list_collection=database[Collection.BAN_LIST],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             started_by=als,
@@ -203,6 +205,7 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
         return await delete_handover(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             stopped_by=als,
@@ -222,6 +225,7 @@ async def pass_at(
 ) -> int:
     answer = await post_handover_pass(
         grants_collection=grants if grants is not None else database[Collection.GRANTS],
+        address_changes_collection=database[Collection.ADDRESS_CHANGES],
         outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
         db=client,
         now=now,
@@ -366,6 +370,7 @@ class TestAnAddition:
                     [notice],
                     outbox_collection=database[Collection.OUTBOX],
                     grants_collection=database[Collection.GRANTS],
+                    address_changes_collection=database[Collection.ADDRESS_CHANGES],
                     now=NOW,
                     session=session,
                 )
@@ -440,6 +445,21 @@ class TestARemoval:
 
         assert notices == [("granted", "withdrawn", NEU, OWNER, sorted([*EVERY_HOLDER, NEU]))]
         assert logged == 1
+
+    def test_a_handover_waiting_on_the_row_is_withdrawn_in_words(self, mongo_replica_set_url: str):
+        """The holders hold a date for the handover, and a removal's own mail says nothing of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await hand_over(database, client)
+            await database[Collection.OUTBOX].delete_many({})
+            await remove(database, client, ANNA_ID)
+
+            return await owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            ("revoked", "completed", ANNA, OWNER, EVERY_HOLDER),
+            ("handover", "withdrawn", ANNA, OWNER, EVERY_HOLDER),
+        ]
 
     def test_the_owners_row_goes_by_no_removal(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:

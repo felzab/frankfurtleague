@@ -47,6 +47,7 @@ from app.api.address_change.services import (
     side_of,
     stored_instant,
     wait_after_confirmation,
+    wait_tier,
 )
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
@@ -314,7 +315,7 @@ async def post_address_change_answer(
         # Refused rather than ended, so this 409 keeps the promise of `app/core/codes.py`: the hourly pass ends the change as its link lapses.
         refuse(find_nothing_refusal(empty=verdict.empty))
 
-        wait = wait_after_confirmation(way=record["way"], admin_tier=holdings.admin_tier)
+        wait = wait_after_confirmation(way=record["way"], admin_tier=holdings.waits_as)
         if wait is None:
             await move_the_address_in_session(
                 record=record,
@@ -357,10 +358,10 @@ async def post_address_change_answer(
             await tell_the_holders_in_session(
                 record,
                 stage="started",
-                # The person's own change is theirs; a lost-mailbox one's confirmation is nobody's the league knows.
-                changed_by=holdings.identifier if record["way"] == "account" else None,
+                changed_by=holdings.identifier,
                 effective_from=effective_from,
                 grants_collection=grants_collection,
+                address_changes_collection=address_changes_collection,
                 outbox_collection=outbox_collection,
                 now=germany_now,
                 session=session,
@@ -417,7 +418,7 @@ async def _answer_for_the_address_on_file(
         email=str(released["email"]),
         way="account",
         valid_until=valid_until,
-        holder=None if grant is None else grant["admin_tier"],
+        holder=wait_tier(grant),
         outbox_collection=outbox_collection,
         now=germany_now,
         session=session,
@@ -471,6 +472,7 @@ async def post_address_change_stop(
             record,
             changed_by=str(record["address"]),
             grants_collection=grants_collection,
+            address_changes_collection=address_changes_collection,
             outbox_collection=outbox_collection,
             now=germany_now,
             session=session,

@@ -16,6 +16,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.address_change.services import masked_address
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.grants.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.grants.services import compose_notice
@@ -213,6 +214,7 @@ async def erase(
     async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
         return await erase_grants_and_authorship_in_session(
             grants_collection=database[Collection.GRANTS],
+            address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -323,6 +325,46 @@ class TestTheNotices:
         assert after[MADE_BY_HER] == (BERND, ERASED_ACTOR_MARKER)
         assert after[NOT_HERS] == before[NOT_HERS]
         assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
+
+    @pytest.mark.parametrize(
+        ("stage", "left"),
+        [
+            pytest.param("completed", (None, None), id="a completed change's old address was hers"),
+            pytest.param("withdrawn", (BERND, None), id="a change that never reached her keeps its own holder"),
+        ],
+    )
+    def test_a_queued_address_notice_masking_her_keeps_neither_her_mask_nor_her_old_address(
+        self, mongo_replica_set_url: str, stage: str, left: tuple[str | None, str | None]
+    ):
+        """A completion names the address before the move, which no fold of her erased address finds."""
+
+        row_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
+            row = notice(row_id, BERND_ID, "address", BERND, DORA)
+            data = {**row["data"], "stage": stage, "changed_by": None, "new_address": masked_address(ERIKA)}
+            await database[Collection.OUTBOX].insert_one({**row, "data": data})
+            await erase(database, client)
+            stored = await database[Collection.OUTBOX].find_one({"_id": row_id})
+            assert stored is not None
+
+            return stored["data"]["address"], stored["data"]["new_address"]
+
+        assert on_a_league(mongo_replica_set_url, body) == left
+
+    def test_a_handover_waiting_on_her_row_is_withdrawn_naming_nobody(self, mongo_replica_set_url: str):
+        """The holders hold a date for it, and the grant it waited on is gone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+            await database[Collection.GRANTS].update_one({"_id": ERIKA_ID}, {"$set": {"owner_from": NOW}})
+            await erase(database, client)
+
+            return await queued_for(database, ERIKA_ID)
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            {"change": "revoked", "stage": "completed", "address": None, "changed_by": DORA},
+            {"change": "handover", "stage": "withdrawn", "address": None, "changed_by": DORA},
+        ]
 
 
 class TestTheRecordsSheMade:

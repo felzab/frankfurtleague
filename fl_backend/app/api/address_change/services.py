@@ -23,7 +23,7 @@ from app.core.exceptions import APIError, WriteRefusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.custom import as_utc
-from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay
+from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 
 ADDRESS_CHANGE_WAYS: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
 
@@ -55,11 +55,24 @@ def valid_until_from(now: datetime) -> datetime:
     return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
 
-def wait_after_confirmation(*, way: FLAddressChangeWay, admin_tier: str | None) -> timedelta | None:
+def wait_tier(grant: Mapping[str, Any] | None) -> FLAdminTier | None:
+    """The tier whose wait a change of this grant's address serves, a waiting row's included.
+
+    A row a handover names serves the owner's: its 24 hours would end the wait on the role's mailbox days after the handover
+    made it the owner's, a wait that exists because nobody can take that role back.
+    """
+
+    if grant is None:
+        return None
+
+    return "owner" if grant.get("owner_from") is not None else grant["admin_tier"]
+
+
+def wait_after_confirmation(*, way: FLAddressChangeWay, admin_tier: FLAdminTier | None) -> timedelta | None:
     """How long a change waits from the new mailbox's confirmation, `None` where it takes effect at that press.
 
     The lost-mailbox way and the owner's grant longest, nobody having proved the old mailbox or being able to take the role back; any
-    other grant a day, so every holder can read of it. `admin_tier` as the row stores it, a row still waiting included.
+    other grant a day, so every holder can read of it. `admin_tier` as `wait_tier` reads the row.
     """
 
     if way == "waiting_period":

@@ -598,6 +598,7 @@ async def erase_everything(
     if _runs(end_the_address_changes_in_session, scope):
         address_change = await end_the_address_changes_in_session(
             address_changes_collection=address_changes_collection,
+            grants_collection=grants_collection,
             outbox_collection=outbox_collection,
             identifier=identifier,
             rows=subject.address_change,
@@ -681,6 +682,7 @@ async def erase_everything(
             invitations_collection=invitations_collection,
             ban_list_collection=ban_list_collection,
             identifier=identifier,
+            address_changes_collection=address_changes_collection,
             changed_by=changed_by,
             now=now,
             session=session,

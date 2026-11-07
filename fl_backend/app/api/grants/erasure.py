@@ -15,14 +15,16 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.address_change.services import masked_address
 from app.api.grants.crud import OPEN_NOTICE, owe_in_session, pull_the_list_to_judge
-from app.api.grants.services import Notice, compose_notice
+from app.api.grants.services import Notice, compose_handover_end, compose_notice
 from app.api.kontakte.services import same_address
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db
+from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
-# The sites of a grant notice naming an address in full: a change's masked new address matches nobody's.
+# The sites of a grant notice naming an address in full.
 _QUEUED_SITES = ("data.address", "data.changed_by")
 
 
@@ -68,13 +70,21 @@ async def _rows_naming(
 
 
 def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
-    """What takes this person out of one notice's facts: the address emptied, the actor given the marker."""
+    """What takes this person out of one notice's facts: the address emptied, the actor given the marker.
+
+    A change's new address is stored masked, so it is matched as masked: another person's mask reading alike loses a word
+    from a mail and no more. A completed change's old address was this person's own, which the erasure's fold cannot find.
+    """
 
     update: dict[str, Any] = {}
     if _names(data.get("address"), identifier):
         update["address"] = None
     if _names(data.get("changed_by"), identifier):
         update["changed_by"] = ERASED_ACTOR_MARKER
+    if data.get("change") == "address" and data.get("new_address") == masked_address(identifier):
+        update["new_address"] = None
+        if data.get("stage") == "completed":
+            update["address"] = None
 
     return update
 
@@ -88,7 +98,13 @@ def _withheld(notice: Notice, identifier: str) -> Notice:
 async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> list[str]:
     """Every grant notice still owed naming this person, written by id and grouped by what each loses, answering each."""
 
-    rows = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OPEN_NOTICE)
+    masked = await aggregate_many_from_db(
+        collection=outbox_collection,
+        pipeline=[{"$match": {**OPEN_NOTICE, "data.new_address": masked_address(identifier)}}, {"$project": {"data": 1}}],
+        session=session,
+    )
+    named = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OPEN_NOTICE, whole=True)
+    rows = list({row["_id"]: row for row in [*named, *masked]}.values())
 
     by_update: dict[tuple[tuple[str, Any], ...], list[ObjectId]] = {}
     for row in rows:
@@ -141,6 +157,7 @@ async def _set_authored(collection: AsyncCollection, field: str, identifier: str
 async def erase_grants_and_authorship_in_session(
     *,
     grants_collection: AsyncCollection,
+    address_changes_collection: ReadCollection,
     outbox_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
@@ -170,13 +187,14 @@ async def erase_grants_and_authorship_in_session(
     grant_ids = [grant["_id"] for grant in grants]
 
     notices = [
-        _withheld(
+        _withheld(notice, identifier)
+        for grant in grants
+        for notice in (
             compose_notice(
                 grant_id=grant["_id"], change="revoked", stage="completed", address=str(grant["address"]), changed_by=changed_by, now=now
             ),
-            identifier,
+            *compose_handover_end(grant, changed_by=changed_by, now=now),
         )
-        for grant in grants
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
@@ -190,6 +208,7 @@ async def erase_grants_and_authorship_in_session(
         notices,
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,
+        address_changes_collection=address_changes_collection,
         now=now,
         session=session,
     )
