@@ -153,7 +153,7 @@ async def patch_one_in_db(
     session: AsyncClientSession | None = None,
     return_document: bool,
 ) -> Mapping[str, Any]:
-    """`expected_version` and `return_document` have no default, so every caller weighs whether its write checks a version, and the two images.
+    """`expected_version` and `return_document` have no default, so a caller weighs whether it checks a version and which state it answers.
 
     `BEFORE` answers the state the write just replaced, `AFTER` the state it left, both from the one command. An
     `expected_version` is refused `version_stale` once another write has raised the count; `None` checks nothing.
@@ -481,35 +481,29 @@ async def set_inactive_since(
     db_filter: Mapping[str, Any],
     when: str | None,
     session: AsyncClientSession | None = None,
-) -> Mapping[str, Any]:
+) -> Mapping[str, Any] | None:
     """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions.
+
+    Answers the row it moved, and `None` where the row already stood so, for which a caller records nothing: a press
+    that changes nothing is no act. A row that is not there is a 404 either way.
 
     `session` is carried, not dropped: a transactional caller would otherwise have the write land outside it.
     """
 
-    if when is None:
-        return await patch_one_in_db(
-            collection=collection,
-            db_filter=db_filter,
-            update={"$set": {"inactive_since": None}},
-            session=session,
-            expected_version=None,
-            return_document=ReturnDocument.AFTER,
-        )
-
-    # A retire matches a current row alone: the stamp is the day the row left, so a second retire, from
-    # a second open tab say, keeps it and answers the row as it stands.
+    # The write matches a row it would move alone: the stamp is the day the row left, so a second retire, from a second
+    # open tab say, keeps that day and raises no version.
     try:
         return await patch_one_in_db(
             collection=collection,
-            db_filter={**db_filter, "inactive_since": None},
+            db_filter={**db_filter, "inactive_since": {"$ne": None} if when is None else None},
             update={"$set": {"inactive_since": when}},
             session=session,
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
     except DocumentNotFoundError:
-        return await pull_one_from_db(collection=collection, db_filter=db_filter, session=session)
+        await pull_one_from_db(collection=collection, db_filter=db_filter, projection=["_id"], session=session)
+        return None
 
 
 async def insert_live(

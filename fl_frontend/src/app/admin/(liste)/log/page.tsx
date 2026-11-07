@@ -2,7 +2,7 @@ import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
-import { actionLogGetActionLogQueryQOneMax } from "@/core/generated/zod/inputs";
+import { actionLogGetActionLogBodyQOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { loadActionLog } from "@/features/action-log/actions";
@@ -11,6 +11,7 @@ import { getActionLog } from "@/features/action-log/queries";
 import { rowOf } from "@/features/action-log/rows";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import type { FLActionLogPageSize } from "@/core/generated/client/types";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -66,9 +67,9 @@ export default function ActionLogPage({ searchParams }: Props) {
       filterCount={3}
       list={{
         kind: "table",
-        search: { label: WORDS.search, maxLength: actionLogGetActionLogQueryQOneMax },
+        search: { label: WORDS.search, maxLength: actionLogGetActionLogBodyQOneMax },
         head: HEAD,
-        wait: 50,
+        wait: 50 satisfies FLActionLogPageSize,
         content: log.then(({ filters, page }) => {
           const chosen = filters.flatMap(({ name, value }) => (value === null ? [] : [[name, value] as const]));
           return {

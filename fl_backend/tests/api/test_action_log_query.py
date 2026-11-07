@@ -3,9 +3,12 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import ValidationError
 
-from app.api.action_log.schemas import FLActionLogFilterParams
+from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.api.action_log.services import build_action_log_query
+from app.core.config import API_VERSION
+from tests.core.app_source import application
 
 CURSOR = ObjectId("6890a1b2c3d4e5f607600001")
 
@@ -53,4 +56,21 @@ def utc(month: int, day: int, hour: int) -> datetime:
 def test_a_filter_compiles_to_what_the_store_compares(filters: dict[str, Any], query: dict[str, Any]):
     """A wrong term hides rows and nothing fails: the page reads as a shorter log."""
 
-    assert build_action_log_query(FLActionLogFilterParams.model_validate(filters)) == query
+    assert build_action_log_query(FLActionLogFilterPayload.model_validate(filters)) == query
+
+
+@pytest.mark.parametrize("field", ["from_day", "until_day"])
+@pytest.mark.parametrize("day", ["0001-01-01", "9999-12-31"])
+def test_a_day_past_the_calendar_s_edge_is_refused_rather_than_overflowing(field: str, day: str):
+    """Each is a legal `date` whose next midnight or UTC instant raises `OverflowError`, which would answer 500."""
+
+    with pytest.raises(ValidationError):
+        FLActionLogFilterPayload.model_validate({field: day})
+
+
+def test_the_read_puts_nothing_in_a_query_string():
+    """`http.answered` logs a query string and the scrubber reads no `%40`, so a filter there keeps an address for 30 days."""
+
+    operation = application().openapi()["paths"][f"/api/v{API_VERSION}/action_log/view"]["post"]
+
+    assert [parameter for parameter in operation.get("parameters", []) if parameter["in"] == "query"] == []

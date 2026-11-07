@@ -81,6 +81,7 @@ from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.services import kontakt_row_of
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -111,7 +112,6 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
-from app.core.recording import log_stamp
 from app.core.routing import SAFE
 from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
@@ -500,7 +500,7 @@ async def post_einwilligung(
 
     token_hash = hash_token(answer_data.token)
     # One instant for every attempt, so a retry owes the objection's one mail.
-    at = log_stamp(germany_now)
+    at = utc_stamp(germany_now)
     journal = Journal()
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAnswerResponse:
@@ -546,7 +546,7 @@ async def post_einwilligung(
                     text_versions=by_choice(answer_data.text_versions),
                     whatsapp=answer_data.whatsapp,
                     media=answer_data.media,
-                    at=log_stamp(germany_now),
+                    at=utc_stamp(germany_now),
                     # A season row carries no deletion notice.
                     takes_the_notice_back=False,
                 ),
@@ -645,7 +645,7 @@ async def post_einwilligung(
                     text_versions=by_choice(answer_data.text_versions),
                     whatsapp=answer_data.whatsapp,
                     media=answer_data.media,
-                    at=log_stamp(germany_now),
+                    at=utc_stamp(germany_now),
                     takes_the_notice_back=leaving_moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats),
                 ),
                 session=session,

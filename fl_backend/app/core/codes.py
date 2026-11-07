@@ -188,9 +188,6 @@ class Code(StrEnum):
     REGISTRIERUNG_STUFE_NOT_ALLOWED = auto()
     CONFIRMATION_EXISTS = auto()
     REGISTRIERUNG_KADER_FULL = auto()
-    # Its own code beside `duplicate_key`, which words an administrator's duplicate ban: the name says
-    # the flow that refuses rather than the collection consulted, and one rule keeps one code and one
-    # German sentence.
     REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
@@ -240,8 +237,6 @@ class Code(StrEnum):
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
     SCHIEDSRICHTER_NO_ADDRESS = auto()
-    # Its own code and never `duplicate_key`, which the ban list's client words as a second ban of one
-    # address: two conditions under one code are two a frontend cannot part.
     SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()

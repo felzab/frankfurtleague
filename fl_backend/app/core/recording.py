@@ -8,7 +8,6 @@ but `app/api/action_log/crud.py :: reattribute_administrator_in_session`.
 """
 
 from contextvars import ContextVar
-from datetime import UTC, datetime
 from typing import Final, Literal
 
 from bson import ObjectId
@@ -17,6 +16,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core import clock
 from app.core.collections import Collection
+from app.core.crud import post_one_to_db
 from app.core.logging import trace_id_var
 
 # What a write made by no administrator and no person states as its `changed_by`. The spelling matches
@@ -149,8 +149,9 @@ async def record_act(
     """Append the one row of an act, inside its transaction."""
 
     # The target's own database handle, not an injected one, so an act needs no dependency of its own.
-    await collection.database[Collection.ACTION_LOG].insert_one(
-        {
+    await post_one_to_db(
+        collection=collection.database[Collection.ACTION_LOG],
+        document={
             # A BSON date, the key a TTL index expires on (`app/core/constraints.py :: TTL_INDEXES`).
             "at": clock.now(),
             "by": by if by is not None else _bound_administrator(),
@@ -172,13 +173,3 @@ def _bound_administrator() -> str:
         raise LookupError("an act on a route binding no administrator states who acted")
 
     return address
-
-
-def log_stamp(moment: datetime) -> str:
-    """The instant a person's evidence is stamped with, spelled one way everywhere.
-
-    UTC with an offset, never German local time: a local-time string carrying no offset sorts October's two identical
-    clock hours the wrong way.
-    """
-
-    return moment.astimezone(UTC).isoformat(timespec="seconds")
