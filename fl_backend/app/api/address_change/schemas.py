@@ -21,8 +21,8 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
-# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
-# copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
+# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling. The log row of
+# the start carries it as its label, so an address typed here would stand in the log for a year.
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAddressChangeReason = Annotated[
     str,
@@ -36,27 +36,9 @@ CustomAddressChangeReason = Annotated[
 # --- The record as `address_changes` stores it.
 
 
-class FLAddressChangeApproval(BaseModel):
-    """The approval a change moving a grant waits on."""
-
-    admin_tier: FLAdminTier
-    asked_at: datetime
-    until: datetime
-    started_by: str
-    approved_at: datetime | None
-    approved_by: str | None
-
-
 class FLAddressChangeEnded(BaseModel):
     kind: FLAddressChangeEndKind
     at: datetime
-
-
-class FLAddressChangeMoved(BaseModel):
-    """The effect's two addresses as the erasure journal hashes them: the new one, and the one it replaced."""
-
-    person_hash: str
-    before: str
 
 
 class FLAddressChangeMove(BaseModel):
@@ -80,12 +62,9 @@ class FLAddressChange(BaseModel):
     change_reason: str | None
     confirmed_at: datetime | None
     effective_from: datetime | None
-    approval: FLAddressChangeApproval | None
     ended: FLAddressChangeEnded | None
     # Set by an effect that carries the account, which the ended record keeps until the carry is done; absent otherwise.
     move: FLAddressChangeMove | None = Field(default=None)
-    # Set by every effect, until the erasure of the new address takes it.
-    moved: FLAddressChangeMoved | None = Field(default=None)
 
 
 class FLAddressChangeStop(BaseModel):
@@ -131,7 +110,7 @@ class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
 
 
 class FLAddressChangeAddressPayload(BaseModel):
-    """Exactly one key: the new mailbox's link token, or the change an approval names."""
+    """Exactly one key: the new mailbox's link token, or the change a re-send names."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -153,15 +132,6 @@ class FLAddressChangeAddressResponse(BaseAPIResponse):
     email: str | None
 
 
-class FLAddressChangeApprovalState(BaseModel):
-    """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
-
-    # `owner`: another owner approves.
-    admin_tier: FLAdminTier
-    approved: bool
-    until: FLUtcInstant
-
-
 # --- The two links, public.
 
 
@@ -174,8 +144,6 @@ class FLAddressChangeViewNew(BaseModel):
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
-    # Null exactly where not `confirmed`: whether the confirmed change waits on another administrator's approval.
-    approval_open: bool | None
     # The address this link was mailed to, exactly where `valid`: the question its holder answers names it, and the holder
     # of that mailbox knows it.
     email: str | None
@@ -230,9 +198,6 @@ class FLAddressChangeAnswerResponse(BaseAPIResponse):
     answer: FLAddressChangeAnswer
     # Set where a change waiting after its confirmation now waits until then.
     effective_from: FLUtcInstant | None
-    # Set where the change waits on another administrator's approval of its grant's move: now, on the new mailbox's
-    # confirmation, or once the new mailbox confirms, on the address on file's. The page tells the two by the side it pressed.
-    approval_open: bool
     # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
     effective: bool
 
@@ -271,21 +236,11 @@ class FLAddressChangeAdminHoldings(BaseModel):
     grant: FLAdminTier | None
 
 
-class FLAddressChangeAdminApproval(BaseModel):
-    """The approval a change moving a grant waits on, read-only here: the administrators page approves it.
-
-    Never who approved: a barred administrator's address is answered on no read.
-    """
-
-    admin_tier: FLAdminTier
-    until: FLUtcInstant
-    approved_at: FLUtcInstant | None
-
-
 class FLAddressChangeAdminOpen(BaseModel):
-    """The address's live change whole, admin tier: the new address and the reason included, never a hash."""
+    """One live change whole, admin tier: both addresses and the reason included, never a hash."""
 
     id: CustomObjectId
+    address: str
     email: str
     way: FLAddressChangeWay
     change_reason: str | None
@@ -299,7 +254,12 @@ class FLAddressChangeAdminOpen(BaseModel):
     delivery: FLOutboxStatus | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
     expired: bool
-    approval: FLAddressChangeAdminApproval | None
+
+
+class FLAddressChangeAdminListResponse(BaseAPIResponse):
+    """The running changes this administrator may act on, newest first."""
+
+    changes: list[FLAddressChangeAdminOpen]
 
 
 class FLAddressChangeAdminViewResponse(BaseAPIResponse):
@@ -331,12 +291,6 @@ class FLAddressChangeAdminMintResponse(BaseAPIResponse):
 
 class FLAddressChangeIdResponse(BaseAPIResponse):
     id: CustomObjectId
-
-
-class FLAddressChangeApprovalResponse(BaseAPIResponse):
-    id: CustomObjectId
-    # Whether the approval made the change take effect, the new mailbox having confirmed and no waiting time left.
-    effective: bool
 
 
 # --- The hourly pass.

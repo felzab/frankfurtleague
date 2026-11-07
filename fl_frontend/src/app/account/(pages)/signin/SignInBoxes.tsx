@@ -14,8 +14,6 @@ export type Pending = {
   readonly email: string;
   /** Said where the step it waits on lapsed. */
   readonly lapsed: boolean;
-  /** Said where a grant's move waits on another administrator too. */
-  readonly grant: boolean;
   /** The person's own change, which this page withdraws; an administrator's the old address's stop link ends. */
   readonly own: boolean;
 };
@@ -90,12 +88,6 @@ export function SignInBoxes({
             <Callout
               tone="warn"
               text={COPY.account.address.lapsed}
-            />
-          )}
-          {pending.grant && (
-            <Callout
-              tone="info"
-              text={COPY.account.address.grantNote}
             />
           )}
         </AccountBox>

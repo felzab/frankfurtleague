@@ -98,7 +98,7 @@ export const startAddressChange = action({
   name: "startAddressChange",
   input: SignInPayloadSchema.extend(PAGE_HOLDER),
   examples: { email: COPY.shared.field.exampleAddress },
-  ownWords: ["address_change_unchanged", "address_change_no_approver", "address_change_started_recently"],
+  ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
     await requestAccountAddressChange({ email });
     return { ok: true, value: undefined };

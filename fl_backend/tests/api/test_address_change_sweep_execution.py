@@ -7,19 +7,18 @@ refused, the refused one's new address answered alone.
 
 import re
 from collections import Counter
-from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime, timedelta
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pymongo
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.address_change.schemas import FLAddressChangeMovesDonePayload, FLAddressChangeSweepParams
-from app.api.address_change.services import compose_approval, effective_from_confirmed
 from app.api.address_change.system_router import (
     ADDRESS_CHANGE_PER_PASS,
     get_address_change_moves,
@@ -30,13 +29,11 @@ from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db
 from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list, ban_through_the_route
-from tests.config import build_test_config, grants_for_the_suite
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.records import record_collections
@@ -96,7 +93,7 @@ def confirmed_on(change: dict[str, Any], confirmed_at: datetime) -> dict[str, An
         "valid_until": None,
         "change_reason": "Postfach gelöscht, telefonisch bestätigt",
         "confirmed_at": confirmed_at,
-        "effective_from": effective_from_confirmed(confirmed_at),
+        "effective_from": confirmed_at + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS),
     }
 
 
@@ -116,18 +113,8 @@ def a_referee(position: int) -> dict[str, Any]:
     )
 
 
-async def with_history(database: AsyncDatabase, *changes: dict[str, Any]) -> None:
-    """Each change stored, then edited once, so the log holds an image of it as it stood."""
-
-    for change in changes:
-        await database[Collection.ADDRESS_CHANGES].insert_one(change)
-        await patch_one_in_db(
-            collection=database[Collection.ADDRESS_CHANGES],
-            db_filter={"_id": change["_id"]},
-            update={"$set": {"sent_at": change["sent_at"]}},
-            expected_version=None,
-            return_document=ReturnDocument.BEFORE,
-        )
+async def stored(database: AsyncDatabase, *changes: dict[str, Any]) -> None:
+    await database[Collection.ADDRESS_CHANGES].insert_many(list(changes))
 
 
 async def a_due_person(database: AsyncDatabase, position: int) -> None:
@@ -135,7 +122,7 @@ async def a_due_person(database: AsyncDatabase, position: int) -> None:
 
     await database[Collection.SPIELER].insert_one(a_pupil(position))
     await database[Collection.SCHIEDSRICHTER].insert_one(a_referee(position))
-    await with_history(database, confirmed_on(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
+    await stored(database, confirmed_on(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -166,15 +153,11 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any
         registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        grant_approval_requests_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         invitations_collection=database[Collection.INVITATIONS],
         ban_list_collection=database[Collection.BAN_LIST],
-        ban_list=ban_list(database),
         action_log_collection=database[Collection.ACTION_LOG],
         db=client,
-        config=build_test_config(),
         germany_now=NOW,
     )
 
@@ -204,29 +187,16 @@ async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection
     await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
-def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
+def refusing_a_move_to(positions: Sequence[int]) -> dict[str, Any]:
+    """The schema refusing a pupil's write to these changes' new addresses: any write a transaction is refused on."""
 
-    return {
-        "at": "2126-04-01T00:00:00+00:00",
-        "at_date": datetime.now(UTC),
-        "actor": {"kind": "system", "email": "SYSTEM"},
-        "request": None,
-        "collection": str(collection),
-        "operation": "patch_one",
-        "document_id": row["_id"],
-        "db_filter": None,
-        "before": dict(row),
-        "modified_count": None,
-        "redacted_at": None,
-        "erasure_reason": None,
-    }
+    return {"not": {"required": ["email"], "properties": {"email": {"enum": [pending(position) for position in positions]}}}}
 
 
 class TestALapsedChangeEndsOnceItsDeadlinePassed:
-    def test_its_address_goes_from_the_record_and_its_images_and_a_change_before_its_deadline_stands(self, mongo_replica_set_url: str):
+    def test_its_address_goes_from_the_record_and_a_change_before_its_deadline_stands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await with_history(database, a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_TODAY))
+            await stored(database, a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_TODAY))
             answer = await sweep(database, client)
             ended = await database[Collection.ADDRESS_CHANGES].find_one({"_id": numbered(1)})
 
@@ -239,9 +209,21 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
 
+    def test_a_page_s_lapses_write_one_row_with_their_count(self, mongo_replica_set_url: str):
+        """No deletion stands without its row; one per change would fill a year's list with nothing an administrator asks of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await stored(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)))
+            await sweep(database, client)
+            await sweep(database, client)
+            rows = database[Collection.ACTION_LOG].find({"action": "retention.address_changes"})
+            return [(row["by"], row["count"], row["record_id"]) async for row in rows]
+
+        assert on_a_league(mongo_replica_set_url, body) == [("system", 2, None)]
+
     def test_a_waiting_change_is_no_lapse_and_stands_until_it_is_due(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await with_history(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_WAIT))
+            await stored(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_WAIT))
             return await sweep(database, client), await live(database)
 
         answer, standing = on_a_league(mongo_replica_set_url, body)
@@ -264,29 +246,9 @@ class TestADueChangeTakesEffect:
         assert notices == [{"kind": "effective", "to": on_file(1), "first_name": None}]
         assert addresses == [pending(1)]
 
-    @pytest.mark.parametrize("barred", ["on_file", "pending"])
-    def test_a_ban_on_either_address_refuses_it_and_answers_its_new_address_alone(self, mongo_replica_set_url: str, barred: str):
-        """The new mailbox is told it did not take effect, never why, and the address on file nothing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_due_person(database, 1)
-            address = on_file(1) if barred == "on_file" else pending(1)
-            await ban_through_the_route(
-                database, client, email=address, ban_reason="Falschangaben", by="admin@frankfurtleague.de", today="2126-04-16"
-            )
-
-            answer = await sweep(database, client)
-            return answer, await database[Collection.ADDRESS_CHANGES].find_one({"_id": numbered(1)}), await owed(database)
-
-        answer, ended, notices = on_a_league(mongo_replica_set_url, body)
-
-        assert (answer.discarded, answer.effective) == (1, 0)
-        assert notices == [{"kind": "discarded", "to": pending(1)}]
-        assert (ended["ended"]["kind"], ended["email"]) == ("discarded", None)
-
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await with_history(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
+            await stored(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
             return await sweep(database, client), await owed(database)
 
         answer, notices = on_a_league(mongo_replica_set_url, body)
@@ -314,7 +276,7 @@ class WrittenAfterTheRead:
         return cursor
 
 
-class TestEachChangeIsJudgedAgainInItsOwnTransaction:
+class TestEachChangeIsJudgedAgainInItsTransaction:
     def test_a_link_sent_again_after_the_read_keeps_its_change(self, mongo_replica_set_url: str):
         """End the change by its id alone rather than its lapsed terms and this fails: the fresh link and its address go."""
 
@@ -354,34 +316,6 @@ class TestEachCallTakesAShare:
         assert answers == [(ADDRESS_CHANGE_PER_PASS, 1, numbered(ADDRESS_CHANGE_PER_PASS - 1)), (1, 0, None)]
         assert later == (0, 0, None)
 
-    def test_changes_parked_on_an_approval_take_no_share(self, mongo_replica_set_url: str):
-        """A share and one more confirmed, each owing its approval while its address holds a grant: one call, ending the pass.
-
-        On the page they would fill the share, every due change behind them waiting a call.
-        """
-
-        def parked(position: int) -> dict[str, Any]:
-            return {
-                **a_change(position, minted=MINTED_TO_LAPSE_TODAY),
-                "way": "account",
-                "valid_until": None,
-                "confirmed_at": CONFIRMED_TO_WAIT,
-                "approval": compose_approval(admin_tier="administration", started_by=on_file(position), now=CONFIRMED_TO_WAIT),
-            }
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            positions = range(ADDRESS_CHANGE_PER_PASS + 1)
-            await database[Collection.ADDRESS_CHANGES].insert_many([parked(position) for position in positions])
-            await database[Collection.GRANTS].insert_many(
-                [{**grants_for_the_suite()[1], "_id": ObjectId(), "address": on_file(position)} for position in positions]
-            )
-            return await sweep(database, client), await live(database)
-
-        answer, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert (answer.effective, answer.remaining, answer.after) == (0, 0, None)
-        assert len(standing) == ADDRESS_CHANGE_PER_PASS + 1
-
 
 class NotTheDatabases(Exception):
     """A failure no driver raises, standing for every class a change's handling can meet outside the database."""
@@ -403,20 +337,22 @@ class RaisesOnOneChange:
 
         return await self._collection.find_one_and_update(filter, *args, **kwargs)
 
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotTheDatabases("synthetic")
+
 
 class TestOneChangeHoldsBackNoOther:
     def test_a_failure_not_the_databases_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catch the database's failures alone and the call fails, the second change standing and the next pass stopping at the first again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.ADDRESS_CHANGES].insert_many(
-                [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
-            )
+            await a_due_person(database, 1)
+            await a_due_person(database, 2)
             answer = await sweep(
                 database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(1))
             )
 
-            return (answer.removed, answer.remaining, answer.after), await live(database)
+            return (answer.effective, answer.remaining, answer.after), await live(database)
 
         with caplog.at_level("ERROR"):
             counts, standing = on_a_league(mongo_replica_set_url, body)
@@ -426,25 +362,45 @@ class TestOneChangeHoldsBackNoOther:
         [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
         assert (failure.levelname, failure.getMessage()) == ("ERROR", "address_change.sweep_row_failed")
         assert (getattr(failure, "kind", None), getattr(failure, "step", None), getattr(failure, "address_change_id", None)) == (
-            "lapsed",
-            "end",
+            "due",
+            "effect",
             str(numbered(1)),
         )
         # Located by the frame that raised it, and never by its message, which can quote a value.
         diagnosis = getattr(failure, "diagnosis", "")
         assert re.fullmatch(r"NotTheDatabases in find_one_and_update at .+\.py:\d+", diagnosis) is not None, diagnosis
 
-    def test_a_refused_end_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A log image refusing the redaction's update. Remove the catch and the call fails."""
+    def test_a_failed_page_of_lapses_holds_back_no_due_change(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The page's one transaction is its own step: raise through it and the due change behind it waits on nothing of its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first, second = a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_YESTERDAY)
-            await database[Collection.ADDRESS_CHANGES].insert_many([first, second])
-            await database[Collection.ACTION_LOG].insert_one(refusing_its_redaction(Collection.ADDRESS_CHANGES, first))
-            await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
+            await stored(database, a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY))
+            await a_due_person(database, 2)
+            answer = await sweep(
+                database, client, address_changes_collection=RaisesOnOneChange(database[Collection.ADDRESS_CHANGES], numbered(0))
+            )
+
+            return (answer.removed, answer.effective, answer.remaining), await live(database)
+
+        with caplog.at_level("ERROR"):
+            counts, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert counts == (0, 1, 1)
+        assert standing == [numbered(1)]
+        assert [getattr(record, "kind", None) for record in caplog.records if record.getMessage() == "address_change.sweep_row_failed"] == [
+            "lapsed"
+        ]
+
+    def test_a_refused_effect_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """A write the database itself refuses, whose message quotes the value. Remove the catch and the call fails."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_due_person(database, 1)
+            await a_due_person(database, 2)
+            await refuse_writes_breaking(database, Collection.SPIELER, refusing_a_move_to([1]))
             answer = await sweep(database, client)
 
-            return (answer.removed, answer.remaining), await live(database)
+            return (answer.effective, answer.remaining), await live(database)
 
         with caplog.at_level("ERROR"):
             counts, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
@@ -464,16 +420,12 @@ class TestOneChangeHoldsBackNoOther:
         last = ADDRESS_CHANGE_PER_PASS
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            changes = [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in failing]
-            await database[Collection.ADDRESS_CHANGES].insert_many(changes)
-            await database[Collection.ACTION_LOG].insert_many(
-                [refusing_its_redaction(Collection.ADDRESS_CHANGES, change) for change in changes]
-            )
-            await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
-            await database[Collection.ADDRESS_CHANGES].insert_one(a_change(last, minted=MINTED_TO_LAPSE_YESTERDAY))
+            for position in (*failing, last):
+                await a_due_person(database, position)
+            await refuse_writes_breaking(database, Collection.SPIELER, refusing_a_move_to(list(failing)))
             answers = await a_pass(database, client)
 
-            return [answer.removed for answer in answers], numbered(last) in await live(database)
+            return [answer.effective for answer in answers], numbered(last) in await live(database)
 
         ended, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
@@ -547,17 +499,14 @@ class TestTheDeadlineStopsTheCall:
 
 # A due change moving a pupil row and a confirmed referee row. No retention rule bounds an address's records, so a
 # dearer change meets the deadline, moving nothing (`:: TestTheDeadlineStopsTheCall`).
-COMMANDS_A_DUE_PERSON = 50
+COMMANDS_A_DUE_PERSON = 33
 
 # The call's other command, one aggregate answering one document at any size.
 OTHER_COMMANDS = 1
 
-# The running season a page holding a due change asks once.
-SEASON_READ = 1
-
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    def test_a_full_share_of_due_changes_asking_the_running_season(self, mongo_replica_set_url: str):
+    def test_a_full_share_of_due_changes(self, mongo_replica_set_url: str):
         """A share and one more due, the dearest call the pass makes.
 
         A command added to the call turns this red, so `ADDRESS_CHANGE_PER_PASS` is judged against the deadline again.
@@ -572,7 +521,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         answer, names = on_a_league(mongo_replica_set_url, body)
 
         assert answer.effective == ADDRESS_CHANGE_PER_PASS
-        assert names.total() - ADDRESS_CHANGE_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS + SEASON_READ, names
+        assert names.total() - ADDRESS_CHANGE_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS, names
 
 
 class TestTheOwedCarries:

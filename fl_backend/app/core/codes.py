@@ -5,10 +5,7 @@ published document lists them once, as the failure body's `error_code`. A 4xx an
 the request wrote nothing, and the frontend clears the site's cache by that promise
 (`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`); a write that may stand answers
 `unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
-db_exception_handler`). Two answers break the promise, each a 409 after the commit that ended an
-address change, whose records no cached read serves:
-`app/api/address_change/admin_router.py :: post_address_change_approval` (`address_change_nothing`)
-and `app/api/address_change/public_router.py :: post_address_change_answer` (`address_change_ended`).
+db_exception_handler`).
 """
 
 from enum import StrEnum, auto
@@ -51,27 +48,17 @@ class Code(StrEnum):
     # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
     # another token.
     LINK_EXPIRED = auto()
-    # 403 where `address_change_barred` is 409: this caller is the barred person, and nothing they change lifts it.
+    # 403: this caller is the barred person, and nothing they change lifts it.
     LINK_BARRED = auto()
-    # Its own code and never `link_barred`'s: the barred address here is the one on file, which the caller may not even hold.
-    ADDRESS_CHANGE_REPLACED_BARRED = auto()
     ADDRESS_CHANGE_TAKEN = auto()
+    # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
+    ADDRESS_CHANGE_NEW_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
     # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
     # hold, a server action reaching the start from any page.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
-    ADDRESS_CHANGE_BARRED = auto()
     ADDRESS_CHANGE_NOTHING = auto()
-    ADDRESS_CHANGE_NO_APPROVER = auto()
-    ADDRESS_CHANGE_NO_APPROVAL_OPEN = auto()
-    # 403: the refusal is about who asks, and another administrator's press is what lifts it.
-    ADDRESS_CHANGE_APPROVAL_DENIED = auto()
-    ADDRESS_CHANGE_APPROVAL_OWNER = auto()
-    ADDRESS_CHANGE_NOT_COVERED = auto()
     ADDRESS_CHANGE_NEW_GRANTED = auto()
-    # 403 as `address_change_approval_denied`: about who asks; an administrator holding their grant since before the
-    # start lifts it.
-    ADDRESS_CHANGE_APPROVAL_YOUNGER = auto()
     ADDRESS_CHANGE_OCCUPIED = auto()
     ANSETZUNG_ANSWERED = auto()
     ANSETZUNG_DEADLINE_PAST = auto()

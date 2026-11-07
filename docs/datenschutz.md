@@ -172,7 +172,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     gives one, never a private key (`fl_frontend/src/core/auth/library.ts` configures the store); the
     per-address code counts under a keyed hash; an address change's two addresses until it ends,
     and the reason an administrators' change for a lost mailbox records, until the same end.
-  - Recipients: the person.
+  - Recipients: the person; every administrator, of an administrator's own change, its old address
+    and its new one masked.
 - **Administration access and the ban list** (`grants`, `ban_list`).
   - Purpose and basis: who may administer the league, and refusing an address the league declined;
     Art. 6(1)(f).

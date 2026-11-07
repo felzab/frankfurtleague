@@ -8,7 +8,7 @@ from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeWay, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
+from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
@@ -71,6 +71,8 @@ class FLAddressChangeLinkData(BaseModel):
     way: FLAddressChangeWay
     # When the link lapses, which the mail states.
     valid_until: AwareDatetime
+    # The tier of a holder's own change, whose wait the mail states; null otherwise.
+    holder: FLAdminTier | None
 
 
 class FLAddressChangeNoticeData(BaseModel):
@@ -86,6 +88,8 @@ class FLAddressChangeNoticeData(BaseModel):
     valid_until: AwareDatetime
     # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
     first_name: str | None
+    # The tier of a holder's own change, whose wait the mail states; null otherwise.
+    holder: FLAdminTier | None
 
 
 class FLAddressChangeEffectiveData(BaseModel):

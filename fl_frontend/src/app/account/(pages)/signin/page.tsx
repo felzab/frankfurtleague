@@ -26,13 +26,16 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 /** The change pending on the address, worded on the server, where its deadline is written in the league's time zone. */
 function pendingOf(open: FLAccountAddressChangeOpen): Pending {
   const { pending } = COPY.account.address;
-  // The person's own change asks the address on file's link first, then the new address's own.
-  const previous = open.waits_on === "previous_address";
+  // The person's own change asks the address on file's link first, then the new address's own; a holder's then waits.
+  const after = {
+    previous_address: pending.previous(open.valid_until),
+    new_address: pending.new(open.valid_until),
+    waiting_period: open.effective_from === null ? pending.new(null) : pending.waiting(open.effective_from),
+  }[open.waits_on];
   return {
-    parts: { before: pending.before, after: previous ? pending.previous(open.valid_until) : pending.new(open.valid_until) },
+    parts: { before: pending.before, after },
     email: open.email,
     lapsed: open.expired,
-    grant: open.approval !== null && !open.approval.approved,
     own: open.way === "account",
   };
 }
