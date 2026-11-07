@@ -62,7 +62,6 @@ export const TYPE_OPTIONS = TYPE_CHOICES.map((id) => ({ id, label: TYPES[id] }))
 const PERIODS = {
   "7-days": { label: WORDS.time.days(7), span: { days: 7 } },
   "30-days": { label: WORDS.time.days(30), span: { days: 30 } },
-  "12-months": { label: WORDS.time.months(12), span: { months: 12 } },
 };
 
 export type PeriodChoice = keyof typeof PERIODS;
