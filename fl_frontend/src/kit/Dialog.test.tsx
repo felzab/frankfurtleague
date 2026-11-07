@@ -271,6 +271,39 @@ describe("the kit's dialog", () => {
   });
 
   // The harm: what an act does and to whom, drawn above the inputs or left out, is read after the choice it informs, or never.
+  // The harm: a dialog left while its act runs takes the answer with it, and a partly done act's note reaches nobody.
+  it("stays open while its act runs, however it is asked to close, and shows the answer", async () => {
+    const answer = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => answer.resolve(DONE));
+    render(<CreateDialog create={() => answer.promise} />);
+    await createThroughTheDialog();
+    const back = screen.getByRole<HTMLButtonElement>("button", { name: COPY.shared.back });
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(document.body);
+    await userEvent.click(back);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    await act(async () => answer.resolve({ ok: false, reason: COPY.shared.failure.stale }));
+    await screen.findByText(COPY.shared.failure.stale);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  // The harm: a refusal greeting the next opening, read as the answer to a press nobody made.
+  it("opens anew, the last refusal gone", async () => {
+    const reason = COPY.shared.failure.stale;
+    render(<CreateDialog create={async () => ({ ok: false, reason })} />);
+    await createThroughTheDialog();
+    await screen.findByText(reason);
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
+    await screen.findByRole("dialog");
+    expect(screen.queryByText(reason)).toBeNull();
+  });
+
   it("says its sentence and its facts between its inputs and its acts", async () => {
     const consequence = COPY.admin.banList.consequence;
     render(
