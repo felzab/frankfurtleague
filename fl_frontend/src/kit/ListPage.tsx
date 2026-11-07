@@ -352,7 +352,7 @@ async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
 }
 
 /** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
-const TOOLBAR = "flex flex-wrap items-center gap-3";
+const TOOLBAR_CLASSES = "flex flex-wrap items-center gap-3";
 
 /** The acts at the toolbar row's end, where focus lands when an act takes the control it was on with it. */
 function ToolbarActs({ children }: { children: ReactNode }) {
@@ -370,7 +370,7 @@ async function RoleActsOnceRead({ acts }: { acts: Promise<ListRoleActs> }) {
   const { side, create } = await acts;
   if (side === null && create === null) return null;
   return (
-    <div className={TOOLBAR}>
+    <div className={TOOLBAR_CLASSES}>
       <ToolbarActs>
         {side !== null && (
           <ToolbarAct
@@ -566,7 +566,7 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          <div className={TOOLBAR}>
+          <div className={TOOLBAR_CLASSES}>
             {search !== undefined && <ListSearchField {...search} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
