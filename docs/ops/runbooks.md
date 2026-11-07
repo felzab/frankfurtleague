@@ -1241,9 +1241,9 @@ waiting in the Postausgang for the first drain after the hold. So, while it hold
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
-own rows about it included. Every erasure a person or an administrator asked for left its line in the
+own rows about it included. Every erasure a person or an administrator asked for left its lines in the
 backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
-seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no value, address or name, where its person stood:
+seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no address or name, where its person stood:
 `records`, as `collection/id`, on an erasure's line each record one address alone holds, and on a
 withdrawal's or a Widerspruch's the record the act landed on, which on a seat's row or an application
 holds other people too; `seats`, a seat's withdrawal's or Widerspruch's slots by

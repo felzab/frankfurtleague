@@ -465,7 +465,7 @@ async def log_rows_naming(*, action_log_collection: ReadCollection, identifier: 
 
 @dataclass(frozen=True)
 class Erasure:
-    """What one erasure took: the counts its route answers, and where the person stood for its line, by id, all empty in a narrower scope."""
+    """What one erasure took: the counts its route answers, and where the person stood for its lines, by id, all empty in a narrower scope."""
 
     counts: FLErasure
     records: list[str]
