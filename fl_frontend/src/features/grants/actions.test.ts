@@ -54,7 +54,7 @@ beforeEach(() => {
 describe("adding an administrator", () => {
   /* The API takes every atext character and the sign-in library does not, so the grant would stand and admit nobody. */
   it("refuses an address the sign-in library refuses, reaching no backend", async () => {
-    expect(await add("a!b@example.org")).toStrictEqual({
+    expect(await add("a~b@example.de")).toStrictEqual({
       ok: false,
       fieldErrors: { email: COPY.shared.field.format(COPY.shared.field.exampleAddress) },
     });

@@ -27,7 +27,7 @@ import { logger } from "@/core/logging";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { SignInAddressSchema } from "@/features/auth/schemas";
 import { patchBewerbungEinwilligung, patchSeatEinwilligung } from "@/features/kontakte/mutations";
 import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
 import { patchSchiedsrichterAccountEinwilligung } from "@/features/schiedsrichter/mutations";
@@ -84,8 +84,8 @@ export const eraseAccount = action({
 /**
  * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
  * own once that confirms, the change taking effect once both have. A passkey holder touches the passkey first, the
- * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
- * rule, so every address a sign-in would refuse is refused here before it is mailed. An account standing at the new
+ * one check guarding it, since the backend judges no fresh sign-in. The address typed is one the person will sign in
+ * at, so it is held to that schema before it is mailed. An account standing at the new
  * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
  * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/answers.ts`).
  */
@@ -94,7 +94,7 @@ export const startAddressChange = action({
   claim: "account",
   passkey: true,
   name: "startAddressChange",
-  input: SignInPayloadSchema.extend(PAGE_HOLDER),
+  input: z.object({ email: SignInAddressSchema, ...PAGE_HOLDER }),
   examples: { email: COPY.shared.field.exampleAddress },
   ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
