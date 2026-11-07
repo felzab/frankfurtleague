@@ -862,7 +862,7 @@ const PLANNED_SAISON = {
 };
 
 function decided(madeOn, reason = null) {
-  return { made_at: day(madeOn), by: "admin@example.com", reason };
+  return { made_at: day(madeOn), reason };
 }
 
 /**
