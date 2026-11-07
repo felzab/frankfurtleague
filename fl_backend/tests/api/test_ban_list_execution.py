@@ -232,6 +232,25 @@ class TestLiftingABan:
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
 
+class TestTheLogOfABan:
+    def test_a_ban_and_its_lift_each_write_one_row_with_no_label_and_the_address_nowhere(self, mongo_replica_set_url: str):
+        """The log keeps a row twelve months and holds an address only on a grant act: a banned person's is no administrator's."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            created = await ban(database, client)
+            await lift(database, client, ObjectId(created.created_id))
+
+            return ObjectId(created.created_id), await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(None)
+
+        created_id, rows = on_a_clean_list(mongo_replica_set_url, body)
+
+        assert [(row["action"], row["by"], row["record_id"], row["label"]) for row in rows] == [
+            ("ban.added", ADMIN, created_id, None),
+            ("ban.removed", ADMIN, created_id, None),
+        ]
+        assert BANNED_RETYPED not in str(rows)
+
+
 class TestAnLoeschungLeavesTheListStanding:
     def test_loeschen_a_pupil_moves_no_row_of_the_ban_list(self, mongo_replica_set_url: str):
         """The deliberate exception: the one record a person's own erasure does not reach.
