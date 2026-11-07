@@ -1,8 +1,6 @@
 import { COPY } from "@/core/copy";
 
 import { Icon } from "./Icon";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
-import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
@@ -37,30 +35,6 @@ export type EmptyStateProps = {
  */
 type Clear = { kind: "clear" };
 
-const blank = tv({
-  slots: {
-    root: "grid justify-items-center gap-3 px-4 py-8 text-center",
-    sentence: "text-base text-fg-muted",
-  },
-});
-
-/**
- * The blank slate while a list that usually holds nothing is read, standing inside the list's box: the mark and the
- * sentence as bars, so the box stands as tall as the one that lands on most days. The words are the read's to say.
- */
-export function EmptyStatePlaceholder() {
-  const s = blank();
-  return (
-    <div className={s.root()}>
-      <span className={placeholderBar("size-4.5")} />
-      <PlaceholderLine
-        text={s.sentence({ class: "w-full justify-center" })}
-        width="w-48"
-      />
-    </div>
-  );
-}
-
 /**
  * The empty state, standing inside the list's box, which its caller draws. A list with nothing in it yet
  * shows the blank slate: its muted mark over the sentence over the one button, centred. A list a search or
@@ -69,16 +43,17 @@ export function EmptyStatePlaceholder() {
  */
 export function EmptyState(props: EmptyStateProps | Clear) {
   if (props.kind === "none") {
-    const s = blank();
     return (
-      <div className={s.root()}>
+      <div className="grid justify-items-center gap-3 px-4 py-8 text-center">
         <span className="text-fg-muted">
           <Icon
             glyph={props.glyph ?? "info"}
             size={18}
           />
         </span>
-        <p className={s.sentence()}>{props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}</p>
+        <p className="text-base text-fg-muted">
+          {props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}
+        </p>
         {props.action !== undefined && <div>{props.action}</div>}
       </div>
     );

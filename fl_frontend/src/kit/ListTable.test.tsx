@@ -52,6 +52,23 @@ describe("a list's search", () => {
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
   });
 
+  // The harm: a Sperrliste searched by the words of a Grund finds nothing, and reads as if no such ban stood.
+  it("reads a row's own words in its name's place, where the row states them", async () => {
+    const [first, second] = TABLE.rows;
+    const rows = [
+      { ...first, id: "1", name: { record: "anna@example.org" }, words: "anna@example.org Beleidigung", cells: {} },
+      { ...second, id: "2", cells: {} },
+    ];
+    render(
+      <Searched>
+        <ListTable table={{ ...TABLE, rows }} />
+      </Searched>,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "beleidigung");
+    expect(screen.getByText("anna@example.org")).toBeTruthy();
+    expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+
   it("says a search emptied the list, in the list's own plural, rather than that nothing is there yet", async () => {
     render(
       <Searched>

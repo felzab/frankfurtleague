@@ -11,7 +11,7 @@ import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
-import { EmptyState, EmptyStatePlaceholder } from "./EmptyState";
+import { EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
 import { Filters } from "./Filters";
 import { Icon } from "./Icon";
@@ -95,11 +95,8 @@ type ListContent =
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
       /** The table's head, which its placeholder draws while the rows are read. */
       head: TableHead;
-      /**
-       * How many rows its wait draws, or `"empty"` for a list that usually holds nothing, whose wait draws the empty box
-       * it lands on on most days: Sperrliste and Adressänderungen. Its rows arrive taller on the rare day it holds some.
-       */
-      wait: number | "empty";
+      /** How many rows its wait draws. */
+      wait: number;
       content: Promise<TableContent>;
     }
   | {
@@ -165,11 +162,7 @@ type ListContent =
 function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table":
-      return list.wait === "empty" ? (
-        <div className={cardSurface({ class: "overflow-hidden" })}>
-          <EmptyStatePlaceholder />
-        </div>
-      ) : (
+      return (
         <TablePlaceholder
           head={list.head}
           rows={list.wait}
@@ -314,13 +307,15 @@ function CreatePlaceholder({ label = actLabel({ verb: "create", object: SAISON_W
   );
 }
 
-/** The create act at the toolbar row's end, its button opening the dialog over the list. */
-function CreateAct({ create }: { create: ListCreate }) {
-  const { locked, ...act } = create;
+/**
+ * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second
+ * act before it, a secondary button.
+ */
+function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate; side?: boolean }) {
   const button = (
     <Button
-      variant="primary"
-      leadingIcon="create"
+      variant={side ? "secondary" : "primary"}
+      {...(side ? {} : { leadingIcon: "create" as const })}
       label={actLabel(act.act)}
       locked={locked}
     />
@@ -335,36 +330,17 @@ function CreateAct({ create }: { create: ListCreate }) {
   );
 }
 
-/** The create act once what it makes is read, absent for a reader who never holds it. */
-async function CreateOnceRead({ create }: { create: Promise<ListCreate | null> }) {
-  const read = await create;
-  return read !== null && <CreateAct create={read} />;
-}
-
-/** The second act on the list as a whole, a secondary button before the create act, its button opening the dialog. */
-function SideAct({ side }: { side: ListCreate }) {
-  const { locked, ...act } = side;
-  const button = (
-    <Button
-      variant="secondary"
-      label={actLabel(act.act)}
-      locked={locked}
-    />
+/** A toolbar act once what it makes is read, absent for a reader who never holds it. */
+async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate | null>; side?: boolean }) {
+  const read = await act;
+  return (
+    read !== null && (
+      <ToolbarAct
+        act={read}
+        side={side}
+      />
+    )
   );
-  return locked === undefined ? (
-    <Dialog
-      {...act}
-      trigger={button}
-    />
-  ) : (
-    button
-  );
-}
-
-/** That act once the read says whether it stands. */
-async function SideActOnceRead({ side }: { side: Promise<ListCreate | null> }) {
-  const read = await side;
-  return read !== null && <SideAct side={read} />;
 }
 
 /**
@@ -490,9 +466,10 @@ async function ListBody({ list }: { list: ListContent }) {
 /**
  * The list template: the page's title in the strip; one toolbar row holding the search field where the list
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
- * creating a record over the list; then the list. The list is a table whose rows open their records,
- * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
- * matchday tabs, one matchday at a time, opening on the one the server names; or one card per group, its
+ * creating a record over the list, a second act before it where the list holds one; then the list. The list is a
+ * table whose rows open their records or carry their acts, „Weitere 50 laden“ under it only while the server reports
+ * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
+ * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
  * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
@@ -552,7 +529,7 @@ export function ListPage({
               </Suspense>
             )}
             {hasActs && (
-              <div className="ms-auto flex flex-wrap items-center justify-end gap-3 empty:hidden">
+              <div className="ms-auto flex flex-wrap items-center justify-end gap-3">
                 {sideAct !== undefined && (
                   <Suspense
                     fallback={
@@ -560,19 +537,22 @@ export function ListPage({
                         <span className={buttonPlaceholder()}>{sideAct.label}</span>
                       </Placeholder>
                     }>
-                    <SideActOnceRead side={sideAct.act} />
+                    <ToolbarActOnceRead
+                      act={sideAct.act}
+                      side
+                    />
                   </Suspense>
                 )}
                 {create === undefined ? null : create instanceof Promise ? (
                   <Suspense fallback={<CreatePlaceholder />}>
-                    <CreateOnceRead create={create} />
+                    <ToolbarActOnceRead act={create} />
                   </Suspense>
                 ) : "label" in create ? (
                   <Suspense fallback={<CreatePlaceholder label={create.label} />}>
-                    <CreateOnceRead create={create.act} />
+                    <ToolbarActOnceRead act={create.act} />
                   </Suspense>
                 ) : (
-                  <CreateAct create={create} />
+                  <ToolbarAct act={create} />
                 )}
               </div>
             )}

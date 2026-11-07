@@ -66,7 +66,7 @@ export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: 
     <div className={s.root()}>
       <span className={s.head()}>
         <span className={s.title()}>
-          <span className="flex shrink-0 rotate-90 text-fg-muted">
+          <span className={s.chevron({ class: "rotate-90" })}>
             <Icon
               glyph="forward"
               size={16}

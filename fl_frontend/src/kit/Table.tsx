@@ -290,7 +290,8 @@ const table = tv({
         sheet: "max-lg:grid",
         part: "max-lg:contents",
         headRow: "max-lg:col-span-full max-lg:grid max-lg:grid-cols-subgrid",
-        head: "max-lg:grid max-lg:items-center",
+        // A grid item's words stand at its top, where a table cell's stand in its middle.
+        head: "max-lg:leading-10",
         row: "max-lg:col-span-full max-lg:grid max-lg:grid-cols-subgrid max-lg:items-center",
         acts: "max-lg:hidden",
       },
@@ -523,10 +524,11 @@ function NameCell({
 
 /**
  * A list of records: rows 52 px high on desktop and 56 on a phone, lines between them, under a head of
- * muted capitals. A row opens its record, a chevron at its end saying so. Few columns: the name with its plaque
- * and chip, then a few facts, of which a list's phone row keeps a narrow column where it fits, the name cut before its
- * chip gives way. The table, its rows, its heads and its cells carry their table roles in writing, since a
- * prose row's `display: grid` on a phone drops the semantics an engine infers from the elements alone.
+ * muted capitals. A row opens its record, a chevron at its end saying so, or, where its record has no page of its own,
+ * carries its acts. Few columns: the name with its plaque and chip, then a few facts, of which a list's phone row keeps
+ * a narrow column where it fits, the name cut before its chip gives way. The table, its rows, its heads and its cells
+ * carry their table roles in writing, since a prose row's or an act table's `display: grid` on a phone drops the
+ * semantics an engine infers from the elements alone.
  */
 export function Table({
   label,
