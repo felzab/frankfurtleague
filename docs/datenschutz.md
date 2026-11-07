@@ -325,7 +325,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | An admitted registration                     | Deleted in the admission's own transaction                                                                                                                                            | `fl_backend/app/api/registrierungen/person_router.py :: admit`                                                                                                           |
 | A pupil                                      | Once the season after their last squad season has ended, by the hourly pass after the activation                                                                                      | `fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`                                                                                                           |
 | A registration link's entry                  | No clock; the link ends with its season, its team's Austritt, or when withdrawn or replaced                                                                                           | `fl_backend/app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an`                                                                                      |
-| A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link, its log images redacted with it                                                         | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
+| A referee unconfirmed or under a Widerspruch | Erased by the first hourly pass past its stored deadline's day, 14 days from its latest link                                                                                          | `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`     |
 | A confirmed referee                          | Until an administrator deletes the row or the referee asks                                                                                                                            | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                                |
 | A ban                                        | Five full seasons after the one it was entered under, removed by the activation past it                                                                                               | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                                        |
 | A grant                                      | Until removed or erased, a waiting addition until withdrawn too                                                                                                                       | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                                              |
@@ -357,9 +357,8 @@ Each bound is read from the symbol beside it; nothing compares this table with t
   stays barred until too old. Its row goes with no message; the one sent at the ban
   (`fl_frontend/src/core/banListEmail.ts`) names its season, its reason, what is kept and how to
   object.
-- **A sign-in account is deleted with no message until session 7 builds the one deletion notice**
-  (ruled 2026-10-25), which tells its person once a confirmed account or application is deleted,
-  whoever caused it, and never holds the deletion up.
+- **One deletion notice tells its person once a confirmed account or application is deleted**,
+  whoever caused it, and never holds the deletion up (`fl_frontend/src/core/bewerbungEmail.ts`).
 
 ## 7. Processors and third parties
 

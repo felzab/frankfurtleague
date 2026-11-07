@@ -852,12 +852,9 @@ same request line reached Cloudflare unredacted, and what Cloudflare keeps is se
 dashboard rather than here.
 
 **The durable answer to "what was changed, and by whom" is the action log rather than a container
-log.** Every recorded write appends a row carrying the actor, the route, the collection, the
-operation and the image of what the write replaced or removed
-([`../glossary.md`](../glossary.md#aktion--action_log_entry--one-recorded-write-and-what-it-replaced-or-removed)), read
-at `/area/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
-stamps the row, so what survives it is that the write
-happened and what it held of anybody else.
+log.** Every recorded act appends a row carrying who acted, what they did and to which record
+([`../glossary.md`](../glossary.md#aktion--action_log_entry--one-recorded-act)). A row names nobody
+but an administrator, so an erasure leaves it standing and takes that address out.
 
 **Then, in this order:** contain it; establish which people and which categories are affected, from
 the two records above; report inside the 72 hours with what is established and what is not — a report

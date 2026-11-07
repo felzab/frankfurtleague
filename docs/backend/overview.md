@@ -67,10 +67,9 @@ transaction's own writes. A request making more than one write makes them in one
 a refusal anywhere takes everything already written back with it. A background pass is the
 exception: it takes its rows a page or a row at a time, each in a transaction of its own
 (`fl_backend/app/core/transactions.py :: drain` for the paged ones), so a pass that fails part way
-keeps what it finished, and the next pass resumes from the stored state. Every helper write except
-an anchor (`fl_backend/app/core/crud.py :: anchor_in_db`) and a link's stamp (`:: stamp_in_db`),
-each changing nothing a reader sees, records what it replaced or removed on the action log
-(`Aktion`, `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
+keeps what it finished, and the next pass resumes from the stored state. A write helper records
+nothing: each recorded act adds one line inside its transaction
+(`Aktion`, `fl_backend/app/core/recording.py :: record_act`).
 
 **The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
 rules it is refused under where it writes. The league table is computed from the matches on each

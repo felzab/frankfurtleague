@@ -38,9 +38,7 @@ reads like a constant of this league is nearly always one some season chose for 
   to play it (`registrierungen`), one minted registration link (`invitations`), one party's answer about one
   fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee or an administrator (`spielberichte`),
   one change of the address a person signs in on (`address_changes`), one barred address
-  (`ban_list`), one address's access to the administration (`grants`), what the
-  administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
-  second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
+  (`ban_list`), one address's access to the administration (`grants`), one mail the league owes one
   recipient (`outbox`), one mailbox a public form named (`mailbox_anchors`), and one recorded write
   (`action_log`).
 
@@ -82,12 +80,10 @@ overtook up to an hour later. What a reader may rely on is a comparison rather t
 compares the row's `ansetzung.stand` against the fixture's at the press -- and the one rule the collection holds
 alone, one open row per party per Ansetzung.
 
-**A boundary is what must be true together; what must not outlive a person is a different question**, and it
-is that one which reaches into the log. A row keeps an image of the document a write replaced, so a person's
-own details sit in the log too, and a write destroying them redacts the rows holding them in the same
-transaction. `action_log.document_id` is a copied id that **nothing
-maintains**: the document it names may since have been edited, retired or removed outright, with no row here
-brought up to date.
+**A boundary is what must be true together; what must not outlive a person is a different question**, and the
+log answers it by holding no person: an erasure reaches in once, in its own transaction, for an administrator's
+address. `action_log.record_id` is a copied id that **nothing maintains**: the document it names may since have
+been edited, retired or removed outright, with no row here brought up to date.
 
 ---
 
@@ -331,8 +327,6 @@ no later feature can come to depend on a flag.
   season's squad rows, so such a person stands in none until a registration through a team's link gives them a row.
 - **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired
   and never when it may go; every admin list badges the day it retired.
-- **A stored action-log image no current model accepts.** An image is what a document looked like when it was
-  written, so validating it against today's models would make every row older than a migration unreadable.
 
 ---
 
