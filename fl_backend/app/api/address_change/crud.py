@@ -792,8 +792,8 @@ async def end_the_address_changes_in_session(
     """End every change naming the erased address.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
-    change. A holder's change in its wait tells the holders, who hold a date it will not reach, naming no new address: it may
-    be the erased one.
+    change. Another holder's change in its wait tells the holders, who hold a date it will not reach, naming no new address:
+    that is the erased one. The erased holder's own tells nothing, their grant's end telling the holders that.
     """
 
     if rows:
@@ -815,6 +815,8 @@ async def end_the_address_changes_in_session(
             now=now,
             session=session,
         )
+
+    for row in others_naming(rows, identifier):
         await tell_the_holders_of_the_end_in_session(
             row,
             grants_collection=grants_collection,

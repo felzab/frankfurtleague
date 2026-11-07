@@ -20,6 +20,7 @@ from app.api.address_change.services import masked_address
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.grants.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.grants.services import compose_notice
+from app.api.identity.crud import erase_the_mails_in_session
 from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
@@ -67,12 +68,11 @@ BERND_ID = ObjectId("6890a1b2c3d4e5f607a10004")
 CLARA_ID = ObjectId("6890a1b2c3d4e5f607a10005")
 NAHE_ID = ObjectId("6890a1b2c3d4e5f607a10006")
 
-# The notices still queued when she is erased, one per way a notice can name her or not.
+# The notices still queued when she is erased, one naming her and two not.
 NAMING_HER_GRANT = ObjectId("6890a1b2c3d4e5f607a20001")
-MADE_BY_HER = ObjectId("6890a1b2c3d4e5f607a20002")
 NOT_HERS = ObjectId("6890a1b2c3d4e5f607a20004")
-# Made by another mailbox at her local part, which the queued notices' read reaches and the fold refuses.
-BY_HER_LOCAL_PART_ELSEWHERE = ObjectId("6890a1b2c3d4e5f607a20005")
+# Naming another mailbox at her local part, which the fold refuses.
+ELSEWHERE = ObjectId("6890a1b2c3d4e5f607a20005")
 ERIKA_ELSEWHERE = ERIKA.replace("@frankfurtleague.de", "@anderswo.de")
 ELSEWHERE_GRANTED_ID = ObjectId("6890a1b2c3d4e5f607a10008")
 
@@ -95,7 +95,7 @@ def grant_row(grant_id: ObjectId, address: str, admin_tier: str, granted_by: str
     }
 
 
-def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | None, by: str) -> dict[str, Any]:
+def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | None) -> dict[str, Any]:
     composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address)
 
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
@@ -161,10 +161,9 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
     )
     await database[Collection.OUTBOX].insert_many(
         [
-            notice(NAMING_HER_GRANT, ERIKA_ID, "handover", ERIKA, DORA),
-            notice(MADE_BY_HER, BERND_ID, "granted", BERND, ERIKA_TYPED),
-            notice(NOT_HERS, CLARA_ID, "granted", CLARA, DORA),
-            notice(BY_HER_LOCAL_PART_ELSEWHERE, ELSEWHERE_GRANTED_ID, "granted", "dritte.admin@frankfurtleague.de", ERIKA_ELSEWHERE),
+            notice(NAMING_HER_GRANT, ERIKA_ID, "handover", ERIKA),
+            notice(NOT_HERS, CLARA_ID, "granted", CLARA),
+            notice(ELSEWHERE, ELSEWHERE_GRANTED_ID, "granted", ERIKA_ELSEWHERE),
         ]
     )
     await database[Collection.BAN_LIST].insert_many(
@@ -227,6 +226,16 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier
         return await session.with_transaction(step)
 
 
+async def erase_the_mails(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
+    """The step that takes the notices about her, which runs after this one in the registry."""
+
+    async def step(session: AsyncClientSession) -> list[str]:
+        return await erase_the_mails_in_session(outbox_collection=database[Collection.OUTBOX], identifier=ERIKA, session=session)
+
+    async with client.start_session() as session:
+        return await session.with_transaction(step)
+
+
 async def ids_in(database: AsyncDatabase, collection: Collection) -> set[ObjectId]:
     return {row["_id"] async for row in database[collection].find({}, {"_id": 1})}
 
@@ -281,7 +290,7 @@ class TestHerGrantsGo:
 class TestTheNotices:
     """No notice still queued names her, and every administrator is told her grant ended."""
 
-    def test_her_grants_end_is_queued_with_no_address_and_attributed_to_who_geloescht_her(self, mongo_replica_set_url: str):
+    def test_her_grants_end_is_queued_with_no_address(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
             await erase(database, client)
 
@@ -289,73 +298,31 @@ class TestTheNotices:
 
         assert on_a_league(mongo_replica_set_url, body) == [{"change": "revoked", "stage": "completed", "address": None}]
 
-    def test_every_notice_queued_before_her_erasure_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
-        """Her address emptied, her as the actor given the marker."""
+    def test_every_notice_about_her_goes_and_no_other_moves(self, mongo_replica_set_url: str):
+        """A notice owed any holder naming her, in either spelling, or her mask, is deleted whole; only a full address stands on a line."""
 
-        async def stored(database: AsyncDatabase) -> dict[ObjectId, tuple[Any, ...]]:
-            return {
-                row["_id"]: (row["data"]["address"], row["data"]["changed_by"])
-                async for row in database[Collection.OUTBOX].find(
-                    {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}}
-                )
-            }
+        typed, completed, settled = ObjectId(), ObjectId(), ObjectId()
 
-        async def body(
-            database: AsyncDatabase, client: AsyncMongoClient
-        ) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]]]:
-            before = await stored(database)
-            await erase(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], list[str]]:
+            moved = notice(completed, BERND_ID, "address", BERND)
+            await database[Collection.OUTBOX].insert_many(
+                [
+                    notice(typed, ERIKA_ID, "granted", ERIKA_TYPED),
+                    {**moved, "data": {**moved["data"], "stage": "completed", "new_address": masked_address(ERIKA)}},
+                    # A sent row keeps no data, which the read meets as nothing to judge.
+                    {**notice(settled, CLARA_ID, "revoked", CLARA), "state": "sent", "data": None},
+                ]
+            )
 
-            return before, await stored(database)
+            lines = await erase_the_mails(database, client)
 
-        before, after = on_a_league(mongo_replica_set_url, body)
+            return await ids_in(database, Collection.OUTBOX), lines
 
-        assert after[NAMING_HER_GRANT] == (None, DORA)
-        assert after[MADE_BY_HER] == (BERND, ERASED_ACTOR_MARKER)
-        assert after[NOT_HERS] == before[NOT_HERS]
-        assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
+        left, lines = on_a_league(mongo_replica_set_url, body)
 
-    @pytest.mark.parametrize(
-        ("stage", "left"),
-        [
-            pytest.param("completed", (None, None), id="a completed change's old address was hers"),
-            pytest.param("withdrawn", (BERND, None), id="a change that never reached her keeps its own holder"),
-        ],
-    )
-    def test_a_queued_address_notice_masking_her_keeps_neither_her_mask_nor_her_old_address(
-        self, mongo_replica_set_url: str, stage: str, left: tuple[str | None, str | None]
-    ):
-        """A completion names the address before the move, which no fold of her erased address finds."""
-
-        row_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
-            row = notice(row_id, BERND_ID, "address", BERND, DORA)
-            data = {**row["data"], "stage": stage, "new_address": masked_address(ERIKA)}
-            await database[Collection.OUTBOX].insert_one({**row, "data": data})
-            await erase(database, client)
-            stored = await database[Collection.OUTBOX].find_one({"_id": row_id})
-            assert stored is not None
-
-            return stored["data"]["address"], stored["data"]["new_address"]
-
-        assert on_a_league(mongo_replica_set_url, body) == left
-
-    def test_a_queued_notice_of_her_own_change_keeps_no_mask_of_her_new_mailbox(self, mongo_replica_set_url: str):
-        """Her new mailbox is hers alone, and its mask beside an emptied address tells the holders where she went."""
-
-        row_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
-            row = notice(row_id, ERIKA_ID, "address", ERIKA, DORA)
-            await database[Collection.OUTBOX].insert_one({**row, "data": {**row["data"], "new_address": masked_address(BERND)}})
-            await erase(database, client)
-            stored = await database[Collection.OUTBOX].find_one({"_id": row_id})
-            assert stored is not None
-
-            return stored["data"]["address"], stored["data"]["new_address"]
-
-        assert on_a_league(mongo_replica_set_url, body) == (None, None)
+        assert left.isdisjoint({NAMING_HER_GRANT, typed, completed})
+        assert left >= {NOT_HERS, ELSEWHERE, settled}
+        assert sorted(lines) == sorted(f"{Collection.OUTBOX}/{row_id}/data.address" for row_id in (NAMING_HER_GRANT, typed))
 
     def test_a_handover_waiting_on_her_row_is_withdrawn_naming_nobody(self, mongo_replica_set_url: str):
         """The holders hold a date for it, and the grant it waited on is gone."""
@@ -427,6 +394,7 @@ def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_re
         held = await where_held(database, ERIKA, ERIKA_TYPED)
         assert held[ERIKA] and held[ERIKA_TYPED], f"the control: the seed holds her nowhere, so the scan below proves nothing: {held}"
         await erase(database, client)
+        await erase_the_mails(database, client)
 
         return await where_held(database, ERIKA, ERIKA_TYPED)
 

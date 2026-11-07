@@ -7,7 +7,7 @@ every row of it.
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any
 
 from bson import ObjectId
 from pymongo import ASCENDING, ReturnDocument
@@ -78,10 +78,6 @@ async def read_admin_tier_of(
         return None
 
     return found["admin_tier"], as_utc(found["effective_from"])
-
-
-# A grant's notice still to be handed out: the one shape an erasure rewrites, a sent one being past saying.
-OPEN_NOTICE: Final[Mapping[str, Any]] = {"state": "open", "kind": "grant"}
 
 
 def _named_recipients(data: FLGrantData) -> set[str]:
@@ -257,7 +253,7 @@ async def revoke_in_session(
                 stage="completed" if holds else "withdrawn",
                 address=str(grant["address"]),
             ),
-            *compose_handover_end(grant),
+            *compose_handover_end(grant, address=str(grant["address"])),
         ],
         outbox_collection=outbox_collection,
         grants_collection=grants_collection,

@@ -11,21 +11,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.address_change.services import masked_address
-from app.api.grants.crud import OPEN_NOTICE, owe_in_session, pull_the_list_to_judge
-from app.api.grants.services import Notice, compose_handover_end, compose_notice
+from app.api.grants.crud import owe_in_session, pull_the_list_to_judge
+from app.api.grants.services import compose_handover_end, compose_notice
 from app.api.kontakte.services import same_address
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db
 from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
-
-# The sites of a grant notice naming an address in full.
-_QUEUED_SITES = ("data.address",)
 
 
 @dataclass(frozen=True)
@@ -55,95 +50,17 @@ async def _rows_naming(
     session: AsyncClientSession,
     *,
     whole: bool = False,
-    also: Mapping[str, Any] | None = None,
 ) -> list[Mapping[str, Any]]:
     """Every row holding this person's address at one of `paths`, unbounded: a capped read leaves the rest naming them."""
 
     pattern = same_address(identifier)
-    pipeline: list[Mapping[str, Any]] = [{"$match": {**(also or {}), "$or": [{path: pattern} for path in paths]}}]
+    pipeline: list[Mapping[str, Any]] = [{"$match": {"$or": [{path: pattern} for path in paths]}}]
     if not whole:
         pipeline.append({"$project": dict.fromkeys(paths, 1)})
 
     rows = await aggregate_many_from_db(collection=collection, pipeline=pipeline, session=session)
 
     return [row for row in rows if any(_names(_held_at(row, path), identifier) for path in paths)]
-
-
-def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
-    """What takes this person out of one notice's facts: the address emptied.
-
-    A change's new address is stored masked, so it is matched as masked: another person's mask reading alike loses a word
-    from a mail and no more. A completed change's old address was this person's own, which the erasure's fold cannot find.
-    A notice of this person's own change loses the mask of their new mailbox too, as the erasure's own notice withholds it.
-    """
-
-    update: dict[str, Any] = {}
-    if _names(data.get("address"), identifier):
-        update["address"] = None
-        if data.get("change") == "address":
-            update["new_address"] = None
-    if data.get("change") == "address" and data.get("new_address") == masked_address(identifier):
-        update["new_address"] = None
-        if data.get("stage") == "completed":
-            update["address"] = None
-
-    return update
-
-
-def _withheld(notice: Notice, identifier: str) -> Notice:
-    """A composed notice as `_withholding` leaves it, so no row owed carries the address."""
-
-    return Notice(grant_id=notice.grant_id, data={**notice.data, **_withholding(notice.data, identifier)})
-
-
-async def outbox_rows_older_than(
-    outbox_collection: ReadCollection, ids: Sequence[ObjectId], now: datetime, session: AsyncClientSession
-) -> set[ObjectId]:
-    """Which of these rows stood before this erasure: a row it wrote carries its `now`, and no snapshot can hold that one."""
-
-    if not ids:
-        return set()
-    rows = await aggregate_many_from_db(
-        collection=outbox_collection,
-        pipeline=[{"$match": {"_id": {"$in": list(ids)}, "recorded_at": {"$lt": now}}}, {"$project": {"_id": 1}}],
-        session=session,
-    )
-
-    return {row["_id"] for row in rows}
-
-
-async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, now: datetime, session: AsyncClientSession) -> list[str]:
-    """Every grant notice still owed naming this person, written by id and grouped by what each loses.
-
-    Answers each field that names them in full as `collection/id/path`. A row matched by a mask alone stands on no line:
-    a mask fits many people, so that row names nobody a replay could read off it.
-    """
-
-    masked = await aggregate_many_from_db(
-        collection=outbox_collection,
-        pipeline=[{"$match": {**OPEN_NOTICE, "data.new_address": masked_address(identifier)}}, {"$project": {"data": 1}}],
-        session=session,
-    )
-    named = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OPEN_NOTICE, whole=True)
-    rows = list({row["_id"]: row for row in [*named, *masked]}.values())
-
-    by_update: dict[tuple[tuple[str, Any], ...], list[ObjectId]] = {}
-    for row in rows:
-        update = tuple(sorted((f"data.{path}", value) for path, value in _withholding(row["data"], identifier).items()))
-        by_update.setdefault(update, []).append(row["_id"])
-
-    for update, ids in by_update.items():
-        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session)
-
-    standing = await outbox_rows_older_than(outbox_collection, [row["_id"] for row in named], now, session)
-
-    return [
-        f"{outbox_collection.name}/{row['_id']}/{path}"
-        for row in named
-        if row["_id"] in standing
-        for path in _QUEUED_SITES
-        if _names(_held_at(row, path), identifier)
-    ]
 
 
 async def carry_authorship_in_session(
@@ -212,17 +129,15 @@ async def erase_grants_and_authorship_in_session(
     grants = await _rows_naming(grants_collection, ("address",), identifier, session, whole=True)
     grant_ids = [grant["_id"] for grant in grants]
 
+    # Naming no address: every holder hears that a grant ended, and nothing of whose.
     notices = [
-        _withheld(notice, identifier)
+        notice
         for grant in grants
         for notice in (
-            compose_notice(grant_id=grant["_id"], change="revoked", stage="completed", address=str(grant["address"])),
-            *compose_handover_end(grant),
+            compose_notice(grant_id=grant["_id"], change="revoked", stage="completed", address=None),
+            *compose_handover_end(grant, address=None),
         )
     ]
-
-    # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
-    withheld = await _withhold_queued(outbox_collection, identifier, now, session)
 
     if grant_ids:
         await delete_many_from_db(collection=grants_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
@@ -248,4 +163,4 @@ async def erase_grants_and_authorship_in_session(
         session=session,
     )
 
-    return ErasedGrantsAndAuthorship(removed_grants=len(grant_ids), rows=[*withheld, *authored])
+    return ErasedGrantsAndAuthorship(removed_grants=len(grant_ids), rows=authored)

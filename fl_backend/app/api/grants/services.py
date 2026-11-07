@@ -144,10 +144,10 @@ def compose_notice(
     )
 
 
-def compose_handover_end(grant: Mapping[str, Any]) -> list[Notice]:
+def compose_handover_end(grant: Mapping[str, Any], *, address: str | None) -> list[Notice]:
     """The withdrawal's notice of a handover a row's end takes with it, whose holders hold a date; none where none waits."""
 
     if grant.get("owner_from") is None:
         return []
 
-    return [compose_notice(grant_id=grant["_id"], change="handover", stage="withdrawn", address=str(grant["address"]))]
+    return [compose_notice(grant_id=grant["_id"], change="handover", stage="withdrawn", address=address)]

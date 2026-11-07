@@ -39,16 +39,11 @@ describe("a grant notice", () => {
     expect(rendered({ change: "handover", effective_from: FROM })).not.toContain(notYou);
   });
 
-  it.each([
-    ["handover", "started", WORDS.lead.handover(WORDS.unnamedTarget)],
-    ["handover", "withdrawn", WORDS.lead.withdrawn.handover(WORDS.unnamedTarget)],
-    ["address", "withdrawn", WORDS.lead.withdrawn.address(WORDS.unnamedAddress, WORDS.unnamedNewAddress)],
-    ["address", "completed", WORDS.lead.completed.unnamedAddress],
-  ] as const)("reads an erased address as a sentence on a %s %s", (change, stage, lead) => {
-    expect(rendered({ change, stage, address: null })).toContain(lead);
+  it("reads an erased address as a sentence on a handover's withdrawal", () => {
+    expect(rendered({ change: "handover", stage: "withdrawn", address: null })).toContain(WORDS.lead.withdrawn.handover(WORDS.unnamedTarget));
   });
 
-  it("names the moved address's old side where only the mask was erased", () => {
+  it("names the moved address's old side where the new one was erased", () => {
     const text = rendered({ change: "address", stage: "withdrawn" });
 
     expect(text).toContain(WORDS.lead.withdrawn.address(ADDRESS, WORDS.unnamedNewAddress));

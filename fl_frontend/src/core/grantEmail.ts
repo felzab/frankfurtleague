@@ -32,11 +32,7 @@ function leadOf({ change, stage, address, new_address }: FLGrantData): string {
       if (stage === "completed") return WORDS.lead.completed.handover(named);
       return stage === "withdrawn" ? WORDS.lead.withdrawn.handover(object) : WORDS.lead.handover(object);
     case "address":
-      if (stage === "completed") {
-        return address === null
-          ? WORDS.lead.completed.unnamedAddress
-          : WORDS.lead.completed.address(address, new_address ?? WORDS.unnamedTarget);
-      }
+      if (stage === "completed") return WORDS.lead.completed.address(named, next);
       return stage === "withdrawn" ? WORDS.lead.withdrawn.address(named, next) : WORDS.lead.address(named, next);
   }
 }

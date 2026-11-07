@@ -1044,33 +1044,27 @@ class TestTheJournal:
             [f"{Collection.ACTION_LOG}/{log_row}/label"],
         ]
 
-    def test_a_notice_matched_by_its_mask_alone_and_a_row_this_erasure_wrote_stand_on_no_line(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        """A mask fits many people and no snapshot holds a row of this transaction, so a replay reading either finds nobody it should."""
+    def test_a_notice_matched_by_its_mask_alone_goes_and_stands_on_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """A mask fits many people, so a replay reading one finds nobody it should."""
 
         former, other = "ehemals.verwaltung@example.org", "noch.verwaltung@example.org"
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, ObjectId(), former, "administration")
             await a_grant(database, ObjectId(), other, "administration")
-            change = documents.address_change_document(address=former, email="neu.verwaltung@example.org", token_hash="t", day="2126-03-30")
-            await database[Collection.ADDRESS_CHANGES].insert_one({**change, "confirmed_at": GRANTED})
             # Another person's change, whose new address masks as this one's does.
             masked = {"change": "address", "stage": "started", "address": "dritte@example.org", "new_address": masked_address(former)}
             await database[Collection.OUTBOX].insert_one({**a_mail("grant", to=other), "state": "open", "data": masked})
             status = (await erased_over_http(mongo_replica_set_url, email=former)).status_code
-            withdrawn = database[Collection.OUTBOX].find({"data.change": "address", "data.stage": "withdrawn"})
 
-            return status, [row["to"] async for row in withdrawn]
+            return status, await database[Collection.OUTBOX].count_documents({"data.new_address": masked_address(former)})
 
         with caplog.at_level(logging.INFO):
-            status, told = on_a_league(mongo_replica_set_url, body)
+            status, left = on_a_league(mongo_replica_set_url, body)
 
         [record] = journal_records(caplog)
 
-        # The premise: this erasure wrote that notice.
-        assert (status, other in told) == (200, True)
+        assert (status, left) == (200, 0)
         assert not [row for row in vars(record)["rows"] if row.startswith(f"{Collection.OUTBOX}/")]
 
 

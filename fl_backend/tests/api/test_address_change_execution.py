@@ -1045,13 +1045,13 @@ class TestAHoldersOwnChange:
         ("erased", "named", "recipients"),
         [
             pytest.param(NEW_EMAIL, EMAIL, (*ADMINISTRATORS, EMAIL), id="the new address's owner"),
-            pytest.param(EMAIL, None, ADMINISTRATORS, id="the holder, whose new mailbox it was"),
+            pytest.param(EMAIL, None, (), id="the holder, whose grant's end tells them"),
         ],
     )
-    def test_an_erasure_ending_its_wait_tells_every_holder_and_masks_nothing_of_the_erased(
+    def test_an_erasure_ending_another_holder_s_wait_tells_every_holder_and_masks_nothing_of_the_erased(
         self, mongo_replica_set_url: str, erased: str, named: str | None, recipients: tuple[str, ...]
     ):
-        """The holders hold a date the erasure took away, and a mask of the new address is all that would be left of the person."""
+        """The holders hold a date the erasure took away, and a mask of the new address would be all that is left of the person."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
