@@ -1192,79 +1192,91 @@
         "title": "FLAccountSpielerEinwilligung",
         "type": "object"
       },
+      "FLAction": {
+        "enum": [
+          "saison.created",
+          "saison.changed",
+          "saison.activated",
+          "saison.gruppen_swapped",
+          "saison.spielplan_created",
+          "saison.spielplan_recreated",
+          "saison.spielplan_deleted",
+          "saison.invitations_dispatched",
+          "spieltag.changed",
+          "spiel.changed",
+          "spiel.ergebnis_changed",
+          "spielbestaetigung.entered",
+          "spielbestaetigung.vorschlag_discarded",
+          "spielbestaetigung.vorschlag_adopted",
+          "spielbestaetigung.answered",
+          "spielbericht.saved",
+          "team.entered",
+          "team.changed",
+          "team.retired",
+          "team.reactivated",
+          "team.austritt_entered",
+          "team.seat_changed",
+          "team.replaced",
+          "team.invitation_created",
+          "team.invitation_withdrawn",
+          "bewerbung.accepted",
+          "bewerbung.declined",
+          "bewerbung.seat_changed",
+          "registrierung.admitted",
+          "registrierung.declined",
+          "spieler.changed",
+          "spieler.deregistered",
+          "spieler.reactivated",
+          "schiedsrichter.created",
+          "schiedsrichter.changed",
+          "schiedsrichter.retired",
+          "schiedsrichter.reactivated",
+          "spielort.created",
+          "spielort.changed",
+          "spielort.retired",
+          "spielort.reactivated",
+          "grant.added",
+          "grant.removed",
+          "grant.addition_withdrawn",
+          "grant.handover_started",
+          "grant.handover_withdrawn",
+          "grant.handover_completed",
+          "grant.address_change_started",
+          "grant.address_switched",
+          "ban.added",
+          "ban.removed",
+          "address_change.started",
+          "address_change.discarded",
+          "erasure.on_request",
+          "erasure.own",
+          "retention.bewerbungen",
+          "retention.kontakte",
+          "retention.spielbestaetigungen",
+          "retention.spielberichte",
+          "retention.registrierungen",
+          "retention.schiedsrichter",
+          "retention.spieler",
+          "retention.address_changes",
+          "retention.bans"
+        ],
+        "type": "string"
+      },
       "FLActionLogEntry": {
-        "description": "One recorded write.",
+        "description": "One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.",
         "properties": {
-          "actor": {
-            "discriminator": {
-              "mapping": {
-                "admin_session": "#/components/schemas/FLActorWithAddressRow",
-                "person_session": "#/components/schemas/FLActorPerson",
-                "public": "#/components/schemas/FLActorWithAddressRow",
-                "system": "#/components/schemas/FLActorWithAddressRow"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLActorWithAddressRow"
-              },
-              {
-                "$ref": "#/components/schemas/FLActorPerson"
-              }
-            ],
-            "title": "Actor"
+          "action": {
+            "$ref": "#/components/schemas/FLAction"
           },
           "at": {
+            "format": "date-time",
             "title": "At",
             "type": "string"
           },
-          "collection": {
-            "title": "Collection",
+          "by": {
+            "title": "By",
             "type": "string"
           },
-          "db_filter": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Db Filter"
-          },
-          "document_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Document Id"
-          },
-          "erasure_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erasure Reason"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "modified_count": {
+          "count": {
             "anyOf": [
               {
                 "type": "integer"
@@ -1273,12 +1285,14 @@
                 "type": "null"
               }
             ],
-            "title": "Modified Count"
+            "title": "Count"
           },
-          "operation": {
-            "$ref": "#/components/schemas/FLActionLogEntryOperation"
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
           },
-          "redacted_at": {
+          "label": {
             "anyOf": [
               {
                 "type": "string"
@@ -1287,246 +1301,30 @@
                 "type": "null"
               }
             ],
-            "title": "Redacted At"
+            "title": "Label"
           },
-          "request": {
+          "team": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLActionLogEntryRequest"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
-          },
-          "stand_secured": {
-            "title": "Stand Secured",
-            "type": "boolean"
-          },
-          "trace_id": {
-            "title": "Trace Id",
-            "type": "string"
+            ],
+            "title": "Team"
           }
         },
         "required": [
           "id",
           "at",
-          "actor",
-          "trace_id",
-          "request",
-          "collection",
-          "operation",
-          "document_id",
-          "db_filter",
-          "stand_secured",
-          "modified_count",
-          "redacted_at",
-          "erasure_reason"
+          "by",
+          "team",
+          "action",
+          "label",
+          "count"
         ],
         "title": "FLActionLogEntry",
-        "type": "object"
-      },
-      "FLActionLogEntryHerkunft": {
-        "enum": [
-          "person",
-          "system",
-          "public"
-        ],
-        "type": "string"
-      },
-      "FLActionLogEntryOperation": {
-        "enum": [
-          "insert",
-          "insert_many",
-          "patch_one",
-          "patch_many",
-          "delete_many",
-          "erase_many"
-        ],
-        "type": "string"
-      },
-      "FLActionLogEntryRequest": {
-        "properties": {
-          "method": {
-            "title": "Method",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          }
-        },
-        "required": [
-          "method",
-          "path"
-        ],
-        "title": "FLActionLogEntryRequest",
-        "type": "object"
-      },
-      "FLActionLogEntrySingleResponse": {
-        "properties": {
-          "action_log_entry": {
-            "$ref": "#/components/schemas/FLActionLogEntryWithBefore"
-          }
-        },
-        "required": [
-          "action_log_entry"
-        ],
-        "title": "FLActionLogEntrySingleResponse",
-        "type": "object"
-      },
-      "FLActionLogEntryWithBefore": {
-        "description": "One recorded write with the document it replaced, which only the single-row read serves.",
-        "properties": {
-          "actor": {
-            "discriminator": {
-              "mapping": {
-                "admin_session": "#/components/schemas/FLActorWithAddressRow",
-                "person_session": "#/components/schemas/FLActorPerson",
-                "public": "#/components/schemas/FLActorWithAddressRow",
-                "system": "#/components/schemas/FLActorWithAddressRow"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLActorWithAddressRow"
-              },
-              {
-                "$ref": "#/components/schemas/FLActorPerson"
-              }
-            ],
-            "title": "Actor"
-          },
-          "at": {
-            "title": "At",
-            "type": "string"
-          },
-          "before": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Before"
-          },
-          "collection": {
-            "title": "Collection",
-            "type": "string"
-          },
-          "db_filter": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Db Filter"
-          },
-          "document_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Document Id"
-          },
-          "erasure_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erasure Reason"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "modified_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modified Count"
-          },
-          "operation": {
-            "$ref": "#/components/schemas/FLActionLogEntryOperation"
-          },
-          "redacted_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Redacted At"
-          },
-          "request": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLActionLogEntryRequest"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stand_secured": {
-            "title": "Stand Secured",
-            "type": "boolean"
-          },
-          "trace_id": {
-            "title": "Trace Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "at",
-          "actor",
-          "trace_id",
-          "request",
-          "collection",
-          "operation",
-          "document_id",
-          "db_filter",
-          "stand_secured",
-          "modified_count",
-          "redacted_at",
-          "erasure_reason",
-          "before"
-        ],
-        "title": "FLActionLogEntryWithBefore",
         "type": "object"
       },
       "FLActionLogListResponse": {
@@ -1538,41 +1336,54 @@
             "title": "Action Log",
             "type": "array"
           },
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "count_per_collection": {
-            "additionalProperties": {
-              "type": "integer"
+          "by_options": {
+            "items": {
+              "type": "string"
             },
-            "title": "Count Per Collection",
-            "type": "object"
+            "title": "By Options",
+            "type": "array"
           },
-          "count_per_herkunft": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "Count Per Herkunft",
-            "type": "object"
-          },
-          "count_per_operation": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "Count Per Operation",
-            "type": "object"
+          "cursor": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
           }
         },
         "required": [
           "action_log",
-          "complete",
-          "count_per_collection",
-          "count_per_operation",
-          "count_per_herkunft"
+          "cursor",
+          "by_options"
         ],
         "title": "FLActionLogListResponse",
         "type": "object"
+      },
+      "FLActionType": {
+        "enum": [
+          "saison",
+          "spieltag",
+          "spiel",
+          "spielbestaetigung",
+          "spielbericht",
+          "team",
+          "bewerbung",
+          "registrierung",
+          "spieler",
+          "schiedsrichter",
+          "spielort",
+          "grant",
+          "ban",
+          "address_change",
+          "erasure",
+          "retention"
+        ],
+        "type": "string"
       },
       "FLActivateSaisonResponse": {
         "description": "How many seasons the activation moved off `active` -- normally exactly one.",
@@ -1586,72 +1397,6 @@
           "deactivated"
         ],
         "title": "FLActivateSaisonResponse",
-        "type": "object"
-      },
-      "FLActorPerson": {
-        "description": "A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address.",
-        "properties": {
-          "funktion": {
-            "enum": [
-              "kontakt",
-              "spieler",
-              "schiedsrichter"
-            ],
-            "title": "Funktion",
-            "type": "string"
-          },
-          "kind": {
-            "const": "person_session",
-            "title": "Kind",
-            "type": "string"
-          },
-          "pseudonym": {
-            "title": "Pseudonym",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "pseudonym",
-          "funktion"
-        ],
-        "title": "FLActorPerson",
-        "type": "object"
-      },
-      "FLActorWithAddressRow": {
-        "description": "An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it.",
-        "properties": {
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "email_barred": {
-            "title": "Email Barred",
-            "type": "boolean"
-          },
-          "kind": {
-            "enum": [
-              "admin_session",
-              "system",
-              "public"
-            ],
-            "title": "Kind",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "email",
-          "email_barred"
-        ],
-        "title": "FLActorWithAddressRow",
         "type": "object"
       },
       "FLAddress": {
@@ -19346,69 +19091,46 @@
     },
     "/api/v0/action_log": {
       "get": {
-        "description": "List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.\n\n`collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each\n`anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.",
+        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
         "operationId": "action_log_get_action_log",
         "parameters": [
           {
             "in": "query",
-            "name": "collection",
+            "name": "cursor",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
+                  "pattern": "^[0-9a-fA-F]{24}$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Collection"
+              "title": "Cursor"
             }
           },
           {
             "in": "query",
-            "name": "operation",
+            "name": "q",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "items": {
-                    "$ref": "#/components/schemas/FLActionLogEntryOperation"
-                  },
-                  "type": "array"
+                  "maxLength": 200,
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Operation"
+              "title": "Q"
             }
           },
           {
             "in": "query",
-            "name": "herkunft",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/components/schemas/FLActionLogEntryHerkunft"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Herkunft"
-            }
-          },
-          {
-            "in": "query",
-            "name": "trace_id",
+            "name": "by",
             "required": false,
             "schema": {
               "anyOf": [
@@ -19419,44 +19141,60 @@
                   "type": "null"
                 }
               ],
-              "title": "Trace Id"
+              "title": "By"
             }
           },
           {
             "in": "query",
-            "name": "document_id",
+            "name": "type",
             "required": false,
             "schema": {
               "anyOf": [
                 {
+                  "items": {
+                    "$ref": "#/components/schemas/FLActionType"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Document Id"
+              "title": "From Day"
             }
           },
           {
             "in": "query",
-            "name": "limit",
+            "name": "until_day",
             "required": false,
             "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/FLSortOrder",
-              "default": "desc"
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until Day"
             }
           }
         ],
@@ -19517,86 +19255,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "List recorded admin actions",
-        "tags": [
-          "action_log"
-        ]
-      }
-    },
-    "/api/v0/action_log/{action_log_entry_id}": {
-      "get": {
-        "description": "One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it.",
-        "operationId": "action_log_get_action_log_entry",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "action_log_entry_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Action Log Entry Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLActionLogEntrySingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One recorded admin action",
+        "summary": "List recorded acts",
         "tags": [
           "action_log"
         ]

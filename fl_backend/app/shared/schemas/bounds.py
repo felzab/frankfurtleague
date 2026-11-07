@@ -121,6 +121,12 @@ REFERENCES_ADDRESSES_MAX: Final = 250
 # no calendar months.
 ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
+# One page of the Protokoll, as „Weitere 50 laden“ words it.
+ACTION_LOG_PAGE_SIZE: Final = 50
+
+# The longest word a row stores, an erasure's reference: a longer search matches nothing.
+ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200
+
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 BAN_REASON_MAX_LENGTH: Final = 500

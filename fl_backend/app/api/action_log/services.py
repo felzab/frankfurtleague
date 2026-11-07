@@ -1,65 +1,51 @@
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from types import MappingProxyType
-from typing import Any, Final
+from typing import Any, Final, get_args
 
-from app.api.action_log.schemas import FLActorWithAddress, FLAktorAdapter
-from app.api.ban_list.services import withheld_actor
+from app.api.action_log.schemas import FLActionLogFilterParams
 from app.api.kontakte.services import same_address
+from app.core import clock
 from app.core.collections import Collection as DbCollection
-from app.core.crud import build_sort
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.crud import build_query, literal_pattern
+from app.core.recording import ERASED_ACTOR_MARKER, FLAction, FLActionType
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import parse_object_id
 
 
-def actor_addresses(rows: Iterable[Mapping[str, Any]]) -> list[str]:
-    """Every address an actor of these stored rows is named by, folded as the ban list is asked."""
+def _actions_of(types: Sequence[FLActionType]) -> list[str]:
+    """Every action of these categories: the category is the name's first half, and no stored field."""
 
-    return [
-        sign_in_identifier(actor.email) for row in rows if isinstance(actor := FLAktorAdapter.validate_python(row["actor"]), FLActorWithAddress)
-    ]
+    return [action for action in get_args(FLAction.__value__) if action.split(".")[0] in types]
 
 
-def mit_vorenthaltenem_akteur(row: Mapping[str, Any], barred: Collection[str]) -> dict[str, Any]:
-    """A stored row with its actor as both reads serve it.
+def _german_midnight(day: date) -> datetime:
+    """Where a German day starts, as the instant a stored `at` compares with across either clock change."""
 
-    The stored image is left as recorded: it is what a restore of the write starts from.
-    """
-
-    actor = FLAktorAdapter.validate_python(row["actor"])
-    if not isinstance(actor, FLActorWithAddress):
-        return dict(row)
-
-    email = withheld_actor(actor.email, barred)
-
-    return {**row, "actor": {**actor.model_dump(), "email": email, "email_barred": email is None}}
+    return datetime.combine(day, time(), tzinfo=clock.GERMANY)
 
 
-def document_id_term(value: str | None) -> dict[str, Any] | None:
-    """One document's history — `action_log_target`'s first purpose.
+def build_action_log_query(filters: FLActionLogFilterParams) -> dict[str, Any]:
+    """The read's whole filter: `by` an equality, and each other term compiled, as none is stored as it is asked."""
 
-    Compiled rather than dumped: a row stores the id as its collection does — an `ObjectId`
-    everywhere but `saisons`, whose `_id` is the season string — and text matches no `ObjectId`.
-    """
+    compiled: dict[str, Any] = {}
+    if filters.cursor is not None:
+        compiled["_id"] = {"$lt": filters.cursor}
+    if filters.type is not None:
+        compiled["action"] = {"$in": _actions_of(filters.type)}
+    span: dict[str, datetime] = {}
+    if filters.from_day is not None:
+        span["$gte"] = _german_midnight(date.fromisoformat(filters.from_day))
+    if filters.until_day is not None:
+        span["$lt"] = _german_midnight(date.fromisoformat(filters.until_day) + timedelta(days=1))
+    if span:
+        compiled["at"] = span
+    # A blank search is none: an empty pattern would keep only the rows holding a team or a label.
+    if filters.q is not None and filters.q.strip():
+        pattern = {"$regex": literal_pattern(filters.q.strip()), "$options": "i"}
+        compiled["$or"] = [{"team": pattern}, {"label": pattern}]
 
-    if value is None:
-        return None
-
-    compiled = parse_object_id(value)
-
-    return {"document_id": value if compiled is None else compiled}
-
-
-def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:
-    """The log page's order. `at` is the only key: every other ordering over a log of writes is a report."""
-
-    # `_id` breaks the tie in `order`'s OWN direction, so one transaction's rows read the way the log
-    # does and the pair is `action_log_queue`'s key or its exact inverse. Pinned descending,
-    # `order=asc` would match neither and scan the whole log.
-    direction = 1 if order == "asc" else -1
-
-    return build_sort(sort_by="at", order=order, chain=(("_id", direction),))
+    return build_query(filters, terms={"by"}, compiled=compiled)
 
 
 @dataclass(frozen=True)
