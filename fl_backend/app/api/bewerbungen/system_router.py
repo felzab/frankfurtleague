@@ -22,7 +22,7 @@ from app.api.bewerbungen.services import (
     deletion_is_due,
     lapsed_seats,
     next_saison_id,
-    owed_erasure,
+    owed_deletion_notices,
     owed_link,
     people_with_address,
     reminder_seats,
@@ -171,29 +171,39 @@ async def sweep_saison(
     later_saison_status = ended_raw.get("status") if ended_raw is not None else None
 
     async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The season's own end. Read in-session, so a retry re-judges."""
+        """The season's own end, undecided having served nothing: owe the notice and erase. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
                 db_filter=batch.within({"saison_id": saison_id, "status": "submitted"}),
-                projection=["status"],
+                projection=["status", "kontakte", "confirmations", "erasure_announced_at"],
                 # One over the page: a full page is a page that may be truncated, and a clock cannot
                 # see what it never read.
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
         )
-        taken = batch.took(
+        # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.
+        owed = batch.judged(
             [
                 row
                 for row, due in batch.judged(rows, lambda row: undecided_loeschung_is_due(bewerbung_raw=row, saison_status=saison_status))
                 if due
-            ]
+            ],
+            lambda row: owed_deletion_notices(bewerbung_raw=row, saison_id=saison_id),
         )
+        taken = batch.took([row for row, _ in owed])
         if not taken:
             return len(rows), 0, 0
 
+        # Owed in the erasure's own write: nothing of the application is left to read once this commits.
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[notice for _, notices in owed for notice in notices],
+            now=germany_now,
+        )
         ids = [row["_id"] for row in taken]
         result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
@@ -310,19 +320,19 @@ async def sweep_saison(
 
         # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.
         owed = batch.judged(
-            [row for row, is_due in batch.judged(rows, due) if is_due], lambda row: owed_erasure(bewerbung_raw=row, saison_id=saison_id)
+            [row for row, is_due in batch.judged(rows, due) if is_due],
+            lambda row: owed_deletion_notices(bewerbung_raw=row, saison_id=saison_id),
         )
         taken = batch.took([row for row, _ in owed])
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="deletion", saison_id=saison_id)
         if not taken:
             return len(rows), 0, 0
 
-        # Owed in the erasure's own write, the notice carrying what it names: nothing of the application is left to
-        # read once this commits.
+        # Owed in the erasure's own write: nothing of the application is left to read once this commits.
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
-            mails=[notice for _, notice in owed if notice is not None],
+            mails=[notice for _, notices in owed for notice in notices],
             now=germany_now,
         )
         ids = [row["_id"] for row in taken]

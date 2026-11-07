@@ -1331,8 +1331,8 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     runs, or a re-send of one seat would keep the others' details past their own (`build_deletion_filter`). A seat an
     erasure emptied holds no deadline and takes nobody else, so that application goes once no seat's link runs.
 
-    Nothing about the Ansprechperson's mail holds the day up: the people named were promised it, and `owed_erasure`
-    owes the notice as for any address, an empty slot or a seat never mailed leaving nobody to tell.
+    Nothing about anybody's mail holds the day up: the people named were promised it, and `owed_deletion_notices` tells
+    whoever confirmed a seat.
 
     STRICTLY past: the link answers on the deadline's own day, so the deletion waits a day. An
     emptied seat is outstanding.
@@ -1352,7 +1352,7 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
 
 
 def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
-    """Whether this application's deletion notice is behind it: a Widerspruch's notice named the deletion day, so no second goes."""
+    """Whether a Widerspruch's notice named this application's deletion day to its Ansprechperson, who is told nothing twice."""
 
     return isinstance(bewerbung_raw.get("erasure_announced_at"), str)
 
@@ -1633,22 +1633,31 @@ def owed_at_submission(
     return mails
 
 
-def owed_erasure(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> OwedMail | None:
-    """The fourteen-day clock's notice to the Ansprechperson, naming who never confirmed.
+def owed_deletion_notices(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -> list[OwedMail]:
+    """One notice per person who confirmed a seat of an application that never served, owed in the erasure's own write.
 
-    `None` where `ansprechperson_mailbox` leaves nobody to tell, or where a Widerspruch's notice already named the deletion.
+    A seat that never confirmed hears nothing: that person may be a stranger the form named. The Ansprechperson a
+    Widerspruch's notice told is told nothing twice, and every other confirmed person still is.
     """
 
-    kontakte = bewerbung_raw.get("kontakte")
-    email, _ = ansprechperson_mailbox(kontakte=kontakte, confirmations=bewerbung_raw.get("confirmations"))
-    if email is None or deletion_was_announced(bewerbung_raw=bewerbung_raw):
-        return None
-
-    return OwedMail(
-        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/erasure",
-        to=email,
-        data=FLDeletionNoticeData(kind="deletion_notice", saison_id=saison_id),
+    kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
+    told = (
+        ansprechperson_mailbox(kontakte=kontakte, confirmations=confirmations)[0]
+        if deletion_was_announced(bewerbung_raw=bewerbung_raw)
+        else None
     )
+
+    return [
+        OwedMail(
+            key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/deletion/{seats[0]}",
+            to=email,
+            data=FLDeletionNoticeData(kind="deletion_notice", saison_id=saison_id),
+        )
+        for email, seats in people_with_address(
+            kontakte=kontakte, seats=[seat for seat in KONTAKT_ROLLEN if _seat_is_confirmed(kontakte, seat)]
+        )
+        if email != told
+    ]
 
 
 def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
