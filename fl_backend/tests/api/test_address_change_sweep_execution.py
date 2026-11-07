@@ -209,17 +209,18 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
         assert standing == [numbered(2)]
         assert held == {pending(1): []}
 
-    def test_a_page_s_lapses_write_one_row_with_their_count(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize("lapses", [1, 2])
+    def test_a_page_s_lapses_write_one_row_with_their_count(self, mongo_replica_set_url: str, lapses: int):
         """No deletion stands without its row; one per change would fill a year's list with nothing an administrator asks of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await stored(database, *(a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)))
+            await stored(database, *(a_change(position + 1, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(lapses)))
             await sweep(database, client)
             await sweep(database, client)
             rows = database[Collection.ACTION_LOG].find({"action": "retention.address_changes"})
             return [(row["by"], row["count"], row["record_id"]) async for row in rows]
 
-        assert on_a_league(mongo_replica_set_url, body) == [("system", 2, None)]
+        assert on_a_league(mongo_replica_set_url, body) == [("system", lapses, None)]
 
     def test_a_waiting_change_is_no_lapse_and_stands_until_it_is_due(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

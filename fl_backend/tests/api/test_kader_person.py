@@ -374,15 +374,23 @@ class TestATrainerOnlySeat:
 
 class TestAnEdit:
     def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Any]:
             response = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "07"})
+            seasons = await database[Collection.ACTION_LOG].distinct("label", {"action": "spieler.changed"})
 
-            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}), await acts_of(database)
+            return (
+                response,
+                await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}),
+                await acts_of(database),
+                seasons,
+            )
 
-        response, row, acts = on_a_league(mongo_replica_set_url, run)
+        response, row, acts, seasons = on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
         assert acts == [("spieler.changed", "kontakt", "Adler", SHARES_THE_SEVEN)]
+        # A pupil's row is the season's, and the row names the pupil by id alone.
+        assert seasons == [ACTIVE_SAISON]
         assert (row["nummer"], row["position"], row["stufe"], row["rolle"]) == ("07", "Tor", "Q1", None)
         assert (row["team_id"], row["is_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
         # Now wearing `07` beside `ZERO_SEVEN`, judged against the squad after the write.

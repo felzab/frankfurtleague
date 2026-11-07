@@ -33,6 +33,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spielbestaetigungen.system_router import (
     CLOSES_PER_PASS,
+    MINTS_PER_PASS,
     get_sweep_saisons,
     sweep_spielbestaetigungen,
 )
@@ -957,6 +958,80 @@ class TestAMoveAskedAtOnceWaitsOnNoCloseShare:
         assert [request.moved_from is not None for request in overflowed.anfragen] == [True, True]
         assert [einteilung.moved_from is not None for einteilung in overflowed.einteilungen] == [True]
         assert (after.anfragen, after.einteilungen, after.new_ansetzungen) == ([], [], [])
+
+
+class TestAMoveTheCloseMustTellFirstWaitsForIt:
+    def test_the_fixture_is_asked_on_the_pass_after_the_close_shuts_its_row(self, mongo_replica_set_url: str):
+        """A referee taken off is the close's to tell: asked first, the new slot goes out beside a row still standing about the old one."""
+
+        decided = [
+            a_spiel(ObjectId(f"6890a1b2c3d4e5f6077{position:05d}"), 10 + position, YESTERDAY, ergebnis="1:0")
+            for position in range(CLOSES_PER_PASS)
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [
+                    compose_spielbestaetigung(
+                        row_id=ObjectId(),
+                        saison_id=SAISON_ID,
+                        spiel=spiel,
+                        party={"kind": "team", "team_id": ALPHA},
+                        emails={},
+                        today=days_after(day=TODAY, days=-10),
+                        asked=False,
+                    )
+                    for spiel in decided
+                ]
+            )
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": booked(OTHER_SCHIEDSRICHTER)}})
+            await move(database, client, SPIEL, time="19:00:00")
+
+            return await sweep(database, client), await sweep(database, client)
+
+        waited, asked = on_a_league(mongo_replica_set_url, body, spiele=[*decided, a_spiel(SPIEL, 1, NEXT_WEEK)])
+
+        assert (waited.closed, waited.anfragen, waited.einteilungen) == (CLOSES_PER_PASS, [], [])
+        assert [einteilung.address for einteilung in asked.einteilungen] == [OTHER_REFEREE_EMAIL]
+        assert len(asked.anfragen) == 2
+
+
+class TestTheMintsShareTakesWholeFixtures:
+    def test_the_fixture_past_it_stays_due_with_every_party_unasked(self, mongo_replica_set_url: str):
+        """Cut inside a fixture, one club is asked about a day its opponent hears of a pass later."""
+
+        # Three rows for the booked fixture and two for each other, so the last meets a share one row short of holding it.
+        spiele = [a_spiel(SPIEL, 1, NEXT_WEEK), *numbered_spiele((MINTS_PER_PASS - 3) // 2 + 1, NEXT_WEEK)]
+
+        async def per_fixture(database: AsyncDatabase) -> dict[Any, int]:
+            return Counter(row["spiel_id"] for row in await rows(database))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_pass(database, client)
+            first = await per_fixture(database)
+            await a_pass(database, client)
+            return first, await per_fixture(database)
+
+        first, second = on_a_league(mongo_replica_set_url, body, spiele=spiele)
+
+        assert sum(first.values()) == MINTS_PER_PASS - 1
+        assert (first[SPIEL], set(first.values())) == (3, {2, 3})
+        assert (len(first), len(second)) == (len(spiele) - 1, len(spiele))
+
+
+class TestABookedRefereeHoldingNoAddress:
+    def test_their_fixture_is_passed_over_and_the_next_is_asked(self, mongo_replica_set_url: str):
+        """A row would stand as though they were told, and nobody would ask again; their fixture alone waits on the corrected address."""
+
+        spiele = [a_spiel(SPIEL, 1, NEXT_WEEK), a_spiel(OTHER_SPIEL, 2, NEXT_WEEK, schiedsrichter=booked(OTHER_SCHIEDSRICHTER))]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": {"kontakt.email": None}})
+            await sweep(database, client, passed_over=1)
+            return Counter(row["spiel_id"] for row in await rows(database))
+
+        assert on_a_league(mongo_replica_set_url, body, spiele=spiele) == {OTHER_SPIEL: 3}
 
 
 class TestAMoveNotAskedAtOnceIsToldAtOnce:

@@ -250,18 +250,21 @@ class TestTheOneSave:
         assert on_a_database(mongo_replica_set_url, body)["birth_date"] == "2008-05-18"
 
     def test_a_part_left_as_stored_is_not_written(self, mongo_replica_set_url: str):
-        """Written anyway, every name's correction would log a squad edit nobody made."""
+        """Written anyway, every name's correction would log a squad edit nobody made, and every squad edit a person's change."""
 
         async def body(database: AsyncDatabase) -> Any:
             spieler_id = await self.seated(database)
             before = await database.saison_spieler.find_one({"spieler_id": spieler_id})
             await save(database, spieler_id, first_name="Maximilian")
             after = await database.saison_spieler.find_one({"spieler_id": spieler_id})
-            return before, after
+            person_before = await database.spieler.find_one({"_id": spieler_id})
+            await save(database, spieler_id, first_name="Maximilian", rolle="kapitaen")
+            return before, after, person_before, await database.spieler.find_one({"_id": spieler_id})
 
-        before, after = on_a_database(mongo_replica_set_url, body)
+        before, after, person_before, person_after = on_a_database(mongo_replica_set_url, body)
 
         assert before.get("version") == after.get("version")
+        assert person_before.get("version") == person_after.get("version")
 
     def test_a_stufe_the_season_does_not_offer_is_refused(self, mongo_replica_set_url: str):
         """The box offers the season's levels, so only a season narrowed under the open page reaches this."""

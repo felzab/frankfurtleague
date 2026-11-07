@@ -246,15 +246,23 @@ async def row_of(database: AsyncDatabase, grant_id: ObjectId) -> Mapping[str, An
     return row
 
 
-async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, list[str]]]:
-    """Each notice owed, in order: its change, stage, address, and everybody it is owed to."""
+async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, list[str], str | None]]:
+    """Each notice owed, in order: its change, stage, address, everybody it is owed to, and the date it promises."""
 
     rows = [row async for row in database[Collection.OUTBOX].find({"state": "open", "kind": "grant"}).sort([("recorded_at", 1), ("_id", 1)])]
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
     for row in rows:
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["to"]))
 
-    return [(data["change"], data["stage"], data["address"], sorted(to)) for data, to in notices.values()]
+    return [(data["change"], data["stage"], data["address"], sorted(to), data["effective_from"]) for data, to in notices.values()]
+
+
+async def acts_on(database: AsyncDatabase, grant_id: ObjectId) -> list[tuple[str, str, str | None]]:
+    """The Protokoll's rows on one grant, oldest first: what was done, by whom, and the address it names."""
+
+    rows = database[Collection.ACTION_LOG].find({"record_id": grant_id}, sort=[("_id", 1)])
+
+    return [(row["action"], row["by"], row["label"]) async for row in rows]
 
 
 async def refusal_of(call: Awaitable[Any]) -> str:
@@ -306,7 +314,8 @@ class TestAnAddition:
             "granted_by": OWNER,
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
         }
-        assert notices == [("granted", "started", NEU, sorted([*EVERY_HOLDER, NEU]))]
+        # The date is the mail's one sentence on when it lands.
+        assert notices == [("granted", "started", NEU, sorted([*EVERY_HOLDER, NEU]), "2026-04-02T10:30:00Z")]
 
     def test_a_waiting_holder_is_told_of_nothing_but_their_own_row(self, mongo_replica_set_url: str):
         """The holder list is who is in effect: a row still waiting may yet be withdrawn, and hears only of itself."""
@@ -316,17 +325,21 @@ class TestAnAddition:
 
             return await owed(database)
 
-        [(_, _, _, _, to)] = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
+        [(_, _, _, _, to, _)] = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
         assert to == sorted([*EVERY_HOLDER, "paul@beispielschule.de"])
 
     def test_an_address_held_is_refused_in_another_spelling_a_waiting_row_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, list[str]]:
-            return await refusal_of(add(database, client)), await addresses(database)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[APIError, list[str]]:
+            with pytest.raises(APIError) as refused:
+                await add(database, client)
 
-        code, held = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
+            return refused.value, await addresses(database)
 
-        assert (code, held) == (Code.GRANT_EXISTS, sorted([*EVERY_HOLDER, NEU]))
+        refused, held = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
+
+        # Named on no box, the refusal reaches a shared failure line that sends the owner to a retry refused alike.
+        assert (refused.error_code, refused.fields, held) == (Code.GRANT_EXISTS, (("email",),), sorted([*EVERY_HOLDER, NEU]))
 
     def test_a_live_change_at_the_address_ends(self, mongo_replica_set_url: str):
         """Left standing, its switch would carry the waiting row to an address the owner never named."""
@@ -419,12 +432,13 @@ class TestARemoval:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await remove(database, client, BERND_ID)
 
-            return await addresses(database), await owed(database)
+            return await addresses(database), await owed(database), await acts_on(database, BERND_ID)
 
-        held, notices = on_a_league(mongo_replica_set_url, body)
+        held, notices, acts = on_a_league(mongo_replica_set_url, body)
 
         assert held == sorted([OWNER, ANNA])
-        assert notices == [("revoked", "completed", BERND, EVERY_HOLDER)]
+        assert notices == [("revoked", "completed", BERND, EVERY_HOLDER, None)]
+        assert acts == [("grant.removed", OWNER, BERND)]
 
     def test_a_waiting_row_is_withdrawn_by_the_same_press(self, mongo_replica_set_url: str):
         """Mailed as a withdrawal: „hat keinen Zugang mehr“ would tell the person they once held one."""
@@ -438,7 +452,7 @@ class TestARemoval:
 
         notices, logged = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        assert notices == [("granted", "withdrawn", NEU, sorted([*EVERY_HOLDER, NEU]))]
+        assert notices == [("granted", "withdrawn", NEU, sorted([*EVERY_HOLDER, NEU]), None)]
         assert logged == 1
 
     def test_a_handover_waiting_on_the_row_is_withdrawn_in_words(self, mongo_replica_set_url: str):
@@ -452,8 +466,8 @@ class TestARemoval:
             return await owed(database)
 
         assert on_a_league(mongo_replica_set_url, body) == [
-            ("revoked", "completed", ANNA, EVERY_HOLDER),
-            ("handover", "withdrawn", ANNA, EVERY_HOLDER),
+            ("revoked", "completed", ANNA, EVERY_HOLDER, None),
+            ("handover", "withdrawn", ANNA, EVERY_HOLDER, None),
         ]
 
     def test_the_owners_row_goes_by_no_removal(self, mongo_replica_set_url: str):
@@ -479,13 +493,20 @@ class TestAHandover:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await hand_over(database, client)
 
-            return (await row_of(database, ANNA_ID))["owner_from"], await tiers(database), await owed(database)
+            return (
+                (await row_of(database, ANNA_ID))["owner_from"],
+                await tiers(database),
+                await owed(database),
+                await acts_on(database, ANNA_ID),
+            )
 
-        owner_from, held, notices = on_a_league(mongo_replica_set_url, body)
+        owner_from, held, notices, acts = on_a_league(mongo_replica_set_url, body)
 
         assert owner_from == stored(NOW + timedelta(days=OWNER_WAIT_DAYS))
         assert (held[OWNER], held[ANNA]) == ("owner", "administration")
-        assert notices == [("handover", "started", ANNA, EVERY_HOLDER)]
+        # The date is all a holder has to stop the handover by.
+        assert notices == [("handover", "started", ANNA, EVERY_HOLDER, "2026-04-08T10:30:00Z")]
+        assert acts == [("grant.handover_started", OWNER, ANNA)]
 
     def test_a_row_still_waiting_is_refused_so_an_addition_then_a_handover_waits_both(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -506,13 +527,14 @@ class TestAHandover:
             await hand_over(database, client)
             await stop(database, client)
 
-            return await row_of(database, ANNA_ID), await pass_at(database, client), await owed(database)
+            return await row_of(database, ANNA_ID), await pass_at(database, client), await owed(database), await acts_on(database, ANNA_ID)
 
-        row, handed_over, notices = on_a_league(mongo_replica_set_url, body)
+        row, handed_over, notices, acts = on_a_league(mongo_replica_set_url, body)
 
         assert "owner_from" not in row
         assert handed_over == 0
-        assert notices[-1] == ("handover", "withdrawn", ANNA, EVERY_HOLDER)
+        assert notices[-1] == ("handover", "withdrawn", ANNA, EVERY_HOLDER, None)
+        assert acts[-1] == ("grant.handover_withdrawn", OWNER, ANNA)
 
     def test_a_row_waiting_on_no_handover_has_nothing_to_stop(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -553,7 +575,7 @@ class TestThePass:
         assert (held[OWNER], held[ANNA], held[BERND]) == ("administration", "owner", "administration")
         assert row["effective_from"] == stored(moment)
         assert "owner_from" not in row
-        assert notice == ("handover", "completed", ANNA, EVERY_HOLDER)
+        assert notice == ("handover", "completed", ANNA, EVERY_HOLDER, None)
         assert (logged["by"], logged["label"], logged["record_id"]) == ("system", ANNA, ANNA_ID)
 
     def test_the_swap_is_one_transaction(self, mongo_replica_set_url: str):
@@ -764,8 +786,8 @@ class TestTheMountedRouteReadsTheGrants:
                 )
 
             row = await database[Collection.GRANTS].find_one({"address": NEU})
-            logged = await database[Collection.ACTION_LOG].find_one({"action": "grant.added"})
+            assert row is not None
 
-            return response.status_code, row and row["granted_by"], logged and (logged["by"], logged["label"])
+            return response.status_code, row["granted_by"], await acts_on(database, row["_id"])
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER, (OWNER, NEU))
+        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER, [("grant.added", OWNER, NEU)])

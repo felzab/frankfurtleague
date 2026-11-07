@@ -421,7 +421,7 @@ async def tell_the_holders_in_session(
     outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
-    # Off where an erasure ended it: a mask of the erased address is no fact left to tell.
+    # Off where the new address is the erased one: a mask of it is no fact left to tell.
     names_the_new_address: bool = True,
 ) -> None:
     """Tell every holder in effect of a holder's change, in the caller's transaction, `record` as it stood.

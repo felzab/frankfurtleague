@@ -1154,16 +1154,19 @@ class TestOneRowHoldsBackNoOther:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, confirmation_deadline="2026-04-1"))
+            # A seat of the row whose chase this pass would close, were the row not passed over whole.
+            await refuse_the_ansprechpersons_address(database, client, SECOND_OID)
             answer = await sweep(database, client, now=MAIL_NOW)
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return await reminded(database), answer.failed, [seat["reminded_at"] for seat in refused["confirmations"].values()]
+            seats = refused["confirmations"].values()
+            return await reminded(database), answer.failed, [seat["reminded_at"] for seat in seats], [seat["chase_closed_at"] for seat in seats]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answered, count, stamps = on_a_league(mongo_replica_set_url, body)
+            answered, count, stamps, closed = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
+        assert (answered, count, stamps, closed) == ({REMIND_OID}, 1, [None, None, None], [None, None, None])
         assert passed_over(caplog) == [("ERROR", Code.STORED_DATA_INVALID, "Application", str(SECOND_OID), "reminder", f"{REFUSED_DEADLINE}")]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):

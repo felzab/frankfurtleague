@@ -258,6 +258,25 @@ class TestTheCreateIsTheInvitation:
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
 
 
+class TestANameAnotherRefereeHolds:
+    @pytest.mark.parametrize("act", ["an entry", "a correction"])
+    def test_it_is_refused_on_its_box_a_retired_referee_s_included(self, mongo_replica_set_url: str, act: str):
+        """Left to the unique index, the refusal names no box and reaches the shared failure line, which sends the administrator to a retry."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refused:
+                await (create(database, client) if act == "an entry" else correct(database, client, email=EMAIL))
+
+            return refused.value.error_code, refused.value.fields, await database[Collection.OUTBOX].count_documents({})
+
+        holders = [
+            referee_document(name="Howard Webb", email=CORRECTED_EMAIL),
+            referee_document(_id=ObjectId(), email="alte.pfeife@example.com", inactive_since="2026-01-01"),
+        ]
+
+        assert on_a_league(mongo_replica_set_url, body, referees=holders) == (Code.DUPLICATE_KEY, (("name",),), 0)
+
+
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
     """The ruled behaviour: the old link was posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox."""
 
@@ -366,6 +385,21 @@ class TestTheReSend:
         refused, row = on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.SCHIEDSRICHTER_RETIRED
+        assert CONFIRMATION_FIELD not in row
+
+    @pytest.mark.parametrize("email", [None, "keine-adresse"])
+    def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str, email: str | None):
+        """A mint here records a message nobody composed and starts the deletion clock on a person nobody asked."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refused:
+                await resend(database, client)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=email)])
+
+        assert (refused.error_code, refused.status_code) == (Code.SCHIEDSRICHTER_NO_ADDRESS, 409)
         assert CONFIRMATION_FIELD not in row
 
     def test_a_referee_who_has_already_answered_is_refused_and_keeps_their_block(self, mongo_replica_set_url: str):
