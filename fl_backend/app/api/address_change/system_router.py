@@ -28,8 +28,8 @@ from app.api.address_change.services import (
     build_parked_terms,
     is_expired,
 )
+from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison
 from app.api.identity.lookup import RecordCollections, SubjectLookup
-from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -297,7 +297,7 @@ async def sweep_address_change(
     page = [{"_id": row["_id"], "due": not is_expired(row, now=germany_now)} for row in read["page"]]
     count = sum(row["count"] for row in read["count"])
     stamp = log_stamp(germany_now)
-    # Outside every change's transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and only where a due change
+    # Outside every change's transaction (`app/api/ban_list/crud.py :: address_is_barred`), and only where a due change
     # asks the ban list: a page of lapses reads no season.
     governing_saison_id = await ban_list_saison(ban_list) if any(row["due"] for row in page[:ADDRESS_CHANGE_PER_PASS]) else None
 

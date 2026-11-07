@@ -15,9 +15,9 @@ from fastapi import Depends
 from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.ban_list.crud import address_is_barred, read_barred_addresses, read_barred_hashes
+from app.api.ban_list.services import address_hash
 from app.api.saisons.crud import pull_governing_saison_id
-from app.api.sperrliste.crud import address_is_barred, read_barred_addresses, read_barred_hashes
-from app.api.sperrliste.services import address_hash
 from app.core.config import BackendConfig, get_app_config
 from app.core.dependencies import BanListReadCollection, SaisonsReadCollection
 from app.core.readonly import ReadCollection
@@ -62,7 +62,7 @@ async def barred_addresses(
     session: AsyncClientSession | None = None,
     governing_saison_id: Saison = RUNNING_SEASON,
 ) -> set[str]:
-    """Which of these stored addresses a standing ban holds (`app/api/sperrliste/crud.py :: read_barred_addresses`)."""
+    """Which of these stored addresses a standing ban holds (`app/api/ban_list/crud.py :: read_barred_addresses`)."""
 
     return await read_barred_addresses(
         addresses,
@@ -80,7 +80,7 @@ async def hash_barred(
     session: AsyncClientSession | None = None,
     governing_saison_id: Saison = RUNNING_SEASON,
 ) -> bool:
-    """Whether a standing ban holds this hash (`app/api/sperrliste/crud.py :: address_is_barred`)."""
+    """Whether a standing ban holds this hash (`app/api/ban_list/crud.py :: address_is_barred`)."""
 
     return await address_is_barred(
         ban_list_collection=ban_list.ban_list_collection,
@@ -97,7 +97,7 @@ async def barred_hashes(
     session: AsyncClientSession | None = None,
     governing_saison_id: Saison = RUNNING_SEASON,
 ) -> set[str]:
-    """Which of these hashes a standing ban holds, in one read (`app/api/sperrliste/crud.py :: read_barred_hashes`)."""
+    """Which of these hashes a standing ban holds, in one read (`app/api/ban_list/crud.py :: read_barred_hashes`)."""
 
     return await read_barred_hashes(
         ban_list_collection=ban_list.ban_list_collection,

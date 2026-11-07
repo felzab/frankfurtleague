@@ -5,9 +5,10 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
-from app.api.berechtigungen.antraege import read_the_approval_requests_of
-from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.ban_list.lookup import BanListLookup, barred_addresses
+from app.api.grants.antraege import read_the_approval_requests_of
+from app.api.grants.crud import read_grants, read_the_announced
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.crud import EACH_PERSON_GROUP, ErasureJournal, erase_everything, resolve_subject
 from app.api.identity.schemas import (
     FLErasureAddressPayload,
@@ -28,7 +29,6 @@ from app.api.identity.services import (
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
@@ -150,7 +150,7 @@ async def get_erasure_view(
 
     # Every read in the request's snapshot session, so the reveal names the records of one moment; never a transaction,
     # a read writing nothing having no conflict to retry for.
-    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+    grants = await read_grants(grants_collection=grants_collection, session=session)
     announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
     refuse(
         find_admin_address_refusal(
@@ -202,10 +202,10 @@ async def get_erasure_view(
     )
 
     denied: dict[str, FLAddressChangeViewableDenied] = {
-        str(row["address"]): grund
+        str(row["address"]): viewable_denied
         for row in others_naming(subject.address_change, identifier)
         if (
-            grund := address_change_viewable_denied(
+            viewable_denied := address_change_viewable_denied(
                 str(row["address"]), actor=actor_identifier, auth_time=auth_time, grants=grants, announced=announced
             )
         )
@@ -295,7 +295,7 @@ async def post_erasure(
     refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(
             find_admin_address_refusal(
@@ -409,7 +409,7 @@ async def post_sign_out(
     refuse(find_own_address_refusal(identifier=identifier, actor=actor_identifier))
 
     async def log_the_act(session: AsyncClientSession) -> None:
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(
             find_admin_address_refusal(

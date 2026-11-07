@@ -11,7 +11,7 @@ from typing import Annotated, Final, get_args
 
 from fastapi import Depends
 
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses
+from app.api.ban_list.lookup import BanListLookup, barred_addresses
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import APIError

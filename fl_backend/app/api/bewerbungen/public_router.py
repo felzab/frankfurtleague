@@ -7,6 +7,7 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, barred_hashes
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungEinwilligungAnswerResponse,
@@ -81,7 +82,6 @@ from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses, barred_hashes
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import void_moved_seats
@@ -541,7 +541,7 @@ async def post_einwilligung(
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and only for the
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`), and only for the
     # answer that asks the ban.
     governing_saison_id = await ban_list_saison(ban_list) if answer_data.answer == "given" else None
     # One instant for the decline's day and its journal line, so a replay records the day the person declined on.

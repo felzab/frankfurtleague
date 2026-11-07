@@ -10,7 +10,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.ban_list.lookup import BanList, BanListLookup, barred_addresses
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.crud import due_count, saison_statuses
 from app.api.identity.schemas import FLErasurePreviewResponse
 from app.api.identity.services import closed_by, statuses_after_activating
@@ -85,7 +86,6 @@ from app.api.saisons.services import (
     workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.sperrliste.lookup import BanList, BanListLookup, barred_addresses
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.spieler.services import CAPPED_SQUAD_ROW

@@ -5,7 +5,7 @@ from typing import Any, Final
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
+from app.api.action_log.crud import redact_images_in_session
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (

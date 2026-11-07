@@ -4,7 +4,7 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
+from app.api.action_log.crud import redact_images_in_session
 from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLSchiedsrichterConfirmationData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import (

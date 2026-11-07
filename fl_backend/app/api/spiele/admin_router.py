@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,

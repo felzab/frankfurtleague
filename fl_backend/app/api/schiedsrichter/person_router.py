@@ -12,6 +12,7 @@ from app.api.account.services import (
     find_own_entry_refusal,
     withdrawal_line,
 )
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
@@ -19,7 +20,6 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelfResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse

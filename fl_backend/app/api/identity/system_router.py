@@ -9,7 +9,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.berechtigungen.crud import read_admin_tier_of
+from app.api.ban_list.lookup import BanList, BanListLookup, hash_barred
+from app.api.grants.crud import read_admin_tier_of
 from app.api.identity.crud import erase_if_still_due, erasure_due_page, find_sign_in, find_subject, saison_statuses, unreferenced_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.schemas import (
@@ -23,7 +24,6 @@ from app.api.identity.schemas import (
     FLSubjectResponse,
 )
 from app.api.identity.services import completed_saison_id
-from app.api.sperrliste.lookup import BanList, BanListLookup, hash_barred
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (

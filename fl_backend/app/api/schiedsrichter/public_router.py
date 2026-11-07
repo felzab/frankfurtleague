@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
     FLSchiedsrichterConfirmationResponse,
@@ -27,7 +28,6 @@ from app.api.schiedsrichter.services import (
     find_unknown_token_refusal,
     state_of,
 )
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, redact_log_rows_in_db, refuse
@@ -143,7 +143,7 @@ async def post_confirmation(
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:

@@ -39,9 +39,7 @@ from app.api.address_change.crud import (
     read_the_holdings,
 )
 from app.api.address_change.services import covers
-from app.api.berechtigungen.antraege import ist_offen, remove_the_approval_request_in_session
-from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.services import approval_stands
+from app.api.ban_list.lookup import BanList
 from app.api.bewerbungen.services import (
     compose_decline_update,
     compose_saison_decline_update,
@@ -49,11 +47,13 @@ from app.api.bewerbungen.services import (
     seat_addresses,
     seat_is_answered,
 )
+from app.api.grants.antraege import ist_offen, remove_the_approval_request_in_session
+from app.api.grants.crud import read_grants, read_the_announced
+from app.api.grants.services import approval_stands
 from app.api.identity.crud import unattribute_pseudonym_in_session
 from app.api.identity.lookup import RecordCollections
 from app.api.kontakte.crud import redact_the_decliner, remove_the_seats_reasons
 from app.api.schiedsrichter.services import compose_decline_update as compose_referee_decline_update
-from app.api.sperrliste.lookup import BanList
 from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
 from app.api.teams.crud import void_moved_seats
@@ -542,7 +542,7 @@ async def _plan_address_change_effective(
         or not approval_stands(
             target=record["address"],
             approval=approval,
-            grants=await read_berechtigungen(grants_collection=database[Collection.GRANTS], session=session),
+            grants=await read_grants(grants_collection=database[Collection.GRANTS], session=session),
             announced=await read_the_announced(grants_announced_collection=database[Collection.GRANTS_ANNOUNCED], session=session),
             barred=frozenset(),
         )

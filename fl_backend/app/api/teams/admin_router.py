@@ -9,11 +9,13 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.action_log.crud import redact_images_in_session
 from app.api.address_change.crud import denied_addresses
 from app.api.address_change.services import build_addresses_filter
-from app.api.aktionen.crud import redact_images_in_session
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.ban_list.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses
+from app.api.ban_list.services import withheld_actor
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_addresses, seat_named
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import invitation_reference, owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
@@ -42,8 +44,6 @@ from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
-from app.api.sperrliste.lookup import BanList, BanListLookup, ban_list_saison, barred_addresses
-from app.api.sperrliste.services import withheld_actor
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import (
@@ -852,7 +852,7 @@ async def put_kontakt_seat(
     sent = seat_data.model_dump(mode="json", exclude={"version"}, exclude_unset=True)
     # Outside the callback, so a retried transaction owes this save's mail once and a second save its own.
     nonce = secrets.token_hex(8)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def seat_the_person(session: AsyncClientSession) -> FLKontaktSeatResponse:
@@ -1116,7 +1116,7 @@ async def invite_kontakt(
 
     # Outside the callback, so a retried transaction owes this press's mail once and a second press its own.
     nonce = secrets.token_hex(8)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_mint(session: AsyncClientSession) -> FLKontaktInviteResponse:

@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import BAN_LIST_REASON_MAX_LENGTH, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import BAN_REASON_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
@@ -17,7 +17,7 @@ ADDRESS_IN_FREE_TEXT: Final = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 def refuse_an_address_in_the_reason(value: str) -> str:
     """The one way a plain address still reaches this collection.
 
-    `grund` is served, copied whole into a removal's log image and outlives the erasure, so an
+    `ban_reason` is served, copied whole into a removal's log image and outlives the erasure, so an
     address typed here survives every place the hash keeps one out of.
     """
 
@@ -27,12 +27,12 @@ def refuse_an_address_in_the_reason(value: str) -> str:
     return value
 
 
-class FLSperrlisteEintrag(BaseModel):
+class FLBanListEntry(BaseModel):
     """One ban as it is served: never its lookup key, so no read can recover the address."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    grund: CustomNonEmptyString
-    # The bound actor, on no payload: a ban and its `aktionen` row cannot then name two people.
+    ban_reason: CustomNonEmptyString
+    # The bound actor, on no payload: a ban and its `action_log` row cannot then name two people.
     created_by: CustomNonEmptyString
     created_at: CustomDateString
     # The last season the ban covers, INCLUSIVE. Served because a row whose bound nobody can read is
@@ -40,14 +40,14 @@ class FLSperrlisteEintrag(BaseModel):
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLSperrlisteEintragRecord(FLSperrlisteEintrag):
-    """One ban as `sperrliste` stores it: the lookup key and the version of the key it was taken under."""
+class FLBanListEntryRecord(FLBanListEntry):
+    """One ban as `ban_list` stores it: the lookup key and the version of the key it was taken under."""
 
     address_hash: str
     key_version: str
 
 
-class FLSperrlisteRow(FLSperrlisteEintrag):
+class FLBanListRow(FLBanListEntry):
     """One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too."""
 
     # Null exactly where `created_by_barred` is set, as the grants list withholds its actors.
@@ -55,7 +55,7 @@ class FLSperrlisteRow(FLSperrlisteEintrag):
     created_by_barred: bool
 
 
-class FLPostSperrlistePayload(BaseModel):
+class FLPostBanListEntryPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # The one place an address reaches this slice. It is hashed at the endpoint and kept nowhere but on the ban's own
@@ -65,34 +65,34 @@ class FLPostSperrlistePayload(BaseModel):
     notify: bool
     # Stripped on the WRITE side alone, and single-line because the admin card renders it beside the author and the day.
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
-    grund: Annotated[
+    ban_reason: Annotated[
         str,
-        StringConstraints(max_length=BAN_LIST_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=BAN_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_reason),
     ]
 
 
-class FLSperrlisteListResponse(BaseAPIResponse):
+class FLBanListResponse(BaseAPIResponse):
     """The bans, newest first, and how many there are.
 
     `count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a
     person barred by a row nobody can reach.
     """
 
-    sperrliste: list[FLSperrlisteRow]
+    ban_list: list[FLBanListRow]
     count_total: int = Field(ge=0)
 
 
-class FLPostSperrlisteResponse(BaseAPIResponse):
+class FLPostBanListEntryResponse(BaseAPIResponse):
     """Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse."""
 
     created_id: CustomObjectId
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLSperrlisteWriteResponse(BaseAPIResponse):
+class FLBanListWriteResponse(BaseAPIResponse):
     """The removal is hard, so the id is all there is to answer with: no document survives to echo."""
 
-    sperrliste_id: CustomObjectId
+    ban_list_entry_id: CustomObjectId

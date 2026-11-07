@@ -9,6 +9,7 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.ban_list.lookup import BanListLookup, barred_addresses
 from app.api.bewerbungen.services import compose_chase_update, reopened_chases
 from app.api.outbox.schemas import (
     FLOutboxEventPayload,
@@ -31,7 +32,6 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, stamp_in_db

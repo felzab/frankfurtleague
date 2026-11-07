@@ -5,7 +5,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
+from app.api.action_log.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
 from app.api.bewerbungen.services import deletion_was_announced, leaving_moves_the_deletion_day
 from app.api.kontakte.services import (
     PersonName,

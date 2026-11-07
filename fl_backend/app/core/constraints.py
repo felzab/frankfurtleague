@@ -101,7 +101,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
-    # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
+    # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
@@ -127,7 +127,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         partial_filter={"ended": {"$type": "null"}, "address": {"$type": "string"}},
     ),
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
-    # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
+    # (`app/api/grants/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
     UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_grant_approval_request_address", ("address",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/outbox/services.py :: enqueue_mails`).
     UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
@@ -153,7 +153,7 @@ class SupportIndex:
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
     # index and scans the whole log instead -- measured, and the log holds twelve months of writes
-    # (`app/api/aktionen/admin_router.py :: get_action_log`).
+    # (`app/api/action_log/admin_router.py :: get_action_log`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_queue",
@@ -174,7 +174,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # Every key `FACET_TALLY` groups on, in its `$sort`'s order: a group key missing here leaves that
     # sort blocking in memory, and where no other index serves the match, scanning the whole log,
-    # images and all (`app/api/aktionen/admin_router.py :: FACET_TALLY`).
+    # images and all (`app/api/action_log/admin_router.py :: FACET_TALLY`).
     SupportIndex(
         Collection.ACTION_LOG,
         "action_log_facets",

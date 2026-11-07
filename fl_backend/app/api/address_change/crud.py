@@ -21,6 +21,11 @@ from pymongo import DESCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.action_log.crud import (
+    carry_the_replaced_address_in_images,
+    reattribute_administrator_in_session,
+    redact_images_in_session,
+)
 from app.api.address_change.services import (
     LIVE_TERMS,
     asks_the_address_on_file,
@@ -37,15 +42,11 @@ from app.api.address_change.services import (
     find_replaced_barred_refusal,
     find_taken_refusal,
 )
-from app.api.aktionen.crud import (
-    carry_the_replaced_address_in_images,
-    reattribute_administrator_in_session,
-    redact_images_in_session,
-)
-from app.api.berechtigungen.antraege import approval_request_line, build_open_filter, end_the_approval_requests_about_in_session
-from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
-from app.api.berechtigungen.loeschung import carry_authorship_in_session
-from app.api.berechtigungen.services import approval_stands, compose_carried
+from app.api.ban_list.lookup import BanList, Saison, barred_addresses
+from app.api.grants.antraege import approval_request_line, build_open_filter, end_the_approval_requests_about_in_session
+from app.api.grants.crud import grant_in_session, read_grants, read_the_announced, revoke_in_session
+from app.api.grants.erasure import carry_authorship_in_session
+from app.api.grants.services import approval_stands, compose_carried
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.services import address_change_viewable_denied, is_own_schiedsrichter, own_seats
 from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
@@ -61,7 +62,6 @@ from app.api.outbox.schemas import (
 from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_self_referee_filter, first_name_of
-from app.api.sperrliste.lookup import BanList, Saison, barred_addresses
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
@@ -251,7 +251,7 @@ async def end_the_change_in_session(
 
     # After the patch, so it reaches the image the patch filed. An effect keeps the new address, which the person's records
     # hold and their erasure finds, and drops the replaced one, which no record holds for an erasure to find.
-    redacted = ("address",) if kind == "effective" else ("email", "grund", *(("address",) if without_address else ()))
+    redacted = ("address",) if kind == "effective" else ("email", "change_reason", *(("address",) if without_address else ()))
     await redact_images_in_session(
         action_log_collection=action_log_collection,
         db_filter=build_redaction_filter([(Collection.ADDRESS_CHANGES, [stored["_id"]])]),
@@ -346,7 +346,7 @@ class Verdict:
     empty: bool
     waits: bool
     # The approval given does not stand: its approver lost the grant, the tier or their standing since, so the change
-    # waits on another (`app/api/berechtigungen/services.py :: approval_stands`).
+    # waits on another (`app/api/grants/services.py :: approval_stands`).
     withdrawn: bool = False
 
 
@@ -522,7 +522,7 @@ async def judge_the_effect_in_session(
     stands = approval_stands(
         target=old,
         approval=approval,
-        grants=await read_berechtigungen(grants_collection=grants_collection, session=session),
+        grants=await read_grants(grants_collection=grants_collection, session=session),
         announced=await read_the_announced(grants_announced_collection=grants_announced_collection, session=session),
         barred=await barred_addresses(ban_list, [by], session=session) if isinstance(by, str) else set(),
     )
@@ -1046,13 +1046,14 @@ async def denied_addresses(
     asked = set(addresses)
     if not asked:
         return {}
-    grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+    grants = await read_grants(grants_collection=grants_collection, session=session)
     announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
 
     return {
-        address: grund
+        address: viewable_denied
         for address in asked
-        if (grund := address_change_viewable_denied(address, actor=actor, auth_time=auth_time, grants=grants, announced=announced)) is not None
+        if (viewable_denied := address_change_viewable_denied(address, actor=actor, auth_time=auth_time, grants=grants, announced=announced))
+        is not None
     }
 
 

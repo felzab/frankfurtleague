@@ -1872,6 +1872,17 @@
               }
             ]
           },
+          "change_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Reason"
+          },
           "confirmed_at": {
             "anyOf": [
               {
@@ -1913,17 +1924,6 @@
           "expired": {
             "title": "Expired",
             "type": "boolean"
-          },
-          "grund": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grund"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -1970,7 +1970,7 @@
           "id",
           "email",
           "way",
-          "grund",
+          "change_reason",
           "waits_on",
           "sent_at",
           "valid_until",
@@ -1993,23 +1993,23 @@
             "title": "Address",
             "type": "string"
           },
-          "email": {
-            "maxLength": 254,
-            "title": "Email",
-            "type": "string"
-          },
-          "grund": {
+          "change_reason": {
             "maxLength": 200,
             "minLength": 1,
             "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Grund",
+            "title": "Change Reason",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
             "type": "string"
           }
         },
         "required": [
           "address",
           "email",
-          "grund"
+          "change_reason"
         ],
         "title": "FLAddressChangeAdminPayload",
         "type": "object"
@@ -3015,12 +3015,12 @@
       "FLBanData": {
         "description": "The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).",
         "properties": {
-          "barred_until_saison_id": {
-            "title": "Barred Until Saison Id",
+          "ban_reason": {
+            "title": "Ban Reason",
             "type": "string"
           },
-          "grund": {
-            "title": "Grund",
+          "barred_until_saison_id": {
+            "title": "Barred Until Saison Id",
             "type": "string"
           },
           "kind": {
@@ -3031,10 +3031,100 @@
         },
         "required": [
           "kind",
-          "grund",
+          "ban_reason",
           "barred_until_saison_id"
         ],
         "title": "FLBanData",
+        "type": "object"
+      },
+      "FLBanListResponse": {
+        "description": "The bans, newest first, and how many there are.\n\n`count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
+        "properties": {
+          "ban_list": {
+            "items": {
+              "$ref": "#/components/schemas/FLBanListRow"
+            },
+            "title": "Ban List",
+            "type": "array"
+          },
+          "count_total": {
+            "minimum": 0.0,
+            "title": "Count Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ban_list",
+          "count_total"
+        ],
+        "title": "FLBanListResponse",
+        "type": "object"
+      },
+      "FLBanListRow": {
+        "description": "One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.",
+        "properties": {
+          "ban_reason": {
+            "minLength": 1,
+            "title": "Ban Reason",
+            "type": "string"
+          },
+          "barred_until_saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Barred Until Saison Id",
+            "type": "string"
+          },
+          "created_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_by_barred": {
+            "title": "Created By Barred",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ban_reason",
+          "created_by",
+          "created_at",
+          "barred_until_saison_id",
+          "created_by_barred"
+        ],
+        "title": "FLBanListRow",
+        "type": "object"
+      },
+      "FLBanListWriteResponse": {
+        "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo.",
+        "properties": {
+          "ban_list_entry_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Ban List Entry Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ban_list_entry_id"
+        ],
+        "title": "FLBanListWriteResponse",
         "type": "object"
       },
       "FLBewerbung": {
@@ -6140,6 +6230,17 @@
       "FLGrantAddressChange": {
         "description": "The change of this grant's address that waits on an administrator's approval.",
         "properties": {
+          "change_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Reason"
+          },
           "confirmed": {
             "title": "Confirmed",
             "type": "boolean"
@@ -6168,17 +6269,6 @@
           "email_barred": {
             "title": "Email Barred",
             "type": "boolean"
-          },
-          "grund": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grund"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6226,7 +6316,7 @@
           "way",
           "started_by",
           "started_by_barred",
-          "grund",
+          "change_reason",
           "confirmed",
           "until",
           "denied",
@@ -6556,7 +6646,7 @@
         "title": "FLGrantSnapshot",
         "type": "object"
       },
-      "FLGrantStufeResponse": {
+      "FLGrantTierResponse": {
         "description": "The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect.",
         "properties": {
           "grant_id": {
@@ -6573,7 +6663,7 @@
           "grant_id",
           "requested"
         ],
-        "title": "FLGrantStufeResponse",
+        "title": "FLGrantTierResponse",
         "type": "object"
       },
       "FLGrantWriteResponse": {
@@ -9668,6 +9758,56 @@
         "title": "FLPatchTeamSaisonResponse",
         "type": "object"
       },
+      "FLPostBanListEntryPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "ban_reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Ban Reason",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "notify": {
+            "title": "Notify",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "notify",
+          "ban_reason"
+        ],
+        "title": "FLPostBanListEntryPayload",
+        "type": "object"
+      },
+      "FLPostBanListEntryResponse": {
+        "description": "Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.",
+        "properties": {
+          "barred_until_saison_id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Barred Until Saison Id",
+            "type": "string"
+          },
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id",
+          "barred_until_saison_id"
+        ],
+        "title": "FLPostBanListEntryResponse",
+        "type": "object"
+      },
       "FLPostBewerbungPayload": {
         "additionalProperties": false,
         "description": "One school's application, as the public form submits it.\n\n`status`, `submitted_at` and `decision` are the server's.",
@@ -9955,56 +10095,6 @@
           "created_id"
         ],
         "title": "FLPostSchiedsrichterResponse",
-        "type": "object"
-      },
-      "FLPostSperrlistePayload": {
-        "additionalProperties": false,
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "title": "Email",
-            "type": "string"
-          },
-          "grund": {
-            "maxLength": 500,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Grund",
-            "type": "string"
-          },
-          "notify": {
-            "title": "Notify",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "email",
-          "notify",
-          "grund"
-        ],
-        "title": "FLPostSperrlistePayload",
-        "type": "object"
-      },
-      "FLPostSperrlisteResponse": {
-        "description": "Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.",
-        "properties": {
-          "barred_until_saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Barred Until Saison Id",
-            "type": "string"
-          },
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id",
-          "barred_until_saison_id"
-        ],
-        "title": "FLPostSperrlisteResponse",
         "type": "object"
       },
       "FLPostSpielortPayload": {
@@ -12782,96 +12872,6 @@
           "desc"
         ],
         "type": "string"
-      },
-      "FLSperrlisteListResponse": {
-        "description": "The bans, newest first, and how many there are.\n\n`count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
-        "properties": {
-          "count_total": {
-            "minimum": 0.0,
-            "title": "Count Total",
-            "type": "integer"
-          },
-          "sperrliste": {
-            "items": {
-              "$ref": "#/components/schemas/FLSperrlisteRow"
-            },
-            "title": "Sperrliste",
-            "type": "array"
-          }
-        },
-        "required": [
-          "sperrliste",
-          "count_total"
-        ],
-        "title": "FLSperrlisteListResponse",
-        "type": "object"
-      },
-      "FLSperrlisteRow": {
-        "description": "One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.",
-        "properties": {
-          "barred_until_saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Barred Until Saison Id",
-            "type": "string"
-          },
-          "created_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Created At",
-            "type": "string"
-          },
-          "created_by": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
-          "created_by_barred": {
-            "title": "Created By Barred",
-            "type": "boolean"
-          },
-          "grund": {
-            "minLength": 1,
-            "title": "Grund",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "grund",
-          "created_by",
-          "created_at",
-          "barred_until_saison_id",
-          "created_by_barred"
-        ],
-        "title": "FLSperrlisteRow",
-        "type": "object"
-      },
-      "FLSperrlisteWriteResponse": {
-        "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo.",
-        "properties": {
-          "sperrliste_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Sperrliste Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sperrliste_id"
-        ],
-        "title": "FLSperrlisteWriteResponse",
-        "type": "object"
       },
       "FLSpielAdvancement": {
         "additionalProperties": false,
@@ -19604,7 +19604,7 @@
     },
     "/api/v0/address_change": {
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `grund` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also\nwaits on another administrator's approval, never this one's. No link is answered. The address's live change ends\nreplaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's without an owner's power\n(`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds\n(`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on\nwhere the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a\ngrant nobody could approve (`address_change_no_approver`).",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** The `change_reason` records how the administrator established who asks, the address on file being\nlost: a person who can still sign in there changes it on their own account page. The new mailbox is owed its link\nand the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms. Where the address holds a grant, the change also\nwaits on another administrator's approval, never this one's. No link is answered. The address's live change ends\nreplaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's without an owner's power\n(`admin_address`), the address on file typed again (`address_change_unchanged`), a new address the ban list holds\n(`address_change_barred`), an address holding nothing a change moves (`address_change_nothing`), a new address another pupil signs in on\nwhere the change moves a pupil (`address_change_taken`), a new address any entry names, confirmed or not (`address_change_occupied`), and a\ngrant nobody could approve (`address_change_no_approver`).",
         "operationId": "address_change_post_address_change_admin",
         "requestBody": {
           "content": {
@@ -20531,6 +20531,227 @@
         "summary": "Send a pending address a fresh link",
         "tags": [
           "address_change"
+        ]
+      }
+    },
+    "/api/v0/ban_list": {
+      "get": {
+        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `created_by` is the administrator who entered the\nrow, and is an address — `null` beside `created_by_barred` where the ban list holds that\nadministrator's address too, as no barred address is served in plain. **The rows are capped at\n`LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows\nserved, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.",
+        "operationId": "ban_list_get_ban_list_entries",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBanListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "List the banned addresses",
+        "tags": [
+          "ban_list"
+        ]
+      },
+      "post": {
+        "description": "Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.\n\nRefused where the list already holds the address (`duplicate_key`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and\nwhere the address is an administrator's (`ban_list_admin`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed\nthat names the address loses it in the same transaction, and where `notify` is set the ban's\nown notice is owed to it there too, the one mail a ban does not stop.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
+        "operationId": "ban_list_post_ban_list_entry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostBanListEntryPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostBanListEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Ban an email address",
+        "tags": [
+          "ban_list"
+        ]
+      }
+    },
+    "/api/v0/ban_list/{ban_list_entry_id}": {
+      "delete": {
+        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\nthe rule gives every log row. The lifted ban is therefore readable\nat `GET /action_log` for that period and enforced by nothing from the moment this answers.",
+        "operationId": "ban_list_delete_ban_list_entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ban_list_entry_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Ban List Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBanListWriteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Lift a ban",
+        "tags": [
+          "ban_list"
         ]
       }
     },
@@ -22109,7 +22330,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLGrantStufeResponse"
+                  "$ref": "#/components/schemas/FLGrantTierResponse"
                 }
               }
             },
@@ -26690,227 +26911,6 @@
         "summary": "Bring a deactivated Schiedsrichter back",
         "tags": [
           "schiedsrichter"
-        ]
-      }
-    },
-    "/api/v0/sperrliste": {
-      "get": {
-        "description": "List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.\n\nNo address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed\nhash of it and the read projects that away. `created_by` is the administrator who entered the\nrow, and is an address — `null` beside `created_by_barred` where the ban list holds that\nadministrator's address too, as no barred address is served in plain. **The rows are capped at\n`LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows\nserved, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.",
-        "operationId": "sperrliste_get_sperrliste",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSperrlisteListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "List the banned addresses",
-        "tags": [
-          "sperrliste"
-        ]
-      },
-      "post": {
-        "description": "Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.\n\nRefused where the list already holds the address (`duplicate_key`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and\nwhere the address is an administrator's (`ban_list_admin`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed\nthat names the address loses it in the same transaction, and where `notify` is set the ban's\nown notice is owed to it there too, the one mail a ban does not stop.\n\n`grund` is served, mailed to the address and kept past that person's erasure.",
-        "operationId": "sperrliste_post_sperrliste_entry",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPostSperrlistePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLPostSperrlisteResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Ban an email address",
-        "tags": [
-          "sperrliste"
-        ]
-      }
-    },
-    "/api/v0/sperrliste/{sperrliste_id}": {
-      "delete": {
-        "description": "Lift a ban before it lapses, removing the row. HARD, no soft form.\n\nNothing reverses it from here: the address a row was taken from cannot be recovered out of the\nhash, so re-entering the ban means being told the address again. 404 where no row holds the id.\n\n**The action log keeps a copy of the removed row** — the hash, its key label, the reason and the\nadministrator who entered it, and no address of the person it barred — for the twelve months\nthe rule gives every log row. The lifted ban is therefore readable\nat `GET /action_log` for that period and enforced by nothing from the moment this answers.",
-        "operationId": "sperrliste_delete_sperrliste_entry",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "sperrliste_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Sperrliste Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSperrlisteWriteResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Lift a ban",
-        "tags": [
-          "sperrliste"
         ]
       }
     },

@@ -15,11 +15,11 @@ from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import OPEN_NOTICE, owe_in_session
-from app.api.berechtigungen.schemas import FLGrantChangeKind, FLGrantSnapshot
-from app.api.berechtigungen.services import Notice, compare, compose_notice, snapshot_of
+from app.api.ban_list.lookup import BanList, barred_addresses
+from app.api.grants.crud import OPEN_NOTICE, owe_in_session
+from app.api.grants.schemas import FLGrantChangeKind, FLGrantSnapshot
+from app.api.grants.services import Notice, compare, compose_notice, snapshot_of
 from app.api.kontakte.services import same_address
-from app.api.sperrliste.lookup import BanList, barred_addresses
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
@@ -31,7 +31,7 @@ _QUEUED_SITES = (*(f"data.{site}.address" for site in _GRANT_SITES), "data.chang
 
 @dataclass(frozen=True)
 class ErasedGrantsAndAuthorship:
-    removed_berechtigungen: int
+    removed_grants: int
     removed_announced: int
     # The notices this erasure owes, its own grant's ending among them, before each is owed to every administrator.
     queued_outbox: int
@@ -250,7 +250,7 @@ async def erase_grants_and_authorship_in_session(
         session=session,
     )
 
-    # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/loeschung.py :: carry_authorship_in_session`).
+    # Fields an address change's effect carries too (`fl_backend/app/api/grants/erasure.py :: carry_authorship_in_session`).
     marked = await _set_authored(grants_collection, "granted_by", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(bewerbungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
     marked += await _set_authored(registrierungen_collection, "decision.by", identifier, ERASED_ACTOR_MARKER, session)
@@ -258,7 +258,7 @@ async def erase_grants_and_authorship_in_session(
     marked += await _set_authored(invitations_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
 
     return ErasedGrantsAndAuthorship(
-        removed_berechtigungen=len(grant_ids),
+        removed_grants=len(grant_ids),
         removed_announced=len(records),
         queued_outbox=len(notices),
         withheld_outbox=withheld,

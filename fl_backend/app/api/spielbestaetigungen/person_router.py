@@ -6,9 +6,9 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
+from app.api.ban_list.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielbestaetigungen.crud import (
     OWN_ROW_FIELDS,
     pull_ansetzung_state,

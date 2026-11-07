@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.crud import states_of
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows, pull_named_spiele

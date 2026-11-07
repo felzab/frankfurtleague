@@ -62,7 +62,7 @@ verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admi
 def get_actor_email() -> str:
     """The administrator this request is attributed to, for a field that STORES who acted.
 
-    The variable the log reads, so a decision and its `aktionen` row cannot name two people.
+    The variable the log reads, so a decision and its `action_log` row cannot name two people.
     """
 
     actor = actor_var.get()
@@ -287,12 +287,12 @@ bind_system_actor = actor_binder(_the_application)
 
 
 # The action log's label under the `sperrliste_key` secret file's key, beside the ban list's
-# (`app/api/sperrliste/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
+# (`app/api/ban_list/services.py :: BAN_LIST_KEY_VERSION`); one label per purpose.
 ACTOR_PSEUDONYM_VERSION: Final = "actor-v1"
 
 
 def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
-    # Folded here rather than by each caller, as `app/api/sperrliste/services.py :: address_hash` folds its own: a
+    # Folded here rather than by each caller, as `app/api/ban_list/services.py :: address_hash` folds its own: a
     # stored spelling handed in unfolded would hash to a value no other spelling of the mailbox matches.
     return hmac.new(derive_sub_key(key, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
 

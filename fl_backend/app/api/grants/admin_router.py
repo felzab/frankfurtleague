@@ -9,7 +9,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.address_change.services import build_awaiting_approval_filter
-from app.api.berechtigungen.antraege import (
+from app.api.ban_list.lookup import BanListLookup, barred_addresses, hash_barred
+from app.api.ban_list.services import withheld_actor
+from app.api.grants.antraege import (
     approval_request_line,
     approval_request_stands,
     clear_the_address_in_session,
@@ -21,30 +23,30 @@ from app.api.berechtigungen.antraege import (
     remove_the_approval_request_in_session,
     settle_the_requesters_notices_in_session,
 )
-from app.api.berechtigungen.crud import (
+from app.api.grants.crud import (
     grant_in_session,
     owe_in_session,
     pull_the_list_to_judge,
-    read_berechtigungen,
+    read_grants,
     read_the_announced,
     revoke_in_session,
 )
-from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.schemas import (
-    FLBerechtigung,
+from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.schemas import (
     FLGrantAddressChange,
     FLGrantApprovalRequestDeclinedResponse,
     FLGrantApprovalRequestRow,
+    FLGrantRecord,
     FLGrantRow,
     FLGrantsListResponse,
     FLGrantSnapshot,
-    FLGrantStufeResponse,
+    FLGrantTierResponse,
     FLGrantWriteResponse,
     FLPatchGrantPayload,
     FLPostGrantPayload,
     FLPostGrantResponse,
 )
-from app.api.berechtigungen.services import (
+from app.api.grants.services import (
     OWNER,
     approval_denied,
     approver_of,
@@ -63,8 +65,6 @@ from app.api.berechtigungen.services import (
 )
 from app.api.identity.services import address_change_viewable_denied
 from app.api.outbox.schemas import FLOutboxReference
-from app.api.sperrliste.lookup import BanListLookup, barred_addresses, hash_barred
-from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
@@ -131,12 +131,12 @@ async def get_grants(
     actor = sign_in_identifier(operator)
     # A snapshot, so the grants, their records and the changes waiting on an approval are read as of one moment.
     async with db.start_session(snapshot=True) as session:
-        rows = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        rows = await read_grants(grants_collection=grants_collection, session=session)
         announced = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         approval_requests = await read_the_approval_requests(
             grant_approval_requests_collection=grant_approval_requests_collection, now=now, session=session
         )
-        grants = [FLBerechtigung.model_validate(row) for row in rows]
+        grants = [FLGrantRecord.model_validate(row) for row in rows]
         barred = await barred_addresses(
             ban_list,
             [grant.address for grant in grants]
@@ -220,7 +220,7 @@ def _adresswechsel_zeile(
         way=way,
         started_by=None if withheld else withheld_actor(by, barred),
         started_by_barred=by is not None and withheld_actor(by, barred) is None,
-        grund=None if withheld else record.get("grund"),
+        change_reason=None if withheld else record.get("change_reason"),
         confirmed=record.get("confirmed_at") is not None,
         until=approval["until"],
         denied=denied,
@@ -489,7 +489,7 @@ async def delete_grant(
 
 @router.patch(
     by_id("grant_id"),
-    response_model=FLGrantStufeResponse,
+    response_model=FLGrantTierResponse,
     summary="Change a grant between administrator and owner",
     dependencies=[Depends(verify_recent_confirmation)],
 )
@@ -505,7 +505,7 @@ async def patch_grant(
     changed_by: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     now: datetime = Depends(get_germany_now),
-) -> FLGrantStufeResponse:
+) -> FLGrantTierResponse:
     """
     Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
 
@@ -533,7 +533,7 @@ async def patch_grant(
     async def judge_and_change(session: AsyncClientSession) -> bool:
         """Read the list, judge the actor and the row against it, then anchor and ask for the promotion, or move the tier."""
 
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         refuse(find_nur_inhaber_refusal(actor=actor, auth_time=auth_time, grants=grants, announced=records))
 
@@ -543,7 +543,7 @@ async def patch_grant(
         if grant is None:
             raise DocumentNotFoundError()
 
-        # Ahead of the anchor, so the tier already held writes nothing, not even an `aktionen` row: an
+        # Ahead of the anchor, so the tier already held writes nothing, not even an `action_log` row: an
         # answer that writes nothing is a snapshot no rival can make wrong.
         if grant["admin_tier"] == admin_tier:
             return False
@@ -617,7 +617,7 @@ async def patch_grant(
     async with transaction_session(db) as session:
         requested = await session.with_transaction(judge_and_change)
 
-    return FLGrantStufeResponse(grant_id=grant_id, requested=requested)
+    return FLGrantTierResponse(grant_id=grant_id, requested=requested)
 
 
 async def _move_the_tier_in_session(
@@ -856,7 +856,7 @@ async def delete_approval_request(
             now=now,
             session=session,
         )
-        grants = await read_berechtigungen(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=grants_collection, session=session)
         records = await read_the_announced(grants_announced_collection=grants_announced_collection, session=session)
         denied = approval_denied(
             target=approval_request["address"],

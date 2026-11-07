@@ -4,9 +4,9 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
-from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.ban_list.schemas import refuse_an_address_in_the_reason
+from app.api.grants.schemas import FLUtcInstant
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
 from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
@@ -70,14 +70,14 @@ class FLAddressChange(BaseModel):
     """One change. Its hashes are whole credentials, read by their links' lookups alone and on no read model."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Null once ended, as `email` and `grund` are: a tombstone holds no address.
+    # Null once ended, as `email` and `change_reason` are: a tombstone holds no address.
     address: str | None
     email: str | None
     way: FLAddressChangeWay
     sent_at: CustomDateString
     valid_until: datetime | None
     released_at: datetime | None
-    grund: str | None
+    change_reason: str | None
     confirmed_at: datetime | None
     effective_from: datetime | None
     approval: FLAddressChangeApproval | None
@@ -288,7 +288,7 @@ class FLAddressChangeAdminOpen(BaseModel):
     id: CustomObjectId
     email: str
     way: FLAddressChangeWay
-    grund: str | None
+    change_reason: str | None
     waits_on: FLAddressChangeWaitsOn
     sent_at: CustomDateString
     valid_until: FLUtcInstant | None
@@ -317,7 +317,7 @@ class FLAddressChangeAdminPayload(BaseModel):
     address: CustomEmail
     email: CustomEmail
     # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
-    grund: CustomAddressChangeReason
+    change_reason: CustomAddressChangeReason
 
 
 class FLAddressChangeAdminMintResponse(BaseAPIResponse):

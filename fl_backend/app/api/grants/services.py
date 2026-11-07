@@ -13,8 +13,8 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLGrantChangeKind, FLGrantNoticeKind, FLGrantSnapshot, as_utc
-from app.api.sperrliste.services import withheld_actor
+from app.api.ban_list.services import withheld_actor
+from app.api.grants.schemas import FLGrantChangeKind, FLGrantNoticeKind, FLGrantSnapshot, as_utc
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.core.security import signed_in_since

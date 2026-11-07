@@ -7,7 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
+from app.api.action_log.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,

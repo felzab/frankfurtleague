@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
+from app.api.ban_list.lookup import BanListLookup, ban_list_saison, barred_addresses
 from app.api.spielbestaetigungen.crud import VIEW_SPIEL_FIELDS, pull_ansetzung_state, pull_vorschlag_open, verein_fields
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerPayload,
@@ -186,7 +186,7 @@ async def post_spielbestaetigung(
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
+    # Outside the transaction (`app/api/ban_list/crud.py :: address_is_barred`).
     governing_saison_id = await ban_list_saison(ban_list)
     vorschlag = (
         None

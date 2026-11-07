@@ -45,7 +45,7 @@ class FLGrantCarried(BaseModel):
     owner_since: datetime | None
 
 
-class FLBerechtigung(Anchored):
+class FLGrantRecord(Anchored):
     """One grant as the collection stores it, its address folded as the sign-in folds it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -83,7 +83,7 @@ class FLGrantAddressChange(BaseModel):
     started_by: str | None
     started_by_barred: bool
     # The reason an administrator recorded for a lost mailbox, null on every other way and where withheld as `email` is.
-    grund: str | None
+    change_reason: str | None
     # Whether the new mailbox has confirmed, so the approval would make the change take effect.
     confirmed: bool
     until: FLUtcInstant
@@ -191,7 +191,7 @@ class FLGrantWriteResponse(BaseAPIResponse):
     grant_id: CustomObjectId
 
 
-class FLGrantStufeResponse(BaseAPIResponse):
+class FLGrantTierResponse(BaseAPIResponse):
     """The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect."""
 
     grant_id: CustomObjectId

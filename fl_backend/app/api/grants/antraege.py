@@ -16,8 +16,8 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.schemas import as_utc
-from app.api.berechtigungen.services import holds_since
+from app.api.grants.schemas import as_utc
+from app.api.grants.services import holds_since
 from app.api.outbox.services import final_update
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -38,7 +38,7 @@ def compose_approval_request(*, address: str, admin_tier: str, grant_id: ObjectI
         "grant_id": grant_id,
         "approval": {
             "admin_tier": admin_tier,
-            # Its approver held their grant since then (`app/api/berechtigungen/services.py :: holds_since`).
+            # Its approver held their grant since then (`app/api/grants/services.py :: holds_since`).
             "asked_at": now.astimezone(UTC),
             # The address change's week: an approver away for a weekend is no reason to ask again.
             "until": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
