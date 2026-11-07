@@ -1017,14 +1017,24 @@ class TestAHoldersOwnChange:
 
         assert on_a_person(mongo_replica_set_url, body) == [("withdrawn", address, named, None) for address in sorted(recipients)]
 
-    @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link"])
+    @pytest.mark.parametrize("ended_by", ["the owner's discard", "the stop link", "a lost-mailbox start replacing a waiting change"])
     def test_a_lost_mailbox_hears_nothing_of_any_holder_notice_and_none_names_an_actor(self, mongo_replica_set_url: str, ended_by: str):
         """That mailbox may be a stranger's, and these mails carry the owner's private address and every grantee's."""
 
+        replacing = ended_by.startswith("a lost-mailbox start")
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await granted(database)
-            minted = await administrator_starts(database, client, change_reason=CHANGE_REASON, operator=OWNER)
-            await answer(database, client, minted.token)
+            if replacing:
+                own = await start(database, client)
+                await answer(database, client, own.token)
+                await database[Collection.OUTBOX].delete_many({"kind": "grant"})
+                minted = await administrator_starts(
+                    database, client, change_reason=CHANGE_REASON, operator=OWNER, email="lenore.ersatz@neupost.example.org"
+                )
+            else:
+                minted = await administrator_starts(database, client, change_reason=CHANGE_REASON, operator=OWNER)
+                await answer(database, client, minted.token)
             another = compose_notice(grant_id=ObjectId(), change="granted", stage="started", address=FOREIGN_EMAIL, changed_by=OWNER, now=NOW)
 
             async def owe(session: Any) -> None:
@@ -1041,7 +1051,7 @@ class TestAHoldersOwnChange:
                 await session.with_transaction(owe)
             if ended_by == "the stop link":
                 await stop_by_link(database, client, minted.stop_token)
-            else:
+            elif not replacing:
                 await discard(database, client, minted.id, operator=OWNER)
             rows = database[Collection.OUTBOX].find({"kind": "grant"}, sort=[("_id", 1)])
             return [(row["data"]["change"], row["data"]["stage"], row["to"], row["data"]["changed_by"]) async for row in rows]
@@ -1049,8 +1059,9 @@ class TestAHoldersOwnChange:
         notices = on_a_person(mongo_replica_set_url, body)
 
         assert EMAIL not in [to for _, _, to, _ in notices]
+        # A replaced change's start was told before this case's rows.
         assert [(change, stage, actor) for change, stage, _, actor in notices if change == "address"] == [
-            *[("address", "started", None)] * len(ADMINISTRATORS),
+            *([] if replacing else [("address", "started", None)] * len(ADMINISTRATORS)),
             *[("address", "withdrawn", None)] * len(ADMINISTRATORS),
         ]
         # The other notice still goes to everybody else.
