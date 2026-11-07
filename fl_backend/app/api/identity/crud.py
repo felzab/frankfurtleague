@@ -283,6 +283,12 @@ def _read(rows: Rows | None, kind: str) -> Rows:
     return rows
 
 
+def _seat_entry(collection: Collection, row: Mapping[str, Any], slot: str) -> str:
+    entry = f"{collection}/{row['_id']}/{slot}"
+
+    return f"{entry}/{row['kontakte'][slot]['einwilligung']['confirmed_at']}" if seat_is_confirmed(row, slot) else entry
+
+
 @dataclass(frozen=True, kw_only=True)
 class Subject:
     """Every record one folded address holds that its scope uses, read before the erasure's first step writes.
@@ -347,11 +353,15 @@ class Subject:
         return [f"{collection}/{row['_id']}" for collection, rows in kinds for row in rows]
 
     def seats(self) -> list[str]:
-        """Each slot the address sits in as `collection/id/slot`, in the full scope alone, so a restore's replay reads this person's address."""
+        """Each slot the address sits in as `collection/id/slot`, in the full scope alone, so a restore's replay reads this person's address.
+
+        A confirmed slot adds its `einwilligung.confirmed_at` as a fourth part: a seat passes to someone else, so a replay needs
+        to tell whether the row a snapshot holds still seats this person. A day is neither an address nor a name.
+        """
 
         kinds: tuple[tuple[Collection, Rows], ...] = ((Collection.SAISON_TEAMS, self.saison_teams), (Collection.BEWERBUNGEN, self.bewerbungen))
 
-        return [f"{collection}/{row['_id']}/{slot}" for collection, rows in kinds for row, slot in seats_naming(rows, self.identifier)]
+        return [_seat_entry(collection, row, slot) for collection, rows in kinds for row, slot in seats_naming(rows, self.identifier)]
 
     def changes_naming_it(self) -> list[str]:
         """Each other address's change whose new address this is, as `collection/id/path`."""

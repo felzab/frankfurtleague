@@ -194,8 +194,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     system's mark; the record's id, a label of league data, a pass's count, a grant act's grantee by
     address, an erasure's typed reference, and the `trace_id` joining the row to the edge's line for
     that request, stored and never served (`fl_backend/app/core/recording.py :: record_act`); each
-    line's act and record ids, an erasure's seats and each other field it took the person off, by
-    row id and field name, a withdrawal's choices and an objection's slots, and no value
+    line's act and record ids, an erasure's seats, a confirmed one with that slot's confirmation day,
+    and each other field it took the person off, by row id and field name, a withdrawal's choices and
+    an objection's slots, and no address or name
     (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
 - **Mail** (`outbox`; mail to the league; WhatsApp).
@@ -305,7 +306,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     their providers' backups beyond reach;
   - the access notices already delivered to other holders' private mailboxes, each naming the
     address it concerns, beyond reach as section 7's row says;
-  - the privacy lines, which name a record's id and no value, for their own bound (section 6);
+  - the privacy lines, which name a record's id, and a seat's confirmation day, and no address or
+    name, for their own bound (section 6);
   - a ban's row, holding the address and a reason possibly naming the person, until its bound
     (section 6);
   - a reason they typed in a fixture answer from a seat they have since left, the answer recording the

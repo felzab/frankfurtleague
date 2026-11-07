@@ -952,6 +952,9 @@ class TestTheJournal:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             team_row = await the_one(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
             mail = await the_one(database, Collection.OUTBOX, {"kind": "spiel_request"})
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": BLOCKLESS_BEWERBUNG_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.confirmed_at": None}}
+            )
 
             return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).status_code, team_row["_id"], mail["_id"]
 
@@ -967,10 +970,11 @@ class TestTheJournal:
             f"{Collection.REGISTRIERUNGEN}/{DECLINED_OID}",
             f"{Collection.GRANTS}/{THEIR_GRANT_OID}",
         }
-        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them.
+        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them. A confirmed
+        # one carries its day, or a snapshot seating somebody else in the slot reads as this person.
         seats = {
-            f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson",
-            f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer",
+            f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson/2126-03-21",
+            f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer/2126-03-21",
             f"{Collection.BEWERBUNGEN}/{BLOCKLESS_BEWERBUNG_OID}/ansprechperson",
         }
         # Another address's change stands here, never in `records`: read there, its `address` is that other person's.
