@@ -127,10 +127,9 @@ class FLBewerbungKader(BaseModel):
 
 
 class FLBewerbungDecision(BaseModel):
-    """Who decided this application, when, and on a decline why."""
+    """When this application was decided, and on a decline why."""
 
     made_at: CustomDateString
-    by: str
     # Null on an acceptance: what an acceptance did is the club and the junction row it wrote, and a
     # reason field filled in with "angenommen" would be a second, weaker record of that.
     reason: str | None

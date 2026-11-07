@@ -130,7 +130,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLGruppenNames
 
@@ -1317,7 +1317,6 @@ async def _mail_one_team(
     team: Mapping[str, Any],
     resend: bool,
     records_the_press: bool,
-    created_by: str,
     today: str,
     now: datetime,
 ) -> _PressOutcome:
@@ -1364,9 +1363,7 @@ async def _mail_one_team(
         post_operation = await post_one_to_db(
             collection=invitations_collection,
             # No link of its own: each mail below mints one at its hand-out.
-            document=compose_invitation(
-                saison_id=saison_id, team_id=team["team_id"], token_hashes=[], created_by=created_by, today=today, sent_at=today
-            ),
+            document=compose_invitation(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], today=today, sent_at=today),
             session=session,
         )
         await enqueue_mails(
@@ -1421,7 +1418,6 @@ async def post_invitations_dispatch(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLInvitationDispatchResponse:
@@ -1467,7 +1463,6 @@ async def post_invitations_dispatch(
                 # One press across a transaction per team is one act, its row in the first team's that mails: a write
                 # after the loop would meet the deadline the loop spent, and answer 500 over teams already mailed.
                 records_the_press=not dispatch_data.resend and "mailed" not in outcomes,
-                created_by=created_by,
                 today=today,
                 now=germany_now,
             )

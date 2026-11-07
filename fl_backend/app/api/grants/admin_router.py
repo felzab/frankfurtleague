@@ -115,7 +115,6 @@ async def post_grant(
 
         grant_id = await grant_in_session(
             address=address,
-            granted_by=granted_by,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
             now=now,

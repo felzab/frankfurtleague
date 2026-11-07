@@ -224,7 +224,6 @@ async def _seed(database: AsyncDatabase) -> None:
             "_id": GRANT_OID,
             "address": ADMIN,
             "admin_tier": "administration",
-            "granted_by": "PLAYGROUND",
             "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         }
     )

@@ -2959,12 +2959,8 @@
         "type": "object"
       },
       "FLBewerbungDecision": {
-        "description": "Who decided this application, when, and on a decline why.",
+        "description": "When this application was decided, and on a decline why.",
         "properties": {
-          "by": {
-            "title": "By",
-            "type": "string"
-          },
           "made_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Made At",
@@ -2984,7 +2980,6 @@
         },
         "required": [
           "made_at",
-          "by",
           "reason"
         ],
         "title": "FLBewerbungDecision",
@@ -5682,11 +5677,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "created_by": {
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Invitation Id",
@@ -5713,8 +5703,7 @@
           "team_id",
           "invitation_id",
           "token",
-          "created_at",
-          "created_by"
+          "created_at"
         ],
         "title": "FLInvitationMintResponse",
         "type": "object"
@@ -5725,11 +5714,6 @@
           "created_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Created At",
-            "type": "string"
-          },
-          "created_by": {
-            "minLength": 1,
-            "title": "Created By",
             "type": "string"
           },
           "delivery": {
@@ -5787,7 +5771,6 @@
           "saison_id",
           "team_id",
           "created_at",
-          "created_by",
           "revoked_at",
           "sent_at",
           "delivery"
@@ -22234,7 +22217,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/decline": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`role_not_held`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`role_not_held`).",
         "operationId": "registrierungen_decline",
         "parameters": [
           {

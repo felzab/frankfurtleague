@@ -15,8 +15,6 @@ class FLInvitation(BaseReadModel):
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
     created_at: CustomDateString
-    # The bound actor, on no payload: a link and its `action_log` row cannot then name two people.
-    created_by: CustomNonEmptyString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
@@ -50,7 +48,6 @@ class FLInvitationMintResponse(BaseAPIResponse):
     invitation_id: CustomObjectId
     token: CustomNonEmptyString
     created_at: CustomDateString
-    created_by: CustomNonEmptyString
 
 
 class FLInvitationWriteResponse(BaseAPIResponse):

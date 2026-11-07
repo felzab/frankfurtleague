@@ -228,7 +228,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": BAN_LIST_OID,
             "address": "gesperrt@example.invalid",
             "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
-            "created_by": "admin@example.invalid",
             "created_at": "2026-03-15",
             "barred_until_saison_id": "2031",
         },
@@ -240,7 +239,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "team_id": TEAM_OID,
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "created_at": "2026-03-15",
-            "created_by": "admin@example.invalid",
             "revoked_at": None,
         },
         # Every key the submission writes, `birth_date`, `einwilligung` and `decision`
@@ -273,7 +271,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": GRANT_OID,
             "address": "inhaberin@example.invalid",
             "admin_tier": "owner",
-            "granted_by": "PLAYGROUND",
             "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
@@ -365,7 +362,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # a pair agreeing in everything would pass while keyed on anything at all.
     "uniq_ban_list_address": (
         valid_documents()["ban_list"],
-        valid_document("ban_list", _id=TEAM_OID, ban_reason="Zweiter Eintrag", created_by="zweite@example.invalid"),
+        valid_document("ban_list", _id=TEAM_OID, ban_reason="Zweiter Eintrag"),
     ),
     # Both rows live, which is the reach the `partialFilterExpression` narrows the rule to: a pair
     # whose second row carried a revocation date would pass while the filter matched anything.
@@ -398,7 +395,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # is what refuses a paste granting an address a route already granted.
     "uniq_grant_address": (
         valid_documents()["grants"],
-        valid_document("grants", _id=TEAM_OID, admin_tier="administration", granted_by="zweite@example.invalid"),
+        valid_document("grants", _id=TEAM_OID, admin_tier="administration"),
     ),
     # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.

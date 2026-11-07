@@ -2150,7 +2150,7 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
 /**
  * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
  *
- * The decision records the declining seat holder's address and a reason from a closed set, never free text:
+ * The decision records a reason from a closed set, never free text:
  * `other_person` where the team answered that the registration is not the person its address belongs to. The
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.

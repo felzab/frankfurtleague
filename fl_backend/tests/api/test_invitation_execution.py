@@ -96,7 +96,6 @@ def invitation_row(team_id: ObjectId, *, _id: ObjectId | None = None, sent_at: s
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
         "created_at": "2026-03-15",
-        "created_by": ADMIN,
         "revoked_at": None,
         "sent_at": sent_at,
     }
@@ -160,7 +159,6 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any =
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
-        created_by=ADMIN,
         today=TODAY,
     )
 
@@ -217,7 +215,6 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
-        created_by=ADMIN,
         today=TODAY,
         germany_now=MAIL_NOW,
     )
@@ -697,7 +694,6 @@ class TestTheSeasonWidePress:
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=database.client,
-                created_by=ADMIN,
                 today=TODAY,
                 germany_now=MAIL_NOW,
             )

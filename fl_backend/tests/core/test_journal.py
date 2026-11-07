@@ -12,7 +12,7 @@ DOCKER_LINE_BYTES = 16 * 1024
 OBJECT_ID = "6890a1b2c3d4e5f607b00031"
 # The longest entries a line holds, past what one line carries, as a former owner's several hundred rows are.
 SEATS = [f"saison_teams/{OBJECT_ID}/stellvertretung/2126-03-21"] * (2 * PART_ENTRIES_MAX)
-ROWS = [f"registrierungen/{OBJECT_ID}/decision.by"] * (3 * PART_ENTRIES_MAX + 1)
+ROWS = [f"action_log/{OBJECT_ID}/by"] * (3 * PART_ENTRIES_MAX + 1)
 
 
 def lines_of(caplog: pytest.LogCaptureFixture) -> list[str]:

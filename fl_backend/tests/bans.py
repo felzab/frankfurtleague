@@ -36,7 +36,6 @@ async def ban_through_the_route(
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            created_by=by,
             today=today,
             now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
         )

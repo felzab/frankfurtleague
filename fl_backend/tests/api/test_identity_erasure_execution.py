@@ -26,9 +26,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
 from app.api.address_change.services import masked_address
-from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
-from app.api.invitations.services import compose_invitation
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -50,7 +48,6 @@ from tests.config import ADMIN_KEY
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
-    ban_document,
     bericht_document,
     bewerbung_document,
     kontakte_document,
@@ -96,8 +93,6 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The person as a request or a pasted grant may spell them, and the fold every record the league writes stores.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
-# As a hand-typed row may spell it, in capitals: the fold equates it with theirs, an equality on the stored spelling never.
-PASTED = IDENTIFIER.upper()
 FIRST_NAME, LAST_NAME = "Zorbanax", "Quillfeather"
 PHONE = "+49 69 7771234"
 BIRTH_DATE = "2008-07-14"
@@ -115,7 +110,6 @@ THEIR_VALUES = (
     FIRST_NAME,
     LAST_NAME,
     IDENTIFIER,
-    PASTED,
     "7771234",
     BIRTH_DATE,
     REFEREE_BIRTH_DATE,
@@ -146,12 +140,6 @@ THEIR_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00071")
 # A second owner, granted by nobody the person is, so no record of theirs ties the two erasures together.
 OTHER_OWNER_OID = ObjectId("6890a1b2c3d4e5f607b00077")
 OTHER_OWNER = "ortwin.inhaber@example.com"
-GRANTED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00072")
-BANNED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00073")
-BANNED_BY_THEM_PASTED_OID = ObjectId("6890a1b2c3d4e5f607b00078")
-INVITED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00074")
-DECIDED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00075")
-DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
 # Another pupil, moving to the person's address: the row is theirs until the change is confirmed.
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 # A pupil once entered under the person's address and corrected to another: the row is the other's.
@@ -401,11 +389,10 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(by="quillhilde@example.com", reason=None, today="2126-03-28")["$set"],
+                **compose_ablehnung_update(reason=None, today="2126-03-28")["$set"],
             ),
         ]
     )
-    await records_they_made_holding_no_grant(database)
     await database[Collection.SPIELER].insert_one(
         spieler_document(MOVING_PUPIL_OID, "Gwendolyn", "Gwendolyn-Muster", email="gwendolyn@example.com", einwilligung=einwilligung)
     )
@@ -552,76 +539,10 @@ ELSEWHERE_HOLDS = {
 GRANTED = datetime(2126, 1, 1, tzinfo=UTC)
 
 
-async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
-    """A grant, two bans, an invitation and two decisions in their name, each typed as stored, while the address holds no grant.
-
-    The grants step marks each: it runs in the full scope whatever the address holds.
-    """
-
-    await database[Collection.GRANTS].insert_one(
-        {
-            "_id": GRANTED_BY_THEM_OID,
-            "address": "bramblewick.admin@example.com",
-            "admin_tier": "administration",
-            "granted_by": IDENTIFIER,
-            "effective_from": GRANTED,
-        }
-    )
-    await database[Collection.BAN_LIST].insert_many(
-        [
-            ban_document(address, until=compose_barred_until_saison_id(running_saison_id=SAISON_ID), _id=ban_id, created_by=by)
-            for address, ban_id, by in (
-                ("gebannt@beispiel.de", BANNED_BY_THEM_OID, IDENTIFIER),
-                ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
-            )
-        ]
-    )
-    await database[Collection.INVITATIONS].insert_one(
-        {
-            "_id": INVITED_BY_THEM_OID,
-            **compose_invitation(
-                saison_id=SAISON_ID,
-                team_id=HOME_TEAM_OID,
-                token_hashes=["hash-of-their-invite"],
-                created_by=IDENTIFIER,
-                today=TODAY,
-                sent_at=None,
-            ),
-        }
-    )
-    await database[Collection.BEWERBUNGEN].insert_one(
-        bewerbung_document(
-            DECIDED_BY_THEM_OID,
-            SAISON_ID,
-            "declined",
-            kontakte=kontakte_document(),
-            submitted_at="2126-03-01",
-            schule=new_schule_document("Abgelehnt"),
-            decision={"made_at": "2126-03-10", "by": IDENTIFIER, "reason": "Keine Halle"},
-        )
-    )
-    declined = registrierung_document(
-        DECLINED_BY_THEM_OID,
-        "rita@beispiel.de",
-        saison_id=SAISON_ID,
-        team_id=HOME_TEAM_OID,
-        first_name="Rita",
-        last_name="Registriert",
-        token="token-rita",
-        submitted_at="2126-03-20",
-        deadline="2126-03-27",
-    )
-    await database[Collection.REGISTRIERUNGEN].insert_one(
-        {**declined, **compose_ablehnung_update(by=IDENTIFIER, reason=None, today="2126-03-22")["$set"]}
-    )
-
-
 async def a_grant(database: AsyncDatabase, grant_id: ObjectId, address: str, admin_tier: str) -> None:
     """A grant by a paste, for the cases about a grant the address holds."""
 
-    await database[Collection.GRANTS].insert_one(
-        {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "effective_from": GRANTED}
-    )
+    await database[Collection.GRANTS].insert_one({"_id": grant_id, "address": address, "admin_tier": admin_tier, "effective_from": GRANTED})
 
 
 async def everything_in(database: AsyncDatabase) -> dict[str, list[Any]]:
@@ -980,12 +901,6 @@ class TestTheJournal:
         rows = {
             f"{Collection.ADDRESS_CHANGES}/{OTHER_REFEREE_CHANGE_OID}/email",
             f"{Collection.ADDRESS_CHANGES}/{MOVING_PUPIL_CHANGE_OID}/email",
-            f"{Collection.GRANTS}/{GRANTED_BY_THEM_OID}/granted_by",
-            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_OID}/created_by",
-            f"{Collection.BAN_LIST}/{BANNED_BY_THEM_PASTED_OID}/created_by",
-            f"{Collection.INVITATIONS}/{INVITED_BY_THEM_OID}/created_by",
-            f"{Collection.BEWERBUNGEN}/{DECIDED_BY_THEM_OID}/decision.by",
-            f"{Collection.REGISTRIERUNGEN}/{DECLINED_BY_THEM_OID}/decision.by",
             f"{Collection.OUTBOX}/{mail_id}/to",
         }
 
@@ -1001,13 +916,10 @@ class TestTheJournal:
         """Catches the line left empty: a former administrator's address comes back with a restore, and no replay would know it."""
 
         former = "ehemals.verwaltung@example.org"
-        log_row, ban_row = ObjectId(), ObjectId()
+        log_row = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ACTION_LOG].insert_one(action_log_row(log_row, by=former))
-            await database[Collection.BAN_LIST].insert_one(
-                ban_document("gebannt-drei@beispiel.de", until="2199", _id=ban_row, created_by=former)
-            )
 
             return (await erased_over_http(mongo_replica_set_url, email=former)).status_code
 
@@ -1019,7 +931,7 @@ class TestTheJournal:
 
         assert status == 200
         assert (line["records"], line["seats"]) == ([], [])
-        assert set(line["rows"]) == {f"{Collection.ACTION_LOG}/{log_row}/by", f"{Collection.BAN_LIST}/{ban_row}/created_by"}
+        assert line["rows"] == [f"{Collection.ACTION_LOG}/{log_row}/by"]
         assert former not in JSONFormatter().format(record).lower()
 
     def test_a_log_row_naming_two_people_says_on_each_line_which_of_them_it_means(

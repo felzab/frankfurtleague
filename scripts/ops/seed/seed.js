@@ -254,7 +254,6 @@ const GRANTS = [
   _id: ObjectId(),
   address,
   admin_tier,
-  granted_by: "MADE-UP-SEED",
   effective_from,
   // Stored only while a handover waits.
   ...(owner_from === undefined ? {} : { owner_from }),
@@ -766,7 +765,6 @@ function invitation(clubName) {
     team_id: club[clubName]._id,
     token_hashes: [linkHash(`${clubName.toLowerCase()}-invitation`)],
     created_at: day(-30),
-    created_by: "admin@example.com",
     revoked_at: null,
     sent_at: null,
   };
@@ -810,7 +808,7 @@ function registration(person, submittedOn, { confirmed = false, decision = null 
 const REGISTRATIONS = [
   registration(pupil("Ole", "Sommer"), -1),
   registration(pupil("Pia", "Sander", day(-2)), -3, { confirmed: true }),
-  registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), by: "admin@example.com", reason: "Nicht an dieser Schule" } }),
+  registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), reason: "Nicht an dieser Schule" } }),
 ];
 
 // Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted the next morning: a named scorer, a
@@ -1094,7 +1092,6 @@ const BANS = [
     // Long enough for a phone's row to have to wrap it, which `fl_frontend/e2e/phone/access.spec.ts` measures.
     address: "gesperrte.person.mit.langer.adresse@example.com",
     ban_reason: "Beleidigungen am Spielfeldrand",
-    created_by: "inhaber@example.com",
     created_at: day(-30),
     barred_until_saison_id: "2031",
   },

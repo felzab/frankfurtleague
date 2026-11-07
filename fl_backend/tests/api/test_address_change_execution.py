@@ -30,7 +30,6 @@ from app.api.grants.schemas import FLPostGrantPayload
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
-from app.api.invitations.services import compose_invitation
 from app.api.outbox.system_router import post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
@@ -45,7 +44,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMINISTRATORS, SYSTEM_AUTH, grants_for_the_suite
+from tests.config import ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
 from tests.isolation import COMMITTED, outcome_of
 from tests.records import record_collections
@@ -70,7 +69,6 @@ from .address_change_harness import (
     SECOND_ADMIN,
     SECOND_TEAM_OID,
     SPIELER_OID,
-    TEAM_OID,
     TODAY,
     TYPED,
     UNCONFIRMED_REG_LINK,
@@ -1412,40 +1410,7 @@ class TestALapse:
 THIRD_EMAIL = "lenore.dritte@nochwoanders.example.org"
 
 
-class TestTheAdministratorFollowsTheirMove:
-    """An administrator's identity is their address: an effect carries every record they made, or the rules keyed on it lapse."""
-
-    def test_a_grant_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_loeschung(self, mongo_replica_set_url: str):
-        """Each record names its author by address alone, so one left at the replaced address outlives the erasure at the new."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
-            await database[Collection.GRANTS].insert_one(
-                {**grants_for_the_suite()[1], "_id": ObjectId(), "address": FOREIGN_EMAIL, "granted_by": EMAIL}
-            )
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOREIGN_EMAIL, until="2030", created_by=EMAIL))
-            await database[Collection.INVITATIONS].insert_one(
-                compose_invitation(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["h" * 64], created_by=EMAIL, today=TODAY, sent_at=None)
-            )
-            await database[Collection.BEWERBUNGEN].insert_one(
-                documents.bewerbung_document(
-                    ObjectId(),
-                    SAISON_ID,
-                    "declined",
-                    kontakte=documents.kontakte_document(),
-                    submitted_at="2126-02-01",
-                    decision={"made_at": "2126-02-15", "by": EMAIL, "reason": "kein Platz"},
-                )
-            )
-            minted = await start(database, client)
-            await answer(database, client, minted.token)
-            await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
-            await erase(database, client, NEW_EMAIL)
-            return await where_held(database, EMAIL, folded=True)
-
-        # The switch's own mails alone, each a row with its own short term: no record of theirs is left at the replaced address.
-        assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: ["outbox"]}
-
+class TestTheMovedAddressLeavesNothingBehind:
     def test_a_second_change_leaves_the_first_one_s_address_nowhere_past_the_loeschung(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await start(database, client)
@@ -1587,39 +1552,12 @@ class TestWhatTheEffectLeavesTheLoeschung:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             declined = registration(DECLINED_REG_OID, SECOND_TEAM_OID, confirmed=False, token="the-declined-registrations-link")
-            declined.update(compose_ablehnung_update(by="admin@frankfurtleague.de", reason=None, today=TODAY)["$set"])
+            declined.update(compose_ablehnung_update(reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
             return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
 
         assert on_a_person(mongo_replica_set_url, body)["email"] == NEW_EMAIL
-
-    def test_a_seat_holder_s_decision_on_another_s_registration_follows_them(self, mongo_replica_set_url: str):
-        """A seat holder holding no grant declines under their own address; left behind, it is an address nobody's erasure finds."""
-
-        decided = documents.registrierung_document(
-            DECLINED_REG_OID,
-            OTHER_EMAIL,
-            saison_id=SAISON_ID,
-            team_id=SECOND_TEAM_OID,
-            first_name="Jonte",
-            last_name="Wirbelauer",
-            token="another-pupil-s-registration-link",
-            submitted_at="2126-03-30",
-            deadline="2126-04-06",
-            confirmed=None,
-        )
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.REGISTRIERUNGEN].insert_one(decided)
-            await database[Collection.REGISTRIERUNGEN].update_one(
-                {"_id": DECLINED_REG_OID}, compose_ablehnung_update(by=EMAIL, reason=None, today=TODAY)
-            )
-            await confirmed_and_moved(database, client)
-
-            return (await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID))["decision"]["by"]
-
-        assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
 
     def test_an_earlier_effect_s_owed_carry_follows_the_person(self, mongo_replica_set_url: str):
         """Its account goes where the person is now, and an erasure of the new address finds the record."""

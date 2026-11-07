@@ -96,7 +96,7 @@ def _served() -> FastAPI:
 def grant_document(grant_id: ObjectId, address: str, admin_tier: str, *, effective_from: datetime = IN_EFFECT) -> dict[str, Any]:
     """As the recovery paste writes one."""
 
-    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "effective_from": effective_from}
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "effective_from": effective_from}
 
 
 # Nora's addition still waiting beside the three in effect.
@@ -310,7 +310,6 @@ class TestAnAddition:
         assert row == {
             "address": NEU,
             "admin_tier": "administration",
-            "granted_by": OWNER,
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
         }
         # The date is the mail's one sentence on when it lands.
@@ -775,7 +774,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
     def test_an_addition_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
-        """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the grant and the log alike."""
+        """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
@@ -786,6 +785,6 @@ class TestTheMountedRouteReadsTheGrants:
             row = await database[Collection.GRANTS].find_one({"address": NEU})
             assert row is not None
 
-            return response.status_code, row["granted_by"], await acts_on(database, row["_id"])
+            return response.status_code, await acts_on(database, row["_id"])
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, OWNER, [("grant.added", OWNER, NEU)])
+        assert on_a_league(mongo_replica_set_url, body) == (201, [("grant.added", OWNER, NEU)])

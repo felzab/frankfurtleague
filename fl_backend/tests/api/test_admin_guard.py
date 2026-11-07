@@ -153,12 +153,12 @@ ADMIN_READS = [
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/identity/erasure/view", "post"),
-    # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
-    # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
+    # A revert to `verify_access_base` here publishes every barred address beside its reason
+    # (`READ-CONTACT-001`).
     ("/api/v0/ban_list", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
-    # The team editor's read serves its link's `created_by`, an administrator's address.
+    # The team editor's read serves its seats' addresses (`READ-CONTACT-001`).
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/admin", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
     # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.

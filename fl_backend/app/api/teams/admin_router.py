@@ -136,7 +136,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
     bind_actor,
-    get_actor_email,
     verify_access_admin,
 )
 from app.core.transactions import transaction_session
@@ -1101,7 +1100,6 @@ async def post_invitation(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationMintResponse:
     """
@@ -1153,7 +1151,6 @@ async def post_invitation(
             saison_id=saison_id,
             team_id=team_id,
             token_hashes=[token_hash],
-            created_by=created_by,
             today=today,
             # Minted for copying: nothing is mailed until the team's own press owes it.
             sent_at=None,
@@ -1176,7 +1173,6 @@ async def post_invitation(
         invitation_id=invitation_id,
         token=raw_token,
         created_at=today,
-        created_by=created_by,
     )
 
 

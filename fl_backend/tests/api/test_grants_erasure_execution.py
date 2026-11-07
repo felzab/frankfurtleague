@@ -18,17 +18,14 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.address_change.services import masked_address
 from app.api.ban_list.services import compose_barred_until_saison_id
-from app.api.grants.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
+from app.api.grants.erasure import erase_grants_in_session
 from app.api.grants.services import compose_notice
 from app.api.identity.crud import erase_the_mails_in_session
-from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
-from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
-from app.core.recording import ERASED_ACTOR_MARKER
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, bewerbung_document, kontakte_document, registrierung_document, saison_document
+from tests.documents import saison_document
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -76,21 +73,14 @@ ELSEWHERE = ObjectId("6890a1b2c3d4e5f607a20005")
 ERIKA_ELSEWHERE = ERIKA.replace("@frankfurtleague.de", "@anderswo.de")
 ELSEWHERE_GRANTED_ID = ObjectId("6890a1b2c3d4e5f607a10008")
 
-# The records she made, each in a store the step reaches, and a bystander's beside each.
-BAN_BY_HER, BAN_BY_HER_TYPED, BAN_BY_DORA, BAN_BY_NAHE, BAN_BY_LANGES_S = (ObjectId(f"6890a1b2c3d4e5f607a3000{n}") for n in range(1, 6))
-INVITE_BY_HER, INVITE_BY_DORA = ObjectId("6890a1b2c3d4e5f607a40001"), ObjectId("6890a1b2c3d4e5f607a40002")
-DECIDED_BY_HER, DECIDED_BY_DORA = ObjectId("6890a1b2c3d4e5f607a50001"), ObjectId("6890a1b2c3d4e5f607a50002")
-DECLINED_BY_HER, DECLINED_BY_DORA = ObjectId("6890a1b2c3d4e5f607a60001"), ObjectId("6890a1b2c3d4e5f607a60002")
-
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def grant_row(grant_id: ObjectId, address: str, admin_tier: str, granted_by: str) -> dict[str, Any]:
+def grant_row(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     return {
         "_id": grant_id,
         "address": address,
         "admin_tier": admin_tier,
-        "granted_by": granted_by,
         "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
     }
 
@@ -120,43 +110,16 @@ def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | Non
     }
 
 
-def decided(bewerbung_id: ObjectId, by: str) -> dict[str, Any]:
-    return bewerbung_document(
-        bewerbung_id,
-        RUNNING,
-        "declined",
-        kontakte=kontakte_document(),
-        submitted_at="2026-03-01",
-        decision={"made_at": "2026-03-10", "by": by, "reason": "Keine Halle"},
-    )
-
-
-def declined(registrierung_id: ObjectId, by: str) -> dict[str, Any]:
-    stored = registrierung_document(
-        registrierung_id,
-        f"pupil-{registrierung_id}@beispiel.de",
-        saison_id=RUNNING,
-        team_id=ObjectId(),
-        first_name="Rita",
-        last_name="Registriert",
-        token=str(registrierung_id),
-        submitted_at="2026-03-20",
-        deadline="2026-03-27",
-    )
-
-    return {**stored, **compose_ablehnung_update(by=by, reason="Nicht in der Stufe", today="2026-03-22")["$set"]}
-
-
 async def a_league_she_administered(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(saison_document(RUNNING, "active"))
     await database[Collection.GRANTS].insert_many(
         [
-            grant_row(ERIKA_ID, ERIKA, "administration", "PLAYGROUND"),
-            grant_row(ERIKA_DEAD_ID, ERIKA_TYPED, "administration", "PLAYGROUND"),
-            grant_row(DORA_ID, DORA, "owner", "PLAYGROUND"),
-            grant_row(BERND_ID, BERND, "administration", ERIKA),
-            grant_row(CLARA_ID, CLARA, "administration", ERIKA_TYPED),
-            grant_row(NAHE_ID, NAHE, "administration", DORA),
+            grant_row(ERIKA_ID, ERIKA, "administration"),
+            grant_row(ERIKA_DEAD_ID, ERIKA_TYPED, "administration"),
+            grant_row(DORA_ID, DORA, "owner"),
+            grant_row(BERND_ID, BERND, "administration"),
+            grant_row(CLARA_ID, CLARA, "administration"),
+            grant_row(NAHE_ID, NAHE, "administration"),
         ]
     )
     await database[Collection.OUTBOX].insert_many(
@@ -166,33 +129,6 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
             notice(ELSEWHERE, ELSEWHERE_GRANTED_ID, "granted", ERIKA_ELSEWHERE),
         ]
     )
-    await database[Collection.BAN_LIST].insert_many(
-        [
-            ban_document(f"gebannt-{number}@beispiel.de", until=STANDING, _id=ban_id, created_by=by)
-            for number, (ban_id, by) in enumerate(
-                (
-                    (BAN_BY_HER, ERIKA),
-                    (BAN_BY_HER_TYPED, ERIKA_TYPED),
-                    (BAN_BY_DORA, DORA),
-                    (BAN_BY_NAHE, NAHE),
-                    (BAN_BY_LANGES_S, LANGES_S),
-                )
-            )
-        ]
-    )
-    await database[Collection.INVITATIONS].insert_many(
-        [
-            {
-                "_id": invite_id,
-                **compose_invitation(
-                    saison_id=RUNNING, team_id=ObjectId(), token_hashes=[f"hash-{invite_id}"], created_by=by, today=TODAY, sent_at=None
-                ),
-            }
-            for invite_id, by in ((INVITE_BY_HER, ERIKA), (INVITE_BY_DORA, DORA))
-        ]
-    )
-    await database[Collection.BEWERBUNGEN].insert_many([decided(DECIDED_BY_HER, ERIKA), decided(DECIDED_BY_DORA, DORA)])
-    await database[Collection.REGISTRIERUNGEN].insert_many([declined(DECLINED_BY_HER, ERIKA), declined(DECLINED_BY_DORA, DORA)])
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -207,15 +143,11 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ERIKA) -> ErasedGrantsAndAuthorship:
-    async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
-        return await erase_grants_and_authorship_in_session(
+async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ERIKA) -> int:
+    async def step(session: AsyncClientSession) -> int:
+        return await erase_grants_in_session(
             grants_collection=database[Collection.GRANTS],
             outbox_collection=database[Collection.OUTBOX],
-            bewerbungen_collection=database[Collection.BEWERBUNGEN],
-            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-            invitations_collection=database[Collection.INVITATIONS],
-            ban_list_collection=database[Collection.BAN_LIST],
             identifier=identifier,
             now=NOW,
             session=session,
@@ -255,35 +187,28 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
 
 class TestHerGrantsGo:
     def test_every_grant_her_address_holds_goes_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ErasedGrantsAndAuthorship, set[ObjectId]]:
-            result = await erase(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, set[ObjectId]]:
+            removed = await erase(database, client)
 
-            return result, await ids_in(database, Collection.GRANTS)
+            return removed, await ids_in(database, Collection.GRANTS)
 
-        result, grants = on_a_league(mongo_replica_set_url, body)
+        removed, grants = on_a_league(mongo_replica_set_url, body)
 
         assert grants == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
-        assert result.removed_grants == 2
+        assert removed == 2
 
-    def test_a_grant_pasted_unfolded_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
-        """Catches a read asking the stored spelling alone, which leaves this grant and its authorship standing."""
+    def test_a_grant_pasted_unfolded_goes(self, mongo_replica_set_url: str):
+        """Catches a read asking the stored spelling alone, which leaves this grant standing."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, Any, dict[str, list[str]]]:
-            pasted, granted = ObjectId(), ObjectId()
-            await database[Collection.GRANTS].insert_many(
-                [
-                    grant_row(pasted, ERIKA_PUNYCODE_PASTED, "administration", "PLAYGROUND"),
-                    grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_PUNYCODE_PASTED),
-                ]
-            )
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, dict[str, list[str]]]:
+            pasted = ObjectId()
+            await database[Collection.GRANTS].insert_one(grant_row(pasted, ERIKA_PUNYCODE_PASTED, "administration"))
             await erase(database, client, identifier=ERIKA_PUNYCODE)
             stands = await database[Collection.GRANTS].find_one({"_id": pasted}) is not None
-            row = await database[Collection.GRANTS].find_one({"_id": granted})
-            assert row is not None
 
-            return stands, row["granted_by"], await where_held(database, "MLLER-KVA", folded=True)
+            return stands, await where_held(database, "MLLER-KVA", folded=True)
 
-        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MLLER-KVA": []})
+        assert on_a_league(mongo_replica_set_url, body) == (False, {"MLLER-KVA": []})
 
 
 class TestTheNotices:
@@ -336,54 +261,6 @@ class TestTheNotices:
             {"change": "revoked", "stage": "completed", "address": None},
             {"change": "handover", "stage": "withdrawn", "address": None},
         ]
-
-
-class TestTheRecordsSheMade:
-    """A grant, a ban, an invite or a decision she made names her by the marker alone."""
-
-    AUTHORS = (
-        (Collection.GRANTS, BERND_ID, ("granted_by",)),
-        (Collection.GRANTS, CLARA_ID, ("granted_by",)),
-        (Collection.BAN_LIST, BAN_BY_HER, ("created_by",)),
-        (Collection.BAN_LIST, BAN_BY_HER_TYPED, ("created_by",)),
-        (Collection.INVITATIONS, INVITE_BY_HER, ("created_by",)),
-        (Collection.BEWERBUNGEN, DECIDED_BY_HER, ("decision", "by")),
-        (Collection.REGISTRIERUNGEN, DECLINED_BY_HER, ("decision", "by")),
-    )
-
-    BYSTANDERS = (
-        (Collection.GRANTS, NAHE_ID, ("granted_by",), DORA),
-        (Collection.BAN_LIST, BAN_BY_DORA, ("created_by",), DORA),
-        (Collection.BAN_LIST, BAN_BY_NAHE, ("created_by",), NAHE),
-        (Collection.BAN_LIST, BAN_BY_LANGES_S, ("created_by",), LANGES_S),
-        (Collection.INVITATIONS, INVITE_BY_DORA, ("created_by",), DORA),
-        (Collection.BEWERBUNGEN, DECIDED_BY_DORA, ("decision", "by"), DORA),
-        (Collection.REGISTRIERUNGEN, DECLINED_BY_DORA, ("decision", "by"), DORA),
-    )
-
-    @staticmethod
-    async def author(database: AsyncDatabase, collection: Collection, row_id: ObjectId, path: tuple[str, ...]) -> Any:
-        value: Any = await database[collection].find_one({"_id": row_id})
-        for key in path:
-            value = value[key]
-
-        return value
-
-    def test_every_record_she_made_reads_the_marker_whatever_spelling_stored_her(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            await erase(database, client)
-
-            return [await self.author(database, collection, row_id, path) for collection, row_id, path in self.AUTHORS]
-
-        assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER] * len(self.AUTHORS)
-
-    def test_another_administrators_records_keep_their_author_a_similar_address_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            await erase(database, client)
-
-            return [await self.author(database, collection, row_id, path) for collection, row_id, path, _ in self.BYSTANDERS]
-
-        assert on_a_league(mongo_replica_set_url, body) == [author for _, _, _, author in self.BYSTANDERS]
 
 
 def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_replica_set_url: str):

@@ -134,19 +134,19 @@ def the_corpus() -> list[dict[str, Any]]:
     return [
         application(REMIND_OID),
         application(DELETE_OID, confirmation_deadline=YESTERDAY),
-        application(DECLINED_OID, status="declined", decision={"made_at": "2026-02-15", "by": "admin", "reason": "kein Platz"}),
+        application(DECLINED_OID, status="declined", decision={"made_at": "2026-02-15", "reason": "kein Platz"}),
         application(
             ACCEPTED_OID,
             status="accepted",
             team_id=CLUB_OID,
             schule=None,
-            decision={"made_at": "2026-03-01", "by": "admin", "reason": None},
+            decision={"made_at": "2026-03-01", "reason": None},
         ),
         application(
             OTHER_SEASON_OID,
             saison_id=OTHER_SAISON_ID,
             status="declined",
-            decision={"made_at": "2025-01-15", "by": "admin", "reason": "kein Platz"},
+            decision={"made_at": "2025-01-15", "reason": "kein Platz"},
         ),
     ]
 
@@ -1018,7 +1018,7 @@ class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
         Planned below a season that has ended, so the call's own read finds both clocks due.
         """
 
-        accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "by": "admin", "reason": None}}
+        accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "reason": None}}
         report = a_report(SAISON_ID)
         declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
@@ -1095,7 +1095,7 @@ SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
 SECOND_CLUB_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
 
-DECLINED = {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "reason": "kein Platz"}}
+DECLINED = {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": "kein Platz"}}
 
 
 async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
@@ -1657,7 +1657,7 @@ class TestAPageAndOneMoreIsDrained:
 
     def test_every_declined_application_due_goes_in_one_pass(self, mongo_replica_set_url: str):
         overflow = SWEEP_PAGE + 5
-        declined = {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "reason": None}}
+        declined = {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": None}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].delete_many({})
@@ -1686,7 +1686,7 @@ class TestAPageAndOneMoreIsDrained:
             "status": "accepted",
             "team_id": CLUB_OID,
             "schule": None,
-            "decision": {"made_at": "2026-03-01", "by": "admin", "reason": None},
+            "decision": {"made_at": "2026-03-01", "reason": None},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1701,8 +1701,8 @@ class TestAPageAndOneMoreIsDrained:
     def test_a_page_of_decisions_inside_their_days_does_not_hide_one_that_is_due(self, mongo_replica_set_url: str):
         """The fresh decisions are seeded first, so a read not narrowed to the due ones fills its page with them and refuses the pass."""
 
-        fresh = {"status": "declined", "decision": {"made_at": "2026-03-31", "by": "admin", "reason": None}}
-        due = {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "reason": None}}
+        fresh = {"status": "declined", "decision": {"made_at": "2026-03-31", "reason": None}}
+        due = {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": None}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             seeded = [application(numbered(position), **fresh) for position in range(SWEEP_PAGE + 1)]

@@ -130,7 +130,6 @@ async def owe_in_session(
 async def grant_in_session(
     *,
     address: str,
-    granted_by: str,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     now: datetime,
@@ -148,8 +147,6 @@ async def grant_in_session(
         document={
             "address": address,
             "admin_tier": ADMINISTRATION,
-            # The bound actor rather than a payload field, so the grant and its `action_log` row name one person.
-            "granted_by": granted_by,
             "effective_from": effective_from,
         },
         session=session,

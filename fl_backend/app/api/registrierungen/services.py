@@ -873,5 +873,5 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
     return fields
 
 
-def compose_ablehnung_update(*, by: str, reason: Any, today: str) -> Mapping[str, Any]:
-    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "by": by, "reason": reason}}}
+def compose_ablehnung_update(*, reason: Any, today: str) -> Mapping[str, Any]:
+    return {"$set": {"status": DECLINED, "decision": {"made_at": today, "reason": reason}}}

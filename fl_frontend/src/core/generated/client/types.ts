@@ -1195,10 +1195,9 @@ export interface FLBewerbungConfirmations {
 }
 
 /**
- * Who decided this application, when, and on a decline why.
+ * When this application was decided, and on a decline why.
  */
 export interface FLBewerbungDecision {
-  by: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
   reason: string | null;
@@ -2552,8 +2551,6 @@ export interface FLInvitationMailResponse {
 export interface FLInvitationMintResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  /** @minLength 1 */
-  created_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   invitation_id: string;
   /** @minLength 1 */
@@ -2570,8 +2567,6 @@ export interface FLInvitationMintResponse {
 export interface FLInvitationRow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  /** @minLength 1 */
-  created_by: string;
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;

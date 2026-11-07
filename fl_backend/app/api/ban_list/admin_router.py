@@ -35,7 +35,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -101,7 +101,6 @@ async def post_ban_list_entry(
     address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLPostBanListEntryResponse:
@@ -137,7 +136,6 @@ async def post_ban_list_entry(
         document: dict[str, Any] = {
             "address": address,
             "ban_reason": ban_list_data.ban_reason,
-            "created_by": created_by,
             "created_at": today,
             # INCLUSIVE: the season named here is still barred, and „bis“ alone does not say so.
             "barred_until_saison_id": barred_until_saison_id,

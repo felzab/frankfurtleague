@@ -231,7 +231,7 @@ GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
 def _grant(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
 
-    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "granted_by": "PLAYGROUND", "effective_from": GRANT_TYPED}
+    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "effective_from": GRANT_TYPED}
 
 
 def on_a_league(url: str, body: Body) -> Any:

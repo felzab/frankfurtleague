@@ -35,10 +35,9 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class FLRegistrierungEntscheidung(BaseModel):
-    """Who declined this registration, when, and why."""
+    """When this registration was declined, and why."""
 
     made_at: CustomDateString
-    by: CustomNonEmptyString
     reason: str | None
 
 

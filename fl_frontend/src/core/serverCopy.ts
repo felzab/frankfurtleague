@@ -495,7 +495,7 @@ export const SERVER_COPY = catalogue({
       lead: "Die Verwaltung hat deine E-Mail-Adresse gesperrt.",
       effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
       ends: (saison: string) => `Die Sperre endet nach der ${COPY.shared.saisonName(saison)} von selbst.`,
-      stored: "In der Sperrliste stehen deine Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
+      stored: "In der Sperrliste stehen deine Adresse, der Grund und das Datum.",
       account:
         "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht. Die Sperre bleibt auch nach einer Löschung bis zu ihrem Ende.",
       basis:
@@ -953,13 +953,13 @@ export const SERVER_COPY = catalogue({
           { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
           {
             name: "Gesperrte Adresse",
-            content: "Adresse, Grund, Datum, wer sie eingetragen hat",
+            content: "Adresse, Grund, Datum",
             period: "bis zum Ende der 5. Saison danach",
           },
           {
             name: "Zugang zur Verwaltung",
-            content: "Adresse, Stufe, Beginn, wer ihn vergeben hat",
-            period: "bis er endet; eine Sperre oder ein Zugang, den du eingetragen hast, nennt dich weiter, bis wir deine Daten löschen",
+            content: "Adresse, Stufe, Beginn",
+            period: "bis er endet",
           },
           { name: "Konto", content: "Adresse, Passkeys", period: "solange ein Eintrag besteht" },
           {

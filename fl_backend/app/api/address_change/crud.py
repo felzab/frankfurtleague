@@ -34,7 +34,6 @@ from app.api.address_change.services import (
     wait_tier,
 )
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
-from app.api.grants.erasure import carry_authorship_in_session
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
 from app.api.identity.lookup import RecordCollections
@@ -550,8 +549,6 @@ async def move_the_address_in_session(
     spielbestaetigungen_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -633,18 +630,6 @@ async def move_the_address_in_session(
 
     # A record the effect leaves naming the replaced address by address alone would outlive the person's erasure at the new one.
     old, new = holdings.identifier, sign_in_identifier(new_address)
-    # Who made a record is the person, whatever their address or grant, a revoked grant's records and a seat holder's
-    # decisions included.
-    await carry_authorship_in_session(
-        grants_collection=grants_collection,
-        bewerbungen_collection=bewerbungen_collection,
-        registrierungen_collection=registrierungen_collection,
-        invitations_collection=invitations_collection,
-        ban_list_collection=ban_list_collection,
-        old=old,
-        new_address=new,
-        session=session,
-    )
     await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
     if holdings.grant is not None:
         await record_act(

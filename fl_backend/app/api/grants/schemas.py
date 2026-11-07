@@ -22,9 +22,6 @@ class FLGrantRecord(Anchored):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     address: CustomNonEmptyString
     admin_tier: FLAdminTier
-    # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
-    # once they are erased, and the marker the paste names itself by for one made in the Playground.
-    granted_by: CustomNonEmptyString
     # When the grant holds: the future while an addition waits, and the moment of the last address switch or handover, so a
     # session older than it holds nothing.
     effective_from: datetime

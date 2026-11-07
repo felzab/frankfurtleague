@@ -48,7 +48,6 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
             "_id": ObjectId(),
             "address": GRANTED_AT_THE_SEED,
             "admin_tier": "administration",
-            "granted_by": "PLAYGROUND",
             "effective_from": now,
         }
         a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)[Collection.GRANTS].insert_many([*grants_for_the_suite(), granted])

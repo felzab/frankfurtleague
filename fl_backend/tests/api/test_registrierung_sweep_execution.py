@@ -115,7 +115,7 @@ def the_corpus() -> list[dict[str, Any]]:
         registrierung(
             DECLINED_OID,
             status="declined",
-            decision={"made_at": "2026-02-15", "by": "admin", "reason": "kein Platz"},
+            decision={"made_at": "2026-02-15", "reason": "kein Platz"},
         ),
         registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=bestaetigung(OTHER_SEASON_OID, deadline=YESTERDAY)),
     ]
@@ -435,7 +435,7 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
             pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
             pytest.param(
                 "decline",
-                {"status": "declined", "decision": {"made_at": "2026-02-15", "by": "admin", "reason": None}},
+                {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": None}},
                 "active",
                 "erased_declined",
                 id="decline",

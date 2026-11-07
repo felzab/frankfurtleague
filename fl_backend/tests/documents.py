@@ -470,7 +470,6 @@ def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
         "_id": ObjectId(),
         "address": league_address(address),
         "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
-        "created_by": "admin@frankfurtleague.de",
         "created_at": "2026-03-15",
         "barred_until_saison_id": until,
         **fields,

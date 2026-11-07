@@ -18,7 +18,7 @@ from app.api.address_change.crud import (
 )
 from app.api.address_change.services import build_owed_carry_filter, masked_address
 from app.api.grants.crud import read_grants
-from app.api.grants.erasure import erase_grants_and_authorship_in_session
+from app.api.grants.erasure import erase_grants_in_session
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
@@ -410,11 +410,7 @@ async def resolve_subject(
         if _runs(end_the_address_changes_in_session, scope)
         else None
     )
-    grants = (
-        await read(grants_collection, build_erasure_grant_pipeline(identifier))
-        if _runs(erase_grants_and_authorship_in_session, scope)
-        else None
-    )
+    grants = await read(grants_collection, build_erasure_grant_pipeline(identifier)) if _runs(erase_grants_in_session, scope) else None
 
     return Subject(
         identifier=identifier,
@@ -521,22 +517,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # After the pupil's records went: the season's erasure leaves the address's other records, and their change, standing.
     ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES}), person_group="spieler", run=end_an_emptied_change_in_session),
-    # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
-    # the pupil scope must never run it.
-    ErasureStep(
-        reaches=frozenset(
-            {
-                Collection.GRANTS,
-                Collection.OUTBOX,
-                Collection.BEWERBUNGEN,
-                Collection.REGISTRIERUNGEN,
-                Collection.BAN_LIST,
-                Collection.INVITATIONS,
-            }
-        ),
-        person_group=None,
-        run=erase_grants_and_authorship_in_session,
-    ),
+    # No kind's alone: a grant is an address's whatever else it holds, so the pupil scope must never run it.
+    ErasureStep(reaches=frozenset({Collection.GRANTS, Collection.OUTBOX}), person_group=None, run=erase_grants_in_session),
     # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
     # erasure's notices to the administrators who remain.
     ErasureStep(reaches=frozenset({Collection.OUTBOX}), person_group=None, run=erase_the_mails_in_session),
@@ -571,8 +553,6 @@ async def erase_everything(
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
@@ -699,20 +679,15 @@ async def erase_everything(
 
     grants = 0
     named: list[str] = []
-    if _runs(erase_grants_and_authorship_in_session, scope):
-        erased_grants = await erase_grants_and_authorship_in_session(
+    if _runs(erase_grants_in_session, scope):
+        grants = await erase_grants_in_session(
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            invitations_collection=invitations_collection,
-            ban_list_collection=ban_list_collection,
             identifier=identifier,
             now=now,
             session=session,
         )
-        grants = erased_grants.removed_grants
-        named += [*subject.changes_naming_it(), *erased_grants.rows]
+        named += subject.changes_naming_it()
 
     if _runs(erase_the_mails_in_session, scope):
         named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
@@ -850,8 +825,6 @@ async def erase_if_still_due(
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
-    ban_list_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     now: datetime,
     # REQUIRED: the judgement and the erasure commit together, so a squad row or a registration
@@ -911,8 +884,6 @@ async def erase_if_still_due(
         action_log_collection=action_log_collection,
         grants_collection=grants_collection,
         outbox_collection=outbox_collection,
-        invitations_collection=invitations_collection,
-        ban_list_collection=ban_list_collection,
         address_changes_collection=address_changes_collection,
         now=now,
         session=session,
