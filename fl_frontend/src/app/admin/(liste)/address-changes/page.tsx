@@ -4,6 +4,7 @@ import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { judgeAdminRequest } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
+import { formatInstantShort } from "@/core/format";
 import {
   AddressChangePostAddressChangeAdminBody,
   addressChangePostAddressChangeAdminBodyAddressMax,
@@ -59,12 +60,13 @@ function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdmin
   return valid_until === null ? COPY.shared.noValue : WORDS.untilCell(valid_until);
 }
 
-/** The discard's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed. */
-function discardFactsOf({ address, email, holder, waits_on }: FLAddressChangeAdminOpen): ReadonlyArray<Fact> {
+/** The ending's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed. */
+function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddressChangeAdminOpen): ReadonlyArray<Fact> {
   const toldHolders = holder !== null && waits_on === "waiting_period";
   return [
     { label: COPY.admin.facts.before, value: { record: address } },
     { label: COPY.admin.facts.after, value: { record: email } },
+    ...(effective_from === null ? [] : [{ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
     { label: COPY.admin.facts.mailTo, value: toldHolders ? COPY.admin.mailTo.holders : COPY.admin.seatEmpty },
   ];
 }
@@ -82,7 +84,8 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
       <ChangeActs
         id={change.id}
         resends={change.waits_on === "new_address"}
-        discardFacts={discardFactsOf(change)}
+        verb={change.waits_on === "waiting_period" ? "withdraw" : "discard"}
+        facts={endFactsOf(change)}
         holder={holder}
       />
     ),

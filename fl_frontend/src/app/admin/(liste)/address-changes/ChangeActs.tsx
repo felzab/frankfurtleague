@@ -19,17 +19,21 @@ import type { Fact } from "@/kit/Facts";
 /**
  * What a running change's row does, each act behind the passkey touch, the last step of its press: „Link senden“ where
  * the change waits on the new mailbox, the one step a fresh link serves, its answer a toast, the row holding no status
- * line; and „Verwerfen“, asked once, naming both addresses and whom it mails.
+ * line; and its ending, asked once, naming both addresses and whom it mails: „Zurückziehen“ in the wait, as Administratoren
+ * says of the same record, and „Verwerfen“ before it. It stands quiet beside the re-send and secondary alone, as a lone
+ * removal does on every list.
  */
 export function ChangeActs({
   id,
   resends,
-  discardFacts,
+  verb,
+  facts,
   holder,
 }: {
   id: string;
   resends: boolean;
-  discardFacts: ReadonlyArray<Fact>;
+  verb: "discard" | "withdraw";
+  facts: ReadonlyArray<Fact>;
   /** The address the page was drawn for, which the touch and each act post. */
   holder: string;
 }) {
@@ -53,17 +57,17 @@ export function ChangeActs({
         />
       )}
       <ConfirmDialog
-        verb="discard"
+        verb={verb}
         subject={COPY.account.address.change}
         consequence={COPY.admin.addressChange.previousStays}
-        facts={discardFacts}
+        facts={facts}
         tone="danger"
         touch={{ holder }}
         onConfirm={() => discardChange({ id, holder })}
         trigger={
           <Button
-            variant="quiet"
-            label={COPY.shared.verb.discard}
+            variant={resends ? "quiet" : "secondary"}
+            label={COPY.shared.verb[verb]}
           />
         }
       />
