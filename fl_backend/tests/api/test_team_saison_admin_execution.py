@@ -10,8 +10,6 @@ from app.api.teams.schemas import FLPatchTeamSaisonPayload, FLPostTeamEntryPaylo
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.bans import ban_list
-from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     ADDRESS,
@@ -30,7 +28,6 @@ DATABASE_NAME = worker_database("fl_team_saison_admin_test")
 
 SAISON_ID = "2026"
 TODAY = "2026-04-15"
-OPERATOR = str(grants_for_the_suite()[0]["address"])
 
 ADLER = ObjectId("6890a1b2c3d4e5f607280001")
 BIEBER = ObjectId("6890a1b2c3d4e5f607280002")
@@ -81,7 +78,6 @@ def on_a_league(
             )
             if spiele:
                 await database[Collection.SPIELE].insert_many(list(spiele))
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
             return await body(database)
 
@@ -125,14 +121,8 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         today=TODAY,
-        operator=OPERATOR,
-        auth_time=0,
     )
 
 
@@ -306,13 +296,16 @@ class TestTheEntry:
     def test_a_new_club_is_founded_and_entered_with_its_colour(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             answer = await enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="ESC")})
+            acts = database[Collection.ACTION_LOG].find({"action": "team.entered"})
 
-            return await database[Collection.SAISON_TEAMS].find_one({"team_id": ObjectId(answer.team_id)})
+            return await database[Collection.SAISON_TEAMS].find_one({"team_id": ObjectId(answer.team_id)}), [act["label"] async for act in acts]
 
-        row = on_a_league(mongo_replica_set_url, body)
+        row, acts = on_a_league(mongo_replica_set_url, body)
 
         assert row is not None
         assert (row["name"], row["shorthand"], row["gruppe"], row["trikot_farbe"], row["version"]) == ("Eschborn", "ESC", "A", "rot", 0)
+        # The Protokoll's one word for which club entered.
+        assert acts == ["Eschborn"]
 
     def test_a_taken_shorthand_is_refused_on_its_box(self, mongo_replica_set_url: str):
         """A retired club's among them, which the unique index would answer with no field."""

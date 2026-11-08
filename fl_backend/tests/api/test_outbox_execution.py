@@ -39,10 +39,10 @@ from app.api.outbox.services import (
     enqueue_mails,
 )
 from app.api.outbox.system_router import post_event, post_handout, post_result, post_sign_in
+from app.core import clock
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document
 from tests.outbox import claimable
@@ -54,10 +54,12 @@ DATABASE_NAME = worker_database("fl_outbox_test")
 
 # A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it.
 NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
+# Five minutes before the clock falls back, so a wall clock's ten run seventy.
+BEFORE_THE_CLOCK_FALLS_BACK = datetime(2126, 10, 27, 2, 55, tzinfo=clock.GERMANY)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
 REFERENCE = FLOutboxReference(collection=Collection.INVITATIONS, id=INVITATION, seat=None)
 NORA = "nora.neu@beispielschule.de"
-BAN = FLBanData(kind="ban", grund="Falsches Geburtsdatum", barred_until_saison_id="2127")
+BAN = FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -90,6 +92,7 @@ async def owe(
     link: bool = False,
     reference: FLOutboxReference = REFERENCE,
     spec: FLOutboxLink = LINK,
+    now: datetime = NOW,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
@@ -98,7 +101,7 @@ async def owe(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
             mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
-            now=NOW,
+            now=now,
         )
 
     async with transaction_session(client) as session:
@@ -115,7 +118,11 @@ async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
     return await post_handout(
-        outbox_collection=database[Collection.OUTBOX], ban_list=ban_list(database), db=database, db_client=client, now=claimable(now)
+        outbox_collection=database[Collection.OUTBOX],
+        ban_list_collection=database[Collection.BAN_LIST],
+        db=database,
+        db_client=client,
+        now=claimable(now),
     )
 
 
@@ -211,7 +218,7 @@ class TestTheDrain:
             late = await reported(database, lost.lease, row_id, "sent")
             settled = await reported(database, after.lease, row_id, "sent")
             record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
-            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.OUTBOX)})
+            logged = await database[Collection.ACTION_LOG].count_documents({})
 
             return lost, inside, after, late, settled, await stored(database, row_id), record, logged
 
@@ -224,6 +231,17 @@ class TestTheDrain:
         assert ((late.sent, late.ignored), (settled.sent, settled.ignored)) == ((0, 1), (1, 0))
         assert (row["state"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
         assert logged == 0
+
+    def test_a_lease_runs_its_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):
+        """Added to a Berlin value the ten minutes would be the wall clock's, and a dead drain's mail would wait seventy."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> datetime:
+            row_id = await owe(database, client, "ban/1", now=BEFORE_THE_CLOCK_FALLS_BACK)
+            await claimed(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
+
+            return (await stored(database, row_id))["leased_until"]
+
+        assert utc(on_a_database(mongo_replica_set_url, body)) == BEFORE_THE_CLOCK_FALLS_BACK.astimezone(UTC) + LEASE_DURATION
 
     def test_a_link_goes_into_every_seat_it_names_and_a_mail_whose_seat_moved_on_since_is_dropped(self, mongo_replica_set_url: str):
         """One link for a person holding two seats, minted into both; a seat emptied or re-addressed since mints nothing.
@@ -271,17 +289,45 @@ class TestTheDrain:
         assert (dropped, states) == ([], ["dropped", "dropped"])
 
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
+        """The second of the ban's two checkpoints, and every spelling of the address on the mail's row meets it."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document(NORA, until="2999"))
+            await database[Collection.BAN_LIST].insert_one(ban_document(NORA.upper(), until="2999"))
             code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
+            linked = await owe(database, client, "link/1", data=FLSignInCodeData(kind="sign_in_code"), link=True)
             ban = await owe(database, client, "ban/1")
+            await database[Collection.OUTBOX].update_one({"_id": code}, {"$set": {"to": NORA.upper()}})
             answer = await claimed(database, client)
 
-            return [mail.id for mail in answer.mails], ban, (await stored(database, code))["state"]
+            return (
+                [mail.id for mail in answer.mails],
+                ban,
+                [await stored(database, row) for row in (code, linked)],
+                await database[Collection.INVITATIONS].find_one({"_id": INVITATION}),
+            )
 
-        handed, ban, state = on_a_database(mongo_replica_set_url, body)
+        handed, ban, rows, record = on_a_database(mongo_replica_set_url, body)
 
-        assert (handed, state) == ([ban], "barred")
+        assert handed == [ban]
+        assert [(row["state"], "data" in row, "secret" in row) for row in rows] == [("barred", False, False)] * 2
+        # Nothing left the league: a stopped mail mints no link either.
+        assert record is not None
+        assert record["token_hashes"] == []
+
+    def test_a_row_of_an_older_shape_is_given_up_inside_the_claim_and_the_mail_behind_it_goes(self, mongo_replica_set_url: str):
+        """One row left by an earlier release would fail every claim until its deadline, and every mail behind it with it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            old = await owe(database, client, "ban/old")
+            await database[Collection.OUTBOX].update_one({"_id": old}, {"$unset": {"data.ban_reason": ""}})
+            behind = await owe(database, client, "ban/behind")
+            answer = await claimed(database, client)
+
+            return [mail.id for mail in answer.mails], answer.abandoned, behind, (await stored(database, old))["state"]
+
+        handed, abandoned, behind, state = on_a_database(mongo_replica_set_url, body)
+
+        assert (handed, abandoned, state) == ([behind], 1, "abandoned")
 
     def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
         """The row is a send's one record, so the provider's name for its refusal is the only answer to why it waited."""

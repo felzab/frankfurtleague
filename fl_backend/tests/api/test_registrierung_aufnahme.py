@@ -25,7 +25,6 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -38,8 +37,8 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import acts_of
 from tests.app_client import app_client
-from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
@@ -92,7 +91,6 @@ TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 RULES: Mapping[str, Any] = documents.rules_document(max_kader_size=3, allowed_stufen=["Q1", "Q2"])
 
-STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -241,16 +239,14 @@ async def admit(
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         records=record_collections(
             database,
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
-        action_log_collection=database[Collection.ACTION_LOG],
-        ban_list=ban_list(database),
         db=client,
-        germany_now=NOW,
     )
 
 
@@ -361,10 +357,11 @@ class TestWhatAnAdmissionWrites:
             registrierung_id = await seed(database, registrierung_document())
             answer = await admit(database, client, registrierung_id)
 
-            return answer, await persons(database), await squad_rows(database, spieler_id=answer.spieler_id)
+            return answer, await persons(database), await squad_rows(database, spieler_id=answer.spieler_id), await acts_of(database)
 
-        answer, stored, rows = on_a_league(mongo_replica_set_url, body)
+        answer, stored, rows, acts = on_a_league(mongo_replica_set_url, body)
 
+        assert acts == [("registrierung.admitted", "kontakt", "Zorbanax", answer.registrierung_id)]
         assert [person["_id"] for person in stored] == [answer.spieler_id]
         person = stored[0]
         assert (person["email"], person["first_name"], person["last_name"], person["birth_date"]) == (
@@ -386,10 +383,7 @@ class TestWhatAnAdmissionWrites:
         }
 
     def test_the_registration_is_gone_and_its_values_survive_nowhere(self, mongo_replica_set_url: str):
-        """A real confirmation first, so the log holds an image of the registration for the redaction to reach.
-
-        The as-typed address and the link's hash exist in the registration alone; the name and the birthdate became the person.
-        """
+        """The as-typed address and the link's hash exist in the registration alone; the name and the birthdate became the person."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
@@ -404,32 +398,20 @@ class TestWhatAnAdmissionWrites:
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 spieler_collection=database[Collection.SPIELER],
-                ban_list=ban_list(database),
                 db=client,
                 today=TODAY,
                 germany_now=NOW,
             )
-            imaged = await database[Collection.ACTION_LOG].count_documents(
-                {"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id, "before": {"$ne": None}}
-            )
             await admit(database, client, registrierung_id)
-            naming = (
-                await database[Collection.ACTION_LOG]
-                .find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id})
-                .to_list()
-            )
 
             remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
 
             # The link's hash alone: the address is the person's too, whom the admission writes.
-            return imaged, naming, remaining, await where_held(database, hash_token(TOKEN))
+            return remaining, await where_held(database, hash_token(TOKEN))
 
-        imaged, naming, remaining, held = on_a_league(mongo_replica_set_url, body)
+        remaining, held = on_a_league(mongo_replica_set_url, body)
 
-        # The premise: without an image the redaction below would pass reaching nothing.
-        assert imaged >= 1
         assert remaining == 0
-        assert naming and all(row["before"] is None and row["redacted_at"] is not None for row in naming)
         assert held == {hash_token(TOKEN): []}
 
     def test_it_writes_nothing_beyond_the_person_the_squad_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
@@ -592,36 +574,6 @@ class TestAnUnconfirmedRegistration:
         assert after == before
 
 
-class TestABarredAddress:
-    def test_the_admission_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            registrierung_id = await seed(database, registrierung_document())
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(FOLDED_EMAIL, until=STANDING))
-            before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id))
-
-            return code, before, await snapshot(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.REGISTRIERUNG_ADDRESS_BARRED
-        assert after == before
-
-    def test_a_ban_entered_between_the_read_and_the_press_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            registrierung_id = await seed(database, registrierung_document())
-            listed = await read(database, client)
-            await database[Collection.BAN_LIST].insert_one(documents.ban_document(TYPED_EMAIL, until=STANDING))
-
-            return listed.registrierungen[0].admissible, await refused(admit(database, client, registrierung_id)), await persons(database)
-
-        aufnehmbar, code, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert aufnehmbar is True
-        assert code == Code.REGISTRIERUNG_ADDRESS_BARRED
-        assert stored == []
-
-
 class TestThePersonAnAdmissionNames:
     @pytest.mark.parametrize(
         "differs",
@@ -781,7 +733,6 @@ class TestThePersonAnAdmissionNames:
                 identifier=FOLDED_EMAIL,
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 db=client,
-                config=build_test_config(),
                 germany_now=WITHDRAWN_AT,
             )
             await admit(database, client, registrierung_id)
@@ -870,7 +821,6 @@ async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spieler_collection=database[Collection.SPIELER],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -979,7 +929,6 @@ class TestAReturningRegistration:
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 teams_collection=database[Collection.TEAMS],
                 spieler_collection=database[Collection.SPIELER],
-                ban_list=ban_list(database),
                 today=TODAY,
             )
             held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
@@ -1154,7 +1103,7 @@ class TestTheDecline:
 
         passes, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert stored is not None and stored["decision"] == {"made_at": TODAY, "by": THEO, "reason": "other_person"}
+        assert stored is not None and stored["decision"] == {"made_at": TODAY, "reason": "other_person"}
         assert passes == 2, "one read is a decline that wrote over the rival's decision without a retry"
 
     @pytest.mark.parametrize("reason", [None, "other_person"])
@@ -1164,11 +1113,14 @@ class TestTheDecline:
             before = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
             await decline(database, client, registrierung_id, reason=reason, identifier=THEO)
 
-            return before, await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id}), await notes_owed(database)
+            stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": registrierung_id})
 
-        before, after, owed = on_a_league(mongo_replica_set_url, body)
+            return before, stored, await notes_owed(database), await acts_of(database)
 
-        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "by": THEO, "reason": reason}}
+        before, after, owed, acts = on_a_league(mongo_replica_set_url, body)
+
+        assert after == {**before, "status": "declined", "decision": {"made_at": TODAY, "reason": reason}}
+        assert acts == [("registrierung.declined", "kontakt", "Zorbanax", before["_id"])]
         # The confirmed pupil's note, owed in the decline's own transaction.
         assert [(row["to"], row["data"]["team"], row["data"]["reason"]) for row in owed] == [(FOLDED_EMAIL, "Zorbanax", reason)]
 

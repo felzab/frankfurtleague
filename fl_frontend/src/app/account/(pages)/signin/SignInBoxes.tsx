@@ -14,8 +14,6 @@ export type Pending = {
   readonly email: string;
   /** Said where the step it waits on lapsed. */
   readonly lapsed: boolean;
-  /** Said where a grant's move waits on another administrator too. */
-  readonly grant: boolean;
   /** The person's own change, which this page withdraws; an administrator's the old address's stop link ends. */
   readonly own: boolean;
 };
@@ -23,13 +21,14 @@ export type Pending = {
 /**
  * Anmeldung's two boxes: the address the person signs in with, its change started, or pending and withdrawn; and
  * „Konto löschen“, the press mailing the link the deletion waits on. `held` says the person holds a passkey, whose
- * touch the start asks first; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
+ * touch the start's press asks; `holderWait` says what a holder's own change waits; `lastOwner` closes the deletion for the league's last owner. Drawn on the server: each
  * box's act is a server action's reference, which a Client Component takes as a prop, and nothing here is a closure.
  */
 export function SignInBoxes({
   email,
   pending,
   held,
+  holderWait,
   lastOwner,
   addressRequired,
 }: {
@@ -38,6 +37,7 @@ export function SignInBoxes({
   addressRequired: boolean;
   pending: Pending | null;
   held: boolean;
+  holderWait: Copy | undefined;
   lastOwner: Copy | undefined;
 }) {
   const address = (
@@ -67,6 +67,12 @@ export function SignInBoxes({
             kind="email"
             isRequired={addressRequired}
           />
+          {holderWait !== undefined && (
+            <Callout
+              tone="info"
+              text={holderWait}
+            />
+          )}
         </AccountBox>
       ) : (
         <AccountBox
@@ -90,12 +96,6 @@ export function SignInBoxes({
             <Callout
               tone="warn"
               text={COPY.account.address.lapsed}
-            />
-          )}
-          {pending.grant && (
-            <Callout
-              tone="info"
-              text={COPY.account.address.grantNote}
             />
           )}
         </AccountBox>

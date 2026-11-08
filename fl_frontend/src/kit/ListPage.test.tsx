@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToString } from "react-dom/server";
+import { renderToReadableStream, renderToString } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -14,6 +15,7 @@ import { RailPage } from "./RailFrame";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
 import type { ComponentProps } from "react";
+import type { ListRoleActs, SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
 vi.mock("next/link", () => ({
@@ -74,6 +76,26 @@ describe("the frames' `main`", () => {
 });
 
 describe("the list's create act", () => {
+  // The harm: a handover's start swaps its trigger for the locked button, and the keyboard's place falls to `body`.
+  it("keeps the keys in the toolbar when the act it just ran locks it", async () => {
+    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
+    const page = (locked?: typeof COPY.template.draftUnsaved) => (
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        create={{ title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null, locked }}
+        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
+      />
+    );
+    const { rerender } = render(page());
+    const trigger = screen.getByRole("button", { name });
+    const place = trigger.closest('[data-kit-focus="home"]');
+    trigger.focus();
+
+    rerender(page(COPY.template.draftUnsaved));
+
+    await waitFor(() => expect(document.activeElement).toBe(place));
+  });
+
   // The harm: a dialog's trigger around the locked button would open the create form behind the reason.
   it("answers a press with its reason while locked, never its form", async () => {
     const reason = COPY.template.draftUnsaved;
@@ -90,6 +112,58 @@ describe("the list's create act", () => {
     expect((await screen.findByRole("tooltip")).textContent).toBe(reason);
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("heading", { name })).toBeNull();
+  });
+});
+
+describe("the toolbar's acts the read decides", () => {
+  // Read at once, since a prerender waits for every boundary, the list's among them.
+  const LIST = {
+    kind: "spieltage",
+    wait: { tabs: 7, matches: 8 },
+    content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } as const }),
+  } as const;
+  const HEAD = { scope: "saison", title: { route: "spielplan" } } as const;
+
+  // The harm: an empty toolbar row holds the page's gap over an administrator's list, which then stands lower than its wait.
+  it("draws no row for a reader holding neither act, as the wait draws none", async () => {
+    const { prelude } = await prerender(
+      <ListPage
+        head={HEAD}
+        acts={Promise.resolve({ side: null, create: null })}
+        list={LIST}
+      />,
+      // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
+      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+    );
+    const page = document.createElement("div");
+    page.innerHTML = await new Response(prelude).text();
+
+    expect(page.querySelector("[class*='flex-wrap']")).toBe(null);
+  });
+
+  // The harm: React's reveal throttle holds each reveal 300 ms after the last, so a toolbar in a boundary of its own can
+  // land after the rows and lift them under a finger on „Entfernen“. Each boundary's reveal is one `$RC` call in the stream.
+  it("reveals the toolbar and the list as one", async () => {
+    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
+    const acts = Promise.withResolvers<ListRoleActs>();
+    const list = Promise.withResolvers<SpieltageContent>();
+    const stream = await renderToReadableStream(
+      <ListPage
+        head={HEAD}
+        acts={acts.promise}
+        list={{ ...LIST, content: list.promise }}
+      />,
+    );
+
+    acts.resolve({
+      side: null,
+      create: { title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null },
+    });
+    list.resolve(await LIST.content);
+    const page = await new Response(stream).text();
+
+    expect(page).toContain(name);
+    expect(page.match(/\$RC\("/g)).toHaveLength(1);
   });
 });
 

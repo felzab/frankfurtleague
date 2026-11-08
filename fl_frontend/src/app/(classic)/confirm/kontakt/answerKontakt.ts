@@ -33,8 +33,8 @@ const Answer = z.discriminatedUnion("act", [
   z.object({ act: z.literal("secondary"), token: declined.shape.token }),
 ]);
 
-/** The refusals that say the link holds no more since the page opened: lapsed, mistyped or barred since. */
-const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", "link_barred"]);
+/** The refusals that say the link holds no more since the page opened: lapsed or mistyped. */
+const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired"]);
 
 const spent = (error: unknown) => error instanceof APIBadStatusError && error.serverErrorCode !== undefined && SPENT.has(error.serverErrorCode);
 

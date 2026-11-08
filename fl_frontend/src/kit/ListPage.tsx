@@ -19,7 +19,8 @@ import { Link } from "./Link";
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { Placeholder, SAISON_WORDS, Waiting } from "./Skeleton";
+import { RowActs } from "./RowActs";
+import { Placeholder, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
@@ -28,7 +29,7 @@ import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { DialogAct } from "./dialogAct";
 import type { EmptyStateProps } from "./EmptyState";
@@ -97,7 +98,16 @@ type ListContent =
       head: TableHead;
       /** How many rows its wait draws. */
       wait: number;
+      /** „Weitere 50 laden“ stands under the list as a rule, so its wait draws the button. */
+      paged?: true;
       content: Promise<TableContent>;
+    }
+  | {
+      kind: "folds";
+      /** The cards while they wait, `OpenFoldPlaceholder`, which the page places as it places the cards. */
+      wait: ReactElement;
+      /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
+      content: Promise<ReactElement>;
     }
   | {
       kind: "spieltage";
@@ -156,11 +166,20 @@ function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table":
       return (
-        <TablePlaceholder
-          head={list.head}
-          rows={list.wait}
-        />
+        <>
+          <TablePlaceholder
+            head={list.head}
+            rows={list.wait}
+          />
+          {list.paged === true && (
+            <div className="flex items-center gap-3">
+              <span className={buttonPlaceholder()}>{COPY.shared.loadMore}</span>
+            </div>
+          )}
+        </>
       );
+    case "folds":
+      return list.wait;
     case "groups":
       return Array.from({ length: list.wait.groups }, (_, index) => (
         <CardPlaceholder
@@ -212,6 +231,11 @@ function ListPlaceholder({ list }: { list: ListContent }) {
     case "tiles":
       return <SchoolTilesPlaceholder count={list.wait} />;
   }
+}
+
+/** What a list's boundary holds while its blocks are read, laid out as the blocks will be. */
+function ListWait({ children }: { children: ReactNode }) {
+  return <Waiting layout="flex flex-col gap-6">{children}</Waiting>;
 }
 
 /** A list's empty state inside the list's box, as `Table` places its own. */
@@ -273,11 +297,16 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
  */
 export type ListCreate = DialogAct & { locked?: Copy };
 
+/** A toolbar act the read words: its words, which its wait draws at their width, and the act, `locked` while the list as read shuts it. */
+export type ListActOnceRead = { label: Copy; act: Promise<ListCreate> };
+
+/** The toolbar's acts where the reader's role decides them, each `null` for a reader who does not hold it. */
+export type ListRoleActs = { side: ListCreate | null; create: ListCreate | null };
+
 /**
- * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height. A list reads
- * its act's words alone where they name the next season, so the placeholder names a season, any season's name as wide.
+ * The create act while what it makes is read: its button's placeholder, so the toolbar keeps its height.
  */
-function CreatePlaceholder() {
+function CreatePlaceholder({ label }: { label: Copy }) {
   return (
     <Placeholder>
       <span className={buttonPlaceholder()}>
@@ -285,36 +314,74 @@ function CreatePlaceholder() {
           glyph="create"
           size={16}
         />
-        {actLabel({ verb: "create", object: SAISON_WORDS })}
+        {label}
       </span>
     </Placeholder>
   );
 }
 
-/** The create act at the toolbar row's end, its button opening the dialog over the list. */
-function CreateAct({ create }: { create: ListCreate }) {
-  const { locked, ...act } = create;
+/**
+ * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second
+ * act before it, a secondary button.
+ */
+function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate; side?: boolean }) {
   const button = (
     <Button
-      variant="primary"
-      leadingIcon="create"
+      variant={side ? "secondary" : "primary"}
+      {...(side ? {} : { leadingIcon: "create" as const })}
       label={actLabel(act.act)}
       locked={locked}
     />
   );
   return locked === undefined ? (
-    <Dialog
-      {...act}
-      trigger={button}
-    />
+    // The act that locks it takes its trigger along: a handover's start, whose button stands again unbound to its dialog.
+    <RowActs className="contents">
+      <Dialog
+        {...act}
+        trigger={button}
+      />
+    </RowActs>
   ) : (
     button
   );
 }
 
-/** The create act once what it makes is read. */
-async function CreateOnceRead({ create }: { create: Promise<ListCreate> }) {
-  return <CreateAct create={await create} />;
+/** A toolbar act once what it makes is read. */
+async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
+  return <ToolbarAct act={await act} />;
+}
+
+/** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
+const TOOLBAR_CLASSES = "flex flex-wrap items-center gap-3";
+
+/** The acts at the toolbar row's end, where focus lands when an act takes the control it was on with it. */
+function ToolbarActs({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-kit-focus="home"
+      className="ms-auto flex flex-wrap items-center justify-end gap-3">
+      {children}
+    </div>
+  );
+}
+
+/** The toolbar of a reader the role's acts reach, and no row for any other, whose empty row would hold the page's gap. */
+async function RoleActsOnceRead({ acts }: { acts: Promise<ListRoleActs> }) {
+  const { side, create } = await acts;
+  if (side === null && create === null) return null;
+  return (
+    <div className={TOOLBAR_CLASSES}>
+      <ToolbarActs>
+        {side !== null && (
+          <ToolbarAct
+            act={side}
+            side
+          />
+        )}
+        {create !== null && <ToolbarAct act={create} />}
+      </ToolbarActs>
+    </div>
+  );
 }
 
 /**
@@ -363,6 +430,8 @@ async function ListBody({ list }: { list: ListContent }) {
         />
       );
     }
+    case "folds":
+      return list.content;
     case "spieltage": {
       const { tabs, empty } = await list.content;
       return tabs === null ? <EmptyBox empty={empty} /> : <Spieltage {...tabs} />;
@@ -438,23 +507,25 @@ async function ListBody({ list }: { list: ListContent }) {
 /**
  * The list template: the page's title in the strip; one toolbar row holding the search field where the list
  * is long enough to need one, the filter block, its values in the address, and at the row's end the act
- * creating a record over the list; then the list. The list is a table whose rows open their records,
- * „Weitere 50 laden“ under it only while the server reports more rows; or, for the season's matches, the
- * matchday tabs, one matchday at a time, opening on the one the server names; or one card per group, its
+ * creating a record over the list, a second act before it where the list holds one; then the list. The list is a
+ * table whose rows open their records or carry their acts, „Weitere 50 laden“ under it only while the server reports
+ * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
+ * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
  * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
- * The title and the toolbar are drawn at once; the list alone waits for its content, in the template's one
- * boundary, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the search field before the rows arrive
- * searches them once they do.
+ * The title and the toolbar are drawn at once; the list waits for its content, in the template's one boundary with what
+ * its read decides above it, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the
+ * search field before the rows arrive searches them once they do.
  */
 export function ListPage({
   head,
   filters,
   filterCount = 1,
   create,
+  acts,
   link,
   notice,
   list,
@@ -469,12 +540,24 @@ export function ListPage({
   filterCount?: number;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
-   * where what it makes is the list's to say, as the Saisons list names the next season, so it waits in a boundary of
-   * its own and stands in the toolbar once read.
+   * where what it makes is the list's to say, as the Saisons list names the next season, or whether it stands at all, so
+   * it waits in a boundary of its own and stands in the toolbar once read.
    */
-  create?: ListCreate | Promise<ListCreate>;
+  create?: ListCreate | ListActOnceRead;
+  /**
+   * The acts one role alone holds, read with the list, as Administratoren's: the create act, and before it a second act
+   * on the list as a whole, a secondary button. No wait draws them. What a reader sees of an ordinary load's wait is the
+   * static shell's (`PageWaitOnceRead`), which knows no reader, so a placeholder would show every other role an act it
+   * does not hold and then lift its list. Every role waits alike, and the toolbar arrives with the list for the role
+   * holding it, moving the list down by its own height. It stands in the list's boundary: in one of its own, React's
+   * reveal throttle can land the rows 300 ms ahead of it, and it then lifts them under a finger on a row's act.
+   */
+  acts?: Promise<ListRoleActs>;
   link?: ListLink;
-  /** What holds of the list as read and no row says, standing between the toolbar and the list. */
+  /**
+   * What holds of the list as read and no row says, standing between the toolbar and the list, in the list's boundary as
+   * `acts` are, for the same reason.
+   */
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
@@ -487,23 +570,23 @@ export function ListPage({
         {/* One toolbar row: the search at a reading width, the filters beside it, the create act at the row's
             end; on a phone the search keeps the width and the buttons share the next line. */}
         {hasToolbar && (
-          <div className="flex flex-wrap items-center gap-3">
-            {search !== undefined && <ListSearchField label={search.label} />}
+          <div className={TOOLBAR_CLASSES}>
+            {search !== undefined && <ListSearchField {...search} />}
             {filters !== undefined && (
               <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
               </Suspense>
             )}
             {create !== undefined && (
-              <div className="ms-auto">
-                {create instanceof Promise ? (
-                  <Suspense fallback={<CreatePlaceholder />}>
-                    <CreateOnceRead create={create} />
+              <ToolbarActs>
+                {"label" in create ? (
+                  <Suspense fallback={<CreatePlaceholder label={create.label} />}>
+                    <ToolbarActOnceRead act={create.act} />
                   </Suspense>
                 ) : (
-                  <CreateAct create={create} />
+                  <ToolbarAct act={create} />
                 )}
-              </div>
+              </ToolbarActs>
             )}
             {link !== undefined && (
               <div className="ms-auto">
@@ -519,17 +602,14 @@ export function ListPage({
             )}
           </div>
         )}
-        {notice !== undefined && (
-          <Suspense fallback={null}>
-            <NoticeOnceRead notice={notice} />
-          </Suspense>
-        )}
         <PageWait
           fallback={
-            <Waiting layout="flex flex-col gap-6">
+            <ListWait>
               <ListPlaceholder list={list} />
-            </Waiting>
+            </ListWait>
           }>
+          {acts !== undefined && <RoleActsOnceRead acts={acts} />}
+          {notice !== undefined && <NoticeOnceRead notice={notice} />}
           <ListBody list={list} />
         </PageWait>
       </ListQueryScope>

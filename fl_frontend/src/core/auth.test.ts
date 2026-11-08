@@ -20,7 +20,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { assertionAnswer } from "./auth/assertionAnswer.ts";
-import { PASSKEY_TOUCH_SECONDS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes.ts";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
@@ -224,13 +224,11 @@ const { runWithEndpointContext } = (await import(
 const { auth } = await import("./auth/library.ts");
 const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getAdminSession, getAccountSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
-const { getSignedInAddress, getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
-const { isFreshlySignedIn } = await import("./auth/sessionStamps.ts");
+const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
+const { getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
 const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { holdsOwnersTier } = await import("./grant.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -668,7 +666,7 @@ describe("the administrator's idle hour across the proxy's slide", () => {
     madeByPasskey(store, row);
     refreshedAgo(row, idle);
 
-    await proxy(new NextRequest("http://localhost:3000/area/admin/spiele", { headers: { cookie } }));
+    await proxy(new NextRequest("http://localhost:3000/admin/spielorte", { headers: { cookie } }));
     assert.ok(Date.now() - row.updatedAt.getTime() < MINUTE_MS, "the proxy slid nothing, so the case proves nothing");
 
     arriveAs(cookie);
@@ -775,40 +773,6 @@ describe("a passkey session made before its grant", () => {
   });
 });
 
-/* A session a ban's ending missed, a race or a failed sign-out, manages no passkeys and no sign-ins:
-   the account page's guard reads the ban on every request, as the person guard does. */
-describe("the account page's guard on a barred address", () => {
-  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
-
-  it("answers no session once the address is barred, and the same session before", async () => {
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    assert.ok(await getAccountSession(), "the seated person's session was refused, so the case below proves nothing");
-
-    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-
-    expect(await getAccountSession()).toBe(null);
-  });
-});
-
-describe("a grant on a barred address", () => {
-  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
-
-  /* The backend's actor check refuses a barred holder every admin-tier request, so the guard admits
-     them nowhere rather than into a shell whose every read fails. */
-  it("admits no administrator, however the session was made", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, barred: true });
-
-    expect(await getAdminSession()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(await getSignedInAddress()).toBe(null);
-  });
-});
-
 describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -853,24 +817,6 @@ describe("the administrator's passkey sign-in, judged at the same guard", () => 
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
     expect(isAdminSession(withoutFactor, A_GRANT)).toBe(false);
-  });
-
-  // The backend refuses an owner's write from a sign-in older than the promotion, so the page offers it none;
-  // the millisecond either side of the session's making decides.
-  it("holds an owner's power on a session made since the promotion alone, and administers on an older one", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    madeByPasskey(store, row);
-    const seen = await served(cookie);
-    assert.ok(seen);
-    const made = new Date(seen.session.createdAt).getTime();
-    const promotedAt = (instant: number) => ({ ...A_GRANT, admin_tier: "owner" as const, owner_since: new Date(instant).toISOString() });
-
-    expect([
-      holdsOwnersTier(seen.session.createdAt, promotedAt(made)),
-      holdsOwnersTier(seen.session.createdAt, promotedAt(made + 1)),
-      isAdminSession(seen, promotedAt(made + 1)),
-      holdsOwnersTier(seen.session.createdAt, A_GRANT),
-    ]).toStrictEqual([true, false, true, false]);
   });
 });
 
@@ -1602,32 +1548,6 @@ describe("which session a new sign-in replaces", () => {
   });
 });
 
-describe("the step-up every change to passkeys and sign-ins asks for", () => {
-  const judged = (email: string, authFactor: string, age: number) =>
-    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, isAdmin: email === ADMIN_EMAIL });
-
-  it("admits a person signed in by either factor inside the window, and neither past it", () => {
-    for (const factor of ["code", "passkey"]) {
-      expect(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS - 60_000), `${factor} inside the window`).toBe(true);
-      expect(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS + 60_000), `${factor} past the window`).toBe(false);
-    }
-  });
-
-  /* The administrator's step-up is the passkey's: a mailbox alone must not manage the passkeys that
-     guard the admin surface. */
-  it("admits an administrator inside the window by the passkey alone", () => {
-    expect(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS - 60_000)).toBe(true);
-    expect(judged(ADMIN_EMAIL, "code", 0)).toBe(false);
-    expect(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS + 60_000)).toBe(false);
-  });
-
-  it("takes a stamp it cannot read for no step-up at all", () => {
-    expect(
-      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, isAdmin: false }),
-    ).toBe(false);
-  });
-});
-
 describe("what a ban ends in the sign-in store", () => {
   it("ends every session of the account the barred address folds to, and keeps the account and its passkeys", async () => {
     const first = await signIn(PERSON_EMAIL);
@@ -2151,8 +2071,8 @@ describe("which addresses the send gate mails", () => {
   });
 
   /* A grant written in the database directly is the one way onto a barred address, and it admits
-     nothing: the backend refuses a barred holder every admin-tier request, so a code would open a
-     shell whose every read fails. */
+     nothing: the ban is judged at the sign-in, for a holder as for anyone, so this refusal is what
+     keeps them out. */
   it("mails a barred address holding a grant nothing", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, barred: true });
 
@@ -2339,8 +2259,8 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {
-  /* One person, one spelling in `aktionen.actor.email`: this lane and the person's lane compose the
-     actor from one address, so a log filtered on it holds every write they made. */
+  /* One person, one spelling in `action_log.by`, which an administrator's act takes from this actor,
+     so a log filtered on it holds every write they made. */
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -2505,14 +2425,14 @@ const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[
   pending: store.verification.filter((held) => pending.includes(held.identifier)).length,
 });
 
-/** The backend's refusal of the erasure for a ban entered since the request was judged, as the API client raises one. */
+/** The backend's refusal of the owner's own erasure, as the API client raises one. */
 async function erasureRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
     url: `${API_ORIGIN}/api/v0/identity/account/erasure`,
-    statusCode: 403,
-    serverErrorCode: "person_barred",
+    statusCode: 409,
+    serverErrorCode: "owner_erasure",
     endpoint: "/identity/account/erasure",
     method: "POST",
     readOnly: false,
@@ -2726,6 +2646,8 @@ describe("an account deleted for its address, and the list of every account", ()
     const person = await seedAccount("konto-weg@example.org");
 
     expect(await deleteAccountFor("Konto-Weg@Example.org")).toBe(true);
+    // Mailed nowhere, a person would never learn their account went.
+    expect(owed.at(-1)).toMatchObject({ to: "konto-weg@example.org", data: { kind: "deletion_notice", saison_id: null } });
 
     expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });

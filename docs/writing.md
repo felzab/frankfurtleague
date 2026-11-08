@@ -26,9 +26,8 @@ check is on this page.
   a visitor reads is not a name and keeps its words. A page address and a mailed link's address follow
   this rule as a name does, each segment a league word or English, save `/impressum` and `/datenschutz`,
   the words German law and a German visitor look for (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`,
-  which `fl_frontend/src/core/routes.test.ts` holds every address to but those under the two trees its
-  `UNHELD` names: `/area/admin`, the administration's old pages, until session 7 rebuilds them,
-  and `/api/bestaetigung`, the confirmation handlers, until session 8 moves their last
+  which `fl_frontend/src/core/routes.test.ts` holds every address to but those under the tree its
+  `UNHELD` names: `/api/bestaetigung`, the confirmation handlers, until session 8 moves their last
   importers). A stored or served name — a collection, a field, a value, an index — follows this rule
   as a code name does: a core entity or attribute of the league keeps the glossary's German word
   (`saison_phase`, `sonderereignis`, `mietpreis`), and every other data noun is English
@@ -45,10 +44,10 @@ check is on this page.
 - **A file or folder is cased by its kind.** A React component's file is PascalCase after the
   component it exports (`LinkRows.tsx`), every other TypeScript module camelCase after its main
   export (`signInGate.ts`), a Python module or package and a shell script snake_case
-  (`journal_replay.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
+  (`check_public_routes.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
   folder is lowercase kebab-case (`features/address-change/`), and a dynamic route segment is named
   as its param (`[saison_id]`). A test file is named after the module it tests (`routes.test.ts`,
-  `test_journal.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
+  `test_recording.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
   `README.md`). The lint's `check-file/folder-naming-convention` and
   `check-file/filename-naming-convention` (`eslint-plugin-check-file`, `fl_frontend/eslint.config.mjs`)
   and ruff's pep8-naming module rule `N999`, over the packages `namespace-packages` names

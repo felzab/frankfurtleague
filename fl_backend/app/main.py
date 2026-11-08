@@ -9,16 +9,17 @@ from pydantic import TypeAdapter
 from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from app.api.account.person_router import router as account_person_router
+from app.api.action_log.admin_router import router as action_log_admin_router
 from app.api.address_change.admin_router import router as address_change_admin_router
 from app.api.address_change.public_router import router as address_change_public_router
 from app.api.address_change.system_router import router as address_change_system_router
-from app.api.aktionen.admin_router import router as action_log_admin_router
-from app.api.berechtigungen.admin_router import router as grants_admin_router
-from app.api.berechtigungen.system_router import router as grants_system_router
+from app.api.ban_list.admin_router import router as ban_list_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.system_router import router as bewerbungen_system_router
+from app.api.grants.admin_router import router as grants_admin_router
+from app.api.grants.system_router import router as grants_system_router
 from app.api.identity.admin_router import router as identity_admin_router
 from app.api.identity.person_router import router as identity_person_router
 from app.api.identity.system_router import router as identity_system_router
@@ -35,7 +36,6 @@ from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_r
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.public_router import router as schiedsrichter_public_router
 from app.api.schiedsrichter.system_router import router as schiedsrichter_system_router
-from app.api.sperrliste.admin_router import router as ban_list_admin_router
 from app.api.spielberichte.admin_router import router as spielberichte_admin_router
 from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
@@ -61,7 +61,14 @@ from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
-from app.shared.schemas.bounds import ADDRESS_CHANGE_BOUNDS, CONSENT_BOUNDS, FLTeamShorthandLength
+from app.shared.schemas.bounds import (
+    ADDRESS_CHANGE_BOUNDS,
+    CONSENT_BOUNDS,
+    GRANT_BOUNDS,
+    FLActionLogPageSize,
+    FLBanDurationSaisons,
+    FLTeamShorthandLength,
+)
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
 from app.shared.schemas.responses import FLFailureBody
 
@@ -85,7 +92,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     ),
     "saisons": (saisons_public_router, saisons_admin_router, saisons_overview_router),
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
-    "sperrliste": (ban_list_admin_router,),
+    "ban_list": (ban_list_admin_router,),
     "spielberichte": (spielberichte_admin_router, spielberichte_person_router),
     "spielbestaetigungen": (
         spielbestaetigungen_public_router,
@@ -140,10 +147,20 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 
 
 # Every alias a frontend constant is checked against: each consent's current label, which a grant sends, the
-# address change's and the consents' bounds, which the pages state, the Kürzel's length, which a control caps a code
+# address change's and the consents' bounds, which the pages state, the Protokoll's page, which its button states, the
+# Kürzel's length, which a control caps a code
 # at, and the domain rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused
 # field's `kind` is one of Pydantic's own error types as often.
-MIRRORED_CONSTANTS: Final = (*CURRENT_TEXT_VERSIONS, *ADDRESS_CHANGE_BOUNDS, *CONSENT_BOUNDS, FLTeamShorthandLength, Rule)
+MIRRORED_CONSTANTS: Final = (
+    *CURRENT_TEXT_VERSIONS,
+    *ADDRESS_CHANGE_BOUNDS,
+    *GRANT_BOUNDS,
+    *CONSENT_BOUNDS,
+    FLActionLogPageSize,
+    FLBanDurationSaisons,
+    FLTeamShorthandLength,
+    Rule,
+)
 
 
 def with_mirrored_constants(document: Mapping[str, Any]) -> dict[str, Any]:

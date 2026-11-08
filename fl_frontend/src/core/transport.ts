@@ -42,15 +42,12 @@ type QueryValue = string | number | boolean;
 
 /**
  * Orval's query builder, which would send a null value as the string "null": an absent or null value is left out, so
- * its parameter takes its default, and a list is sent as one key per value, the repeated key FastAPI reads a `list`
- * query parameter from (https://fastapi.tiangolo.com/tutorial/query-params-str-validations/).
+ * its parameter takes its default.
  */
-export const serializeQuery = (params: Readonly<Record<string, QueryValue | readonly QueryValue[] | null | undefined>> | undefined): string => {
+export const serializeQuery = (params: Readonly<Record<string, QueryValue | null | undefined>> | undefined): string => {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params ?? {})) {
-    for (const item of [value].flat()) {
-      if (item !== null && item !== undefined) query.append(key, String(item));
-    }
+    if (value !== null && value !== undefined) query.append(key, String(value));
   }
 
   return query.toString();

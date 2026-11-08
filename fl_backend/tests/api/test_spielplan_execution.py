@@ -643,7 +643,6 @@ class AbortedDraw:
     spieltage: int
     spiele: int
     watermark: Any
-    log: int
 
 
 class TestAFailedDrawLeavesNothingBehind:
@@ -674,7 +673,6 @@ class TestAFailedDrawLeavesNothingBehind:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -686,9 +684,6 @@ class TestAFailedDrawLeavesNothingBehind:
         assert aborted.refused_field == refused_field
         assert (aborted.spieltage, aborted.spiele) == (0, 0), "a rolled-back draw left documents behind"
         assert aborted.watermark is None, "the season claims a Spielplan the rollback took away"
-        # `record_write` runs in-session, so the log is part of what the abort takes back rather than
-        # a standing record of writes that never happened.
-        assert aborted.log == 0, "the action log kept a row for a write that was rolled back"
 
 
 # Planted beside the shipped indexes: two matchdays of one phase share this key, so the draw's own
@@ -753,7 +748,6 @@ class ReplacedSeason:
     first_ids: set[Any]
     spieltage: list[dict[str, Any]]
     spiele: list[dict[str, Any]]
-    log: list[dict[str, Any]]
 
 
 def a_replaced_season(url: str) -> ReplacedSeason:
@@ -771,7 +765,6 @@ def a_replaced_season(url: str) -> ReplacedSeason:
             first_ids=first_ids,
             spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
             spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
-            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     replaced = on_a_seeded_saison(url, body)
@@ -1124,28 +1117,6 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
 
         assert [row["spiel_nr"] for row in replaced.spiele if row["spieltag_id"] not in matchdays] == []
 
-    def test_the_log_records_each_removal_with_every_pre_image(self, mongo_replica_set_url: str):
-        """Use `delete_many` rather than `delete_many_from_db` and the schedule goes unrecorded."""
-
-        replaced = a_replaced_season(mongo_replica_set_url)
-
-        assert [(row["collection"], row["operation"], row["modified_count"]) for row in replaced.log] == [
-            (str(Collection.SPIELTAGE), "insert_many", replaced.first.spieltage),
-            (str(Collection.SPIELE), "insert_many", replaced.first.spiele),
-            (str(Collection.SAISONS), "patch_one", None),
-            (str(Collection.SPIELE), "delete_many", replaced.first.spiele),
-            (str(Collection.SPIELTAGE), "delete_many", replaced.first.spieltage),
-            (str(Collection.SPIELTAGE), "insert_many", replaced.second.spieltage),
-            (str(Collection.SPIELE), "insert_many", replaced.second.spiele),
-            (str(Collection.SAISONS), "patch_one", None),
-        ]
-        # The hand-assigned dates, venues and referees a redrawn season loses are recoverable from
-        # these images alone, so a count with no array would be half a record.
-        assert [len(row["before"]) for row in replaced.log if row["operation"] == "delete_many"] == [
-            replaced.first.spiele,
-            replaced.first.spieltage,
-        ]
-
 
 @dataclass(frozen=True)
 class NeighbouringSeasons:
@@ -1244,7 +1215,6 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -1253,9 +1223,6 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert aborted.refused_field == "date"
         assert aborted.watermark == {"generated_at": TODAY}
-        # The first draw's three rows and nothing else: the deletes are recorded in-session, so the
-        # abort takes their rows back too.
-        assert aborted.log == 3
 
 
 class TestTheReplaceWindowIsReachedThroughTheRoute:

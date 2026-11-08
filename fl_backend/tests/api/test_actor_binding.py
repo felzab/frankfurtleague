@@ -1,67 +1,41 @@
 """
-API · who a request acts for: the session headers behind the admin key, the step-up and the binders
+API · who a request acts for: the session headers behind the admin key and the binder
 
-Which routes carry which binder is `tests/api/test_admin_guard.py`'s sweep; this file proves what each
-binder and each check does with a request. The grants and the ban list each check reads are the db
-tier's (`tests/api/test_actor_grants_execution.py`, `tests/api/test_person_ban_execution.py`): here a
-request clearing every session check meets the missing database at the first of those reads.
+Which routes carry which guard is `tests/api/test_admin_guard.py`'s sweep; this file proves what each
+guard does with a request. The grants each check reads are the db tier's
+(`tests/api/test_actor_grants_execution.py`): here a request clearing every session check meets the
+missing database at the first of those reads.
 """
 
 import asyncio
 import contextlib
-import inspect
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from typing import Any, cast, get_args
+from collections.abc import AsyncIterator, Mapping
+from typing import Any, cast
 
 import pytest
-from fastapi import Depends, params
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from starlette.requests import Request
 
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
-from app.api.sperrliste.services import address_hash
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import ACTOR_CHALLENGE, APIError
-from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, ActorRole, PersonActor, actor_var, record_write, request_var
-from app.core.security import (
-    AUTH_TIME_HEADER,
-    ENROLMENT_WINDOW_S,
-    PASSKEY_FACTOR,
-    STEP_UP_WINDOW_S,
-    Attribution,
-    Factor,
-    SessionActor,
-    actor_pseudonym,
-    attribute_the_administrator,
-    bind_actor,
-    bind_public_actor,
-    erasure_journal_hash,
-    get_actor_email,
-    verify_recent_confirmation,
-    verify_step_up,
-)
+from app.core.exceptions import ACTOR_CHALLENGE
+from app.core.recording import actor_var, record_act
+from app.core.security import AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, PersonIdentifier, bind_actor, get_actor_email
 from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
-from tests.core.app_source import api_routes, application, dependency_calls
 from tests.session_headers import SESSION_AGE_S, actor_headers, verified_actor
 
 CONFIG = build_test_config()
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
-ROUTE_TEMPLATE = "/api/v0/teams/{team_id}"
 
 # An admin-tier read on a router that writes nothing: the session reaches a read as it reaches a write.
 READ_PATH = "/api/v0/spielorte"
 
 ACTOR = "admin@example.com"
-
-# A route added to a case's own app, its handler reading what the binder bound.
-PUBLIC_PROBE = "/api/v0/public-probe"
 
 
 def client() -> TestClient:
@@ -129,174 +103,34 @@ class TestTheAdministratorsSession:
         assert response.headers["www-authenticate"] == ACTOR_CHALLENGE
 
 
-# The writes held to the enrolment window, each declaring the check.
-GRANT_WRITES = [
-    pytest.param("post", "/api/v0/grants", id="a grant"),
-    pytest.param("delete", "/api/v0/grants/{grant_id}", id="a revoke"),
-    pytest.param("patch", "/api/v0/grants/{grant_id}", id="a tier change"),
-    pytest.param("post", "/api/v0/address_change/{address_change_id}/approval", id="an approval of a grant's move"),
-    pytest.param("post", "/api/v0/grants/approval_requests/{approval_request_id}/approval", id="an approval of a grant or a promotion"),
-]
+async def through(binder: AsyncIterator[None]) -> tuple[str | None, str | None]:
+    """Driven as FastAPI's exit stack drives it, in one task, so what the binder sets and resets is visible here."""
 
-# Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
-# link to an address. Listed, and held to the declarations by the case below.
-STEP_UP_WRITES = [
-    pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
-    pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
-    pytest.param("post", "/api/v0/sperrliste", id="a ban"),
-    pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
-    pytest.param("post", "/api/v0/address_change", id="an address change asked"),
-    pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
-    pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
-    pytest.param("delete", "/api/v0/grants/approval_requests/{approval_request_id}", id="a request for a grant refused or withdrawn"),
-]
-
-
-WindowCheck = Callable[[SessionActor], None]
-
-# Each window check and the window it holds a sign-in to.
-WINDOWS = [
-    pytest.param(verify_recent_confirmation, ENROLMENT_WINDOW_S, id="the grants' enrolment window"),
-    pytest.param(verify_step_up, STEP_UP_WINDOW_S, id="the step-up window"),
-]
-
-# Each window check and the writes declaring it.
-DECLARATIONS = [
-    pytest.param(verify_recent_confirmation, GRANT_WRITES, id="the grants' enrolment window"),
-    pytest.param(verify_step_up, STEP_UP_WRITES, id="the step-up window"),
-]
-
-
-def challenge(window_s: int) -> str:
-    return f'{ACTOR_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
-
-
-def refusal_of(check: WindowCheck, actor: SessionActor) -> APIError | None:
-    """What a window check raises for `actor`, called with a plain argument as FastAPI calls it once the session checks have answered."""
-
-    try:
-        check(actor)
-    except APIError as refused:
-        return refused
-
-    return None
-
-
-class TestTheStepUp:
-    """The grants' writes are held to the enrolment window, every other step-up write to the step-up window."""
-
-    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
-    def test_a_sign_in_older_than_the_window_is_refused_with_its_challenge(self, check: WindowCheck, window_s: int):
-        refused = refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s + 1))
-
-        assert refused is not None
-        assert (refused.status_code, refused.error_code) == (401, Code.CONFIRMATION_REQUIRED)
-        assert refused.headers == {"WWW-Authenticate": challenge(window_s)}
-
-    @pytest.mark.parametrize(("check", "window_s"), WINDOWS)
-    def test_a_sign_in_inside_the_window_passes(self, check: WindowCheck, window_s: int):
-        """The control: every refusal above would pass on a check refusing everything."""
-
-        assert refusal_of(check, verified_actor(ACTOR, signed_in_before_s=window_s - SESSION_AGE_S)) is None
-
-    @pytest.mark.parametrize(("check", "writes"), DECLARATIONS)
-    def test_every_route_declaring_the_check_is_one_listed_above(self, check: WindowCheck, writes: list[Any]):
-        """Both ways: a listed write dropping its declaration fails here, and so does a write declaring it unlisted."""
-
-        declared = {
-            operation
-            for route in api_routes(application())
-            if check in set(dependency_calls(route.dependant))
-            for operation in [(route.path_format, method.lower()) for method in route.methods or ()]
-        }
-
-        assert declared == {(param.values[1], param.values[0]) for param in writes}
-
-
-class _Route:
-    """A route carrying nothing but its `path`, which is all a binder reads off one."""
-
-    def __init__(self, path: str) -> None:
-        self.path = path
-
-
-def request_for(method: str) -> Request:
-    return Request(
-        {
-            "type": "http",
-            "method": method,
-            "path": WRITE_PATH,
-            "query_string": b"",
-            "headers": [],
-            "route": _Route(ROUTE_TEMPLATE),
-        }
-    )
-
-
-Bound = tuple[Actor | PersonActor, tuple[str, str] | None]
-
-
-async def through(binder: AsyncIterator[Any], inside: Callable[[], Awaitable[Any]] | None = None) -> tuple[Any, Bound, Bound]:
-    """Driven as FastAPI's exit stack drives it, in one task, so what the binder sets and resets is visible here.
-
-    `inside` runs where the handler would.
-    """
-
-    value = await anext(binder)
-    during = (actor_var.get(), request_var.get())
-    if inside is not None:
-        await inside()
+    await anext(binder)
+    during = actor_var.get()
     with contextlib.suppress(StopAsyncIteration):
         await anext(binder)
 
-    return value, during, (actor_var.get(), request_var.get())
+    return during, actor_var.get()
 
 
-def test_the_administrator_is_bound_folded_under_the_route_s_template_for_the_request_alone():
-    """Folded, so one administrator is one spelling in `aktionen`; the template, so the page reads one row per kind of action."""
-
-    attribution = attribute_the_administrator(verified_actor(ACTOR.upper()))
-    _, during, after = asyncio.run(through(bind_actor(request_for("PATCH"), attribution)))
-
-    assert during == (Actor(kind="admin_session", email=ACTOR), ("PATCH", ROUTE_TEMPLATE))
-    assert after == (SYSTEM_ACTOR, None)
+@pytest.fixture
+def an_administrator_bound() -> None:
+    """Overrides the suite's own: these cases read what a binder binds and what it leaves behind, so nothing is bound ahead of it."""
 
 
-def test_the_public_binder_names_the_public_whatever_the_headers_say():
-    """A visitor's own session headers name nobody: the public binder never reads them, and refuses no request over them."""
+def test_the_administrator_is_bound_folded_for_the_request_alone():
+    """Folded, so one administrator is one spelling in `action_log`; reset, or the address lands on the loop's next request."""
 
-    app = create_app(CONFIG)
-    seen: list[Bound] = []
+    during, after = asyncio.run(through(bind_actor(verified_actor(ACTOR.upper()))))
 
-    def probe() -> dict[str, bool]:
-        seen.append((actor_var.get(), request_var.get()))
-        return {"reached": True}
-
-    app.add_api_route(PUBLIC_PROBE, probe, methods=["POST"], dependencies=[Depends(bind_public_actor)])
-    response = TestClient(app, raise_server_exceptions=False).post(PUBLIC_PROBE, headers=actor_headers(ACTOR))
-
-    assert response.status_code == 200
-    assert seen == [(PUBLIC_ACTOR, ("POST", PUBLIC_PROBE))]
-
-
-# Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.
-KNOWN_MASTER = SecretStr("known-answer-key".ljust(64, "0"))
-KNOWN_IDENTIFIER = "anna@beispielschule.de"
-# The VALUE, computed outside this package with `hmac` and `hashlib` alone:
-# HMAC-SHA256(HMAC-SHA256(master, "actor-v1"), identifier), nothing under `app/` imported.
-KNOWN_PSEUDONYM = "23bd7fa5b508d2a92d2cb34a1fe9418c4a956f2a43a3df44e0cf8c133fb57209"
-
-MIXED_CASE = "Anna@BeispielSchule.DE"
-
-# Any one of the three: the cases below are about what every person binder does alike.
-SPIELER: ActorRole = "spieler"
+    assert (during, after) == (ACTOR, None)
 
 
 class _LogDouble:
-    """The log's collection as `record_write` reaches it: the target's own database handle, and one insert."""
+    """A collection as `record_act` reaches it: the target's own database handle, and one insert."""
 
     def __init__(self) -> None:
-        self.name = str(Collection.TEAMS)
         self.rows: list[Mapping[str, Any]] = []
         self.database = {Collection.ACTION_LOG: self}
 
@@ -304,18 +138,33 @@ class _LogDouble:
         self.rows.append(document)
 
 
+def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fails():
+    """What a request served over the wire meets on a route that forgot its `by`; a direct call runs with the suite's administrator bound."""
+
+    log = _LogDouble()
+
+    with pytest.raises(LookupError):
+        asyncio.run(record_act(collection=cast(AsyncCollection, log), action="team.retired", session=cast(AsyncClientSession, None)))
+    with pytest.raises(LookupError):
+        get_actor_email()
+
+    assert log.rows == []
+
+
+KNOWN_IDENTIFIER = "anna@beispielschule.de"
+MIXED_CASE = "Anna@BeispielSchule.DE"
+
 PERSON_PROBE = "/api/v0/person-probe"
 
 
-def _probe() -> dict[str, bool]:
-    return {"reached": True}
-
-
 def person_client() -> TestClient:
-    """The real application and one probe route declaring a person's binder, its ban read meeting the missing database."""
+    """The real application and one probe route declaring a person's guard, answering what it handed the handler."""
+
+    def probe(identifier: PersonIdentifier) -> dict[str, str]:
+        return {"identifier": identifier}
 
     app = create_app(CONFIG)
-    app.add_api_route(PERSON_PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS[SPIELER])])
+    app.add_api_route(PERSON_PROBE, probe, methods=["GET"])
 
     return TestClient(app, raise_server_exceptions=False)
 
@@ -324,101 +173,16 @@ def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, fact
     return actor_headers(email, signed_in_before_s=age_s, factor=factor)
 
 
-def attributed_person(role: ActorRole, email: str) -> Attribution[str]:
-    """What the Funktion's binder is handed for a person the ban check let through, by the attribute its own `Depends` names.
-
-    Called with plain arguments, as FastAPI calls it once that check has answered.
-    """
-
-    [declared] = [
-        marker
-        for marker in inspect.signature(PERSON_ACTOR_BINDERS[role]).parameters["attribution"].annotation.__metadata__
-        if isinstance(marker, params.Depends)
-    ]
-    assert declared.dependency is not None
-
-    return declared.dependency(actor=verified_actor(email, factor="code"), config=CONFIG)
-
-
 class TestThePersonsSession:
-    @pytest.mark.parametrize("role", get_args(ActorRole))
-    def test_a_person_is_bound_under_the_role_its_router_declares(self, role: ActorRole):
-        """Folded before it is hashed or handed on, so one mailbox's two spellings cannot hold two answers."""
+    def test_a_person_is_handed_on_folded(self):
+        """So one mailbox's two spellings cannot hold two answers."""
 
-        binder = PERSON_ACTOR_BINDERS[role]
-        identifier, during, after = asyncio.run(through(binder(request_for("GET"), attributed_person(role, MIXED_CASE))))
-
-        pseudonym = actor_pseudonym(KNOWN_IDENTIFIER, key=CONFIG.sperrliste_key)
-        assert identifier == KNOWN_IDENTIFIER
-        assert during == (PersonActor(pseudonym=pseudonym, role=role), ("GET", ROUTE_TEMPLATE))
-        assert after == (SYSTEM_ACTOR, None)
-
-    def test_the_log_row_carries_the_pseudonym_and_no_address(self):
-        """A person's route records a pseudonym, never an address, and hands no administrator to a field storing one."""
-
-        log = _LogDouble()
-        asked: list[str] = []
-
-        async def handler() -> None:
-            await record_write(collection=cast(AsyncCollection, log), operation="patch_one", document_id=TEAM_ID)
-            with contextlib.suppress(LookupError):
-                asked.append(get_actor_email())
-
-        binder = PERSON_ACTOR_BINDERS[SPIELER]
-        asyncio.run(through(binder(request_for("PATCH"), attributed_person(SPIELER, MIXED_CASE)), handler))
-
-        [row] = log.rows
-        pseudonym = actor_pseudonym(KNOWN_IDENTIFIER, key=CONFIG.sperrliste_key)
-        # An equality, so an `email` beside the two is a failure rather than an extra key nobody reads.
-        assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
-        assert "beispielschule" not in str(row).lower()
-        assert asked == []
+        assert person_client().get(PERSON_PROBE, headers=as_person(MIXED_CASE)).json() == {"identifier": KNOWN_IDENTIFIER}
 
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
 
         assert answer(response) == (401, Code.SESSION_REFUSED)
 
-    def test_a_request_naming_nobody_is_refused_before_the_ban_read_opens_the_database(self):
-        """No database and the real read: a 503 here would mean the list was asked before the session was read."""
-
+    def test_a_request_naming_nobody_is_refused(self):
         assert answer(person_client().get(PERSON_PROBE)) == (400, Code.MISSING_ACTOR)
-
-
-class TestThePseudonym:
-    def test_it_is_the_value_computed_outside_this_package(self):
-        """The known answer: every other case compares the function with itself, so a construction swapped end for end passes them all."""
-        assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_PSEUDONYM
-
-    def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
-        """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
-        assert actor_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != address_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
-
-
-# The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "erasure-v1".
-KNOWN_JOURNAL_HASH = "18eae5d2b55d4f7332413b1832628a846888b1f2f591819933dba6b4a554f398"
-
-
-class TestTheJournalHash:
-    def test_it_is_the_value_computed_outside_this_package(self):
-        assert erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
-
-    def test_it_is_neither_the_pseudonym_nor_the_ban_rows_digest(self):
-        """A shared label would let a journal line name the pseudonym an erasure removed, or the ban a person holds."""
-        journal = erasure_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
-
-        assert journal not in {KNOWN_PSEUDONYM, address_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)}
-
-
-# A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.
-UNFOLDED_IDENTIFIER = f" {MIXED_CASE} "
-
-
-@pytest.mark.parametrize(
-    ("helper", "folded"),
-    [(actor_pseudonym, KNOWN_PSEUDONYM), (erasure_journal_hash, KNOWN_JOURNAL_HASH)],
-    ids=("the pseudonym", "the journal hash"),
-)
-def test_an_unfolded_spelling_hashes_as_its_fold(helper: Callable[..., str], folded: str):
-    """A restore hashes every stored spelling against the journal, so a helper hashing the spelling as given matches nothing."""
-    assert helper(UNFOLDED_IDENTIFIER, key=KNOWN_MASTER) == folded

@@ -17,7 +17,7 @@ export async function eraseOwnRecords(): Promise<FLErasureResponse> {
 
 /**
  * The person's own start, under the person lane's actor: the signed-in address names the change, never
- * the body. Its answer holds both tokens, so it never travels past the action that mails them.
+ * the body.
  */
 export async function requestAccountAddressChange(payload: FLAccountAddressChangePayload): Promise<FLAccountAddressChangeMintResponse> {
   return accountPostAddressChange(payload);

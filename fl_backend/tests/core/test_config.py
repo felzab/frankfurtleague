@@ -11,7 +11,6 @@ from pymongo import MongoClient
 
 from app.core import db
 from app.core.config import (
-    BAN_LIST_KEY_MIN_LENGTH,
     INTERNAL_API_KEY_LENGTH,
     MONGODB_URI_FILE,
     SECRET_FILES,
@@ -34,10 +33,6 @@ def a_key_the_boot_accepts(prefix: str) -> str:
     return prefix.ljust(INTERNAL_API_KEY_LENGTH, "0")
 
 
-# Its own padding rather than the helper above: the two floors are separate decisions, and one
-# helper would make a change to either silently move the other's fixtures.
-BAN_LIST_KEY = "ban-list".ljust(BAN_LIST_KEY_MIN_LENGTH, "0")
-
 # Spelled as the environment spells them, because the half under test is what reads the environment.
 REQUIRED = {
     "DB_BASE_NAME": "frankfurtleague_test",
@@ -49,7 +44,6 @@ FILES = {
     "internal_api_key_base": a_key_the_boot_accepts("base"),
     "internal_api_key_system": a_key_the_boot_accepts("system"),
     "internal_api_key_admin": a_key_the_boot_accepts("admin"),
-    "sperrliste_key": BAN_LIST_KEY,
 }
 
 # Each credential's field, beside the file it is read from.
@@ -76,7 +70,6 @@ WELL_FORMED: dict[str, Any] = {
     "internal_api_key_base": SecretStr(a_key_the_boot_accepts("base")),
     "internal_api_key_system": SecretStr(a_key_the_boot_accepts("system")),
     "internal_api_key_admin": SecretStr(a_key_the_boot_accepts("admin")),
-    "sperrliste_key": SecretStr(BAN_LIST_KEY),
 }
 
 
@@ -139,22 +132,6 @@ class TestTheInternalKeys:
         """Both bounds: a truncated key answers every internal request 401, and a longer one boots here while the frontend refuses it."""
         with pytest.raises(ValidationError):
             build(**{field: SecretStr("k" * length)})
-
-
-class TestTheBanListKey:
-    def test_a_key_carrying_a_value_is_never_echoed_by_the_refusal_beside_it(self, monkeypatch, tmp_path):
-        """A rejected key reaching the container log is the whole exposure, and the value here is the one this gate would leak."""
-        short = "x" * (BAN_LIST_KEY_MIN_LENGTH - 1)
-
-        refused = refusal(monkeypatch, tmp_path, {"sperrliste_key": short.encode()})
-
-        assert refused == "Invalid secret files: sperrliste_key"
-        assert short not in refused
-
-    def test_a_key_under_the_floor_fails_the_boot(self):
-        """The boot is the last cheap moment: the key can never be rotated, every stored hash having been taken under it."""
-        with pytest.raises(ValidationError):
-            build(sperrliste_key=SecretStr("k" * (BAN_LIST_KEY_MIN_LENGTH - 1)))
 
 
 class TestTheSecretFiles:
@@ -243,12 +220,12 @@ class TestTheNamesOnlyErrorPath:
 
     def test_a_secret_file_the_reader_cannot_decode_refuses_with_the_failure_type_alone(self, monkeypatch, tmp_path):
         """Its decode error quotes the bytes it choked on, which are the credential's."""
-        directory = an_environment(monkeypatch, tmp_path, {"sperrliste_key": b"\xff\xfe" + BAN_LIST_KEY.encode()})
+        directory = an_environment(monkeypatch, tmp_path, {"internal_api_key_base": b"\xff\xfe" + a_key_the_boot_accepts("base").encode()})
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
 
-        assert str(raised.value) == f"Unreadable secret files: {directory / 'sperrliste_key'} (UnicodeDecodeError)"
+        assert str(raised.value) == f"Unreadable secret files: {directory / 'internal_api_key_base'} (UnicodeDecodeError)"
 
 
 class TestANameTheClassDoesNotDeclare:

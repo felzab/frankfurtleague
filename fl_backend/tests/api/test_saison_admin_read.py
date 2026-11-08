@@ -11,7 +11,6 @@ from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLSaisonAdminRes
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spiel_document, spielbericht_document
 from tests.worker import worker_database
@@ -35,7 +34,6 @@ async def read(database: AsyncDatabase) -> FLSaisonAdminResponse:
         teams_collection=database[Collection.TEAMS],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         invitations_collection=database[Collection.INVITATIONS],
-        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -141,6 +139,24 @@ def drawn(database: AsyncDatabase, client: AsyncMongoClient, *, replace: bool) -
         spielplan_data=FLGenerateSpielplanPayload(replace=replace),
         today=TODAY,
     )
+
+
+class TestTheEditorReadsTheDraw:
+    def test_a_season_holding_fixtures_and_no_matchday_reads_drawn(self, mongo_replica_set_url: str):
+        """A first draw refuses on those rows: read undrawn, the editor offers the press its write refuses."""
+
+        async def _run() -> Any:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+                await database[Collection.SPIELE].insert_one(
+                    spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=ObjectId())
+                )
+
+                return (await read(database)).spielplan
+
+        drawn_as = on_the_seed_loop(_run())
+
+        assert (drawn_as.spieltage, drawn_as.spiele) == (0, 1)
 
 
 class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:

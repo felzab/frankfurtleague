@@ -111,16 +111,6 @@ describe("what one refused submission shows", () => {
     expect(mapRegistrierungSubmitRefusal(refused("body_unreadable"))?.error).toBe(REGISTRIERUNG_NEU_OEFFNEN);
   });
 
-  it("tells a banned address nothing about a list", () => {
-    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_address_barred"));
-    const sentence = answered?.fieldErrors?.email ?? "";
-
-    expect(sentence, "the ban refusal reaches no control").not.toBe("");
-    for (const verboten of [/sperr/i, /barred/i, /liste/i, /blockiert/i, /Verstoß/i]) {
-      expect(sentence, `the visitor is told about a list: ${sentence}`).not.toMatch(verboten);
-    }
-  });
-
   it("answers the window, the junction, the narrowed Stufe and the full squad as a banner, none naming a field", () => {
     for (const code of ["registrierung_closed", "registrierung_stufe_not_allowed", "registrierung_kader_full"] as const) {
       const answered = mapRegistrierungSubmitRefusal(refused(code));
@@ -145,7 +135,7 @@ describe("what one refused submission shows", () => {
   it("marks the repeated press's refusals as arrived, and no other refusal", () => {
     expect(mapRegistrierungSubmitRefusal(refused("registrierung_key_differing"))?.schonAngekommen).toBe(true);
     expect(mapRegistrierungSubmitRefusal(refused("registrierung_already_admitted"))?.schonAngekommen).toBe(true);
-    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full", "registrierung_address_barred"] as const) {
+    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code))?.schonAngekommen, code).toBe(undefined);
     }
   });
@@ -159,7 +149,6 @@ describe("what one refused submission shows", () => {
       "registrierung_closed",
       "registrierung_stufe_not_allowed",
       "registrierung_kader_full",
-      "registrierung_address_barred",
       "registrierung_key_differing",
       "registrierung_already_admitted",
     );
@@ -170,7 +159,6 @@ describe("what one refused submission shows", () => {
       "registrierung_closed",
       "registrierung_stufe_not_allowed",
       "registrierung_kader_full",
-      "registrierung_address_barred",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
@@ -223,7 +211,6 @@ describe("what one refused confirmation shows", () => {
   it("reads the view for the age refusal and the states it tells apart alone", async () => {
     const zustaende = floorOf(16);
     await mapBestaetigungRefusal(refused("link_invalid"), GETIPPT, zustaende.lesen);
-    await mapBestaetigungRefusal(refused("link_barred"), GETIPPT, zustaende.lesen);
     expect(zustaende.read(), "a link state spent a read on the floor").toBe(0);
 
     const age = floorOf(16);
@@ -231,13 +218,11 @@ describe("what one refused confirmation shows", () => {
     expect(age.read(), "the age refusal reached the reader no number of its own could answer").toBe(1);
   });
 
-  /* Judged ahead of the ban, which the view ranks first, the deadline ahead of a confirmation too: the view's state
-     stands, and the press's own panel where the read finds the link open or fails. */
+  /* The deadline is judged ahead of a confirmation: the view's state stands, and the press's own panel where the read
+     finds the link open or fails. */
   it("answers a lapsed or a spent link with the panel the link's view reads", async () => {
     for (const [code, link, state] of [
       ["link_expired", { state: "confirmed" }, "confirmed"],
-      ["link_expired", { state: "barred" }, "barred"],
-      ["confirmation_exists", { state: "barred" }, "barred"],
       ["link_expired", null, "expired"],
       ["confirmation_exists", null, "confirmed"],
     ] as const) {
@@ -323,7 +308,6 @@ describe("what one refused confirmation shows", () => {
       "confirmation_exists",
       "confirmation_age",
       "media_age",
-      "link_barred",
       "registrierung_choices_unsuitable",
     );
     const mapped: Code[] = [
@@ -332,7 +316,6 @@ describe("what one refused confirmation shows", () => {
       "confirmation_exists",
       "confirmation_age",
       "media_age",
-      "link_barred",
       "registrierung_choices_unsuitable",
     ];
 
@@ -393,45 +376,6 @@ describe("what a refused READ says about a link", () => {
 });
 
 describe("what a refused decision on a registration shows a seat holder", () => {
-  /* The admission's own rules are the slice's words; a lost seat, a ban on the seat holder and the
-     unique index are the person spine's, which a seat holder meets alike on every person route. */
-  it("words every rule the admission publishes and leaves the spine's codes to the spine", () => {
-    const own = [
-      "document_not_found",
-      "registrierung_stufe_not_allowed",
-      "registrierung_address_barred",
-      "registrierung_unconfirmed",
-      "registrierung_person_not_named",
-      "registrierung_already_in_kader",
-      "registrierung_person_missing",
-      "kader_full",
-    ];
-
-    for (const code of refusalCodes(
-      "duplicate_key",
-      "role_not_held",
-      "registrierung_stufe_not_allowed",
-      "registrierung_address_barred",
-      "registrierung_unconfirmed",
-      "registrierung_person_not_named",
-      "registrierung_already_in_kader",
-      "registrierung_person_missing",
-      "kader_full",
-    )) {
-      const worded = mapAufnahmeRefusal(refused(code));
-      expect(worded !== null, `${code} is ${worded === null ? "not worded" : "worded"} by the slice`).toBe(own.includes(code));
-    }
-  });
-
-  /* A team is never told that a pupil's address is barred: the admission's ban refusal says no more
-     than that the league has to look at it. */
-  it("tells a seat holder nothing about a ban", () => {
-    const sentence = mapAufnahmeRefusal(refused("registrierung_address_barred")) ?? "";
-
-    expect(sentence).not.toBe("");
-    for (const verboten of [/sperr/i, /liste/i, /blockiert/i, /E-Mail/i]) expect(sentence, sentence).not.toMatch(verboten);
-  });
-
   // The administrator's remedy for a full squad raises the cap, which no seat holder can.
   it("sends a seat holder with a full squad to the league rather than to the season's rules", () => {
     const sentence = mapAufnahmeRefusal(refused("kader_full")) ?? "";

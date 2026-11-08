@@ -117,6 +117,7 @@ export function SeatActs<Key>({
             name="email"
             width="W3"
             kind="email"
+            autofill="off"
             isRequired={required.email}
             maxLength={max.email}
             defaultValue={person?.email}

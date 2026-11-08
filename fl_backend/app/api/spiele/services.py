@@ -1067,6 +1067,12 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
     )
 
 
+def spiel_label(saison_id: str, spiel_nr: int) -> str:
+    """How a row of the Protokoll names a fixture: its season and its number, never its sides' people."""
+
+    return f"{saison_id} / {spiel_nr}"
+
+
 def stored_in_slice(spiel_id: CustomObjectId, season: Sequence[FLSpiel]) -> FLSpiel:
     """The fixture under edit, from the caller's slice.
 

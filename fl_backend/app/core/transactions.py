@@ -398,25 +398,25 @@ async def drain(
     *,
     db: AsyncMongoClient,
     # The clock's callback, run in a transaction of its own over each page.
-    page_of: Callable[[AsyncClientSession, Batch], Awaitable[tuple[int, int, int]]],
+    page_of: Callable[[AsyncClientSession, Batch], Awaitable[tuple[int, int]]],
     # The callback reads one row past it, or a full page reads as the last one.
     page: int,
     what: str,
     clock: str,
-) -> tuple[int, int, list[Any]]:
+) -> tuple[int, list[Any]]:
     """A full page is erased and read again: the population filling it is the one only the erasure shrinks.
 
-    Answers what it erased, what it redacted, and the ids it passed over.
+    Answers what it erased and the ids it passed over.
     """
 
-    erased_total, redacted_total = 0, 0
+    erased_total = 0
     passed: list[Any] = []
     while True:
         # Without the rows passed over, or a page of them would be read, and fail, for ever.
         batch = Batch(passed=passed)
         started = time.monotonic()
         try:
-            read, erased, redacted = await _transacted(db, page_of, batch)
+            read, erased = await _transacted(db, page_of, batch)
         except Exception as failure:
             # Nothing read or nothing taken, as `run_isolated` reads it.
             if not batch.suspects or not carried_by_a_row(failure):
@@ -436,7 +436,6 @@ async def drain(
             )
             read = len(batch.ids)
             erased = sum(result[1] for result in committed)
-            redacted = sum(result[2] for result in committed)
             # A page that failed whole and whose halves neither moved nor passed a row would be read
             # again, the same way, for ever.
             if read > page and not erased and not left:
@@ -447,9 +446,8 @@ async def drain(
             passed.extend(_settled(batch, what=what, clock=clock))
 
         erased_total += erased
-        redacted_total += redacted
         if read <= page:
-            return erased_total, redacted_total, passed
+            return erased_total, passed
 
 
 def refuse_a_stalled_page(*, read: int, moved: int, page: int, clock: str, saison_id: str) -> None:

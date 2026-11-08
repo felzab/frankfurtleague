@@ -24,7 +24,7 @@ for that tier**: `public_router.py` for the base key, the public reads and the a
 alike; `person_router.py` for a signed-in person's own records; `admin_router.py` for the
 administration; and `system_router.py` for the frontend process's own calls, such as a retention
 pass. `system/router.py`, holding the liveness probe, is the one router without a guard. A person's
-file binding two Funktionen holds one `APIRouter` per binder (`spieler/person_router.py`).
+file serving two Funktionen holds one `APIRouter` per prefix (`spieler/person_router.py`).
 `app/main.py` mounts them all, each under its slice's tag, which with the handler's name makes the
 operation's id in `openapi.json`.
 
@@ -67,10 +67,9 @@ transaction's own writes. A request making more than one write makes them in one
 a refusal anywhere takes everything already written back with it. A background pass is the
 exception: it takes its rows a page or a row at a time, each in a transaction of its own
 (`fl_backend/app/core/transactions.py :: drain` for the paged ones), so a pass that fails part way
-keeps what it finished, and the next pass resumes from the stored state. Every helper write except
-an anchor (`fl_backend/app/core/crud.py :: anchor_in_db`) and a link's stamp (`:: stamp_in_db`),
-each changing nothing a reader sees, records what it replaced or removed on the action log
-(`Aktion`, `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
+keeps what it finished, and the next pass resumes from the stored state. A write helper records
+nothing: each recorded act adds one line inside its transaction
+(`Aktion`, `fl_backend/app/core/recording.py :: record_act`).
 
 **The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
 rules it is refused under where it writes. The league table is computed from the matches on each

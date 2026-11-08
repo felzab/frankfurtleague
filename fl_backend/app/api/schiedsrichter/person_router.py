@@ -19,9 +19,9 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelfResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
+from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -30,24 +30,22 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import erasure_journal_hash, verify_access_admin
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSchiedsrichterAccountEinwilligungPayload, by_choice
 
-# A person's own router, apart from the admin one and the confirmation one, each binding its own actor
-# at router level: this one records every write under the referee's Funktion.
+# A person's own router, apart from the admin one and the confirmation one.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 
 @router.get("/self", response_model=FLSchiedsrichterSelfResponse, summary="A signed-in referee's own records")
-async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collection: SchiedsrichterCollection) -> FLSchiedsrichterSelfResponse:
+async def get_self(identifier: PersonIdentifier, schiedsrichter_collection: SchiedsrichterCollection) -> FLSchiedsrichterSelfResponse:
     """
     Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
@@ -72,11 +70,10 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
     einwilligung_data: Annotated[FLSchiedsrichterAccountEinwilligungPayload, Body()],
-    identifier: SchiedsrichterIdentifier,
+    identifier: PersonIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjectLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
@@ -101,8 +98,7 @@ async def patch_einwilligung(
 
     own_entry = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
-    at = log_stamp(germany_now)
+    at = utc_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -138,17 +134,9 @@ async def patch_einwilligung(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        line = withdrawal_line(
-            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
-            collection=Collection.SCHIEDSRICHTER,
-            record_id=row["_id"],
-            blocks=[saved],
-            chosen=chosen,
-            at=at,
-            text_versions=by_choice(einwilligung_data.text_versions),
-        )
-        if line is not None:
-            journal.note(line)
+        choices = withdrawal_line(blocks=[saved], chosen=chosen)
+        if choices is not None:
+            journal.note("withdrawal", [f"{Collection.SCHIEDSRICHTER}/{row['_id']}"], choices=list(choices))
 
     async with journal:
         async with transaction_session(db) as session:

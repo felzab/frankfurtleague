@@ -20,16 +20,11 @@ type SubjectRecords = {
   // Beside the lists rather than read off them: the lookup drops every unconfirmed record, so empty
   // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
   readonly unconfirmed: boolean;
-  // The backend's own verdict, never recomputed here; `getSubjectSession` serves no subject that
-  // carries it set, so only a caller of the lookup itself ever reads it `true`.
-  readonly barred: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
   // `SubjectSession["isAdmin"]`, which the session's factor and window narrow further.
   readonly admin_tier: FLSubjectResponse["admin_tier"];
   // When that grant took effect, which the same verdict holds the session's own making against.
   readonly granted_since: FLSubjectResponse["granted_since"];
-  // When its `owner` tier took effect, which no panel reads: an owner's controls ask it of the session.
-  readonly owner_since: FLSubjectResponse["owner_since"];
 };
 
 /**
@@ -42,7 +37,7 @@ export type SubjectSession = { readonly email: string; readonly isAdmin: boolean
 // a guard and a page of one render pass share one session read, one lookup and one actor.
 const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
   const served = await readRequestSession();
-  // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
+  // Both figures here as well as at `judgeAdminRequest`: a lane that skips them is a lane in which
   // the cap does not exist.
   if (!served || !isWithinPersonLifetime(served.session)) return null;
 
@@ -54,15 +49,11 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   // empty one is refused here rather than at the endpoint, which answers 422.
   if (email === "") return null;
 
-  // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubject`).
+  // The records and the grant, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubject`).
   const records = await lookUpSubject(email);
 
-  // On every request rather than only at the ban: a session minted racing the ban, or one its ending
-  // missed, is no session here.
-  if (records.barred) return null;
-
   // Built here rather than at the write: a person's route refuses a request naming no session
-  // (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`).
+  // (`fl_backend/app/api/ban_list/guard.py :: person_actor_binder`).
   const actor = requestActorOf(served, "person");
   if (actor === null) return null;
 
@@ -71,7 +62,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
 });
 
 /**
- * `null` where no readable session stands, or its subject is barred; every backend failure throws,
+ * `null` where no readable session stands; every backend failure throws,
  * so the panel takes an error boundary rather than a sign-in nobody needs. A server action calling
  * this wraps that throw.
  */
@@ -79,7 +70,7 @@ export async function getSubjectSession(): Promise<SubjectSession | null> {
   const judged = await judgeSubjectSession();
   if (judged === null) return null;
 
-  // On every call, outside the memo, for `getAdminSession`'s reason. Both guards on one request is a
+  // On every call, outside the memo, for `judgeAdminRequest`'s reason. Both guards on one request is a
   // programming error, so the second actor throws.
   setRequestActor(judged.actor);
 

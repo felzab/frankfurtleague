@@ -49,8 +49,7 @@ reach it at otherwise.
 alone. No file here records either grant — the backend's was read from the cluster's users
 2026-08-02, and the sign-in store's is made by hand in the Atlas console. **Never give the two a
 shared login** — that makes the boundary a matter of trust rather than of configuration. The backend's
-user needs `readWrite` and nothing beyond it: the boot builds indexes, and the replay after a restore
-lists the collections, each an action `readWrite` carries.
+user needs `readWrite` and nothing beyond it: the boot builds indexes, an action `readWrite` carries.
 
 ## The Cloudflare proxy
 

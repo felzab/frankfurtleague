@@ -18,7 +18,7 @@ import type { ServedSession } from "./session";
 
 /**
  * Whether the request's actor may make an act the passkey touch guards: a person holding a passkey on a session the
- * touch made within its window alone, and a person holding none as they stand. The browser asks the touch before every
+ * touch made within its window alone, and a person holding none as they stand. The browser asks the touch on every final
  * press, so a second act inside one window is a request no page sends. `false` where no guard recorded an actor.
  */
 export async function passesPasskeyTouch(actor: RequestActor | undefined): Promise<boolean> {
@@ -46,11 +46,8 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
   if (served === null) return null;
 
   // An unread grant throws rather than falling to the person's lane, which takes a mailed code. The
-  // ban and the grant come in this one lookup, which the person guard of a render shares.
+  // grant comes in this one lookup, which the person guard of a render shares.
   const subject = await lookUpSubject(asSignInIdentifier(served.user.email));
-
-  // On every request, as the person guard's: a session its ban's ending missed is no session here.
-  if (subject.barred) return null;
 
   const judged = { ...served, isAdmin: subject.admin_tier !== null };
   if (judged.isAdmin) return isAdminSession(served, subject) ? judged : null;
@@ -59,7 +56,7 @@ export const getAccountSession = cache(async (): Promise<JudgedSession | null> =
 });
 
 /**
- * A served session beside the grant this request read for its address, which a step-up judges it by.
+ * A served session beside the verdict on the grant this request read for its address.
  * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
  */
 export type JudgedSession = ServedSession & { readonly isAdmin: boolean };
@@ -132,8 +129,7 @@ const readAdminRequest = cache(
 );
 
 /**
- * The administrator's guard with its reason, for a caller whose answer depends on why it refused; every
- * other caller takes `getAdminSession`, over this same read.
+ * The administrator's guard with its reason.
  */
 export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> {
   const judged = await readAdminRequest();
@@ -146,10 +142,7 @@ export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSes
   return { session: judged.session };
 }
 
-/**
- * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
- * **Check the return value**.
- */
+/** The session the administrator's guard admits, `null` for any it refuses, whatever the reason. */
 export async function getAdminSession(): Promise<JudgedSession | null> {
   const judged = await judgeAdminRequest();
   return "session" in judged ? judged.session : null;

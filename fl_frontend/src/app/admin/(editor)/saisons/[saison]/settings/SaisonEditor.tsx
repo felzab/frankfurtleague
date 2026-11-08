@@ -562,7 +562,6 @@ export function SaisonEditor({
           {
             name: COPY.shared.withObject(SPIELPLAN, "recreate"),
             consequence: WORDS.recreateConsequence,
-            touch,
             ...lockedBy(facts.locked.recreate),
             confirm: {
               verb: "recreate",
@@ -571,12 +570,12 @@ export function SaisonEditor({
               facts: drawCounts,
               tone: "danger",
               onConfirm: () => acts.recreate(of),
+              touch,
             },
           } satisfies DangerAct,
           {
             name: COPY.shared.withObject(SPIELPLAN, "delete"),
             consequence: WORDS.deleteConsequence,
-            touch,
             ...lockedBy(facts.locked.undraw),
             confirm: {
               verb: "delete",
@@ -585,6 +584,7 @@ export function SaisonEditor({
               facts: drawCounts,
               tone: "danger",
               onConfirm: () => acts.undraw(of),
+              touch,
             },
           } satisfies DangerAct,
         ]
@@ -597,7 +597,6 @@ export function SaisonEditor({
             // The act and its season, as the draw's rows name theirs, so the row never repeats the box's title.
             name: COPY.shared.withObject(WORDS.onto(saison), "activate"),
             consequence: WORDS.activateConsequence(saison),
-            touch,
             ...lockedBy(facts.locked.activate),
             confirm: {
               verb: "activate",
@@ -612,6 +611,7 @@ export function SaisonEditor({
               ],
               tone: "primary",
               onConfirm: () => acts.activate(of),
+              touch,
             },
           } satisfies DangerAct,
         ]),

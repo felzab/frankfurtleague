@@ -14,6 +14,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
   slice's `components/<category>/`
 - **images** — Merge the two images into one package; make either package private
 - **migrations** — Add a one-off database migration to the tree, to a test or to a runbook
+- **patches** — Patch a dependency without its upstream issue named beside the entry; key a patch
+  past one exact version; carry a patch across a bump unread
 
 ## The gate and CI
 
@@ -26,7 +28,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 
 - **cache** — Split the one site-wide cache tag by resource or season; give a league read a lifetime
   past `minutes`
-- **spiele** — Let `features/spiele` import `features/admin` or a route under `app/admin`
+- **spiele** — Let `features/spiele` import a route under `app/admin`
 - **pages** — Remove the `await connection()` from a session read, from `runWithIncomingTrace` or ahead of
   a cached read a render reaches before any request value
 - **lint** — Scope a cross-feature import lint to anything but `core` and `shared`
@@ -37,7 +39,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
 - **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
-- **saisons** — Drop `SaisonSelector`'s fallback
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
@@ -65,6 +66,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 
 - **db** — Add a second direct `MongoClient`
 - **system** — Remove the system key
+- **grants** — Hold a second `owner`; make an owner outside the handover; make a removal wait; send a
+  wait's notice only to the person who started it
 - **cache** — Add an invalidation endpoint, or clear the site-wide cache tag outside the save spines;
   fault staleness within the `minutes` lifetime after a change no save makes
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP

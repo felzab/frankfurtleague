@@ -49,6 +49,7 @@ export const ADDRESS_WORDS = [
   "appearance",
   "area",
   "auth",
+  "ban-list",
   "bulk",
   "client-error",
   "confirm",
@@ -319,31 +320,26 @@ export const ROUTES = {
     title: COPY.page.registrierungen,
     crawl: "disallow",
   },
-  // Session 7: its page is built.
   adminAdministrators: {
     path: () => "/admin/administrators" as const,
     title: COPY.page.adminAdministrators,
     crawl: "disallow",
   },
-  // Session 7: its page is built.
   adminBanList: {
-    path: () => "/admin/sperrliste" as const,
+    path: () => "/admin/ban-list" as const,
     title: COPY.page.adminBanList,
     crawl: "disallow",
   },
-  // Session 7: its page is built.
   adminErasures: {
     path: () => "/admin/erasures" as const,
     title: COPY.page.adminErasures,
     crawl: "disallow",
   },
-  // Session 7: its page is built.
   adminAddressChanges: {
     path: () => "/admin/address-changes" as const,
     title: COPY.page.adminAddressChanges,
     crawl: "disallow",
   },
-  // Session 7: its page is built.
   adminActionLog: { path: () => "/admin/log" as const, title: COPY.page.adminActionLog, crawl: "disallow" },
 } as const satisfies Record<string, RouteEntry>;
 

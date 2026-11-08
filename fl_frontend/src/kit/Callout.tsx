@@ -7,7 +7,8 @@ const box = tv({
   // The tint is 12 % of the hue over the surface, as a chip's; the title takes the hue, the text the
   // text colour.
   slots: {
-    root: "grid gap-1 rounded-lg px-4 py-3 text-sm text-fg",
+    // `w-full`: a dialog's or a section's start-aligned grid would hold the box at its words' width, short of the frame.
+    root: "grid w-full gap-1 rounded-lg px-4 py-3 text-sm text-fg",
     heading: "text-base font-semibold",
   },
   variants: {
@@ -30,7 +31,7 @@ export type CalloutProps = {
 
 /** The box while what it says is read: a bar of its size, its sentence's words set unseen so it wraps as they will. */
 export function CalloutPlaceholder({ text }: { text: Copy }) {
-  return <p className={placeholderBar(box().root({ class: "w-full text-transparent" }))}>{text}</p>;
+  return <p className={placeholderBar(box().root({ class: "text-transparent" }))}>{text}</p>;
 }
 
 /** A consequence or a state, said in one visible box tinted in its status hue. */

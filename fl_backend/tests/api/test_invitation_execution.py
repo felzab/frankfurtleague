@@ -9,22 +9,21 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.invitations.crud import owed_invitation_mails
-from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload, FLInvitationRecipient
+from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload
 from app.api.invitations.services import (
+    InvitationRecipient,
     find_live_invitation_filter,
     find_unknown_invitation_refusal,
 )
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_dispatch
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.tokens import hash_token
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HeldCollection
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -98,7 +97,6 @@ def invitation_row(team_id: ObjectId, *, _id: ObjectId | None = None, sent_at: s
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
         "created_at": "2026-03-15",
-        "created_by": ADMIN,
         "revoked_at": None,
         "sent_at": sent_at,
     }
@@ -123,6 +121,9 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active") -> Any:
                     registrierung=dict(REGISTRIERUNG),
                 )
             )
+            await database[Collection.TEAMS].insert_many(
+                [team_document(team_id, name, name[:3].upper()) for team_id, name in TEAM_NAMES.items()]
+            )
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in TEAM_NAMES])
             await database[Collection.INVITATIONS].insert_one(invitation_row(ALREADY_MAILED, _id=SEEDED_INVITATION, sent_at="2026-03-15"))
             await a_sent_mail(database, SEEDED_INVITATION, "fendrick@example.com")
@@ -143,7 +144,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str)
                 invitation_id=invitation_id,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
-                recipient=[FLInvitationRecipient(rolle="trainer", first_name="Fendrick", email=to)],
+                recipient=[InvitationRecipient(rolle="trainer", email=to)],
                 occasion="dispatch",
             ),
             now=MAIL_NOW,
@@ -159,14 +160,18 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any =
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
-        created_by=ADMIN,
         today=TODAY,
     )
 
 
 async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
     return await delete_invitation(
-        team_id=team_id, saison_id=SAISON_ID, invitations_collection=database[Collection.INVITATIONS], today=TODAY, db=database.client
+        team_id=team_id,
+        saison_id=SAISON_ID,
+        invitations_collection=database[Collection.INVITATIONS],
+        teams_collection=database[Collection.TEAMS],
+        today=TODAY,
+        db=database.client,
     )
 
 
@@ -181,14 +186,8 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        grants_collection=database[Collection.GRANTS],
-        grants_announced_collection=database[Collection.GRANTS_ANNOUNCED],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         today=TODAY,
-        operator=ADMIN,
-        auth_time=0,
     )
 
 
@@ -204,7 +203,6 @@ async def editor(database: AsyncDatabase) -> Any:
         teams_collection=database[Collection.TEAMS],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         invitations_collection=database[Collection.INVITATIONS],
-        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -217,9 +215,7 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=database.client,
-        created_by=ADMIN,
         today=TODAY,
         germany_now=MAIL_NOW,
     )
@@ -232,6 +228,12 @@ async def owed_for(database: AsyncDatabase, team_id: ObjectId) -> list[str]:
     rows = await database[Collection.OUTBOX].find({"reference.id": {"$in": ids}}).sort("_id", 1).to_list(length=None)
 
     return [row["to"] for row in rows]
+
+
+async def dispatched(database: AsyncDatabase) -> list[str | None]:
+    """The season named by each row a press wrote: nameless, the Protokoll cannot say which season was mailed."""
+
+    return [row["label"] async for row in database[Collection.ACTION_LOG].find({"action": "saison.invitations_dispatched"})]
 
 
 async def live_count(database: AsyncDatabase, team_id: ObjectId) -> int:
@@ -264,12 +266,6 @@ def as_collection(stub: _InsertFailsForOneTeam) -> AsyncCollection:
     return cast(AsyncCollection, stub)
 
 
-def decided(rows: Any) -> list[tuple[str, tuple[str, ...], Any]]:
-    """One row per team as both readers describe it: the team, the mailboxes and the skip."""
-
-    return [(str(row.team_id), tuple(entry.email for entry in row.recipient), row.skipped) for row in rows]
-
-
 class TestWhatAMintStores:
     def test_the_raw_link_reaches_the_answer_and_no_stored_field(self, mongo_replica_set_url: str):
         """A link recoverable from the row would make the admin read the place every live credential leaks from."""
@@ -295,8 +291,19 @@ class TestWhatAMintStores:
 
         token, recorded = on_a_league(mongo_replica_set_url, body)
 
-        assert "einladungen" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
+        assert "team.invitation_created" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
         assert token not in recorded
+
+    def test_the_withdrawal_is_logged_under_the_club(self, mongo_replica_set_url: str):
+        """A row naming only a season says nothing of whose link went, and a search by the club misses it."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await mint(database, TWO_SEATS)
+            await revoke(database, TWO_SEATS)
+
+            return [row["label"] async for row in database[Collection.ACTION_LOG].find({"action": "team.invitation_withdrawn"})]
+
+        assert on_a_league(mongo_replica_set_url, body) == [TEAM_NAMES[TWO_SEATS]]
 
 
 class TestReissuingALink:
@@ -469,28 +476,6 @@ class TestRevokingALink:
         assert on_a_league(mongo_replica_set_url, body) == 0
 
 
-class TestTheStateRead:
-    @pytest.mark.parametrize("barred", [False, True], ids=("a minter the list does not hold", "a barred minter"))
-    def test_a_barred_minter_is_withheld_beside_a_flag(self, mongo_replica_set_url: str, barred: bool):
-        """The grants list's rule on every admin read: no barred address is served in plain."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.TEAMS].insert_one(team_document(TWO_SEATS, TEAM_NAMES[TWO_SEATS], "ZWE"))
-            await mint(database, TWO_SEATS)
-            if barred:
-                await database[Collection.BAN_LIST].insert_one(
-                    ban_document(ADMIN, until=compose_barred_until_saison_id(governing_saison_id=SAISON_ID))
-                )
-            link = (await read_state(database, TWO_SEATS)).link
-
-            return link.invitation and (link.invitation.created_by, link.invitation.created_by_barred), link.model_dump_json()
-
-        served, rendered = on_a_league(mongo_replica_set_url, body)
-
-        assert served == ((None, True) if barred else (ADMIN, False))
-        assert (ADMIN in rendered) is not barred
-
-
 async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -> Any:
     return await post_invitation_dispatch(
         team_id=team_id,
@@ -515,11 +500,12 @@ class TestTheTeamsMailPress:
             await mail(database, TWO_SEATS, minted.invitation_id)
             copied = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token(minted.token))))
 
-            return [entry.email for entry in first.recipient], await owed_for(database, TWO_SEATS), copied is not None
+            return first.mailed, await owed_for(database, TWO_SEATS), copied is not None
 
-        named, owed, opens = on_a_league(mongo_replica_set_url, body)
+        mailed, owed, opens = on_a_league(mongo_replica_set_url, body)
 
-        assert named == owed == ["bramblewick@example.com", "quillhilde@example.com"]
+        assert mailed == 2
+        assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
         assert opens
 
     def test_a_row_whose_exit_stands_owes_its_confirmed_seat_nothing(self, mongo_replica_set_url: str):
@@ -544,6 +530,26 @@ class TestTheTeamsMailPress:
             return await owed_for(database, TWO_SEATS)
 
         assert on_a_league(mongo_replica_set_url, body) == []
+
+
+class TestTheTeamEditorsRead:
+    def test_it_serves_the_live_link_with_what_became_of_its_last_mail(self, mongo_replica_set_url: str):
+        """The editor's one read of a link: a failure here breaks the page for every club holding one."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            minted = await mint(database, TWO_SEATS)
+            return (
+                ObjectId(minted.invitation_id),
+                (await read_state(database, TWO_SEATS)).link.invitation,
+                (await read_state(database, ALREADY_MAILED)).link.invitation,
+                (await read_state(database, UNCONFIRMED)).link.invitation,
+            )
+
+        minted, never_mailed, mailed, none = on_a_league(mongo_replica_set_url, body)
+
+        assert (never_mailed.id, never_mailed.delivery) == (minted, None)
+        assert (mailed.id, mailed.delivery.state) == (SEEDED_INVITATION, "sent")
+        assert none is None
 
 
 class TestTheDayALinkWasSent:
@@ -596,31 +602,6 @@ class TestTheSeasonWidePress:
         assert owed[str(WITHDRAWN)] == []
         assert (done.mailed, done.skipped, done.failed) == (1, 4, 0)
 
-    def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds_at_every_press(self, mongo_replica_set_url: str):
-        """A link nobody sent stands, as the mailer leaves a barred team's.
-
-        One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
-        """
-
-        bound = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.BAN_LIST].insert_many(
-                [ban_document("Bramblewick@Example.com", until=bound), ban_document("quillhilde@example.com", until=bound)]
-            )
-            await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
-            shown = await editor(database)
-            first = await press(database)
-            second = await press(database)
-
-            return decided(shown.invitations), [done.mailed for done in (first, second)], await live_count(database, TWO_SEATS)
-
-        shown, mailed, live = on_a_league(mongo_replica_set_url, body)
-
-        assert (str(TWO_SEATS), (), "kontakte_barred") in shown
-        assert mailed == [0, 0]
-        assert live == 1
-
     def test_it_mints_for_the_team_it_mails_and_owes_its_confirmed_seats_in_the_same_write(self, mongo_replica_set_url: str):
         """Per team, the count the plan asks for: one live invitation where it minted, one where it skipped a mailed team, none elsewhere.
 
@@ -640,6 +621,23 @@ class TestTheSeasonWidePress:
         assert counts == {str(TWO_SEATS): 1, str(UNCONFIRMED): 0, str(NO_BLOCK): 0, str(ALREADY_MAILED): 1, str(WITHDRAWN): 0}
         assert hashes == []
         assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
+
+    def test_the_press_writes_its_one_row_and_a_re_send_writes_none(self, mongo_replica_set_url: str):
+        """The Protokoll records no re-send, and a row for each would bury the press that matters."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            # Every link gone, so the press mails several teams, each in its own transaction.
+            await database[Collection.INVITATIONS].delete_many({})
+            mailed = (await press(database)).mailed
+            first = await dispatched(database)
+            await press(database, resend=True)
+
+            return mailed, first, await dispatched(database)
+
+        mailed, first, after_the_re_send = on_a_league(mongo_replica_set_url, body)
+
+        assert mailed > 1
+        assert (first, after_the_re_send) == ([SAISON_ID], [SAISON_ID])
 
     def test_a_re_send_replaces_the_mailed_teams_link(self, mongo_replica_set_url: str):
         """The raw value is recoverable from nothing, so a link to be mailed again is one that has just been minted."""
@@ -696,9 +694,7 @@ class TestTheSeasonWidePress:
                 invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
-                ban_list=ban_list(database),
                 db=database.client,
-                created_by=ADMIN,
                 today=TODAY,
                 germany_now=MAIL_NOW,
             )

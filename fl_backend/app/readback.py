@@ -12,16 +12,16 @@ from pydantic import BaseModel, ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 
+from app.api.action_log.schemas import FLActionLogRecord
 from app.api.address_change.schemas import FLAddressChangeRecord
-from app.api.aktionen.schemas import FLAktionRecord
-from app.api.berechtigungen.schemas import FLBerechtigung, FLGrantAnnounced, FLGrantApprovalRequest
+from app.api.ban_list.schemas import FLBanListRow
 from app.api.bewerbungen.schemas import FLBewerbungRecord, FLMailboxAnchorRecord
+from app.api.grants.schemas import FLGrantRecord
 from app.api.invitations.schemas import FLInvitationRecord
 from app.api.outbox.schemas import FLOutboxRow
 from app.api.registrierungen.schemas import FLRegistrierungRecord
 from app.api.saisons.schemas import FLSaisonRecord
 from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
-from app.api.sperrliste.schemas import FLSperrlisteEintragRecord
 from app.api.spielberichte.schemas import FLSpielbericht
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungRecord
 from app.api.spiele.schemas import FLSpiel
@@ -45,16 +45,14 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SPIELORTE: FLSpielort,
     Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
     Collection.BEWERBUNGEN: FLBewerbungRecord,
-    Collection.ACTION_LOG: FLAktionRecord,
-    Collection.BAN_LIST: FLSperrlisteEintragRecord,
+    Collection.ACTION_LOG: FLActionLogRecord,
+    Collection.BAN_LIST: FLBanListRow,
     Collection.INVITATIONS: FLInvitationRecord,
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
-    Collection.GRANTS: FLBerechtigung,
-    Collection.GRANTS_ANNOUNCED: FLGrantAnnounced,
+    Collection.GRANTS: FLGrantRecord,
     Collection.SPIELBESTAETIGUNGEN: FLSpielbestaetigungRecord,
     Collection.SPIELBERICHTE: FLSpielbericht,
     Collection.ADDRESS_CHANGES: FLAddressChangeRecord,
-    Collection.GRANT_APPROVAL_REQUESTS: FLGrantApprovalRequest,
     Collection.OUTBOX: FLOutboxRow,
     Collection.MAILBOX_ANCHORS: FLMailboxAnchorRecord,
 }

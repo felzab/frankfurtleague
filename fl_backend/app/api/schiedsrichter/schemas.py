@@ -18,12 +18,12 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLEinwilligungScope, FLSortOrder
+from app.shared.schemas.literals import FLEinwilligungScope, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
 # through the same link, and the entry stays until its clock runs out.
-type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired", "barred"]
+type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired"]
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -184,8 +184,8 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     media_minimum_age: int = Field(gt=0)
     deadline: CustomDateString
     # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
-    # no answer, `barred` among them. A leaked token learns from it nothing past the state it already shows: the
-    # person's own day, never who they are.
+    # no answer. A leaked token learns from it nothing past the state it already shows: the person's own day, never who
+    # they are.
     answered_at: CustomOptionalDateString
 
 
@@ -224,10 +224,6 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     # Whether the link's deadline has passed today, judged by the rule its press refuses on, so the
     # editor reads no day of its own; false where the row holds no such link.
     confirmation_expired: bool
-    # The live change of the referee's address, which the address tool shows; null where none stands.
-    address_change_id: CustomObjectId | None
-    # Why the address tool refuses that change this administrator; null where it opens it or none stands.
-    address_change_viewable_denied: FLAddressChangeViewableDenied | None
     # What became of the last confirmation mail the referee was owed; null where none was.
     delivery: FLOutboxStatus | None
 

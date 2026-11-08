@@ -9,7 +9,6 @@ import {
   configDouble,
   cookiePair,
   GATE_BACKEND_CONFIG,
-  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -48,7 +47,7 @@ const store = memoryStore(STORE);
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
-const { getAdminSession, getAccountSession } = await import("./core/auth/guards.ts");
+const { getAdminSession } = await import("./core/auth/guards.ts");
 const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
@@ -71,7 +70,7 @@ const signIn = (email: string) => sessionByCode(auth, store, email);
 const removed = await signIn(REMOVED_EMAIL);
 madeByPasskey(store, removed.row);
 
-const ADMIN_URL = "http://localhost:3000/area/admin/spiele";
+const ADMIN_URL = "http://localhost:3000/admin/spielorte";
 
 /** The proxy's own answer to a page request for the administrator's subtree carrying `cookie`, called directly. */
 async function callProxy(cookie: string): Promise<Response> {
@@ -346,24 +345,7 @@ describe("where a session that is only read slides", () => {
     }
   });
 
-  // The slide reads no ban, which is the backend's: what keeps a barred session out is every guard's own read.
-  it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async ({
-    onTestFinished,
-  }) => {
-    const { cookie, row } = await signIn("gesperrt@example.org");
-    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(Response.json({ ...HOLDS_NOTHING, barred: true })));
-    onTestFinished(() => void fetched.mockRestore());
-
-    assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
-
-    arriveAs(cookie);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(await getSubjectSession()).toBe(null);
-    expect(await getAccountSession()).toBe(null);
-  });
-
-  it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {
+  it("leaves an administrator's twenty-four-hour cap, and the touch's window, where the sign-in set them", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     const signedIn = new Date(Date.now() - 25 * 60 * MINUTE_MS);
@@ -373,7 +355,7 @@ describe("where a session that is only read slides", () => {
     const answer = await visit(ADMIN_URL, cookie);
 
     assert.ok(setSessionCookie(answer, cookie), "the administrator's session did not slide, so the case proves nothing");
-    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the step-up are judged from").toBe(signedIn.getTime());
+    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the touch are judged from").toBe(signedIn.getTime());
     arriveAs(cookie);
     expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
   });

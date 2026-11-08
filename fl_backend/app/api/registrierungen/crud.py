@@ -18,8 +18,7 @@ from app.api.registrierungen.services import (
     build_offene_filter,
     build_registrierungen_sort,
 )
-from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
 from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
@@ -114,30 +113,19 @@ async def nummern_rows(
 async def erase_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
+    # Each carrying its `_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """Remove these registrations whole, then empty every log image of them, answering how many went: the document is the person's own."""
+    """Remove these registrations whole, answering how many went: the document is the person's own."""
 
-    # No command for none: the removal and the redaction below would each still reach the server.
+    # No command for none.
     if not registrierungen:
         return 0
 
-    ids = [row["_id"] for row in registrierungen]
-    # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
-    # keep what this removal destroys.
-    erased = await erase_many_from_db(
-        collection=registrierungen_collection,
-        db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
-        session=session,
-    )
-    # A delivery record and every pre-image a confirmation or a decline filed go with the document.
-    await redact_log_rows_in_db(
-        action_log_collection=action_log_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+    erased = await delete_many_from_db(
+        collection=registrierungen_collection, db_filter={"_id": {"$in": [row["_id"] for row in registrierungen]}}, session=session
     )
 
     return erased.deleted_count

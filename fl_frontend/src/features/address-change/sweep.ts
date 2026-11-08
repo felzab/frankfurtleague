@@ -2,8 +2,8 @@ import "server-only";
 
 import { ContractBreakError } from "@/core/errors";
 
-import { postAdresswechselSweep } from "./mutations";
-import { runAddressChangeMoves } from "./umzug";
+import { runAddressChangeMoves } from "./moves";
+import { postAddressChangeSweep } from "./mutations";
 
 import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
 
@@ -19,7 +19,7 @@ export async function sweepAddressChange(): Promise<Omit<FLAddressChangeSweepRes
   let antwort: FLAddressChangeSweepResponse;
   let after: string | null = null;
   do {
-    antwort = await postAdresswechselSweep(after);
+    antwort = await postAddressChangeSweep(after);
     removed += antwort.removed;
     discarded += antwort.discarded;
     effective += antwort.effective;

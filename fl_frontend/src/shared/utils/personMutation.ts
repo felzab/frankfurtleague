@@ -1,14 +1,10 @@
 // Redesign: goes with its last importer.
-import { refresh } from "next/cache";
-
-import { APIBadStatusError } from "@/core/errors";
 import { logRefused } from "@/core/refused";
 import { isSeatAt, rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 
 import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
-import { logActionFailure } from "./actionFailure";
-import { runGuardedMutation, stepUpRequired } from "./adminMutation";
+import { runGuardedMutation } from "./adminMutation";
 
 import type { Refusal } from "@/core/refused";
 import type { Role } from "@/core/roles";
@@ -33,7 +29,7 @@ export async function runPersonMutation<T extends { success: boolean }>(
   claimed: SeatClaim,
   fn: (held: PersonHeld) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  const verdict: { grund: Extract<Refusal, "no_session" | "no_seat"> } = { grund: "no_session" };
+  const verdict: { reason: Extract<Refusal, "no_session" | "no_seat"> } = { reason: "no_session" };
 
   // A request can hand a server action anything at all, so the claim is read as possibly absent: an
   // address it does not carry holds no seat.
@@ -50,15 +46,15 @@ export async function runPersonMutation<T extends { success: boolean }>(
 
     if (subject !== null && first !== undefined) return { subject, seats: [first, ...rest] };
 
-    verdict.grund = subject === null ? "no_session" : "no_seat";
-    logRefused(mutationName, verdict.grund);
+    verdict.reason = subject === null ? "no_session" : "no_seat";
+    logRefused(mutationName, verdict.reason);
     return null;
   };
 
   return runGuardedMutation(
     mutationName,
     // Each refusal in the words of its repair: a sign-in for a lapsed session, a reload for a seat gone.
-    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.grund === "no_session" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
+    { lane: "Person", resolve, forbidden: () => Promise.resolve(verdict.reason === "no_session" ? ANMELDUNG_ABGELAUFEN : SITZ_WEG) },
     fn,
   );
 }
@@ -80,18 +76,5 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
     return subject;
   };
 
-  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: ANMELDUNG_ABGELAUFEN }, async (subject) => {
-    try {
-      return await fn(subject);
-    } catch (error) {
-      // A grant holder's write the backend's own window refused, one the page's check admitted at the
-      // window's edge: answered as the admin spine answers it, so the page's next press asks for the
-      // passkey.
-      if (!(error instanceof APIBadStatusError && error.serverErrorCode === "confirmation_required")) throw error;
-
-      logActionFailure(`Person mutation refused for want of a confirmation: ${mutationName}`, error);
-      refresh();
-      return stepUpRequired();
-    }
-  });
+  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: ANMELDUNG_ABGELAUFEN }, fn);
 }

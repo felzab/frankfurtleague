@@ -20,20 +20,12 @@ export const Code = {
   link_invalid: "link_invalid",
   address_change_ended: "address_change_ended",
   link_expired: "link_expired",
-  link_barred: "link_barred",
-  address_change_replaced_barred: "address_change_replaced_barred",
   address_change_taken: "address_change_taken",
+  address_change_new_taken: "address_change_new_taken",
   address_change_unchanged: "address_change_unchanged",
   address_change_started_recently: "address_change_started_recently",
-  address_change_barred: "address_change_barred",
   address_change_nothing: "address_change_nothing",
-  address_change_no_approver: "address_change_no_approver",
-  address_change_no_approval_open: "address_change_no_approval_open",
-  address_change_approval_denied: "address_change_approval_denied",
-  address_change_approval_owner: "address_change_approval_owner",
-  address_change_not_covered: "address_change_not_covered",
   address_change_new_granted: "address_change_new_granted",
-  address_change_approval_younger: "address_change_approval_younger",
   address_change_occupied: "address_change_occupied",
   ansetzung_answered: "ansetzung_answered",
   ansetzung_deadline_past: "ansetzung_deadline_past",
@@ -51,19 +43,12 @@ export const Code = {
   missing_actor: "missing_actor",
   actor_not_admin: "actor_not_admin",
   session_refused: "session_refused",
-  person_barred: "person_barred",
-  confirmation_required: "confirmation_required",
   grant_exists: "grant_exists",
   grant_owner: "grant_owner",
   grant_barred: "grant_barred",
-  grant_minimum_count: "grant_minimum_count",
   grant_only_owner: "grant_only_owner",
-  grant_last_owner: "grant_last_owner",
-  grant_approval_request_open: "grant_approval_request_open",
-  grant_approval_denied: "grant_approval_denied",
-  grant_approval_owner: "grant_approval_owner",
-  grant_approval_younger: "grant_approval_younger",
-  grant_approval_request_lapsed: "grant_approval_request_lapsed",
+  grant_handover_waiting: "grant_handover_waiting",
+  grant_not_in_effect: "grant_not_in_effect",
   bericht_not_played: "bericht_not_played",
   bericht_not_officiated: "bericht_not_officiated",
   bericht_not_in_kader: "bericht_not_in_kader",
@@ -86,8 +71,6 @@ export const Code = {
   bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
   trikot_farbe_taken: "trikot_farbe_taken",
   bewerbung_key_differing: "bewerbung_key_differing",
-  bewerbung_address_barred: "bewerbung_address_barred",
-  bewerbung_kontakt_barred: "bewerbung_kontakt_barred",
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
@@ -118,13 +101,12 @@ export const Code = {
   team_retired: "team_retired",
   role_not_held: "role_not_held",
   kontakt_seat_without_confirmation: "kontakt_seat_without_confirmation",
-  kontakt_seat_barred: "kontakt_seat_barred",
   kontakt_email_taken: "kontakt_email_taken",
   kontakt_phone_taken: "kontakt_phone_taken",
   kontakt_row_without_saison: "kontakt_row_without_saison",
   kontakt_saison_past: "kontakt_saison_past",
   own_address: "own_address",
-  last_owner_erasure: "last_owner_erasure",
+  owner_erasure: "owner_erasure",
   admin_address: "admin_address",
   foreign_address_change: "foreign_address_change",
   no_owner: "no_owner",
@@ -132,7 +114,6 @@ export const Code = {
   registrierung_stufe_not_allowed: "registrierung_stufe_not_allowed",
   confirmation_exists: "confirmation_exists",
   registrierung_kader_full: "registrierung_kader_full",
-  registrierung_address_barred: "registrierung_address_barred",
   registrierung_key_differing: "registrierung_key_differing",
   registrierung_unconfirmed: "registrierung_unconfirmed",
   registrierung_person_not_named: "registrierung_person_not_named",
@@ -166,7 +147,6 @@ export const Code = {
   rules_forfeit_unentschieden_in_a_knockout_as_stored: "rules_forfeit_unentschieden_in_a_knockout_as_stored",
   schiedsrichter_retired: "schiedsrichter_retired",
   schiedsrichter_no_address: "schiedsrichter_no_address",
-  schiedsrichter_address_barred: "schiedsrichter_address_barred",
   schiedsrichter_address_only_per_change: "schiedsrichter_address_only_per_change",
   ban_list_no_saison: "ban_list_no_saison",
   ban_list_admin: "ban_list_admin",
@@ -281,28 +261,11 @@ export interface FLAccountAddressChangeMintResponse {
   valid_until: string;
 }
 
-export type FLAdminTier = (typeof FLAdminTier)[keyof typeof FLAdminTier];
-
-export const FLAdminTier = {
-  owner: "owner",
-  administration: "administration",
-} as const;
-
-/**
- * The approval a change of the person's own grant waits on, as their account page reads it: never who gave it.
- */
-export interface FLAddressChangeApprovalState {
-  admin_tier: FLAdminTier;
-  approved: boolean;
-  until: string;
-}
-
 export type FLAddressChangeWaitsOn = (typeof FLAddressChangeWaitsOn)[keyof typeof FLAddressChangeWaitsOn];
 
 export const FLAddressChangeWaitsOn = {
   previous_address: "previous_address",
   new_address: "new_address",
-  approval: "approval",
   waiting_period: "waiting_period",
 } as const;
 
@@ -317,7 +280,6 @@ export const FLAddressChangeWay = {
  * The address's live change as its own account page reads it.
  */
 export interface FLAccountAddressChangeOpen {
-  approval: FLAddressChangeApprovalState | null;
   effective_from: string | null;
   email: string;
   expired: boolean;
@@ -333,11 +295,19 @@ export interface FLAccountAddressChangePayload {
   email: string;
 }
 
+export type FLAdminTier = (typeof FLAdminTier)[keyof typeof FLAdminTier];
+
+export const FLAdminTier = {
+  owner: "owner",
+  administration: "administration",
+} as const;
+
 /**
  * The change pending on the signed-in address.
  */
 export interface FLAccountAddressChangeResponse {
   open: FLAccountAddressChangeOpen | null;
+  wait_tier: FLAdminTier | null;
 }
 
 /**
@@ -569,135 +539,134 @@ export interface FLAccountErasureViewResponse {
   address_change: number;
   admin_tier: FLAdminTier | null;
   bewerbungen: FLAccountErasureBewerbung[];
-  last_owner: boolean;
   registrierungen: FLAccountErasureRegistrierung[];
   schiedsrichter: FLAccountErasureSchiedsrichter[];
   seats: FLAccountErasureSeat[];
   spieler: FLAccountErasureSpieler[];
 }
 
-export type FLActionLogEntryDbFilter = { [key: string]: string } | null;
+export type FLAction = (typeof FLAction)[keyof typeof FLAction];
 
-export type FLActorWithAddressRowKind = (typeof FLActorWithAddressRowKind)[keyof typeof FLActorWithAddressRowKind];
-
-export const FLActorWithAddressRowKind = {
-  admin_session: "admin_session",
-  system: "system",
-  public: "public",
+export const FLAction = {
+  saisoncreated: "saison.created",
+  saisonchanged: "saison.changed",
+  saisonactivated: "saison.activated",
+  saisongruppen_swapped: "saison.gruppen_swapped",
+  saisonspielplan_created: "saison.spielplan_created",
+  saisonspielplan_recreated: "saison.spielplan_recreated",
+  saisonspielplan_deleted: "saison.spielplan_deleted",
+  saisoninvitations_dispatched: "saison.invitations_dispatched",
+  spieltagchanged: "spieltag.changed",
+  spielchanged: "spiel.changed",
+  spielergebnis_changed: "spiel.ergebnis_changed",
+  spielbestaetigungentered: "spielbestaetigung.entered",
+  spielbestaetigungvorschlag_discarded: "spielbestaetigung.vorschlag_discarded",
+  spielbestaetigungvorschlag_adopted: "spielbestaetigung.vorschlag_adopted",
+  spielbestaetigunganswered: "spielbestaetigung.answered",
+  spielberichtsaved: "spielbericht.saved",
+  teamentered: "team.entered",
+  teamchanged: "team.changed",
+  teamretired: "team.retired",
+  teamreactivated: "team.reactivated",
+  teamaustritt_entered: "team.austritt_entered",
+  teamseat_changed: "team.seat_changed",
+  teamreplaced: "team.replaced",
+  teaminvitation_created: "team.invitation_created",
+  teaminvitation_withdrawn: "team.invitation_withdrawn",
+  bewerbungaccepted: "bewerbung.accepted",
+  bewerbungdeclined: "bewerbung.declined",
+  bewerbungseat_changed: "bewerbung.seat_changed",
+  registrierungadmitted: "registrierung.admitted",
+  registrierungdeclined: "registrierung.declined",
+  spielerchanged: "spieler.changed",
+  spielerderegistered: "spieler.deregistered",
+  spielerreactivated: "spieler.reactivated",
+  schiedsrichtercreated: "schiedsrichter.created",
+  schiedsrichterchanged: "schiedsrichter.changed",
+  schiedsrichterretired: "schiedsrichter.retired",
+  schiedsrichterreactivated: "schiedsrichter.reactivated",
+  spielortcreated: "spielort.created",
+  spielortchanged: "spielort.changed",
+  spielortretired: "spielort.retired",
+  spielortreactivated: "spielort.reactivated",
+  grantadded: "grant.added",
+  grantremoved: "grant.removed",
+  grantaddition_withdrawn: "grant.addition_withdrawn",
+  granthandover_started: "grant.handover_started",
+  granthandover_withdrawn: "grant.handover_withdrawn",
+  granthandover_completed: "grant.handover_completed",
+  grantaddress_change_started: "grant.address_change_started",
+  grantaddress_switched: "grant.address_switched",
+  banadded: "ban.added",
+  banremoved: "ban.removed",
+  address_changestarted: "address_change.started",
+  address_changediscarded: "address_change.discarded",
+  erasureon_request: "erasure.on_request",
+  erasureown: "erasure.own",
+  retentionbewerbungen: "retention.bewerbungen",
+  retentionkontakte: "retention.kontakte",
+  retentionspielbestaetigungen: "retention.spielbestaetigungen",
+  retentionspielberichte: "retention.spielberichte",
+  retentionregistrierungen: "retention.registrierungen",
+  retentionschiedsrichter: "retention.schiedsrichter",
+  retentionspieler: "retention.spieler",
+  retentionaddress_changes: "retention.address_changes",
+  retentionbans: "retention.bans",
 } as const;
 
 /**
- * An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it.
- */
-export interface FLActorWithAddressRow {
-  email: string | null;
-  email_barred: boolean;
-  kind: FLActorWithAddressRowKind;
-}
-
-export type FLActorPersonFunktion = (typeof FLActorPersonFunktion)[keyof typeof FLActorPersonFunktion];
-
-export const FLActorPersonFunktion = {
-  kontakt: "kontakt",
-  spieler: "spieler",
-  schiedsrichter: "schiedsrichter",
-} as const;
-
-/**
- * A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address.
- */
-export interface FLActorPerson {
-  funktion: FLActorPersonFunktion;
-  kind: "person_session";
-  pseudonym: string;
-}
-
-export type FLActionLogEntryOperation = (typeof FLActionLogEntryOperation)[keyof typeof FLActionLogEntryOperation];
-
-export const FLActionLogEntryOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
-export interface FLActionLogEntryRequest {
-  method: string;
-  path: string;
-}
-
-/**
- * One recorded write.
+ * One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.
  */
 export interface FLActionLogEntry {
-  actor: FLActorWithAddressRow | FLActorPerson;
+  action: FLAction;
   at: string;
-  collection: string;
-  db_filter: FLActionLogEntryDbFilter;
-  document_id: string | null;
-  erasure_reason: string | null;
+  by: string;
+  count: number | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  modified_count: number | null;
-  operation: FLActionLogEntryOperation;
-  redacted_at: string | null;
-  request: FLActionLogEntryRequest | null;
-  stand_secured: boolean;
-  trace_id: string;
+  label: string | null;
+  team: string | null;
 }
 
-export type FLActionLogEntryHerkunft = (typeof FLActionLogEntryHerkunft)[keyof typeof FLActionLogEntryHerkunft];
+export type FLActionType = (typeof FLActionType)[keyof typeof FLActionType];
 
-export const FLActionLogEntryHerkunft = {
-  person: "person",
-  system: "system",
-  public: "public",
+export const FLActionType = {
+  saison: "saison",
+  spieltag: "spieltag",
+  spiel: "spiel",
+  spielbestaetigung: "spielbestaetigung",
+  spielbericht: "spielbericht",
+  team: "team",
+  bewerbung: "bewerbung",
+  registrierung: "registrierung",
+  spieler: "spieler",
+  schiedsrichter: "schiedsrichter",
+  spielort: "spielort",
+  grant: "grant",
+  ban: "ban",
+  address_change: "address_change",
+  erasure: "erasure",
+  retention: "retention",
 } as const;
 
-export type FLActionLogEntryWithBeforeBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
-
-export type FLActionLogEntryWithBeforeDbFilter = { [key: string]: string } | null;
-
 /**
- * One recorded write with the document it replaced, which only the single-row read serves.
+ * What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.
  */
-export interface FLActionLogEntryWithBefore {
-  actor: FLActorWithAddressRow | FLActorPerson;
-  at: string;
-  before: FLActionLogEntryWithBeforeBefore;
-  collection: string;
-  db_filter: FLActionLogEntryWithBeforeDbFilter;
-  document_id: string | null;
-  erasure_reason: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  modified_count: number | null;
-  operation: FLActionLogEntryOperation;
-  redacted_at: string | null;
-  request: FLActionLogEntryRequest | null;
-  stand_secured: boolean;
-  trace_id: string;
+export interface FLActionLogFilterPayload {
+  by?: string | null;
+  cursor?: string | null;
+  from_day?: string | null;
+  q?: string | null;
+  type?: FLActionType[] | null;
 }
-
-export interface FLActionLogEntrySingleResponse {
-  action_log_entry: FLActionLogEntryWithBefore;
-}
-
-export type FLActionLogListResponseCountPerCollection = { [key: string]: number };
-
-export type FLActionLogListResponseCountPerHerkunft = { [key: string]: number };
-
-export type FLActionLogListResponseCountPerOperation = { [key: string]: number };
 
 export interface FLActionLogListResponse {
   action_log: FLActionLogEntry[];
-  complete: boolean;
-  count_per_collection: FLActionLogListResponseCountPerCollection;
-  count_per_herkunft: FLActionLogListResponseCountPerHerkunft;
-  count_per_operation: FLActionLogListResponseCountPerOperation;
+  by_options: string[];
+  cursor: string | null;
 }
+
+export type FLActionLogPageSize = 50;
 
 /**
  * How many seasons the activation moved off `active` -- normally exactly one.
@@ -719,7 +688,7 @@ export interface FLAddress {
 }
 
 /**
- * Exactly one key: the new mailbox's link token, or the change an approval names.
+ * Exactly one key: the new mailbox's link token, or the change a re-send names.
  */
 export interface FLAddressChangeAddressPayload {
   address_change_id?: string | null;
@@ -731,46 +700,6 @@ export interface FLAddressChangeAddressPayload {
  */
 export interface FLAddressChangeAddressResponse {
   email: string | null;
-}
-
-/**
- * The approval a change moving a grant waits on, read-only here: the administrators page approves it.
- *
- * Never who approved: a barred administrator's address is answered on no read.
- */
-export interface FLAddressChangeAdminApproval {
-  admin_tier: FLAdminTier;
-  approved_at: string | null;
-  until: string;
-}
-
-/**
- * What the address holds that a change moves, counted: the tool names the kinds, the editors the records.
- */
-export interface FLAddressChangeAdminHoldings {
-  /** @minimum 0 */
-  bewerbung_seats: number;
-  grant: FLAdminTier | null;
-  /** @minimum 0 */
-  registrierungen: number;
-  /** @minimum 0 */
-  schiedsrichter: number;
-  /** @minimum 0 */
-  seats: number;
-  /** @minimum 0 */
-  spieler: number;
-}
-
-/**
- * A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.
- */
-export interface FLAddressChangeAdminMintResponse {
-  /** @minLength 1 */
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  valid_until: string;
-  way: FLAddressChangeWay;
 }
 
 export type FLOutboxDeliveryState = (typeof FLOutboxDeliveryState)[keyof typeof FLOutboxDeliveryState];
@@ -815,55 +744,36 @@ export interface FLOutboxStatus {
 }
 
 /**
- * The address's live change whole, admin tier: the new address and the reason included, never a hash.
+ * One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.
  */
 export interface FLAddressChangeAdminOpen {
-  approval: FLAddressChangeAdminApproval | null;
-  confirmed_at: string | null;
+  address: string;
   delivery: FLOutboxStatus | null;
   effective_from: string | null;
   email: string;
   expired: boolean;
-  grund: string | null;
+  holder: FLAdminTier | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  released_at: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  sent_at: string;
   valid_until: string | null;
   waits_on: FLAddressChangeWaitsOn;
-  way: FLAddressChangeWay;
 }
 
 /**
- * The address a change starts on, the address it goes to, and how the administrator established who asks for it.
+ * The running changes this administrator may act on, newest first.
+ */
+export interface FLAddressChangeAdminListResponse {
+  changes: FLAddressChangeAdminOpen[];
+}
+
+/**
+ * The address a change starts on, and the address it goes to.
  */
 export interface FLAddressChangeAdminPayload {
   /** @maxLength 254 */
   address: string;
   /** @maxLength 254 */
   email: string;
-  /**
-   * @minLength 1
-   * @maxLength 200
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  grund: string;
-}
-
-/**
- * Exactly one key: the address typed, or the change a page links to.
- */
-export interface FLAddressChangeAdminViewPayload {
-  address?: string | null;
-  address_change_id?: string | null;
-}
-
-export interface FLAddressChangeAdminViewResponse {
-  address: string;
-  holdings: FLAddressChangeAdminHoldings;
-  open: FLAddressChangeAdminOpen | null;
-  possible: boolean;
 }
 
 export type FLAddressChangeAnswer = (typeof FLAddressChangeAnswer)[keyof typeof FLAddressChangeAnswer];
@@ -888,15 +798,8 @@ export interface FLAddressChangeAnswerPayload {
  */
 export interface FLAddressChangeAnswerResponse {
   answer: FLAddressChangeAnswer;
-  approval_open: boolean;
   effective: boolean;
   effective_from: string | null;
-}
-
-export interface FLAddressChangeApprovalResponse {
-  effective: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
 }
 
 /**
@@ -911,7 +814,6 @@ export type FLAddressChangeDiscardedData = typeof FLAddressChangeDiscardedDataVa
  * The replaced address's notice that the change took effect.
  */
 export interface FLAddressChangeEffectiveData {
-  first_name: string | null;
   instant: string;
   kind: "address_change_effective";
 }
@@ -927,6 +829,9 @@ export const FLAddressChangeEndKind = {
   discarded: "discarded",
 } as const;
 
+/**
+ * A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered.
+ */
 export interface FLAddressChangeIdResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -936,8 +841,8 @@ export interface FLAddressChangeIdResponse {
  * The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.
  */
 export interface FLAddressChangeLinkData {
+  holder: FLAdminTier | null;
   kind: "address_change_link";
-  valid_until: string;
   way: FLAddressChangeWay;
 }
 
@@ -978,9 +883,8 @@ export interface FLAddressChangeMovesResponse {
  * it confirmed, stops the change; on the lost-mailbox way it stops the change.
  */
 export interface FLAddressChangeNoticeData {
-  first_name: string | null;
+  holder: FLAdminTier | null;
   kind: "address_change_notice";
-  valid_until: string;
   way: FLAddressChangeWay;
 }
 
@@ -1015,6 +919,7 @@ export const FLAddressChangeViewEndedSide = {
  * What either link opens once its change ended, for as long as its record is kept.
  */
 export interface FLAddressChangeViewEnded {
+  confirmed_on: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ended_on: string;
   kind: FLAddressChangeEndKind;
@@ -1029,22 +934,19 @@ export type FLAddressChangeViewNewState = (typeof FLAddressChangeViewNewState)[k
 export const FLAddressChangeViewNewState = {
   valid: "valid",
   expired: "expired",
-  barred: "barred",
   not_confirmable: "not_confirmable",
   confirmed: "confirmed",
-  approval_expired: "approval_expired",
 } as const;
 
 /**
  * What the new mailbox's link opens while the change stands.
  */
 export interface FLAddressChangeViewNew {
-  approval_open: boolean | null;
+  confirmed_on: string | null;
   effective_from: string | null;
   email: string | null;
   side: "new";
   state: FLAddressChangeViewNewState;
-  valid_until: string | null;
   way: FLAddressChangeWay;
 }
 
@@ -1054,7 +956,6 @@ export const FLAddressChangeViewPreviousState = {
   release_open: "release_open",
   release_expired: "release_expired",
   open: "open",
-  approval: "approval",
   waiting_period: "waiting_period",
 } as const;
 
@@ -1067,23 +968,18 @@ export interface FLAddressChangeViewPrevious {
   released_on: string | null;
   side: "previous";
   state: FLAddressChangeViewPreviousState;
-  valid_until: string | null;
   way: FLAddressChangeWay;
 }
 
 /**
- * What one address link opens: never a name or the id, and the new address only where a link asks its question.
+ * What one address link opens: never a name or the id.
+ *
+ * The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
+ * the change stands, masked on `waiting_period`.
  */
 export interface FLAddressChangeViewResponse {
   view: FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded;
 }
-
-export type FLAddressChangeViewableDenied = (typeof FLAddressChangeViewableDenied)[keyof typeof FLAddressChangeViewableDenied];
-
-export const FLAddressChangeViewableDenied = {
-  own_address: "own_address",
-  admin_address: "admin_address",
-} as const;
 
 export type FLAddressChangeWaitingPeriodDays = 7;
 
@@ -1112,15 +1008,6 @@ export interface FLAddressPayload {
    */
   street: string;
 }
-
-export type FLApprovalDenied = (typeof FLApprovalDenied)[keyof typeof FLApprovalDenied];
-
-export const FLApprovalDenied = {
-  own: "own",
-  started: "started",
-  owner: "owner",
-  younger: "younger",
-} as const;
 
 export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
 
@@ -1225,9 +1112,45 @@ export interface FLAustrittPayload {
  * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).
  */
 export interface FLBanData {
+  ban_reason: string;
   barred_until_saison_id: string;
-  grund: string;
   kind: "ban";
+}
+
+export type FLBanDurationSaisons = 5;
+
+/**
+ * One ban as the list serves it.
+ */
+export interface FLBanListRow {
+  /** @minLength 1 */
+  address: string;
+  /** @minLength 1 */
+  ban_reason: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  barred_until_saison_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  created_at: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+}
+
+/**
+ * Every ban, newest first.
+ */
+export interface FLBanListResponse {
+  ban_list: FLBanListRow[];
+}
+
+/**
+ * The removal is hard, so the id is all there is to answer with: no document survives to echo.
+ */
+export interface FLBanListWriteResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  ban_list_entry_id: string;
 }
 
 export type FLBewerbungConfirmationState = (typeof FLBewerbungConfirmationState)[keyof typeof FLBewerbungConfirmationState];
@@ -1262,11 +1185,9 @@ export interface FLBewerbungConfirmations {
 }
 
 /**
- * A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address.
+ * When this application was decided, and on a decline why.
  */
-export interface FLBewerbungDecisionRow {
-  by: string | null;
-  by_barred: boolean;
+export interface FLBewerbungDecision {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   made_at: string;
   reason: string | null;
@@ -1413,11 +1334,11 @@ export interface FLBewerbungTrikot {
 }
 
 /**
- * One school's application to play one season, as stored, its decision as served.
+ * One school's application to play one season, as stored.
  */
 export interface FLBewerbung {
   confirmations: FLBewerbungConfirmations;
-  decision: FLBewerbungDecisionRow | null;
+  decision: FLBewerbungDecision | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   kader: FLBewerbungKader;
@@ -1438,6 +1359,7 @@ export interface FLBewerbung {
  * A decline, to one person of the application, with the administrator's reason verbatim.
  */
 export interface FLBewerbungAbsageData {
+  deletion_days: number;
   kind: "bewerbung_absage";
   reason: string;
   /** @minItems 1 */
@@ -1565,7 +1487,6 @@ export const FLBewerbungEinwilligungViewResponseState = {
   declined: "declined",
   expired: "expired",
   saison_past: "saison_past",
-  barred: "barred",
 } as const;
 
 export type FLKontaktRow = (typeof FLKontaktRow)[keyof typeof FLKontaktRow];
@@ -1626,26 +1547,6 @@ export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
   status: FLSaisonStatus;
   taken: FLTrikotFarbe[];
-}
-
-/**
- * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
- */
-export interface FLBewerbungPerson {
-  first_name: string | null;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write.
- */
-export interface FLBewerbungErasureData {
-  kind: "bewerbung_erasure";
-  pending: FLBewerbungPerson[];
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-  saison_id: string;
 }
 
 /**
@@ -1809,6 +1710,15 @@ export interface FLBewerbungListRow {
 }
 
 /**
+ * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
+ */
+export interface FLBewerbungPerson {
+  first_name: string | null;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+}
+
+/**
  * A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
@@ -1879,7 +1789,6 @@ export interface FLBewerbungSweepResponse {
   failed: number;
   kontakt_blocks_emptied: number;
   kontakt_seats_emptied: number;
-  redacted_action_log: number;
   reminded: number;
   saison_id: string;
 }
@@ -2225,7 +2134,6 @@ export const FLConfirmationState = {
   valid: "valid",
   confirmed: "confirmed",
   expired: "expired",
-  barred: "barred",
 } as const;
 
 /**
@@ -2256,6 +2164,14 @@ export interface FLDeclineBewerbungPayload {
 export interface FLDeclineBewerbungResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+}
+
+/**
+ * The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.
+ */
+export interface FLDeletionNoticeData {
+  kind: "deletion_notice";
+  saison_id: string | null;
 }
 
 /**
@@ -2314,7 +2230,7 @@ export interface FLEntryNewClub {
 }
 
 /**
- * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
+ * The mailbox an erasure or its counts are looked up by.
  */
 export interface FLErasureAddressPayload {
   /**
@@ -2326,7 +2242,7 @@ export interface FLErasureAddressPayload {
 }
 
 /**
- * The mailbox, and the request the erasure answers, which every log row the erasure files keeps.
+ * The mailbox, and the reference to the request the erasure answers, free text the log's row keeps.
  */
 export interface FLErasurePayload {
   /**
@@ -2343,19 +2259,9 @@ export interface FLErasurePayload {
   reason: string;
 }
 
-/**
- * How many pupils the run erases once this season is activated, counted and never named.
- */
-export interface FLErasurePreviewResponse {
-  completed_saison_id: string | null;
-  spieler: number;
-}
-
 export interface FLErasureResponse {
   /** @minimum 0 */
   address_change: number;
-  /** @minimum 0 */
-  grant_approval_requests: number;
   /** @minimum 0 */
   grants: number;
   /** @minimum 0 */
@@ -2387,115 +2293,25 @@ export interface FLErasureSweepResponse {
 }
 
 /**
- * Another address's live change naming this one as its new address: the change ends, its address's records standing.
+ * What the administrator's erasure of one address reaches, counted and never named, so the confirmation shows no person.
  */
-export interface FLErasureViewAddressChange {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  address_change_id: string;
-  viewable_denied: FLAddressChangeViewableDenied | null;
-}
-
-export type FLErasureViewApprovalRequestParty = (typeof FLErasureViewApprovalRequestParty)[keyof typeof FLErasureViewApprovalRequestParty];
-
-export const FLErasureViewApprovalRequestParty = {
-  target: "target",
-  requester: "requester",
-} as const;
-
-/**
- * An open request for a grant, about the address (`target`) or made by it (`requester`), which the erasure removes.
- */
-export interface FLErasureViewApprovalRequest {
-  admin_tier: FLAdminTier;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  approval_request_id: string;
-  party: FLErasureViewApprovalRequestParty;
-}
-
-export interface FLErasureViewBewerbung {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  first_name: string;
-  last_name: string;
-  rolle: FLKontaktRolle;
-  saison_id: string;
-}
-
-/**
- * One squad row of a pupil the erasure reaches.
- */
-export interface FLErasureViewKader {
-  inactive_since: string | null;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string | null;
-}
-
-/**
- * The address's own live change, which the erasure ends with the records it would move.
- */
-export interface FLErasureViewOwnAddressChange {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  address_change_id: string;
-}
-
-export type FLRegistrierungStatus = (typeof FLRegistrierungStatus)[keyof typeof FLRegistrierungStatus];
-
-export const FLRegistrierungStatus = {
-  submitted: "submitted",
-  declined: "declined",
-} as const;
-
-export interface FLErasureViewRegistrierung {
-  first_name: string;
-  last_name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-  saison_id: string;
-  status: FLRegistrierungStatus;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string | null;
-}
-
-export interface FLErasureViewSchiedsrichter {
-  inactive_since: string | null;
-  name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-  spiele_without_ergebnis_saison_ids: string[];
-}
-
-export interface FLErasureViewSeat {
-  first_name: string;
-  last_name: string;
-  rolle: FLKontaktRolle;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string;
-}
-
-export interface FLErasureViewSpieler {
-  first_name: string;
-  kader: FLErasureViewKader[];
-  last_name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-}
-
 export interface FLErasureViewResponse {
-  address_change: FLErasureViewAddressChange[];
-  admin_tier: FLAdminTier | null;
-  approval_requests: FLErasureViewApprovalRequest[];
-  barred: boolean;
-  bewerbungen: FLErasureViewBewerbung[];
-  own_address_change: FLErasureViewOwnAddressChange | null;
-  registrierungen: FLErasureViewRegistrierung[];
-  schiedsrichter: FLErasureViewSchiedsrichter[];
-  seats: FLErasureViewSeat[];
-  spieler: FLErasureViewSpieler[];
+  /** @minimum 0 */
+  address_change: number;
+  /** @minimum 0 */
+  bewerbung_seats: number;
+  /** @minimum 0 */
+  grants: number;
+  /** @minimum 0 */
+  kontakt_seats: number;
+  /** @minimum 0 */
+  registrierungen: number;
+  /** @minimum 0 */
+  schiedsrichter: number;
+  /** @minimum 0 */
+  spiele: number;
+  /** @minimum 0 */
+  spieler: number;
 }
 
 export type FLRefusedFieldIn = (typeof FLRefusedFieldIn)[keyof typeof FLRefusedFieldIn];
@@ -2585,127 +2401,56 @@ export interface FLGenerateSpielplanResponse {
   spieltage: number;
 }
 
-/**
- * The change of this grant's address that waits on an administrator's approval.
- */
-export interface FLGrantAddressChange {
-  confirmed: boolean;
-  denied: FLApprovalDenied | null;
-  email: string | null;
-  email_barred: boolean;
-  grund: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  started_by: string | null;
-  started_by_barred: boolean;
-  until: string;
-  viewable_denied: FLAddressChangeViewableDenied | null;
-  way: FLAddressChangeWay;
-}
-
-/**
- * The request a refusal or a withdrawal removed: a removal is hard, so the id is all there is to answer with.
- */
-export interface FLGrantApprovalRequestDeclinedResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  approval_request_id: string;
-}
-
-/**
- * One request as the list serves it, while it may still be decided.
- */
-export interface FLGrantApprovalRequestRow {
-  address: string | null;
-  admin_tier: FLAdminTier;
-  asked_at: string;
-  barred: boolean;
-  denied: FLApprovalDenied | null;
-  grant_id: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  stands: boolean;
-  started_by: string | null;
-  started_by_barred: boolean;
-  until: string;
-}
-
-export type FLGrantDataAuthor = (typeof FLGrantDataAuthor)[keyof typeof FLGrantDataAuthor];
-
-export const FLGrantDataAuthor = {
-  anwendung: "anwendung",
-  datenbank: "datenbank",
-} as const;
-
 export type FLGrantDataChange = (typeof FLGrantDataChange)[keyof typeof FLGrantDataChange];
 
 export const FLGrantDataChange = {
   granted: "granted",
   revoked: "revoked",
-  changed: "changed",
-  requested: "requested",
+  handover: "handover",
+  address: "address",
 } as const;
 
-export type FLGrantDataWithheld = (typeof FLGrantDataWithheld)[keyof typeof FLGrantDataWithheld] | null;
+export type FLGrantDataStage = (typeof FLGrantDataStage)[keyof typeof FLGrantDataStage];
 
-export const FLGrantDataWithheld = {
-  barred: "barred",
-  erased: "erased",
+export const FLGrantDataStage = {
+  started: "started",
+  withdrawn: "withdrawn",
+  completed: "completed",
 } as const;
 
 /**
- * One grant's address and tier at one moment.
- */
-export interface FLGrantSnapshot {
-  address: string | null;
-  admin_tier: FLAdminTier;
-}
-
-/**
- * A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.
+ * One step of what changes who holds the administration, as every holder in effect and the person named are told it.
  */
 export interface FLGrantData {
-  author: FLGrantDataAuthor;
-  before: FLGrantSnapshot | null;
+  address: string | null;
   change: FLGrantDataChange;
-  changed_at: string | null;
-  changed_by: string | null;
-  current: FLGrantSnapshot | null;
+  effective_from: string | null;
   kind: "grant";
-  withheld: FLGrantDataWithheld;
+  new_address: string | null;
+  stage: FLGrantDataStage;
 }
 
-export interface FLGrantReconciliationResponse {
+export interface FLGrantHandoverPassResponse {
   /** @minimum 0 */
-  changes: number;
+  handed_over: number;
 }
 
 /**
  * One grant as the list serves it.
  */
 export interface FLGrantRow {
-  address: string | null;
-  address_change: FLGrantAddressChange | null;
+  address: string;
   admin_tier: FLAdminTier;
-  barred: boolean;
-  granted_at: string;
-  granted_by: string | null;
-  granted_by_barred: boolean;
+  effective_from: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  version: number;
+  owner_from: string | null;
 }
 
-/**
- * The grant a tier change named, and whether its promotion waits on another owner's approval rather than taking effect.
- */
-export interface FLGrantStufeResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  grant_id: string;
-  requested: boolean;
-}
+export type FLGrantWaitHours = 24;
 
 /**
- * The grant a revoke removed or an approval wrote or promoted.
+ * The grant an act named: a removal is hard, so the id is all there is to answer with.
  */
 export interface FLGrantWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2713,10 +2458,9 @@ export interface FLGrantWriteResponse {
 }
 
 /**
- * Every grant, never in part, and every request still waiting.
+ * Every grant, never in part, a waiting addition among them.
  */
 export interface FLGrantsListResponse {
-  approval_requests: FLGrantApprovalRequestRow[];
   grants: FLGrantRow[];
 }
 
@@ -2747,24 +2491,12 @@ export interface FLInvitationDispatchResponse {
   skipped: number;
 }
 
-/**
- * One mailbox a link goes to, and the seat it is addressed as.
- */
-export interface FLInvitationRecipient {
-  /** @minLength 1 */
-  email: string;
-  /** @minLength 1 */
-  first_name: string;
-  rolle: FLKontaktRolle;
-}
-
 export type FLInvitationSkipReason = (typeof FLInvitationSkipReason)[keyof typeof FLInvitationSkipReason];
 
 export const FLInvitationSkipReason = {
   austritt_entered: "austritt_entered",
   no_kontakt_block: "no_kontakt_block",
   no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
-  kontakte_barred: "kontakte_barred",
   already_sent: "already_sent",
 } as const;
 
@@ -2775,7 +2507,6 @@ export const FLInvitationSkipReason = {
  */
 export interface FLInvitationLinkRow {
   has_link: boolean;
-  recipient: FLInvitationRecipient[];
   sent_at: string | null;
   skipped: FLInvitationSkipReason | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2793,12 +2524,11 @@ export interface FLInvitationMailPayload {
 }
 
 /**
- * Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed.
+ * How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed.
  */
 export interface FLInvitationMailResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  invitation_id: string;
-  recipient: FLInvitationRecipient[];
+  /** @minimum 0 */
+  mailed: number;
 }
 
 /**
@@ -2809,8 +2539,6 @@ export interface FLInvitationMailResponse {
 export interface FLInvitationMintResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  /** @minLength 1 */
-  created_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   invitation_id: string;
   /** @minLength 1 */
@@ -2822,13 +2550,11 @@ export interface FLInvitationMintResponse {
 }
 
 /**
- * One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address.
+ * One live link as the team's read serves it.
  */
 export interface FLInvitationRow {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   created_at: string;
-  created_by: string | null;
-  created_by_barred: boolean;
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -3071,7 +2797,7 @@ export interface FLKontaktInviteResponse {
 }
 
 /**
- * One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.
+ * One person an administrator seated on a team's season row, asked to confirm.
  */
 export interface FLKontaktLinkData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3310,11 +3036,6 @@ export const FLPasskeyDataKind = {
 } as const;
 
 export interface FLPasskeyData {
-  /**
-   * @maxLength 256
-   * @pattern ^/[a-z0-9/_-]*$
-   */
-  account: string;
   instant: string;
   kind: FLPasskeyDataKind;
 }
@@ -3455,7 +3176,6 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
-  first_name: string;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;
@@ -3493,7 +3213,7 @@ export interface FLOutboxHandout {
     | FLBewerbungReceivedData
     | FLBewerbungZusageData
     | FLBewerbungAbsageData
-    | FLBewerbungErasureData
+    | FLDeletionNoticeData
     | FLBewerbungObjectionData
     | FLKontaktLinkData;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3552,7 +3272,7 @@ export interface FLOutboxResultResponse {
  * One mail of the sign-in library, owed to the address it names.
  */
 export interface FLOutboxSignInPayload {
-  data: FLSignInCodeData | FLPasskeyData | FLAccountErasureData;
+  data: FLSignInCodeData | FLPasskeyData | FLAccountErasureData | FLDeletionNoticeData;
   secret: string | null;
   /** @maxLength 254 */
   to: string;
@@ -3829,10 +3549,7 @@ export const FLOverviewGapKind = {
   team_missing: "team_missing",
 } as const;
 
-export interface FLPatchGrantPayload {
-  admin_tier: FLAdminTier;
-  version?: number | null;
-}
+export type FLOwnerWaitDays = 7;
 
 /**
  * A seat holder's edit of a squad row.
@@ -4169,6 +3886,23 @@ export interface FLPatchTeamSaisonResponse {
   version: number;
 }
 
+export interface FLPostBanListEntryPayload {
+  /**
+   * @minLength 1
+   * @maxLength 500
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  ban_reason: string;
+  /** @maxLength 254 */
+  email: string;
+  notify: boolean;
+}
+
+export interface FLPostBanListEntryResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
 /**
  * One school's application, as the public form submits it.
  *
@@ -4196,12 +3930,6 @@ export interface FLPostBewerbungPayload {
 export interface FLPostGrantPayload {
   /** @maxLength 254 */
   email: string;
-}
-
-export interface FLPostGrantResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
-  requested: boolean;
 }
 
 /**
@@ -4269,31 +3997,6 @@ export interface FLPostSchiedsrichterPayload {
 
 export interface FLPostSchiedsrichterResponse {
   confirmation: FLSchiedsrichterMint;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
-}
-
-export interface FLPostSperrlistePayload {
-  /** @maxLength 254 */
-  email: string;
-  /**
-   * @minLength 1
-   * @maxLength 500
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  grund: string;
-  notify: boolean;
-}
-
-/**
- * Answers the bound as well as the id: the mail telling the person names the season, and a second read would race the lapse.
- */
-export interface FLPostSperrlisteResponse {
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  barred_until_saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
 }
@@ -4468,7 +4171,6 @@ export interface FLRegistrierungSweepResponse {
   erased_unconfirmed: number;
   erased_without_decision: number;
   failed: number;
-  redacted_action_log: number;
   reminded: number;
   saison_id: string;
 }
@@ -4697,24 +4399,6 @@ export interface FLSaisonOverviewResponse {
   cards: FLOverviewCard[];
 }
 
-export interface FLSaisonTeamAddressChangeDenied {
-  ansprechperson: FLAddressChangeViewableDenied | null;
-  stellvertretung: FLAddressChangeViewableDenied | null;
-  trainer: FLAddressChangeViewableDenied | null;
-}
-
-/**
- * The live change of each confirmed seat's address, which the address tool shows.
- *
- * Null where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.
- */
-export interface FLSaisonTeamAddressChange {
-  ansprechperson: string | null;
-  stellvertretung: string | null;
-  trainer: string | null;
-  viewable_denied: FLSaisonTeamAddressChangeDenied;
-}
-
 /**
  * One seat's link as the contacts editor reads it: the stored link and whether it has lapsed.
  */
@@ -4859,7 +4543,6 @@ export const FLSchiedsrichterConfirmationState = {
   confirmed: "confirmed",
   declined: "declined",
   expired: "expired",
-  barred: "barred",
 } as const;
 
 /**
@@ -4921,8 +4604,6 @@ export interface FLSchiedsrichterSelfResponse {
 }
 
 export interface FLSchiedsrichterSingleResponse {
-  address_change_id: string | null;
-  address_change_viewable_denied: FLAddressChangeViewableDenied | null;
   confirmation_expired: boolean;
   delivery: FLOutboxStatus | null;
   schiedsrichter: FLSchiedsrichter;
@@ -4960,13 +4641,6 @@ export interface FLSignInResponse {
   unconfirmed: boolean;
 }
 
-/**
- * The envelope alone: the log row it filed names no address to answer with.
- */
-export interface FLSignOutResponse {
-  [key: string]: unknown;
-}
-
 export type FLSignatoryMinAgeYears = 18;
 
 export type FLSortOrder = (typeof FLSortOrder)[keyof typeof FLSortOrder];
@@ -4975,45 +4649,6 @@ export const FLSortOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
-
-/**
- * One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.
- */
-export interface FLSperrlisteRow {
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  barred_until_saison_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  created_at: string;
-  created_by: string | null;
-  created_by_barred: boolean;
-  /** @minLength 1 */
-  grund: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-}
-
-/**
- * The bans, newest first, and how many there are.
- *
- * `count_total` is what makes a ban past the cap liftable: one enforced and not rendered is a
- * person barred by a row nobody can reach.
- */
-export interface FLSperrlisteListResponse {
-  /** @minimum 0 */
-  count_total: number;
-  sperrliste: FLSperrlisteRow[];
-}
-
-/**
- * The removal is hard, so the id is all there is to answer with: no document survives to echo.
- */
-export interface FLSperrlisteWriteResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  sperrliste_id: string;
-}
 
 export type FLSpielberichtVorschlagSonderereignis =
   (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
@@ -5483,7 +5118,7 @@ export interface FLSpielbestaetigungSeat {
 }
 
 /**
- * The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty, barred or voided seat holds no link.
+ * The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty or voided seat holds no link.
  */
 export interface FLSpielbestaetigungKontakte {
   ansprechperson: FLSpielbestaetigungSeat | null;
@@ -5642,7 +5277,6 @@ export const FLSpielbestaetigungViewResponseState = {
   expired: "expired",
   invalid: "invalid",
   cancelled: "cancelled",
-  barred: "barred",
 } as const;
 
 /**
@@ -5997,15 +5631,11 @@ export interface FLSubjectSpieler {
 }
 
 /**
- * Which confirmed, live records one mailbox matches, and whether the address is on the ban list.
- *
- * The ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide.
+ * Which confirmed, live records one mailbox matches, and the grant it holds.
  */
 export interface FLSubjectResponse {
   admin_tier: FLAdminTier | null;
-  barred: boolean;
   granted_since: string | null;
-  owner_since: string | null;
   schiedsrichter: FLSubjectSchiedsrichter[];
   seats: FLSubjectSeat[];
   spieler: FLSubjectSpieler[];
@@ -6171,7 +5801,6 @@ export const FLTeamListState = {
  * One junction row as seen from its club: which season, which group, and the record if any.
  */
 export interface FLTeamMembership {
-  address_change: FLSaisonTeamAddressChange | null;
   austritt: FLAustritt | null;
   confirmations: FLSaisonTeamConfirmationsView | null;
   gruppe: FLGruppenNames;
@@ -6471,20 +6100,6 @@ export type N500Response = FLFailureBody;
  * Service Unavailable
  */
 export type N503Response = FLFailureBody;
-
-export type ActionLogGetActionLogParams = {
-  collection?: string[] | null;
-  operation?: FLActionLogEntryOperation[] | null;
-  herkunft?: FLActionLogEntryHerkunft[] | null;
-  trace_id?: string | null;
-  document_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  order?: FLSortOrder;
-};
 
 export type AddressChangeSweepAddressChangeParams = {
   after?: string | null;

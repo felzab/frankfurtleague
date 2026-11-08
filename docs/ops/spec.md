@@ -91,9 +91,7 @@ destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy ca
 those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
 host files rather than a container stream (§1.2), holding every line that names a visitor
 — to eight, through an hourly `logrotate`
-([`runbooks.md`](runbooks.md) §7). An hourly timer there copies the backend's erasure-journal lines
-into a host file per day under the same thirty days (`scripts/ops/export_journal.sh`), since a
-restore reads them after the stream holding them is gone.
+([`runbooks.md`](runbooks.md) §7).
 
 **Every service drops every capability and runs under `no-new-privileges:true`, and `nginx` alone
 adds any back**: four, each one its master, starting as root, fails to start without.
@@ -117,8 +115,8 @@ that serves the site and stops when it stops. A pass runs each job in turn: the 
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`), the account sweep
 (`fl_frontend/src/features/funktionen/sweep.ts :: runAccountSweep`), the pupils' deletion
 (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`), the fixture confirmations
-(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
-(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runGrantsReconciliation`). Then the
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the handover pass
+(`fl_frontend/src/features/grants/sweep.ts :: runHandoverPass`). Then the
 Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
@@ -131,8 +129,8 @@ previous pass still running is skipped with one line rather than overlapping it.
 on dates, lapses or season statuses and is idempotent, so a redeploy, a restart and a missed hour
 each cost nothing, and a job that throws stops none of the others. The deletion notice is
 idempotent to one floor: a crash between a delivery and its stamp repeats that one notice once.
-Ending an address change whose step lapsed is the retention sweep's alone, and so, but for an
-approval pressed after it, is making one take effect once its waiting time ends. The backend
+Ending an address change whose step lapsed is the retention sweep's alone, and so is making one
+take effect once its waiting time ends. The backend
 judges each pupil of a deletion again in a transaction of their own, and the account sweep counts
 an account already gone as such.
 
@@ -178,7 +176,7 @@ host file's own owner and mode are what the container sees (Docker's Compose fil
 | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
 | `tunnel_token`                                                                                                                         | uid and gid 65532, the connector | `400` |
 | `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key`, `betterstack_heartbeat_url` | uid and gid 1001, the frontend   | `400` |
-| `backend_mongodb_uri`, `sperrliste_key`                                                                                                | uid and gid 1002, the backend    | `400` |
+| `backend_mongodb_uri`                                                                                                                  | uid and gid 1002, the backend    | `400` |
 | `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                                                           | root, group 1003                 | `440` |
 
 **The three internal keys are one file each, read by both application services**, which run as
@@ -553,7 +551,8 @@ itself** before `next dev` starts, over the shell and `fl_frontend/.env`, to the
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
 turn the frontend away from the secret's mount and its boot refuses.
 
-**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS` or a
+**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS`, a
+retired name of the ban list's key or a
 job switch the hourly scheduler replaced (`scripts/lib/_lib.sh :: RETIRED_ENV_NAMES`),
 refuses a deploy or a local start before its first compose call**, at exit 2, finding each
 such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style
@@ -650,9 +649,9 @@ stack's container publishes port 3000 or 27017**, which both publish
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
 local stack starts with an empty `auth` and a sign-in builds it; the grants deciding
 which administrator may sign in, and which the backend admits, arrive with the copy
-(`berechtigungen`), so a `--fresh` stack admits nobody until one is written, and anybody else is
+(`grants`), so a `--fresh` stack admits nobody until one is written, and anybody else is
 offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
-`/area/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
+`/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
 gives. Every machine, and every `--fresh`, enrols again. A second passkey is added on Konto's

@@ -7,7 +7,7 @@ import { FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { TablePlaceholder } from "@/kit/Table";
 
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
@@ -43,7 +43,7 @@ const WORDS = COPY.admin.saison;
 const TEAM = COPY.shared.facts.team;
 
 /** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
-const LINKS_HEAD: TableHead = { nameLabel: TEAM, columns: [{ key: "link", label: COPY.account.address.link }] };
+const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link }] };
 
 /** One of the editor's selects of a few short choices while it is read. */
 const SELECT = (
@@ -98,7 +98,6 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 /** A team's registration link as its row states it: the club gone, the press passing it over, or its link's state. */
 function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): Words {
   if (team?.austritt != null) return COPY.shared.austritt[team.austritt.type].state;
-  if (row.skipped === "kontakte_barred") return WORDS.addressBarred;
   if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
   if (!row.has_link) return WORDS.noLinkYet;
   return row.sent_at === null ? WORDS.linkNotSent : WORDS.linkSentOn(dayOf(row.sent_at));
@@ -156,7 +155,6 @@ export default function SaisonSettingsPage({ params }: Props) {
               head={LINKS_HEAD}
               rows={24}
               bare
-              linked={false}
             />,
             { act: COPY.shared.withObject(WORDS.registrierungslinks, "send") },
           ],
@@ -182,14 +180,14 @@ export default function SaisonSettingsPage({ params }: Props) {
 
 async function readEditor(params: Props["params"]) {
   // The frame's own season list, which the switch's question names the season the site leaves from, beside the view read.
-  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, judged] = await Promise.all([
+  const [{ saison, teams, incoming_teams, shapes, spielplan, refusals, invitations }, { saisons }, session] = await Promise.all([
     readSaison(params),
     getAdminSaisons(),
-    judgeAdminRequest(),
+    getAdminSession(),
   ]);
   // The page's read turned a refused session away to the sign-in before this line; an acting administrator signs in
   // by passkey alone, so every act behind the touch asks it.
-  const holder = "session" in judged ? judged.session.user.email : "";
+  const holder = session?.user.email ?? "";
   // The teams the registration links' press would mail now, by the press's own plan.
   const mailed = invitations.filter((row) => row.skipped === null);
 

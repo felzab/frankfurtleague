@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
@@ -32,10 +32,7 @@ OBJECT_ID_REGEX = "[0-9a-fA-F]{24}"
 
 
 def parse_object_id(value: str) -> ObjectId | None:
-    """`None` rather than a raise: the log's search term answers a malformed id with a text match.
-
-    One reader for it and for the payload type, so the two cannot disagree about what names a document.
-    """
+    """`None` rather than a raise: a value bson refuses and one it decodes to something else are one answer to the payload type."""
 
     try:
         oid = ObjectId(value)
@@ -212,6 +209,15 @@ def validate_calendar_date(value: str) -> str:
         raise rule_refusal("date_not_in_calendar", "the date names no day of the calendar") from invalid_date_error
     return value
 
+
+def as_utc(moment: datetime) -> datetime:
+    """An instant marked as the UTC it is: the driver reads a stored one back with no offset, and served so it reads as local time."""
+
+    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+
+
+# Every instant a route serves, which then carries its offset.
+FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True), AfterValidator(validate_calendar_date)]
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]

@@ -7,17 +7,15 @@ import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
-import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
-import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
 
 import type { ReactNode, RefObject } from "react";
 
-// Redesign: this file goes with the old link pages in `features/address-change`, `features/registrierungen` and `features/spielbestaetigungen`.
+// Redesign: this file goes with the old link pages in `features/registrierungen` and `features/spielbestaetigungen`.
 /** The heading of a page whose link could not be checked, on every page a token link opens. */
 export const LINK_UNREADABLE_TITLE = "Link nicht geprüft";
 
@@ -200,23 +198,6 @@ export function ConfirmationResult({
         className={GLYPH_COLOUR_CLASSES[tone]}
       />
       {children}
-    </section>
-  );
-}
-
-/**
- * **The whole page a barred link opens on, on every confirmation page**: the sentence and
- * nothing else. A Widerspruch or any other request goes by mail to
- * the address it names.
- */
-export function AddressBarred({ panelRef }: { panelRef: RefObject<HTMLElement | null> }) {
-  return (
-    <section className={SEITE_CLASSES}>
-      <ConfirmationResult
-        panelRef={panelRef}
-        tone="notice">
-        <p className={PARAGRAPH_CLASSES}>{LINK_ADRESSE_GESPERRT}</p>
-      </ConfirmationResult>
     </section>
   );
 }

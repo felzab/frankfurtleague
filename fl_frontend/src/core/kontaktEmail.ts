@@ -14,8 +14,7 @@ import type { MailLink } from "./mailKinds";
 const PAGE = SERVER_COPY.kontaktConfirmation;
 const DEADLINE = SERVER_COPY.schiedsrichterConfirmation.deadline;
 
-// No name: the administrator typed this address and nobody has confirmed it, so behind a typo its reader is a
-// stranger, owed none. One person a mail: an address is one person, so `rollen` are the seats that one holds.
+// One person a mail: an address is one person, so `rollen` are the seats that one holds.
 /**
  * What one person an administrator seated on a team's season row is asked, from the facts the Postausgang row holds and
  * the link its hand-out minted: on an open row to answer by the seat's own day, on a closed row, whose link takes the
@@ -28,7 +27,7 @@ export function buildKontaktConfirmationEmail(
   const site = mailOrigin(origin);
   const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: rollenText(rollen) });
   const href = kontaktConfirmationLink(site, token);
-  const shell = { kind: "firstContact", subjectLine: SERVER_COPY.mail.kontakt.subject(schule), origin: site, firstName: "" } as const;
+  const shell = { kind: "firstContact", subjectLine: SERVER_COPY.mail.kontakt.subject(schule), origin: site } as const;
 
   if (row === "open") {
     return {

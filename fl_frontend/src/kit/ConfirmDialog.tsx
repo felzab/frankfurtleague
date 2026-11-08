@@ -13,11 +13,13 @@ import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { answering } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
+import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
+import type { FormStatus } from "./useFormAction";
 import type { HeldOpen } from "./useOpenUntilHidden";
 
 const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
@@ -47,7 +49,7 @@ type Opening =
       open?: never;
     }
   | {
-      /** The open state, held by the control that asks: a row's act asking once the passkey touch has answered. */
+      /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
     };
@@ -59,6 +61,11 @@ type Act = {
    * the acts, a throw worded and the page read again as every form's send is (`answering`).
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
+  /**
+   * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list a person holding a passkey
+   * presses: the address the page was drawn for (`usePasskeyTouch`). The question stays open on a refused touch.
+   */
+  touch?: { holder: string };
 };
 
 export type ConfirmDialogProps = ConfirmWords & Act & Opening;
@@ -74,15 +81,16 @@ type Unasked = Act & { open: HeldOpen; trigger?: never } & { [Word in keyof Conf
  * the facts it rests on, as the „Spiel verlegt“ mail sets a move's slots as rows, „Zurück“ and the act's verb, the status line beside them as every form's stands beside its acts. It has no close
  * mark; Escape and „Zurück“ are the way out, both closed while the act runs, whose answer is the question's to show.
  * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, so the same
- * refusal twice is announced twice.
+ * refusal twice is announced twice. A refusal marked `warn` is an act that partly happened: its line reads in the warn
+ * tone, and its button stays, since a second press finishes what the first left.
  */
 export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
-  const { trigger, open, onConfirm } = props;
+  const { trigger, open, onConfirm, touch } = props;
   const words = props.verb === undefined ? null : props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isBusy, startAct] = useTransition();
-  const [refusal, setRefusal] = useState<Copy | null>(null);
+  const [refusal, setRefusal] = useState<FormStatus>(null);
   // A refusal goes with the dialog however it closes, its holder's state or the page hiding included, so it never
   // greets the next opening: reset while rendering, as React's guide adjusts state to a changed prop. Reset as it opens
   // too, since an answer still on its way when the page hid the question arrives after it closed.
@@ -91,8 +99,12 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
     setWasOpen(isOpen);
     setRefusal(null);
   }
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   // An act answering nothing is done; one answering is judged by its answer.
-  const act = answering(async () => (await onConfirm()) ?? DONE, router.refresh);
+  const act = answering(
+    touched(async () => (await onConfirm()) ?? DONE),
+    router.refresh,
+  );
 
   const overlay = words !== null && (
     <DialogOverlay
@@ -114,7 +126,7 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
         {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
         <ActRow>
           <StatusLine
-            status={refusal === null ? null : { tone: "error", text: refusal }}
+            status={refusal}
             placement="row"
           />
           <Button
@@ -133,7 +145,8 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
                 const answer = await act(undefined);
                 // An update after the `await` commits outside the transition unless it opens one of its own.
                 startAct(() => {
-                  if (!answer.ok) setRefusal(answer.reason ?? COPY.shared.failure.unexpected);
+                  if (!answer.ok)
+                    setRefusal({ tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected });
                   else setOpen(false);
                 });
               })

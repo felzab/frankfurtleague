@@ -4,6 +4,7 @@ import {
   formatDateWithWeekday,
   formatErgebnis,
   formatInstant,
+  formatInstantShort,
   formatList,
   formatNumber,
   formatOrdinal,
@@ -13,7 +14,15 @@ import {
 import { KONTAKT_ROLLE_LONG_FORM, rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
-import type { FLKontaktRolle, FLSchulform, FLSpielerRolle, FLSpielerStufe } from "./generated/client/types";
+import type {
+  FLAction,
+  FLActionLogPageSize,
+  FLAddressChangeWaitsOn,
+  FLKontaktRolle,
+  FLSchulform,
+  FLSpielerRolle,
+  FLSpielerStufe,
+} from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
 
@@ -63,7 +72,6 @@ const VERB = {
   oppose: "Widersprechen",
   adopt: "Übernehmen",
   discard: "Verwerfen",
-  lineUp: "Aufstellen",
   signIn: "Anmelden",
   signOut: "Abmelden",
   setUp: "Einrichten",
@@ -73,6 +81,7 @@ const VERB = {
   edit: "Bearbeiten",
   swap: "Tauschen",
   replace: "Ersetzen",
+  handOver: "Übergeben",
   recreate: "Neu anlegen",
   activate: "Umstellen",
   /** A venue's and a referee's retiring, and its undoing, each the danger box's act. */
@@ -125,6 +134,38 @@ const RETIREMENT = "Stilllegung";
 const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
+// The owner tier's one word: its chip, its acts and every sentence naming it, the server's among them, read this line.
+const OWNER_TIER = "Leitung";
+// The plurals a page's title and the action log's count of a pass say alike.
+const BEWERBUNGEN = "Bewerbungen";
+const REGISTRIERUNGEN = "Registrierungen";
+const KONTAKTPERSONEN = "Kontaktpersonen";
+const CONFIRMATIONS = "Bestätigungen";
+const ADDRESS_CHANGES = "Adressänderungen";
+const BANS = "Sperren";
+// The moment a waiting change takes effect, a fact's label and a row's line alike.
+const EFFECTIVE_FROM = "Gilt ab";
+// A link's last moment, a fact's label and a row's line alike.
+const VALID_UNTIL = "Gültig bis";
+// A person's own deletion: the action log's word for it, and the done page's.
+const ACCOUNT_ERASED = "Konto gelöscht";
+// One word for every retention pass, its noun saying what it took.
+const DELETED_BY_PASS = "Nach Frist gelöscht";
+
+/**
+ * A wait a sentence states, in the unit its bound is published in. Each figure is a literal, so a bound that moves fails
+ * the type check here rather than printing a wrong plural.
+ */
+export type Wait = { readonly hours: 24 } | { readonly days: 7 };
+
+/**
+ * A wait's two German forms, digits always: `span` after „gilt“, and `after` taking the dative. Exported for the
+ * server's own catalogue, `serverCopy.ts`, alone.
+ */
+export const waitWords = (wait: Wait) =>
+  "hours" in wait
+    ? { span: `${formatNumber(wait.hours)} Stunden`, after: `nach ${formatNumber(wait.hours)} Stunden` }
+    : { span: `${formatNumber(wait.days)} Tage`, after: `nach ${formatNumber(wait.days)} Tagen` };
 
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -200,7 +241,7 @@ export const COPY = catalogue({
     /** The spinner's accessible name; a busy button keeps its own label. */
     loading: "Lädt",
 
-    /** The plural is the list's own title entry. */
+    /** The plural is the list's own title entry where the title is a plural, else the noun the catalogue keeps for its rows. */
     empty: {
       search: (plural: Copy) => `Keine ${plural} für diese Suche.`,
       filter: (plural: Copy) => `Keine ${plural} für diese Filter.`,
@@ -243,7 +284,7 @@ export const COPY = catalogue({
     versus: "–",
     overview: "Übersicht",
     switchRole: "Funktion wechseln",
-    loadMore: "Weitere 50 laden",
+    loadMore: `Weitere ${50 satisfies FLActionLogPageSize} laden`,
     kORunde: K_O_RUNDE,
     kOBaum: "K.-o.-Baum",
     /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */
@@ -342,15 +383,15 @@ export const COPY = catalogue({
     spiele: "Spiele",
     adminSpielorte: "Spielorte",
     adminSchiedsrichter: SCHIEDSRICHTER,
-    adminBewerbungen: "Bewerbungen",
+    adminBewerbungen: BEWERBUNGEN,
     adminBewerbungenBulk: "Sammel-Zusage",
     adminSpieler: SPIELER,
-    registrierungen: "Registrierungen",
+    registrierungen: REGISTRIERUNGEN,
     teamKader: KADER,
     adminAdministrators: "Administratoren",
     adminBanList: "Sperrliste",
     adminErasures: "Löschungen",
-    adminAddressChanges: "Adressänderungen",
+    adminAddressChanges: ADDRESS_CHANGES,
     adminActionLog: "Protokoll",
     addressChangeConfirmation: "Änderung der E-Mail-Adresse",
     /** A contact person's and a referee's confirmation of their own entry. */
@@ -399,7 +440,7 @@ export const COPY = catalogue({
    * review page and the team editor.
    */
   team: {
-    kontakte: "Kontaktpersonen",
+    kontakte: KONTAKTPERSONEN,
     /** Each seat's long form, where it is a box's title or a choice of its own. */
     seatName: KONTAKT_ROLLE_LONG_FORM,
     /** The object of „Sitz bearbeiten“. */
@@ -609,14 +650,15 @@ export const COPY = catalogue({
             : `wartet bis ${formatInstant(until)} auf die Bestätigung deiner bisherigen Adresse.`,
         new: (until: string | null) =>
           until === null ? "wartet auf ihre Bestätigung." : `wartet bis ${formatInstant(until)} auf ihre Bestätigung.`,
+        /** Both addresses have confirmed and the wait runs. */
+        waiting: (moment: string) => `gilt ab ${formatInstant(moment)}.`,
       },
       /** The step the change waits on lapsed; the hourly pass ends it. */
       lapsed: "Die Änderung ist abgelaufen.",
-      /** A grant's move waits on another administrator, who approves it apart from both links. */
-      grantNote: "Eine andere Person aus der Verwaltung muss die Änderung genehmigen.",
-      unchanged: "Das ist schon deine E-Mail-Adresse.",
-      /** A grant's move nobody but its holder could approve: the last owner's, or the one grant standing. */
-      noApprover: "Niemand kann die Änderung genehmigen.",
+      /** The address on file's one act, on its link's page and on its mail's button. */
+      stop: "Änderung stoppen",
+      /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
+      holderWait: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span}, nachdem beide Adressen sie bestätigt haben.`,
     },
     erasure: {
       // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
@@ -633,8 +675,9 @@ export const COPY = catalogue({
           ? `Eingerichtet am ${formatDate(created)}`
           : `Eingerichtet am ${formatDate(created)} · Zuletzt verwendet am ${formatDate(lastUsed)}`,
       /**
-       * The deletion's consequence, worded after the passkey touch, whose sign-in the session then is: the devices
-       * the passkey signed in, this one among them where the touch was made with it.
+       * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
+       * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
+       * then has to be.
        */
       endsDevices: "Geräte, die damit angemeldet sind, werden abgemeldet.",
       endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
@@ -782,7 +825,24 @@ export const COPY = catalogue({
     },
 
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
-    facts: { before: "Bisher", after: "Neu", fromNow: "Ab sofort", mailTo: "E-Mail an" },
+    facts: {
+      before: "Bisher",
+      after: "Neu",
+      fromNow: "Ab sofort",
+      mailTo: "E-Mail an",
+      enteredOn: "Eingetragen am",
+      effectiveFrom: EFFECTIVE_FROM,
+    },
+    /** The place of an address the log's erasure step replaced, in „Wer“. */
+    erasedActor: "Gelöschte Person",
+    /** Löschungen' and the address change's answer to an address holding no record. */
+    nothingAtAddress: "Unter dieser Adresse steht nichts.",
+    /** „E-Mail an“'s values across the access pages. */
+    mailTo: {
+      holders: "Alle Administratoren",
+      holdersAndPerson: "Alle Administratoren und die Person",
+      bothAddresses: "Beide Adressen",
+    },
     /** A venue's and a referee's danger box, holding the act retiring the record or bringing it back. */
     retirement: RETIREMENT,
 
@@ -973,7 +1033,7 @@ export const COPY = catalogue({
 
       /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
       spielbericht: "Spielbericht",
-      confirmations: "Bestätigungen",
+      confirmations: CONFIRMATIONS,
       /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
       preview: (pairing: Copy, when: Copy, result: Copy) => `${pairing} · ${when} · ${result}`,
       noResult: "Noch kein Ergebnis",
@@ -1076,7 +1136,7 @@ export const COPY = catalogue({
       austrittType: "Art",
       austrittFrom: "Wirksam ab",
       registrierungLink: "Registrierungslink",
-      linkValidUntil: "Gültig bis",
+      linkValidUntil: VALID_UNTIL,
       registrierungEnd: (day: CalendarDay) => `Ende der Registrierung, ${formatDate(day)}`,
       /** The one copy button's name, over a link shown once. */
       copyLink: "Link kopieren",
@@ -1141,6 +1201,188 @@ export const COPY = catalogue({
       search: "Registrierungen suchen",
       /** Over a list the read's cap cut, which a link passed around reaches. */
       cut: "Nicht alle Registrierungen sind geladen.",
+    },
+
+    /** Administratoren: the grants, what waits among them, and the acts on either. */
+    administrators: {
+      /** The object of „Administrator eintragen“ and „Administrator entfernen“. */
+      object: "Administrator",
+      /** The owner's chip, and the object of the handover. */
+      owner: OWNER_TIER,
+      /** The heading over what waits. */
+      pending: "Angekündigt",
+      /** A grant's `effective_from`, as a date under this label. */
+      since: "Seit",
+      pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
+      /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
+      pendingLine: (kind: Copy, address: string | null, moment: string) =>
+        [kind, address, `${EFFECTIVE_FROM} ${formatInstantShort(moment)}`].filter((part) => part !== null).join(" · "),
+      additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
+      removeConsequence: "Der Zugang endet sofort.",
+      handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,
+      /** Why the handover is locked. */
+      handoverRunning: "Übergabe läuft schon",
+      /** A withdrawal's sentence, by what waited; an address change's is `addressChange.previousStays`. */
+      withdrawConsequence: {
+        addition: "Die Adresse bekommt keinen Zugang.",
+        handover: `Die ${OWNER_TIER} bleibt bei dir.`,
+      },
+    },
+
+    /** Sperrliste: a ban's two dialogs and what a ban's write can leave undone. */
+    banList: {
+      /** The object of „Sperre eintragen“ and „Sperre entfernen“, and the block's title in the ban's mail. */
+      object: "Sperre",
+      /** The list's plural in its empty states, and a pass's noun. */
+      plural: BANS,
+      search: `${BANS} suchen`,
+      consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
+      duration: "Dauer",
+      durationSaisons: (count: number) => (count === 1 ? "1 Saison" : `${formatNumber(count)} Saisons`),
+      /** The dialog's line once the ban stands, by what did not follow it. */
+      partial: {
+        sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
+        notice: "Die Sperre steht, aber die E-Mail ist nicht raus.",
+        both: "Die Sperre steht, aber Anmeldungen und E-Mail sind offen.",
+        /** The second press's note, once it ended what the first left running. */
+        ended: "Die Anmeldungen sind beendet.",
+      },
+      liftConsequence: "Die Adresse kann sich wieder anmelden.",
+    },
+
+    /** Löschungen: the one form, its confirmation and the counts it shows. */
+    erasure: {
+      /** The reason's box, a free text no check reads. */
+      reference: "Referenz der Anfrage",
+      /** The object of „Daten löschen“. */
+      object: "Daten",
+      consequence: "Alles unter dieser Adresse wird endgültig gelöscht.",
+      /** The rows a confirmation counts beyond the entries `shared` and `page` name. */
+      count: {
+        teamSeats: "Sitze in Teams",
+        bewerbungSeats: "Sitze in Bewerbungen",
+        spiele: "Eingeteilte Spiele",
+        addressChanges: "Laufende Adressänderungen",
+        grant: "Zugang",
+      },
+      /** The dialog's note, the account undeleted or unknown: the dialog stays open, so „Löschen“ retries. */
+      partial: "Die Daten sind gelöscht, das Konto vielleicht nicht.",
+    },
+
+    /** Adressänderungen: the running changes and the start's dialog. */
+    addressChange: {
+      /** A row's chip, by what the change waits on. */
+      waitsOn: { previous_address: "Bisherige offen", new_address: "Neue offen", waiting_period: "Wartezeit" } satisfies Record<
+        FLAddressChangeWaitsOn,
+        string
+      >,
+      /** The column of the moment a row's step ends. */
+      until: "Bis",
+      /** That column's value while a link is open, and in the wait. */
+      untilCell: (moment: string) => `bis ${formatInstantShort(moment)}`,
+      fromCell: (moment: string) => `ab ${formatInstantShort(moment)}`,
+      startConsequence: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span} nach ihrer Bestätigung.`,
+      /** A callout, the typed address matching a listed row. */
+      replaces: "Eine laufende Änderung wird ersetzt.",
+      /** A withdrawal's and a discard's sentence. */
+      previousStays: "Die bisherige Adresse bleibt.",
+    },
+
+    /** The Protokoll: its one list, its filters and each row's words, composed from the stored action. */
+    actionLog: {
+      search: "Einträge suchen",
+      what: "Was",
+      who: "Wer",
+      when: "Wann",
+      /** „Wer“'s option and value for a scheduled pass. */
+      automatic: "Automatisch",
+      /** „Zeitraum“'s presets. */
+      time: {
+        days: (count: number) => `Letzte ${formatNumber(count)} Tage`,
+      },
+      /** „Wer“ of a team's representative. */
+      actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
+      /** A pass's label: one form, so a count of 1 needs no singular. */
+      passCount: (noun: Copy, count: number) => `${noun}: ${formatNumber(count)}`,
+      /** What a pass deleted, the noun of `passCount`, by the pass's stored action. */
+      passNoun: {
+        "retention.bewerbungen": BEWERBUNGEN,
+        "retention.kontakte": KONTAKTPERSONEN,
+        "retention.spielbestaetigungen": CONFIRMATIONS,
+        "retention.spielberichte": "Spielberichte",
+        "retention.registrierungen": REGISTRIERUNGEN,
+        "retention.schiedsrichter": SCHIEDSRICHTER,
+        "retention.spieler": SPIELER,
+        "retention.address_changes": ADDRESS_CHANGES,
+        "retention.bans": BANS,
+      } satisfies Record<Extract<FLAction, `retention.${string}`>, string>,
+      /** A row's word, by its stored action. */
+      action: {
+        "saison.created": "Saison angelegt",
+        "saison.changed": "Saison geändert",
+        "saison.activated": "Saison umgestellt",
+        "saison.gruppen_swapped": "Gruppen getauscht",
+        "saison.spielplan_created": "Spielplan angelegt",
+        "saison.spielplan_recreated": "Spielplan neu angelegt",
+        "saison.spielplan_deleted": "Spielplan gelöscht",
+        "saison.invitations_dispatched": "Registrierungslinks gesendet",
+        "spieltag.changed": "Spieltag geändert",
+        "spiel.changed": "Spiel geändert",
+        "spiel.ergebnis_changed": "Ergebnis geändert",
+        "spielbestaetigung.entered": "Zusage eingetragen",
+        "spielbestaetigung.vorschlag_discarded": "Vorschlag verworfen",
+        "spielbestaetigung.vorschlag_adopted": "Vorschlag übernommen",
+        "spielbestaetigung.answered": "Termin beantwortet",
+        "spielbericht.saved": "Spielbericht eingetragen",
+        "team.entered": "Team eingetragen",
+        "team.changed": "Team geändert",
+        "team.retired": "Team stillgelegt",
+        "team.reactivated": "Team reaktiviert",
+        "team.austritt_entered": "Austritt eingetragen",
+        "team.seat_changed": "Sitz geändert",
+        "team.replaced": "Team ersetzt",
+        "team.invitation_created": "Registrierungslink angelegt",
+        "team.invitation_withdrawn": "Registrierungslink zurückgezogen",
+        "bewerbung.accepted": "Bewerbung angenommen",
+        "bewerbung.declined": "Bewerbung abgelehnt",
+        "bewerbung.seat_changed": "Sitz geändert",
+        "spieler.changed": "Spieler geändert",
+        "spieler.deregistered": "Spieler ausgetragen",
+        "spieler.reactivated": "Spieler reaktiviert",
+        "registrierung.admitted": "Registrierung angenommen",
+        "registrierung.declined": "Registrierung abgelehnt",
+        "schiedsrichter.created": "Schiedsrichter angelegt",
+        "schiedsrichter.changed": "Schiedsrichter geändert",
+        "schiedsrichter.retired": "Schiedsrichter stillgelegt",
+        "schiedsrichter.reactivated": "Schiedsrichter reaktiviert",
+        "spielort.created": "Spielort angelegt",
+        "spielort.changed": "Spielort geändert",
+        "spielort.retired": "Spielort stillgelegt",
+        "spielort.reactivated": "Spielort reaktiviert",
+        "grant.added": "Administrator eingetragen",
+        "grant.removed": "Administrator entfernt",
+        "grant.addition_withdrawn": "Eintragung zurückgezogen",
+        "grant.handover_started": "Übergabe gestartet",
+        "grant.handover_withdrawn": "Übergabe zurückgezogen",
+        "grant.handover_completed": "Übergabe abgeschlossen",
+        "grant.address_change_started": "Adressänderung gestartet",
+        "grant.address_switched": "Adresse gewechselt",
+        "ban.added": "Sperre eingetragen",
+        "ban.removed": "Sperre entfernt",
+        "address_change.started": "Adressänderung eingetragen",
+        "address_change.discarded": "Adressänderung verworfen",
+        "erasure.on_request": "Löschung auf Anfrage",
+        "erasure.own": ACCOUNT_ERASED,
+        "retention.bewerbungen": DELETED_BY_PASS,
+        "retention.kontakte": DELETED_BY_PASS,
+        "retention.spielbestaetigungen": DELETED_BY_PASS,
+        "retention.spielberichte": DELETED_BY_PASS,
+        "retention.registrierungen": DELETED_BY_PASS,
+        "retention.schiedsrichter": DELETED_BY_PASS,
+        "retention.spieler": DELETED_BY_PASS,
+        "retention.address_changes": DELETED_BY_PASS,
+        "retention.bans": DELETED_BY_PASS,
+      } satisfies Record<FLAction, string>,
     },
   },
 

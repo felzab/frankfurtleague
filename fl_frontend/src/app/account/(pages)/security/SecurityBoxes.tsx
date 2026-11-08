@@ -23,8 +23,8 @@ const PASSKEY = COPY.signIn.passkeyTitle;
 /**
  * Sicherheit's two boxes: the passkeys, each a row with its rename and its removal, the set-up in the footer; and the
  * devices, with „Alle anderen abmelden“. `held` says the person holds a passkey, whose set-up and removal then ask the
- * passkey touch first; `setUpClosed` closes the set-up where the page knows it would be refused, and `lastKept` the
- * removal of the one passkey an administrator must keep.
+ * passkey touch from their final press; `setUpClosed` closes the set-up where the page knows it would be refused, and
+ * `lastKept` the removal of the one passkey an administrator must keep.
  */
 export function SecurityBoxes({
   holder,
@@ -84,10 +84,11 @@ export function SecurityBoxes({
     remove: {
       verb: "delete",
       subject: PASSKEY,
-      // Read after the touch, whose sign-in the page's session then is: `thisDevice` is the fresh page's answer.
-      consequence: passkey.thisDevice ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
-      touch: true,
-      holder,
+      // The removal's touch signs this device in by the passkey that answers it: the only one a person holds, so that
+      // removal always ends this device, whatever session drew the page. Among several the page cannot know which
+      // answers, and words the session it was drawn for.
+      consequence: passkey.thisDevice || passkeys.length === 1 ? COPY.account.passkeys.endsThisDevice : COPY.account.passkeys.endsDevices,
+      touch: { holder },
       locked: lastKept,
       run: async () => {
         const answer = await removePasskeyAction({ id: passkey.id, holder });

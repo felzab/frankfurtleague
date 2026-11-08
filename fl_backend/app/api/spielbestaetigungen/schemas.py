@@ -37,10 +37,9 @@ FLSpielbestaetigungClosedReason = Literal[
     "spiel_past",
 ]
 
-# What a reopened link shows; `barred` ranks first. `vorschlag`: the other
-# club's decline proposes another date; `cancelled`: the fixture was called off, whatever was answered;
-# `discarded`: the league discarded this decline's proposal.
-FLSpielbestaetigungState = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "cancelled", "barred"]
+# What a reopened link shows. `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture
+# was called off, whatever was answered; `discarded`: the league discarded this decline's proposal.
+FLSpielbestaetigungState = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "cancelled"]
 
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
 # ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
@@ -80,7 +79,7 @@ class FLSpielbestaetigungSeat(BaseReadModel):
 
 
 class FLSpielbestaetigungKontakte(BaseModel):
-    """The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty, barred or voided seat holds no link."""
+    """The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty or voided seat holds no link."""
 
     trainer: FLSpielbestaetigungSeat | None
     ansprechperson: FLSpielbestaetigungSeat | None
@@ -120,7 +119,7 @@ class FLSpielbestaetigungAnswer(BaseModel):
     by: FLSpielbestaetigungBy
     vorschlag: FLSpielbestaetigungAppointment | None
     # Its length and its one line are the payload's: the read keeps a ban reason's floor alone, as
-    # `app/api/sperrliste/schemas.py`'s row does.
+    # `app/api/ban_list/schemas.py`'s row does.
     reason: CustomNonEmptyString | None
 
 
@@ -301,7 +300,7 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
 # --- A REFEREE'S OWN ROWS, read and answered signed in on the person lane. No deadline is served: a
 # referee answers until the fixture's day, which the Einteilung states.
 
-# Never `barred`, the binder refusing a barred person first, nor `vorschlag`, a referee proposing no date.
+# Never `vorschlag`, a referee proposing no date.
 FLSpielbestaetigungSchiedsrichterState = Literal["valid", "zugesagt", "declined", "expired", "invalid", "cancelled"]
 
 

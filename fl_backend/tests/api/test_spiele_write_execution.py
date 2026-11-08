@@ -778,6 +778,27 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
         assert spiele[GRUPPE_FILLING_NR]["date"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
 
 
+class TestTheProtokollTellsAResultFromARedating:
+    @pytest.mark.parametrize(
+        ("moved", "action"),
+        [
+            pytest.param({"team1": side(ALPHA, 3), "team2": side(BETA, 1)}, "spiel.ergebnis_changed", id="a result"),
+            pytest.param({"time": "16:30:00"}, "spiel.changed", id="a re-dating"),
+        ],
+    )
+    def test_a_save_writes_one_row_naming_the_fixture_and_which_it_was(self, mongo_replica_set_url: str, moved: dict[str, Any], action: str):
+        """A row holds neither value, so its action alone says a result moved, and only its label says on which fixture."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_patch(database, client, VIERTELFINALE, await payload_for(database, VIERTELFINALE, **moved))
+            rows = database[Collection.ACTION_LOG].find({"action": {"$in": ["spiel.changed", "spiel.ergebnis_changed"]}})
+            return [(row["action"], row["record_id"], row["label"]) async for row in rows]
+
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season()) == [
+            (action, VIERTELFINALE, f"{SAISON_ID} / {VIERTELFINALE_NR}")
+        ]
+
+
 class TestASavedResultCarriesThroughTheBracket:
     def test_the_refilled_slot_loses_its_result_and_its_shoot_out(self, mongo_replica_set_url: str):
         """Alpha replaces Beta in the semi-final, and the rule says both halves of the old result go."""
@@ -905,7 +926,7 @@ class SplitReleaseRun:
 
 @dataclass(frozen=True)
 class DoubleReleaseRun:
-    """`ReleaseRun` plus the count of log rows the emptied fixture drew, which is how many writes reached it."""
+    """`ReleaseRun` for two releases of one fixture."""
 
     before: FLSpiel
     predicted: FLSpiel
@@ -913,7 +934,6 @@ class DoubleReleaseRun:
     after_save: FLSpiel
     preview: FLPatchSpielDataResponse
     saved: FLPatchSpielDataResponse
-    writes_against_the_held_spiel: int
 
 
 class TestAReleaseWritesWhatThePureModelPredicts:
@@ -1020,9 +1040,6 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 after_save=await read_spiel(database, GRUPPE_HELD),
                 preview=preview,
                 saved=saved,
-                # The action log is where a second `$set` would still show, once merging stopped it
-                # from failing: one released fixture is one row.
-                writes_against_the_held_spiel=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
             )
 
         run = on_a_seeded_season(
@@ -1042,7 +1059,8 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             (GRUPPE_HELD_NR, "team2", "Beta"),
         ]
         assert [entry.voided_ergebnis for entry in run.saved.released_sides] == ["2:1", "2:1"]
-        assert run.writes_against_the_held_spiel == 1
+        # A second `$set` would still show here once merging stopped it from failing: one released fixture is one write.
+        assert run.after_save.version == run.before.version + 1
 
     def test_two_held_spiele_each_give_up_the_side_its_own_release_names(self, mongo_replica_set_url: str):
         """Releases spanning two fixtures reach the fixture each one names.

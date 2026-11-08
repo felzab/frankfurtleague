@@ -31,7 +31,7 @@ type Props = PageProps<"/confirm/schiedsrichter">;
 /** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.schiedsrichterConfirmation;
-  const title = mailedTitle(await readState(searchParams), row.title);
+  const title = mailedTitle(await readState(searchParams));
   return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
@@ -49,8 +49,7 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
  * „Eintrag bestätigen“ and „Widersprechen“ quiet beneath it; the done states; the link opened again, saying what the
- * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link and a barred
- * address alike.
+ * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link alike.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
   return (
@@ -111,7 +110,6 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
   switch (view.state) {
     // The entry goes when its link lapses, so an expired one stands only until the hourly pass next erases.
     case "expired":
-    case "barred":
       return INVALID;
     case "confirmed":
       return alreadyDone(view, "confirmed");

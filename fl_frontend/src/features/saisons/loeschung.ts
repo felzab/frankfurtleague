@@ -11,7 +11,7 @@ type ErasureSum = Omit<FLErasureSweepResponse, "after">;
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
 export type ErasureSweep = (ErasureSum & { abgebrochen: false }) | (Omit<ErasureSum, "remaining"> & { abgebrochen: true; error: unknown });
 
-// A loop and no request, so outside `mutations.ts`, whose every export the step-up reader takes for one.
+// A loop and no request, so outside `mutations.ts`, whose every export is one request.
 /**
  * One pass, each call handed the `after` the call before it answered. Settles rather than throws, so a caller words
  * what the calls before a failure erased.

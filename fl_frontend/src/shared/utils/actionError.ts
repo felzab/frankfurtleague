@@ -25,12 +25,6 @@ export const ANMELDUNG_ABGELAUFEN = "Deine Anmeldung ist abgelaufen. Melde Dich 
 export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 
 /**
- * What a person whose address was barred after their session was judged is told: the ban outlasts a
- * retry and a sign-in alike, so neither is offered.
- */
-const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
-
-/**
  * What a seat holder whose seat went after the page was drawn is told, by the person spine and by the
  * backend's own seat check: a reload draws the page they still hold, or the forbidden panel.
  */
@@ -188,17 +182,6 @@ export function rejectedWrite(router: { refresh: () => void }, repair?: string):
   };
 }
 
-/** The toast title of a link send whose outcome is unknown: a send saves nothing, so the title saves nothing either. */
-export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
-
-/**
- * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is,
- * never `unansweredAction`'s unclear save. One sentence for every read.
- */
-export function unansweredRead(): ActionFailure {
-  return { success: false, error: UNKNOWN_REFUSAL };
-}
-
 /** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
 function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
   // A request the running API does not take, naming only a query parameter or the body whole, or
@@ -264,8 +247,6 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   if (error instanceof APIBadStatusError) {
     // Raised by the actor check before any handler, so nothing was written: the grant went after the guard read it.
     if (error.serverErrorCode === "actor_not_admin") return { success: false, error: ZUGANG_WEG };
-    // The person binder reads the ban per request, so a ban entered since the session was judged.
-    if (error.serverErrorCode === "person_barred") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
   if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };

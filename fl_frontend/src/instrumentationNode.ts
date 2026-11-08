@@ -66,7 +66,7 @@ async function loadJobs(): Promise<{
     import("./features/funktionen/sweep"),
     import("./features/saisons/sweep"),
     import("./features/spielbestaetigungen/sweep"),
-    import("./features/berechtigungen/abgleich"),
+    import("./features/grants/sweep"),
     import("./core/mail"),
   ]);
 
@@ -76,7 +76,7 @@ async function loadJobs(): Promise<{
       { name: "account", run: account.runAccountSweep },
       { name: "erasure", run: erasure.runErasureSweep },
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },
-      { name: "grants", run: grants.runGrantsReconciliation },
+      { name: "grants", run: grants.runHandoverPass },
     ],
     drain: mail.drainOutbox,
     takeDrainCounts: mail.takeDrainCounts,

@@ -45,7 +45,7 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   `ReactElement`, which a bare string is not. An `as Copy` assertion outside the catalogue defeats
   that and is never written.
 - **A parameterised entry is a typed function** taking data or another entry, never a sentence or a
-  string to pass through: the plural of an empty state is the list's own title entry, a date is a
+  string to pass through: the plural of an empty state is the list's own entry, a date is a
   stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
@@ -199,7 +199,7 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 
 - **Subject, preview, heading, paragraphs, facts, one button, one note**, nothing else. The heading
   repeats the subject and the hidden preview is the first sentence, so neither is written twice.
-- **The greeting is „Hallo {Vorname},“** where the first name is known, otherwise „Hallo,“.
+- **The greeting is „Hallo,“** on every mail.
 - **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only on
   a first contact, in its one wording.
 - **Replies go to the contact address**, so no mail says that nobody reads them.

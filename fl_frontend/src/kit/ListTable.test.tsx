@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 import { Suspense, use } from "react";
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 
+import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
+import type { ListPageOfRows } from "./ListTable";
 import type { TableProps } from "./Table";
 
 const TABLE: TableProps = {
@@ -50,6 +52,37 @@ describe("a list's search", () => {
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
   });
 
+  // The harm: a paste past the read's bound answers the shared failure line, which says nothing of the paste.
+  it("stops the box at the bound the page passes", async () => {
+    render(
+      <ListQueryScope>
+        <ListSearchField
+          label={COPY.shared.saison}
+          maxLength={3}
+        />
+      </ListQueryScope>,
+    );
+    await userEvent.click(screen.getByRole("searchbox"));
+    await userEvent.paste("Goethe");
+    expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("Goe");
+  });
+
+  // The harm: a Sperrliste searched by the words of a Grund finds nothing, and reads as if no such ban stood.
+  it("reads a row's own words in its name's place, where the row states them", async () => {
+    const rows: TableProps["rows"] = [
+      ...TABLE.rows,
+      { id: "3", name: { record: "anna@example.org" }, words: "anna@example.org Beleidigung", cells: {} },
+    ];
+    render(
+      <Searched>
+        <ListTable table={{ ...TABLE, rows }} />
+      </Searched>,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "beleidigung");
+    expect(screen.getByText("anna@example.org")).toBeTruthy();
+    expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+
   it("says a search emptied the list, in the list's own plural, rather than that nothing is there yet", async () => {
     render(
       <Searched>
@@ -80,6 +113,119 @@ describe("a list's search", () => {
 
     expect(screen.getByText("Sportpark Ost")).toBeTruthy();
     expect(screen.queryByText("Goethe-Halle")).toBe(null);
+  });
+});
+
+describe("a list past one read's cap", () => {
+  const row = (id: string, name: string) => ({ id, name: { record: name }, cells: { adresse: { record: "Nordend" } } });
+  type Answer = () => Promise<ActionAnswer<ListPageOfRows>>;
+  const answered =
+    (name: string): Answer =>
+    () =>
+      Promise.resolve({ ok: true, value: { rows: [row(name, name)], cursor: null } });
+  // The input of a server action the builder made, its filters optional, so the kit's request has to fit one.
+  const loading = (...answers: ReadonlyArray<Answer>) => {
+    const load = vi.fn<(request: { query: string; cursor: string | null; by?: string }) => Promise<ActionAnswer<ListPageOfRows>>>();
+    answers.forEach((answer) => load.mockImplementationOnce(answer));
+    return load;
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("stays inside the page's filters on the next page, and a filter's change restarts from the first", async () => {
+    const load = loading(answered("Zweite Seite"), answered("Dritte Seite"));
+    const { rerender } = render(
+      <Searched>
+        <ListTable
+          table={TABLE}
+          more={{ cursor: "2", carry: { by: "kontakt" }, load }}
+        />
+      </Searched>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
+    expect(load).toHaveBeenLastCalledWith({ by: "kontakt", query: "", cursor: "2" });
+    expect(await screen.findByText("Zweite Seite")).toBeTruthy();
+
+    // A filter's change is a new render of the page: its first page, its cursor, its values.
+    rerender(
+      <Searched>
+        <ListTable
+          table={{ ...TABLE, rows: [row("9", "Erste Seite")] }}
+          more={{ cursor: "9", carry: { by: "system" }, load }}
+        />
+      </Searched>,
+    );
+    expect(screen.getByText("Erste Seite")).toBeTruthy();
+    expect(screen.queryByText("Zweite Seite")).toBe(null);
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
+    expect(load).toHaveBeenLastCalledWith({ by: "system", query: "", cursor: "9" });
+  });
+
+  // The harm: the keyboard that pressed for the last page restarts at the top of the document.
+  it("leaves the keys where the button stood once the last page takes it", async () => {
+    render(
+      <Searched>
+        <ListTable
+          table={TABLE}
+          more={{ cursor: "2", load: loading(answered("Letzte Seite")) }}
+        />
+      </Searched>,
+    );
+    const button = screen.getByRole("button", { name: COPY.shared.loadMore });
+    const place = button.closest('[data-kit-focus="home"]');
+    button.focus();
+
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(document.activeElement).toBe(place));
+    expect(screen.getByText("Letzte Seite")).toBeTruthy();
+  });
+
+  it.each<[string, Answer]>([
+    ["refused", () => Promise.resolve({ ok: false, reason: COPY.shared.failure.unexpected })],
+    ["lost", () => Promise.reject(new TypeError("Failed to fetch"))],
+  ])("keeps the rows drawn and says so on its status line where a page is %s", async (_, answer) => {
+    render(
+      <Searched>
+        <ListTable
+          table={TABLE}
+          more={{ cursor: "2", load: loading(answer) }}
+        />
+      </Searched>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
+
+    expect((await screen.findByRole("status")).textContent).toBe(COPY.shared.failure.unexpected);
+    expect(screen.getByText("Sportpark Ost")).toBeTruthy();
+    expect(screen.getByRole("button", { name: COPY.shared.loadMore })).toBeTruthy();
+  });
+
+  // Next runs one client's actions one at a time, so a read per keystroke queues over the whole list.
+  it("sends one load for a burst of typing, once the typing pauses", async () => {
+    // Faked so the burst's gaps never depend on how busy the machine is.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const load = loading(answered("Sportpark Ost"));
+    render(
+      <Searched>
+        <ListTable
+          table={TABLE}
+          more={{ cursor: null, load }}
+        />
+      </Searched>,
+    );
+
+    for (const value of ["O", "OS", "OST"]) fireEvent.change(screen.getByRole("searchbox"), { target: { value } });
+    expect(load).not.toHaveBeenCalled();
+
+    await act(async () => vi.runOnlyPendingTimers());
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledWith({ query: "OST", cursor: null });
   });
 });
 

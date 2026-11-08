@@ -1,7 +1,7 @@
 """
 API · a team's squad as its own contact seats read and change it, through the mounted person routes
 
-Driven over HTTP with a person-lane actor token, so the binder, its ban read and the handler's own
+Driven over HTTP with a person-lane actor token, so the identifier and the handler's own
 seat re-derivation all run as a representative's request meets them. The captaincy's race alone
 calls the handler directly, a rival committing inside the season's anchor.
 """
@@ -26,11 +26,11 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from tests.acts import acts_of
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    ban_document,
     kontaktperson_document,
     rules_document,
     saison_document,
@@ -58,7 +58,6 @@ NOW = datetime(2026, 4, 1, 12, tzinfo=ZoneInfo("Europe/Berlin"))
 
 TEAM_A = ObjectId("6890a1b2c3d4e5f607910001")
 TEAM_B = ObjectId("6890a1b2c3d4e5f607910002")
-TEAM_C = ObjectId("6890a1b2c3d4e5f607910003")
 
 # Team A's squad in the active season: two live rows sharing a shirt, one wearing `07` beside them,
 # an ausgetragen row wearing the shared number too, and the captain among the live ones.
@@ -70,7 +69,6 @@ RETIRED = ObjectId("6890a1b2c3d4e5f607920004")
 OLD_STUFE = ObjectId("6890a1b2c3d4e5f607920005")
 # Team B's and team C's own pupils.
 B_PUPIL = ObjectId("6890a1b2c3d4e5f607920011")
-C_PUPIL = ObjectId("6890a1b2c3d4e5f607920012")
 
 ALLOWED_STUFEN = ["Q1", "Q2"]
 
@@ -80,7 +78,6 @@ TRAINER_ALONE = "trainer.kader@schule.de"
 UPPER_STORED = "gross.kader@schule.de"
 UPPER_ASKED = "GROSS.KADER@schule.DE"
 B_ANSPRECH = "b.ansprech.kader@schule.de"
-BARRED = "gesperrt.kader@schule.de"
 
 SEAT_PHONE = "+49 69 5550199"
 PUPIL_EMAIL_DOMAIN = "pupil.example.de"
@@ -137,7 +134,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _junction(PAST_SAISON, TEAM_A, "Adler", ansprechperson=_seat(ANSPRECH)),
             _junction(FUTURE_SAISON, TEAM_A, "Adler", ansprechperson=_seat(B_ANSPRECH)),
             _junction(ACTIVE_SAISON, TEAM_B, "Biber", ansprechperson=_seat(B_ANSPRECH)),
-            _junction(ACTIVE_SAISON, TEAM_C, "Kranich", ansprechperson=_seat(BARRED)),
         ]
     )
     await database[Collection.SPIELER].insert_many(
@@ -148,7 +144,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _pupil(RETIRED, "Ali", "Ausgetragen"),
             _pupil(OLD_STUFE, "Olga", "Oberstufe"),
             _pupil(B_PUPIL, "Bea", "Biber"),
-            _pupil(C_PUPIL, "Cem", "Kranich"),
         ]
     )
     await database[Collection.SAISON_SPIELER].insert_many(
@@ -159,10 +154,8 @@ async def _seed(database: AsyncDatabase) -> None:
             _row(RETIRED, TEAM_A, nummer="7", inactive_since="2026-02-01"),
             _row(OLD_STUFE, TEAM_A, nummer="12", stufe="Q4"),
             _row(B_PUPIL, TEAM_B, nummer="3"),
-            _row(C_PUPIL, TEAM_C, nummer="4"),
         ]
     )
-    await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=FUTURE_SAISON))
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -350,23 +343,6 @@ class TestARetiredRow:
         assert untouched
 
 
-class TestABarredSeatHolder:
-    """The binder's ban read, on every method: the seat on team C stands, and the person is still refused."""
-
-    @pytest.mark.parametrize(
-        ("method", "path", "body"),
-        [("GET", squad_url(TEAM_C), None), ("PATCH", row_url(C_PUPIL, TEAM_C), PAYLOAD), ("DELETE", row_url(C_PUPIL, TEAM_C), None)],
-        ids=["GET", "PATCH", "DELETE"],
-    )
-    def test_each_operation_is_refused_and_writes_nothing(
-        self, mongo_replica_set_url: str, method: str, path: str, body: Mapping[str, Any] | None
-    ):
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path, BARRED, body)
-
-        assert answer == (403, Code.PERSON_BARRED)
-        assert untouched
-
-
 class TestATrainerOnlySeat:
     """Every operation open to the Trainer's seat exactly as to the Ansprechperson's: the case that goes red if a check narrows by slot."""
 
@@ -398,14 +374,23 @@ class TestATrainerOnlySeat:
 
 class TestAnEdit:
     def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Any]:
             response = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "07"})
+            seasons = await database[Collection.ACTION_LOG].distinct("label", {"action": "spieler.changed"})
 
-            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
+            return (
+                response,
+                await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}),
+                await acts_of(database),
+                seasons,
+            )
 
-        response, row = on_a_league(mongo_replica_set_url, run)
+        response, row, acts, seasons = on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
+        assert acts == [("spieler.changed", "kontakt", "Adler", SHARES_THE_SEVEN)]
+        # A pupil's row is the season's, and the row names the pupil by id alone.
+        assert seasons == [ACTIVE_SAISON]
         assert (row["nummer"], row["position"], row["stufe"], row["rolle"]) == ("07", "Tor", "Q1", None)
         assert (row["team_id"], row["is_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
         # Now wearing `07` beside `ZERO_SEVEN`, judged against the squad after the write.
@@ -520,14 +505,15 @@ class SquadRowsRunningTheSameRival:
 
 class TestRetire:
     def test_it_stamps_the_row_and_leaves_the_person(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
             response = await send(mongo_replica_set_url, "DELETE", row_url(SHARES_THE_SEVEN), ANSPRECH)
 
-            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
+            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}), await acts_of(database)
 
-        response, row = on_a_league(mongo_replica_set_url, run)
+        response, row, acts = on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
+        assert acts == [("spieler.deregistered", "kontakt", "Adler", SHARES_THE_SEVEN)]
         assert row["inactive_since"] == TODAY
         # The live `7` it shared is the captain's alone now, and an ausgetragen row wears nothing.
         assert response.json()["nummer_double"] is False

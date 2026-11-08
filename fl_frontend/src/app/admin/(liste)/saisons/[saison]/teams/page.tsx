@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { actLabel } from "@/kit/dialogAct";
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
@@ -91,7 +92,7 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
       head={{ scope: "area", title: { route: "adminTeams" } }}
       filters={readFilters(list, searchParams)}
       filterCount={2}
-      create={readCreate(list, params)}
+      create={{ label: actLabel(ACT), act: readCreate(list, params) }}
       list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 24, content: readTeams(list, params, searchParams) }}
     />
   );

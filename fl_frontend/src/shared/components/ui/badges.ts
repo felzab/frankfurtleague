@@ -67,11 +67,6 @@ export const PILL_SOLID_CLASSES: Record<FeedbackTone, string> = {
   info: "bg-info-solid text-info-solid-foreground",
 };
 
-/** A count on `surface` or `background`, tinted as a label pill is. */
-export function countBadge(tone: PillTone): string {
-  return `${COUNT_BADGE_CLASSES} ${PILL_TINT_CLASSES[tone]}`;
-}
-
 /** A count on a ground a tint's ink cannot survive: solid, under its on-colour. */
 export function trackCountBadge(tone: FeedbackTone): string {
   return `${COUNT_BADGE_CLASSES} ${PILL_SOLID_CLASSES[tone]}`;

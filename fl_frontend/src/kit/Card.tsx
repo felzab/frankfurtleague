@@ -5,6 +5,7 @@ import { card, cardHover, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
+import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
@@ -225,7 +226,9 @@ export type CardActRowProps = {
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ acts: acts !== undefined });
   return (
-    <div className={s.root()}>
+    <div
+      data-kit-row
+      className={s.root()}>
       <span className={s.words()}>
         <span className={s.name()}>
           <CutText
@@ -241,7 +244,7 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
         </span>
         <span className={s.line()}>{textOf(line)}</span>
       </span>
-      {acts !== undefined && <span className={s.acts()}>{acts}</span>}
+      {acts !== undefined && <RowActs className={s.acts()}>{acts}</RowActs>}
       <span className={s.end()}>
         <RowEnd />
       </span>

@@ -34,7 +34,7 @@ type Props = PageProps<"/confirm/kontakt">;
 /** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.kontaktConfirmation;
-  const title = mailedTitle(await readState(searchParams), row.title);
+  const title = mailedTitle(await readState(searchParams));
   return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
@@ -61,7 +61,7 @@ const BIRTH_DATE_REQUIRED = requires(BewerbungenPostEinwilligungBody.options[0].
  * `/confirm/kontakt`, the link a contact seat's mail carries, an application's or a team's season row's, on the
  * mailed-page template: the question, with „Eintrag bestätigen“ and „Widersprechen“ quiet beneath it; a closed row's
  * objection alone; the done states; the link opened again, saying what the person did and on which day; and the link no
- * longer valid, an expired, mistyped or tampered link, a barred address and a decided application's seat alike.
+ * longer valid, an expired, mistyped or tampered link and a decided application's seat alike.
  */
 export default function KontaktConfirmationPage({ searchParams }: Props) {
   return (
@@ -195,7 +195,6 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
 
   switch (view.state) {
     case "expired":
-    case "barred":
       return INVALID;
     case "confirmed":
       return alreadyDone(view, "confirmed");

@@ -9,10 +9,3 @@ import { tv } from "tailwind-variants";
 export const overlayPanel = tv({
   base: "rounded-xl border border-border bg-surface text-foreground shadow-lg",
 });
-
-/**
- * A `Select`'s popover, pinned to its trigger. HeroUI's `.select__popover` declares
- * `min-w-(--trigger-width)` and no maximum, so a long row opens the list far past the form it sits
- * in.
- */
-export const SELECT_POPOVER_CLASSES = `${overlayPanel()} mt-2 w-(--trigger-width) p-1.5`;

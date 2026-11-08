@@ -4,21 +4,18 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
 from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLSchiedsrichterConfirmationData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import (
     ADDRESS_PATH,
     TOKEN_HASHES_PATH,
-    booked_image_edits,
     build_assignment_filter,
-    build_booked_image_filter,
     build_ghost_repoint,
     build_ghost_schiedsrichter,
     build_referee_filter,
 )
 from app.core.collections import Collection
-from app.core.crud import ensure_one_in_db, erase_many_from_db, patch_many_in_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import delete_many_from_db, ensure_one_in_db, patch_many_in_db, pull_one_from_db
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -79,15 +76,11 @@ async def erase_referee_in_session(
     *,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     schiedsrichter_id: CustomObjectId,
-    # ONE stamp for both passes below, so a row cannot say which of the two reached it; the caller's,
-    # so several erasures in one transaction redact under one instant.
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """Delete the referee, repoint their fixtures at the ghost and redact the log, answering how many fixtures moved.
+    """Delete the referee and repoint their fixtures at the ghost, answering how many fixtures moved.
 
     The ghost must stand already: `ensure_ghost_schiedsrichter` writes it once per transaction, ahead of every referee.
     """
@@ -109,26 +102,9 @@ async def erase_referee_in_session(
         session=session,
     )
 
-    # `erase_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
-    # here would file the person's whole document into the log this call exists to clear.
-    await erase_many_from_db(
+    await delete_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},
-        session=session,
-    )
-
-    await redact_log_rows_in_db(
-        action_log_collection=action_log_collection, targets=[(Collection.SCHIEDSRICHTER, [schiedsrichter_id])], at=stamp, session=session
-    )
-
-    # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the
-    # name, so each edit filed an image carrying it under the fixture's id. The booking alone goes;
-    # each image keeps its result.
-    await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_booked_image_filter(schiedsrichter_id),
-        judge=lambda image: booked_image_edits(image, schiedsrichter_id),
-        stamp=stamp,
         session=session,
     )
 

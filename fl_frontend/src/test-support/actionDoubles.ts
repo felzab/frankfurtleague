@@ -85,14 +85,14 @@ const logAt =
   };
 const SILENT_LOGGER = { logger: { debug: logAt("debug"), info: logAt("info"), warn: logAt("warn"), error: logAt("error") } };
 
-/** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
+/** What the doubled sign-in store's `judgeAdminRequest` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
 
 /** What the doubled `getSubjectSession` answers: a person's records, no person signed in, or a lookup that threw this. */
 type SubjectDouble = SubjectSession | null | Error;
 
 /**
- * What one request's doubled sign-in store answers, until `setSession`, `setSubject` or `setFresh` names
+ * What one request's doubled sign-in store answers, until `setSession` or `setSubject` names
  * another for the rest of that case.
  */
 type SignInAnswers = {
@@ -117,8 +117,6 @@ type SignInAnswers = {
   accountHeld: boolean;
   /** The folded addresses `accountStandsAt` finds an account at; none unless a case names one. */
   accountsAt: string[];
-  /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
-  fresh: boolean;
   /** Why the guard refuses where it refuses, or `null` to read it off the landing the case named. */
   refusal: AdminRefusal | null;
 };
@@ -130,7 +128,7 @@ const answering = (answer: unknown): Promise<unknown> => (answer instanceof Erro
 
 /**
  * The session, recorded as the request's actor where it is an administrator's, as the real
- * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
+ * `judgeAdminRequest` records it. Imported at the call, so the scope is the one the code under test loaded.
  */
 async function administratorOf({ session, served }: SignInAnswers): Promise<unknown> {
   if (session !== null && !(session instanceof Error)) {
@@ -140,7 +138,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
     setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", authTime: 0, factor: "passkey" });
   }
 
-  // Served in the real guard's shape: the admin shell reads the step-up window off the row.
+  // Served in the real guard's shape.
   return answering(served);
 }
 
@@ -174,7 +172,6 @@ const servedOf = (session: AdminSessionDouble): unknown => {
  */
 const signInStore = (answers: SignInAnswers) => ({
   guards: {
-    getAdminSession: () => administratorOf(answers),
     judgeAdminRequest: () => verdictOf(answers),
     // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
     getAccountSession: () => answering(answers.served),
@@ -190,12 +187,12 @@ const signInStore = (answers: SignInAnswers) => ({
     // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
     getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
   },
-  sessionStamps: { isFreshlySignedIn: () => answers.fresh },
   accountSessions: {
     endSessionsOfAddress: (address: unknown) => {
       answers.signedOut.push(String(address));
       return answering(answers.signOutFailure ?? answers.accountHeld);
     },
+    sessionsStandAt: () => Promise.resolve(false),
   },
   accounts: {
     deleteAccountFor: (address: unknown) => {
@@ -254,8 +251,6 @@ export function doubleActionRequest({
 } = {}): {
   setSession: (next: AdminSessionDouble, destination?: string) => void;
   setSubject: (next: SubjectDouble) => void;
-  /** Whether the session counts as confirmed within the step-up window, for the rest of that case; confirmed by default. */
-  setFresh: (next: boolean) => void;
   /** How often `getSubjectSession` was called since the case began. */
   subjectReads: () => number;
   /** Every address a ban signed out since the case began. */
@@ -285,7 +280,6 @@ export function doubleActionRequest({
     accountDeletionFailure: null,
     accountHeld: true,
     accountsAt: [],
-    fresh: true,
     refusal: null,
   };
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
@@ -309,7 +303,6 @@ export function doubleActionRequest({
     answers.accountDeletionFailure = null;
     answers.accountHeld = true;
     answers.accountsAt.length = 0;
-    answers.fresh = true;
     answers.refusal = null;
   });
   readTracesOnceLoaded();
@@ -324,7 +317,6 @@ export function doubleActionRequest({
   return {
     setSession,
     setSubject,
-    setFresh: (next) => void (answers.fresh = next),
     subjectReads: () => answers.subjectReads,
     signedOut: () => [...answers.signedOut],
     failSignOut: (failure) => void (answers.signOutFailure = failure),

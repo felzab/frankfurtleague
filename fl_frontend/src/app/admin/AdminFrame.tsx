@@ -1,7 +1,7 @@
 import { RailFrame } from "@/kit/RailFrame";
 import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
-import { judgeAdminRequest } from "@/core/auth/guards";
+import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -47,15 +47,15 @@ const RAIL_GROUPS: RailGroup[] = [
     heading: COPY.admin.group.accessAndPrivacy,
     entries: [
       {
-        id: "administratoren",
+        id: "administrators",
         label: ROUTES.adminAdministrators.title,
         href: ROUTES.adminAdministrators.path(),
         icon: "administrators",
       },
-      { id: "sperrliste", label: ROUTES.adminBanList.title, href: ROUTES.adminBanList.path(), icon: "sperrliste" },
-      { id: "loeschungen", label: ROUTES.adminErasures.title, href: ROUTES.adminErasures.path(), icon: "erasures" },
+      { id: "banList", label: ROUTES.adminBanList.title, href: ROUTES.adminBanList.path(), icon: "banList" },
+      { id: "erasures", label: ROUTES.adminErasures.title, href: ROUTES.adminErasures.path(), icon: "erasures" },
       {
-        id: "adressaenderungen",
+        id: "addressChanges",
         label: ROUTES.adminAddressChanges.title,
         href: ROUTES.adminAddressChanges.path(),
         icon: "email",
@@ -80,7 +80,7 @@ const BAR = ["uebersicht", "spiele", "teams"] as const;
  */
 export function AdminFrame({ children }: { children: ReactNode }) {
   // One judgement for both reads.
-  const session = judgeAdminRequest().then((judged) => ("session" in judged ? judged.session : null));
+  const session = getAdminSession();
 
   return (
     // A failed read of the frame's own is answered in the rail frame: the area's `error.tsx` stands inside this layout.

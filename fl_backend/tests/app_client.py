@@ -7,6 +7,8 @@ loop the client binds to. No lifespan: it would open a client of its own and app
 Invariants:
 - An app a caller hands in leaves as it came: no `db_client`, and the overrides it held, so the
   next case serving through it meets none of this one's.
+- No administrator stays bound while it serves: a request is bound by `bind_actor` or by nothing,
+  as in production, so a route that forgets its `by` fails here rather than recording the suite's.
 """
 
 from collections.abc import AsyncIterator
@@ -19,6 +21,7 @@ from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
 from app.core.dependencies import get_germany_now
+from app.core.recording import actor_var
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
 
@@ -53,6 +56,7 @@ async def app_client(
     # came: an override applied ahead of a client that failed to build would otherwise meet the next case.
     async with AsyncExitStack() as undo:
         undo.callback(restore_the_overrides)
+        undo.callback(actor_var.reset, actor_var.set(None))
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
         client = AsyncMongoClient(url)

@@ -29,7 +29,7 @@ const SENDER: Readonly<Record<MailKind, MailSender>> = {
  * One run of a sentence. Every run is folded to one line and escaped by the shell alone, so a value typed
  * outside the league reaches neither version as markup or as a line of its own.
  */
-export type Run = string | { readonly strong: string } | { readonly address: string } | { readonly url: string };
+type Run = string | { readonly strong: string } | { readonly address: string } | { readonly url: string };
 
 /** One sentence, a plain string or its runs. */
 export type Sentence = string | readonly Run[];
@@ -56,8 +56,6 @@ export interface Mail {
   readonly subjectLine: string;
   /** Already through `mailOrigin`: the footer's links and the logo stand on it. */
   readonly origin: string;
-  /** `""` where the first name is unknown, and the greeting then names nobody. */
-  readonly firstName: string;
   readonly paragraphs: readonly [Paragraph, ...Paragraph[]];
   /**
    * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
@@ -285,7 +283,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(subjectLine)}</h1>`,
       gap: GAP.headText,
     },
-    { html: p(escapeHtml(singleLine(SERVER_COPY.mail.greeting(mail.firstName)))), gap: GAP.paragraph },
+    { html: p(escapeHtml(SERVER_COPY.mail.greeting)), gap: GAP.paragraph },
     ...paragraphBlocks(mail.paragraphs),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...paragraphBlocks(mail.afterBlock ?? []),
@@ -357,7 +355,7 @@ function buttonText(button: Button): string[] {
 function renderText(mail: Mail, subjectLine: string): string {
   const groups: string[][] = [
     [subjectLine],
-    [singleLine(SERVER_COPY.mail.greeting(mail.firstName))],
+    [SERVER_COPY.mail.greeting],
     ...mail.paragraphs.map((paragraph) => [paragraphText(paragraph)]),
     ...(mail.block === undefined
       ? []

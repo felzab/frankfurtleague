@@ -50,10 +50,6 @@ GROUPS = 4
 TEAMS_PER_GROUP = 4
 QUALIFIERS = 2
 
-# A hand-assigned kickoff the draw never wrote and nothing regenerates, which is what the removal's
-# images are for.
-A_DATE = "2026-05-01"
-A_KICKOFF = "18:00:00"
 
 # One field on one fixture, so nothing else about the season moves to reach a state
 # `app/api/saisons/services.py :: holds_a_recorded_fact` calls recorded.
@@ -66,10 +62,6 @@ RECORDS_CLOSING_THE_WINDOW = (
 # `spielplan` moved into `required`, so the `$unset` that clears the watermark is the write the
 # server refuses -- by which point both removals have already run.
 WATERMARK_REQUIRED: dict[str, Any] = {"$jsonSchema": {"bsonType": "object", "required": ["spielplan"]}}
-
-# The log row the watermark clear writes about itself, refused -- so what falls is the write AFTER
-# the `$unset` rather than the `$unset` itself. Attached once the draw has written its own.
-ACTION_LOG_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Collection.SAISONS)}}
 
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -205,16 +197,13 @@ class UndrawnSeason:
     spieltage: int
     spiele: int
     watermark: Any
-    log: list[dict[str, Any]]
 
 
-def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
-    """Draw the season, optionally date one fixture by hand, then undraw it."""
+def an_undrawn_season(url: str) -> UndrawnSeason:
+    """Draw the season, then undraw it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> UndrawnSeason:
         drawn = await call_draw(database, client)
-        if dated:
-            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": {"date": A_DATE, "time": A_KICKOFF}})
 
         await call_undraw(database, client)
         spieltage, spiele = await counts_now(database)
@@ -224,7 +213,6 @@ def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
             spieltage=spieltage,
             spiele=spiele,
             watermark=await watermark_now(database),
-            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     undrawn = on_a_seeded_saison(url, body)
@@ -252,38 +240,6 @@ class TestAnUndrawRemovesTheWholeSpielplan:
         assert undrawn.watermark is None
 
 
-class TestTheRemovalKeepsEveryImage:
-    """A drawn schedule carries hand-assigned dates and kickoff times nothing regenerates."""
-
-    def test_the_log_records_both_removals_and_the_watermark_as_three_rows(self, mongo_replica_set_url: str):
-        """Fixtures before matchdays, the reverse of the draw's write order: no image names a matchday already gone.
-
-        A removal filing no image is what this alone sees: a matchday's hand-assigned days would go with nothing to restore them from.
-        """
-
-        undrawn = an_undrawn_season(mongo_replica_set_url)
-        removal = undrawn.log[-3:]
-
-        assert [(row["collection"], row["operation"], row["modified_count"]) for row in removal] == [
-            (str(Collection.SPIELE), "delete_many", undrawn.drawn.spiele),
-            (str(Collection.SPIELTAGE), "delete_many", undrawn.drawn.spieltage),
-            (str(Collection.SAISONS), "patch_one", None),
-        ]
-        assert {row["trace_id"] for row in removal} == {TRACE_ID}
-        assert [len(row["before"]) for row in removal if row["operation"] == "delete_many"] == [
-            undrawn.drawn.spiele,
-            undrawn.drawn.spieltage,
-        ]
-
-    def test_a_hand_assigned_kickoff_survives_in_the_image(self, mongo_replica_set_url: str):
-        """Call `delete_many` rather than `delete_many_from_db` and the schedule goes unrecorded, with nothing left to restore it from."""
-
-        undrawn = an_undrawn_season(mongo_replica_set_url, dated=True)
-        removed = next(row for row in undrawn.log if row["operation"] == "delete_many" and row["collection"] == str(Collection.SPIELE))
-
-        assert [(image["date"], image["time"]) for image in removed["before"] if image["date"] is not None] == [(A_DATE, A_KICKOFF)]
-
-
 @dataclass(frozen=True)
 class AbortedUndraw:
     """An undraw that fell mid-flight, as the driver reported it and as a later request would find the season."""
@@ -293,7 +249,6 @@ class AbortedUndraw:
     spieltage: int
     spiele: int
     watermark: Any
-    log: int
 
 
 class TestAnAbortedUndrawLeavesAllThreeStanding:
@@ -320,7 +275,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -329,49 +283,6 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele), "a rolled-back undraw removed rows"
         assert aborted.watermark == {"generated_at": TODAY}
-        # The draw's three rows and nothing else: the removals record in-session, so the abort takes
-        # their rows back too.
-        assert aborted.log == 3
-
-    def test_a_log_row_refused_after_the_clear_takes_the_cleared_watermark_back(self, mongo_replica_set_url: str):
-        """Drop `session=` from the watermark clear and this fails.
-
-        Not the case above: refusing the `$unset` aborts bound or not. Here it succeeds and its own
-        log row is refused, so an unbound clear would already have committed, past the abort's reach.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedUndraw:
-            drawn = await call_draw(database, client)
-
-            # AFTER the draw, which writes a `saisons` row of its own: attached earlier, the draw is
-            # what would fall and there would be no Spielplan to undraw.
-            await database.command("collMod", str(Collection.ACTION_LOG), validator=ACTION_LOG_REFUSING_A_SAISON_ROW, validationLevel="strict")
-
-            with pytest.raises(OperationFailure) as failure:
-                await call_undraw(database, client)
-
-            spieltage, spiele = await counts_now(database)
-
-            return AbortedUndraw(
-                drawn=drawn,
-                write_error=server_code(failure.value),
-                spieltage=spieltage,
-                spiele=spiele,
-                watermark=await watermark_now(database),
-                log=await database[Collection.ACTION_LOG].count_documents({}),
-            )
-
-        aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
-
-        # On the code, so this cannot pass because the undraw fell before it reached the clear.
-        assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the row, got {aborted.write_error}"
-
-        # The assertion that separates the two: everything else here holds with or without the
-        # keyword, the two removals being bound to the transaction either way.
-        assert aborted.watermark == {"generated_at": TODAY}
-
-        assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele)
-        assert aborted.log == 3
 
 
 @dataclass(frozen=True)

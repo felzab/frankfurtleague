@@ -3,20 +3,20 @@ from typing import Annotated, Final, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
-from app.api.berechtigungen.schemas import FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantNoticeKind, FLGrantSnapshot
+from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAddressChangeWay, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
+from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
 # member written from the facts that write holds.
 
-# --- The sign-in library's mails, each owed through `POST /outbox/sign_in` and never by a league write. Each
-# secret one rides in the row's `secret`, never here.
+# --- The mails owed through `POST /outbox/sign_in`: the sign-in library's own, which no league write owes, and the
+# deletion notice, which one does too. Each secret one rides in the row's `secret`, never here.
 
 
 class FLSignInCodeData(BaseModel):
@@ -26,15 +26,21 @@ class FLSignInCodeData(BaseModel):
 class FLPasskeyData(BaseModel):
     kind: Literal["passkey_added", "passkey_erased"]
     instant: AwareDatetime
-    # The reader's own account page, a path on the site's origin, which is where either event is acted on.
-    account: Annotated[str, StringConstraints(pattern=r"^/[a-z0-9/_-]*$", max_length=256)]
 
 
 class FLAccountErasureData(BaseModel):
     kind: Literal["account_erasure"]
 
 
-FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData, Field(discriminator="kind")]
+class FLDeletionNoticeData(BaseModel):
+    """The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here."""
+
+    kind: Literal["deletion_notice"]
+    # The season of the application that went; null where the person's account went.
+    saison_id: str | None
+
+
+FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData | FLDeletionNoticeData, Field(discriminator="kind")]
 
 # --- The league's mails.
 
@@ -43,25 +49,22 @@ class FLBanData(BaseModel):
     """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`)."""
 
     kind: Literal["ban"]
-    grund: str
+    ban_reason: str
     barred_until_saison_id: str
 
 
 class FLGrantData(BaseModel):
-    """A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it."""
+    """One step of what changes who holds the administration, as every holder in effect and the person named are told it."""
 
     kind: Literal["grant"]
-    change: FLGrantNoticeKind
-    author: FLBerechtigungUrheber
-    current: FLGrantSnapshot | None
-    before: FLGrantSnapshot | None
-    # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
-    # `author` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
-    changed_by: str | None
-    # Null where it was found in the database, nobody knowing when that edit was made.
-    changed_at: AwareDatetime | None
-    # Why a grant address above is null.
-    withheld: FLBerechtigungVorenthalten | None
+    change: FLGrantChange
+    stage: FLGrantNoticeStage
+    # The grant's address, or the old address of an address change; null once that person is erased.
+    address: str | None
+    # An address change's new address, masked (`app/api/address_change/services.py :: masked_address`), null on every other change.
+    new_address: str | None
+    # When what waits takes effect, on a start alone.
+    effective_from: AwareDatetime | None
 
 
 class FLAddressChangeLinkData(BaseModel):
@@ -69,8 +72,8 @@ class FLAddressChangeLinkData(BaseModel):
 
     kind: Literal["address_change_link"]
     way: FLAddressChangeWay
-    # When the link lapses, which the mail states.
-    valid_until: AwareDatetime
+    # The tier of a holder's own change, whose wait the mail states; null otherwise.
+    holder: FLAdminTier | None
 
 
 class FLAddressChangeNoticeData(BaseModel):
@@ -82,10 +85,8 @@ class FLAddressChangeNoticeData(BaseModel):
 
     kind: Literal["address_change_notice"]
     way: FLAddressChangeWay
-    # The deadline of what the address on file is asked, which the person's own change's mail states.
-    valid_until: AwareDatetime
-    # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
-    first_name: str | None
+    # The tier of a holder's own change, whose wait the mail states; null otherwise.
+    holder: FLAdminTier | None
 
 
 class FLAddressChangeEffectiveData(BaseModel):
@@ -94,7 +95,6 @@ class FLAddressChangeEffectiveData(BaseModel):
     kind: Literal["address_change_effective"]
     # The effect's own instant.
     instant: AwareDatetime
-    first_name: str | None
 
 
 class FLAddressChangeDiscardedData(BaseModel):
@@ -229,7 +229,6 @@ class FLRegistrierungAbsageData(BaseModel):
     """A team's decline, to a pupil whose address was confirmed."""
 
     kind: Literal["registrierung_absage"]
-    first_name: str
     team: str
     saison_id: str
     reason: FLRegistrierungDecisionReason | None
@@ -300,15 +299,8 @@ class FLBewerbungAbsageData(BaseModel):
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     reason: str
-
-
-class FLBewerbungErasureData(BaseModel):
-    """The fourteen-day deletion notice, to the Ansprechperson, naming who never confirmed; owed in the erasure's own write."""
-
-    kind: Literal["bewerbung_erasure"]
-    saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    pending: list[FLBewerbungPerson]
+    # The days the mail says the application stands: the decline owes no deletion notice of its own.
+    deletion_days: int
 
 
 class FLBewerbungObjectionData(BaseModel):
@@ -322,7 +314,7 @@ class FLBewerbungObjectionData(BaseModel):
 
 
 class FLKontaktLinkData(BaseModel):
-    """One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed."""
+    """One person an administrator seated on a team's season row, asked to confirm."""
 
     kind: Literal["kontakt_confirmation"]
     saison_id: str
@@ -359,7 +351,7 @@ FLOutboxData = Annotated[
     | FLBewerbungReceivedData
     | FLBewerbungZusageData
     | FLBewerbungAbsageData
-    | FLBewerbungErasureData
+    | FLDeletionNoticeData
     | FLBewerbungObjectionData
     | FLKontaktLinkData,
     Field(discriminator="kind"),
@@ -395,7 +387,7 @@ FLOutboxKind = Literal[
     "bewerbung_received",
     "bewerbung_zusage",
     "bewerbung_absage",
-    "bewerbung_erasure",
+    "deletion_notice",
     "bewerbung_objection",
     "kontakt_confirmation",
 ]
@@ -520,7 +512,7 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
 
     lease: str | None
     mails: list[FLOutboxHandout]
-    # Rows this claim found past their deadline and gave up, which no report will count.
+    # Rows this claim gave up, past their deadline or unreadable, which no report will count.
     abandoned: int = Field(ge=0)
 
 

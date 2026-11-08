@@ -5,7 +5,7 @@ import { COPY } from "@/core/copy";
 import { cardHover, cardSurface, stacked } from "./cardStyles";
 import { EmptyState } from "./EmptyState";
 import { Icon } from "./Icon";
-import { PageWait } from "./PageFade";
+import { PageWait, PageWaitOnceRead } from "./PageFade";
 import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
@@ -24,15 +24,35 @@ type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAp
  * The boxes are read in the template's one boundary, the column holding meanwhile the placeholders the page names in
  * `wait`, its own boxes' (`AccountBoxPlaceholder`) or its list's (`AccountListPlaceholder`) in their order, so the
  * title stands at once. The page places them as it places the boxes, from the box's own module, which Konto's pages
- * alone import.
+ * alone import. `waitOnceRead` is the wait as a first read shapes it, for a box the reader's role decides, `wait`
+ * standing until it answers.
  */
-export function AccountPage({ route, wait, children }: { route: AccountRoute; wait: ReactNode; children: ReactNode }) {
+export function AccountPage({
+  route,
+  wait,
+  waitOnceRead,
+  children,
+}: {
+  route: AccountRoute;
+  wait: ReactNode;
+  waitOnceRead?: Promise<ReactNode>;
+  children: ReactNode;
+}) {
+  const waiting = (boxes: ReactNode) => <Waiting layout="grid gap-6">{boxes}</Waiting>;
   return (
     <RailPage
       scope="area"
       title={{ route }}>
       <div className={formColumn()}>
-        <PageWait fallback={<Waiting layout="grid gap-6">{wait}</Waiting>}>{children}</PageWait>
+        {waitOnceRead === undefined ? (
+          <PageWait fallback={waiting(wait)}>{children}</PageWait>
+        ) : (
+          <PageWaitOnceRead
+            fallback={waiting(wait)}
+            wait={waitOnceRead.then(waiting)}>
+            {children}
+          </PageWaitOnceRead>
+        )}
       </div>
     </RailPage>
   );

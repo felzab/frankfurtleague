@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.registrierungen.schemas import (
     FLRegistrierungAdminRow,
     FLRegistrierungenAdminFilterParams,
@@ -47,7 +47,7 @@ async def get_registrierungen_admin(
     """
     The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
 
-    The page narrows what the read holds; a declined row waits out its month and asks nothing of an administrator.
+    The page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.
     `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
     `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
     refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a

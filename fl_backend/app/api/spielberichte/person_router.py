@@ -10,7 +10,6 @@ from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.saisons.crud import pull_governing_saison_id
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
@@ -38,7 +37,7 @@ from app.api.spielberichte.services import (
     newly_named,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
-from app.api.spiele.services import build_named_spiele_pipeline
+from app.api.spiele.services import build_named_spiele_pipeline, spiel_label
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, refuse
 from app.core.dependencies import (
@@ -52,8 +51,9 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -61,7 +61,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # The referee's own router, binding the referee's Funktion at router level.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielberichte",
-    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
+    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
 
 BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
@@ -73,7 +73,7 @@ SPIELE_NEUESTE_ZUERST = [("date", -1), ("time", -1), ("_id", 1)]
 
 @router.get("/self", response_model=FLSpielberichteSelfResponse, summary="The fixtures a signed-in referee reports on")
 async def get_self(
-    identifier: SchiedsrichterIdentifier,
+    identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     spielberichte_collection: SpielberichteReadCollection,
@@ -172,7 +172,7 @@ async def get_self(
 )
 async def get_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
-    identifier: SchiedsrichterIdentifier,
+    identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -242,7 +242,7 @@ async def put_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
     bericht_data: Annotated[FLSpielberichtPayload, Body()],
     response: Response,
-    identifier: SchiedsrichterIdentifier,
+    identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -315,6 +315,16 @@ async def put_spielbericht_bericht(
             version=bericht_data.version,
             session=session,
         )
+        # `write_bericht` answers `saved` itself where the block already says what the payload says, which writes nothing.
+        if document is not saved:
+            await record_act(
+                collection=spielberichte_collection,
+                action="spielbericht.saved",
+                by=ACT_BY_SCHIEDSRICHTER,
+                record_id=document["_id"],
+                label=spiel_label(context.spiel["saison_id"], context.spiel["spiel_nr"]),
+                session=session,
+            )
         if saved is None:
             # After the insert, so a rival first write meets it there rather than blocking on the season.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=context.spiel["saison_id"], session=session)

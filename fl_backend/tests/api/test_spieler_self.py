@@ -286,12 +286,12 @@ class TestTheTwoChoices:
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))
-            return response, await _records(database), await database[Collection.ACTION_LOG].count_documents({})
+            return response, await _records(database)
 
-        response, after, logged = served(mongo_replica_set_url, steps)
+        response, after = served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        assert (after[PUPIL_OID]["einwilligung"], logged) == (_einwilligung(), 0)
+        assert after[PUPIL_OID]["einwilligung"] == _einwilligung()
 
 
 @pytest.mark.db

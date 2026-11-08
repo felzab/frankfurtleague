@@ -1,6 +1,6 @@
 import { accountStandsAt } from "@/core/auth/accounts";
 
-import { postAdresswechselAdresse } from "./mutations";
+import { postAddressChangeAddress } from "./mutations";
 
 import type { FLAddressChangeAddressPayload } from "@/core/generated/client/types";
 
@@ -9,6 +9,6 @@ import type { FLAddressChangeAddressPayload } from "@/core/generated/client/type
  * change. The address stays inside this call: no caller, page or log line is handed it.
  */
 export async function accountAtNewAddress(key: FLAddressChangeAddressPayload): Promise<boolean> {
-  const { email } = await postAdresswechselAdresse(key);
+  const { email } = await postAddressChangeAddress(key);
   return email !== null && (await accountStandsAt(email));
 }

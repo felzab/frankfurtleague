@@ -9,13 +9,11 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_einwilligung
-from app.api.sperrliste.lookup import ban_list_saison
 from app.api.teams.admin_router import KONTAKT_WRITE_FIELDS, patch_team_saison, write_the_contact_block
 from app.api.teams.schemas import FLKontaktMint, FLKontaktSeatPayload, FLPatchTeamSaisonPayload
 from app.core.collections import Collection
 from app.core.crud import pull_one_from_db
 from app.core.transactions import transaction_session
-from tests.bans import ban_list
 
 CLUB_FIELDS = ("name", "shorthand", "description", "full_name", "schulform", "website_url", "address")
 
@@ -86,8 +84,6 @@ async def write_the_block(
 
     proposed = {slot: seat_sent(seat, today=today) if isinstance(seat, Mapping) else seat for slot, seat in block.items()}
     rows = database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection
-    bans = ban_list(database)
-    governing_saison_id = await ban_list_saison(bans)
     nonce = secrets.token_hex(8)
 
     async def write(session: AsyncClientSession) -> BlockWritten:
@@ -107,8 +103,6 @@ async def write_the_block(
             saisons_collection=database[Collection.SAISONS],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             outbox_collection=database[Collection.OUTBOX],
-            ban_list=bans,
-            governing_saison_id=governing_saison_id,
             nonce=nonce,
             today=today,
             germany_now=germany_now,

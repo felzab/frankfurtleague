@@ -3,6 +3,7 @@ import { COPY } from "@/core/copy";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb, Words } from "@/core/copy";
 import type { ReactNode } from "react";
+import type { Fact } from "./Facts";
 
 /**
  * What a dialog's act is, read by the dialog (`Dialog.tsx`) and by the list page drawing its trigger on the
@@ -23,8 +24,18 @@ export type DialogAct = {
   carry?: Readonly<Record<string, string>>;
   /** One line under the title naming what the inputs are about, such as the seat a person is written into. */
   lead?: Words;
+  /** One sentence after the inputs: what the act does, as a question's `consequence` says. */
+  consequence?: Copy;
+  /** What that sentence rests on, under it, as a question's `facts`. */
+  facts?: ReadonlyArray<Fact>;
   /** `danger` for an act taking a record out of something, as a danger box's question names its verb's tone. */
   tone?: "primary" | "danger";
+  /**
+   * The passkey touch the act's button asks ahead of `action`, for an act on its fixed list a person holding a passkey
+   * presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The dialog stands
+   * with its inputs on a refused touch.
+   */
+  touch?: { holder: string };
 };
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */

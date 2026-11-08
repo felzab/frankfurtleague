@@ -25,14 +25,13 @@ const SchiedsrichterForm = z.object({
 /**
  * Enters a referee from the create dialog over the list, which is asking them: the backend owes the person their
  * confirmation link at once, through the outbox. A name another referee holds, a retired one's included, is refused on
- * the name's box, and an address the backend cannot mail or the ban list holds on the address's or the status line, the
- * dialog staying open with its input kept.
+ * the name's box, and an address the backend cannot mail on the address's, the dialog staying open with its input kept.
  */
 export const createSchiedsrichter = action({
   lane: "admin",
   name: "createSchiedsrichter",
   input: SchiedsrichterForm,
-  ownWords: ["duplicate_key", "email_not_accepted", "schiedsrichter_address_barred"],
+  ownWords: ["duplicate_key", "email_not_accepted"],
   paths: { name: "name", "kontakt.email": "email" },
   examples: { name: COPY.shared.field.exampleName, phone: COPY.admin.schiedsrichter.phoneExample },
   run: async ({ name, email, phone, schule, default_payment }) => {

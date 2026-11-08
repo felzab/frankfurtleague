@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -22,9 +21,7 @@ from app.api.spielberichte.services import (
     bericht_state_of,
     bericht_unchanged,
     build_bericht_kader_pipeline,
-    build_referee_report_images_filter,
     build_referee_reports_filter,
-    build_season_report_images_filter,
     build_season_report_texts_filter,
     build_state_pipeline,
     build_submitted_pipeline,
@@ -32,8 +29,6 @@ from app.api.spielberichte.services import (
     compose_new_bericht,
     live_kader,
     named_ids_of,
-    referee_report_image_edits,
-    season_end_report_image_edits,
     sides_of,
     team_id_of,
 )
@@ -50,6 +45,7 @@ from app.core.crud import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSide
@@ -199,7 +195,7 @@ async def write_bericht(
         if saved.get("bericht") is None
         else compose_bericht_update(payload, sides=sides, now=now)
     )
-    # `AFTER`: inside the transaction the patch reads the document back for its log anyway.
+    # `AFTER`: the view answers the document as written.
     return await patch_one_in_db(
         collection=spielberichte_collection,
         db_filter={"_id": saved["_id"]},
@@ -242,42 +238,40 @@ async def pull_states(*, spielberichte_collection: ReadCollection, saison_id: st
 async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     saison_id: str,
-    stamp: str,
     # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
     session: AsyncClientSession,
 ) -> int:
-    """Once the season after `saison_id` has ended, every report's remarks and card reasons, on the reports and in their log images."""
+    """Once the season after `saison_id` has ended, every report's remarks and card reasons, answering how many reports it stripped."""
 
-    await patch_many_in_db(
+    stripped = await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter=build_season_report_texts_filter(saison_id),
         # Every card's reason by `$[]`: the cards stand.
         update={"$set": {"bericht.remarks": None, "bericht.cards.$[].reason": None}},
         session=session,
     )
+    if stripped.modified_count:
+        await record_act(
+            collection=spielberichte_collection,
+            action="retention.spielberichte",
+            by=ACT_BY_SYSTEM,
+            label=saison_id,
+            count=stripped.modified_count,
+            session=session,
+        )
 
-    return await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_season_report_images_filter(saison_id),
-        judge=lambda image: season_end_report_image_edits(image, saison_id),
-        stamp=stamp,
-        session=session,
-    )
+    return stripped.modified_count
 
 
 async def repoint_referee_reports_in_session(
     *,
     spielberichte_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[CustomObjectId],
-    # The caller's, so every redaction of one erasure carries one instant.
-    stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """Repoint every report these referees sent at the ghost, in the document and in its log images.
+    """Repoint every report these referees sent at the ghost.
 
     The report stands, its remarks included: it is the league's record of the match. Run ahead of the referee's own step.
     """
@@ -290,14 +284,6 @@ async def repoint_referee_reports_in_session(
         collection=spielberichte_collection,
         db_filter=build_referee_reports_filter(schiedsrichter_ids),
         update={"$set": {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}},
-        session=session,
-    )
-
-    await redact_images_in_session(
-        action_log_collection=action_log_collection,
-        db_filter=build_referee_report_images_filter(schiedsrichter_ids),
-        judge=lambda image: referee_report_image_edits(image, schiedsrichter_ids),
-        stamp=stamp,
         session=session,
     )
 

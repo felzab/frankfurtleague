@@ -8,8 +8,8 @@ import { expect } from "@playwright/test";
 import { test } from "./support/journey";
 import { askForCode } from "./support/signIn";
 
-/** The owner's grant, which no journey signs in with: asking for its code disturbs no other journey. */
-const MEMBER = "inhaber@example.com";
+/** A grant no journey signs in with: asking for its code disturbs no other journey. */
+const MEMBER = "admin.nachfolge@example.com";
 
 /** An address no record of the made-up league holds. */
 const STRANGER = "niemand@example.com";

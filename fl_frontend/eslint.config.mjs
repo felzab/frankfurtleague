@@ -310,13 +310,13 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["address_change_sweep_address_change"],
-    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAdresswechselSweep"] },
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAddressChangeSweep"] },
     runners: ["src/features/address-change/sweep.ts"],
   },
   {
     operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
-    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
-    runners: ["src/features/address-change/umzug.ts"],
+    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAddressChangeMoves", "postAddressChangeMovesDone"] },
+    runners: ["src/features/address-change/moves.ts"],
   },
   {
     operations: ["identity_get_references"],
@@ -337,9 +337,9 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
-    operations: ["grants_post_grants_reconciliation"],
-    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postBerechtigungenAbgleich"] },
-    runners: ["src/features/berechtigungen/abgleich.ts"],
+    operations: ["grants_post_handover_pass"],
+    wrapper: { file: "src/features/grants/mutations.ts", names: ["postHandoverPass"] },
+    runners: ["src/features/grants/sweep.ts"],
   },
 ];
 
@@ -713,12 +713,14 @@ const SOURCE_BANS = [
     {
       only: [
         "account",
-        "aktionen",
+        "action-log",
+        "address-change",
+        "ban-list",
         "bewerbungen",
         "funktionen",
+        "grants",
         "registrierungen",
         "schiedsrichter",
-        "sperrliste",
         "spielberichte",
         "spielbestaetigungen",
         "spielorte",

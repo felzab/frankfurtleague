@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -15,8 +14,6 @@ class FLInvitation(BaseReadModel):
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
     created_at: CustomDateString
-    # The bound actor, on no payload: a link and its `aktionen` row cannot then name two people.
-    created_by: CustomNonEmptyString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
@@ -33,11 +30,8 @@ class FLInvitationRecord(FLInvitation):
 
 
 class FLInvitationRow(FLInvitation):
-    """One live link as the team's read serves it: the stored row, its minter withheld where the ban list holds that address."""
+    """One live link as the team's read serves it."""
 
-    # Null exactly where `created_by_barred` is set, as the grants list withholds its actors.
-    created_by: CustomNonEmptyString | None
-    created_by_barred: bool
     # What became of the last mail owed about it, null where none was ever owed.
     delivery: FLOutboxStatus | None
 
@@ -53,7 +47,6 @@ class FLInvitationMintResponse(BaseAPIResponse):
     invitation_id: CustomObjectId
     token: CustomNonEmptyString
     created_at: CustomDateString
-    created_by: CustomNonEmptyString
 
 
 class FLInvitationWriteResponse(BaseAPIResponse):
@@ -64,19 +57,10 @@ class FLInvitationWriteResponse(BaseAPIResponse):
     invitation_id: CustomObjectId
 
 
-class FLInvitationRecipient(BaseModel):
-    """One mailbox a link goes to, and the seat it is addressed as."""
-
-    rolle: FLKontaktRolle
-    first_name: CustomNonEmptyString
-    email: CustomNonEmptyString
-
-
 type FLInvitationSkipReason = Literal[
     "austritt_entered",
     "no_kontakt_block",
     "no_confirmed_kontaktperson",
-    "kontakte_barred",
     "already_sent",
 ]
 
@@ -91,7 +75,6 @@ class FLInvitationLinkRow(BaseModel):
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
     # rather than needing a second read of `teams`.
     team_name: CustomNonEmptyString
-    recipient: list[FLInvitationRecipient]
     skipped: FLInvitationSkipReason | None
     # Whether the team holds a live link: the plan the row shares with the press carries no trace of the invitation itself.
     has_link: bool
@@ -130,10 +113,9 @@ class FLInvitationMailPayload(BaseModel):
 
 
 class FLInvitationMailResponse(BaseAPIResponse):
-    """Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed."""
+    """How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed."""
 
-    invitation_id: CustomObjectId
-    recipient: list[FLInvitationRecipient]
+    mailed: int = Field(ge=0)
 
 
 class FLInvitationDispatchResponse(BaseAPIResponse):

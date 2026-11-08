@@ -7,24 +7,24 @@ import {
   buildAddressChangeNoticeEmail,
 } from "./addressChangeEmail";
 import { buildCodeEmail } from "./authEmail";
-import { buildBerechtigungEmail } from "./berechtigungEmail";
+import { buildBanEmail } from "./banListEmail";
 import {
   buildBewerbungAbsageEmail,
   buildBewerbungConfirmationEmail,
-  buildBewerbungErasureEmail,
   buildBewerbungObjectionEmail,
   buildBewerbungReceivedEmail,
   buildBewerbungReminderEmail,
   buildBewerbungZusageEmail,
+  buildDeletionNoticeEmail,
 } from "./bewerbungEmail";
 import { buildErasureEmail } from "./erasureEmail";
 import { ContractBreakError } from "./errors";
+import { buildGrantEmail } from "./grantEmail";
 import { buildInvitationEmail } from "./invitationEmail";
 import { buildKontaktConfirmationEmail } from "./kontaktEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
-import { buildSperreEmail } from "./sperrlisteEmail";
 import {
   buildAustrittNoticeEmail,
   buildSpielEinteilungEmail,
@@ -90,8 +90,8 @@ function minted({ token, origin }: Handout): MailLink {
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
-  passkey_added: ({ instant, account }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin, account }),
-  passkey_erased: ({ instant, account }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin, account }),
+  passkey_added: ({ instant }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin }),
+  passkey_erased: ({ instant }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin }),
   account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterConfirmationEmail(data, minted(handout)),
   spiel_request: (data, handout) => buildSpielRequestEmail(data, minted(handout)),
@@ -107,8 +107,8 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
   invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),
-  ban: buildSperreEmail,
-  grant: buildBerechtigungEmail,
+  ban: buildBanEmail,
+  grant: buildGrantEmail,
   address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
   address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),
@@ -119,7 +119,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_reminder: (data, handout) => buildBewerbungReminderEmail(data, minted(handout)),
   bewerbung_zusage: buildBewerbungZusageEmail,
   bewerbung_absage: buildBewerbungAbsageEmail,
-  bewerbung_erasure: buildBewerbungErasureEmail,
+  deletion_notice: buildDeletionNoticeEmail,
   bewerbung_objection: buildBewerbungObjectionEmail,
 };
 

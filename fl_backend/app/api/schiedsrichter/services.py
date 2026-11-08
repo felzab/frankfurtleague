@@ -8,7 +8,6 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState
 from app.api.spiele.schemas import unplayed_filter
 from app.core import clock
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
@@ -98,37 +97,6 @@ def build_ghost_repoint() -> Mapping[str, Any]:
     return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
 
 
-def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """Every `spiele` log row whose pre-image names this referee.
-
-    Selected inside the image rather than by the fixtures they hold today: a reassigned fixture, and a
-    removed one, each leave an image naming them that no id can reach.
-    """
-
-    # `collection` first, the one half an index serves — nothing indexes inside `before`, as the
-    # contact erasure's seat pass also finds
-    # (`app/api/kontakte/services.py :: build_seat_images_filter`). A `delete_many` row's image is
-    # an ARRAY, matched on its members.
-    return {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": schiedsrichter_id}
-
-
-def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict[str, Any]:
-    """One fixture image booked to this referee, repointed as the fixture itself is.
-
-    Its result and every other value stay: the match is the league's record, and only the booking
-    named the person.
-    """
-
-    booking = image.get("schiedsrichter")
-    if not isinstance(booking, Mapping) or booking.get("schiedsrichter_id") != schiedsrichter_id:
-        return {}
-
-    # The action log keeps an image as it was recorded, so its booking may carry the referee's name beside the id,
-    # where a stored fixture's holds the id alone; an image's edits are values set at a path, so the name is nulled
-    # in place rather than unset.
-    return {**build_ghost_repoint()["$set"], **({"schiedsrichter.name": None} if "name" in booking else {})}
-
-
 def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
     """`duplicate_key` on the name: another referee, a retired one included, holds it.
 
@@ -182,9 +150,9 @@ ADDRESS_PATH: Final = "kontakt.email"
 EINWILLIGUNG_FIELD: Final = "einwilligung"
 
 # The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
-# sweep_schiedsrichter`), its log images with it, which a TTL index deleting the row would leave for the log's twelve
-# months. On the record rather than inside the block: a retired referee's corrected address drops the block, and the
-# entry its person never confirmed still goes on the clock its last link started.
+# sweep_schiedsrichter`), its fixtures repointed at the ghost, which a TTL index deleting the row could not do. On the
+# record rather than inside the block: a retired referee's corrected address drops the block, and the entry its person
+# never confirmed still goes on the clock its last link started.
 ERASE_AT_FIELD: Final = "erase_at"
 
 
@@ -265,18 +233,6 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {TOKEN_HASHES_PATH: token_hash}
 
 
-def first_name_of(name: Any) -> str | None:
-    """The forename inside the one `name` field this collection stores.
-
-    Split rather than stored apart, as every other referee surface reads the whole name. Only the
-    account page fills a slot with it.
-    """
-
-    parts = str(name).split() if isinstance(name, str) else []
-
-    return parts[0] if parts else None
-
-
 def link_is_over(*, deadline: str, today: str) -> bool:
     """Whether the deadline has passed: its own day still takes the answer."""
 
@@ -301,14 +257,11 @@ def has_answered(*, einwilligung: Any, confirmation: Any) -> bool:
     return is_confirmed(einwilligung=einwilligung) or is_declined(confirmation)
 
 
-def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, barred: bool) -> FLSchiedsrichterConfirmationState:
-    """What a reopened link shows: the ban first, then an answer over the deadline.
+def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str) -> FLSchiedsrichterConfirmationState:
+    """What a reopened link shows: an answer over the deadline.
 
     A person who answered on the last valid day is shown that they did.
     """
-
-    if barred:
-        return "barred"
 
     if is_confirmed(einwilligung=einwilligung):
         return "confirmed"
@@ -320,10 +273,7 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str, 
 
 
 def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: Any, confirmation: Mapping[str, Any]) -> str | None:
-    """The day of the answer `state` shows, the consent's or the objection's; `None` where it shows none.
-
-    Off the state rather than the record, so a barred link names no day its page does not show.
-    """
+    """The day of the answer `state` shows, the consent's or the objection's; `None` where it shows none."""
 
     if state == "confirmed":
         return str(einwilligung["confirmed_at"])
@@ -372,20 +322,6 @@ def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> Wr
     return WriteRefusal(
         error_code=Code.CONFIRMATION_EXISTS,
         status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_confirmation_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: the ban list holds the address this link was mailed to, however long ago it was minted."""
-
-    if not barred:
-        return None
-
-    # 403 where the editor's `schiedsrichter_address_barred` is 409: this caller is the barred person, holding the mailbox the
-    # token was sent to, where the editor's is an administrator writing about an entry.
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
     )
 
 
@@ -446,8 +382,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
     with no address would record a message that was never composed.
     """
 
-    # A stored value the fold cannot canonicalise is no address either, which the ban-list hash
-    # would otherwise meet as a 500.
+    # A stored value the fold cannot canonicalise is no address either.
     if email is not None:
         try:
             league_address(str(email))
@@ -458,18 +393,6 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
-def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
-    """Why no link may be sent to this address, or `None`. Worded for the administrator who typed it, every site raising it being admin-tier."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_ADDRESS_BARRED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -545,23 +468,18 @@ CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,
-    # For the ban list alone, as the answer's read takes it: the response model declares no field to
-    # carry it.
-    "kontakt.email": 1,
     # Suppressed here alone: this endpoint stores nothing, so it needs no key to patch on.
     "_id": 0,
 }
 
-# Narrower than the view's: the answer takes its wording from the payload rather than the row. The
-# address is what the press asks the ban list of, and no answer carries it.
+# The answer takes its wording from the payload rather than the row.
 CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,
-    "kontakt.email": 1,
 }
 
-# What the re-send and the reactivation judge, and the address they hash against the ban list.
+# What the re-send and the reactivation judge, and the address they mail.
 INVITE_FIELDS: Mapping[str, int] = {
     "inactive_since": 1,
     "kontakt.email": 1,

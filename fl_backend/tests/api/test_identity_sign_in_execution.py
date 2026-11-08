@@ -22,7 +22,6 @@ from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
-from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
@@ -220,12 +219,13 @@ async def _seed(database: AsyncDatabase) -> None:
         )
     )
     await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=ACTIVE_SAISON))
-    granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.GRANTS].insert_one(
-        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
-    )
-    await database[Collection.GRANTS_ANNOUNCED].insert_one(
-        {"_id": GRANT_OID, "address": ADMIN, "admin_tier": "administration", "announced_at": granted}
+        {
+            "_id": GRANT_OID,
+            "address": ADMIN,
+            "admin_tier": "administration",
+            "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
+        }
     )
 
 
@@ -249,9 +249,10 @@ async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
         return await get_sign_in(
             sign_in_data=FLSubjectPayload(email=email),
             records=record_collections(database),
-            ban_list=ban_list(database),
+            ban_list_collection=database[Collection.BAN_LIST],
             grants_collection=database[Collection.GRANTS],
             session=session,
+            germany_now=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
 

@@ -5,7 +5,6 @@ import { useState } from "react";
 import { PARAGRAPH_CLASSES, Value } from "@/features/bewerbungen/components/ui/Filled";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  AddressBarred,
   AskQuestion,
   ConfirmationResult,
   FactsBanner,
@@ -43,7 +42,7 @@ type Stand =
   | { state: "abgelehnt-neu"; ansicht: FLSpielbestaetigungViewResponse; vorschlag: FLSpielbestaetigungAppointment };
 
 /** One heading per state, in the other link pages' words where the state is theirs. A barred link's page has none. */
-const TITEL: Record<Exclude<Stand["state"], "barred">, string> = {
+const TITEL: Record<Stand["state"], string> = {
   valid: "Spieltermin bestätigen",
   vorschlag: "Spieltermin bestätigen",
   "zugesagt-neu": "Termin bestätigt",
@@ -94,8 +93,6 @@ function afterAnswer(abschluss: SpielbestaetigungAbschluss, view: FLSpielbestaet
 export function SpielbestaetigungView({ start }: { start: SpielbestaetigungStart }) {
   const [stand, setStand] = useState<Stand>(start);
   const { ergebnisRef, answered } = useLinkSeite(stand.state);
-
-  if (stand.state === "barred") return <AddressBarred panelRef={ergebnisRef} />;
 
   return (
     <section className={SEITE_CLASSES}>

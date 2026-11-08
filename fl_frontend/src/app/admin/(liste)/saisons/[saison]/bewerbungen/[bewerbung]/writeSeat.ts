@@ -31,7 +31,7 @@ export const writeSeat = action({
     phone: shape.phone,
     version: numberBox(shape.version),
   }),
-  ownWords: ["bewerbung_kontakt_email_taken", "bewerbung_kontakt_phone_taken", "bewerbung_kontakt_barred", "email_not_accepted"],
+  ownWords: ["bewerbung_kontakt_email_taken", "bewerbung_kontakt_phone_taken", "email_not_accepted"],
   paths: { email: "email", phone: "phone" },
   examples: {
     first_name: COPY.shared.field.exampleFirstName,
@@ -44,15 +44,11 @@ export const writeSeat = action({
   },
 });
 
-/**
- * Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. An address
- * on the ban list, which the page cannot know, is refused in the list's own sentence.
- */
+/** Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. */
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
   input: BewerbungenResendEinwilligungParams,
-  ownWords: ["bewerbung_kontakt_barred"],
   run: async ({ bewerbung_id: id, seat }) => {
     await bewerbungenResendEinwilligung(id, seat);
     return { ok: true, value: undefined };

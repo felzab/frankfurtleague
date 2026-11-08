@@ -7,12 +7,9 @@ const calls = doubleApiClient(() => ({}));
 const { serializeQuery } = await import("./transport.ts");
 const sdk = await import("./generated/client/sdk.ts");
 
-/* Every generated call's query passes through here: a list sent as one joined value would reach FastAPI as a single
-   unknown member and refuse the read, and a null sent as "null" would filter on that word. */
-it("sends a list as one key per value and leaves an absent value out", () => {
-  expect(serializeQuery({ status: ["eingereicht", "zugesagt"], q: "Gymnasium", page: 2, empty: null, open: undefined })).toBe(
-    "status=eingereicht&status=zugesagt&q=Gymnasium&page=2",
-  );
+/* Every generated call's query passes through here: a null sent as "null" would filter on that word. */
+it("leaves an absent value out", () => {
+  expect(serializeQuery({ q: "Gymnasium", page: 2, empty: null, open: undefined })).toBe("q=Gymnasium&page=2");
 });
 
 const SPIEL_ID = "6890a1b2c3d4e5f607510001";

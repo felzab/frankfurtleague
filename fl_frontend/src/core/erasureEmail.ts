@@ -34,7 +34,6 @@ export function buildErasureEmail({ origin, token }: { origin: string; token: st
     kind: "security",
     subjectLine: COPY.page.accountErasure,
     origin: site,
-    firstName: "",
     paragraphs: [[WORDS.lead], [[{ strong: WORDS.consequence }]], [SERVER_COPY.mail.linkValidFor(ERASURE_LINK_VALID_HOURS)]],
     button: { label: COPY.page.accountErasure, href: erasureLink(site, token) },
   };

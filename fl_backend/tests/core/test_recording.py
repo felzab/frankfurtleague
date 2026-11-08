@@ -1,252 +1,161 @@
-from __future__ import annotations
+"""
+CORE · the closed list of acts against the lines that record them
 
-import asyncio
-from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta
-from types import SimpleNamespace
-from typing import Any, cast
+Each act is one hand-written `record_act` line, so a line lost is a gap in the Protokoll nothing else notices. `pyright`
+holds a constant to the list; only this walk holds the list to the constants, and each line leaving out who acted to the
+routes that bind an administrator.
+"""
 
-from bson import ObjectId
-from pymongo import ReturnDocument
-from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.results import InsertManyResult, InsertOneResult
+import ast
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import get_args
 
-from app.core.collections import Collection
-from app.core.crud import patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.recording import Actor, actor_var, build_image_redactions, log_stamp, record_write, request_var
+from app.core import recording
+from app.core.recording import FLAction
 
-# Fixed rather than generated, so a failing test names the same document every run.
-TEAM_OID = ObjectId("6890a1b2c3d4e5f607500001")
-CREATED_OID = ObjectId("6890a1b2c3d4e5f607500002")
+SOURCE = Path(recording.__file__).parents[1]
 
-# The two images share no value, so a row holding the wrong one cannot pass by resembling the right one.
-BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX"}
-AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LGX"}
-
-CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CSX"}
-
-# None carries an `_id`: a generated fixture leaves those to the driver.
-CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"CL{chr(65 + index)}"} for index in range(5)]
-
-FILTER: Mapping[str, Any] = {"saison_id": "2026", "team_id": TEAM_OID}
-UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing-Gymnasium"}}
-
-ADMIN_ACTOR = Actor(kind="admin_session", email="admin@example.com")
-
-# The route TEMPLATE, which is the half of this pair the binder stores.
-ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
-
-# Outside `EDITED_COLLECTIONS`, whose creates stamp a version (`app/core/crud.py`): the case reading
-# what the helper passed on judges the recording alone.
-UNVERSIONED = Collection.INVITATIONS
-
-# A stand-in for the caller's session, outside a transaction: what is proved is that the row travels inside whatever the caller passed.
-SESSION = cast(AsyncClientSession, SimpleNamespace(in_transaction=False))
+type Function = ast.FunctionDef | ast.AsyncFunctionDef
 
 
-class _FakeCollection:
-    """One collection, called as `app/core/crud.py` and `app/core/recording.py` call the driver."""
-
-    def __init__(
-        self,
-        name: str,
-        *,
-        before: Mapping[str, Any] | None = None,
-        after: Mapping[str, Any] | None = None,
-        log: _FakeCollection | None = None,
-    ) -> None:
-        self.name = str(name)
-        self.before = before
-        self.after = after
-        self.inserted: list[Mapping[str, Any]] = []
-        self.sessions: list[Any] = []
-        # A collection reaches the log through its own database handle.
-        self.database: dict[str, _FakeCollection] = {} if log is None else {Collection.ACTION_LOG: log}
-
-    async def find_one(self, *, filter: Any, projection: Any = None, session: Any = None) -> Mapping[str, Any] | None:
-        """The post-image: a patch re-reads for the caller's echo once the update has carried the pre-image out."""
-        return self.after
-
-    async def find_one_and_update(
-        self, *, filter: Any, update: Any, session: Any = None, return_document: Any = None
-    ) -> Mapping[str, Any] | None:
-        """Answers the image it was asked for, as the driver does -- which is what makes the pre-image atomic."""
-        return self.before if return_document is ReturnDocument.BEFORE else self.after
-
-    async def insert_one(self, document: Mapping[str, Any], session: Any = None) -> InsertOneResult:
-        self.inserted.append(document)
-        self.sessions.append(session)
-
-        return InsertOneResult(document.get("_id", CREATED_OID), True)
-
-    async def insert_many(self, documents: Sequence[Mapping[str, Any]], session: Any = None) -> InsertManyResult:
-        """Ids in input order, as the driver answers: `post_many_to_db` counts them to fill the row."""
-        self.inserted.extend(documents)
-        self.sessions.append(session)
-
-        return InsertManyResult([document.get("_id", ObjectId()) for document in documents], True)
+def _functions() -> list[Function]:
+    return [
+        node
+        for path in sorted(SOURCE.rglob("*.py"))
+        for node in ast.walk(ast.parse(path.read_bytes()))
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
 
 
-def build(name: str = Collection.TEAMS, **state: Any) -> tuple[_FakeCollection, _FakeCollection]:
-    """The written-to collection and the log its database holds, as two objects: one list each is what makes "recorded nothing" checkable."""
-
-    log = _FakeCollection(Collection.ACTION_LOG)
-
-    return _FakeCollection(name, log=log, **state), log
+def _calls_of(name: str, function: ast.AST) -> Iterator[ast.Call]:
+    for node in ast.walk(function):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name:
+            yield node
 
 
-def as_collection(stub: _FakeCollection) -> AsyncCollection:
-    return cast(AsyncCollection, stub)
+def _parameters(function: Function) -> list[str]:
+    return [argument.arg for argument in (*function.args.posonlyargs, *function.args.args)]
 
 
-def record_inside_a_request(**arguments: Any) -> None:
-    """Bound inside the coroutine: `asyncio.run` runs it in a copied context, so nothing set here reaches another test."""
+def _argument(call: ast.Call, name: str, position: int | None) -> ast.expr | None:
+    """What `call` hands the parameter, by keyword or at `position`; `None` where it leaves the default."""
 
-    async def _run() -> None:
-        actor_var.set(ADMIN_ACTOR)
-        request_var.set(ROUTE)
-        await record_write(**arguments)
+    for keyword in call.keywords:
+        if keyword.arg == name:
+            return keyword.value
 
-    asyncio.run(_run())
+    return call.args[position] if position is not None and position < len(call.args) else None
 
 
-class TestWhatEachWriteRecords:
-    def test_a_single_document_patch_records_one_row_naming_the_document(self):
-        target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
+def _constants(value: ast.expr, call: ast.Call, functions: Sequence[Function]) -> Iterator[str]:
+    """Every action `value` can name: a conditional's arms, and a parameter's arguments at every call of its function."""
 
-        asyncio.run(
-            patch_one_in_db(
-                collection=as_collection(target), db_filter=FILTER, update=UPDATE, expected_version=None, return_document=ReturnDocument.AFTER
-            )
+    match value:
+        case ast.Constant(value=str(action)):
+            yield action
+        case ast.Constant(value=None):
+            return
+        case ast.IfExp(body=body, orelse=orelse):
+            yield from _constants(body, call, functions)
+            yield from _constants(orelse, call, functions)
+        case ast.BoolOp(values=values):
+            for one in values:
+                yield from _constants(one, call, functions)
+        case ast.Name(id=parameter):
+            yield from _forwarded(parameter, call, functions)
+        case _:
+            raise AssertionError(f"line {value.lineno} names an action this walk cannot read")
+
+
+def _forwarded(parameter: str, call: ast.Call, functions: Sequence[Function]) -> Iterator[str]:
+    owners = [
+        function
+        for function in functions
+        if any(node is call for node in ast.walk(function))
+        and parameter in (*_parameters(function), *(argument.arg for argument in function.args.kwonlyargs))
+    ]
+    assert owners, f"line {call.lineno} names an action no parameter of its function holds"
+
+    for owner in owners:
+        position = _parameters(owner).index(parameter) if parameter in _parameters(owner) else None
+        for caller in functions:
+            for forwarding in _calls_of(owner.name, caller):
+                argument = _argument(forwarding, parameter, position)
+                if argument is not None:
+                    yield from _constants(argument, forwarding, functions)
+
+
+def _recorded() -> set[str]:
+    functions = _functions()
+    recorded: set[str] = set()
+    for function in functions:
+        for call in _calls_of("record_act", function):
+            action = _argument(call, "action", None)
+            assert action is not None, f"line {call.lineno} records no action"
+            recorded.update(_constants(action, call, functions))
+
+    return recorded
+
+
+def test_every_action_has_its_line_and_every_line_its_action():
+    assert _recorded() == set(get_args(FLAction.__value__))
+
+
+@dataclass(frozen=True)
+class _TopLevel:
+    """A module's statement, holding whatever is nested in it; `name` is `None` where nothing can call it."""
+
+    path: Path
+    statement: ast.stmt
+    name: str | None
+    reads: frozenset[str]
+
+
+def _top_levels() -> list[_TopLevel]:
+    return [
+        _TopLevel(
+            path=path,
+            statement=statement,
+            name=statement.name if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) else None,
+            # A name and an attribute alike: a call, a callback handed on, a `Depends`, a function reached through its module.
+            reads=frozenset(
+                node.id if isinstance(node, ast.Name) else node.attr
+                for node in ast.walk(statement)
+                if isinstance(node, ast.Name | ast.Attribute)
+            ),
         )
-
-        assert len(log.inserted) == 1
-        assert log.inserted[0]["operation"] == "patch_one"
-        assert log.inserted[0]["collection"] == Collection.TEAMS
-        assert log.inserted[0]["document_id"] == TEAM_OID
-
-    def test_a_single_document_patch_records_the_image_the_write_replaced(self):
-        """The whole feature: a row holding the POST-image restores nothing, because it describes the state already stored."""
-        target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
-
-        asyncio.run(
-            patch_one_in_db(
-                collection=as_collection(target), db_filter=FILTER, update=UPDATE, expected_version=None, return_document=ReturnDocument.AFTER
-            )
-        )
-
-        assert log.inserted[0]["before"] == BEFORE_DOCUMENT
-
-    def test_a_create_records_one_row_naming_the_inserted_document(self):
-        target, log = build()
-
-        asyncio.run(post_one_to_db(collection=as_collection(target), document=CREATED_DOCUMENT))
-
-        assert len(log.inserted) == 1
-        assert log.inserted[0]["operation"] == "insert"
-        assert log.inserted[0]["document_id"] == CREATED_OID
-
-    def test_a_bulk_create_hands_the_driver_the_documents_unchanged(self):
-        """A helper editing what it was given would put a document into the database no caller composed."""
-        target, _ = build(UNVERSIONED)
-
-        asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS))
-
-        assert target.inserted == list(CREATED_DOCUMENTS)
-
-    def test_the_row_travels_inside_the_session_the_write_used(self):
-        """A row written outside an aborting transaction survives it, and the log then holds a write the database rolled back."""
-        target, log = build(before=BEFORE_DOCUMENT, after=AFTER_DOCUMENT)
-
-        asyncio.run(
-            patch_one_in_db(
-                collection=as_collection(target),
-                db_filter=FILTER,
-                update=UPDATE,
-                session=SESSION,
-                expected_version=None,
-                return_document=ReturnDocument.AFTER,
-            )
-        )
-
-        assert log.sessions == [SESSION]
-
-    def test_a_bulk_create_carries_the_session_into_the_documents_and_the_row_alike(self):
-        """The generator writes a whole season in one transaction, and a row landing outside it survives an abort the documents do not."""
-        target, log = build()
-
-        asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS, session=SESSION))
-
-        assert target.sessions == [SESSION]
-        assert log.sessions == [SESSION]
+        for path in sorted(SOURCE.rglob("*.py"))
+        for statement in ast.parse(path.read_bytes()).body
+    ]
 
 
-class TestWhoAndWhenARowIsAttributedTo:
-    def test_a_write_outside_a_request_is_attributed_to_the_system_actor(self):
-        """A migration, a script or a fixture records honestly rather than needing a branch at each recording site."""
-        target, log = build()
+def _entries(top_level: _TopLevel, top_levels: Sequence[_TopLevel], walked: set[_TopLevel]) -> Iterator[Path]:
+    """The file of every statement a call of `top_level` can come in from, each one nothing else reads.
 
-        asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
+    By name, as the walk above, so a namesake's reader counts as a caller too: that can only add an entry.
+    """
 
-        assert log.inserted[0]["actor"] == {"kind": "system", "email": "SYSTEM"}
-        assert log.inserted[0]["request"] is None
+    callers = [other for other in top_levels if top_level.name in other.reads and other.name != top_level.name] if top_level.name else []
+    if not callers:
+        yield top_level.path
 
-    def test_the_bound_administrator_and_route_reach_the_row(self):
-        """The method and path are what let a reader see which kind of action ran, which the collection name alone cannot say."""
-        target, log = build()
-
-        record_inside_a_request(collection=as_collection(target), operation="patch_one", document_id=TEAM_OID)
-
-        assert log.inserted[0]["actor"] == {"kind": "admin_session", "email": "admin@example.com"}
-        assert log.inserted[0]["request"] == {"method": "PATCH", "path": "/api/v0/teams/{team_id}"}
-
-    def test_the_timestamp_is_utc_and_carries_its_offset(self):
-        """The log is ordered and ranged by this field, and a local-time string sorts October's two identical clock hours the wrong way."""
-        target, log = build()
-
-        asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
-
-        assert datetime.fromisoformat(log.inserted[0]["at"]).utcoffset() == timedelta(0)
-
-    def test_the_same_instant_is_stored_again_as_a_date(self):
-        """A TTL index expires on a BSON date alone, so on `at`'s string it would expire nothing and report nothing."""
-        target, log = build()
-
-        asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
-
-        stamped = log.inserted[0]["at_date"]
-        assert isinstance(stamped, datetime)
-        assert stamped.utcoffset() == timedelta(0)
-        # Compared rather than merely typed: read from the clock twice the two stamps straddle a
-        # second, and the row then says the write happened at two instants.
-        assert log_stamp(stamped) == log.inserted[0]["at"]
+    for caller in callers:
+        if caller not in walked:
+            walked.add(caller)
+            yield from _entries(caller, top_levels, walked)
 
 
-def their_seat(image: Mapping[str, Any]) -> Mapping[str, Any]:
-    """A judge naming one person's seat in the images holding them."""
+def test_an_act_leaving_out_who_acted_is_reached_from_an_administrators_route_alone():
+    """`record_act` reads a left-out `by` off `bind_actor`, which only an admin router binds, so elsewhere the act fails at the press."""
 
-    return {"kontakte.trainer": None} if image.get("trainer") == "them" else {}
+    top_levels = _top_levels()
+    leaving_it_out = [
+        top_level
+        for top_level in top_levels
+        if any(_argument(call, "by", None) is None for call in _calls_of("record_act", top_level.statement))
+    ]
+    entries = {entry for top_level in leaving_it_out for entry in _entries(top_level, top_levels, {top_level})}
 
-
-class TestAPerImageRedaction:
-    def test_an_image_is_overwritten_where_the_judge_names_the_person_and_the_row_stamped(self):
-        updates = build_image_redactions([{"_id": TEAM_OID, "before": {"trainer": "them"}}], judge=their_seat, at="stamp")
-
-        assert updates == [([TEAM_OID], {"$set": {"before.kontakte.trainer": None, "redacted_at": "stamp"}})]
-
-    def test_each_image_a_removal_kept_is_addressed_by_its_index(self):
-        """A dotted path naming no index is refused inside an array, so the removal's row would abort the erasure."""
-
-        rows = [{"_id": TEAM_OID, "before": [{"trainer": "somebody else"}, {"trainer": "them"}]}]
-
-        assert build_image_redactions(rows, judge=their_seat, at="stamp") == [
-            ([TEAM_OID], {"$set": {"before.1.kontakte.trainer": None, "redacted_at": "stamp"}})
-        ]
-
-    def test_a_row_naming_nobody_departing_is_left_unstamped(self):
-        """A stamp on it would say a value went where every value stands as recorded."""
-
-        rows = [{"_id": TEAM_OID, "before": {"trainer": "somebody else"}}, {"_id": CREATED_OID, "before": None}]
-
-        assert build_image_redactions(rows, judge=their_seat, at="stamp") == []
+    assert {entry.relative_to(SOURCE).as_posix() for entry in entries if entry.name != "admin_router.py"} == set()

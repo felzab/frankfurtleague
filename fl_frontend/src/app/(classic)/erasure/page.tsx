@@ -27,7 +27,7 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.accountErasure;
-  const title = mailedTitle(await readState(), row.title);
+  const title = mailedTitle(await readState());
   return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
 }
 
@@ -74,7 +74,7 @@ const readState = cache(async (): Promise<MailedState> => {
   const passkeys = served === null ? 0 : (await passkeysOf(served.user.id)).length;
 
   // The act is the account's guard's to admit, which refuses an administrator's session a mailed code made. A passkey
-  // holder's touch, which the question asks first, makes the session it admits; an administrator holding none signs in
+  // holder's touch, which the page's press asks, makes the session it admits; an administrator holding none signs in
   // afresh by the landing, which owes the passkey step, and returns to the link, so no question is asked that its press
   // would refuse.
   if (account === null && passkeys === 0) redirect(withReturnAddress(ROUTES.signInLanding.path(), link));
@@ -87,7 +87,7 @@ const readState = cache(async (): Promise<MailedState> => {
     action: eraseAccount,
     acts: { primary: COPY.page.accountErasure },
     carry: { token, holder: subject.email },
-    // Every person holding a passkey touches it first, an administrator always among them.
+    // Every person holding a passkey touches it at the press, an administrator always among them.
     touch: passkeys > 0,
   };
 });

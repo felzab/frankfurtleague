@@ -73,9 +73,8 @@ only the log carries names its event by its key alone, such as `db.unreachable`.
   replaces both, so `scripts/ops/deploy.sh :: copy_streams` copies both streams to the host first.
 - **The edge's two logs** are bind-mounted host files, which the host ages and rotates
   ([`../ops/runbooks.md`](../ops/runbooks.md) §7).
-- **The backend's erasure journal** is the one part of a stream copied out while it runs:
-  `scripts/ops/export_journal.sh` collects it hourly into a file per day, because a restore replays
-  each erasure from it.
+- **The backend's `journal.act` lines** stand in the stream and those copies alone, at least one per erasure, withdrawal and objection, naming its records: the list of what a restore undid
+  ([`../ops/runbooks.md`](../ops/runbooks.md) §13).
 
 Reading production logs is `ssh` and `docker compose logs`, or those copies; nothing aggregates or
 indexes them.

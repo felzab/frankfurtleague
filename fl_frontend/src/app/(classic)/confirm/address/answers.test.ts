@@ -27,7 +27,7 @@ vi.mock("@/features/address-change/mutations", async (original) => ({
     return held.answered;
   },
 }));
-vi.mock("@/features/address-change/umzug", () => ({
+vi.mock("@/features/address-change/moves", () => ({
   runAddressChangeMoves: () => {
     held.carries += 1;
     return held.carry();
@@ -37,7 +37,7 @@ vi.mock("@/features/address-change/umzug", () => ({
 const { answerAddressChange } = await import("./answers");
 
 const TOKEN = held.newLink;
-const EFFECTIVE: FLAddressChangeAnswerResponse = { answer: "confirmed", effective: true, effective_from: null, approval_open: false };
+const EFFECTIVE: FLAddressChangeAnswerResponse = { answer: "confirmed", effective: true, effective_from: null };
 
 beforeEach(() => {
   held.accountAtTheNewAddress = false;
@@ -54,7 +54,10 @@ describe("the new mailbox's press, an account standing at the new address", () =
   it("is refused as the link no longer valid, and nothing is posted", async () => {
     held.accountAtTheNewAddress = true;
 
-    expect(await answerAddressChange({ token: TOKEN, side: "new", act: "primary" })).toStrictEqual({ ok: true, value: LINK_INVALID });
+    expect(await answerAddressChange({ token: TOKEN, side: "new", way: "account", act: "primary" })).toStrictEqual({
+      ok: true,
+      value: LINK_INVALID,
+    });
     expect(held.posted).toStrictEqual([]);
   });
 });
@@ -67,7 +70,7 @@ describe("the effect's account carry", () => {
     held.carry = () => new Promise((resolve) => (release = resolve));
 
     let settled = false;
-    const answer = answerAddressChange({ token: TOKEN, side: "new", act: "primary" }).then((value) => {
+    const answer = answerAddressChange({ token: TOKEN, side: "new", way: "account", act: "primary" }).then((value) => {
       settled = true;
       return value;
     });

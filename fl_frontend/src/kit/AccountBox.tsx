@@ -1,7 +1,6 @@
 "use client";
 
-import { createContext, startTransition, useContext, useId, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { startTransition, useId, useRef, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -14,6 +13,7 @@ import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
 import { StatusLine } from "./FieldParts";
 import { HeldForm } from "./HeldForm";
+import { useFocusHome } from "./RowActs";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
@@ -55,21 +55,18 @@ export type AccountAct = {
   | {
       /** Its button's label. */
       button: { label: Copy };
-      /** The passkey touch first, for a person holding a passkey (`usePasskeyTouch`). */
+      /** The button's press asks the passkey touch ahead of `run`, for a person holding a passkey (`usePasskeyTouch`). */
       touch?: boolean;
     }
   | {
       /**
        * The question it asks first, which answers a refusal in its own line as every question does. It takes no touch:
-       * the touch comes before any question, as a row's removal asks it (`AccountRows`).
+       * no act on the touch's list stands behind a box's question.
        */
       button: { confirm: Question };
       touch?: never;
     }
 );
-
-/** Where a row of the box answers into the box's one status line. */
-const BoxLine = createContext<((status: FormStatus) => void) | null>(null);
 
 /**
  * The line an act shows: a refusal; a save's „Gespeichert“, or what else it moved; any other done act's note where it
@@ -80,22 +77,19 @@ function lineOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPend
   return statusOf(answer, isBlocked, isPending);
 }
 
-/** An act through the kit's one form wrapper, the passkey touch first where it asks one, its outcome as a line. */
+/** An act through the kit's one form wrapper, behind the passkey touch where it asks one, its outcome as a line. */
 function useAct({ run, touch = false, done, saves, carry }: Pick<AccountAct, "run" | "touch" | "done" | "saves" | "carry">) {
-  const { run: touched, refusal, isTouching } = usePasskeyTouch(touch, carry?.holder);
+  const touched = usePasskeyTouch(touch, carry?.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
-    async (formData: FormData) => {
+    touched(async (formData: FormData) => {
       const answered = await run(formData);
       if (answered.ok && done !== undefined) appToast("success", done);
       return answered;
-    },
+    }),
     { resetOnLeave: true },
   );
 
-  const send = (formData: FormData) => void touched(() => submit(formData));
-
-  const status: FormStatus = refusal !== null ? { tone: "error", text: refusal } : lineOf(answer, isBlocked, isPending, saves === true);
-  return { send, block, status, answer, isBusy: isPending || isTouching };
+  return { send: submit, block, status: lineOf(answer, isBlocked, isPending, saves === true), answer, isBusy: isPending };
 }
 
 const box = tv({
@@ -213,11 +207,10 @@ export function AccountBoxPlaceholder({
  * danger box takes, the secondary button for every other. A box holding
  * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
  * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
- * administrator started, which the old address's stop link ends, shows its content and no footer. A row of the
- * box (`AccountRows`) answers on the footer's line too. The outcome stands in that line: a refusal in red with the
- * input kept, a field's message under its field; a done act leaves the line empty, the box showing what changed,
- * and the line's answer is cleared once the page is left. An act asking a question first answers a refusal in the
- * question, which stays open with it, as every question does.
+ * administrator started, which the old address's stop link ends, shows its content and no footer. The outcome stands
+ * in the footer's line: a refusal in red with the input kept, a field's message under its field; a done act leaves the
+ * line empty, the box showing what changed, and the line's answer is cleared once the page is left. An act asking a
+ * question first answers a refusal in the question, which stays open with it, as every question does.
  */
 export function AccountBox(
   props: { title: Words; description: Copy } & (
@@ -250,7 +243,9 @@ export function AccountBox(
   if (props.act === undefined) {
     const held = boxHead({ ruled: props.children !== undefined });
     return (
-      <section className={slots.root()}>
+      <section
+        data-kit-focus="home"
+        className={slots.root()}>
         <div className={held.head()}>{words}</div>
         {props.children !== undefined && <div className={held.content({ class: "gap-4" })}>{props.children}</div>}
       </section>
@@ -271,8 +266,8 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   // The footer's own hairline parts a box with nothing under its head from the footer.
   const held = boxHead({ ruled: children !== undefined });
   const { send, block, status, answer, isBusy } = useAct(act);
-  // A row's outcome, until the footer's act answers or another row does.
-  const [rowStatus, setRowStatus] = useState<FormStatus>(null);
+  // What a done question moved beyond the box, the question having closed with its own line.
+  const [questionNote, setQuestionNote] = useState<FormStatus>(null);
   const form = useRef<HTMLFormElement>(null);
   const locked = useLocked(act.locked);
 
@@ -284,12 +279,12 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   // A question's act runs inside the question, which shows its refusal and words a throw; the line says what a done one
   // moved beyond the box, as `lineOf` words a done act.
   const confirmed = async () => {
-    setRowStatus(null);
+    setQuestionNote(null);
     const answered = await act.run(carried(new FormData(form.current ?? undefined)));
     if (answered.ok && act.done !== undefined) appToast("success", act.done);
     const { note } = answered.ok ? answered : { note: undefined };
     // An update after the `await` lands outside the press's transition unless it opens one of its own.
-    if (note !== undefined) startTransition(() => setRowStatus({ tone: "saved", text: note }));
+    if (note !== undefined) startTransition(() => setQuestionNote({ tone: "saved", text: note }));
     return answered;
   };
 
@@ -305,7 +300,9 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   );
 
   return (
-    <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
+    <section
+      data-kit-focus="home"
+      className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <HeldForm
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
@@ -313,18 +310,14 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
         onSend={(formData) => {
           // A locked act's button is a plain one, but Enter in a lone field submits a form with no submit button.
           if (isBusy || locked !== undefined) return;
-          setRowStatus(null);
+          setQuestionNote(null);
           send(carried(formData));
         }}>
         <div className={held.head()}>{words}</div>
-        {children !== undefined && (
-          <BoxLine value={setRowStatus}>
-            <div className={held.content({ class: "gap-4" })}>{children}</div>
-          </BoxLine>
-        )}
+        {children !== undefined && <div className={held.content({ class: "gap-4" })}>{children}</div>}
         <div className={slots.foot()}>
           <StatusLine
-            status={rowStatus ?? status}
+            status={questionNote ?? status}
             placement="row"
           />
           {question === undefined || locked !== undefined ? (
@@ -355,17 +348,15 @@ export function AccountSentence({ parts, record }: { parts: { before: Copy; afte
 type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>; field: ReactElement };
 
 /**
- * A row's removal: the passkey touch first where the person holds one, then the question, worded from the session
- * the touch made, then the act. `locked` keeps the button shut where the page knows at render that the act would be
- * refused, the button saying why (`Button`).
+ * A row's removal: the question, then, from its button, the passkey touch and the act. `locked` keeps the button shut
+ * where the page knows at render that the act would be refused, the button saying why (`Button`).
  */
 type Remove = {
   verb: Verb;
   subject: Copy;
   consequence: Copy;
-  touch: boolean;
   /** The address the page was drawn for, the one account the touch may answer for. */
-  holder: string;
+  touch?: { holder: string };
   locked?: Copy;
   run: () => Promise<ActionAnswer<unknown>>;
 };
@@ -383,10 +374,7 @@ const rowLook = tv({
   },
 });
 
-/**
- * A box's records as rows, each with its own acts, whose outcome stands on the box's status line, a removal's refusal
- * in its question.
- */
+/** A box's records as rows, each with its own acts, whose outcome stands in the act's own dialog. */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
   const slots = rowLook();
   return (
@@ -405,8 +393,13 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
 function Row({ record }: { record: AccountRow }) {
   const slots = rowLook();
   const nameId = useId();
+  const row = useRef<HTMLDivElement>(null);
+  useFocusHome(row);
   return (
-    <div className={slots.row()}>
+    <div
+      ref={row}
+      data-kit-row
+      className={slots.row()}>
       <div className={slots.words()}>
         <CutText
           id={nameId}
@@ -448,42 +441,24 @@ function RenameAct({ rename, describedBy }: { rename: Rename; describedBy: strin
 }
 
 function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: string }) {
-  const setLine = useContext(BoxLine);
-  const router = useRouter();
-  const { run, isTouching } = usePasskeyTouch(remove.touch, remove.holder);
-  // The touch signed the person in afresh: the page is read again under that session, and the question waits for the
-  // read, so its consequence is worded from the session the act will run under.
-  const [isRefreshing, startRefresh] = useTransition();
-  const [isAsking, setAsking] = useState(false);
-
-  // The touch's refusal stands on the box's line, the act never having run; the act's own answers in its question.
-  const ask = async () => {
-    setLine?.(null);
-    const refusal = await run(() => {
-      startRefresh(() => router.refresh());
-      setAsking(true);
-    });
-    if (refusal !== null) setLine?.({ tone: "error", text: refusal });
-  };
-
+  const button = (
+    <Button
+      icon="erasures"
+      label={COPY.shared.verb[remove.verb]}
+      aria-describedby={describedBy}
+      locked={remove.locked}
+    />
+  );
+  if (remove.locked !== undefined) return button;
   return (
-    <>
-      <Button
-        icon="erasures"
-        label={COPY.shared.verb[remove.verb]}
-        aria-describedby={describedBy}
-        isBusy={isTouching || isRefreshing}
-        locked={remove.locked}
-        onPress={() => void ask()}
-      />
-      <ConfirmDialog
-        verb={remove.verb}
-        subject={remove.subject}
-        consequence={remove.consequence}
-        tone="danger"
-        onConfirm={remove.run}
-        open={{ isOpen: isAsking && !isRefreshing, onOpenChange: setAsking }}
-      />
-    </>
+    <ConfirmDialog
+      verb={remove.verb}
+      subject={remove.subject}
+      consequence={remove.consequence}
+      tone="danger"
+      onConfirm={remove.run}
+      touch={remove.touch}
+      trigger={button}
+    />
   );
 }

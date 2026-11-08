@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -6,9 +5,7 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.address_change.crud import denied_addresses
-from app.api.address_change.services import build_address_filter
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
 from app.api.schiedsrichter.crud import owe_the_confirmation
@@ -38,7 +35,6 @@ from app.api.schiedsrichter.services import (
     confirmation_deadline_from,
     deadline_passed,
     find_already_answered_refusal,
-    find_barred_refusal,
     find_confirmed_address_refusal,
     find_missing_address_refusal,
     find_referee_name_refusal,
@@ -46,7 +42,6 @@ from app.api.schiedsrichter.services import (
     find_retired_refusal,
     owes_reactivation_mint,
 )
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, hash_barred
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -63,25 +58,20 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AddressChangeCollection,
     DBClient,
-    GrantsAnnouncedCollection,
-    GrantsCollection,
     OutboxCollection,
     SchiedsrichterCollection,
     SpieleCollection,
     get_german_date_str,
     get_germany_now,
 )
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
     bind_actor,
-    get_actor_auth_time,
-    get_actor_email,
     verify_access_admin,
 )
 from app.core.transactions import transaction_session
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier
@@ -132,13 +122,8 @@ async def get_schiedsrichter(
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
-    grants_announced_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
-    operator: str = Depends(get_actor_email),
-    auth_time: int = Depends(get_actor_auth_time),
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
 
@@ -147,29 +132,15 @@ async def get_schiedsrichter_by_id(
     (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
 
     Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
-    lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
-    beside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last
-    confirmation mail the referee was owed, null where none was.
+    lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
+    was owed, null where none was.
     """
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
-    email = (schiedsrichter_raw.get("kontakt") or {}).get("email")
-    identifier = sign_in_identifier(email) if isinstance(email, str) else None
-    open = None if identifier is None else await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1})
-    denied = await denied_addresses(
-        [] if open is None or identifier is None else [identifier],
-        actor=sign_in_identifier(operator),
-        auth_time=auth_time,
-        grants_collection=grants_collection,
-        grants_announced_collection=grants_announced_collection,
-        session=None,
-    )
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
         confirmation_expired=deadline_passed(schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today),
-        address_change_id=None if open is None else open["_id"],
-        address_change_viewable_denied=None if identifier is None else denied.get(identifier),
         delivery=await state_of(
             outbox_collection=outbox_collection,
             reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),
@@ -187,7 +158,6 @@ async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -200,28 +170,18 @@ async def post_schiedsrichter(
     whether this person is asked, because a referee nobody asked is a name nobody consented to
     publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
 
-    Refused where another referee holds the name (`duplicate_key`, naming `name`), then
-    `schiedsrichter_address_barred` where the address given is on the ban list.
+    Refused where another referee holds the name (`duplicate_key`, naming `name`).
     """
 
     email = schiedsrichter_data.kontakt.email
-    # Outside the transaction, whose callback may run again: the hash reads nothing, and the season
-    # may be read before it (`app/api/sperrliste/crud.py :: address_is_barred`).
-    hashed = ban_list.hash_of(email)
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_create(session: AsyncClientSession) -> Any:
-        """Ask after the name and the ban list, then write. Each check is handed the transaction's session, so a retry re-asks it."""
+        """Ask after the name, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
         refuse(find_referee_name_refusal(taken=taken))
-
-        # The season stays `None` while no season is running, and the ban list is asked on the
-        # hash alone, as the correction and the re-send ask it (`schiedsrichter_address_barred`).
-        barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_barred_refusal(barred=barred))
 
         created = await insert_live(
             collection=schiedsrichter_collection,
@@ -231,6 +191,7 @@ async def post_schiedsrichter(
             },
             session=session,
         )
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.created", record_id=created.inserted_id, session=session)
         await owe_the_confirmation(
             outbox_collection=outbox_collection,
             schiedsrichter_id=created.inserted_id,
@@ -266,7 +227,6 @@ async def patch_schiedsrichter(
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -287,8 +247,7 @@ async def patch_schiedsrichter(
 
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
     collected for a role nobody gives them. Their old link is retired all the same, and the
-    reactivation mints the fresh one. Where a link is minted, a banned new address is refused
-    `schiedsrichter_address_barred`.
+    reactivation mints the fresh one.
 
     Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
 
@@ -298,10 +257,6 @@ async def patch_schiedsrichter(
 
     payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
-    hashed = ban_list.hash_of(email)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`), and read on every
-    # save: whether a mint is owed is decided in-session below.
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
         # In-session, so the judgement below reads the address and the record this save replaces
@@ -319,12 +274,6 @@ async def patch_schiedsrichter(
         refuse(find_confirmed_address_refusal(stored=stored, payload_email=email))
         update, minted = compose_correction_update(stored=stored, payload=payload, payload_email=email, today=today)
 
-        # The season is NOT a condition here: it is `None` while no season is running, and the
-        # ban list is asked on the hash alone then (`schiedsrichter_address_barred`).
-        if minted:
-            barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
-            refuse(find_barred_refusal(barred=barred))
-
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
@@ -334,6 +283,7 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.changed", record_id=schiedsrichter_id, session=session)
         if minted:
             # The CORRECTED address this transaction wrote, never the stored one it replaced: mailing the link to the
             # address the save moved away from is the defect the fresh link exists to end.
@@ -379,7 +329,7 @@ async def delete_schiedsrichter(
     those fixtures' `spiel_nrs` and their `count` as its bounds.
     """
 
-    async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def retire_the_referee(session: AsyncClientSession) -> None:
         """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
 
         # The row FIRST: the ghost is not a referee this endpoint addresses, and judging its
@@ -399,7 +349,7 @@ async def delete_schiedsrichter(
         )
         refuse(find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned)))
 
-        return await set_inactive_since(
+        retired = await set_inactive_since(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
             # An earlier press's day stands (`app/core/crud.py :: set_inactive_since`): it is the day a fee is
@@ -407,6 +357,10 @@ async def delete_schiedsrichter(
             when=today,
             session=session,
         )
+        if retired is not None:
+            await record_act(
+                collection=schiedsrichter_collection, action="schiedsrichter.retired", record_id=schiedsrichter_id, session=session
+            )
 
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen
@@ -424,7 +378,6 @@ async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -434,17 +387,13 @@ async def reactivate_schiedsrichter(
     **A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a
     retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
-    person has answered. Where a link is minted, an address on the ban list is refused
-    `schiedsrichter_address_barred` and the row stays retired.
+    person has answered.
 
     The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
     person behind it.
     """
 
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
-
-    async def reactivate_and_ask(session: AsyncClientSession) -> tuple[Mapping[str, Any], str | None]:
+    async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
         """Judged on the row as the transaction reads it, so a retry re-judges it."""
 
         stored = await pull_one_from_db(
@@ -453,14 +402,13 @@ async def reactivate_schiedsrichter(
             projection=dict(INVITE_FIELDS),
             session=session,
         )
+        # A second press finds the referee back: nothing moves, so nothing is recorded.
+        if stored.get("inactive_since") is None:
+            return None
+
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
-        if email is not None:
-            barred = await hash_barred(ban_list, ban_list.hash_of(email), governing_saison_id=governing_saison_id, session=session)
-            refuse(find_barred_refusal(barred=barred))
-
-        # ONE write, the mint riding the revival's `$set`: the press is one action, and two writes file
-        # two log rows for it.
+        # ONE write, the mint riding the revival's `$set`: the press is one action.
         minted = compose_mint_update(today=today) if email is not None else {}
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -469,6 +417,9 @@ async def reactivate_schiedsrichter(
             session=session,
             expected_version=None,
             return_document=ReturnDocument.AFTER,
+        )
+        await record_act(
+            collection=schiedsrichter_collection, action="schiedsrichter.reactivated", record_id=schiedsrichter_id, session=session
         )
         if email is not None:
             await owe_the_confirmation(
@@ -481,11 +432,11 @@ async def reactivate_schiedsrichter(
                 session=session,
             )
 
-        return updated, email
+        return email
 
     # One transaction, so a row never comes back without the link it was owed.
     async with transaction_session(db) as session:
-        _, minted_for = await session.with_transaction(reactivate_and_ask)
+        minted_for = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
         confirmation=None if minted_for is None else FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for),
@@ -501,7 +452,6 @@ async def invite_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -512,18 +462,14 @@ async def invite_schiedsrichter(
     It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
 
     Refused where the referee is retired (`schiedsrichter_retired`), where they have already
-    answered, consenting or objecting (`confirmation_exists`), where they carry no email address
-    (`schiedsrichter_no_address`), and where that address is on the ban list
-    (`schiedsrichter_address_barred`). 404 for an id no referee holds, an erased referee's among them, and
+    answered, consenting or objecting (`confirmation_exists`), and where they carry no email address
+    (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them, and
     for the ghost, which every by-id route filters out.
 
     **A referee who has already answered is refused rather than sent a second link**: the
     confirmation refuses every such press, so minting one would replace a live block with a
     credential that can never be spent.
     """
-
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
 
     async def judge_and_mint(session: AsyncClientSession) -> str:
         """Judge, then replace the block and owe the link, and answer the address it is owed to.
@@ -544,12 +490,6 @@ async def invite_schiedsrichter(
 
         email = (stored.get("kontakt") or {}).get("email")
         refuse(find_missing_address_refusal(email=email))
-
-        # Hashed inside the callback, where the ban endpoint hoists its own: the address is not known
-        # until the read above, and the hash reads no document a retry could see differently.
-        hashed = ban_list.hash_of(str(email))
-        barred = await hash_barred(ban_list, hashed, governing_saison_id=governing_saison_id, session=session)
-        refuse(find_barred_refusal(barred=barred))
 
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,

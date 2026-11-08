@@ -45,19 +45,15 @@ from app.core.exceptions import APIError
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list, ban_through_the_route
-from tests.config import grants_for_the_suite
+from tests.acts import deletions_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_schiedsrichter_confirmation_test")
-CONFIG = config_for(DATABASE_NAME)
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -72,7 +68,6 @@ DEFAULT_PAYMENT = 20
 
 EMAIL = "collina@example.com"
 CORRECTED_EMAIL = "collina.pierluigi@example.com"
-BANNED_EMAIL = "gesperrt@example.com"
 PHONE = "+49 69 1234567"
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -83,7 +78,7 @@ TEXT_VERSIONS = documents.SCHIEDSRICHTER_TEXT_VERSIONS
 
 
 def saison_document() -> dict[str, Any]:
-    """The RUNNING season. Every mint reads it, the ban list being judged against the season in progress."""
+    """The RUNNING season."""
 
     return documents.saison_document(SAISON_ID, "active")
 
@@ -132,8 +127,6 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The ban re-judges its actor's grant inside its transaction.
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document())
             seeded = [referee_document()] if referees is None else referees
             if seeded:
@@ -149,7 +142,6 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -166,7 +158,6 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate({**payload_body(email=email), "version": version}),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -182,7 +173,6 @@ async def resend(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -191,19 +181,12 @@ async def resend(
     return await mailed(database, client, answer)
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
-    return await ban_through_the_route(
-        database, client, email=email, grund="Wiederholte Falschangaben", by="admin@frankfurtleague.de", today=TODAY
-    )
-
-
 async def read_view(database: AsyncDatabase, token: str | None, *, today: str = TODAY) -> Any:
     assert token is not None, "the write owed no link to open"
 
     return await get_confirmation_view(
         view_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        ban_list=ban_list(database),
         today=today,
     )
 
@@ -221,7 +204,6 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     return await post_confirmation(
         answer_data=FLSchiedsrichterConfirmationPayload.model_validate(body),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        ban_list=ban_list(database),
         db=client,
         today=today,
         germany_now=NOW,
@@ -234,11 +216,8 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     await post_decline(
         decline_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
-        config=CONFIG,
         today=today,
-        germany_now=NOW,
     )
 
 
@@ -246,7 +225,6 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, now: datet
     return await sweep_schiedsrichter(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        action_log_collection=database[Collection.ACTION_LOG],
         db=client,
         germany_now=now,
     )
@@ -279,21 +257,24 @@ class TestTheCreateIsTheInvitation:
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
 
-    def test_a_banned_address_leaves_no_referee_behind(self, mongo_replica_set_url: str):
-        """What the create's transaction is for: judged outside one, the row stands with a live link the caller was told had been refused."""
+
+class TestANameAnotherRefereeHolds:
+    @pytest.mark.parametrize("act", ["an entry", "a correction"])
+    def test_it_is_refused_on_its_box_a_retired_referee_s_included(self, mongo_replica_set_url: str, act: str):
+        """Left to the unique index, the refusal names no box and reaches the shared failure line, which sends the administrator to a retry."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client, email=BANNED_EMAIL)
-
             with pytest.raises(APIError) as refused:
-                await create(database, client, email=BANNED_EMAIL)
+                await (create(database, client) if act == "an entry" else correct(database, client, email=EMAIL))
 
-            return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({})
+            return refused.value.error_code, refused.value.fields, await database[Collection.OUTBOX].count_documents({})
 
-        refused, rows = on_a_league(mongo_replica_set_url, body, referees=[])
+        holders = [
+            referee_document(name="Howard Webb", email=CORRECTED_EMAIL),
+            referee_document(_id=ObjectId(), email="alte.pfeife@example.com", inactive_since="2026-01-01"),
+        ]
 
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
-        assert rows == 0
+        assert on_a_league(mongo_replica_set_url, body, referees=holders) == (Code.DUPLICATE_KEY, (("name",),), 0)
 
 
 class TestACorrectedAddressReMintsAndRetiresTheOldLink:
@@ -343,22 +324,6 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         assert CONFIRMATION_FIELD not in row
         assert old_link.error_code == Code.LINK_INVALID
         assert row[ERASE_AT_FIELD] == clock
-
-    def test_a_banned_new_address_is_refused_and_the_rename_is_rolled_back(self, mongo_replica_set_url: str):
-        """The rename and the mint are one transaction, so a refused link leaves no moved address behind for the dead one to sit on."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client, email=BANNED_EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await correct(database, client, email=BANNED_EMAIL)
-
-            return refused.value, await stored(database)
-
-        refused, row = on_a_league(mongo_replica_set_url, body)
-
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
-        assert row["kontakt"]["email"] == EMAIL
 
 
 class TestTheReSend:
@@ -422,6 +387,21 @@ class TestTheReSend:
         assert refused.error_code == Code.SCHIEDSRICHTER_RETIRED
         assert CONFIRMATION_FIELD not in row
 
+    @pytest.mark.parametrize("email", [None, "keine-adresse"])
+    def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str, email: str | None):
+        """A mint here records a message nobody composed and starts the deletion clock on a person nobody asked."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(APIError) as refused:
+                await resend(database, client)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=email)])
+
+        assert (refused.error_code, refused.status_code) == (Code.SCHIEDSRICHTER_NO_ADDRESS, 409)
+        assert CONFIRMATION_FIELD not in row
+
     def test_a_referee_who_has_already_answered_is_refused_and_keeps_their_block(self, mongo_replica_set_url: str):
         """A fresh link for them can never be spent, and minting one would start the deletion clock on a confirmed entry."""
 
@@ -440,29 +420,12 @@ class TestTheReSend:
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
 
-    def test_an_address_on_the_ban_list_is_refused(self, mongo_replica_set_url: str):
-        """A banned address mailed a link is the person the ban exists to keep out."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client, email=BANNED_EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await resend(database, client)
-
-            return refused.value, await stored(database)
-
-        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=BANNED_EMAIL)])
-
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
-        assert CONFIRMATION_FIELD not in row
-
 
 async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Mailed:
     answer = await reactivate_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         now=MAIL_NOW,
@@ -505,23 +468,6 @@ class TestTheReactivation:
         assert response.answer.confirmation is None
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
-
-    def test_a_banned_address_is_refused_and_the_row_stays_retired(self, mongo_replica_set_url: str):
-        """A banned address mailed a link is the person the ban exists to keep out, and the row stays as it stood."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, client, email=BANNED_EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await reactivate(database, client)
-
-            return refused.value, await stored(database)
-
-        refused, row = on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=BANNED_EMAIL, **RETIRED)])
-
-        assert refused.error_code == Code.SCHIEDSRICHTER_ADDRESS_BARRED
-        assert row["inactive_since"] == RETIRED["inactive_since"]
-        assert CONFIRMATION_FIELD not in row
 
 
 class TestTheConfirmation:
@@ -634,24 +580,6 @@ class TestTheDecline:
         assert asked_again.error_code == Code.CONFIRMATION_EXISTS
         assert state == ("declined", TODAY)
 
-    def test_the_objection_takes_the_person_out_of_every_log_image_of_the_entry(self, mongo_replica_set_url: str):
-        """As a contact's objection does, at the press.
-
-        Kept, an image of a person who objected outlives the entry wherever a corrected address re-mints it and its new
-        person confirms, for the log's twelve months, which no page shows.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await resend(database, client)
-            imaged = await images_holding(database, EMAIL)
-            await decline(database, client, minted.token)
-            return imaged, await images_holding(database, EMAIL)
-
-        imaged, left = on_a_league(mongo_replica_set_url, body)
-
-        # The premise: the re-send filed an image holding the address, the objection's own patch a second.
-        assert (imaged, left) == (1, 0)
-
     def test_a_declined_link_is_spent_and_takes_no_consent(self, mongo_replica_set_url: str):
         """A consent through a link its person objected through would store a birthdate and a publication scope against that objection."""
 
@@ -676,50 +604,37 @@ CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607810002")
 CONFIRMED_EMAIL = "rosetti@example.com"
 
 
-async def images_holding(database: AsyncDatabase, address: str) -> int:
-    """The log rows of either referee whose stored text still carries `address`, read whole rather than by a path."""
-
-    rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.SCHIEDSRICHTER)}).to_list(length=None)
-
-    return sum(address in str(row) for row in rows)
-
-
 class TestTheClock:
-    def test_a_lapsed_entry_goes_with_every_image_of_it_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
-        """The privacy notice gives an unconfirmed or declined entry fourteen days, its log images included.
+    def test_a_lapsed_entry_goes_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
+        """The privacy notice gives an unconfirmed or declined entry fourteen days.
 
-        Deleted without them, the person's name and address stay in the log for its twelve months, which no page shows;
-        erased early, or a confirmed entry erased at all, a referee the league keeps is gone.
+        Erased early, or a confirmed entry erased at all, a referee the league keeps is gone.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Left unanswered, its re-send's image holding the address; a declined entry's images go at the press.
             await resend(database, client)
             kept = await resend(database, client, schiedsrichter_id=CONFIRMED_OID)
             await confirm(database, client, kept.token)
             clock = (await stored(database))[ERASE_AT_FIELD].replace(tzinfo=UTC)
-            imaged = await images_holding(database, EMAIL)
 
             early = await sweep(database, client, now=clock - timedelta(seconds=1))
             standing = await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
             late = await sweep(database, client, now=clock)
             left = await database[Collection.SCHIEDSRICHTER].find({}, {"_id": 1}).to_list(length=None)
 
-            return imaged, (early.erased, standing), (late.erased, late.failed), left, await images_holding(database, EMAIL)
+            return (early.erased, standing), (late.erased, late.failed), left, await deletions_of(database, "retention.schiedsrichter")
 
-        imaged, early, late, left, images_left = on_a_league(
+        early, late, left, deletions = on_a_league(
             mongo_replica_set_url,
             body,
             referees=[referee_document(), referee_document(_id=CONFIRMED_OID, name="Roberto Rosetti", email=CONFIRMED_EMAIL)],
         )
 
-        # The premise: without an image holding the address, the last assertion would pass with no redaction at all.
-        assert imaged > 0
         assert early == (0, 1)
         assert late == (1, 0)
+        assert deletions == [("system", None, 1, None)]
         assert {row["_id"] for row in left} >= {CONFIRMED_OID}
         assert SCHIEDSRICHTER_OID not in {row["_id"] for row in left}
-        assert images_left == 0
 
 
 # Against `TODAY`, 17 years and 364 days.
@@ -743,25 +658,3 @@ class TestTheMediaAge:
         assert refused.error_code == Code.MEDIA_AGE
         assert row.get("birth_date") is None
         assert row.get(EINWILLIGUNG_FIELD) is None
-
-
-class TestALinkToABarredAddress:
-    """`link_barred`: a ban reaches a link already in somebody's inbox, entered here through its own route after the mint."""
-
-    def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        """A link minted before the ban still answering lets the banned person into the league."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await resend(database, client)
-            await ban(database, client, email=EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await confirm(database, client, minted.token)
-
-            return refused.value, await stored(database)
-
-        refused, row = on_a_league(mongo_replica_set_url, body)
-
-        assert (refused.error_code, refused.status_code) == (Code.LINK_BARRED, 403)
-        assert row.get(EINWILLIGUNG_FIELD) is None
-        assert row.get("birth_date") is None

@@ -15,14 +15,12 @@ from app.api.registrierungen.services import (
     PAGE_RETURNING,
     compose_bestaetigung,
 )
-from app.api.sperrliste.services import compose_barred_until_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -163,7 +161,6 @@ async def read_view(database: AsyncDatabase, token: str, *, spieler_collection: 
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER] if spieler_collection is None else spieler_collection,
-        ban_list=ban_list(database),
         today=TODAY,
     )
 
@@ -184,7 +181,6 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         spieler_collection=database[Collection.SPIELER],
-        ban_list=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -196,10 +192,6 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
     assert found is not None, "the seeded registration is gone"
 
     return found
-
-
-async def log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.ACTION_LOG].find({"collection": str(Collection.REGISTRIERUNGEN)}).sort("_id", 1).to_list(length=None)
 
 
 class TestWhatALinkOpens:
@@ -262,9 +254,9 @@ class TestWhatAConfirmationWrites:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await answer(database, client, RAW)
 
-            return response, await stored(database), await log_rows(database)
+            return response, await stored(database)
 
-        response, document, rows = on_a_league(mongo_replica_set_url, body)
+        response, document = on_a_league(mongo_replica_set_url, body)
 
         assert document["birth_date"] == AT_THE_FLOOR
         assert document["einwilligung"] == {
@@ -285,9 +277,6 @@ class TestWhatAConfirmationWrites:
             "kader_public",
             False,
         )
-        # One write, one row, one image: the confirmation is a patch and files its pre-image like any other.
-        assert [row["operation"] for row in rows] == ["patch_one"]
-        assert rows[0]["before"]["einwilligung"] is None
 
     def test_the_registration_stays_pending_and_writes_no_person_and_no_squad_row(self, mongo_replica_set_url: str):
         """A confirmed registration is admissible and not admitted; the person and the junction row are a later decision's."""
@@ -391,13 +380,12 @@ class TestTheChoicesThePageAsks:
             with pytest.raises(APIError) as refused:
                 await answer(database, client, RAW, text_versions=label, **wahlen)
 
-            return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
+            return refused.value.error_code, refused.value.status_code, await stored(database)
 
-        code, status, document, rows = on_a_league(mongo_replica_set_url, body, spieler=held)
+        code, status, document = on_a_league(mongo_replica_set_url, body, spieler=held)
 
         assert (code, status) == (Code.REGISTRIERUNG_CHOICES_UNSUITABLE, 422)
         assert document == registrierung_document()
-        assert rows == []
 
 
 class TestTheLinkIsSpentByTheStamp:
@@ -425,14 +413,13 @@ class TestTheLinkIsSpentByTheStamp:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, birth_date=A_DAY_SHORT)
 
-            return conflict.value.error_code, await read_view(database, RAW), await stored(database), await log_rows(database)
+            return conflict.value.error_code, await read_view(database, RAW), await stored(database)
 
-        code, view, document, rows = on_a_league(mongo_replica_set_url, body)
+        code, view, document = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.CONFIRMATION_AGE
         assert view.state == "valid"
         assert document == registrierung_document()
-        assert rows == []
 
     def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
         expired = registrierung_document(
@@ -453,7 +440,7 @@ class TestTheLinkIsSpentByTheStamp:
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
         """One code for both: a pupil whose registration was declined while their link stood open is told the link is over, not why."""
 
-        entscheidung = {"made_at": YESTERDAY, "by": "admin", "reason": "kein Platz"}
+        entscheidung = {"made_at": YESTERDAY, "reason": "kein Platz"}
         declined = registrierung_document(status="declined", decision=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
@@ -515,40 +502,9 @@ class TestTheMediaAge:
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW, birth_date=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
 
-            return conflict.value.error_code, await stored(database), await log_rows(database)
+            return conflict.value.error_code, await stored(database)
 
-        code, document, rows = on_a_league(mongo_replica_set_url, body)
+        code, document = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.MEDIA_AGE
         assert document == registrierung_document()
-        assert rows == []
-
-
-# Composed by the production helper rather than spelled: a hand-written bound that drifted from it
-# would leave these cases passing over a lapsed row.
-STANDING = compose_barred_until_saison_id(governing_saison_id=SAISON_ID)
-
-
-async def ban(database: AsyncDatabase, address: str, *, until: str = STANDING) -> None:
-    await database[Collection.BAN_LIST].insert_one(documents.ban_document(address, until=until))
-
-
-class TestALinkToABarredAddress:
-    """`link_barred`: a ban reaches a link already in somebody's inbox, the seeded one minted before it."""
-
-    def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        """Barred in the folded spelling while the row stores the typed one, so the check keys the stored address as a ban does."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ban(database, FOLDED_EMAIL)
-
-            with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW)
-
-            return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
-
-        code, status, document, rows = on_a_league(mongo_replica_set_url, body)
-
-        assert (code, status) == (Code.LINK_BARRED, 403)
-        assert document == registrierung_document()
-        assert rows == []

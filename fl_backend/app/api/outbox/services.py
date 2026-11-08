@@ -9,7 +9,7 @@ what keeps a repeated send of one hand-out from being a second mail in the inbox
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -50,6 +50,13 @@ RETENTION: Final = timedelta(days=30)
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
 SIGN_IN_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"sign_in_code", "passkey_added", "passkey_erased", "account_erasure"})
 
+# The kinds an erasure leaves in place: the deletion link, which asks for that erasure, and whatever tells the person of it.
+ERASURE_SPARED_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"account_erasure", "deletion_notice"})
+
+# The kinds whose address no erasure reaches once owed, so the row goes at its deadline rather than a retention later:
+# the notice an erasure spares, and the mail to a replaced address.
+SHORT_LIVED_KINDS: Final[frozenset[FLOutboxKind]] = frozenset({"deletion_notice", "address_change_effective"})
+
 # The one kind of mail a ban does not stop: the ban's own notice.
 UNBARRED: Final[frozenset[FLOutboxKind]] = frozenset({"ban"})
 
@@ -79,7 +86,8 @@ class OwedMail:
     `data` is the kind's member of `app/api/outbox/schemas.py :: FLOutboxData`, whose `kind` is the row's.
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
-    the hand-out on the record `reference` names.
+    the hand-out on the record `reference` names. `valid_until` ends the row where its link dies before `DELIVERY_DEADLINE`:
+    the mail states the link's life, which a late send would make false.
     """
 
     key: str
@@ -87,6 +95,7 @@ class OwedMail:
     data: FLOutboxData
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
+    valid_until: datetime | None = None
 
 
 async def enqueue_mails(
@@ -119,7 +128,9 @@ async def enqueue_mails(
         return
 
     await post_many_to_db(
-        collection=outbox_collection, documents=[row_of(mail, now=now, secret=None, valid_until=None) for mail in new], session=session
+        collection=outbox_collection,
+        documents=[row_of(mail, now=now, secret=None, valid_until=mail.valid_until) for mail in new],
+        session=session,
     )
 
     # Equality on the three keys of `outbox_reference` for each record and seat (`app/core/constraints.py :: SUPPORT_INDEXES`).
@@ -138,14 +149,16 @@ async def enqueue_mails(
 
 
 def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: datetime | None) -> dict[str, Any]:
-    """One owed mail's row as `outbox` stores it. `secret` lapses with `valid_until`, the row's deadline and its deletion both."""
+    """One owed mail's row as `outbox` stores it. `valid_until` is its deadline, and the row's deletion too where it holds a `secret`."""
 
     if secret is not None and valid_until is None:
         raise ValueError("a secret is held until it lapses, and this one names no lapse")
     if mail.link is not None and mail.reference is None:
         raise ValueError("a link is minted on the record a mail is about, and this mail names none")
 
-    deadline = valid_until if valid_until is not None else now + DELIVERY_DEADLINE
+    # Every span here is added to a UTC value: added to a Berlin one it would count the wall clock, an hour out across a
+    # clock change.
+    deadline = valid_until if valid_until is not None else now.astimezone(UTC) + DELIVERY_DEADLINE
     reference = mail.reference
 
     return {
@@ -163,7 +176,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "deadline": deadline,
         # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
         # state brings forward (`final_update`).
-        "erase_at": deadline if secret is not None else deadline + RETENTION,
+        "erase_at": deadline if secret is not None or mail.data.kind in SHORT_LIVED_KINDS else deadline.astimezone(UTC) + RETENTION,
         "lease": None,
         "leased_until": None,
         "attempts": 0,
@@ -182,11 +195,11 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
     return {
         "$set": {"state": state, "message_id": message_id, "lease": None, "leased_until": None},
         "$unset": {"data": "", "secret": ""},
-        "$min": {"erase_at": now + RETENTION},
+        "$min": {"erase_at": now.astimezone(UTC) + RETENTION},
     }
 
 
 def retry_update(*, now: datetime) -> Mapping[str, Any]:
     """A failed send handed back: no claim holds it, and no drain takes it before the wait has passed."""
 
-    return {"$set": {"lease": None, "leased_until": now + REPETITION_AFTER}}
+    return {"$set": {"lease": None, "leased_until": now.astimezone(UTC) + REPETITION_AFTER}}

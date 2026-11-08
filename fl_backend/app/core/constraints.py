@@ -47,9 +47,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("saison_id", "saison_phase", "position"),
         "one matchday per position within a phase of a season",
     ),
-    # It is also the READ path: the sign-up check is one indexed equality against this key, so
-    # dropping the index costs a collection scan per submission as well as the rule.
-    UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address_hash", ("address_hash",), "one entry per banned address"),
+    # It is also the READ path: the sign-in and the Postausgang's hand-out each ask by this key, so
+    # dropping the index costs a collection scan per read as well as the rule.
+    UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address", ("address",), "one entry per banned address"),
     # `$type` rather than the equality `{"revoked_at": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
     # supports and names no null form at all
@@ -101,9 +101,12 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
-    # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
+    # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
+    # Checked at each write rather than at the commit, so a handover demotes before it promotes
+    # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
+    UniqueIndex(Collection.GRANTS, "uniq_grant_owner", ("admin_tier",), "at most one owner", partial_filter={"admin_tier": "owner"}),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
     # `uniq_invitation_live`'s reason.
@@ -126,9 +129,6 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one live change per address",
         partial_filter={"ended": {"$type": "null"}, "address": {"$type": "string"}},
     ),
-    # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
-    # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
-    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_grant_approval_request_address", ("address",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/outbox/services.py :: enqueue_mails`).
     UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
@@ -151,45 +151,6 @@ class SupportIndex:
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
-    # `_id` is in the key because the read SORTS by it: with `at` alone MongoDB cannot walk this
-    # index and scans the whole log instead -- measured, and the log holds twelve months of writes
-    # (`app/api/aktionen/admin_router.py :: get_action_log`).
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_queue",
-        (("at", DESCENDING), ("_id", DESCENDING)),
-        "the log page reads newest first",
-    ),
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_trace_id",
-        (("trace_id", ASCENDING),),
-        "a write and its fan-out are read as one action",
-    ),
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_target",
-        (("collection", ASCENDING), ("document_id", ASCENDING)),
-        "one document's history, and the rows a person's erasure must redact",
-    ),
-    # Every key `FACET_TALLY` groups on, in its `$sort`'s order: a group key missing here leaves that
-    # sort blocking in memory, and where no other index serves the match, scanning the whole log,
-    # images and all (`app/api/aktionen/admin_router.py :: FACET_TALLY`).
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_facets",
-        (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
-        "the counts the log page's three facets are told, over every recorded row",
-    ),
-    # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
-    # running for a whole season at once, on both (`app/api/identity/crud.py :: unattribute_in_session`,
-    # `:: erase_pupil_actor_in_session`).
-    SupportIndex(
-        Collection.ACTION_LOG,
-        "action_log_actor_pseudonym",
-        (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
-        "the rows a person wrote, which their erasure marks inside its transaction",
-    ),
     # Ending in the read's own sort order, `submitted_at` then `_id`: with the sort key unindexed
     # every request scans the collection and sorts it in memory, which is work proportional to an
     # archive an anonymous form can grow.
@@ -391,31 +352,20 @@ class TTLIndex:
 
 
 TTL_INDEXES: Sequence[TTLIndex] = (
-    # Not `at`, though it names the same instant: it is a string, which this index would accept and
-    # then expire nothing under, for as long as anyone left it there.
     TTLIndex(
         Collection.ACTION_LOG,
         "action_log_retention",
-        "at_date",
+        "at",
         ACTION_LOG_ENTRY_RETENTION_SECONDS,
-        "a log row is kept for twelve months after the write it recorded",
+        "a log row is kept for twelve months after the act it recorded",
     ),
-    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it, taking its address out of the
-    # log images, which a TTL deletion never would.
+    # A live change never expires, holding no date at `ended.at`: the hourly pass ends it.
     TTLIndex(
         Collection.ADDRESS_CHANGES,
         "address_change_ended_at",
         "ended.at",
         ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
-    ),
-    # Zero: a lapsed request decides nothing, and every read already treats it as gone.
-    TTLIndex(
-        Collection.GRANT_APPROVAL_REQUESTS,
-        "grant_approval_requests_until",
-        "approval.until",
-        0,
-        "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
     # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
     TTLIndex(Collection.OUTBOX, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
@@ -510,7 +460,7 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     lanes: dict[str, list[tuple[int, _Runner]]] = {}
     # Numbered BEFORE the split, so a rank is the DECLARED position and not the position within a lane:
     # a later-declared operation opening its own lane would rank 0 there, and per-lane numbering would
-    # report it over an earlier one standing second in its lane, as `action_log_trace_id` does.
+    # report it over an earlier one standing second in its lane.
     for position, (namespace, run) in enumerate(declared):
         lanes.setdefault(namespace, []).append((position, run))
 

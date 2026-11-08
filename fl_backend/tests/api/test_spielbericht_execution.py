@@ -28,6 +28,7 @@ from app.api.spiele.schemas import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
+from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
@@ -236,20 +237,16 @@ async def stored(database: AsyncDatabase) -> list[dict[str, Any]]:
 
 class TestTheReportNeverWritesTheSpiel:
     def test_the_spiel_and_the_tie_it_feeds_stay_as_stored(self, mongo_replica_set_url: str):
-        """A knockout feeder: a report written into the result would resolve the quarter-final's side and log the fixtures."""
+        """A knockout feeder: a report written into the result would resolve the quarter-final's side."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELE].find({}).sort("_id").to_list()
             await put(database, client, bericht(2, 1, [tor("team1", LINA), tor("team1", None), tor("team2", MIA)]))
             after = await database[Collection.SPIELE].find({}).sort("_id").to_list()
-            logged = await database[Collection.ACTION_LOG].distinct("collection")
 
-            return before == after, logged
+            return before == after
 
-        unchanged, logged = on_the_league(mongo_replica_set_url, body)
-
-        assert unchanged
-        assert logged == ["spielberichte"]
+        assert on_the_league(mongo_replica_set_url, body)
 
 
 class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
@@ -264,19 +261,36 @@ class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
                 response=corrected,
             )
 
-            return first, (created.status_code, corrected.status_code), await stored(database)
+            return first, (created.status_code, corrected.status_code), await stored(database), await acts_of(database)
 
-        first, statuses, documents_now = on_the_league(mongo_replica_set_url, body)
+        first, statuses, documents_now, acts = on_the_league(mongo_replica_set_url, body)
 
         # RFC 9110's PUT: the write creating the report answers 201, a later one 200.
         assert statuses == (201, 200)
         assert first.bericht.version == 1
         assert first.kader.team1[0].spieler_id == LINA and [spieler.spieler_id for spieler in first.kader.team1] == [LINA]
         [document] = documents_now
+        # The first save and the correction, each its own row and neither naming a person.
+        assert acts == [("spielbericht.saved", "schiedsrichter", None, document["_id"])] * 2
         block = document["bericht"]
         assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["remarks"]) == (2, 1, "Starker Regen ab der Pause.")
         assert block["submitted_by"] == {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
         assert block["adopted_version"] is None
+
+
+class TestASaveSayingWhatTheReportSays:
+    def test_it_writes_nothing_and_logs_nothing(self, mongo_replica_set_url: str):
+        """A second press of the form: a raised version refuses the page's next correction, and the Protokoll would hold a save of nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            before = await stored(database)
+            again = Response()
+            answered = await put(database, client, bericht(stand=1), response=again)
+
+            return again.status_code, answered.bericht.version, before == await stored(database), len(await acts_of(database))
+
+        assert on_the_league(mongo_replica_set_url, body) == (200, 1, True, 1)
 
 
 class TestAFormOpenedBeforeAnotherWrite:

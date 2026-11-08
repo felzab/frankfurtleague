@@ -1,8 +1,8 @@
 """
-API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, a repoint, a lookup's transaction
+API · a commit refused or its answer lost, and a read held: the journal, the log, the sweeps, a stamp, a repoint, a lookup's transaction
 
-The erasures' and a press's journal, the confirmation pass's mint, an adoption's stamp and an erased pupil's repointed
-report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
+The erasures' and a press's line, a recorded act's row, the confirmation pass's mint, an adoption's stamp and an erased
+pupil's repointed report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
 a transaction runs are seen going one at a time.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
@@ -10,34 +10,47 @@ workers, so a second module configuring it on another worker would replace this 
 `off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
 """
 
+import functools
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
+from bson import ObjectId
+from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient, monitoring
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
+from app.api.action_log.schemas import FLActionLogRecord
 from app.api.identity.crud import find_subject_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.db import NO_OWNER
-from app.core.journal import JOURNAL_TOKEN
-from app.core.security import actor_pseudonym, erasure_journal_hash
+from app.core.config import API_VERSION
+from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
+from app.main import create_app
+from app.shared.einwilligung_evidence import evidence_state_of
+from tests.app_client import app_client
+from tests.config import ADMIN_KEY
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spieler_document
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.whole_database import where_held
+from tests.worker import worker_database
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as spiel_saves
-from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant
-from .test_identity_erasure_execution import erased_by_the_handler as geloescht_by_the_person
+from .conftest import config_for
+from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant, journal_records
+from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
 from .test_identity_erasure_execution import on_a_league as on_their_league
-from .test_identity_erasure_on_request import CONFIG as REQUEST_CONFIG
-from .test_identity_erasure_on_request import erased_by_the_handler as geloescht_on_request
-from .test_identity_erasure_on_request import journal_lines
+from .test_identity_erasure_on_request import erased_by_the_handler as erased_on_request
 from .test_identity_erasure_on_request import on_a_league as on_the_administrators_league
 from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
 from .test_identity_erasure_sweep import numbered as pupil_numbered
@@ -45,7 +58,6 @@ from .test_identity_erasure_sweep import on_a_league as on_the_pupils_league
 from .test_identity_erasure_sweep import run as a_deletion_call
 from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
 from .test_identity_subject_execution import on_a_league as on_the_subjects_league
-from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -159,7 +171,7 @@ class TestALookupInsideATransaction:
 
 
 @pytest.mark.db
-class TestThePersonsOwnLoeschung:
+class TestThePersonsOwnErasure:
     def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
@@ -169,7 +181,7 @@ class TestThePersonsOwnLoeschung:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await geloescht_by_the_person(losing[database.name], losing)
+                    await erased_by_the_person(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -179,16 +191,14 @@ class TestThePersonsOwnLoeschung:
         with caplog.at_level(logging.INFO):
             commits, labelled, after = on_their_league(mongo_replica_set_url, body)
 
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
-        assert len(lines) == 1
+        assert len(journal_records(caplog)) == 1
 
     def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal written inside the callback, ahead of a commit that can still fail.
 
-        The refusal is transient, so the driver reruns the erasure and the rerun commits: one line and one warning, none of the
+        The refusal is transient, so the driver reruns the erasure and the rerun commits: one line, none of the
         first attempt's.
         """
 
@@ -206,7 +216,7 @@ class TestThePersonsOwnLoeschung:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await geloescht_by_the_person(refusing[database.name], refusing)
+                answer = await erased_by_the_person(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -216,16 +226,13 @@ class TestThePersonsOwnLoeschung:
         with caplog.at_level(logging.INFO):
             refused, removed = on_their_league(mongo_replica_set_url, body)
 
-        lines = [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-        warnings = [record.getMessage() for record in caplog.records].count(NO_OWNER)
-
-        assert (len(lines), warnings) == (1, 1)
+        assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
         assert (refused, removed) == ([WRITE_CONFLICT, None], 1)
 
 
 @pytest.mark.db
-class TestAnLoeschungOnRequest:
+class TestAnErasureOnRequest:
     def test_one_line_follows_the_commit_and_none_the_attempt_rolled_back(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """The first commit is refused under the transient label, so the driver reruns the erasure: one line, the rerun's."""
 
@@ -242,7 +249,7 @@ class TestAnLoeschungOnRequest:
             }
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await geloescht_on_request(refusing[database.name], refusing)
+                answer = await erased_on_request(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -252,10 +259,7 @@ class TestAnLoeschungOnRequest:
         with caplog.at_level(logging.INFO):
             refused, erased_count = on_the_administrators_league(mongo_replica_set_url, body)
 
-        assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} erasure "
-            f"pseudonym={actor_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)}"
-        ]
+        assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased_count) == ([WRITE_CONFLICT, None], 1)
 
@@ -268,7 +272,7 @@ class TestAnLoeschungOnRequest:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await geloescht_on_request(losing[database.name], losing)
+                    await erased_on_request(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -280,14 +284,43 @@ class TestAnLoeschungOnRequest:
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
-        assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} erasure "
-            f"pseudonym={actor_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)}"
-        ]
+        assert len(journal_records(caplog)) == 1
 
 
-# The pupil's own consent page, whose withdrawal is journalled.
-CONSENT_PRESS = f"{V}/spieler/account/einwilligung"
+# The pupil's own consent page, whose withdrawal writes the line.
+CONSENT_PRESS = f"/api/v{API_VERSION}/spieler/account/einwilligung"
+PERSON = "ortrud.zwiebelmayer@schule.de"
+PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
+PRESS_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+PRESS_DATABASE = worker_database("fl_commit_fail_points_test")
+RECORDED_TEAM = "Lessing"
+THEIR_CONSENT = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-09-02", media=True)
+
+
+@functools.cache
+def _app() -> FastAPI:
+    return create_app(config_for(PRESS_DATABASE))
+
+
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
+
+
+def _withdrawal(**choices: Any) -> dict[str, Any]:
+    return {"text_versions": dict(SPIELER_TEXT_VERSIONS), "evidence_state": evidence_state_of(blocks=[THEIR_CONSENT]), **choices}
+
+
+def served(url: str, steps: Callable[[AsyncClient, AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    async def _run() -> Any:
+        async with a_clean_database(url, PRESS_DATABASE, constraints=True) as (client, database):
+            await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
+            await database[Collection.SPIELER].insert_one(
+                spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, birth_date="1990-05-09", einwilligung=THEIR_CONSENT)
+            )
+            async with app_client(url, app=_app(), now=PRESS_NOW) as http:
+                return await steps(http, database, client)
+
+    return on_the_seed_loop(_run())
 
 
 def _as_app(url: str, app_name: str) -> str:
@@ -324,7 +357,7 @@ class TestAPersonsOwnPress:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with caplog.at_level(logging.INFO):
-                    response = await http.patch(CONSENT_PRESS, json=_withdrawal("konto_spieler", **withdrawn), headers=_person(PERSON))
+                    response = await http.patch(CONSENT_PRESS, json=_withdrawal(**withdrawn), headers=_person(PERSON))
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
 
@@ -334,7 +367,7 @@ class TestAPersonsOwnPress:
 
         # The premise first: the commit landed, its answer lost.
         assert (before != withdrawn, after) == (True, withdrawn)
-        assert (status, body["error_code"], len(journalled(caplog))) == (500, Code.UNKNOWN_OUTCOME, 1)
+        assert (status, body["error_code"], len(journal_records(caplog))) == (500, Code.UNKNOWN_OUTCOME, 1)
 
     def test_a_press_on_a_stale_stand_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
@@ -343,10 +376,10 @@ class TestAPersonsOwnPress:
 
         async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal("konto_spieler", scope="internal", media=False)
+            withdrawal = _withdrawal(scope="internal", media=False)
             with caplog.at_level(logging.INFO):
                 refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
-                refused_lines = len(journalled(caplog))
+                refused_lines = len(journal_records(caplog))
                 after_the_refusal = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
                 pressed = await http.patch(CONSENT_PRESS, json=withdrawal, headers=_person(PERSON))
 
@@ -356,7 +389,53 @@ class TestAPersonsOwnPress:
 
         assert refusal == (409, Code.CHOICES_STALE, 0, True)
         # The control: the capture reads the line a press that lands leaves.
-        assert (pressed, len(journalled(caplog))) == (204, 1)
+        assert (pressed, len(journal_records(caplog))) == (204, 1)
+
+
+@pytest.mark.db
+class TestARecordedActWhoseCommitIsRefused:
+    def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(self, mongo_replica_set_url: str):
+        """The driver reruns an act whose commit is refused as transient, and an insert outside the transaction would stand once per attempt.
+
+        The record model reads the row, as a drift between it and `record_act` is a page that cannot read its log.
+        """
+
+        async def _run() -> tuple[int, list[dict[str, Any]]]:
+            async with a_clean_database(mongo_replica_set_url, PRESS_DATABASE, constraints=True) as (client, database):
+                refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
+                refusal = {
+                    "failCommands": ["commitTransaction"],
+                    "appName": REFUSED_COMMIT_APP,
+                    "errorCode": WRITE_CONFLICT,
+                    "errorLabels": ["TransientTransactionError"],
+                }
+                attempts = 0
+
+                async def act(session: AsyncClientSession) -> None:
+                    nonlocal attempts
+                    attempts += 1
+                    teams = refusing[database.name][Collection.TEAMS]
+                    await record_act(
+                        collection=teams, action="spieler.changed", by=ACT_BY_KONTAKT, team=RECORDED_TEAM, record_id=PUPIL_OID, session=session
+                    )
+
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+                try:
+                    async with refusing.start_session() as session:
+                        await session.with_transaction(act)
+                finally:
+                    await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                    await refusing.close()
+
+                return attempts, [row async for row in database[Collection.ACTION_LOG].find()]
+
+        attempts, rows = on_the_seed_loop(_run())
+
+        assert len(rows) == 1
+        FLActionLogRecord.model_validate(rows[0], extra="forbid")
+        assert (rows[0]["by"], rows[0]["team"], rows[0]["record_id"]) == (ACT_BY_KONTAKT, RECORDED_TEAM, PUPIL_OID)
+        # The premise last: the act ran twice, so one row is the rollback's work.
+        assert attempts == 2
 
 
 @pytest.mark.db
@@ -457,7 +536,7 @@ class TestASpielSaveRefusedAtItsCommit:
 
 
 @pytest.mark.db
-class TestAPupilsLoeschungRefusedAtItsCommit:
+class TestAPupilsErasureRefusedAtItsCommit:
     def test_takes_the_repointed_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
         """Catches a repoint written off the erasure's session: the report would name the sentinel of a pupil who stands.
 

@@ -2,7 +2,6 @@ from typing import Any
 
 from app.api.invitations.services import (
     confirmed_recipients,
-    plan_invitation_dispatch,
 )
 from tests.documents import kontaktperson_document
 
@@ -57,9 +56,7 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
         )
 
-        assert [(entry.rolle, entry.first_name, entry.email) for entry in confirmed_recipients(kontakte=block)] == [
-            ("ansprechperson", "Quillhilde", "quillhilde@example.com")
-        ]
+        assert [(entry.rolle, entry.email) for entry in confirmed_recipients(kontakte=block)] == [("ansprechperson", "quillhilde@example.com")]
 
     def test_a_repeated_address_leaves_the_seat_after_it_addressed(self):
         block = kontakte(
@@ -69,20 +66,3 @@ class TestWhoALinkIsMailedTo:
         )
 
         assert [entry.email for entry in confirmed_recipients(kontakte=block)] == ["bramblewick@example.com", "quillhilde@example.com"]
-
-
-class TestATeamTheBanListKeepsTheLinkFrom:
-    """The mailer sends a barred address nothing and records nothing, so the plan reads the ban itself."""
-
-    def test_a_re_send_does_not_reach_past_the_ban(self):
-        """Each press would mint over the team's live link while nobody on it can be reached."""
-
-        decided = plan_invitation_dispatch(
-            austritt=None,
-            kontakte=kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", confirmed_at=CONFIRMED_ON)),
-            invitation_raw={**INVITATION, "sent_at": CONFIRMED_ON},
-            resend=True,
-            barred=frozenset({"bramblewick@example.com"}),
-        )
-
-        assert decided == ([], "kontakte_barred")

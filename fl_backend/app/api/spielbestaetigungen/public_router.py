@@ -4,8 +4,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.sperrliste.lookup import BanListLookup, ban_list_saison, barred_addresses
-from app.api.spielbestaetigungen.crud import VIEW_SPIEL_FIELDS, pull_ansetzung_state, pull_vorschlag_open, verein_fields
+from app.api.spielbestaetigungen.crud import VEREIN_FIELDS, VIEW_SPIEL_FIELDS, pull_ansetzung_state, pull_vorschlag_open
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAnswerResponse,
@@ -20,7 +19,6 @@ from app.api.spielbestaetigungen.services import (
     build_token_filter,
     clubs_without_a_season_row,
     compose_answer_update,
-    find_barred_link_refusal,
     find_spent_link_refusal,
     find_unknown_link_refusal,
     find_vorschlag_past_refusal,
@@ -28,7 +26,6 @@ from app.api.spielbestaetigungen.services import (
     first_press_refusal,
     judged_as_a_proposal,
     proposal_payload,
-    seat_address,
     seat_holding,
     side_of,
     stand_moved,
@@ -56,8 +53,9 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import SAFE
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -66,7 +64,7 @@ from app.shared.tokens import hash_token
 # `app/api/bewerbungen/public_router.py`'s reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
-    dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
+    dependencies=[Depends(verify_access_base)],
 )
 
 
@@ -83,7 +81,6 @@ async def get_spielbestaetigung_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     teams_collection: TeamsReadCollection,
-    ban_list: BanListLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungViewResponse:
     """
@@ -93,8 +90,7 @@ async def get_spielbestaetigung_view(
     Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
     reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
     (`link_invalid`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
-    decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The
-    state is `barred`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.
+    decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it.
     `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
     Ansetzung, whose date and hour alone are served.
     """
@@ -113,16 +109,14 @@ async def get_spielbestaetigung_view(
         saison_teams_collection=saison_teams_collection,
         spielbestaetigung_raw=row,
         spiel_projection=VIEW_SPIEL_FIELDS,
-        verein_projection=verein_fields(team_id=row["party"]["team_id"], seat=seat),
+        verein_projection=VEREIN_FIELDS,
     )
     # The row read outside any transaction: an undraw or a replace committing since took the fixture and the row together.
     refuse(find_unknown_link_refusal(seat=None if ansetzung_state is None else seat))
     assert ansetzung_state is not None
-    address = seat_address(ansetzung_state=ansetzung_state, spielbestaetigung_raw=row, seat=seat)
-    barred = bool(await barred_addresses(ban_list, [] if address is None else [address]))
     vorschlag_open = await pull_vorschlag_open(spielbestaetigungen_collection=spielbestaetigungen_collection, spielbestaetigung_raw=row)
 
-    state = zustand_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today, barred=barred, vorschlag_open=vorschlag_open)
+    state = zustand_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today, vorschlag_open=vorschlag_open)
     answer = row.get("answer")
 
     if stand_moved(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state):
@@ -161,7 +155,6 @@ async def post_spielbestaetigung(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieltage_collection: SpieltageCollection,
-    ban_list: BanListLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAnswerResponse:
@@ -171,8 +164,7 @@ async def post_spielbestaetigung(
     The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
     (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.
 
-    Refuses, in this order: a token no seat holds (`link_invalid`); a link whose seat's address the ban list holds
-    now, whenever it was minted (`link_barred`); a row already answered, closed since or not
+    Refuses, in this order: a token no seat holds (`link_invalid`); a row already answered, closed since or not
     (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
     (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
     as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a
@@ -180,14 +172,12 @@ async def post_spielbestaetigung(
     (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
     refused, judged on what it newly claims and in that save's order: on or after a club's exit
     (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
-    other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
+    other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the first is asked again outside
     the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
     than letting it stand.
     """
 
     token_hash = hash_token(answer_data.token)
-    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_barred`).
-    governing_saison_id = await ban_list_saison(ban_list)
     vorschlag = (
         None
         if answer_data.vorschlag is None
@@ -207,18 +197,11 @@ async def post_spielbestaetigung(
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
             spiel_projection=None,
-            verein_projection=verein_fields(team_id=row["party"]["team_id"], seat=seat),
+            verein_projection=VEREIN_FIELDS,
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert ansetzung_state is not None
-        address = seat_address(ansetzung_state=ansetzung_state, spielbestaetigung_raw=row, seat=seat)
-        barred = await barred_addresses(
-            ban_list, [] if address is None else [address], governing_saison_id=governing_saison_id, session=session
-        )
-        # The ban alone is not asked again below: one committing after this read bars the next press, and an answer
-        # given before it stands.
-        refuse(find_barred_link_refusal(barred=bool(barred)))
 
         async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
             """Every other refusal, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
@@ -272,6 +255,16 @@ async def post_spielbestaetigung(
             # the filter repeats that judgement on the write.
             refuse(first_press_refusal())
 
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="spielbestaetigung.answered",
+            by=ACT_BY_KONTAKT,
+            team=next((str(verein["name"]) for verein in ansetzung_state.vereine if verein["team_id"] == row["party"]["team_id"]), None),
+            record_id=row["_id"],
+            label=str(row["saison_id"]),
+            session=session,
+        )
+
         # Nothing judged is written here, so a move, a club's exit, a renamed seat, a re-dated matchday or a rival booking
         # landing under this transaction raises no conflict: all judged again outside it before answering.
         current = await pull_ansetzung_state(
@@ -279,7 +272,7 @@ async def post_spielbestaetigung(
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
             spiel_projection=None,
-            verein_projection=verein_fields(team_id=row["party"]["team_id"], seat=seat),
+            verein_projection=VEREIN_FIELDS,
             session=None,
         )
         # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.

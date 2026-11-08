@@ -9,7 +9,7 @@ import { DraftChangeList, operationOf } from "@/shared/components/ui/DraftChange
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { resolveRailBanners } from "@/shared/components/ui/railBanner";
-import { RailSection } from "@/shared/components/ui/RailSection";
+import { RailSection, useRailColumn } from "@/shared/components/ui/RailSection";
 
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
@@ -36,9 +36,9 @@ function RailHinweiseSection({
   const bannerCount = visibleBanners.length;
 
   // Only the TRANSITION drives it; in between, the open state is the admin's.
-  const [hinweiseOpen, setHinweiseOpen] = useState(
-    () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),
-  );
+  const isColumn = useRailColumn();
+  const [chosenOpen, setHinweiseOpen] = useState<boolean | null>(null);
+  const hinweiseOpen = chosenOpen ?? (bannerCount > 0 || isColumn);
   const previousCount = useRef(bannerCount);
   useEffect(() => {
     if (previousCount.current > 0 && bannerCount === 0) setHinweiseOpen(false);

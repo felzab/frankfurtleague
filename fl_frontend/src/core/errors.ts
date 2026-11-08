@@ -60,7 +60,7 @@ export class UnreadGrantError extends Error {
 }
 
 /**
- * A person-tier read made with no person signed in, or one barred: a caller outside a page's own seat
+ * A person-tier read made with no person signed in: a caller outside a page's own seat
  * check, which reads the session before it reads anything.
  */
 export class PersonReadWithoutSubjectError extends Error {
@@ -131,8 +131,6 @@ const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
   "missing_actor",
   "actor_not_admin",
   "session_refused",
-  "person_barred",
-  "confirmation_required",
   "payload_refused",
   "body_unreadable",
   "no_route",

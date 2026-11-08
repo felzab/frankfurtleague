@@ -1,19 +1,16 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
-from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
-from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
-    SINGLE_LINE_PATTERN,
     CustomDateString,
-    CustomNonEmptyString,
     CustomObjectId,
+    FLUtcInstant,
 )
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
@@ -21,42 +18,12 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
-# How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
-# copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
-# The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
-CustomAddressChangeReason = Annotated[
-    str,
-    StringConstraints(max_length=ERASURE_REASON_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
-    AfterValidator(str.strip),
-    StringConstraints(min_length=1),
-    AfterValidator(refuse_an_address_in_the_reason),
-]
-
-
 # --- The record as `address_changes` stores it.
-
-
-class FLAddressChangeApproval(BaseModel):
-    """The approval a change moving a grant waits on."""
-
-    admin_tier: FLAdminTier
-    asked_at: datetime
-    until: datetime
-    started_by: str
-    approved_at: datetime | None
-    approved_by: str | None
 
 
 class FLAddressChangeEnded(BaseModel):
     kind: FLAddressChangeEndKind
     at: datetime
-
-
-class FLAddressChangeMoved(BaseModel):
-    """The effect's two addresses as the erasure journal hashes them: the new one, and the one it replaced."""
-
-    person_hash: str
-    before: str
 
 
 class FLAddressChangeMove(BaseModel):
@@ -70,22 +37,18 @@ class FLAddressChange(BaseModel):
     """One change. Its hashes are whole credentials, read by their links' lookups alone and on no read model."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Null once ended, as `email` and `grund` are: a tombstone holds no address.
+    # Null once ended, as `email` is: a tombstone holds no address.
     address: str | None
     email: str | None
     way: FLAddressChangeWay
     sent_at: CustomDateString
     valid_until: datetime | None
     released_at: datetime | None
-    grund: str | None
     confirmed_at: datetime | None
     effective_from: datetime | None
-    approval: FLAddressChangeApproval | None
     ended: FLAddressChangeEnded | None
     # Set by an effect that carries the account, which the ended record keeps until the carry is done; absent otherwise.
     move: FLAddressChangeMove | None = Field(default=None)
-    # Set by every effect, until the erasure of the new address takes it.
-    moved: FLAddressChangeMoved | None = Field(default=None)
 
 
 class FLAddressChangeStop(BaseModel):
@@ -131,7 +94,7 @@ class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
 
 
 class FLAddressChangeAddressPayload(BaseModel):
-    """Exactly one key: the new mailbox's link token, or the change an approval names."""
+    """Exactly one key: the new mailbox's link token, or the change a re-send names."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -153,15 +116,6 @@ class FLAddressChangeAddressResponse(BaseAPIResponse):
     email: str | None
 
 
-class FLAddressChangeApprovalState(BaseModel):
-    """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
-
-    # `owner`: another owner approves.
-    admin_tier: FLAdminTier
-    approved: bool
-    until: FLUtcInstant
-
-
 # --- The two links, public.
 
 
@@ -170,15 +124,13 @@ class FLAddressChangeViewNew(BaseModel):
 
     side: Literal["new"]
     state: FLAddressChangeNewState
-    # Null exactly where the change is confirmed: it waits on no deadline of this link's.
-    valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
-    # Null exactly where not `confirmed`: whether the confirmed change waits on another administrator's approval.
-    approval_open: bool | None
     # The address this link was mailed to, exactly where `valid`: the question its holder answers names it, and the holder
     # of that mailbox knows it.
     email: str | None
+    # The German day the new mailbox confirmed it; `effective_from` is the wait's end, a day or a week later.
+    confirmed_on: CustomDateString | None
 
 
 class FLAddressChangeViewPrevious(BaseModel):
@@ -186,11 +138,10 @@ class FLAddressChangeViewPrevious(BaseModel):
 
     side: Literal["previous"]
     state: FLAddressChangePreviousState
-    valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     way: FLAddressChangeWay
-    # The new address, exactly where the person's own change waits on this link (`release_open` on `account`): the holder
-    # of the address on file cannot judge a change without the address it goes to.
+    # The new address while the change stands, null past this link's own deadline: the holder of the address on file cannot
+    # judge a change without it. Masked on `waiting_period`, whose start may be a pretext for learning a person's new mailbox.
     email: str | None
     # The German day the address on file confirmed the change, which a link opened again names; null before.
     released_on: CustomDateString | None
@@ -208,10 +159,16 @@ class FLAddressChangeViewEnded(BaseModel):
     way: FLAddressChangeWay
     # The German day the address on file confirmed it, on the address on file's side once it has; null otherwise.
     released_on: CustomDateString | None
+    # The German day the new mailbox confirmed it, on the new side once it has: `ended_on` is the effect's day.
+    confirmed_on: CustomDateString | None
 
 
 class FLAddressChangeViewResponse(BaseAPIResponse):
-    """What one address link opens: never a name or the id, and the new address only where a link asks its question."""
+    """What one address link opens: never a name or the id.
+
+    The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
+    the change stands, masked on `waiting_period`.
+    """
 
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
@@ -230,9 +187,6 @@ class FLAddressChangeAnswerResponse(BaseAPIResponse):
     answer: FLAddressChangeAnswer
     # Set where a change waiting after its confirmation now waits until then.
     effective_from: FLUtcInstant | None
-    # Set where the change waits on another administrator's approval of its grant's move: now, on the new mailbox's
-    # confirmation, or once the new mailbox confirms, on the address on file's. The page tells the two by the side it pressed.
-    approval_open: bool
     # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
     effective: bool
 
@@ -244,99 +198,42 @@ class FLAddressChangeStopResponse(BaseAPIResponse):
 # --- The administrator's tool, keyed by the address it types.
 
 
-class FLAddressChangeAdminViewPayload(BaseModel):
-    """Exactly one key: the address typed, or the change a page links to."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    address: CustomEmail | None = None
-    address_change_id: CustomObjectId | None = None
-
-    @model_validator(mode="after")
-    def exactly_one_key(self) -> Self:
-        if (self.address is None) == (self.address_change_id is None):
-            raise ValueError("name either the address or the change, and not both")
-
-        return self
-
-
-class FLAddressChangeAdminHoldings(BaseModel):
-    """What the address holds that a change moves, counted: the tool names the kinds, the editors the records."""
-
-    spieler: int = Field(ge=0)
-    schiedsrichter: int = Field(ge=0)
-    seats: int = Field(ge=0)
-    bewerbung_seats: int = Field(ge=0)
-    registrierungen: int = Field(ge=0)
-    grant: FLAdminTier | None
-
-
-class FLAddressChangeAdminApproval(BaseModel):
-    """The approval a change moving a grant waits on, read-only here: the administrators page approves it.
-
-    Never who approved: a barred administrator's address is answered on no read.
-    """
-
-    admin_tier: FLAdminTier
-    until: FLUtcInstant
-    approved_at: FLUtcInstant | None
-
-
 class FLAddressChangeAdminOpen(BaseModel):
-    """The address's live change whole, admin tier: the new address and the reason included, never a hash."""
+    """One live change as Adressänderungen shows it, admin tier: both addresses, and no hash."""
 
     id: CustomObjectId
+    address: str
     email: str
-    way: FLAddressChangeWay
-    grund: str | None
+    # The tier the changing address holds, whose holders a change in its wait mails; null for anyone else.
+    holder: FLAdminTier | None
     waits_on: FLAddressChangeWaitsOn
-    sent_at: CustomDateString
     valid_until: FLUtcInstant | None
-    released_at: FLUtcInstant | None
-    confirmed_at: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     # What became of the new mailbox's last link mail; null where none was owed.
     delivery: FLOutboxStatus | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
     expired: bool
-    approval: FLAddressChangeAdminApproval | None
 
 
-class FLAddressChangeAdminViewResponse(BaseAPIResponse):
-    address: str
-    holdings: FLAddressChangeAdminHoldings
-    possible: bool
-    open: FLAddressChangeAdminOpen | None
+class FLAddressChangeAdminListResponse(BaseAPIResponse):
+    """The running changes this administrator may act on, newest first."""
+
+    changes: list[FLAddressChangeAdminOpen]
 
 
 class FLAddressChangeAdminPayload(BaseModel):
-    """The address a change starts on, the address it goes to, and how the administrator established who asks for it."""
+    """The address a change starts on, and the address it goes to."""
 
     model_config = ConfigDict(extra="forbid")
 
     address: CustomEmail
     email: CustomEmail
-    # Never null: the change hands the records over without the address on file, so it stands on a recorded reason.
-    grund: CustomAddressChangeReason
-
-
-class FLAddressChangeAdminMintResponse(BaseAPIResponse):
-    """A started or re-sent change, whose mails are owed in the Postausgang: no link is answered."""
-
-    id: CustomObjectId
-    way: FLAddressChangeWay
-    valid_until: FLUtcInstant
-    email: CustomNonEmptyString
 
 
 class FLAddressChangeIdResponse(BaseAPIResponse):
-    id: CustomObjectId
+    """A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered."""
 
-
-class FLAddressChangeApprovalResponse(BaseAPIResponse):
     id: CustomObjectId
-    # Whether the approval made the change take effect, the new mailbox having confirmed and no waiting time left.
-    effective: bool
 
 
 # --- The hourly pass.

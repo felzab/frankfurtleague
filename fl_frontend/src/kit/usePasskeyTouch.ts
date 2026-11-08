@@ -1,34 +1,34 @@
 "use client";
 
-import { useState } from "react";
-
 import { assertedAddress } from "@/core/auth/assertionAnswer";
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 
 /**
- * The passkey touch's browser half, which an act on its fixed list runs before anything else, a question included: a
- * passkey sign-in, whose fresh session the action's lane admits (`fl_frontend/src/core/action.ts`, the lane's `passkey`
- * slot). `held` is whether the person holds a passkey, which the page read; a person holding none is asked nothing, as
- * the lane admits them. `run` asks the touch and then runs the act; where the passkey did not answer, the act never
- * runs and `refusal` holds the line the act's status line shows, cleared by the next run. The act's button stays busy
- * while the browser's prompt stands. `holder` is the address the page was drawn for: a page whose own session ended
- * asks a prompt naming nobody, which any account's passkey answers, so a touch signing another account in is refused
- * as the page's sign-in having ended, and the act never runs. The prompt itself cannot be narrowed to the holder's
- * passkeys there: the library lists a session's own alone, and none stands.
+ * The passkey touch's browser half, the last step of an act on its fixed list: the person presses the act, answers any
+ * dialog, presses the final button, and that press asks the touch and then runs the act. So every input is typed before
+ * the touch, whose session the action's lane admits for `PASSKEY_TOUCH_SECONDS` alone
+ * (`fl_frontend/src/core/action.ts`, the lane's `passkey` slot), and the prompt comes from the press itself, the user
+ * activation Safari asks of WebAuthn, which an effect has not.
+ *
+ * Mounted with the page rather than with a dialog, so the client's chunk is here before the press. `held` is whether the
+ * person holds a passkey, which the page read; a person holding none is asked nothing, as the lane admits them. It
+ * answers the wrapper an act's own press runs: the wrapped act answers as the act does, or, where the passkey did not
+ * answer, with the refusal, the act never having run, so the caller's form or dialog stands with what the person typed
+ * and shows the line as any refusal. The caller's pending state holds through the browser's prompt, the act's button
+ * busy. `holder` is the address the page was drawn for: a page whose own session ended asks a prompt naming nobody, which
+ * any account's passkey answers, so a touch signing another account in is refused as the page's sign-in having ended. The
+ * prompt itself cannot be narrowed to the holder's passkeys there: the library lists a session's own alone, and none
+ * stands.
  */
 export function usePasskeyTouch(held: boolean, holder: string | undefined) {
-  const [isTouching, setTouching] = useState(false);
-  // The touch's own refusal: the act never ran, so no answer of its says it.
-  const [refusal, setRefusal] = useState<Copy | null>(null);
   usePreloadedAuthClient(held);
 
   const touch = async (): Promise<Copy | null> => {
-    if (!held) return null;
-    setTouching(true);
     try {
       const authClient = await loadAuthClient();
       const { data, error } = await authClient.signIn.passkey();
@@ -42,19 +42,14 @@ export function usePasskeyTouch(held: boolean, holder: string | undefined) {
       return asSignInIdentifier(signedIn) === asSignInIdentifier(holder) ? null : COPY.shared.failure.signInExpired;
     } catch {
       return COPY.shared.failure.unexpected;
-    } finally {
-      setTouching(false);
     }
   };
 
-  /** The touch, then the act; the refusal where the act did not run, which `refusal` holds too. */
-  const run = async (act: () => void): Promise<Copy | null> => {
-    setRefusal(null);
-    const refused = await touch();
-    if (refused === null) act();
-    else setRefusal(refused);
-    return refused;
+  return <Payload, Value>(act: (payload: Payload) => Promise<ActionAnswer<Value>>) => {
+    if (!held) return act;
+    return async (payload: Payload): Promise<ActionAnswer<Value>> => {
+      const refused = await touch();
+      return refused === null ? act(payload) : { ok: false, reason: refused };
+    };
   };
-
-  return { run, refusal, isTouching };
 }

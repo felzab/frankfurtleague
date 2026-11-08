@@ -1,19 +1,26 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.aktionen.schemas import FLAktionRecord
+from app.api.action_log.admin_router import get_action_log
+from app.api.action_log.crud import reattribute_administrator_in_session
+from app.api.action_log.schemas import FLActionLogFilterPayload
+from app.api.schiedsrichter.admin_router import delete_schiedsrichter, reactivate_schiedsrichter
+from app.api.spieler.admin_router import delete_saison_spieler, reactivate_saison_spieler
+from app.api.spielorte.admin_router import delete_spielort, reactivate_spielort
+from app.api.teams.admin_router import delete_team, reactivate_team
 from app.core.collections import Collection
-from app.core.crud import delete_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.recording import Operation, build_redaction_filter, build_redaction_update, log_stamp
-from tests import documents
+from app.core.recording import ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, actor_var, record_act
+from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, saison_spieler_document, saison_team_document, schiedsrichter_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -22,22 +29,19 @@ DATABASE_NAME = worker_database("fl_action_log_rows_test")
 
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607600001")
+SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607600002")
+SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607600003")
+SPIELER_OID = ObjectId("6890a1b2c3d4e5f607600004")
+
+SAISON_ID = "2026"
+TODAY = "2026-03-15"
 
 SEEDED_NAME = "Lessing"
-RENAMED = "Lessing-Gymnasium"
-CITY = "Frankfurt am Main"
 
-RECORDED_AT = "2026-03-15T18:00:00+00:00"
+AT = datetime(2026, 3, 15, 18, 0, tzinfo=UTC)
 
-
-def team_document() -> dict[str, Any]:
-    return documents.team_document(TEAM_OID, SEEDED_NAME, "LEX", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "city": CITY})
-
-
-def bulk_team_document(shorthand: str) -> dict[str, Any]:
-    """One member of a bulk create: no `_id`, which is what a generated document leaves to the driver."""
-
-    return {key: value for key, value in team_document().items() if key != "_id"} | {"shorthand": shorthand}
+ERASED_ADDRESS = "former@example.invalid"
+OTHER_ADDRESS = "other@example.invalid"
 
 
 ClientBody = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -53,107 +57,210 @@ def on_a_replica_set(url: str, body: ClientBody) -> Any:
     return on_the_seed_loop(_run())
 
 
-def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set_url: str):
-    """Row and record model are hand-written from one shape, and a drift between them is a log page that cannot read its rows."""
+def test_an_erased_address_leaves_the_log_as_who_acted_and_as_a_grantee(mongo_replica_set_url: str):
+    """The log outlives the person for twelve months, so a grant act's label left standing would name them for that long."""
 
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[dict[str, Any]]:
-        teams = database[Collection.TEAMS]
-
-        async def write_one_of_every_operation(session: AsyncClientSession) -> None:
-            await post_one_to_db(collection=teams, document=team_document(), session=session)
-            await patch_one_in_db(
-                collection=teams,
-                db_filter={"_id": TEAM_OID},
-                update={"$set": {"name": RENAMED}},
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None]]:
+        async def rows_and_erasure(session: AsyncClientSession) -> None:
+            teams = database[Collection.TEAMS]
+            await record_act(collection=teams, action="team.retired", by=ERASED_ADDRESS, label=SEEDED_NAME, session=session)
+            await record_act(collection=teams, action="grant.added", by=OTHER_ADDRESS, label=ERASED_ADDRESS, session=session)
+            await record_act(collection=teams, action="team.reactivated", by=OTHER_ADDRESS, label=OTHER_ADDRESS, session=session)
+            await reattribute_administrator_in_session(
+                action_log_collection=database[Collection.ACTION_LOG],
+                # A spelling the erasure was handed, which the log's fold must still meet.
+                identifier=ERASED_ADDRESS.upper(),
+                value=ERASED_ACTOR_MARKER,
                 session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
             )
-            # A dotted key, which is what every reference fan-out matches on and what the row then stores.
-            await patch_many_in_db(collection=teams, db_filter={"address.city": CITY}, update={"$set": {"description": "x"}}, session=session)
-            # Ids left to the driver, and distinct shorthands so `uniq_shorthand` admits the pair.
-            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HEX", "CSX")], session=session)
-            # The removals last, each taking one of the pair above: the writes before them still match
-            # the documents their own counts are asserted on.
-            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HEX"}, session=session)
-            await erase_many_from_db(collection=teams, db_filter={"shorthand": "CSX"}, session=session)
-
-        # All six inside one, as a multi-write router runs it: the removals require a session, and a
-        # retry is safe only because every write here carries it -- an abort takes back what a replay redoes.
-        async with client.start_session() as session:
-            await session.with_transaction(write_one_of_every_operation)
-
-        # Read after the commit -- what a later request sees, so nothing below is asserted on a row
-        # the transaction was still holding.
-        return [row async for row in database[Collection.ACTION_LOG].find().sort("_id", 1)]
-
-    rows = on_a_replica_set(mongo_replica_set_url, body)
-
-    # Spelled in the body's order, so each helper answers for the operation it records, and checked
-    # against the Literal, so a seventh member fails here rather than reaching a stored row that no
-    # real write has ever built.
-    assert [row["operation"] for row in rows] == ["insert", "patch_one", "patch_many", "insert_many", "delete_many", "erase_many"]
-    assert {row["operation"] for row in rows} == set(get_args(Operation))
-    for row in rows:
-        FLAktionRecord.model_validate(row, extra="forbid")
-
-    # Typed rather than merely present: a TTL index over a string builds and then expires nothing.
-    # The driver reads a BSON date back naive, so UTC is attached for the comparison against `at`.
-    assert all(isinstance(row["at_date"], datetime) for row in rows)
-    assert [log_stamp(row["at_date"].replace(tzinfo=UTC)) for row in rows] == [row["at"] for row in rows]
-
-    assert rows[0]["document_id"] == TEAM_OID
-    # The image the write replaced, which is the whole of what a restore would replay.
-    assert rows[1]["before"]["name"] == SEEDED_NAME
-    assert rows[2]["db_filter"] == {"address.city": CITY}
-    assert rows[2]["modified_count"] == 1
-    # The count and nothing else: the bulk create named no document and replaced none.
-    assert rows[3]["modified_count"] == 2
-    assert rows[3]["document_id"] is None and rows[3]["before"] is None and rows[3]["db_filter"] is None
-    # An array from one removal of one document: what makes it a list is the call taking a set, never
-    # how many the set held.
-    assert [image["shorthand"] for image in rows[4]["before"]] == ["HEX"]
-    assert rows[4]["db_filter"] == {"shorthand": "HEX"} and rows[4]["modified_count"] == 1
-    # The removed ids beside the images, which is what lets an erasure's `(collection, document_id)`
-    # filter select this row.
-    assert rows[4]["document_id"] == [image["_id"] for image in rows[4]["before"]]
-    # The erasure's whole record: what it matched and how many it took, and none of what it erased.
-    assert rows[5]["before"] is None
-    assert rows[5]["db_filter"] == {"shorthand": "CSX"} and rows[5]["modified_count"] == 1
-
-
-def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica_set_url: str):
-    """The erasure's own `(collection, document_id)` filter reaches it.
-
-    Selection both ways: naming one removed id empties that removal's image array and
-    stamps the row, while the sibling removal's row keeps its image.
-    """
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        teams = database[Collection.TEAMS]
-
-        async def remove_two_sets(session: AsyncClientSession) -> None:
-            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HEX", "CSX")], session=session)
-            # Two removals, so the redaction below has a row it must reach and one it must not.
-            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HEX"}, session=session)
-            await delete_many_from_db(collection=teams, db_filter={"shorthand": "CSX"}, session=session)
 
         async with client.start_session() as session:
-            await session.with_transaction(remove_two_sets)
+            await session.with_transaction(rows_and_erasure)
 
-        target_row = await database[Collection.ACTION_LOG].find_one({"db_filter.shorthand": "HEX"})
-        assert target_row is not None
-        redacted = await patch_many_in_db(
-            collection=database[Collection.ACTION_LOG],
-            db_filter=build_redaction_filter([(Collection.TEAMS, [target_row["document_id"][0]])]),
-            update=build_redaction_update(at=RECORDED_AT),
-        )
+        return [(row["by"], row["label"]) async for row in database[Collection.ACTION_LOG].find().sort("_id", 1)]
 
-        return redacted.modified_count, [row async for row in database[Collection.ACTION_LOG].find({"operation": "delete_many"}).sort("_id", 1)]
+    assert on_a_replica_set(mongo_replica_set_url, body) == [
+        (ERASED_ACTOR_MARKER, SEEDED_NAME),
+        (OTHER_ADDRESS, ERASED_ACTOR_MARKER),
+        (OTHER_ADDRESS, OTHER_ADDRESS),
+    ]
 
-    modified, rows = on_a_replica_set(mongo_replica_set_url, body)
 
-    assert modified == 1
-    assert rows[0]["before"] is None and rows[0]["redacted_at"] == RECORDED_AT
-    # The sibling removal's floor: a filter matching on `collection` alone would have swept it too.
-    assert [image["shorthand"] for image in rows[1]["before"]] == ["CSX"] and rows[1]["redacted_at"] is None
+def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_set_url: str):
+    """Nothing else holds a seam: a bound off by one repeats a row or loses it, and every page still reads as a page."""
+
+    async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> tuple[list[ObjectId], list[list[ObjectId]]]:
+        log = database[Collection.ACTION_LOG]
+        rows = [
+            {
+                "at": AT,
+                "by": ACT_BY_SYSTEM,
+                "team": None,
+                "action": "team.changed",
+                "record_id": None,
+                "label": None,
+                "count": None,
+                "trace_id": "0" * 32,
+            }
+            for _ in range(2 * ACTION_LOG_PAGE_SIZE + 1)
+        ]
+        await log.insert_many(rows)
+
+        pages: list[list[ObjectId]] = []
+        cursor: str | None = None
+        # Bounded, so a cursor that never ends fails here rather than running for ever.
+        for _ in range(3):
+            page = await get_action_log(action_log_collection=log, filters=FLActionLogFilterPayload.model_validate({"cursor": cursor}))
+            pages.append([row.id for row in page.action_log])
+            if page.cursor is None:
+                break
+            cursor = str(page.cursor)
+
+        return sorted((row["_id"] for row in rows), reverse=True), pages
+
+    newest_first, pages = on_a_replica_set(mongo_replica_set_url, body)
+
+    assert [len(page) for page in pages] == [ACTION_LOG_PAGE_SIZE, ACTION_LOG_PAGE_SIZE, 1]
+    assert [row for page in pages for row in page] == newest_first
+
+
+Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[object]]
+
+
+@dataclass(frozen=True)
+class RetireAndRevive:
+    seeds: Mapping[Collection, list[dict[str, Any]]]
+    retire: Press
+    revive: Press
+    acts: tuple[FLAction, FLAction]
+
+
+async def _retire_team(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_team(
+        team_id=TEAM_OID,
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _revive_team(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await reactivate_team(team_id=TEAM_OID, teams_collection=database[Collection.TEAMS], db=client)
+
+
+async def _retire_venue(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_spielort(
+        spielort_id=SPIELORT_OID,
+        spielorte_collection=database[Collection.SPIELORTE],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _revive_venue(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await reactivate_spielort(spielort_id=SPIELORT_OID, spielorte_collection=database[Collection.SPIELORTE], db=client)
+
+
+async def _retire_referee(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _revive_referee(database: AsyncDatabase, client: AsyncMongoClient) -> object:
+    return await reactivate_schiedsrichter(
+        schiedsrichter_id=SCHIEDSRICHTER_OID,
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        outbox_collection=database[Collection.OUTBOX],
+        db=client,
+        today=TODAY,
+        now=AT,
+    )
+
+
+async def _take_the_pupil_out(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await delete_saison_spieler(
+        spieler_id=SPIELER_OID,
+        saison_id=SAISON_ID,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def _bring_the_pupil_back(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await reactivate_saison_spieler(
+        spieler_id=SPIELER_OID,
+        saison_id=SAISON_ID,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        db=client,
+    )
+
+
+RETIRE_AND_REVIVE = {
+    "team": RetireAndRevive(
+        seeds={Collection.TEAMS: [team_document(TEAM_OID, SEEDED_NAME, "LES")]},
+        retire=_retire_team,
+        revive=_revive_team,
+        acts=("team.retired", "team.reactivated"),
+    ),
+    "spielort": RetireAndRevive(
+        seeds={Collection.SPIELORTE: [{"_id": SPIELORT_OID, "name": "Halle", "inactive_since": None}]},
+        retire=_retire_venue,
+        revive=_revive_venue,
+        acts=("spielort.retired", "spielort.reactivated"),
+    ),
+    "schiedsrichter": RetireAndRevive(
+        seeds={
+            Collection.SCHIEDSRICHTER: [
+                schiedsrichter_document(SCHIEDSRICHTER_OID, email=OTHER_ADDRESS, name=SEEDED_NAME, default_payment=0, einwilligung=None)
+            ]
+        },
+        retire=_retire_referee,
+        revive=_revive_referee,
+        acts=("schiedsrichter.retired", "schiedsrichter.reactivated"),
+    ),
+    "spieler": RetireAndRevive(
+        seeds={
+            Collection.SAISONS: [saison_document(SAISON_ID, "active")],
+            Collection.SAISON_TEAMS: [saison_team_document(SAISON_ID, TEAM_OID, SEEDED_NAME, "LES")],
+            Collection.SAISON_SPIELER: [saison_spieler_document(SPIELER_OID, SAISON_ID, TEAM_OID)],
+        },
+        retire=_take_the_pupil_out,
+        revive=_bring_the_pupil_back,
+        acts=("spieler.deregistered", "spieler.reactivated"),
+    ),
+}
+
+
+@pytest.mark.parametrize("kind", RETIRE_AND_REVIVE)
+def test_a_press_that_changes_nothing_writes_no_row(mongo_replica_set_url: str, kind: str):
+    """A second open tab's press would read as a later act that never happened: each route, as each decides whether to record."""
+
+    case = RETIRE_AND_REVIVE[kind]
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
+        for collection, documents in case.seeds.items():
+            await database[collection].insert_many(documents)
+
+        token = actor_var.set(ERASED_ADDRESS)
+        try:
+            await case.retire(database, client)
+            await case.retire(database, client)
+            await case.revive(database, client)
+            await case.revive(database, client)
+        finally:
+            actor_var.reset(token)
+
+        return [row["action"] async for row in database[Collection.ACTION_LOG].find().sort("_id")]
+
+    assert on_a_replica_set(mongo_replica_set_url, body) == list(case.acts)

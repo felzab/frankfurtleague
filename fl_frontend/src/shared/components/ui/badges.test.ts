@@ -1,6 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { countBadge, labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge } from "./badges.ts";
+import { labelBadge, PILL_SOLID_CLASSES, PILL_TINT_CLASSES, trackCountBadge } from "./badges.ts";
 
 import type { FeedbackTone, PillTone } from "./badges.ts";
 
@@ -70,11 +70,8 @@ describe("the closed set every pill takes its colour from", () => {
     }
   });
 
-  /* Both recipes carry the tone's own pair, so neither can exist with the tone left off. */
-  it("carries each ground's own pair into the count it composes", () => {
-    for (const tone of TONES) {
-      assert.ok(countBadge(tone).endsWith(PILL_TINT_CLASSES[tone]), `\`${tone}\` composes to ${countBadge(tone)}, which drops its own tint`);
-    }
+  /* The recipe carries the tone's own pair, so it cannot exist with the tone left off. */
+  it("carries the ground's own pair into the count it composes", () => {
     for (const tone of SOLID_TONES) {
       assert.ok(
         trackCountBadge(tone).endsWith(PILL_SOLID_CLASSES[tone]),

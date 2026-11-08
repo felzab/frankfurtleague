@@ -38,3 +38,25 @@ describe("a table's rank column", () => {
     expect(ranks).toStrictEqual(["1", "1", "3", "–"]);
   });
 });
+
+describe("a row's name cell", () => {
+  it("sets the line under the name, and the delivery's chip after the state's", () => {
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "anna@example.org" },
+            chip: { tone: "warn", label: COPY.admin.expired },
+            delivery: { tone: "danger", label: COPY.admin.delivery.undeliverable },
+            line: { record: "Neuer Administrator" },
+            cells: {},
+          },
+        ])}
+      />,
+    );
+    const nameLine = screen.getByText(COPY.admin.expired).parentElement?.parentElement;
+    expect(nameLine?.textContent).toContain(COPY.admin.delivery.undeliverable);
+    expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
+  });
+});

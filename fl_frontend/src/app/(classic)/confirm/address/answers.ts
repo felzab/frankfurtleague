@@ -3,37 +3,37 @@
 import { z } from "zod";
 
 import { action } from "@/core/action";
-import { afterTheResponse } from "@/core/afterResponse";
-import { COPY } from "@/core/copy";
 import { requestOf } from "@/core/errors";
 import { AddressChangePostAddressChangeAnswerBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { accountAtNewAddress } from "@/features/address-change/account";
-import { viewOf } from "@/features/address-change/link";
-import { postAddressChangeAnswer, postAddressChangeStop, postAddressChangeView } from "@/features/address-change/mutations";
-import { mapAddressChangePressRefusal } from "@/features/address-change/refusals";
-import { runAddressChangeMoves } from "@/features/address-change/umzug";
+import { runAddressChangeMoves } from "@/features/address-change/moves";
+import { postAddressChangeAnswer, postAddressChangeStop } from "@/features/address-change/mutations";
+import { endsTheLink } from "@/features/address-change/refusals";
 
-import { endOf, LINK_INVALID } from "./ends";
+import { endOf, LINK_INVALID, STOPPED } from "./ends";
 
-import type { ActionAnswer } from "@/core/action";
-import type { AdresswechselPresse } from "@/features/address-change/components/views/AdresswechselLinkView";
 import type { EndState } from "@/kit/MailedPage";
 
 const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 
 /**
- * The person's own change answered through either link, the side the page read posted beside the token, the
- * pressed act under `act`, `kit/OneShot.tsx`'s field: the main act confirms, the quieter one declines. The side
- * words the end alone; the backend tells the links apart by the token. A link that holds no more at the press,
- * answered, ended or refused since the page opened, ends as the link no longer valid, one message for every cause.
+ * Either link's question answered, the side and the way the page read posted beside the token, the pressed act under
+ * `act`, `kit/OneShot.tsx`'s field: the main act confirms, the quieter one declines. The two word the end alone; the
+ * backend tells the links apart by the token. A link that holds no more at the press, answered, ended or refused since
+ * the page opened, ends as the link no longer valid, one message for every cause.
  */
 export const answerAddressChange = action({
   lane: "public",
   name: "answerAddressChange",
-  input: z.object({ token, side: z.enum(["previous", "new"]), act: z.enum(["primary", "secondary"]) }),
+  input: z.object({
+    token,
+    side: z.enum(["previous", "new"]),
+    way: z.enum(["account", "waiting_period"]),
+    act: z.enum(["primary", "secondary"]),
+  }),
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer.",
-  run: async ({ token: link, side, act }): Promise<{ ok: true; value: EndState }> => {
+  run: async ({ token: link, side, way, act }): Promise<{ ok: true; value: EndState }> => {
     const answer = act === "primary" ? "confirmed" : "declined";
     // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
     // here, as the backend's own refusals of the address are. A decline is refused nothing. Asked whatever side the form
@@ -44,12 +44,29 @@ export const answerAddressChange = action({
     try {
       answered = await postAddressChangeAnswer({ token: link, answer });
     } catch (error) {
-      if (mapAddressChangePressRefusal(error) === null) throw error;
+      if (!endsTheLink(error)) throw error;
       return { ok: true, value: LINK_INVALID };
     }
 
     if (answered.effective) await carryTheAccount();
-    return { ok: true, value: endOf(side, answered.answer, answered.approval_open) };
+    return { ok: true, value: endOf(side, answered.answer, answered.effective_from, way) };
+  },
+});
+
+/** The address on file's stop, which hands nothing over: refused only where the link holds no more. */
+export const stopAddressChange = action({
+  lane: "public",
+  name: "stopAddressChange",
+  input: z.object({ token }),
+  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its stop.",
+  run: async ({ token: link }): Promise<{ ok: true; value: EndState }> => {
+    try {
+      await postAddressChangeStop({ token: link });
+    } catch (error) {
+      if (!endsTheLink(error)) throw error;
+      return { ok: true, value: LINK_INVALID };
+    }
+    return { ok: true, value: STOPPED };
   },
 });
 
@@ -68,44 +85,3 @@ async function carryTheAccount(): Promise<void> {
     logger.error("address_change.carry_failed", undefined, { name: failed instanceof Error ? failed.name : "unknown", ...requestOf(failed) });
   }
 }
-
-/**
- * Session 7: the administrator's way answered from its old view, the new mailbox's confirmation and decline and the
- * address on file's stop, each answering what the view shows next.
- */
-export const answerByAdminRoute = action({
-  lane: "public",
-  name: "answerByAdminRoute",
-  input: z.object({ token, antwort: z.enum(["confirmed", "declined", "stopped"]) }),
-  exempt: "The link's token is the whole credential, minted for one mailbox and spent by its answer or its stop.",
-  run: async ({ token: link, antwort }): Promise<ActionAnswer<AdresswechselPresse>> => {
-    if (antwort === "confirmed" && (await accountAtNewAddress({ token: link }))) {
-      return { ok: true, value: { state: "not_confirmable" } };
-    }
-
-    try {
-      if (antwort === "stopped") {
-        await postAddressChangeStop({ token: link });
-        return {
-          ok: true,
-          value: {
-            pressed: { answer: "stopped", effective: false, effective_from: null, approval_open: false },
-          },
-        };
-      }
-      const answered = await postAddressChangeAnswer({ token: link, answer: antwort });
-      if (answered.effective) afterTheResponse(runAddressChangeMoves);
-      return { ok: true, value: { pressed: answered } };
-    } catch (error) {
-      const refusal = mapAddressChangePressRefusal(error);
-      if (refusal === null) throw error;
-      if ("state" in refusal) return { ok: true, value: { state: refusal.state } };
-      if (!("neuLesen" in refusal)) return { ok: false, reason: COPY.shared.failure.stale };
-
-      // The change ended or this link was answered since the page opened: the link's own read says how, so the view
-      // states it rather than calling the link void. Null where that read failed.
-      const ansicht = await postAddressChangeView({ token: link }).then(viewOf, () => null);
-      return { ok: true, value: { ansicht } };
-    }
-  },
-});

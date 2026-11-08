@@ -38,3 +38,22 @@ export function PageWait({ fallback, children }: { fallback: ReactNode; children
     </Suspense>
   );
 }
+
+async function WaitOnceRead({ wait, children }: { wait: Promise<ReactNode>; children: ReactNode }) {
+  return <PageWait fallback={await wait}>{children}</PageWait>;
+}
+
+/**
+ * A `PageWait` whose shape depends on who reads: `wait` is the page's first read turned into its wait, and the content
+ * waits in it. `fallback` is the page's usual shape, which the static shell draws knowing no reader. It is what an
+ * ordinary load shows: React reveals no streamed boundary within 300 ms of the first paint (`$RC` in its Fizz runtime),
+ * so reads landing inside that are revealed as one and `wait` never stands, and it serves a load whose content outlasts
+ * that alone. A role's part that must not show another reader therefore belongs out of every wait (`ListPage`'s `acts`).
+ */
+export function PageWaitOnceRead({ fallback, wait, children }: { fallback: ReactNode; wait: Promise<ReactNode>; children: ReactNode }) {
+  return (
+    <Suspense fallback={<PageFade>{fallback}</PageFade>}>
+      <WaitOnceRead wait={wait}>{children}</WaitOnceRead>
+    </Suspense>
+  );
+}

@@ -1,5 +1,5 @@
 import hashlib
-from collections.abc import Iterable, Mapping, Sequence, Set
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple
@@ -187,18 +187,6 @@ class AnsetzungState:
     vereine: Sequence[Mapping[str, Any]]
 
 
-def seat_address(*, ansetzung_state: AnsetzungState, spielbestaetigung_raw: Mapping[str, Any], seat: str) -> str | None:
-    """The address the seat holds now on its club's season row.
-
-    A seat a write emptied or handed over had its links voided in that write, so a link resolving here is its holder's.
-    """
-
-    team_id = (spielbestaetigung_raw.get("party") or {}).get("team_id")
-    verein = next((row for row in ansetzung_state.vereine if row.get("team_id") == team_id), None)
-
-    return kontakt_address(kontakte=(verein or {}).get("kontakte"), seat=seat)
-
-
 def _reason_now(
     *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str
 ) -> FLSpielbestaetigungClosedReason | None:
@@ -226,15 +214,11 @@ def zustand_of(
     spielbestaetigung_raw: Mapping[str, Any],
     ansetzung_state: AnsetzungState,
     today: str,
-    barred: bool,
     vorschlag_open: FLSpielbestaetigungAppointment | None,
 ) -> FLSpielbestaetigungState:
     """What a reopened link shows, the first state matching winning: a spent link is answered, never refused."""
 
     answer, closed = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
-
-    if barred:
-        return "barred"
 
     # Closed, by the reason stored; open or a discard still holding its question, by the one the close would store.
     reason = (
@@ -280,18 +264,6 @@ def find_unknown_link_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | 
     return WriteRefusal(
         error_code=Code.LINK_INVALID,
         status=HTTPStatus.NOT_FOUND,
-    )
-
-
-def find_barred_link_refusal(*, barred: bool) -> WriteRefusal | None:
-    """`link_barred`: asked at the press, however old the link, ahead of every state of its row."""
-
-    if not barred:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.LINK_BARRED,
-        status=HTTPStatus.FORBIDDEN,
     )
 
 
@@ -699,12 +671,10 @@ def build_current_rows_pipeline(
 def schiedsrichter_state_of(
     *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str
 ) -> FLSpielbestaetigungSchiedsrichterState:
-    """What the panel shows of a referee's own row: the link's state, which no ban and no proposal reaches here."""
+    """What the panel shows of a referee's own row: the link's state, which no proposal reaches here."""
 
-    state = zustand_of(
-        spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, barred=False, vorschlag_open=None
-    )
-    assert state != "barred" and state != "vorschlag" and state != "discarded"
+    state = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=None)
+    assert state != "vorschlag" and state != "discarded"
 
     return state
 
@@ -1319,65 +1289,6 @@ def group_seat_voids(voids: Sequence[SeatVoid]) -> list[tuple[tuple[FLKontaktRol
     return list(groups.items())
 
 
-def build_seat_entry_images_filter(voids: Sequence[SeatVoid]) -> dict[str, Any]:
-    """Log rows whose image may be one of these teams' rows in these seasons, an undraw's removal among them; the judge decides."""
-
-    return {
-        "collection": str(Collection.SPIELBESTAETIGUNGEN),
-        "$or": [{"before.saison_id": void.saison_id, "before.party.team_id": void.team_id} for void in voids],
-    }
-
-
-def seat_entry_image_edits(image: Mapping[str, Any], voids: Sequence[SeatVoid]) -> dict[str, None]:
-    """One image's entries of the voided seats nulled: a link's hashes and its mail's delivery record.
-
-    An earlier holder's go too, an image naming no holder; the season's end strips them anyway.
-    """
-
-    party = image.get("party")
-    team_id = party.get("team_id") if isinstance(party, Mapping) and party.get("kind") == "team" else None
-    seats = {seat for void in voids if (void.saison_id, void.team_id) == (image.get("saison_id"), team_id) for seat in void.seats}
-
-    return _seat_entries(image, seats) if team_id is not None and seats else {}
-
-
-def _seat_entries(image: Mapping[str, Any], seats: Set[str]) -> dict[str, None]:
-    kontakte = image.get("kontakte")
-
-    return {
-        f"kontakte.{seat}": None
-        for seat in KONTAKT_ROLLEN
-        if seat in seats and isinstance(kontakte, Mapping) and kontakte.get(seat) is not None
-    }
-
-
-def build_season_images_filter(saison_id: str) -> dict[str, Any]:
-    """Every log row whose image may be one of this season's team rows, or a referee row holding a reason; the judge decides."""
-
-    return {
-        "collection": str(Collection.SPIELBESTAETIGUNGEN),
-        "before.saison_id": saison_id,
-        "$or": [{"before.party.kind": "team"}, {"before.answer.reason": {"$ne": None}}],
-    }
-
-
-def season_end_image_edits(image: Mapping[str, Any], saison_id: str) -> dict[str, None]:
-    """One image of this season's rows stripped as its season's end strips the row: every seat's link entry and the reason.
-
-    A referee row holds no seat, so its image loses its reason alone.
-    """
-
-    if image.get("saison_id") != saison_id:
-        return {}
-
-    edits = _seat_entries(image, set(KONTAKT_ROLLEN))
-    answer = image.get("answer")
-    if isinstance(answer, Mapping) and answer.get("reason") is not None:
-        edits["answer.reason"] = None
-
-    return edits
-
-
 def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
     """This season's rows holding a reason, whoever gave it and whatever the party: the season's end takes every one, the answer's way kept."""
 
@@ -1418,69 +1329,10 @@ def build_seat_reasons_filter(held: Sequence[HeldSeats]) -> dict[str, Any]:
     }
 
 
-def build_seat_reason_images_filter(held: Sequence[HeldSeats]) -> dict[str, Any]:
-    """Log rows whose image may hold such an answer, an undraw's removal among them, which no row standing now reaches; the judge decides."""
-
-    return {
-        "collection": str(Collection.SPIELBESTAETIGUNGEN),
-        "before.answer.reason": {"$ne": None},
-        "$or": [
-            {"before.saison_id": seats.saison_id, "before.party.team_id": seats.team_id, "before.answer.by.rolle": {"$in": list(seats.seats)}}
-            for seats in held
-        ],
-    }
-
-
-def seat_reason_image_edits(image: Mapping[str, Any], held: Sequence[HeldSeats]) -> dict[str, None]:
-    """One image's reason nulled where its answer came from one of these seats, as the rows' own write nulls it.
-
-    The answer's day, its way and its role stay: they are the club's.
-    """
-
-    party, answer = image.get("party"), image.get("answer")
-    if not (isinstance(party, Mapping) and party.get("kind") == "team" and isinstance(answer, Mapping) and answer.get("reason") is not None):
-        return {}
-
-    by = answer.get("by")
-    if not (isinstance(by, Mapping) and by.get("kind") == "kontakt"):
-        return {}
-
-    seats = {seat for row in held if (row.saison_id, row.team_id) == (image.get("saison_id"), party.get("team_id")) for seat in row.seats}
-
-    return {"answer.reason": None} if by.get("rolle") in seats else {}
-
-
-# --- The REFEREE'S ERASURE: which rows and log images name the person, and what each image becomes.
+# --- The REFEREE'S ERASURE: which rows name the person.
 
 
 def build_referee_rows_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
     """Every row whose party is one of these referees, open, answered or closed."""
 
     return {"party.kind": "schiedsrichter", "party.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
-
-
-def build_referee_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
-    """Every `spielbestaetigungen` log row whose image names one of these referees as its party.
-
-    Selected inside the image, as `app/api/schiedsrichter/services.py :: build_booked_image_filter` selects: an undraw's
-    `delete_many` row holds images of rows long gone, which no id standing now reaches.
-    """
-
-    return {"collection": str(Collection.SPIELBESTAETIGUNGEN), "before.party.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
-
-
-def referee_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
-    """One image naming one of these referees, its party repointed at the ghost and their reason nulled.
-
-    The Ansetzung, the deadline and which way the answer went stay: they name nobody once the party is the ghost.
-    """
-
-    party = image.get("party")
-    if not isinstance(party, Mapping) or party.get("kind") != "schiedsrichter" or party.get("schiedsrichter_id") not in schiedsrichter_ids:
-        return {}
-
-    edits: dict[str, Any] = {"party.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
-    if isinstance(image.get("answer"), Mapping):
-        edits["answer.reason"] = None
-
-    return edits

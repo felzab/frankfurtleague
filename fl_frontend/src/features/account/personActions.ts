@@ -27,14 +27,13 @@ import { logger } from "@/core/logging";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { SignInAddressSchema } from "@/features/auth/schemas";
 import { patchBewerbungEinwilligung, patchSeatEinwilligung } from "@/features/kontakte/mutations";
 import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
 import { patchSchiedsrichterAccountEinwilligung } from "@/features/schiedsrichter/mutations";
 import { patchSpielerAccountEinwilligung } from "@/features/spieler/mutations";
 
 import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
-import { getErasureView } from "./queries";
 
 import type { ActionAnswer } from "@/core/action";
 import type { EndState } from "@/kit/MailedPage";
@@ -43,7 +42,7 @@ import type { EndState } from "@/kit/MailedPage";
 const HOLDER_ALONE = z.object(PAGE_HOLDER);
 
 /**
- * Completes a mailed deletion link: the league's records, then the account, the passkey touch first for a person
+ * Completes a mailed deletion link: the league's records, then the account, behind the passkey touch for a person
  * holding one. The deletion ends the caller's own session, so a done one leads to a page needing none rather than
  * answering: Next renders the posting page again after an action writes a cookie, and the library deletes the session's
  * cookie, but a `redirect` from the body renders the destination alone, the builder having cleared the site's tag on
@@ -60,10 +59,9 @@ export const eraseAccount = action({
   // The library's own token, which no backend schema publishes: one line of letters, digits, `-` and `_`.
   input: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), ...PAGE_HOLDER }),
   run: async ({ token }, { subject }): Promise<ActionAnswer<EndState>> => {
-    // Refused before the library spends the link, so the same link completes once another owner is made; the
-    // backend refuses two owners at once. Read for an owner alone, the one tier that can be the last.
-    if (subject.records.admin_tier === "owner" && (await getErasureView()).last_owner) {
-      return { ok: false, reason: SERVER_COPY.refusalLine.last_owner_erasure };
+    // Refused before the library spends the link, so the same link completes after a handover.
+    if (subject.records.admin_tier === "owner") {
+      return { ok: false, reason: SERVER_COPY.refusalLine.owner_erasure };
     }
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
@@ -85,9 +83,9 @@ export const eraseAccount = action({
 
 /**
  * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
- * own once that confirms, the change taking effect once both have. A passkey holder touches the passkey first, the
- * one check guarding it, since the backend judges no fresh sign-in. The address typed is judged by the sign-in's own
- * rule, so every address a sign-in would refuse is refused here before it is mailed. An account standing at the new
+ * own once that confirms, the change taking effect once both have. The final press asks a passkey holder's touch, the
+ * one check guarding it, since the backend judges no fresh sign-in. The address typed is one the person will sign in
+ * at, so it is held to that schema before it is mailed. An account standing at the new
  * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
  * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/answers.ts`).
  */
@@ -96,9 +94,9 @@ export const startAddressChange = action({
   claim: "account",
   passkey: true,
   name: "startAddressChange",
-  input: SignInPayloadSchema.extend(PAGE_HOLDER),
+  input: z.object({ email: SignInAddressSchema, ...PAGE_HOLDER }),
   examples: { email: COPY.shared.field.exampleAddress },
-  ownWords: ["address_change_unchanged", "address_change_no_approver", "address_change_started_recently"],
+  ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
     await requestAccountAddressChange({ email });
     return { ok: true, value: undefined };

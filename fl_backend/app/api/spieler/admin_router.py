@@ -1,12 +1,11 @@
 import asyncio
-from collections.abc import Mapping
-from typing import Annotated, Any, Final
+from typing import Annotated, Final
 
 from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.grants.guard import verify_actor_is_admin
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import (
     refuse_a_full_squad,
@@ -55,6 +54,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
     get_german_date_str,
 )
+from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
@@ -207,8 +207,7 @@ async def patch_spieler_saison(
             session=session,
         )
 
-        # A part left as stored is not written, so the log records a name's correction as that alone. The sum above judged
-        # both, on reads this transaction's writes conflict with.
+        # A part left as stored is not written. The sum above judged both, on reads this transaction's writes conflict with.
         if any(person_raw.get(field) != value for field, value in person_part.items()):
             person_raw = await patch_one_in_db(
                 collection=spieler_collection,
@@ -227,6 +226,7 @@ async def patch_spieler_saison(
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
+        await record_act(collection=saison_spieler_collection, action="spieler.changed", record_id=spieler_id, label=saison_id, session=session)
 
         return FLPatchSpielerSaisonResponse(version=composite_version(person_raw, row_raw))
 
@@ -255,13 +255,17 @@ async def delete_saison_spieler(
     leave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.
     """
 
-    async def take_the_player_out(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(
+    async def take_the_player_out(session: AsyncClientSession) -> None:
+        deregistered = await set_inactive_since(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
             when=today,
             session=session,
         )
+        if deregistered is not None:
+            await record_act(
+                collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, label=saison_id, session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(take_the_player_out)
@@ -287,7 +291,7 @@ async def reactivate_saison_spieler(
     left, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
     """
 
-    async def bring_the_player_back(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def bring_the_player_back(session: AsyncClientSession) -> None:
         """Judge, then revive the row. Everything judged is read in-session."""
 
         # Read for its `team_id` and its `rolle`: the row names the squad it is returning to and the
@@ -332,12 +336,16 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-        return await set_inactive_since(
+        revived = await set_inactive_since(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
             when=None,
             session=session,
         )
+        if revived is not None:
+            await record_act(
+                collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, label=saison_id, session=session
+            )
 
     async with transaction_session(db) as session:
         await session.with_transaction(bring_the_player_back)

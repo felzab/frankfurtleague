@@ -51,10 +51,10 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.bans import ban_list
+from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.isolation import InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
 from tests.plans import plans_of_sent_reads
@@ -209,7 +209,6 @@ async def read_view(
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spielorte_collection=database[Collection.SPIELORTE],
         teams_collection=database[Collection.TEAMS],
-        ban_list=ban_list(database),
         today=today,
     )
 
@@ -241,7 +240,6 @@ async def press_answer(
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
         spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
-        ban_list=ban_list(database),
         db=client,
         today=today,
     )
@@ -332,6 +330,17 @@ class TestTheSeatTheAnswerRecords:
         # The other club's row is its own question.
         assert other["answer"] is None
 
+    @pytest.mark.parametrize(("team_id", "row_id"), [(TEAM1, ROW1), (TEAM2, ROW2)], ids=["the first club", "the second club"])
+    def test_the_log_names_the_club_the_answered_row_asks(self, mongo_replica_set_url: str, team_id: ObjectId, row_id: ObjectId):
+        """Both clubs of the fixture are read for the answer, and a link names neither: the name is the row's `party.team_id`'s."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await press_answer(database, client, token(team_id, "trainer"))
+
+            return await acts_of(database)
+
+        assert on_a_spiel(mongo_replica_set_url, body) == [("spielbestaetigung.answered", "kontakt", NAMES[team_id][0], row_id)]
+
     def test_a_mirrored_pair_sharing_one_link_records_the_first_seat_in_order(self, mongo_replica_set_url: str):
         """One person on two seats holds one hash: resolved to a seat rather than to nothing."""
 
@@ -396,26 +405,6 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
         assert outcome == code
         assert row["answer"] is None
         assert (spieltag["start"], spieltag["end"]) == SPAN
-
-
-class TestALinkToAnAddressBarredAfterTheMint:
-    def test_the_view_shows_the_ban_the_answer_is_refused_and_a_lift_lets_it_answer(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ban = documents.ban_document("klara@example.com", until=SAISON_ID)
-            await database[Collection.BAN_LIST].insert_one(ban)
-
-            view = await read_view(database, token(TEAM1, "stellvertretung"))
-            refused = await outcome_of(press_answer(database, client, token(TEAM1, "stellvertretung")))
-            unwritten = (await row_now(database, ROW1))["answer"]
-            # Another seat of the same club holds an address the list does not.
-            other_seat = (await read_view(database, token(TEAM1, "trainer"))).state
-
-            await database[Collection.BAN_LIST].delete_one({"_id": ban["_id"]})
-            lifted = await outcome_of(press_answer(database, client, token(TEAM1, "stellvertretung")))
-
-            return view.state, refused, unwritten, other_seat, lifted
-
-        assert on_a_spiel(mongo_replica_set_url, body) == ("barred", Code.LINK_BARRED, None, "valid", COMMITTED)
 
 
 class TestTheLinkLookupWalksAnIndex:
@@ -993,7 +982,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
         assert on_a_spiel(mongo_replica_set_url, body, rows=rows) == ({SPIEL} if listed else set())
 
 
-# The answering Trainer's address, and the clock their erasure stamps its redactions with.
+# The answering Trainer's address, and the clock their erasure runs on.
 IDA = "ida@example.com"
 ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -1197,10 +1186,18 @@ class TestARefereesDeclineReturnsTheSpiel:
             async with client.start_session() as session:
                 await session.with_transaction(resolve)
 
-            return before, after, halbfinale, await spiel_now(database, HALBFINALE), await row_now(database, REFEREE_ROW)
+            return (
+                before,
+                after,
+                halbfinale,
+                await spiel_now(database, HALBFINALE),
+                await row_now(database, REFEREE_ROW),
+                await acts_of(database),
+            )
 
-        before, after, halbfinale, resolved, row = on_a_refereed_spiel(mongo_replica_set_url, body, spiele=DUE_RESOLUTION)
+        before, after, halbfinale, resolved, row, acts = on_a_refereed_spiel(mongo_replica_set_url, body, spiele=DUE_RESOLUTION)
 
+        assert acts == [("spielbestaetigung.answered", "schiedsrichter", None, REFEREE_ROW)]
         # Seeded without a version, so the one write leaves it at 1.
         assert after == {**before, "schiedsrichter": None, "version": 1}
         assert halbfinale["team1"] is None and resolved["team1"]["team_id"] == TEAM1
@@ -1235,18 +1232,17 @@ OTHER_REFEREES_ROWS = 2000
 REFEREE_INDEX_SCAN = "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }"
 
 
-def reads_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
-    """The erasure's aggregate, matching the referee's id first."""
+def deletes_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
+    """The erasure's delete, naming the referee's id."""
 
-    stages = command.get("pipeline") or [{}]
-    return collection == Collection.SPIELBESTAETIGUNGEN and "party.schiedsrichter_id" in (stages[0].get("$match") or {})
+    return collection == Collection.SPIELBESTAETIGUNGEN and any("party.schiedsrichter_id" in delete["q"] for delete in command["deletes"])
 
 
-class TestARefereesOwnRowsAreReadThroughTheirIndex:
+class TestARefereesOwnRowsAreReachedThroughTheirIndex:
     """`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`'s referee index, which nothing else would keep the planner on."""
 
-    def test_the_read_walks_the_referee_index_past_a_season_of_other_rows(self, mongo_replica_set_url: str):
-        """The erasure's read is unbounded, so a walk of the season-leading index costs it every row of the season."""
+    def test_the_erasure_walks_the_referee_index_past_a_season_of_other_rows(self, mongo_replica_set_url: str):
+        """The erasure's delete is unbounded, so a walk of the season-leading index costs it every row of the season."""
 
         others = [
             documents.spielbestaetigung_document(
@@ -1263,15 +1259,16 @@ class TestARefereesOwnRowsAreReadThroughTheirIndex:
                 mongo_replica_set_url,
                 database,
                 lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT),
-                reads_a_referees_rows,
+                deletes_a_referees_rows,
+                commands=("delete",),
             )
 
             return sent
 
         sent = on_a_refereed_spiel(mongo_replica_set_url, body)
 
-        # The premise: the read was sent, or the plan below would pass vacuously.
-        assert sent, "the read sent no aggregate matching the referee's id"
+        # The premise: the delete was sent, or the plan below would pass vacuously.
+        assert sent, "the erasure sent no delete naming the referee's id"
         for _, plan in sent:
             assert plan == REFEREE_INDEX_SCAN, plan
 
