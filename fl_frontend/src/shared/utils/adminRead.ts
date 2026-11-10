@@ -6,8 +6,6 @@ import { ROUTES } from "@/core/routes";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
-import type { NextPageProps } from "@/shared/types/types";
-
 /**
  * The admin pages' own check, and their one turn-away: the layout redirects nobody, a redirect there unmounting the
  * whole frame, and a soft navigation renders no layout at all.
@@ -39,9 +37,6 @@ export async function runAdminRead<T>(fn: () => Promise<T>): Promise<T> {
  * `null` leaves no read to run, so a person with no rights would otherwise meet the area's not-found in the frame
  * rather than the turn-away every well-formed id meets.
  */
-export function adminIdParamOf<TKey extends string>(
-  paramsPromise: NextPageProps<Record<TKey, string>>["params"],
-  key: TKey,
-): Promise<string | null> {
+export function adminIdParamOf<TKey extends string>(paramsPromise: Promise<Record<TKey, string>>, key: TKey): Promise<string | null> {
   return runAdminRead(() => objectIdParamOf(paramsPromise, key));
 }

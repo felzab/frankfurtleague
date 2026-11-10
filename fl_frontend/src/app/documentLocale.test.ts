@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { createElement as h } from "react";
 
-import { parseDate } from "@internationalized/date";
 import { renderToStaticMarkup } from "react-dom/server";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +14,9 @@ vi.mock("next/font/google", () => {
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => undefined }) }));
 
 const { default: RootLayout } = await import("./layout.tsx");
-const { AppDatePicker } = await import("@/shared/components/ui/DateTimeFields.tsx");
+const { DateField } = await import("@/kit/DateField.tsx");
+const { COPY } = await import("@/core/copy.ts");
+const { dayOf } = await import("@/core/format.ts");
 
 /** A day whose two numbers differ, so a field ordering them by another calendar reads otherwise. */
 const DAY = "2016-09-04";
@@ -28,13 +29,7 @@ describe("the document's locale", () => {
       h(RootLayout, {
         params: Promise.resolve({}),
         modal: null,
-        children: h(AppDatePicker, {
-          name: "date",
-          label: "Datum",
-          calendarLabel: "Datum auswählen",
-          value: parseDate(DAY),
-          onChange: () => undefined,
-        }),
+        children: h(DateField, { name: "date", label: COPY.spielplan.fact.date, value: dayOf(DAY), onChange: () => undefined }),
       }),
     );
 

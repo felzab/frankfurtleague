@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { actLabel } from "./dialogAct";
 import { ListPage } from "./ListPage";
@@ -44,6 +45,20 @@ async function declarationsFor(classes: readonly string[]): Promise<{ decl: Decl
     found.push({ decl, media: mediaAbove(decl) });
   });
   return found;
+}
+
+/**
+ * Every value the stylesheet gives `prop` for one of `classes`, at any width. By the whole selector, where
+ * `declarationsFor` takes any selector holding the name: `.grid` opens `.grid-cols-2` too, which sets a row's columns.
+ */
+async function valuesFor(classes: readonly string[], prop: string): Promise<string[]> {
+  const values: string[] = [];
+  (await compiled).walkDecls(prop, (decl) => {
+    if (decl.parent?.type !== "rule") return;
+    const selectors = selectorsOf(decl.parent as Rule).map((selector) => selector.replace(/\\(.)/g, "$1"));
+    if (selectors.some((selector) => classes.some((name) => selector === `.${name}`))) values.push(decl.value);
+  });
+  return values;
 }
 
 // The harm: Chrome restores a reload by a selector it saved inside `main`, which finds the wrong element in the
@@ -164,6 +179,184 @@ describe("the toolbar's acts the read decides", () => {
 
     expect(page).toContain(name);
     expect(page.match(/\$RC\("/g)).toHaveLength(1);
+  });
+});
+
+type Cards = Extract<ComponentProps<typeof ListPage>["list"], { kind: "cards" }>;
+
+/** A page of cards as a browser holds it while its one read runs, and once the read has landed. */
+async function drawnCards(wait: Cards["wait"], content: Awaited<Cards["content"]>) {
+  const page = (read: Cards["content"]) => (
+    <ListPage
+      head={{ scope: "saison", title: { route: "spielplan" } }}
+      list={{ kind: "cards", wait, content: read }}
+    />
+  );
+  const waiting = document.createElement("div");
+  waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+
+  const { prelude } = await prerender(
+    page(Promise.resolve(content)),
+    // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
+    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+  );
+  const landed = document.createElement("div");
+  landed.innerHTML = await new Response(prelude).text();
+  return { waiting, landed };
+}
+
+/** The grid a page's cards share. */
+const GRID = "[class~='lg:grid-cols-2']";
+
+describe("open work beside its record's seats", () => {
+  const ACTS = [COPY.shared.verb.adopt, COPY.shared.verb.discard] as const;
+  const TITLES = [COPY.page.spiele, COPY.page.registrierungen, COPY.team.kontakte] as const;
+  const SPIEL = "Ahorn vs. Eiche";
+  const TEAM = "Ahornschule Frankfurt";
+
+  const drawn = () =>
+    drawnCards(
+      { team: true, rows: 2, cards: [{ title: TITLES[0], acts: ACTS }, { title: TITLES[1] }], seats: TITLES[2] },
+      {
+        team: { plaque: { record: "AHO" }, name: { record: TEAM } },
+        cards: [
+          {
+            id: "spiele",
+            title: TITLES[0],
+            rows: [
+              {
+                id: "1",
+                href: "/",
+                name: { record: SPIEL },
+                line: COPY.page.spiele,
+                acts: (
+                  <>
+                    <Button
+                      variant="primary"
+                      label={ACTS[0]}
+                    />
+                    <Button
+                      variant="secondary"
+                      label={ACTS[1]}
+                    />
+                  </>
+                ),
+              },
+              // A date the team declined: it stays for the league's decision, chipped, with nothing left to press.
+              {
+                id: "2",
+                href: "/",
+                name: { record: "Ahorn vs. Linde" },
+                chip: { tone: "danger", label: COPY.admin.spiel.declined },
+                line: COPY.page.spiele,
+              },
+            ],
+          },
+          { id: "registrierungen", title: TITLES[1], rows: [] },
+        ],
+        seats: {
+          title: TITLES[2],
+          rows: (["ansprechperson", "trainer", "stellvertretung"] as const).map((seat) => ({
+            id: seat,
+            name: { record: "Lena Ahlers" },
+            chips: [],
+            line: COPY.admin.seatLine([seat], null, null),
+          })),
+        },
+      },
+    );
+
+  /** The cards of a page, in the order their grid holds them. */
+  const cardsOf = (page: Element) => [...(page.querySelector(GRID)?.children ?? [])];
+  /** A seats' card's rows: the card's body holds the list alone. */
+  const seatsOf = (card: Element | undefined) => [...(card?.lastElementChild?.firstElementChild?.children ?? [])];
+
+  // The harm: a box the wait leaves out, the head or a card, lands among the others' placeholders and pushes the page
+  // down, and an act's bar on a seat that carries none lands a phone's row a line shorter; either moves the page under a
+  // finger on „Zusagen“.
+  it("waits as one skeleton of every box it lands with, the team's head and the seats' card among them", async () => {
+    const { waiting, landed } = await drawn();
+
+    const skeletons = [...waiting.querySelectorAll("[aria-busy]")];
+    expect(skeletons).toHaveLength(1);
+    const [skeleton] = skeletons as [Element];
+    expect(cardsOf(skeleton).map((card) => card.firstElementChild?.textContent)).toStrictEqual(TITLES);
+    expect(cardsOf(landed).map((card) => card.querySelector("h2")?.textContent)).toStrictEqual(TITLES);
+
+    // The head is the one box over the cards' grid, waiting and landed, and names the team under the page's title.
+    const over = (page: Element) => page.querySelector(GRID)?.previousElementSibling;
+    expect([skeleton, landed].map((page) => page.querySelector(GRID)?.parentElement?.childElementCount)).toStrictEqual([2, 2]);
+    expect(over(skeleton)?.childElementCount).toBe(over(landed)?.childElementCount);
+    expect(over(landed)?.querySelector("h2")?.textContent).toBe(TEAM);
+
+    expect(cardsOf(landed)[1]?.lastElementChild?.textContent).toBe(COPY.shared.empty.nothingOpen);
+
+    const parts = (rows: Element[]) => rows.map((row) => row.childElementCount);
+    expect(parts(seatsOf(cardsOf(skeleton)[2]))).toStrictEqual(parts(seatsOf(cardsOf(landed)[2])));
+    expect(seatsOf(cardsOf(landed)[2])).toHaveLength(3);
+  });
+
+  // The harm: acts beside the words take the name's width on a phone, where a fixture's two clubs are cut to nothing.
+  it("sets a row's acts under its words on a phone, in the order the page gave them", async () => {
+    const { landed } = await drawn();
+    const [words, acts] = [...(landed.querySelector("[data-kit-row]")?.children ?? [])] as [Element, Element];
+
+    expect(words.textContent).toContain(SPIEL);
+    expect([...acts.querySelectorAll("button")].map((button) => button.textContent)).toStrictEqual(ACTS);
+
+    // Outside every media query, which is a phone's: the acts on the grid's second line, the words on its first.
+    const lineOf = async (part: Element) =>
+      (await declarationsFor([...part.classList]))
+        .filter(({ decl, media }) => decl.prop === "grid-row-start" && media.length === 0)
+        .map(({ decl }) => decl.value);
+    expect(await lineOf(acts)).toStrictEqual(["2"]);
+    expect(await lineOf(words)).toStrictEqual([]);
+  });
+
+  // The harm: a row keeping the room of the acts it lacks stands 8 px taller on a phone, its chevron spanning a line
+  // nothing fills, and from `lg` sets the chevron a column short of the row's end, out of line with every row around it.
+  it("keeps no room for acts on a row that carries none", async () => {
+    const { landed } = await drawn();
+    const [acting, declined] = [...landed.querySelectorAll("[data-kit-row]")] as [Element, Element];
+
+    expect(declined.textContent).toContain(COPY.admin.spiel.declined);
+    expect(declined.querySelectorAll("button")).toHaveLength(0);
+    expect(declined.childElementCount).toBe(2);
+
+    // The row's columns and the lines its chevron spans, at every width: the acting row states both anew from `lg`.
+    const shape = async (row: Element) => ({
+      columns: (await valuesFor([...row.classList], "grid-template-columns")).length,
+      chevronLines: (await valuesFor([...(row.lastElementChild?.classList ?? [])], "grid-row")).length,
+    });
+    expect(await shape(acting)).toStrictEqual({ columns: 2, chevronLines: 2 });
+    expect(await shape(declined)).toStrictEqual({ columns: 1, chevronLines: 0 });
+  });
+});
+
+describe("a page of one card holding a list", () => {
+  const TITLE = COPY.page.spiele;
+  const drawn = (rows: Awaited<Cards["content"]>["cards"][number]["rows"]) =>
+    drawnCards(
+      { rows: 2, cards: [{ title: TITLE, count: false }] },
+      { cards: [{ id: "spiele", title: TITLE, rows, count: false, empty: { kind: "none", plural: TITLE } }] },
+    );
+
+  // The harm: in the grid a lone card stands at half the content's width from `lg`, and one that waits there and lands
+  // outside it doubles its width as the rows arrive.
+  it("waits and lands outside the grid, at the content's width", async () => {
+    const { waiting, landed } = await drawn([{ id: "1", href: "/", name: { record: "Ahorn vs. Eiche" }, line: TITLE }]);
+
+    expect(landed.querySelector("h2")?.textContent).toBe(TITLE);
+    // Counted, never the node: a failing comparison would print the whole card.
+    expect([waiting, landed].map((page) => page.querySelectorAll(GRID).length)).toStrictEqual([0, 0]);
+  });
+
+  // The harm: a list with nothing in it yet under „Nichts offen.“ tells a referee their work is done, where none is booked.
+  it("gives way to the list's own empty state", async () => {
+    const { landed } = await drawn([]);
+
+    // Its text alone: the card's title before it would say the card still stands.
+    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
   });
 });
 

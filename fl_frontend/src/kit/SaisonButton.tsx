@@ -100,7 +100,8 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
 /**
  * Switching season, at the top of the rail or in the phone's top band: always a menu, even with one
  * season, and nothing where the frame holds no season. Each entry is the page shown, in that season, read
- * from the address on the client, so the layout placing the frame need not know the page beneath it.
+ * from the address on the client, so the layout placing the frame need not know the page beneath it. In a
+ * team's frame the seasons are those of the team the address names, and each entry is that team's page.
  */
 export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
   const saison = useFrameSaison();

@@ -2,8 +2,8 @@ import NextLink from "next/link";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { FLLogo } from "@/shared/components/ui/FLLogo";
 
+import { FLLogo } from "./FLLogo";
 import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
 
