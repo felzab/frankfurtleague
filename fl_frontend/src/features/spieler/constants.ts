@@ -23,6 +23,20 @@ export function kaderName({ first_name, last_name }: { first_name: string; last_
 }
 
 /**
+ * A stored shirt number as a figure, `null` where the row wears none or holds one that is not digits alone, as a
+ * hand-edited row may: the order the line-up's read sorts its squad by (`$convert` with `onError: null` in
+ * `fl_backend/app/api/aufstellungen/services.py :: build_aufstellung_kader_pipeline`), so every list orders one squad alike.
+ */
+export const shirtNumber = (nummer: string | null): number | null => (nummer !== null && /^\d+$/.test(nummer) ? Number(nummer) : null);
+
+/** Two squad rows in shirt-number order, a row wearing no number after every numbered one, the read's order kept between equals. */
+export function byShirtNumber(one: { nummer: string | null }, other: { nummer: string | null }): number {
+  const [first, second] = [shirtNumber(one.nummer), shirtNumber(other.nummer)];
+  if (first === second) return 0;
+  return first === null ? 1 : second === null ? -1 : first - second;
+}
+
+/**
  * A pupil as a read serves their names, or „anonym“ where it serves none: an erasure took the record, or the public
  * read withholds a name the consent does not publish.
  */

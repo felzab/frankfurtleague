@@ -2,7 +2,7 @@ import { RoleMark } from "@/kit/RoleMark";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { spielerName } from "@/features/spieler/constants";
+import { shirtNumber, spielerName } from "@/features/spieler/constants";
 
 import { STARTERS_MAX } from "./constants";
 
@@ -37,19 +37,13 @@ function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominie
   return is_nachnominiert ? { tone: "info", label: COPY.admin.spieler.nominee } : undefined;
 }
 
-/**
- * The shirt number as a figure, `null` where the row holds none. A stored number is one to four digits
- * (`fl_backend/app/api/spieler/schemas.py :: SQUAD_NUMMER_PATTERN`), so it reads whole.
- */
-const nummerOf = ({ nummer }: Pick<FLAufstellungSpieler, "nummer">): number | null => (nummer === null ? null : Number(nummer));
-
 function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
   const mark = markOf(spieler);
   const chip = chipOf(spieler);
   return {
     id: spieler.spieler_id,
     name: spielerName(spieler),
-    nummer: nummerOf(spieler),
+    nummer: shirtNumber(spieler.nummer),
     ...(spieler.position === null ? {} : { position: { record: spieler.position } }),
     ...(mark === undefined ? {} : { mark: <RoleMark {...mark} /> }),
     ...(chip === undefined ? {} : { chip }),
