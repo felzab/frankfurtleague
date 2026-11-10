@@ -122,13 +122,14 @@ def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapp
     return (kader_raw is not None and bool(kader_raw["is_nachnominiert"])) or entry_is_a_nominee(registrierung=registrierung, day=submitted_at)
 
 
-def find_kader_refusal(*, free: bool) -> WriteRefusal | None:
+def find_kader_refusal(*, full: WriteRefusal | None) -> WriteRefusal | None:
     """`registrierung_kader_full`: the squad has no room for this entry, the answer the link's `kader_free` gives.
 
-    `free` is `app/api/spieler/services.py :: find_full_squad_refusal`'s verdict, the cap's one copy.
+    `full` is `app/api/spieler/services.py :: find_full_squad_refusal`'s verdict, the cap's one copy, which this words
+    for the link's holder rather than for the administrator entering a player.
     """
 
-    if free:
+    if full is None:
         return None
 
     # No figure in the message: a stranger holding a link learns nothing about a squad's size.

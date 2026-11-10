@@ -3755,7 +3755,10 @@ export interface FLSaisonRules {
   forfeit_ergebnis: FLSaisonForfeitErgebnis;
   /** @minimum 0 */
   loss_points: number;
-  /** @exclusiveMinimum 0 */
+  /**
+   * @maximum 50
+   * @exclusiveMinimum 0
+   */
   max_kader_size: number;
   /**
    * @maximum 16

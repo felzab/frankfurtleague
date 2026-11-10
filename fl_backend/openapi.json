@@ -10674,6 +10674,7 @@
           },
           "max_kader_size": {
             "exclusiveMinimum": 0.0,
+            "maximum": 50.0,
             "title": "Max Kader Size",
             "type": "integer"
           },

@@ -653,6 +653,21 @@ def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
     assert "`location = /neu/` meters linkpage with `limit_req zone=linkpage burst=61 nodelay`" in details(findings)
 
 
+def test_a_link_burst_sized_for_another_squad_is_a_finding():
+    """A squad of 10 at 30 a minute needs 10 x 10 - 2 x 30 = 40 on the narrow zone and ten times that on the wide one."""
+    rates = {"linkpage": 30, "action": 60}
+    sized = "        limit_req zone=linkpage burst=40 nodelay;\n        limit_req zone=linkpage48 burst=400 nodelay;\n"
+    where = served(block("location = /neu", sized, PASS), block("location = /neu/", sized, PASS), CATCH_ALL)
+
+    assert routes.unsized_links(where, SOURCE, 10, rates) == []
+
+    findings = routes.unsized_links(where, SOURCE, 11, rates)
+
+    assert severities(findings) == ["fail"] * 4
+    assert "where a squad of 11 needs burst=50" in details(findings)
+    assert "where a squad of 11 needs burst=500" in details(findings)
+
+
 def test_the_repository_own_link_pages_are_on_the_link_pair():
     """The resting state the red cases are measured against, its count pinned.
 
@@ -669,6 +684,11 @@ def test_the_repository_own_link_pages_are_on_the_link_pair():
     assert set(opened) == set(reading)
     assert routes.unmetered_links(opened, where, routes.REPO_ROOT, name) == []
     assert routes.uneven_links(where, name) == []
+    squad = routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI)
+    rates = routes.zone_rates((routes.REPO_ROOT / routes.NGINX_CONF).parent / routes.NGINX_HTTP_CONF)
+    # Every sized zone declared, so the rule judges the real bursts rather than skipping them.
+    assert {*routes.SIZED_PER_PUPIL} <= rates.keys()
+    assert routes.unsized_links(where, name, squad, rates) == []
 
 
 def test_the_repository_own_exact_matches_all_name_something():

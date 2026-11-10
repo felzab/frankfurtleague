@@ -44,9 +44,8 @@ from app.api.registrierungen.services import (
     person_deviates,
     registrierung_is_confirmed,
 )
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.spieler.crud import refuse_a_full_squad
-from app.api.spieler.services import build_live_squad_filter, find_full_squad_refusal
+from app.api.spieler.crud import pull_squad_room, refuse_a_full_squad
+from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -139,11 +138,15 @@ async def get_open_registrierungen(
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
         )
-        max_kader_size = FLSaisonRules.model_validate(saison_raw["rules"]).max_kader_size
         # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
         # a squad before it reaches the cap.
-        squad_size = await saison_spieler_collection.count_documents(
-            build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None), session=session
+        room = await pull_squad_room(
+            saison_spieler_collection=saison_spieler_collection,
+            saison_id=saison_id,
+            team_id=team_id,
+            rules=saison_raw["rules"],
+            excluding_spieler_id=None,
+            session=session,
         )
         kader_by_person = {
             kader["spieler_id"]: kader
@@ -174,7 +177,7 @@ async def get_open_registrierungen(
                     "position": row.get("position"),
                     "stufe": row.get("stufe"),
                     "admissible": admissible,
-                    "kader_full": find_full_squad_refusal(squad_size=squad_size, max_kader_size=max_kader_size, nominee=nominee) is not None,
+                    "kader_full": find_full_squad_refusal(room=room, nominee=nominee) is not None,
                     "nummer_double": row.get("nummer") in worn,
                     "person": None
                     if person is None

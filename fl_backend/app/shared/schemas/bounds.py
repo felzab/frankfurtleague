@@ -176,6 +176,12 @@ ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 # stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
+# The largest squad a season's `max_kader_size` may set, and the first season's own: the edge's link pages are sized for a
+# squad this large behind one school's address (`nginx/shared/site.conf :: location /confirm/`), so a larger cap would
+# meet the edge's 429 rather than the league's rule. Published as the field's `maximum`, which the season editor's
+# generated check words; `scripts/checks/check_public_routes.py` holds the edge's bursts to it.
+KADER_SIZE_MAX: Final = 50
+
 # How long an addition, or an administrator's own address change, waits. Each hands out lasting power, so every holder has
 # a day to read of it and reach the owner.
 type FLGrantWaitHours = Literal[24]
