@@ -222,6 +222,7 @@ export function RecordRows<Row extends EditorRow>({
   rowLabel,
   add,
   remove,
+  locked,
   errors,
 }: {
   /** The list's name for a screen reader, the section's title naming it on the screen. */
@@ -239,6 +240,11 @@ export function RecordRows<Row extends EditorRow>({
   add: Copy;
   /** The remove control's name, such as „Tor entfernen“. */
   remove: Copy;
+  /**
+   * Why the list takes no new row as the draft stands, such as a no-show's goals: the add control stays reachable and
+   * says it, as every locked act does (`./Button.tsx`'s `locked`). The rows stand, each with its remove control.
+   */
+  locked?: Copy;
   /** The editor's served refusals by box (`./useEditor.ts`'s `fieldErrors`). */
   errors?: Readonly<Record<string, Copy>>;
 }) {
@@ -300,6 +306,8 @@ export function RecordRows<Row extends EditorRow>({
             variant="secondary"
             leadingIcon="create"
             label={add}
+            locked={locked}
+            lockedEdge="start"
             onPress={() => {
               setHeld((state) => ({ keys: [...state.keys, state.next], next: state.next + 1, added: state.next }));
               onChange([...rows, blank]);
