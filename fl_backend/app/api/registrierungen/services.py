@@ -238,7 +238,10 @@ def registrierung_is_confirmed(*, einwilligung: Any) -> bool:
 
 
 def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
-    """Whether the submission owed this row no mail: its mailbox stood past `OPEN_LINKS_PER_MAILBOX`, which the block's null `sent_at` keeps."""
+    """Whether no mail is owed this row, which the block's null `sent_at` keeps.
+
+    Its submission's or its address move's mailbox stood past `OPEN_LINKS_PER_MAILBOX`, or the move found its link over.
+    """
 
     return isinstance(confirmation, Mapping) and confirmation.get("sent_at") is None
 

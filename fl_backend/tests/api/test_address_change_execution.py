@@ -1586,6 +1586,8 @@ class TestTheWaitingTime:
 
 DECLINED_REG_OID = ObjectId("6890a1b2c3d4e5f607850053")
 ANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850063")
+# The day before `TODAY`: its link died at that midnight, and the hourly sweep has not yet taken the row.
+LAPSED_DEADLINE = "2126-03-31"
 
 
 async def confirmed_and_moved(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -1614,12 +1616,16 @@ class TestWhatTheEffectLeavesTheErasure:
 
         assert (before.state, after) == ("valid", Code.LINK_INVALID)
 
-    @pytest.mark.parametrize("room", [True, False], ids=("a mailbox with room", "a mailbox holding its three open links"))
-    def test_a_pending_registration_is_owed_a_fresh_link_at_the_new_mailbox(self, mongo_replica_set_url: str, room: bool):
+    @pytest.mark.parametrize(
+        "case", ["room", "full", "lapsed"], ids=("a mailbox with room", "a mailbox holding its three open links", "a row past its deadline")
+    )
+    def test_a_pending_registration_is_owed_a_fresh_link_at_the_new_mailbox(self, mongo_replica_set_url: str, case: str):
         """Its old link died with the move, so without a new one it could never be confirmed, yet held one of three places.
 
         The mail states its days, so the deadline is this move's; the old address's unsent mail goes rather than a second.
-        A mailbox already holding three unanswered links is owed nothing, as a submission is, and the row then holds no place.
+        A mailbox already holding three unanswered links is owed nothing, as a submission is, and the row then holds no
+        place and keeps its stored deadline: a move owing no mail keeps a row nobody can confirm no day longer. A row whose
+        deadline is behind it is decided, as its link is: nothing is owed, and the sweep takes it.
         """
 
         reference = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=UNCONFIRMED_REG_OID, seat=None)
@@ -1637,7 +1643,11 @@ class TestWhatTheEffectLeavesTheErasure:
                 valid_until=None,
             )
             await database[Collection.OUTBOX].insert_one(unsent)
-            if not room:
+            if case == "lapsed":
+                await database[Collection.REGISTRIERUNGEN].update_one(
+                    {"_id": UNCONFIRMED_REG_OID}, {"$set": {"confirmation.deadline": LAPSED_DEADLINE}}
+                )
+            if case == "full":
                 await database[Collection.REGISTRIERUNGEN].insert_many(
                     [
                         documents.registrierung_document(
@@ -1669,8 +1679,16 @@ class TestWhatTheEffectLeavesTheErasure:
 
         moved, owed, old = on_a_person(mongo_replica_set_url, body)
 
-        assert moved["confirmation"] == {"token_hashes": [], "sent_at": TODAY if room else None, "deadline": "2126-04-15"}
-        assert [mail["to"] for mail in owed] == ([NEW_EMAIL] if room else [])
+        assert (
+            moved["confirmation"]
+            == {
+                "room": {"token_hashes": [], "sent_at": TODAY, "deadline": "2126-04-15"},
+                # `registration`'s stored deadline.
+                "full": {"token_hashes": [], "sent_at": None, "deadline": "2126-04-06"},
+                "lapsed": {"token_hashes": [], "sent_at": None, "deadline": LAPSED_DEADLINE},
+            }[case]
+        )
+        assert [mail["to"] for mail in owed] == ([NEW_EMAIL] if case == "room" else [])
         assert (old["state"], old["to"]) == ("dropped", None)
 
     def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):
