@@ -48,8 +48,9 @@ const TITLES = {
 /** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamOverview.path(team, saison);
 
-/** The page's one read, memoised for the render, so the tab's title and the page share it. */
-const overviewOf = cache((seat: TeamSeat) => getTeamOverview(seat.team_id, seat.saison_id));
+/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+const overviewRead = cache(getTeamOverview);
+const overviewOf = (seat: TeamSeat) => overviewRead(seat.team_id, seat.saison_id);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return teamMetadata(params, address, overviewOf, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));

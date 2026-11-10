@@ -20,8 +20,9 @@ type Props = PageProps<"/area/team/[team]/[saison]/spiele">;
 /** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamSpiele.path(team, saison);
 
-/** The page's one read, memoised for the render, so the tab's title and the page share it. */
-const spieleOf = cache((seat: TeamSeat) => getTeamSpiele(seat.team_id, seat.saison_id));
+/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+const spieleRead = cache(getTeamSpiele);
+const spieleOf = (seat: TeamSeat) => spieleRead(seat.team_id, seat.saison_id);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return teamMetadata(params, address, spieleOf, async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
