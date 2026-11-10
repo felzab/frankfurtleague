@@ -57,7 +57,7 @@ function tilesOf(saison: string, kader: FLSpielerSelfKaderRow): readonly [StatTi
     },
     { label: WORDS.nummer, value: factOf(kader.nummer) },
     { label: WORDS.position, value: factOf(kader.position), words: true },
-    { label: WORDS.stufe, value: factOf(kader.stufe), words: true },
+    { label: WORDS.stufe, value: kader.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[kader.stufe], words: true },
   ];
 }
 

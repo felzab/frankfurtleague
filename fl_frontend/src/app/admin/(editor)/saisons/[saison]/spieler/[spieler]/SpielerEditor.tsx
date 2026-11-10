@@ -8,6 +8,7 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
+import { rolleOptions } from "@/features/spieler/options";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -26,9 +27,6 @@ const OBJECT = COPY.shared.spieler;
 
 /** A danger box act: a server action taking the player's id and the season, which a server page passes on as it is. */
 type Act = (input: { id: string; saison: string }) => Promise<ActionAnswer>;
-
-/** The first entry of each of the row's selects: an empty box, which the save reads as no value. */
-const NOT_PROVIDED: Option = { id: "", label: COPY.shared.notProvided };
 
 /**
  * The Spieler editor: the person's own facts and their squad row, saved together from the editor's bar; what the person
@@ -64,6 +62,7 @@ export function SpielerEditor({
   einwilligung: readonly Fact[];
   /** What the save asks of each box, read on the server. */
   rules: { required: { first_name: boolean; last_name: boolean; birth_date: boolean }; max: { first_name: number; last_name: number } };
+  /** The position's and the level's choices, each opening on the empty box (`features/spieler/options.ts`). */
   positions: readonly Option[];
   stufen: readonly Option[];
   /** Each role another live row of the squad holds, standing in its list closed. */
@@ -163,7 +162,7 @@ export function SpielerEditor({
                 label={WORDS.position}
                 name="position"
                 width="fit"
-                options={[NOT_PROVIDED, ...positions]}
+                options={positions}
                 value={draft.position}
                 onChange={(position) => set("position", position ?? "")}
               />
@@ -171,7 +170,7 @@ export function SpielerEditor({
                 label={WORDS.stufe}
                 name="stufe"
                 width="fit"
-                options={[NOT_PROVIDED, ...stufen]}
+                options={stufen}
                 value={draft.stufe}
                 onChange={(stufe) => set("stufe", stufe ?? "")}
               />
@@ -179,14 +178,7 @@ export function SpielerEditor({
                 label={WORDS.rolle}
                 name="rolle"
                 width="fit"
-                options={[
-                  NOT_PROVIDED,
-                  ...(["kapitaen", "co_kapitaen"] as const).map((rolle): Option =>
-                    takenRollen.includes(rolle)
-                      ? { id: rolle, label: WORDS.rolleOption[rolle], isDisabled: true, note: COPY.shared.field.taken }
-                      : { id: rolle, label: WORDS.rolleOption[rolle] },
-                  ),
-                ]}
+                options={rolleOptions(takenRollen)}
                 value={draft.rolle}
                 onChange={(rolle) => set("rolle", rolle ?? "")}
               />
