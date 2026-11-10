@@ -58,13 +58,27 @@ export type SaveQuestion = {
 /** A code the catalogue words in a person's own terms: `SERVER_COPY.refusal`'s keys, and `SERVER_COPY.refusalLine`'s. */
 type WordedCode = keyof typeof SERVER_COPY.refusal | keyof typeof SERVER_COPY.refusalLine;
 
-/** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
+/** Every row of a list, in a declared path: `scorers.*.minute` declares the minute of each of the list's records. */
+const EVERY_ROW = "*";
+
+/** The fields of a list's record, each under its list's every row; a list of single values holds none. */
+type RowField<Item, List extends string> = Item extends readonly unknown[]
+  ? never
+  : Item extends object
+    ? `${List}.${typeof EVERY_ROW}.${keyof Item & string}`
+    : never;
+
+/**
+ * The dotted path of every leaf of an input: the key its box's message is answered by. A list counts as one leaf, its
+ * box holding every item, and a list of records adds each record's fields, a row's own boxes, declared for every row
+ * at once.
+ */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
   ? never
   : T extends object
     ? {
-        [K in keyof T & string]-?: NonNullable<T[K]> extends readonly unknown[]
-          ? `${Above}${K}`
+        [K in keyof T & string]-?: NonNullable<T[K]> extends readonly (infer Item)[]
+          ? `${Above}${K}` | RowField<Item, `${Above}${K}`>
           : NonNullable<T[K]> extends object
             ? Field<NonNullable<T[K]>, `${Above}${K}.`>
             : `${Above}${K}`;
@@ -91,11 +105,14 @@ type Declared<Schema extends z.ZodType> = {
   readonly ownWords?: readonly (WordedCode | WordedRule)[];
   /**
    * The box showing a field pattern's phrase, by the path the backend names for the refused field, its names joined
-   * by dots up to the first index as a box's are. A field the screen shows no box for has no entry: a phrase has no
-   * subject but its box, so a refusal only a phrase words, about a field this screen does not show, is not its own.
+   * by dots as a box's are (`fieldOf`). A row's field is declared once for every row, `*` standing where the index
+   * does on both sides, `"bericht.scorers.*.minute": "changes.scorers.*.minute"`, and a refusal naming row 2 lands on
+   * row 2's box. A field the screen shows no box for has no entry: a phrase has no subject but its box, so a refusal
+   * only a phrase words, about a field this screen does not show, is not its own, and a row's refusal never falls
+   * back to its list's box.
    */
   readonly paths?: { readonly [path: string]: Field<z.output<Schema>> };
-  /** The example a box's „Format: …“ message names, by the box. */
+  /** The example a box's „Format: …“ message names, by the box; a row's field names it for every row. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
 
@@ -305,16 +322,42 @@ function stripped(value: unknown): unknown {
 const posted = (raw: unknown): unknown => (raw instanceof FormData ? Object.fromEntries(raw) : raw);
 
 /**
- * The box an issue belongs to: its path's names joined by dots, up to the first index, where a list's box holds every
- * item. Keyed by the whole path, two leaves sharing a last name, `team1.tore` and `team2.tore`, stay two boxes.
+ * A refused path as the box it belongs to: `key`, the box's own, the path's names and indices joined by dots;
+ * `declared`, the path a lane declares it by, `*` standing for each index; and `rows`, those indices in order.
  */
-function fieldOf(path: readonly PropertyKey[]): string | undefined {
-  const names: string[] = [];
+type Box = { readonly key: string; readonly declared: string; readonly rows: readonly number[] };
+
+/**
+ * The box an issue belongs to. A list's box holds every item, so the indices at a path's end go: `stufen.1` is the
+ * list `stufen`'s, as the list's own refusal is. An index with a name after it stays, `scorers.2.minute` being the
+ * minute of the list's third row and no other's. Keyed by the whole path, two leaves sharing a last name,
+ * `team1.tore` and `team2.tore`, stay two boxes.
+ */
+function fieldOf(path: readonly PropertyKey[]): Box | undefined {
+  const key: string[] = [];
+  const declared: string[] = [];
+  const rows: number[] = [];
+  // Indices wait for the name after them, which alone makes them a row's.
+  let waiting: number[] = [];
   for (const segment of path) {
+    if (typeof segment === "number" && key.length > 0) {
+      waiting.push(segment);
+      continue;
+    }
     if (typeof segment !== "string") break;
-    names.push(segment);
+    key.push(...waiting.map(String), segment);
+    declared.push(...waiting.map(() => EVERY_ROW), segment);
+    rows.push(...waiting);
+    waiting = [];
   }
-  return names.length === 0 ? undefined : names.join(".");
+  return key.length === 0 ? undefined : { key: key.join("."), declared: declared.join("."), rows };
+}
+
+/** A declared box as the one a refusal lands on: each `*` takes the row the refused path names at its place. */
+function inRows(box: string, rows: readonly number[]): string | undefined {
+  const left = [...rows];
+  const segments = box.split(".").map((segment) => (segment === EVERY_ROW ? left.shift() : segment));
+  return segments.includes(undefined) ? undefined : segments.join(".");
 }
 
 /**
@@ -332,10 +375,10 @@ function parsed<Schema extends z.ZodType>(
     error: (issue) => {
       const path = issue.path ?? [];
       const field = fieldOf(path);
-      const example = field === undefined ? undefined : examples[field];
+      const example = field === undefined ? undefined : examples[field.declared];
       const line = fieldMessage(issue, example === undefined ? {} : { [path.map(String).join(".")]: example });
       // The first issue on a box is the one it shows.
-      if (field !== undefined) fieldErrors[field] ??= line;
+      if (field !== undefined) fieldErrors[field.key] ??= line;
       return line;
     },
   });
@@ -343,7 +386,7 @@ function parsed<Schema extends z.ZodType>(
 
   const unplaced = result.error.issues.some((issue) => {
     const field = fieldOf(issue.path);
-    return field === undefined || fieldErrors[field] === undefined;
+    return field === undefined || fieldErrors[field.key] === undefined;
   });
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
@@ -369,7 +412,8 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
       continue;
     }
     const field = fieldOf(refusal.path);
-    const box = field === undefined ? undefined : declared.paths?.[field];
+    const shown = field === undefined ? undefined : declared.paths?.[field.declared];
+    const box = field === undefined || shown === undefined ? undefined : inRows(shown, field.rows);
     if (box === undefined) return undefined;
     fieldErrors[box] ??= refusal.field;
   }
