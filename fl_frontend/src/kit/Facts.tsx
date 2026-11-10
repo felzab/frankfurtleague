@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { textOf } from "@/core/copy";
 
 import { cardSurface, stacked } from "./cardStyles";
@@ -151,6 +153,9 @@ export function Facts({
   look?: "boxed" | "free";
 }) {
   const { list } = facts({ look, oddCount: endsOdd(rows.length) });
+  // Each value is named by its label, so a screen reader landing on a value hears whose it is: a `dd` beside its `dt`
+  // is tied to it by nothing else.
+  const listId = useId();
   // A row's key is its label and how many rows above it hold that label: keys are unique among siblings, and a caller
   // may list two records under one label, so the label alone would collide.
   const above = new Map<Copy, number>();
@@ -167,16 +172,19 @@ export function Facts({
         </p>
       )}
       <dl className={list()}>
-        {rows.map((fact) => {
+        {rows.map((fact, index) => {
           const { row, term, detail } = facts({ look, figures: fact.figures === true });
           const to = fact.link ?? fact.elsewhere;
           const nth = above.get(fact.label) ?? 0;
           above.set(fact.label, nth + 1);
+          const termId = `${listId}-${String(index)}`;
           return (
             <div
               key={`${nth}:${fact.label}`}
               className={row()}>
-              <dt className={term()}>
+              <dt
+                id={termId}
+                className={term()}>
                 {fact.glyph !== undefined && (
                   <Icon
                     glyph={fact.glyph}
@@ -185,7 +193,9 @@ export function Facts({
                 )}
                 {fact.label}
               </dt>
-              <dd className={detail()}>
+              <dd
+                aria-labelledby={termId}
+                className={detail()}>
                 {fact.value !== undefined
                   ? textOf(fact.value)
                   : to !== undefined && (

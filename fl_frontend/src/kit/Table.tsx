@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
@@ -541,6 +543,7 @@ function NameCell({
   stack,
   plaqueAlone,
   acts,
+  nameId,
 }: {
   row: TableRow;
   barred: TableRow["qualifies"];
@@ -549,6 +552,8 @@ function NameCell({
   stack: boolean;
   plaqueAlone: boolean;
   acts: TableActs;
+  /** The name's id, which the row's acts are described by. */
+  nameId: string | undefined;
 }) {
   const s = table({ qualifies: barred, compact, prose, stack, acts });
   const { plaque } = row;
@@ -569,6 +574,7 @@ function NameCell({
           />
         )}
         <CutText
+          id={nameId}
           text={name}
           className={nameWords({ cut: prose ? "never" : acts === undefined ? "always" : "desktop", lonePlaque, class: s.whole() })}>
           {row.href === undefined ? (
@@ -634,6 +640,8 @@ export function Table({
   chevronOnPhone = true,
   plaqueAlone = false,
 }: TableProps) {
+  // A row's name's id is the table's and the row's, for the row's acts to be described by.
+  const tableId = useId();
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const tableActs = hasActs ? "table" : undefined;
@@ -716,6 +724,7 @@ export function Table({
             {rows.map((row) => {
               const acts: TableActs = !hasActs ? undefined : row.acts === undefined ? "table" : "row";
               const marks = { linked: leadsOn(row), muted: row.muted === true, acts };
+              const nameId = row.acts === undefined ? undefined : `${tableId}-${row.id}`;
               return (
                 <tr
                   key={row.id}
@@ -738,6 +747,7 @@ export function Table({
                     stack={stack}
                     plaqueAlone={plaqueAlone}
                     acts={acts}
+                    nameId={nameId}
                   />
                   {columns.map((column) => {
                     const s = table({
@@ -783,7 +793,13 @@ export function Table({
                     <td
                       role="cell"
                       className={table({ acts }).acts()}>
-                      {row.acts !== undefined && <RowActs className="flex items-center gap-2 lg:justify-end">{row.acts}</RowActs>}
+                      {row.acts !== undefined && (
+                        <RowActs
+                          className="flex items-center gap-2 lg:justify-end"
+                          describedBy={nameId}>
+                          {row.acts}
+                        </RowActs>
+                      )}
                     </td>
                   )}
                 </tr>

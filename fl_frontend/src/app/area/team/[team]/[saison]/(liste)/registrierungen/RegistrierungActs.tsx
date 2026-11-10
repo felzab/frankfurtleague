@@ -1,20 +1,16 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-
 import { Button } from "@/kit/Button";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { Dialog } from "@/kit/Dialog";
+import { PressAct } from "@/kit/PressAct";
 import { RadioGroup } from "@/kit/RadioGroup";
-import { appToast } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
+import { toastAnswer } from "@/kit/Toast";
 
 import { COPY } from "@/core/copy";
 
 import { admitRegistrierung, declineRegistrierung } from "./decideRegistrierung";
 
-import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 
 const WORDS = COPY.area.team.registrierung;
@@ -34,29 +30,6 @@ export type Admission =
 const SAME = "same";
 const OTHER = "other";
 
-/** An admission's answer as its toast: „Aufgenommen“, or the refusal in its own words. */
-function toastOf(answer: ActionAnswer) {
-  appToast(answer.ok ? "success" : "danger", answer.ok ? COPY.shared.toast.admitted : (answer.reason ?? COPY.shared.toast.failure));
-}
-
-/** „Aufnehmen“ acting at once, as the owner ruled: a wrong admission is undone in the Kader by „Austragen“. */
-function AdmitAtOnce({ decided, spielerId }: { decided: Decided; spielerId: string | null }) {
-  const router = useRouter();
-  const [isAdmitting, startAdmitting] = useTransition();
-  return (
-    <Button
-      variant="primary"
-      label={COPY.shared.verb.admit}
-      isBusy={isAdmitting}
-      onPress={() =>
-        startAdmitting(async () => {
-          toastOf(await answering(admitRegistrierung, router.refresh)({ ...decided, spieler_id: spielerId }));
-        })
-      }
-    />
-  );
-}
-
 /**
  * „Aufnehmen“ where the address is a stored person's under other details: the team answers whose registration it is.
  * The known person is the answer standing chosen, the one that keeps a returning pupil from entering the league twice;
@@ -71,7 +44,7 @@ function AdmitAsked({ decided, spielerId, name }: { decided: Decided; spielerId:
       action={async (formData) => {
         if (formData.get("answer") === OTHER) return declineRegistrierung({ ...decided, reason: "other_person" });
         const answer = await admitRegistrierung({ ...decided, spieler_id: spielerId });
-        if (answer.ok) toastOf(answer);
+        if (answer.ok) toastAnswer(answer, COPY.shared.toast.admitted);
         return answer;
       }}
       trigger={
@@ -119,9 +92,13 @@ export function RegistrierungActs({
           locked={admission.reason}
         />
       ) : admission.kind === "once" ? (
-        <AdmitAtOnce
-          decided={decided}
-          spielerId={admission.spieler_id}
+        // At once, as the owner ruled: a wrong admission is undone in the Kader by „Austragen“.
+        <PressAct
+          variant="primary"
+          label={COPY.shared.verb.admit}
+          act={admitRegistrierung}
+          payload={{ ...decided, spieler_id: admission.spieler_id }}
+          done={COPY.shared.toast.admitted}
         />
       ) : (
         <AdmitAsked

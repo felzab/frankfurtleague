@@ -2,6 +2,7 @@
 
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
+import { RowName } from "./RowActs";
 import { tv } from "./tv";
 
 import type { ReactNode } from "react";
@@ -62,7 +63,8 @@ export function DialogOverlay({
         <Modal
           data-kit-focus
           className={dialogBox({ width })}>
-          {children}
+          {/* A dialog opened from a row's acts names its record in its own words, so its buttons take no row's name. */}
+          <RowName value={undefined}>{children}</RowName>
         </Modal>
       </div>
     </ModalOverlay>

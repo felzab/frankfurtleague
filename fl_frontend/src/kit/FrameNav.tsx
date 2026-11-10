@@ -12,7 +12,7 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
-import { Segmented, SegmentedPlaceholder } from "./ChoiceButtons";
+import { GlyphChoices, GlyphChoicesPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
 import { hoverLook } from "./hoverStyles";
@@ -305,8 +305,7 @@ export function ThemeChoice() {
   // The theme next-themes holds, unknown until the page hydrates, so none is chosen before.
   const { theme, setTheme } = useTheme();
   return (
-    <Segmented
-      placement="inline"
+    <GlyphChoices
       label={COPY.page.accountAppearance}
       choices={THEMES}
       value={theme ?? null}
@@ -317,7 +316,7 @@ export function ThemeChoice() {
 
 /** The theme's control while its box waits: one glyph's bar per theme. */
 export function ThemeChoicePlaceholder() {
-  return <SegmentedPlaceholder count={THEMES.length} />;
+  return <GlyphChoicesPlaceholder count={THEMES.length} />;
 }
 
 /**
