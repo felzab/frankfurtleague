@@ -622,7 +622,8 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrich
 
     row = next(iter(spiel[OWN_ROW_AS]), None)
     bericht = next(iter(spiel[BERICHT_AS]), None)
-    saison = next(iter(spiel[SAISON_AS]), None)
+    # One row: a fixture's season always stands, and the read joins it by its id.
+    [saison] = spiel[SAISON_AS]
     spielort = spiel.get("spielort")
 
     def team_name(side: str) -> str | None:
@@ -649,7 +650,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrich
         entered=row is not None and entered_of(row),
         past=spiel.get("date") is not None and spiel["date"] < today,
         # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
-        reportable=takes_a_bericht(spiel, today=today) and not season_has_ended(saison_status=None if saison is None else saison.get("status")),
+        reportable=takes_a_bericht(spiel, today=today) and not season_has_ended(saison_status=saison["status"]),
         submitted_at=None if bericht is None else bericht.get("submitted_at"),
     )
 

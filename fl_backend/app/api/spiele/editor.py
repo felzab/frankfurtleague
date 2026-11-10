@@ -220,7 +220,7 @@ async def _spielbericht_of(
 
     return FLSpielEditorBericht(
         state=bericht_state_of(bericht, context.spiel),
-        version=document.get(VERSION_FIELD, 0),
+        version=document[VERSION_FIELD],
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
         sides=bericht.sides,
         scorers=bericht.scorers,

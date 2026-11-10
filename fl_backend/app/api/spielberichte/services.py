@@ -394,7 +394,7 @@ def compose_view(
         "bericht": bericht,
         # Served rather than re-derived by the forms, which mark these sides' entries and offer none of their old pupils.
         "sides_changed": [] if bericht is None else sorted(sides_changed(bericht["sides"], spiel)),
-        "version": None if document is None else document.get(VERSION_FIELD, 0),
+        "version": None if document is None else document[VERSION_FIELD],
     }
 
 

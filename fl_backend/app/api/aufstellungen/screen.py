@@ -226,7 +226,7 @@ def _compose(
         named=[outside(entry["spieler_id"]) for entry in entries if entry["spieler_id"] not in live_ids],
         spieler=[FLAufstellungEntry.model_validate(entry) for entry in entries],
         erased=[FLAufstellungErased(starts=entry["starts"]) for entry in erased_entries(saved)],
-        version=None if saved is None else int(saved.get(VERSION_FIELD) or 0),
+        version=None if saved is None else saved[VERSION_FIELD],
         marks=aufstellung_marks(date=spiel.get("date"), time=spiel.get("time"), stored=saved is not None, now=now),
     )
 
