@@ -26,6 +26,7 @@ doubleApiClient((): FLAufstellungResponse => ({
     count_spieltage_in_phase: 5,
     for_third_place: false,
   },
+  saison_status: "active",
   team_id: TEAM,
   kader: [],
   named: [],

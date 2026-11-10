@@ -14,7 +14,7 @@ from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.aufstellungen.admin_router import put_aufstellung
+from app.api.aufstellungen.admin_router import get_aufstellung, put_aufstellung
 from app.api.aufstellungen.person_router import get_aufstellung_self, put_aufstellung_self
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload, FLAufstellungResponse
 from app.core.codes import Code
@@ -273,6 +273,47 @@ def test_the_seat_reads_the_screen_the_save_answered(mongo_replica_set_url: str)
     saved, read = on_a_season(mongo_replica_set_url, body)
 
     assert read == saved
+    assert read.saison_status == "active"
+
+
+async def the_season_ends(database: AsyncDatabase) -> None:
+    await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+
+
+async def nothing_written(database: AsyncDatabase) -> tuple[Any, list[Any]]:
+    return await database[Collection.AUFSTELLUNGEN].find_one({}), await acts_of(database)
+
+
+def test_a_finished_seasons_line_up_is_read_only_for_the_administrator(mongo_replica_set_url: str):
+    """The save refused as every other administrator write about a finished season's match is, and the read says why."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
+        await the_season_ends(database)
+        refused = await refusal_of(admin_saves(database, client, _payload(LINA)))
+        async with client.start_session(snapshot=True) as session:
+            read = await get_aufstellung(
+                spiel_id=SPIEL,
+                team_id=HOME,
+                spiele_collection=database[Collection.SPIELE],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                spieler_collection=database[Collection.SPIELER],
+                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                session=session,
+                now=OPEN,
+            )
+        return refused, read.saison_status, await nothing_written(database)
+
+    assert on_a_season(mongo_replica_set_url, body) == ((Code.SAISON_PAST, []), "past", (None, []))
+
+
+def test_a_finished_season_grants_its_seat_holder_no_line_up(mongo_replica_set_url: str):
+    """A finished season grants no seat, so its seat holder is refused the club before the season is asked."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
+        await the_season_ends(database)
+        return await refusal_of(seat_saves(database, client, _payload(LINA))), await nothing_written(database)
+
+    assert on_a_season(mongo_replica_set_url, body) == ((Code.ROLE_NOT_HELD, []), (None, []))
 
 
 class LineUpsRunningARivalAtTheirRead(InterleavedCollection):

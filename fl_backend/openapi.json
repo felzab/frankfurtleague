@@ -2509,7 +2509,7 @@
         "type": "object"
       },
       "FLAufstellungResponse": {
-        "description": "One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.",
+        "description": "One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.\n\n`saison_status` as the match editor's read serves it (`FLSpieleAdminSingleResponse`): a finished season's line-up\nopens read-only, which the save refuses (`saison_past`).",
         "properties": {
           "kader": {
             "items": {
@@ -2534,6 +2534,9 @@
             },
             "title": "Named",
             "type": "array"
+          },
+          "saison_status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "spiel": {
             "$ref": "#/components/schemas/FLAufstellungSpiel"
@@ -2564,6 +2567,7 @@
         },
         "required": [
           "spiel",
+          "saison_status",
           "team_id",
           "kader",
           "named",
@@ -19509,7 +19513,7 @@
     },
     "/api/v0/aufstellungen/{spiel_id}/{team_id}": {
       "get": {
-        "description": "The line-up screen of one club for one fixture, as the club's own seat holders read it.\n\n`document_not_found` for a fixture that does not exist or does not field this club.",
+        "description": "The line-up screen of one club for one fixture, as the club's own seat holders read it.\n\nWith the season's status, so a finished season's line-up opens read-only. `document_not_found` for a fixture that\ndoes not exist or does not field this club.",
         "operationId": "aufstellungen_get_aufstellung",
         "parameters": [
           {
@@ -19596,7 +19600,7 @@
         ]
       },
       "put": {
-        "description": "Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.\n\nThe document a seat holder's save writes, on the same payload, so the lock never reaches this save\n(`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist or does not field this club\n(`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past\nthe shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,\nand every refusal but `version_stale` is asked again outside the transaction just before answering.",
+        "description": "Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.\n\nThe document a seat holder's save writes, on the same payload, so the lock never reaches this save\n(`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist or does not field this club\n(`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture\nholding no day or no hour (`aufstellung_spiel_undated`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past\nthe shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,\nand every refusal but `version_stale` is asked again outside the transaction just before answering.",
         "operationId": "aufstellungen_put_aufstellung",
         "parameters": [
           {
@@ -19705,7 +19709,7 @@
     },
     "/api/v0/aufstellungen/{spiel_id}/{team_id}/self": {
       "get": {
-        "description": "The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.\n\nThe fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was\nsaved, every pupil it names outside that squad, the document's `version` and the line-up's marks: whether one is\nstored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is null for a fixture\nholding no day or no hour, which takes no line-up.\n\nRefused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, and\n`document_not_found` for a fixture that does not exist or does not field this club.",
+        "description": "The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.\n\nThe fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was\nsaved, every pupil it names outside that squad, the season's status, the document's `version` and the line-up's\nmarks: whether one is stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is\nnull for a fixture holding no day or no hour, which takes no line-up.\n\nRefused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, a finished\nseason granting none, and `document_not_found` for a fixture that does not exist or does not field this club.",
         "operationId": "aufstellungen_get_aufstellung_self",
         "parameters": [
           {
@@ -19792,7 +19796,7 @@
         ]
       },
       "put": {
-        "description": "Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.\n\nThe first save creates the document and answers 201. `version` is the document's as the screen was served it, null\nwhere the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: no seat on this club in the fixture's season (`role_not_held`); a\nfixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour\n(`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named\nbeside eleven regular players, or more nominees than the regular players leave open of eleven\n(`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters\n(`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.\nEvery refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,\na fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.",
+        "description": "Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.\n\nThe first save creates the document and answers 201. `version` is the document's as the screen was served it, null\nwhere the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season\ngranting none (`role_not_held`); a\nfixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour\n(`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named\nbeside eleven regular players, or more nominees than the regular players leave open of eleven\n(`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters\n(`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.\nEvery refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,\na fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.",
         "operationId": "aufstellungen_put_aufstellung_self",
         "parameters": [
           {

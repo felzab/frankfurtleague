@@ -33,6 +33,7 @@ const STORED: FLAufstellungResponse = {
     count_spieltage_in_phase: 5,
     for_third_place: false,
   },
+  saison_status: "active",
   team_id: TEAM,
   kader: [spieler(THREE, "3"), spieler(ONE, "10"), spieler(TWO, "20")],
   named: [],
