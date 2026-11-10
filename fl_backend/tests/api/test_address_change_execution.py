@@ -32,7 +32,7 @@ from app.api.grants.schemas import FLPostGrantPayload
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
-from app.api.outbox.schemas import FLBanData, FLOutboxEventPayload, FLOutboxReference
+from app.api.outbox.schemas import FLBanData, FLOutboxEventPayload, FLOutboxLink, FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, row_of
 from app.api.outbox.system_router import post_event, post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
@@ -73,9 +73,11 @@ from .address_change_harness import (
     SECOND_ADMIN,
     SECOND_TEAM_OID,
     SPIELER_OID,
+    TEAM_OID,
     TODAY,
     TYPED,
     UNCONFIRMED_REG_LINK,
+    UNCONFIRMED_REG_OID,
     administrator_starts,
     answer,
     call,
@@ -1611,6 +1613,65 @@ class TestWhatTheEffectLeavesTheErasure:
         before, after = on_a_person(mongo_replica_set_url, body)
 
         assert (before.state, after) == ("valid", Code.LINK_INVALID)
+
+    @pytest.mark.parametrize("room", [True, False], ids=("a mailbox with room", "a mailbox holding its three open links"))
+    def test_a_pending_registration_is_owed_a_fresh_link_at_the_new_mailbox(self, mongo_replica_set_url: str, room: bool):
+        """Its old link died with the move, so without a new one it could never be confirmed, yet held one of three places.
+
+        The mail states its days, so the deadline is this move's; the old address's unsent mail goes rather than a second.
+        A mailbox already holding three unanswered links is owed nothing, as a submission is, and the row then holds no place.
+        """
+
+        reference = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=UNCONFIRMED_REG_OID, seat=None)
+        link = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
+        data = FLRegistrierungLinkData(kind="registrierung_confirmation", team="Quellbrunn", saison_id=SAISON_ID)
+        # Plus-tagged, so the mailbox is the new address's and no entry names the address itself, which refuses the change.
+        tagged = [f"lenore.q+{index}@neupost.example.org" for index in range(3)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX"))
+            unsent = row_of(
+                OwedMail(key="registrierung/unsent", to=EMAIL, data=data, reference=reference, link=link),
+                now=NOW,
+                secret=None,
+                valid_until=None,
+            )
+            await database[Collection.OUTBOX].insert_one(unsent)
+            if not room:
+                await database[Collection.REGISTRIERUNGEN].insert_many(
+                    [
+                        documents.registrierung_document(
+                            ObjectId(),
+                            address,
+                            saison_id=SAISON_ID,
+                            team_id=TEAM_OID,
+                            first_name="Fremd",
+                            last_name="Fremd",
+                            token=f"another-pupils-link-{address}",
+                            submitted_at=TODAY,
+                            deadline="2126-04-15",
+                        )
+                        for address in tagged
+                    ]
+                )
+            await confirmed_and_moved(database, client)
+            owed = (
+                await database[Collection.OUTBOX]
+                .find({"kind": "registrierung_confirmation", "state": "open", "reference.id": UNCONFIRMED_REG_OID})
+                .to_list(length=None)
+            )
+
+            return (
+                await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
+                owed,
+                await database[Collection.OUTBOX].find_one({"key": "registrierung/unsent"}),
+            )
+
+        moved, owed, old = on_a_person(mongo_replica_set_url, body)
+
+        assert moved["confirmation"] == {"token_hashes": [], "sent_at": TODAY if room else None, "deadline": "2126-04-15"}
+        assert [mail["to"] for mail in owed] == ([NEW_EMAIL] if room else [])
+        assert (old["state"], old["to"]) == ("dropped", None)
 
     def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):
         """Left behind, it holds the pupil's name and data where an erasure of the new address never looks, until its month is out."""

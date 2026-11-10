@@ -33,6 +33,7 @@ from app.api.address_change.services import (
     masked_address,
     wait_tier,
 )
+from app.api.bewerbungen.services import days_after
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
@@ -48,24 +49,33 @@ from app.api.outbox.schemas import (
     FLOutboxReference,
     FLOutboxStatus,
 )
-from app.api.outbox.services import SIGN_IN_KINDS, TOMBSTONE_UPDATE, OwedMail, enqueue_mails
-from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_is_confirmed
+from app.api.outbox.services import SIGN_IN_KINDS, TOMBSTONE_UPDATE, OwedMail, enqueue_mails, final_update
+from app.api.registrierungen.crud import judge_the_mailbox_in_session
+from app.api.registrierungen.services import (
+    SUBMITTED,
+    build_erasure_registrierung_filter,
+    compose_confirmation,
+    confirmation_mail,
+    registrierung_is_confirmed,
+)
 from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
+from app.core.clock import german_day
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWay, FLAdminTier
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1}
 # The whole consent record: `is_own_schiedsrichter` judges its stamp.
 _SCHIEDSRICHTER_FIELDS: Final[Mapping[str, int]] = {"kontakt.email": 1, "einwilligung": 1}
 _SEAT_FIELDS: Final[Mapping[str, int]] = {"saison_id": 1, "team_id": 1, "kontakte": 1, "confirmations": 1}
-_REGISTRIERUNG_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1, "confirmation": 1}
+_REGISTRIERUNG_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1, "confirmation": 1, "saison_id": 1, "team_id": 1, "status": 1}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -78,7 +88,7 @@ class Holdings:
     seats: Sequence[tuple[Mapping[str, Any], tuple[str, ...]]]
     bewerbung_seats: Sequence[tuple[Mapping[str, Any], tuple[str, ...]]]
     # Every registration, its pupil's confirmation or not: an open one left here, an admission would make a second person,
-    # and a declined one an erasure of the new address would miss until its month is out.
+    # and a declined one an erasure of the new address would miss until its days are out.
     registrierungen: Sequence[Mapping[str, Any]]
     # The grant row, a waiting one too: it moves with the rest, and its tier sets how long the change waits.
     grant: Mapping[str, Any] | None
@@ -547,6 +557,7 @@ async def move_the_address_in_session(
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
+    mailbox_anchors_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -596,13 +607,15 @@ async def move_the_address_in_session(
         )
 
     for row in holdings.registrierungen:
-        await patch_one_in_db(
-            collection=registrierungen_collection,
-            db_filter={"_id": row["_id"]},
-            update=_registrierung_move(row, new_address),
+        await _move_the_registrierung_in_session(
+            row,
+            new_address=new_address,
+            registrierungen_collection=registrierungen_collection,
+            saison_teams_collection=saison_teams_collection,
+            mailbox_anchors_collection=mailbox_anchors_collection,
+            outbox_collection=outbox_collection,
+            now=now,
             session=session,
-            expected_version=None,
-            return_document=ReturnDocument.BEFORE,
         )
 
     if holdings.grant is not None:
@@ -702,18 +715,100 @@ def _seat_move(slots: Sequence[str], new_address: str) -> dict[str, Any]:
     return {"$set": {f"kontakte.{slot}.email": new_address for slot in slots}}
 
 
-def _registrierung_move(row: Mapping[str, Any], new_address: str) -> dict[str, Any]:
-    """The registration's address; an unanswered one's live links die, so only a link reaching the new mailbox confirms it."""
+async def _move_the_registrierung_in_session(
+    row: Mapping[str, Any],
+    *,
+    new_address: str,
+    registrierungen_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    mailbox_anchors_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """The registration's address; an unanswered one's live links die, and a pending one is owed a fresh link at the new mailbox.
+
+    Every link was minted for the address the row has left, so none confirms it now. A pending row is judged at the new
+    mailbox as a submission is, its confirmation mail owed there under a key of this move, with a deadline the mail's
+    stated days from today, and its own unsent mail to the old address dropped: one mail, telling the truth about its
+    days. A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links, or a club that left the season, is owed
+    none: the row lapses unmailed, holding no place at the new mailbox.
+    """
 
     update: dict[str, Any] = {"$set": {"email": new_address}}
-    if not isinstance(row.get("confirmation"), Mapping):
-        return update
+    if not isinstance(row.get("confirmation"), Mapping) or registrierung_is_confirmed(einwilligung=row.get("einwilligung")):
+        await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
+        return
 
-    if not registrierung_is_confirmed(einwilligung=row.get("einwilligung")):
-        # Every link dies, each minted for the address the row has left.
+    if row.get("status") != SUBMITTED:
+        # A decided row takes no answer, so its links only die.
         update["$set"] |= {"confirmation.token_hashes": []}
+        await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
+        return
 
-    return update
+    saison_id = str(row["saison_id"])
+    junction = await saison_teams_collection.find_one(
+        {"saison_id": saison_id, "team_id": row["team_id"]}, {"name": 1, "austritt": 1}, session=session
+    )
+    stands = junction is not None and junction.get("austritt") is None
+    mailed = stands and await judge_the_mailbox_in_session(
+        registrierungen_collection=registrierungen_collection,
+        mailbox_anchors_collection=mailbox_anchors_collection,
+        saison_id=saison_id,
+        address=new_address,
+        excluding_id=row["_id"],
+        at=now,
+        session=session,
+    )
+    today = german_day(now)
+    update["$set"] |= {
+        "confirmation": compose_confirmation(
+            today=today, deadline=days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS), mailed=mailed
+        )
+    }
+    await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
+
+    # Before the carry below, which re-addresses what is still owed: the mail owed the old address would state its own days.
+    await patch_many_in_db(
+        collection=outbox_collection,
+        db_filter={**_registrierung_reference_filter(row["_id"]), "kind": "registrierung_confirmation", "state": "open"},
+        update=final_update("dropped", now=now),
+        session=session,
+    )
+    if mailed:
+        assert junction is not None
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                confirmation_mail(
+                    registrierung_id=row["_id"],
+                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/confirmation/{now.isoformat()}",
+                    address=new_address,
+                    team=str(junction["name"]),
+                    saison_id=saison_id,
+                )
+            ],
+            now=now,
+        )
+
+
+def _registrierung_reference_filter(registrierung_id: Any) -> dict[str, Any]:
+    # Equality on the three keys of `outbox_reference` (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    return {"reference.collection": str(Collection.REGISTRIERUNGEN), "reference.id": registrierung_id, "reference.seat": None}
+
+
+async def _patch_the_registrierung(
+    registrierungen_collection: AsyncCollection, row: Mapping[str, Any], update: Mapping[str, Any], *, session: AsyncClientSession
+) -> None:
+    await patch_one_in_db(
+        collection=registrierungen_collection,
+        db_filter={"_id": row["_id"]},
+        update=update,
+        session=session,
+        expected_version=None,
+        return_document=ReturnDocument.BEFORE,
+    )
 
 
 # --- The ERASURE's reach: a change naming the erased address ends, and an administrator it names takes the marker.

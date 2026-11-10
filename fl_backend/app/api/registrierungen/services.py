@@ -10,9 +10,11 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, mailbox_pattern, season_has_ended
-from app.api.outbox.schemas import FLOutboxLink
+from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLRegistrierungLinkData
+from app.api.outbox.services import OwedMail
 from app.api.saisons.services import entry_is_a_nominee
 from app.core.codes import Code
+from app.core.collections import Collection
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.age import whole_years_between
@@ -186,8 +188,8 @@ def compose_registrierung(
 REGISTRIERUNG_LINK: Final = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
 
 
-def compose_confirmation(*, today: str, deadline: str, mailed: bool = True) -> dict[str, Any]:
-    """The confirmation bookkeeping the submission writes: owed today, no link until the hand-out mints one.
+def compose_confirmation(*, today: str, deadline: str, mailed: bool) -> dict[str, Any]:
+    """The confirmation bookkeeping a submission, or a move of an unconfirmed row, writes: owed today, no link until the hand-out mints one.
 
     `deadline` is stored rather than derived from `sent_at` and the bound, so raising the bound
     never moves the deadline of a link already in somebody's inbox. A row past `OPEN_LINKS_PER_MAILBOX` is owed no mail:
@@ -195,6 +197,22 @@ def compose_confirmation(*, today: str, deadline: str, mailed: bool = True) -> d
     """
 
     return {"token_hashes": [], "sent_at": today if mailed else None, "deadline": deadline}
+
+
+def confirmation_mail(*, registrierung_id: Any, key: str, address: str, team: str, saison_id: str) -> OwedMail:
+    """The pupil's confirmation mail, its link minted at the hand-out while the row still holds `address`.
+
+    `team` is the junction row's name, off the club's season row and never a payload: anyone holding the team's link
+    could otherwise word the league's message.
+    """
+
+    return OwedMail(
+        key=key,
+        to=address,
+        data=FLRegistrierungLinkData(kind="registrierung_confirmation", team=team, saison_id=saison_id),
+        reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
+        link=REGISTRIERUNG_LINK,
+    )
 
 
 def build_open_link_filter(*, saison_id: str, address: str) -> Mapping[str, Any]:

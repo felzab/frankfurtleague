@@ -5,20 +5,23 @@ Here rather than in `services.py`, which decides from its arguments and names no
 """
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any, Final, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
     WITHOUT_TOKEN_HASHES,
     build_addresses_filter,
     build_open_filter,
+    build_open_link_filter,
     build_registrierungen_sort,
     find_unknown_registrierung_refusal,
 )
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -40,6 +43,37 @@ async def pull_registrierung(
     assert row is not None
 
     return row
+
+
+async def judge_the_mailbox_in_session(
+    *,
+    registrierungen_collection: AsyncCollection,
+    mailbox_anchors_collection: AsyncCollection,
+    saison_id: str,
+    address: str,
+    # The row being mailed where it stands already, which takes no place from itself.
+    excluding_id: Any,
+    at: datetime,
+    session: AsyncClientSession,
+) -> bool:
+    """Whether the season may mail this address's mailbox another confirmation link, anchoring the mailbox where it may.
+
+    Below `OPEN_LINKS_PER_MAILBOX` unanswered mailed links, as the application's press judges it
+    (`app/api/bewerbungen/public_router.py :: post_bewerbung`): the anchor puts two writes mailing one mailbox in one
+    write set, so neither passes on a count the other is about to raise.
+    """
+
+    waiting = await registrierungen_collection.count_documents(
+        {**build_open_link_filter(saison_id=saison_id, address=address), **({} if excluding_id is None else {"_id": {"$ne": excluding_id}})},
+        limit=OPEN_LINKS_PER_MAILBOX,
+        session=session,
+    )
+    if waiting >= OPEN_LINKS_PER_MAILBOX:
+        return False
+
+    await anchor_mailboxes_in_db(collection=mailbox_anchors_collection, ids=mailbox_anchor_ids(addresses=[address]), at=at, session=session)
+
+    return True
 
 
 # The most pending rows one read serves a team: the collection is written by anybody holding a team's link, so the read

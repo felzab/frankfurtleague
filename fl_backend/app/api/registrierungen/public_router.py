@@ -7,10 +7,10 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, mailbox_anchor_ids
+from app.api.bewerbungen.services import build_key_filter, days_after
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
-from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
-from app.api.outbox.services import OwedMail, enqueue_mails
+from app.api.outbox.services import enqueue_mails
+from app.api.registrierungen.crud import judge_the_mailbox_in_session
 from app.api.registrierungen.schemas import (
     FLInvitationViewResponse,
     FLPostRegistrierungPayload,
@@ -22,12 +22,11 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     CONFIRMATION_ANSWER_FIELDS,
     CONFIRMATION_VIEW_FIELDS,
-    REGISTRIERUNG_LINK,
     build_confirmation_filter,
-    build_open_link_filter,
     compose_confirmation,
     compose_confirmation_update,
     compose_registrierung,
+    confirmation_mail,
     find_age_refusal,
     find_already_confirmed_refusal,
     find_expired_token_refusal,
@@ -47,7 +46,7 @@ from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_mailboxes_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     InvitationsCollection,
@@ -275,20 +274,15 @@ async def post_registrierung(
             )
         )
 
-        waiting = await registrierungen_collection.count_documents(
-            build_open_link_filter(saison_id=saison_id, address=str(registrierung_data.email)),
-            limit=OPEN_LINKS_PER_MAILBOX,
+        mailed = await judge_the_mailbox_in_session(
+            registrierungen_collection=registrierungen_collection,
+            mailbox_anchors_collection=mailbox_anchors_collection,
+            saison_id=saison_id,
+            address=str(registrierung_data.email),
+            excluding_id=None,
+            at=germany_now,
             session=session,
         )
-        mailed = waiting < OPEN_LINKS_PER_MAILBOX
-        # As the application's press judges it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
-        if mailed:
-            await anchor_mailboxes_in_db(
-                collection=mailbox_anchors_collection,
-                ids=mailbox_anchor_ids(addresses=[str(registrierung_data.email)]),
-                at=germany_now,
-                session=session,
-            )
 
         deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
 
@@ -318,18 +312,14 @@ async def post_registrierung(
             outbox_collection=outbox_collection,
             session=session,
             mails=[
-                OwedMail(
+                confirmation_mail(
+                    registrierung_id=registrierung_id,
                     key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
-                    to=str(registrierung_data.email),
-                    data=FLRegistrierungLinkData(
-                        kind="registrierung_confirmation",
-                        # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
-                        # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
-                        team=str((junction_raw or {}).get("name", "")),
-                        saison_id=saison_id,
-                    ),
-                    reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
-                    link=REGISTRIERUNG_LINK,
+                    address=str(registrierung_data.email),
+                    # Off the invite the token opened. `or {}` for the type checker alone: `refuse` above has raised where
+                    # the row is missing.
+                    team=str((junction_raw or {}).get("name", "")),
+                    saison_id=saison_id,
                 )
             ]
             if mailed
