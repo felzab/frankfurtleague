@@ -17,9 +17,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.ban_list.services import compose_barred_until_saison_id
-from app.api.bewerbungen.admin_router import resend_einwilligung
+from app.api.bewerbungen.admin_router import decline_bewerbung, resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update, confirmation_deadline_from
 from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
@@ -623,6 +623,100 @@ class TestAClosedChase:
         assert any(mail["key"].endswith("reminder/ansprechperson/2026-04-04") for mail in mails), mails
 
 
+async def served_version(database: AsyncDatabase) -> int:
+    """The count the administrator's page was served at."""
+
+    document = await stored(database, REMIND_OID)
+    assert document is not None
+
+    return int(document["version"])
+
+
+async def declined_on(database: AsyncDatabase, version: int) -> Mapping[str, Any]:
+    """The administrator's decline, sent on the count their page was served at, and the application it left."""
+
+    await decline_bewerbung(
+        bewerbung_id=REMIND_OID,
+        ablehnung_data=FLDeclineBewerbungPayload(reason="kein Platz", version=version),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        outbox_collection=database[Collection.OUTBOX],
+        db=database.client,
+        today=TODAY,
+        germany_now=MAIL_NOW,
+    )
+    document = await stored(database, REMIND_OID)
+    assert document is not None
+
+    return document
+
+
+class TestADecisionReadBeforeAJobsMailBookkeeping:
+    """A job's stamp on a seat's chase is no field a form saves, so it leaves the count: a decision read before it lands, the stamp standing."""
+
+    def test_the_reminders_stamp(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
+            served = await served_version(database)
+            await sweep(database, client, now=MAIL_NOW)
+            assert REMIND_OID in await reminded(database)
+
+            return await declined_on(database, served)
+
+        document = on_a_league(mongo_replica_set_url, body)
+
+        assert document["status"] == "declined"
+        assert document["confirmations"]["stellvertretung"]["reminded_at"] == TODAY
+
+    def test_the_chase_the_pass_closes(self, mongo_replica_set_url: str):
+        """The Stellvertretung's link re-sent yesterday, so the close is the pass's one write on the row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
+            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": REMIND_OID},
+                {"$set": {"confirmations.stellvertretung.sent_at": YESTERDAY, "confirmations.stellvertretung.deadline": "2026-04-14"}},
+            )
+            served = await served_version(database)
+            await sweep(database, client, now=MAIL_NOW)
+            assert REMIND_OID not in await reminded(database)
+
+            return await declined_on(database, served)
+
+        document = on_a_league(mongo_replica_set_url, body)
+
+        assert document["status"] == "declined"
+        assert document["confirmations"]["ansprechperson"]["chase_closed_at"] == TODAY
+
+    def test_the_chase_a_delivered_mail_opens(self, mongo_replica_set_url: str):
+        """The Stellvertretung's Widerspruch tells the Ansprechperson, whose delivered notice opens the chase the pass closed."""
+
+        declined_at = MAIL_NOW + timedelta(hours=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
+            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
+            await sweep(database, client, now=MAIL_NOW)
+            await decline(database, client, f"{REMIND_OID}-stellvertretung", now=declined_at)
+            await drained(database, client, now=declined_at)
+            notice = await database[Collection.OUTBOX].find_one({"kind": "bewerbung_objection"})
+            assert notice is not None
+            closed = await stored(database, REMIND_OID)
+            assert closed is not None and closed["confirmations"]["ansprechperson"]["chase_closed_at"] == TODAY
+            served = await served_version(database)
+            await post_event(
+                event_data=FLOutboxEventPayload(id=notice["_id"], state="delivered", reason=None, at=declined_at),
+                outbox_collection=database[Collection.OUTBOX],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                db_client=client,
+            )
+
+            return await declined_on(database, served)
+
+        document = on_a_league(mongo_replica_set_url, body)
+
+        assert document["status"] == "declined"
+        assert document["confirmations"]["ansprechperson"]["chase_closed_at"] is None
+
+
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
 STANDING = compose_barred_until_saison_id(running_saison_id=SAISON_ID)
 
@@ -1188,7 +1282,8 @@ class TestOneRowHoldsBackNoOther:
 
         # The refused row's mails went with its stamp: nobody is chased whose seat says they were not.
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
-        refusal = "OperationFailure, code 121"
+        # The stamp is an update rather than a find-and-modify, which the driver refuses as its `WriteError`.
+        refusal = "WriteError, code 121"
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(SECOND_OID), "reminder", f"{refusal}")]
 
     def test_a_pass_whose_every_reminder_fails_counts_them(self, mongo_replica_set_url: str):
