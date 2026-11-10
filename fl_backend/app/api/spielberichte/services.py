@@ -372,7 +372,7 @@ def compose_view(
 
     def team(side: FLSpielSide) -> dict[str, Any] | None:
         team_field = spiel.get(side)
-        return None if team_field is None else {"team_id": team_field["team_id"], "name": team_field["name"]}
+        return None if team_field is None else {key: team_field[key] for key in ("team_id", "name", "shorthand")}
 
     return {
         "spiel": {
