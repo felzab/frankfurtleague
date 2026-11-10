@@ -11,8 +11,7 @@ import { TextField } from "@/kit/TextField";
 import { appToast } from "@/kit/Toast";
 import { answering } from "@/kit/useFormAction";
 
-import { COPY } from "@/core/copy";
-import { rollenText } from "@/core/teamVocabulary";
+import { COPY, rollenText } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

@@ -11,7 +11,6 @@ import {
   formatPeriod,
   formatTime,
 } from "./format";
-import { KONTAKT_ROLLE_LONG_FORM, rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
 import type {
@@ -24,9 +23,27 @@ import type {
   FLSonderereignis,
   FLSpielerRolle,
   FLSpielerStufe,
+  FLTrikotFarbe,
 } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
+
+/** Each seat's name in a sentence to the public, in the order `rollenText` joins them, and a seat's box's title. */
+const KONTAKT_ROLLE_LONG_FORM = {
+  ansprechperson: "Ansprechperson",
+  stellvertretung: "Stellvertretung",
+  trainer: "Trainerin oder Trainer",
+} as const satisfies Record<FLKontaktRolle, string>;
+
+/**
+ * The seats one reader holds, as the phrase a page or a mail addresses them by. In the table's order rather than the
+ * argument's: a person holding two seats reads one phrase whichever record the seats were collected from.
+ */
+export function rollenText(rollen: readonly FLKontaktRolle[]): string {
+  const order = Object.keys(KONTAKT_ROLLE_LONG_FORM) as FLKontaktRolle[];
+
+  return formatList(order.filter((rolle) => rollen.includes(rolle)).map((rolle) => KONTAKT_ROLLE_LONG_FORM[rolle]));
+}
 
 /**
  * A string the catalogue wrote. Every kit text prop takes this type, so a string typed into a page
@@ -488,13 +505,40 @@ export const COPY = catalogue({
     website: "Website",
     gruppe: "Gruppe",
     trikotFarbe: "Trikotfarbe",
+    /** Each kit colour's name in the league's colour sheet, whose hexes stand in `fl_frontend/src/core/teamVocabulary.ts`. */
+    trikotFarbeName: {
+      schwarz: "Schwarz",
+      weiss: "Weiß",
+      grau: "Grau",
+      braun: "Braun",
+      bordeaux: "Bordeaux",
+      rot: "Rot",
+      koralle: "Koralle",
+      orange: "Orange",
+      gold: "Gold",
+      gelb: "Gelb",
+      limette: "Limette",
+      hellgruen: "Hellgrün",
+      gruen: "Grün",
+      smaragd: "Smaragd",
+      tuerkis: "Türkis",
+      cyan: "Cyan",
+      hellblau: "Hellblau",
+      meerblau: "Meerblau",
+      blau: "Blau",
+      dunkelblau: "Dunkelblau",
+      flieder: "Flieder",
+      violett: "Violett",
+      magenta: "Magenta",
+      rosa: "Rosa",
+    } satisfies Record<FLTrikotFarbe, string>,
     wunschfarbe: "Wunschfarbe",
     stufengroesse: "Größe der Stufe",
     trikotSet: "Vorhandene Trikotsätze",
     expectedKader: "Voraussichtliche Kadergröße",
     goodSpieler: "Davon im Verein",
     wunschgegner: "Wunschgegner",
-    /** The select in the Trainer's box, whose two other entries are `KONTAKT_ROLLE_LONG_FORM`'s. */
+    /** The select in the Trainer's box, whose two other entries are `seatName`'s. */
     trainerAlso: {
       label: "Übernimmt zugleich",
       description: "Eine Person kann zwei Rollen haben.",
@@ -1227,7 +1271,7 @@ export const COPY = catalogue({
       existingTeam: "Bestehendes Team",
       /** The acceptance's group over the open Kürzel box, and „Team eintragen“'s group and entry. */
       newSchool: "Neue Schule",
-      /** A colour's description in the acceptance, by its `TRIKOT_FARBEN` name. */
+      /** A colour's description in the acceptance, by its `trikotFarbeName`. */
       wish: (farbe: string) => `Wunsch: ${farbe}`,
       /** Over a list the read's cap cut, which a flooded season reaches. */
       cut: "Nicht alle Bewerbungen sind geladen.",

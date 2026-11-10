@@ -1,9 +1,8 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { catalogue, COPY, textOf, waitWords } from "./copy";
+import { catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
 import { formatDate, formatDateLong, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
-import { rollenText } from "./teamVocabulary";
 
 import type { Copy, Wait, Words } from "./copy";
 import type { CalendarDay } from "./format";

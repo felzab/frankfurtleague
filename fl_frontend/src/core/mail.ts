@@ -6,6 +6,7 @@ import path from "node:path";
 import { symmetricDecrypt } from "better-auth/crypto";
 
 import { KONTAKT_EMAIL } from "./brand";
+import { now } from "./clock";
 import { authResendKey, authSecret, frontend_config } from "./config";
 import { COPY } from "./copy";
 import { isOneBareMailbox } from "./emailAddress";
@@ -156,7 +157,7 @@ function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, t
  */
 async function writeToSink(message: OutboundMail, traceId: string): Promise<void> {
   const directory = path.join(process.cwd(), MAIL_SINK_DIR);
-  const stem = sinkFileStem(message.subject, new Date());
+  const stem = sinkFileStem(message.subject, now());
 
   try {
     await mkdir(directory, { recursive: true });

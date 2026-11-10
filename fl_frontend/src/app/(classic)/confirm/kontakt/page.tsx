@@ -8,14 +8,13 @@ import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit
 import { requires } from "@/core/action";
 import { now } from "@/core/clock";
 import { SEAT_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
+import { COPY, rollenText } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { bornAfter, bornBy, dayIn, dayOf, formatDate } from "@/core/format";
 import { bewerbungenGetEinwilligungView } from "@/core/generated/client/sdk";
 import { BewerbungenPostEinwilligungBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { rollenText } from "@/core/teamVocabulary";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { pageMetadata } from "@/shared/utils/metadata";
 
