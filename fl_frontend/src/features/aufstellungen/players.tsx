@@ -2,11 +2,10 @@ import { RoleMark } from "@/kit/RoleMark";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { kaderName } from "@/features/spieler/constants";
+import { spielerName } from "@/features/spieler/constants";
 
 import { STARTERS_MAX } from "./constants";
 
-import type { Words } from "@/core/copy";
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { LineupPlayer, LineupWords } from "@/kit/Lineup";
@@ -27,11 +26,6 @@ export const LINEUP_WORDS: LineupWords = {
   startersFull: COPY.shared.field.max(STARTERS_MAX),
   nomineeLocked: COPY.area.team.aufstellung.nomineeLocked,
 };
-
-/** A pupil as the club's own people read them, or „anonym“ where an erasure took the record. */
-export function nameOf({ first_name, last_name }: Pick<FLAufstellungSpieler, "first_name" | "last_name">): Words {
-  return first_name === null ? SERVER_COPY.season.spiel.anonymous : { record: kaderName({ first_name, last_name }) };
-}
 
 /** The captain's or the co-captain's mark after the name, where the squad row holds either role. */
 export function markOf({ rolle }: Pick<FLAufstellungSpieler, "rolle">): RoleMarkProps | undefined {
@@ -54,7 +48,7 @@ function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
   const chip = chipOf(spieler);
   return {
     id: spieler.spieler_id,
-    name: nameOf(spieler),
+    name: spielerName(spieler),
     nummer: nummerOf(spieler),
     ...(spieler.position === null ? {} : { position: { record: spieler.position } }),
     ...(mark === undefined ? {} : { mark: <RoleMark {...mark} /> }),

@@ -21,6 +21,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { requireRole } from "@/features/roles/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { matchName, matchTitle } from "@/features/spiele/blocks";
+import { spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -133,7 +134,7 @@ export default function SpielberichtPage({ params }: Props) {
 
 /** A pupil by number and name as the squad lists them; one an erasure took is „anonym“, as every page names them. */
 function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }: FLSpielberichtSpieler): Option {
-  const name = first === null ? SERVER_COPY.season.spiel.anonymous : { record: last === null ? first : `${first} ${last}` };
+  const name = spielerName({ first_name: first, last_name: last });
   return { id, label: { record: SERVER_COPY.area.line([nummer === null ? null : { record: nummer }, name]) } };
 }
 

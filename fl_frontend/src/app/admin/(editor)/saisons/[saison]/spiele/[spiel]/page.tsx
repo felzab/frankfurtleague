@@ -20,6 +20,7 @@ import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
+import { spielerName } from "@/features/spieler/constants";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -184,8 +185,7 @@ function scorerOf(bericht: FLSpielEditorBericht, spielerId: string | null): Word
   const words = SERVER_COPY.season.spiel;
   if (spielerId === null) return words.unknown;
   const named = bericht.named.find((spieler) => spieler.spieler_id === spielerId);
-  if (named === undefined || named.first_name === null) return words.anonymous;
-  return { record: named.last_name === null ? named.first_name : `${named.first_name} ${named.last_name}` };
+  return named === undefined ? words.anonymous : spielerName(named);
 }
 
 /** A minute as the report writes it, „45+2“, in the order it was played. */

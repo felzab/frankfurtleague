@@ -3,7 +3,8 @@ import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { chipOf, LINEUP_WORDS, markOf, nameOf } from "@/features/aufstellungen/players";
+import { chipOf, LINEUP_WORDS, markOf } from "@/features/aufstellungen/players";
+import { spielerName } from "@/features/spieler/constants";
 
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
@@ -27,7 +28,7 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungSpieler[], gone: Re
       const chip = chipOf(entry);
       return {
         id: entry.spieler_id,
-        name: nameOf(entry),
+        name: spielerName(entry),
         ...(mark === undefined ? {} : { mark }),
         ...(chip === undefined ? {} : { chip }),
         // Named before the squad lost them: the editor's line for such a row.

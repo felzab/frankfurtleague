@@ -13,6 +13,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
+import { spielerName } from "@/features/spieler/constants";
 import { austrittChip, austrittState } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -75,9 +76,8 @@ export default function TeamPage({ params }: Props) {
  * Co-Kapitän's mark after it; else „anonym“, never with a mark, which would say who the nameless pupil is.
  */
 function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
-  if (spieler.first_name === null) return { name: SERVER_COPY.season.spiel.anonymous };
-  const name = { record: [spieler.first_name, spieler.last_name].filter((part) => part !== null).join(" ") };
-  return spieler.rolle === null
+  const name = spielerName(spieler);
+  return spieler.first_name === null || spieler.rolle === null
     ? { name }
     : { name, mark: { letters: COPY.shared.rolleMark[spieler.rolle], label: COPY.admin.spieler.rolleOption[spieler.rolle] } };
 }
