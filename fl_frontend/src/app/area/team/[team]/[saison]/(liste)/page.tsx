@@ -140,13 +140,16 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
   };
 }
 
-/** A seat, read-only: who holds it and whether they confirmed it, an empty one muted. */
+/**
+ * A person on the seats, read-only: who, which seats they hold, as the league's own team block folds a Trainer's second
+ * seat into one row, and whether they confirmed; an empty seat muted. A row's seats are its key, no seat held twice.
+ */
 function seatRow(seat: FLTeamSeat) {
-  const held = COPY.admin.seatLine([seat.rolle], null, null);
+  const held = COPY.admin.seatLine(seat.rollen, null, null);
   return seat.name === null
-    ? { id: seat.rolle, name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
+    ? { id: seat.rollen.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
     : {
-        id: seat.rolle,
+        id: seat.rollen.join(" "),
         name: { record: seat.name },
         chips: [
           seat.confirmed ? { tone: "success" as const, label: COPY.admin.confirmed } : { tone: "warn" as const, label: COPY.template.open },
