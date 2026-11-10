@@ -61,7 +61,10 @@ export const SEAT: FLSubjectSeat = deepFrozen({
   team_id: "6890a1b2c3d4e5f607250011",
   rolle: "ansprechperson",
   team_name: "Goethe-Gymnasium",
+  team_shorthand: "GOE",
   saison_status: "active",
+  saison_start_date: "2025-09-01",
+  saison_end_date: "2026-07-31",
 });
 
 export const seat = (fields: Partial<FLSubjectSeat> = {}): FLSubjectSeat => ({ ...SEAT, ...fields });
