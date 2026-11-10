@@ -153,9 +153,7 @@ ERASURE_REASON_MAX_LENGTH: Final = 200
 type FLBanDurationSaisons = Literal[5]
 BAN_DURATION_SAISONS: Final[FLBanDurationSaisons] = 5
 
-# How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
-# days, which is the window a mistyped address is caught in: this link waits on an adult with no
-# second route in.
+# How long a referee has to confirm; a re-send restarts it.
 type FLSchiedsrichterConfirmationDeadlineDays = Literal[14]
 SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS: Final[FLSchiedsrichterConfirmationDeadlineDays] = 14
 
@@ -214,19 +212,30 @@ SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.
 SPIELBERICHT_ENTRIES_MAX: Final = 60
 
+# A line-up's three marks, each counted back from its fixture's kick-off, here and nowhere else: from the first a team
+# holding none is owed its one reminder, from the second a missing line-up reads overdue, and from the third the team's
+# line-up is locked and the administration alone writes it.
+AUFSTELLUNG_REMINDER_HOURS: Final = 48
+AUFSTELLUNG_DUE_HOURS: Final = 24
+AUFSTELLUNG_LOCK_HOURS: Final = 1
+
+# Each mark inside the one before it: a lock ahead of the due mark would close a line-up before it is owed, and a
+# reminder inside the due mark would remind of one already overdue.
+if not AUFSTELLUNG_LOCK_HOURS < AUFSTELLUNG_DUE_HOURS < AUFSTELLUNG_REMINDER_HOURS:
+    raise RuntimeError("A line-up's marks nest: the lock inside the due mark, the due mark inside the reminder's.")
+
+# How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it.
+AUFSTELLUNG_STARTERS_MAX: Final = 11
+
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
 # other.
 SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
 
-# How long a pupil has to confirm their own registration. Seven rather than the application's
-# fourteen because it carries a second job: the window inside which a mistyped address is discovered
-# and the person registers again.
-REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final = 7
-
-# The age at which one registration link is due its single reminder, counted from the mint and set
-# well inside `REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`, so a pupil reminded still has days to answer.
-REGISTRIERUNG_REMINDER_DAYS: Final = 3
+# How long a pupil has to confirm their own registration; a row stores the deadline it was given, so raising this
+# moves no link already mailed. Published, since the confirmation mail states the figure.
+type FLRegistrierungConfirmationDeadlineDays = Literal[14]
+REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLRegistrierungConfirmationDeadlineDays] = 14
 
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
@@ -237,8 +246,8 @@ REGISTRIERUNG_MIN_AGE_YEARS: Final[FLRegistrierungMinAgeYears] = 16
 # ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
 # judgement over every record carrying `media`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed.
-type FLMedienMinAgeYears = Literal[18]
-MEDIA_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
+type FLMediaMinAgeYears = Literal[18]
+MEDIA_MIN_AGE_YEARS: Final[FLMediaMinAgeYears] = 18
 
 # Published as `ADDRESS_CHANGE_BOUNDS` are, for the same reason: the privacy notice and the consent pages state each
 # figure, and `fl_frontend/src/features/bewerbungen/constants.ts`, `registrierungen/constants.ts` and
@@ -248,8 +257,9 @@ CONSENT_BOUNDS: Final = (
     FLBewerbungKontaktMinAgeYears,
     FLSignatoryMinAgeYears,
     FLSchiedsrichterConfirmationDeadlineDays,
+    FLRegistrierungConfirmationDeadlineDays,
     FLRegistrierungMinAgeYears,
-    FLMedienMinAgeYears,
+    FLMediaMinAgeYears,
 )
 
 # The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):

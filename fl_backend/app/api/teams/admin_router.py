@@ -35,7 +35,7 @@ from app.api.kontakte.crud import clear_seats
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
 from app.api.outbox.crud import state_of, states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.registrierungen.services import saison_nimmt_registrierungen_an
+from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
@@ -420,7 +420,7 @@ async def get_team_saison_admin(
         registrierung = saison_raw.get("registrierung")
         link = FLTeamLinkState(
             invitation=await _served_invitation(live[0], outbox_collection=outbox_collection) if live else None,
-            running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=registrierung),
+            running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
             skipped=plan_invitation_dispatch(
                 austritt=row_raw.get("austritt"),

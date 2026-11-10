@@ -104,7 +104,7 @@ def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
 
 
 def zugesagt() -> dict[str, Any]:
-    return {"kind": "zugesagt", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+    return {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
 
 def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
@@ -216,14 +216,14 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
     @pytest.mark.parametrize(
         "home",
-        [pytest.param("zugesagt", id="beside the other club's agreement"), pytest.param("discarded", id="beside a second discard")],
+        [pytest.param("agreed", id="beside the other club's agreement"), pytest.param("discarded", id="beside a second discard")],
     )
     def test_a_discarded_proposal_counts_as_its_clubs_agreement(self, mongo_url: str, home: str):
         """The league kept the date: a join of unclosed rows alone reads one club as never asked, or both as nobody."""
 
         spiel = a_spiel()
         rows = [
-            a_row(spiel, VERDICT_HOME, answer=zugesagt()) if home == "zugesagt" else discarded(spiel, VERDICT_HOME),
+            a_row(spiel, VERDICT_HOME, answer=zugesagt()) if home == "agreed" else discarded(spiel, VERDICT_HOME),
             discarded(spiel, VERDICT_AWAY),
         ]
 

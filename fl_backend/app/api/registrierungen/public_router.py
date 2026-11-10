@@ -7,11 +7,10 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, mailbox_anchor_ids, payload_fingerprint
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, mailbox_anchor_ids
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.schemas import (
     FLInvitationViewResponse,
     FLPostRegistrierungPayload,
@@ -26,26 +25,21 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_LINK,
     build_bestaetigung_filter,
     build_open_link_filter,
-    compose_bestaetigung,
+    compose_confirmation,
     compose_confirmation_update,
     compose_registrierung,
-    find_abweichender_fingerabdruck_refusal,
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
     find_fenster_refusal,
     find_kader_refusal,
     find_medien_refusal,
-    find_schon_aufgenommen_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
     find_team_junction_refusal,
     find_unknown_token_refusal,
-    find_wahlen_refusal,
     kader_free,
-    page_of,
-    saison_nimmt_registrierungen_an,
-    stored_birth_date,
+    saison_takes_registrierungen,
     zustand_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
@@ -68,8 +62,6 @@ from app.core.dependencies import (
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
-    SpielerCollection,
-    SpielerReadCollection,
     TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
@@ -93,9 +85,6 @@ SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_s
 
 # What a season row serves this tier: the name the club plays the season under, and the Austritt that kills its link.
 JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
-
-# What a replay reads of the registration its key found: the digest it is compared by.
-WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
 
 # `resolve_public_saison` is deliberately NOT called below, where every other base-tier season read
 # calls it: a season taking registrations is normally `future`, so that resolve would 404 the flow
@@ -179,7 +168,7 @@ async def post_invitation_view(
         schule=str(team_raw["full_name"]),
         saison_id=saison_id,
         saison_status=saison_raw["status"],
-        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
+        running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
         allowed_stufen=list(rules.get("allowed_stufen") or []),
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
@@ -187,14 +176,6 @@ async def post_invitation_view(
         kader_free=kader_free(nominee=nominee, squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0)),
         nachnominierung=nominee,
     )
-
-
-def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLPostRegistrierungResponse:
-    """The answer a stored key gets: the registration it already holds, whose mail its first press owed, never a second one."""
-
-    refuse(find_abweichender_fingerabdruck_refusal(saved=stored.get("idempotency_fingerprint"), fingerabdruck=fingerabdruck))
-
-    return FLPostRegistrierungResponse(registrierung_id=stored["_id"])
 
 
 @router.post(
@@ -213,8 +194,8 @@ async def post_registrierung(
     outbox_collection: OutboxCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
-    # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
-    # pupil's own press is then refused as a changed replay.
+    # Version 4 alone: a guessable key lets a stranger store a registration under it first, and the
+    # pupil's own press is then answered as that one.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
     today: str = Depends(get_german_date_str),
@@ -228,39 +209,29 @@ async def post_registrierung(
     the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
 
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
-    registration it holds, stores none and owes no second mail. The same key over other details is refused
-    (`registrierung_key_differing`). A key whose registration the team has since admitted is refused too
-    (`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.
+    registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
+    since its last press sends a new key. The key goes with its registration, so one pressed again after the team
+    admitted or declined the pupil, or after the row lapsed, is a new registration.
 
     A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
     the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
-    fingerabdruck = payload_fingerprint(registrierung_data)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostRegistrierungResponse:
         """The replay, or every refusal in the flow's order and then the one write, in one transaction."""
 
         # Before every judgement: a replay answers what the first request did, even where the invite
         # has been revoked or the window has closed since.
+        # The id alone: the registration its first press stored, whose mail that press owed.
         stored = (
             None
             if schluessel is None
-            else await registrierungen_collection.find_one(build_key_filter(key=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
+            else await registrierungen_collection.find_one(build_key_filter(key=schluessel), ["_id"], session=session)
         )
         if stored is not None:
-            return _answer_as_the_first(stored=stored, fingerabdruck=fingerabdruck)
-
-        # The admission carries the key onto the squad row it writes, so a press replayed after it is
-        # still a replay rather than the pupil's second registration.
-        aufgenommen = (
-            None
-            if schluessel is None
-            else await saison_spieler_collection.find_one(build_key_filter(key=schluessel), ["idempotency_fingerprint"], session=session)
-        )
-        if aufgenommen is not None:
-            refuse(find_schon_aufgenommen_refusal(saved=aufgenommen.get("idempotency_fingerprint"), fingerabdruck=fingerabdruck))
+            return FLPostRegistrierungResponse(registrierung_id=stored["_id"])
 
         invitation_raw = await _open_invitation(invitations_collection=invitations_collection, token=registrierung_data.token, session=session)
         saison_id = str(invitation_raw["saison_id"])
@@ -327,10 +298,10 @@ async def post_registrierung(
                     position=registrierung_data.position,
                     nummer=registrierung_data.nummer,
                     stufe=registrierung_data.stufe,
-                    confirmation=compose_bestaetigung(today=today, deadline=deadline, mailed=mailed),
+                    confirmation=compose_confirmation(today=today, deadline=deadline, mailed=mailed),
                     today=today,
                 ),
-                **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
+                **({} if schluessel is None else {"idempotency_key": schluessel}),
             },
             session=session,
         )
@@ -349,7 +320,6 @@ async def post_registrierung(
                         # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
                         team=str((junction_raw or {}).get("name", "")),
                         saison_id=saison_id,
-                        deadline_days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
                     ),
                     reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     link=REGISTRIERUNG_LINK,
@@ -381,14 +351,12 @@ async def get_confirmation_view(
     registrierungen_collection: RegistrierungenReadCollection,
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    spieler_collection: SpielerReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungConfirmationViewResponse:
-    """What the confirmation page renders for the registration this token opens, and nothing of the pupil.
+    """What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
 
     A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
-    left the season reading expired, and `confirmation_spieler_returning` opens the returning
-    pupil's page; only a token no registration holds is refused (`link_invalid`).
+    left the season reading expired; only a token no registration holds is refused (`link_invalid`).
     """
 
     token_hash = hash_token(view_data.token)
@@ -405,9 +373,6 @@ async def get_confirmation_view(
     team_raw = await teams_collection.find_one({"_id": raw["team_id"]}, projection={"name": 1, "full_name": 1})
     assert team_raw is not None
 
-    person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=None)
-    page = page_of(registrierung_raw=raw, person_raw=person)
-
     departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
 
     return FLRegistrierungConfirmationViewResponse(
@@ -415,9 +380,11 @@ async def get_confirmation_view(
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
-        page=page,
         minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
+        # The token filter matched inside the block, so it stands, and its record model requires the day.
+        deadline=str(raw["confirmation"]["deadline"]),
+        answered_at=(raw.get("einwilligung") or {}).get("confirmed_at"),
     )
 
 
@@ -430,7 +397,6 @@ async def post_confirmation(
     answer_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    spieler_collection: SpielerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -438,7 +404,7 @@ async def post_confirmation(
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
 
     Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
-    `confirmation_exists`, `confirmation_age`, `media_age` and `registrierung_choices_unsuitable`.
+    `confirmation_exists`, `confirmation_age` and `media_age`.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -459,35 +425,17 @@ async def post_confirmation(
         departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
-        # In-session, so a person confirmed, erased or re-dated since the view was read moves the page and
-        # the date this press is judged against, and the page it showed is told to reload rather than
-        # stored under the other.
-        person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=session)
-        page = page_of(registrierung_raw=raw, person_raw=person)
-        saved = stored_birth_date(page=page, person_raw=person)
-        refuse(
-            find_wahlen_refusal(
-                page=page,
-                scope=answer_data.scope,
-                media=answer_data.media,
-                text_versions=answer_data.text_versions,
-                birth_date=answer_data.birth_date,
-            )
-        )
-        # Exactly one of the two is set once the refusals above have passed: every stored person carries a birthdate.
-        birth_date = answer_data.birth_date or saved
-        assert birth_date is not None
-        refuse(find_alter_refusal(birth_date=birth_date, today=today))
-        refuse(find_medien_refusal(birth_date=birth_date, media=answer_data.media is True, today=today))
+        refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_medien_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
-                birth_date=birth_date,
+                birth_date=answer_data.birth_date,
                 scope=answer_data.scope,
                 media=answer_data.media,
-                text_versions=None if answer_data.text_versions is None else by_choice(answer_data.text_versions),
+                text_versions=by_choice(answer_data.text_versions),
                 today=today,
                 at=utc_stamp(germany_now),
             ),
@@ -499,7 +447,7 @@ async def post_confirmation(
         # The payload's own three rather than the updated document's: this answer is what the page
         # states back, and re-reading the row would widen it to everything a registration holds.
         return FLRegistrierungConfirmationResponse(
-            ergebnis="confirmed",
+            outcome="confirmed",
             birth_date=answer_data.birth_date,
             scope=answer_data.scope,
             media=answer_data.media,

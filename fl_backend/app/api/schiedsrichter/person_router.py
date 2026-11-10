@@ -1,4 +1,5 @@
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
@@ -15,11 +16,11 @@ from app.api.account.services import (
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
-from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterSelfResponse,
-)
+from app.api.saisons.schemas import FLOwnSaisonsResponse
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfResponse, FLSchiedsrichterSpieleResponse
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
 from app.core.clock import utc_stamp
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
@@ -29,6 +30,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exceptions import APIError
 from app.core.journal import Journal
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
@@ -141,3 +143,37 @@ async def patch_einwilligung(
     async with journal:
         async with transaction_session(db) as session:
             await session.with_transaction(write)
+
+
+@router.get(
+    "/self/spiele/{saison_id}",
+    response_model=FLSchiedsrichterSpieleResponse,
+    summary="A signed-in referee's fixtures of one season, one row a fixture",
+)
+async def get_self_spiele(saison_id: str, identifier: PersonIdentifier) -> FLSchiedsrichterSpieleResponse:
+    """
+    Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+
+    Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
+    their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
+    today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
+
+    Refuses an address holding no live, confirmed referee record (`role_not_held`).
+    """
+
+    # Session 8: the read goes from the referee's own records to the season's fixtures booking them, each joined to
+    # its newest confirmation row and its report.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+
+
+@router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in referee has fixtures in")
+async def get_self_saisons(identifier: PersonIdentifier) -> FLOwnSaisonsResponse:
+    """
+    Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
+
+    A planned season is served as any other. Refuses an address holding no live, confirmed referee record
+    (`role_not_held`).
+    """
+
+    # Session 8: the read goes from the referee's own records to the seasons of the fixtures booking them.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)

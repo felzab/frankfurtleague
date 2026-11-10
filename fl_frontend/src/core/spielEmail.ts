@@ -2,13 +2,14 @@ import "server-only";
 
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
-import { dayOf, formatDateLong, formatDayAndTime, formatTime, timeOf } from "./format";
+import { dayOf, formatDateLong, formatDayAndTime, formatInstant, formatTime, timeOf } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
 import type { Fact, Mail, Paragraph, Sentence } from "./emailShell";
 import type {
+  FLAufstellungReminderData,
   FLAustrittNoticeData,
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
@@ -32,7 +33,7 @@ export function spielConfirmationLink(origin: string, token: string): string {
   return `${mailOrigin(origin)}${ROUTES.spielbestaetigung.path()}?token=${encodeURIComponent(token)}`;
 }
 
-/** The referee's own panel, the address `fl_frontend/src/features/funktionen/utils.ts` opens their Funktion on. */
+/** The referee's own panel, the address `fl_frontend/src/features/roles/utils.ts` opens their Funktion on. */
 const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
 
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */
@@ -195,6 +196,34 @@ export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorsch
     around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
     WORDS.keptDiscarded,
   ]);
+}
+
+/**
+ * The one reminder to a club that a fixture's line-up is missing: the fixture between the two sentences, the second
+ * naming the moment the backend counted it due at. No token: the reader enters it on the team's own pages, signed in.
+ */
+export function buildAufstellungReminderEmail(
+  { team, team_id: teamId, saison_id: saison, appointment, due_at: dueAt }: FLAufstellungReminderData,
+  { origin }: MailOrigin,
+): Mail {
+  const site = mailOrigin(origin);
+  const words = SERVER_COPY.mail.aufstellung;
+
+  return {
+    kind: "notice",
+    subjectLine: words.reminderSubject(dayOf(appointment.date)),
+    origin: site,
+    paragraphs: [[words.missing({ record: team })]],
+    block: {
+      title: paarung(appointment),
+      facts: [
+        { label: FACT.date, value: formatDateLong(dayOf(appointment.date)) },
+        { label: FACT.time, value: formatTime(timeOf(appointment.time)) },
+      ],
+    },
+    afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
+    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
+  };
 }
 
 /**

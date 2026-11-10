@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query
@@ -26,7 +25,6 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
-    OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonsReadCollection,
@@ -45,7 +43,6 @@ from app.core.dependencies import (
     SpieltageReadCollection,
     TeamsCollection,
     get_german_date_str,
-    get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -109,7 +106,6 @@ async def get_spiel_admin(
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    outbox_collection: OutboxCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
 ) -> FLSpieleAdminSingleResponse:
     """
@@ -133,7 +129,6 @@ async def get_spiel_admin(
         spieler_collection=spieler_collection,
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
-        outbox_collection=outbox_collection,
         saison_teams_collection=saison_teams_collection,
     )
 
@@ -166,9 +161,8 @@ async def patch_spiel(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     adopts_bericht: Annotated[
         int | None,
-        Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
+        Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    now: datetime = Depends(get_germany_now),
     today: str = Depends(get_german_date_str),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
@@ -207,7 +201,7 @@ async def patch_spiel(
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, session=session
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

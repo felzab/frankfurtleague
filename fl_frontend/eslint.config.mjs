@@ -319,8 +319,8 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["identity_get_references"],
-    wrapper: { file: "src/features/funktionen/mutations.ts", names: ["postReferenzen"] },
-    runners: ["src/features/funktionen/sweep.ts"],
+    wrapper: { file: "src/features/roles/mutations.ts", names: ["postReferences"] },
+    runners: ["src/features/roles/sweep.ts"],
   },
   {
     operations: ["identity_sweep_erasure"],

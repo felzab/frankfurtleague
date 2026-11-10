@@ -1,8 +1,6 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -477,8 +475,7 @@ async def call_patch(
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         adopts_bericht=adopts_bericht,
-        now=ADOPTED_AT,
-        today=ADOPTED_AT.date().isoformat(),
+        today=ADOPTED_ON,
         dry_run=dry_run,
     )
 
@@ -1375,28 +1372,26 @@ class TestTheQueueReadsTheHoldersTheRefusalReads:
 
 # The adoption stamp: a save carrying `adopts_bericht` stamps the fixture's report, in its own transaction.
 
-# As `get_germany_now` answers, so the stored instant is compared as the moment it is rather than as a wall-clock reading.
-ADOPTED_AT = datetime(2026, 5, 2, 18, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-# Past the first write, so a stamp copying a constant rather than the seed cannot pass.
+# The day the save runs on.
+ADOPTED_ON = "2026-05-02"
+# Past the first write, so a stamp matching a constant rather than the version the editor read cannot pass.
 SEEDED_VERSION = 2
 
 
 def a_report_on(spiel: dict[str, Any], *, version: int) -> dict[str, Any]:
-    return documents.spielbericht_document(
-        spiel, bericht=documents.bericht_document(version=version, sides=documents.spielbericht_sides(spiel))
-    )
+    return documents.spielbericht_document(spiel, version=version)
 
 
 async def reports_now(database: AsyncDatabase) -> dict[ObjectId, dict[str, Any]]:
-    """Each report's block, keyed by its fixture."""
+    """Each report's document, keyed by its fixture."""
 
     rows = await database[Collection.SPIELBERICHTE].find({}).to_list(length=None)
 
-    return {row["spiel_id"]: row["bericht"] for row in rows}
+    return {row["spiel_id"]: row for row in rows}
 
 
 async def with_reports(database: AsyncDatabase, reports: list[dict[str, Any]]) -> dict[ObjectId, dict[str, Any]]:
-    """`reports` stored, and each block as read back: a stored instant returns without the zone it was written with."""
+    """`reports` stored, and each document as read back: a stored instant returns without the zone it was written with."""
 
     await database[Collection.SPIELBERICHTE].insert_many(reports)
 
@@ -1429,12 +1424,8 @@ class TestOnlyALandedSaveStamps:
 
         assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1"
         stamped = after[VIERTELFINALE]
-        assert (stamped["adopted_version"], stamped["version"], stamped["adopted_by"]) == (
-            SEEDED_VERSION,
-            SEEDED_VERSION,
-            {"kind": "admin"},
-        )
-        assert stamped["adopted_at"].replace(tzinfo=UTC) == ADOPTED_AT
+        # The stamp is a write of the document, so it raises the count it matched on.
+        assert (stamped["bericht"]["adopted"], stamped["version"]) == (True, SEEDED_VERSION + 1)
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
 
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])

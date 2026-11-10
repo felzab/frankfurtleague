@@ -63,7 +63,7 @@ async function loadJobs(): Promise<{
 }> {
   const [bewerbungen, account, erasure, spiele, grants, mail] = await Promise.all([
     import("./features/bewerbungen/sweep"),
-    import("./features/funktionen/sweep"),
+    import("./features/roles/sweep"),
     import("./features/saisons/sweep"),
     import("./features/spielbestaetigungen/sweep"),
     import("./features/grants/sweep"),

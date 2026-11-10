@@ -61,7 +61,7 @@ vi.doMock("@/core/logging.ts", () => ({
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
 }));
 
-const { REFERENZEN_ADRESSEN_MAX, runAccountSweep } = await import("./sweep.ts");
+const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep.ts");
 
 /** The addresses one call asked about. */
 const askedIn = (call: ApiCall): string[] => (JSON.parse(call.body ?? "{}") as FLReferencesPayload).identifiers;
@@ -120,12 +120,12 @@ describe("the batches a pass asks in", () => {
   /* The read refuses a batch past its ceiling whole, every pass alike, so a pass sending one would
      delete nothing ever after behind one failure line an hour. */
   it("asks one more account than the ceiling in two batches, none past it, each address once", async () => {
-    accounts = adressen(REFERENZEN_ADRESSEN_MAX + 1);
+    accounts = adressen(REFERENCES_ADDRESSES_MAX + 1);
 
     await runAccountSweep();
 
     const asked = calls.map(askedIn);
-    expect(asked.map((batch) => batch.length)).toStrictEqual([REFERENZEN_ADRESSEN_MAX, 1]);
+    expect(asked.map((batch) => batch.length)).toStrictEqual([REFERENCES_ADDRESSES_MAX, 1]);
     expect(asked.flat(), "an address was asked twice, or not at all").toStrictEqual(accounts);
   });
 
@@ -139,19 +139,19 @@ describe("the batches a pass asks in", () => {
 
 describe("a pass meeting a failure", () => {
   it("deletes nothing a failed batch asked about, still deletes from the next, and writes one failure line", async () => {
-    accounts = adressen(REFERENZEN_ADRESSEN_MAX + 2);
-    const zweiter = accounts.slice(REFERENZEN_ADRESSEN_MAX);
+    accounts = adressen(REFERENCES_ADDRESSES_MAX + 2);
+    const zweiter = accounts.slice(REFERENCES_ADDRESSES_MAX);
     referenzen = (identifiers) => {
-      if (identifiers.length === REFERENZEN_ADRESSEN_MAX) throw new TypeError("fetch failed");
+      if (identifiers.length === REFERENCES_ADDRESSES_MAX) throw new TypeError("fetch failed");
       return identifiers;
     };
 
     // The batch it could not judge is what the pass left, which the heartbeat names.
-    expect((await runAccountSweep()).open).toBe(REFERENZEN_ADRESSEN_MAX);
+    expect((await runAccountSweep()).open).toBe(REFERENCES_ADDRESSES_MAX);
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "account.references_failed", fields: { name: "TypeError", count: REFERENZEN_ADRESSEN_MAX } },
+      { event: "account.references_failed", fields: { name: "TypeError", count: REFERENCES_ADDRESSES_MAX } },
     ]);
   });
 
@@ -259,9 +259,9 @@ describe("a pass meeting a failure", () => {
   /* Every kind of line a pass writes, each failure carrying an address in its message the way a real
      one does: an account's address is what this pass must never put on a line, and it mails nobody. */
   it("names no address on any line, and mails nobody", async () => {
-    accounts = [...adressen(REFERENZEN_ADRESSEN_MAX + 1, "batch"), "geloescht@schule.de", "fehler@schule.de"];
+    accounts = [...adressen(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.de", "fehler@schule.de"];
     referenzen = (identifiers) => {
-      if (identifiers.length === REFERENZEN_ADRESSEN_MAX) throw new TypeError(`refused ${identifiers.join(", ")}`);
+      if (identifiers.length === REFERENCES_ADDRESSES_MAX) throw new TypeError(`refused ${identifiers.join(", ")}`);
       return identifiers;
     };
     deleteOutcomes.set("fehler@schule.de", "throws");

@@ -135,6 +135,19 @@ def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> Writ
     return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
 
 
+def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: int | None) -> WriteRefusal | None:
+    """`version_stale` for the save of a document its form's first save creates.
+
+    A null `version` says the form showed no document, and matches only absence: a first save committed since refuses
+    it, as a number refuses once the document moved or went.
+    """
+
+    if (None if saved is None else int(saved.get(VERSION_FIELD) or 0)) == version:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
 def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
     """`update` raising the version, on a collection whose documents count their writes."""
 

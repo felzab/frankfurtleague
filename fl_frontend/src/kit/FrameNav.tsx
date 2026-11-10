@@ -92,7 +92,7 @@ type SaisonFrame = {
  * A team frame's seasons, handed down unawaited as a season frame's are: every team the person holds, by its id as the
  * address spells it, each with the seasons the person holds it in. The layout reads the person and the address alone
  * names the team, so the frame takes the seasons of the team the address names; at the address of a team the person
- * does not hold it has no season and lists no team page.
+ * does not hold it has no season to offer, and lists the team's pages at the team and season the address spells.
  */
 type TeamFrame = {
   teams: Promise<ReadonlyArray<Saisons & { team: string }>>;
@@ -211,24 +211,34 @@ export function counterpart({
 
 /**
  * The entries with their addresses, a season's page in the season the page works in and a team's with the team the
- * address names; one with no address is left out. With no season at all a season's page leads to `withoutSaison`, an
- * address that is not its own (`own`).
+ * address names; one with no address is left out. With no season at all a season's page leads to `withoutSaison`,
+ * which is its own address (`own`) only where no other entry leads there: a frame of one season page has its place
+ * there, and several led to one address are the place of none. A team the person does not hold keeps its pages in the
+ * menu, each at the team and season the address spells and each answering with the same refusal, so the menu there is
+ * the one every team's address shows.
  */
 function useEntries(groups: ReadonlyArray<RailGroup>) {
   const frame = useContext(SaisonContext);
   const saison = useFrameSaison();
+  const { team, saison: named } = useParams();
   const hrefOf = (entry: RailEntry): Route | undefined => {
     if (entry.href !== undefined) return entry.href;
-    if (entry.team !== undefined) return saison?.team === undefined ? undefined : ROUTES[entry.team].path(saison.team, saison.active);
+    if (entry.team !== undefined) {
+      if (saison?.team !== undefined) return ROUTES[entry.team].path(saison.team, saison.active);
+      const spelled = frame?.teams !== undefined && typeof team === "string" && typeof named === "string";
+      return spelled ? ROUTES[entry.team].path(team, named) : undefined;
+    }
     return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
+  const led = groups.flatMap((group) => group.entries.map(hrefOf));
   return groups
     .map((group) => ({
       heading: group.heading,
       entries: group.entries.flatMap((entry) => {
         const href = hrefOf(entry);
-        const own = entry.saison === undefined || saison !== null;
-        return href === undefined ? [] : [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
+        if (href === undefined) return [];
+        const own = entry.saison === undefined || saison !== null || led.filter((each) => each === href).length === 1;
+        return [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
       }),
     }))
     .filter((group) => group.entries.length > 0);
@@ -238,8 +248,11 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 export type Account = {
   /** The person's name; an administrator's grant stores none, so the row names the address instead. */
   name?: RecordText;
-  /** The role the area is for, the row's second line on a page whose place gives none of its own. */
-  role: Copy;
+  /**
+   * The role the area is for, the row's second line on a page whose place gives none of its own. An area that is no
+   * one role's gives none, and the row there is the name alone.
+   */
+  role?: Copy;
   /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
@@ -509,11 +522,11 @@ export type AccountRead = Promise<Account | null>;
 
 /**
  * The rail's foot when signed in: the avatar, the name and the role under it, the role of the place the page lies
- * under where that place gives its own, else the area's. The whole row is the one button opening
- * the account menu, filled under the pointer as the season button over it is, so it carries no „…“ of its own, which
- * would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar alone stands centred, 8
- * px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu then opens beside the
- * row, at the rail's edge.
+ * under where that place gives its own, else the area's, and the name alone where neither gives one. The whole row is
+ * the one button opening the account menu, filled under the pointer as the season button over it is, so it carries no
+ * „…“ of its own, which would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar
+ * alone stands centred, 8 px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu
+ * then opens beside the row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
@@ -538,7 +551,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             <span className="truncate font-semibold text-fg">{name}</span>
-            <span className="truncate text-xs text-fg-muted">{role}</span>
+            {role !== undefined && <span className="truncate text-xs text-fg-muted">{role}</span>}
           </span>
         </AriaButton>
       }
@@ -845,10 +858,10 @@ export function BackControl({ href }: { href: Route }) {
 }
 
 /**
- * „‹ Zurück“ in an editor's band while the list it leads to is read: its glyph and its words as the band's bars, in
- * the place and at the size the control takes.
+ * „‹ Zurück“ while the address it leads to is read, an editor's list or an area's own way back: its glyph and its
+ * words as the band's bars, in the place and at the size the control takes.
  */
-export function EditorBackPlaceholder() {
+export function BackPlaceholder() {
   return (
     <Placeholder layout={back({ class: "gap-1" })}>
       <span className={placeholderBar("size-4.5")} />
@@ -858,6 +871,15 @@ export function EditorBackPlaceholder() {
       />
     </Placeholder>
   );
+}
+
+/**
+ * An area's own way back once the read naming it has landed: „‹ Zurück“ to the address it answers, or `none`, the
+ * logo, where it answers no address, the person having nowhere to go back to.
+ */
+export function ReadBack({ back, none }: { back: Promise<Route | null>; none: ReactNode }) {
+  const href = use(back);
+  return href === null ? none : <BackControl href={href} />;
 }
 
 /**

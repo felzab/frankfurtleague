@@ -120,7 +120,7 @@ async def pull_vorschlag_open(
             "spiel_id": spielbestaetigung_raw["spiel_id"],
             "party.kind": "team",
             "party.team_id": {"$ne": spielbestaetigung_raw["party"]["team_id"]},
-            "ansetzung.stand": spielbestaetigung_raw["ansetzung"]["stand"],
+            "ansetzung.digest": spielbestaetigung_raw["ansetzung"]["digest"],
             "answer.kind": "declined",
             "closed": None,
         },

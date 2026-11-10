@@ -17,8 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_decline_update, compose_kontakte
-from app.api.kontakte.services import build_clearing_update
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_kontakte
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -414,40 +413,6 @@ class TestTheSubmissionKey:
         first, second = on_a_league(mongo_replica_set_url, body)
 
         assert first == second
-
-    def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await submit(database, key=SCHLUESSEL)
-            with pytest.raises(APIError) as refused:
-                await submit(database, key=SCHLUESSEL, stufengroesse=91)
-
-            return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_KEY_DIFFERING, 1)
-
-    @pytest.mark.parametrize(
-        "emptying",
-        [
-            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="an objection"),
-            pytest.param(build_clearing_update(("stellvertretung",), confirmations=True), id="a contact erasure"),
-        ],
-    )
-    def test_emptying_a_seat_takes_the_digest_with_it(self, mongo_replica_set_url: str, emptying: Mapping[str, Any]):
-        """The digest was taken over that person's details too; a replay then meets the refusal of other details, which stays true."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await submit(database, key=SCHLUESSEL)
-            await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
-            stored = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(APIError) as refused:
-                await submit(database, key=SCHLUESSEL)
-
-            return stored, refused.value.error_code
-
-        stored, code = on_a_league(mongo_replica_set_url, body)
-
-        assert "idempotency_fingerprint" not in stored
-        assert code == Code.BEWERBUNG_KEY_DIFFERING
 
     def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two keyless presses' rows would otherwise both index as null and collide."""

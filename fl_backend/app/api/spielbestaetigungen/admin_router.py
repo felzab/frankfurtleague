@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.outbox.crud import states_of
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows, pull_named_spiele
 from app.api.spielbestaetigungen.schemas import (
@@ -40,7 +39,6 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
 from app.api.spiele.schemas import FLSpiel
-from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -59,7 +57,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
-from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -74,25 +71,6 @@ router = APIRouter(
 FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
 
 
-async def _with_delivery(*, outbox_collection: ReadCollection, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
-    """The rows as served, each seat holding a link carrying what became of the last mail owed to it."""
-
-    states = await states_of(outbox_collection=outbox_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows])
-
-    def served(row: Mapping[str, Any]) -> FLSpielbestaetigung:
-        kontakte = row.get("kontakte")
-        if not isinstance(kontakte, Mapping):
-            return FLSpielbestaetigung.model_validate(row)
-
-        seats = {
-            seat: None if not isinstance(entry, Mapping) else {**entry, "delivery": states.get((row["_id"], seat))}
-            for seat, entry in kontakte.items()
-        }
-        return FLSpielbestaetigung.model_validate({**row, "kontakte": seats})
-
-    return [served(row) for row in rows]
-
-
 @router.get(
     "",
     response_model=FLSpielbestaetigungenListResponse,
@@ -100,16 +78,14 @@ async def _with_delivery(*, outbox_collection: ReadCollection, rows: Sequence[Ma
 )
 async def get_spielbestaetigungen(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    outbox_collection: OutboxCollection,
     filters: FLSpielbestaetigungenFilters,
 ) -> FLSpielbestaetigungenListResponse:
     """
     Every confirmation row of the season, or of its one fixture.
 
-    Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
-    holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
-    oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
-    has answers no rows rather than 404.
+    Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
+    served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
+    document has answers no rows rather than 404.
     """
 
     db_filter: dict[str, Any] = {"saison_id": filters.saison_id}
@@ -121,7 +97,7 @@ async def get_spielbestaetigungen(
     )
 
     return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=await _with_delivery(outbox_collection=outbox_collection, rows=rows),
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
         complete=vollstaendig,
     )
 
@@ -361,7 +337,6 @@ async def adopt_spielbestaetigung(
                 payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
-                now=now,
                 act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )

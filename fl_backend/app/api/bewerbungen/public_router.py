@@ -41,7 +41,6 @@ from app.api.bewerbungen.services import (
     compose_saison_decline_update,
     confirmation_deadline_from,
     deletion_day,
-    find_abweichender_fingerabdruck_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
     find_alter_refusal,
@@ -63,7 +62,6 @@ from app.api.bewerbungen.services import (
     open_links_on,
     owed_at_submission,
     paired_seat,
-    payload_fingerprint,
     saison_link_pair,
     saison_schule,
     saison_state_of,
@@ -131,9 +129,6 @@ router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depe
 # triage's (`app/api/bewerbungen/admin_router.py`).
 SUBMITTED = "submitted"
 
-# What a replay reads of the application its key found: the digest it is compared by, and nothing about a person.
-WIEDERHOLUNG_PROJECTION = ["idempotency_fingerprint"]
-
 # What a season read takes on this tier: the window, and the status judging it, served only as
 # whether it ended. The rule withholds a `future` season, as one taking
 # applications is; its carve-out is this much.
@@ -197,14 +192,6 @@ async def _open_links_by_mailbox(
     return held
 
 
-def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLCreatedResponse:
-    """The answer a stored key gets: the application it already holds, whose mails its first press owed, never a second one."""
-
-    refuse(find_abweichender_fingerabdruck_refusal(saved=stored.get("idempotency_fingerprint"), fingerabdruck=fingerabdruck))
-
-    return FLCreatedResponse(created_id=stored["_id"])
-
-
 @router.post(
     "",
     response_model=FLCreatedResponse,
@@ -220,8 +207,8 @@ async def post_bewerbung(
     outbox_collection: OutboxCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
-    # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
-    # visitor's own press is then refused as a changed replay.
+    # Version 4 alone: a guessable key lets a stranger store an application under it first, and the
+    # visitor's own press is then answered as that one.
     idempotency_key: Annotated[UUID4, Header()],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -236,8 +223,8 @@ async def post_bewerbung(
     is answered.
 
     The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
-    application it holds, stores none and owes nothing again. The same key over other details is refused
-    (`bewerbung_key_differing`).
+    application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
+    since its last press sends a new key.
 
     Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
     Trainer also holds being that one person.
@@ -250,7 +237,6 @@ async def post_bewerbung(
     refuse(find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
 
     schluessel = str(idempotency_key)
-    fingerabdruck = payload_fingerprint(bewerbung_data)
 
     # One per distinct address, the seat the Trainer also holds naming theirs twice.
     kontakte = bewerbung_data.kontakte
@@ -260,9 +246,10 @@ async def post_bewerbung(
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
 
         # Before every judgement: a replay answers what the first request did, whatever has closed since.
-        stored = await bewerbungen_collection.find_one(build_key_filter(key=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
+        # The id alone, and nothing about a person: the application its first press stored, whose mails that press owed.
+        stored = await bewerbungen_collection.find_one(build_key_filter(key=schluessel), ["_id"], session=session)
         if stored is not None:
-            return _answer_as_the_first(stored=stored, fingerabdruck=fingerabdruck)
+            return FLCreatedResponse(created_id=stored["_id"])
 
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up. The window is read under the same projection the public GET uses.
@@ -328,7 +315,6 @@ async def post_bewerbung(
                 # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
                 "confirmations": compose_confirmations(today=today, unmailed=unmailed),
                 "idempotency_key": schluessel,
-                "idempotency_fingerprint": fingerabdruck,
             },
             session=session,
         )
@@ -556,7 +542,7 @@ async def post_einwilligung(
             )
 
             return FLSaisonTeamEinwilligungAnswerResponse(
-                ergebnis="confirmed", birth_date=birth_date, whatsapp=answer_data.whatsapp, media=answer_data.media
+                outcome="confirmed", birth_date=birth_date, whatsapp=answer_data.whatsapp, media=answer_data.media
             )
 
         before = await patch_one_in_db(
@@ -586,7 +572,7 @@ async def post_einwilligung(
         )
         journal.note("objection", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], seats=seats)
 
-        return FLSaisonTeamEinwilligungAnswerResponse(ergebnis="declined", birth_date=None, whatsapp=False, media=False)
+        return FLSaisonTeamEinwilligungAnswerResponse(outcome="declined", birth_date=None, whatsapp=False, media=False)
 
     @journal.attempted
     async def answer_for_the_person(
@@ -655,7 +641,7 @@ async def post_einwilligung(
 
             return FLBewerbungEinwilligungAnswerResponse(
                 quelle="bewerbung",
-                ergebnis="confirmed",
+                outcome="confirmed",
                 birth_date=birth_date,
                 whatsapp=answer_data.whatsapp,
                 media=answer_data.media,
@@ -706,7 +692,7 @@ async def post_einwilligung(
 
         return FLBewerbungEinwilligungAnswerResponse(
             quelle="bewerbung",
-            ergebnis="declined",
+            outcome="declined",
             birth_date=None,
             whatsapp=False,
             media=False,

@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -15,10 +16,12 @@ from app.api.spielbestaetigungen.crud import (
     pull_spielorte_public,
 )
 from app.api.spielbestaetigungen.schemas import (
+    FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungenSelfResponse,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
     FLSpielbestaetigungSchiedsrichterAnswerResponse,
     FLSpielbestaetigungSelf,
+    FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
     ansetzung_left_refusal,
@@ -37,6 +40,7 @@ from app.api.spielbestaetigungen.services import (
     view_snapshot_of,
 )
 from app.api.teams.crud import pull_team_names
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
@@ -49,7 +53,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
@@ -300,3 +304,37 @@ async def post_schiedsrichter_answer(
 
     async with transaction_session(db) as session:
         return await session.with_transaction(answer)
+
+
+@router.post(
+    f"{by_id('spielbestaetigung_id')}/answer/team",
+    response_model=FLSpielbestaetigungAnswerResponse,
+    summary="Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date",
+)
+async def post_team_answer(
+    spielbestaetigung_id: CustomRouteObjectId,
+    answer_data: Annotated[FLSpielbestaetigungTeamAnswerPayload, Body()],
+    identifier: PersonIdentifier,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+) -> FLSpielbestaetigungAnswerResponse:
+    """
+    Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
+
+    The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
+    (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the
+    signed-in person's own on the row's team, the first in order where they hold two.
+
+    Refuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in
+    its season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed
+    unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one
+    whose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the
+    deadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming
+    the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
+    administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
+    outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
+    fixture (`spiel_double_booked`). The reason is stored as typed.
+    """
+
+    # Session 8: the answer judges the caller's seat on the row's team and then the row as the mailed link's answer
+    # judged it (`app/api/spielbestaetigungen/public_router.py :: post_spielbestaetigung`, which this replaces).
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)

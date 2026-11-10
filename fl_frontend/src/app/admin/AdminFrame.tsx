@@ -95,7 +95,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
         saison={{ saisons: readSeasons(session), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path() }}
         foot={{
           kind: "account",
-          account: session.then((served) => (served === null ? null : readAccount(COPY.admin.role, "administration"))),
+          account: session.then((served) => (served === null ? null : readAccount(COPY.admin.role))),
         }}
         columnInLayouts>
         {children}

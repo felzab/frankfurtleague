@@ -5,7 +5,7 @@ Here rather than in `services.py`, which decides from its arguments and names no
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Final
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -19,31 +19,10 @@ from app.api.registrierungen.services import (
     build_registrierungen_sort,
 )
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
-from app.core.readonly import ReadCollection
-from app.shared.folding import sign_in_identifier
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
-
-# What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
-# and the birthdate the returning page takes as given. Never a choice: no link read serves one.
-PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
-    *PERSON_IDENTITY_FIELDS,
-    "birth_date",
-    "einwilligung.confirmed_at",
-)
-
-
-async def person_at_the_address(
-    *, spieler_collection: ReadCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None
-) -> Mapping[str, Any] | None:
-    """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
-
-    return await spieler_collection.find_one(
-        build_addresses_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
-        projection=list(PERSON_ANSICHT_FIELDS),
-        session=session,
-    )
 
 
 async def pull_offene_registrierung(
@@ -59,17 +38,22 @@ async def pull_offene_registrierung(
     )
 
 
+# The most pending rows one read serves a team, newest first: the collection is written by anybody holding a team's
+# link, so the read is bounded whatever the form stored.
+OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
+
+
 async def pull_offene_registrierungen(
-    *, registrierungen_collection: AsyncCollection, saison_id: str, team_id: Any, limit: int, order: str, session: AsyncClientSession
+    *, registrierungen_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession
 ) -> list[Mapping[str, Any]]:
-    """One row past `limit`, so the caller tells a whole list from a cut one without counting."""
+    """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most."""
 
     return await aggregate_many_from_db(
         collection=registrierungen_collection,
         pipeline=[
             {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort(order=order))},
-            {"$limit": limit + 1},
+            {"$sort": dict(build_registrierungen_sort())},
+            {"$limit": OPEN_REGISTRIERUNGEN_CAP},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
             # the join runs on reaches this handler, let alone the wire.
             {

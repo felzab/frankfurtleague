@@ -78,10 +78,9 @@ async def post_account_erasure(
     Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
     and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
     Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
-    standing. Every match report the referee record sent stands, its remarks and entries included, naming the row that
-    holds no person in its place. Every record the person made as an administrator or decided as a seat holder -- a grant,
-    a ban, an invitation, an application's or a registration's decision -- and every log row naming their address name a
-    fixed marker in their place.
+    standing. Every match report stands, its remarks and entries included, and names no referee. Every record the
+    person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
+    registration's decision -- and every log row naming their address name a fixed marker in their place.
 
     An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
     changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
@@ -151,7 +150,7 @@ async def get_account_erasure_view(
     and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
     has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
     booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
-    the match reports their referee record sent, which stand naming the ghost; the links their contact seats were mailed on
+    the links their contact seats were mailed on
     their teams' match confirmations, which stop answering; every reason they typed answering a match confirmation, from any
     seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
     marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which

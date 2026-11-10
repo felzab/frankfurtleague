@@ -133,6 +133,9 @@ class FLSpielRequestData(BaseModel):
     kind: Literal["spiel_request", "spiel_reminder"]
     # The reader's own club, one of the two sides.
     team: str
+    # That club and the fixture's season, which name the team's own pages: the reader answers there, signed in.
+    team_id: CustomObjectId
+    saison_id: str
     ansetzung: FLSpielMailAnsetzung
     # The row's stored deadline, which a reminder repeats.
     deadline: CustomDateString
@@ -192,6 +195,22 @@ class FLSpielVorschlagDiscardedData(BaseModel):
     appointment: FLSpielMailAppointment
 
 
+class FLAufstellungReminderData(BaseModel):
+    """A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered."""
+
+    kind: Literal["aufstellung_reminder"]
+    # The reader's own club, one of the two sides.
+    team: str
+    # That club, the fixture's season and the fixture, which name the team's own pages: the reader enters it there, signed in.
+    team_id: CustomObjectId
+    saison_id: str
+    spiel_id: CustomObjectId
+    appointment: FLSpielMailAppointment
+    # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_HOURS` before the kick-off:
+    # carried, so the mail states it and no builder counts the hours a second time.
+    due_at: AwareDatetime
+
+
 class FLSpielMailEntry(BaseModel):
     """A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them."""
 
@@ -215,14 +234,16 @@ class FLAustrittNoticeData(BaseModel):
 
 
 class FLRegistrierungLinkData(BaseModel):
-    """A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it."""
+    """A pupil's confirmation link.
 
-    kind: Literal["registrierung_confirmation", "registrierung_reminder"]
+    The window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::
+    FLRegistrierungConfirmationDeadlineDays`.
+    """
+
+    kind: Literal["registrierung_confirmation"]
     # The junction row's name, else the club's: what the pupil registered for.
     team: str
     saison_id: str
-    # The window in days, never a date: the reminder states that the window has not moved.
-    deadline_days: int = Field(ge=1)
 
 
 class FLRegistrierungAbsageData(BaseModel):
@@ -343,6 +364,7 @@ FLOutboxData = Annotated[
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAufstellungReminderData
     | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
@@ -377,9 +399,9 @@ FLOutboxKind = Literal[
     "spiel_cancelled",
     "spiel_einteilung_lifted",
     "spiel_vorschlag_discarded",
+    "aufstellung_reminder",
     "austritt_notice",
     "registrierung_confirmation",
-    "registrierung_reminder",
     "registrierung_absage",
     "invitation",
     "bewerbung_confirmation",

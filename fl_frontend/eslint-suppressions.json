@@ -11,7 +11,7 @@
   },
   "src/core/registrierungEmail.ts": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "src/core/teamVocabulary.ts": {

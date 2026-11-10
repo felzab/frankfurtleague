@@ -38,6 +38,8 @@ import type {
   FLAddressChangeStopResponse,
   FLAddressChangeSweepResponse,
   FLAddressChangeViewResponse,
+  FLAufstellungPayload,
+  FLAufstellungResponse,
   FLAustrittPayload,
   FLBanListResponse,
   FLBanListWriteResponse,
@@ -86,6 +88,7 @@ import type {
   FLOutboxResultPayload,
   FLOutboxResultResponse,
   FLOutboxSignInPayload,
+  FLOwnSaisonsResponse,
   FLPatchKaderRowPayload,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
@@ -142,6 +145,7 @@ import type {
   FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
+  FLSchiedsrichterSpieleResponse,
   FLSchiedsrichterSweepResponse,
   FLSeatEinwilligungPayload,
   FLSignInResponse,
@@ -149,7 +153,6 @@ import type {
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
-  FLSpielbestaetigungAnswerPayload,
   FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelfResponse,
@@ -157,10 +160,11 @@ import type {
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungViewResponse,
+  FLSpielbestaetigungTeamAnswerPayload,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminListResponse,
   FLSpielerSaisonAdminResponse,
+  FLSpielerSaisonSelfResponse,
   FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
@@ -179,15 +183,16 @@ import type {
   FLSwapGruppenResponse,
   FLSweepSaisonsResponse,
   FLTabelleResponse,
+  FLTeamOverviewResponse,
   FLTeamPageResponse,
   FLTeamsAdminListResponse,
   FLTeamSaisonAdminResponse,
   FLTeamSeatsResponse,
+  FLTeamSpieleResponse,
   FLTeamsSingleResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
   IdentitySweepErasureParams,
-  RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenAdminParams,
   SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
@@ -299,8 +304,7 @@ export const getAccountGetEinwilligungenUrl = () => {
  *
  * The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
  * `bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;
- * `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a
- * returning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.
+ * `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.
  *
  * PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
  * `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
@@ -744,6 +748,145 @@ export const addressChangeInviteAddressChange = async (
   });
 };
 
+export const getAufstellungenGetAufstellungUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * The line-up screen of one club for one fixture, as the club's own seat holders read it.
+ *
+ * `document_not_found` for a fixture that does not exist or does not field this club.
+ * @summary One club's line-up for one fixture as an administrator reads it
+ */
+export const aufstellungenGetAufstellung = async (
+  spielId: string,
+  teamId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenGetAufstellungUrl(spielId, teamId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.
+ *
+ * The document a seat holder's save writes, on the same payload, so the lock never reaches this save
+ * (`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as
+ * `aufstellung.saved`.
+ *
+ * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
+ * (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
+ * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
+ * squad of the season does not hold (`spieler_not_in_kader`); and a nominee past the shortage
+ * (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save.
+ * @summary Save one club's line-up for one fixture as an administrator
+ */
+export const aufstellungenPutAufstellung = async (
+  spielId: string,
+  teamId: string,
+  fLAufstellungPayload: FLAufstellungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungUrl(spielId, teamId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAufstellungPayload),
+  });
+};
+
+export const getAufstellungenGetAufstellungSelfUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}/self`;
+};
+
+/**
+ * The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
+ *
+ * The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
+ * saved, every pupil it names outside that squad, the document's `version` and the line-up's marks: whether one is
+ * stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is null for a fixture
+ * holding no day or no hour, which takes no line-up.
+ *
+ * Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, and
+ * `document_not_found` for a fixture that does not exist or does not field this club.
+ * @summary One club's line-up for one fixture as its seat holder reads it
+ */
+export const aufstellungenGetAufstellungSelf = async (
+  spielId: string,
+  teamId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenGetAufstellungSelfUrl(spielId, teamId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}/self`;
+};
+
+/**
+ * Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
+ *
+ * The first save creates the document and answers 201. `version` is the document's as the screen was served it, null
+ * where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
+ * `aufstellung.saved`.
+ *
+ * Refuses, in this order, each writing nothing: no seat on this club in the fixture's season (`role_not_held`); a
+ * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
+ * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
+ * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
+ * squad of the season does not hold (`spieler_not_in_kader`); and a nominee named beside eleven regular players, or
+ * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`). A pupil named
+ * twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are refused as the
+ * payload's own rules. A line-up being due or overdue refuses nothing.
+ * @summary Save one club's line-up for one fixture as its seat holder
+ */
+export const aufstellungenPutAufstellungSelf = async (
+  spielId: string,
+  teamId: string,
+  fLAufstellungPayload: FLAufstellungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungSelfUrl(spielId, teamId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAufstellungPayload),
+  });
+};
+
 export const getBanListGetBanListEntriesUrl = () => {
   return `/api/v0/ban_list`;
 };
@@ -833,8 +976,8 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * is answered.
  *
  * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * application it holds, stores none and owes nothing again. The same key over other details is refused
- * (`bewerbung_key_differing`).
+ * application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
+ * since its last press sends a new key.
  *
  * Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
  * Trainer also holds being that one person.
@@ -1385,10 +1528,9 @@ export const getIdentityPostAccountErasureUrl = () => {
  * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
  * and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
  * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
- * standing. Every match report the referee record sent stands, its remarks and entries included, naming the row that
- * holds no person in its place. Every record the person made as an administrator or decided as a seat holder -- a grant,
- * a ban, an invitation, an application's or a registration's decision -- and every log row naming their address name a
- * fixed marker in their place.
+ * standing. Every match report stands, its remarks and entries included, and names no referee. Every record the
+ * person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
+ * registration's decision -- and every log row naming their address name a fixed marker in their place.
  *
  * An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
  * changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
@@ -1415,7 +1557,7 @@ export const getIdentityGetAccountErasureViewUrl = () => {
  * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
  * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
  * booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
- * the match reports their referee record sent, which stand naming the ghost; the links their contact seats were mailed on
+ * the links their contact seats were mailed on
  * their teams' match confirmations, which stop answering; every reason they typed answering a match confirmation, from any
  * seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
  * marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which
@@ -1818,9 +1960,9 @@ export const getRegistrierungenPostRegistrierungUrl = () => {
  * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds, stores none and owes no second mail. The same key over other details is refused
- * (`registrierung_key_differing`). A key whose registration the team has since admitted is refused too
- * (`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.
+ * registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
+ * since its last press sends a new key. The key goes with its registration, so one pressed again after the team
+ * admitted or declined the pupil, or after the row lapsed, is a new registration.
  *
  * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
  * the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
@@ -1894,7 +2036,7 @@ export const getRegistrierungenPostConfirmationUrl = () => {
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
  * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
- * `confirmation_exists`, `confirmation_age`, `media_age` and `registrierung_choices_unsuitable`.
+ * `confirmation_exists`, `confirmation_age` and `media_age`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -1926,11 +2068,10 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
 };
 
 /**
- * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
+ * What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
- * left the season reading expired, and `confirmation_spieler_returning` opens the returning
- * pupil's page; only a token no registration holds is refused (`link_invalid`).
+ * left the season reading expired; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationView = async (
@@ -1993,16 +2134,8 @@ export const registrierungenPostInvitationView = async (
   });
 };
 
-export const getRegistrierungenGetOpenRegistrierungenUrl = (
-  teamId: string,
-  saisonId: string,
-  params?: RegistrierungenGetOpenRegistrierungenParams,
-) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0
-    ? `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}?${stringifiedParams}`
-    : `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
+export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2010,17 +2143,16 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (
  *
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
- * No address, telephone number, birthdate or consent record is served for anybody.
- * `complete` is false where more pending rows exist than `limit` serves.
+ * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
+ * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungen = async (
   teamId: string,
   saisonId: string,
-  params?: RegistrierungenGetOpenRegistrierungenParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLOpenRegistrierungenResponse> => {
-  return adminKeyTransport<FLOpenRegistrierungenResponse>(getRegistrierungenGetOpenRegistrierungenUrl(teamId, saisonId, params), {
+  return adminKeyTransport<FLOpenRegistrierungenResponse>(getRegistrierungenGetOpenRegistrierungenUrl(teamId, saisonId), {
     ...options,
     method: "GET",
   });
@@ -2057,23 +2189,20 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
 };
 
 /**
- * Run the four registration retention clocks over one season, as of today in Europe/Berlin.
+ * Run the three registration retention clocks over one season, as of today in Europe/Berlin.
  *
  * A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
- * below do not run for a `past` season, whose own end takes every row they read.
+ * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline
+ * clock does not run for a `past` season, whose own end takes every row it reads.
  *
  * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
- * `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
- * inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
- * removal names this season alone and is made inside a transaction.
+ * named that day. Every removal names this season alone and is made inside a transaction.
  *
  * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
- * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
- * nobody behind it. `failed` sums the rows each of the four clocks passed over.
+ * its clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
+ * nobody behind it. `failed` sums the rows each of the three clocks passed over.
  *
- * 404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
+ * 404 where no season has the id. Idempotent: a run after every due row went writes nothing.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -2094,9 +2223,8 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
  *
  * The person survives the season, so the admission first looks for them: the stored person holding the
- * registration's address IS that person, and is updated with the registration's name and, where the new pupil's page
- * asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
- * leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
+ * registration's address IS that person, and is updated with the registration's name, its birthdate and its freshly
+ * confirmed consent record. Where that person's
  * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
  * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
  * this admission proves again.
@@ -2104,13 +2232,11 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
  * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted in the same transaction, so a second press meets no row. Its
- * submission key moves onto the squad row, so the submission replayed later stores nothing.
+ * deleted in the same transaction, so a second press meets no row.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
- * offer (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
- * person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
+ * offer (`registrierung_stufe_not_allowed`), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
  * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
  * written on any of them.
@@ -2533,8 +2659,8 @@ export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
 /**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
- * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
- * unchanged since, every pupil through the public mask.
+ * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
+ * and unchanged since, every pupil through the public mask.
  * @summary One Spiel's page
  */
 export const saisonsGetSpiel = async (
@@ -2943,6 +3069,48 @@ export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKey
   });
 };
 
+export const getSchiedsrichterGetSelfSaisonsUrl = () => {
+  return `/api/v0/schiedsrichter/self/saisons`;
+};
+
+/**
+ * Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
+ *
+ * A planned season is served as any other. Refuses an address holding no live, confirmed referee record
+ * (`role_not_held`).
+ * @summary The seasons a signed-in referee has fixtures in
+ */
+export const schiedsrichterGetSelfSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOwnSaisonsResponse> => {
+  return adminKeyTransport<FLOwnSaisonsResponse>(getSchiedsrichterGetSelfSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
+  return `/api/v0/schiedsrichter/self/spiele/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+ *
+ * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
+ * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
+ * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
+ *
+ * Refuses an address holding no live, confirmed referee record (`role_not_held`).
+ * @summary A signed-in referee's fixtures of one season, one row a fixture
+ */
+export const schiedsrichterGetSelfSpiele = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterSpieleResponse> => {
+  return adminKeyTransport<FLSchiedsrichterSpieleResponse>(getSchiedsrichterGetSelfSpieleUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSchiedsrichterSweepSchiedsrichterUrl = () => {
   return `/api/v0/schiedsrichter/sweep`;
 };
@@ -3178,7 +3346,7 @@ export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
  * What the booked referee's report form reads.
  *
  * The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
- * report, its remarks and card reasons included, or null.
+ * report, its remarks included, or null.
  *
  * Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
  * empty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,
@@ -3205,28 +3373,29 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
 /**
  * Write the whole report of one fixture as its booked referee, replacing what stood.
  *
- * The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
- * write changing it raises its `version`, so a report the administrator adopted reads `differing` again until it
- * is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
- * so a report a knockout correction re-fielded a side under reads `sides_changed` until it is written again. Writes
- * no fixture: the result is the administrator's to save.
+ * The shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are
+ * the entries credited to each side, an own goal crediting the other one, and no form sends them. The first write
+ * creates it and answers 201; every write changing it clears its adoption in the same update, so a report the
+ * administrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes
+ * nothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side
+ * under reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.
  *
- * `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
- * another version would replace a report its sender never saw.
+ * `version` is the report document's as the form was served it, null where the form showed no report: a write composed
+ * on another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form
+ * read before an adoption saves stale once.
  *
  * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
  * (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
  * (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
- * `bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated
+ * `version` other than the document's now, or than null where none stands (`version_stale`); one undated
  * or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out
- * proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's
- * live squad of the season, a pupil the report already named on that side staying while the side fields the club it
- * did (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`card_reason_missing`). Every refusal but
- * `bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a
- * write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
- * landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
- * whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is
- * refused.
+ * proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil the write newly names on a side
+ * outside that side's live squad of the season, a pupil the report already named on that side staying while the side
+ * fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale` is asked again outside the
+ * transaction just before answering, the referee's records included, so a write landing on what was judged before
+ * that second asking refuses the report rather than letting it stand, and one landing after it stands beside the
+ * report; a write of the report itself landing mid-press conflicts with this one, whose retry meets `version_stale`.
+ * Two first writes at once are two forms opened on no report: the later is refused.
  * @summary Write one fixture's report as its referee
  */
 export const spielberichtePutSpielberichtBericht = async (
@@ -3263,10 +3432,9 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 /**
  * Every confirmation row of the season, or of its one fixture.
  *
- * Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
- * holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
- * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
- * has answers no rows rather than 404.
+ * Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
+ * served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
+ * document has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungen = async (
@@ -3276,53 +3444,6 @@ export const spielbestaetigungenGetSpielbestaetigungen = async (
   return adminKeyTransport<FLSpielbestaetigungenListResponse>(getSpielbestaetigungenGetSpielbestaetigungenUrl(params), {
     ...options,
     method: "GET",
-  });
-};
-
-export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
-  return `/api/v0/spielbestaetigungen`;
-};
-
-/**
- * Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.
- *
- * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
- * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.
- *
- * Refuses, in this order: a token no seat holds (`link_invalid`); a row already answered, closed since or not
- * (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
- * (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
- * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a
- * proposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds
- * (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
- * refused, judged on what it newly claims and in that save's order: on or after a club's exit
- * (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
- * other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the first is asked again outside
- * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
- * than letting it stand.
- * @summary Confirm a fixture's Ansetzung, or decline it proposing another date
- */
-export const spielbestaetigungenPostSpielbestaetigung = async (
-  fLSpielbestaetigungAnswerPayload: FLSpielbestaetigungAnswerPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielbestaetigungAnswerResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return baseKeyTransport<FLSpielbestaetigungAnswerResponse>(getSpielbestaetigungenPostSpielbestaetigungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAnswerPayload),
   });
 };
 
@@ -3441,46 +3562,6 @@ export const spielbestaetigungenSweepSpielbestaetigungen = async (
   });
 };
 
-export const getSpielbestaetigungenGetSpielbestaetigungViewUrl = () => {
-  return `/api/v0/spielbestaetigungen/view`;
-};
-
-/**
- * Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).
- *
- * The state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the
- * Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
- * reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
- * (`link_invalid`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
- * decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it.
- * `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
- * Ansetzung, whose date and hour alone are served.
- * @summary What one fixture confirmation link opens
- */
-export const spielbestaetigungenGetSpielbestaetigungView = async (
-  fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLSpielbestaetigungViewResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return baseKeyReadTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLTokenPayload),
-  });
-};
-
 export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigungId: string) => {
   return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/adopt`;
 };
@@ -3564,6 +3645,53 @@ export const spielbestaetigungenPostSchiedsrichterAnswer = async (
       body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAnswerPayload),
     },
   );
+};
+
+export const getSpielbestaetigungenPostTeamAnswerUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer/team`;
+};
+
+/**
+ * Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
+ *
+ * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
+ * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the
+ * signed-in person's own on the row's team, the first in order where they hold two.
+ *
+ * Refuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in
+ * its season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed
+ * unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one
+ * whose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the
+ * deadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming
+ * the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
+ * administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
+ * outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
+ * fixture (`spiel_double_booked`). The reason is stored as typed.
+ * @summary Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date
+ */
+export const spielbestaetigungenPostTeamAnswer = async (
+  spielbestaetigungId: string,
+  fLSpielbestaetigungTeamAnswerPayload: FLSpielbestaetigungTeamAnswerPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungAnswerResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLSpielbestaetigungAnswerResponse>(getSpielbestaetigungenPostTeamAnswerUrl(spielbestaetigungId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungTeamAnswerPayload),
+  });
 };
 
 export const getSpielbestaetigungenDiscardSpielbestaetigungUrl = (spielbestaetigungId: string) => {
@@ -3918,6 +4046,48 @@ export const getSpielerGetSelfUrl = () => {
  */
 export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelfResponse> => {
   return adminKeyTransport<FLSpielerSelfResponse>(getSpielerGetSelfUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpielerGetSelfSaisonsUrl = () => {
+  return `/api/v0/spieler/self/saisons`;
+};
+
+/**
+ * Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.
+ *
+ * A planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).
+ * @summary The seasons a signed-in pupil holds a squad row in
+ */
+export const spielerGetSelfSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOwnSaisonsResponse> => {
+  return adminKeyTransport<FLOwnSaisonsResponse>(getSpielerGetSelfSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpielerGetSelfSaisonUrl = (saisonId: string) => {
+  return `/api/v0/spieler/self/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * What the signed-in pupil's own page shows of one season, in one read.
+ *
+ * Their squad row of this season with the name its club plays the season under, null where they hold none; and
+ * that club's fixtures in the order the draw numbered them, each with
+ * whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
+ * none is stored (null).
+ *
+ * Refuses an address holding no confirmed pupil record (`role_not_held`).
+ * @summary A signed-in pupil's own season: their squad row and their team's fixtures
+ */
+export const spielerGetSelfSaison = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerSaisonSelfResponse> => {
+  return adminKeyTransport<FLSpielerSaisonSelfResponse>(getSpielerGetSelfSaisonUrl(saisonId), {
     ...options,
     method: "GET",
   });
@@ -4807,6 +4977,35 @@ export const teamsReplaceSaisonTeam = async (
   });
 };
 
+export const getTeamsGetTeamOverviewUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/overview`;
+};
+
+/**
+ * Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+ *
+ * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
+ * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
+ * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
+ * the league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and
+ * an hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's
+ * decision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.
+ *
+ * No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
+ * signed-in person holds no seat on this team in this season.
+ * @summary A team's Übersicht in one season
+ */
+export const teamsGetTeamOverview = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamOverviewResponse> => {
+  return adminKeyTransport<FLTeamOverviewResponse>(getTeamsGetTeamOverviewUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getTeamsGetTeamSeatsUrl = (teamId: string, saisonId: string) => {
   return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/seats`;
 };
@@ -4824,6 +5023,32 @@ export const teamsGetTeamSeats = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLTeamSeatsResponse> => {
   return adminKeyTransport<FLTeamSeatsResponse>(getTeamsGetTeamSeatsUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getTeamsGetTeamSpieleUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/spiele`;
+};
+
+/**
+ * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
+ *
+ * Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
+ * state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
+ * the clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or
+ * no hour.
+ *
+ * Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+ * @summary A team's fixtures in one season, with what is open on each
+ */
+export const teamsGetTeamSpiele = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamSpieleResponse> => {
+  return adminKeyTransport<FLTeamSpieleResponse>(getTeamsGetTeamSpieleUrl(teamId, saisonId), {
     ...options,
     method: "GET",
   });

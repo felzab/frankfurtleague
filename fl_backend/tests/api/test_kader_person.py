@@ -84,7 +84,7 @@ PUPIL_EMAIL_DOMAIN = "pupil.example.de"
 
 KADER_PATH = f"/api/v{API_VERSION}/spieler/kader"
 
-PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None}
+PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None, "version": 0}
 
 
 def _seat(email: str) -> dict[str, Any]:
@@ -354,7 +354,7 @@ class TestATrainerOnlySeat:
                 "PATCH",
                 row_url(SHARES_THE_SEVEN),
                 TRAINER_ALONE,
-                {"nummer": "9", "position": "Tor", "stufe": "Q1", "rolle": "co_kapitaen"},
+                {"nummer": "9", "position": "Tor", "stufe": "Q1", "rolle": "co_kapitaen", "version": 0},
             )
             out = await send(mongo_replica_set_url, "DELETE", row_url(ZERO_SEVEN), TRAINER_ALONE)
 
@@ -446,7 +446,7 @@ class TestTheCaptaincy:
                 team_id=TEAM_A,
                 saison_id=ACTIVE_SAISON,
                 spieler_id=spieler_id,
-                row_data=FLPatchKaderRowPayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen"),
+                row_data=FLPatchKaderRowPayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen", version=0),
                 identifier=ANSPRECH,
                 saison_spieler_collection=squad_rows if squad_rows is not None else database[Collection.SAISON_SPIELER],
                 saisons_collection=saisons,

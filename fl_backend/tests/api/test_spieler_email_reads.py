@@ -6,9 +6,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_sign_in
-from app.api.registrierungen.public_router import get_confirmation_view
 from app.core.collections import Collection
-from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
@@ -84,17 +82,6 @@ async def the_gate_read(database: AsyncDatabase) -> Any:
     return await find_sign_in(FOLDED_EMAIL, record_collections(database))
 
 
-async def the_confirmation_view(database: AsyncDatabase) -> Any:
-    return await get_confirmation_view(
-        view_data=FLTokenPayload(token=TOKEN),
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        teams_collection=database[Collection.TEAMS],
-        spieler_collection=database[Collection.SPIELER],
-        today=TODAY,
-    )
-
-
 def names_an_address(command: Mapping[str, Any]) -> bool:
     """Whether a `spieler` find or aggregate matches on a stored address, rather than on an id or on no address at all."""
 
@@ -125,20 +112,12 @@ def plans_reading_addresses(url: str, reader: Reader) -> list[str]:
 class TestEveryAddressReadUsesTheIndex:
     """`uniq_spieler_email` is partial on `$type: "string"`, which an equality alone does not imply.
 
-    Driven through each caller, its address reads explained: a call site dropping the term goes red
+    Driven through its caller, the address reads explained: a call site dropping the term goes red
     here where a builder's own case would not.
     """
 
-    @pytest.mark.parametrize(
-        "reader",
-        [
-            the_gate_read,
-            the_confirmation_view,
-        ],
-        ids=lambda reader: reader.__name__,
-    )
-    def test_the_plan_walks_the_unique_index(self, mongo_replica_set_url: str, reader: Reader):
-        plans = plans_reading_addresses(mongo_replica_set_url, reader)
+    def test_the_plan_walks_the_unique_index(self, mongo_replica_set_url: str):
+        plans = plans_reading_addresses(mongo_replica_set_url, the_gate_read)
 
         # The premise: a reader sending no address read would pass the next line vacuously.
         assert plans

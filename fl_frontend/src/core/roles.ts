@@ -1,7 +1,10 @@
 import type { FLKontaktRolle, FLSaisonStatus } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
-/** One contact seat on a season that grants a panel, carrying the name the club PLAYED that season under. */
+/**
+ * One contact seat on a season that grants a panel, carrying the name and the Kürzel the club PLAYED that season
+ * under and the season's first and last day.
+ */
 type KontaktRole = {
   kind: "kontakt";
   // The contact-seat sense of the word, never the captaincy's.
@@ -9,7 +12,10 @@ type KontaktRole = {
   team_id: string;
   saison_id: string;
   team_name: string;
+  team_shorthand: string;
   saison_status: FLSaisonStatus;
+  saison_start_date: string;
+  saison_end_date: string;
 };
 
 type SpielerRole = { kind: "spieler"; spieler_id: string };
@@ -63,7 +69,10 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
         team_id: seat.team_id,
         saison_id: seat.saison_id,
         team_name: seat.team_name,
+        team_shorthand: seat.team_shorthand,
         saison_status: seat.saison_status,
+        saison_start_date: seat.saison_start_date,
+        saison_end_date: seat.saison_end_date,
       })),
     // Neither row is season-scoped, so neither is narrowed.
     ...spieler.map((row): SpielerRole => ({ kind: "spieler", spieler_id: row.spieler_id })),

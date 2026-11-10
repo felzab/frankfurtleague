@@ -2,29 +2,20 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from bson import ObjectId
 
 from app.api.registrierungen.services import (
     bestaetigung_loeschung_is_due,
     build_decline_filter,
-    build_erinnerung_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
     decline_loeschung_is_due,
-    erinnerung_is_due,
 )
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
 TOMORROW = "2026-04-02"
-
-# Three days before `TODAY` to the day: the reminder's own mark, pinned so both sides of it are cases.
-MAILED_ON_THE_MARK = "2026-03-29"
-MAILED_A_DAY_SHORT = "2026-03-30"
-MAILED_A_DAY_PAST = "2026-03-28"
 
 FIRST_HASH = hash_token("first")
 
@@ -34,19 +25,18 @@ def einwilligung() -> dict[str, Any]:
 
 
 def bestaetigung(**overrides: Any) -> dict[str, Any]:
-    """One live link mailed at its reminder mark, inside its deadline, that each case moves one thing of."""
+    """One live link inside its deadline, that each case moves one thing of."""
 
     return {
         "token_hashes": [FIRST_HASH],
-        "sent_at": MAILED_ON_THE_MARK,
-        "reminded_at": None,
+        "sent_at": "2026-03-29",
         "deadline": "2026-04-05",
         **overrides,
     }
 
 
 def registrierung(**overrides: Any) -> dict[str, Any]:
-    """One submitted registration nobody has confirmed, its link due a reminder today."""
+    """One submitted registration nobody has confirmed."""
 
     return {
         "status": "submitted",
@@ -58,55 +48,6 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
         "decision": None,
         **overrides,
     }
-
-
-class TestTheReminderMark:
-    """The three-day mark, on the one link a registration has: the day before, the day, the day after.
-
-    The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_REMINDER_DAYS`.
-    """
-
-    @pytest.mark.parametrize(
-        ("sent_at", "due"),
-        [
-            pytest.param(MAILED_A_DAY_SHORT, False, id="two days ago"),
-            pytest.param(MAILED_ON_THE_MARK, True, id="three days ago, to the day"),
-            pytest.param(MAILED_A_DAY_PAST, True, id="four days ago"),
-        ],
-    )
-    def test_each_boundary_falls_where_the_bound_says(self, sent_at: str, due: bool):
-        stored = registrierung(confirmation=bestaetigung(sent_at=sent_at))
-
-        assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS) == (3, 7)
-
-    @pytest.mark.parametrize(
-        ("stored", "why"),
-        [
-            pytest.param(registrierung(einwilligung=einwilligung()), "confirmed", id="confirmed"),
-            pytest.param(registrierung(confirmation=bestaetigung(reminded_at=YESTERDAY)), "reminded once", id="reminded once"),
-            pytest.param(registrierung(status="declined"), "declined", id="declined"),
-            pytest.param(registrierung(confirmation=None), "no bookkeeping", id="no bookkeeping"),
-            pytest.param(registrierung(confirmation=bestaetigung(sent_at=None)), "no send recorded", id="no send recorded"),
-        ],
-    )
-    def test_a_registration_that_has_answered_been_chased_or_lost_its_link_is_not_reminded(self, stored: Mapping[str, Any], why: str):
-        assert not erinnerung_is_due(registrierung_raw=stored, today=TODAY), why
-
-    @pytest.mark.parametrize(
-        ("deadline", "due"),
-        [
-            pytest.param(TOMORROW, True, id="the day before the deadline"),
-            pytest.param(TODAY, True, id="the deadline's own day, when the link still answers"),
-            pytest.param(YESTERDAY, False, id="the day after, when the erasure clock has it"),
-        ],
-    )
-    def test_nothing_past_its_deadline_is_chased(self, deadline: str, due: bool):
-        """A link minted on the way out is one nobody can spend: the erasure below takes the row the same day."""
-
-        stored = registrierung(confirmation=bestaetigung(deadline=deadline))
-
-        assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
 
 
 class TestTheDeadlineClock:
@@ -165,16 +106,9 @@ class TestTheDeclineClock:
 
 SAISON_ID = "2026"
 
-# Three days before `TODAY`, which is the mark the reminder's filter counts BACKWARDS to where the
-# predicate counts forwards from the send.
-THE_MARK = MAILED_ON_THE_MARK
-
-STANDING_CLUB = ObjectId("6890a1b2c3d4e5f607970011")
-
 CLOCK_FILTERS: Mapping[str, Mapping[str, Any]] = {
     "season's end": build_undecided_filter(saison_id=SAISON_ID),
     "deadline": build_unconfirmed_filter(saison_id=SAISON_ID, today=TODAY),
-    "reminder": build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY, team_ids=[STANDING_CLUB]),
     "decline": build_decline_filter(saison_id=SAISON_ID, today=TODAY),
 }
 
@@ -199,17 +133,6 @@ class TestWhatEachClockReads:
             "status": "submitted",
             "einwilligung.confirmed_at": None,
             "confirmation.deadline": {"$lt": TODAY},
-        }
-
-    def test_the_reminder_reads_the_unchased_at_their_mark(self):
-        assert CLOCK_FILTERS["reminder"] == {
-            "saison_id": SAISON_ID,
-            "status": "submitted",
-            "team_id": {"$in": [STANDING_CLUB]},
-            "einwilligung.confirmed_at": None,
-            "confirmation.reminded_at": None,
-            "confirmation.deadline": {"$gte": TODAY},
-            "confirmation.sent_at": {"$lte": THE_MARK},
         }
 
     def test_the_decline_clock_reads_the_decisions_whose_days_are_behind_them(self):

@@ -90,6 +90,9 @@ class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     # would 500 the list over an ordinary retirement.
     nummer: str | None = None
     position: FLSpielerPosition | None = None
+    # The captaincy the squad row holds, for the mark beside the name: null wherever the name is withheld, beside which
+    # it would say who the nameless pupil is. Defaulted for `nummer`'s reason.
+    rolle: FLSpielerRolle | None = None
 
 
 class FLSpielerRecord(_SpielerPerson, Anchored):
@@ -154,13 +157,6 @@ class FLSaisonSpielerRow(BaseModel):
     # The day this SQUAD ROW was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
     version: int = 0
-
-
-class FLSaisonSpielerRecord(FLSaisonSpielerRow):
-    """A squad row as `saison_spieler` stores it: an admitted registration's submission key and digest, which no read serves."""
-
-    idempotency_key: str | None = None
-    idempotency_fingerprint: str | None = None
 
 
 class FLSpielerSingleResponse(BaseAPIResponse):
@@ -297,8 +293,8 @@ class _KaderRowFields(BaseModel):
 class FLPatchKaderRowPayload(_KaderRowFields):
     """A seat holder's edit of a squad row."""
 
-    # The `version` the editor was served; absent, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the row was read at.
+    version: CustomVersion
 
 
 class FLPatchSpielerSaisonPayload(_KaderRowFields):

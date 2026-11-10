@@ -209,12 +209,12 @@ PROPOSED = {"date": DATE, "time": "18:00:00"}
         ),
         (
             FLSpielbestaetigungAnswerPayload,
-            {"answer": "zugesagt", "vorschlag": PROPOSED, "reason": None},
+            {"answer": "agreed", "vorschlag": PROPOSED, "reason": None},
             ("vorschlag", "acceptance_with_proposal"),
         ),
         (
             FLSpielbestaetigungAnswerPayload,
-            {"answer": "zugesagt", "vorschlag": None, "reason": "Halle"},
+            {"answer": "agreed", "vorschlag": None, "reason": "Halle"},
             ("reason", "acceptance_with_reason"),
         ),
         (
@@ -224,7 +224,7 @@ PROPOSED = {"date": DATE, "time": "18:00:00"}
         ),
         (
             FLSpielbestaetigungSchiedsrichterAnswerPayload,
-            {"answer": "zugesagt", "reason": "Krank"},
+            {"answer": "agreed", "reason": "Krank"},
             ("reason", "acceptance_with_reason"),
         ),
     ],

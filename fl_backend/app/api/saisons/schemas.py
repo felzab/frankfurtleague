@@ -13,6 +13,7 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
+from app.api.aufstellungen.schemas import FLAufstellungenPublic
 from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
@@ -120,7 +121,7 @@ class FLSaisonRegistrierung(BaseModel):
     """When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.
 
     No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
-    saison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee
+    saison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee
     (`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of
     `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
     """
@@ -396,7 +397,7 @@ class FLSaisonsAdminListResponse(BaseAPIResponse):
 
 
 class FLSaisonFrameEntry(BaseReadModel):
-    """One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's."""
+    """One season as a frame's season button lists it: its id and its span."""
 
     id: str = Field(validation_alias="_id", serialization_alias="id")
     start_date: CustomDateString
@@ -415,6 +416,16 @@ class FLSaisonFrameResponse(BaseAPIResponse):
 
     saisons: list[FLSaisonFrameEntry]
     active_saison_id: str | None
+
+
+class FLOwnSaisonsResponse(BaseAPIResponse):
+    """The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.
+
+    A season the public frame withholds, a planned one, is served as any other: the person's row in it is what the
+    frame leads to.
+    """
+
+    saisons: list[FLSaisonFrameEntry]
 
 
 class FLSaisonsSingleResponse(BaseAPIResponse):
@@ -587,13 +598,16 @@ class FLSpielPageResponse(BaseAPIResponse):
     """One match as its page and its pop-up show it.
 
     The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
-    each side stands, and what the public may read of its report, null where none is stored.
+    each side stands, each side's line-up from the moment its club stores one, and what the public may read of its
+    report, null where none is stored.
     """
 
     spiel: FLSpielJoined
     spieltag_position: int = Field(ge=1)
     count_spieltage_in_phase: int = Field(ge=1)
     standings: FLSpielSideStandings
+    # Beside the report and never inside it: a line-up is the club's own, stored days before any report.
+    aufstellungen: FLAufstellungenPublic
     bericht: FLSpielberichtPublic | None
 
 

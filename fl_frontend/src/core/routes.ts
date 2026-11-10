@@ -189,6 +189,18 @@ export const ROUTES = {
 
   /** Where a signed-in person lands, the switch between every Funktion they hold. */
   area: { path: () => "/area" as const, title: COPY.shared.overview, crawl: "disallow" },
+  /**
+   * A pupil's and a referee's own pages, each a season's. The address without the season is the place itself, which
+   * „Funktion wechseln“ and a mail lead to, neither knowing the season: its page sends the reader on to the Übersicht
+   * of the season their records stand in, as `/admin` sends an administrator on.
+   */
+  areaSpieler: { path: () => "/area/spieler" as const, title: COPY.shared.overview, crawl: "disallow" },
+  spielerOverview: {
+    path: (saison: string) => `/area/spieler/${saison}` as const,
+    title: COPY.shared.overview,
+    crawl: "disallow",
+  },
+  areaSchiedsrichter: { path: () => "/area/schiedsrichter" as const, title: COPY.shared.overview, crawl: "disallow" },
   // Session 8: its page is built.
   schiedsrichterOverview: {
     path: (saison: string) => `/area/schiedsrichter/${saison}` as const,

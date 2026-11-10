@@ -18,7 +18,6 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.registrierungen.schemas import FLRegistrierungPage
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -959,20 +958,19 @@ class TestAPendingApplicationsSeats:
 REGISTRIERUNG_OWN = ObjectId("6890a1b2c3d4e5f607850061")
 REGISTRIERUNG_UNCONFIRMED = ObjectId("6890a1b2c3d4e5f607850062")
 REGISTRIERUNG_DECLINED = ObjectId("6890a1b2c3d4e5f607850063")
-REGISTRIERUNG_RETURNING = ObjectId("6890a1b2c3d4e5f607850064")
 REGISTRIERUNG_BYSTANDER = ObjectId("6890a1b2c3d4e5f607850065")
 # The new pupil's grant, evidenced by the confirmation that gave it.
 REGISTRIERUNG_GRANT = {"at": "2026-09-21T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["scope"]}
 
 
-def _registrierung(oid: ObjectId, email: str, *, page: FLRegistrierungPage | None = "confirmation_spieler", **choices: Any) -> dict[str, Any]:
-    """A registration as its composers leave it; `page` the confirmation page its pupil answered, `None` for none yet."""
+def _registrierung(oid: ObjectId, email: str, *, answered: bool = True, **choices: Any) -> dict[str, Any]:
+    """A registration as its composers leave it, its pupil's own confirmation among them unless `answered` is false."""
 
-    chosen = {"scope": "kader_public", "media": True, **choices} if page == "confirmation_spieler" else {}
+    chosen = {"scope": "kader_public", "media": True, **choices}
     confirmed = (
-        None
-        if page is None
-        else registrierung_confirmed(birth_date=SEVENTEEN_BIRTHDATE, today="2026-09-21", at=REGISTRIERUNG_GRANT["at"], **chosen)
+        registrierung_confirmed(birth_date=SEVENTEEN_BIRTHDATE, today="2026-09-21", at=REGISTRIERUNG_GRANT["at"], **chosen)
+        if answered
+        else None
     )
 
     return registrierung_document(
@@ -1000,9 +998,8 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_OWN, REFEREE_STORED, **choices),
-            _registrierung(REGISTRIERUNG_UNCONFIRMED, IDENTIFIER, page=None),
+            _registrierung(REGISTRIERUNG_UNCONFIRMED, IDENTIFIER, answered=False),
             declined,
-            _registrierung(REGISTRIERUNG_RETURNING, IDENTIFIER, page="confirmation_spieler_returning"),
             _registrierung(REGISTRIERUNG_BYSTANDER, BYSTANDER),
         ]
     )
@@ -1078,8 +1075,8 @@ class TestAPendingRegistration:
 
     @pytest.mark.parametrize(
         "registrierung_id",
-        [REGISTRIERUNG_UNCONFIRMED, REGISTRIERUNG_DECLINED, REGISTRIERUNG_RETURNING, REGISTRIERUNG_BYSTANDER],
-        ids=["unconfirmed", "declined", "a returning pupil's, carrying no choice", "another address's"],
+        [REGISTRIERUNG_UNCONFIRMED, REGISTRIERUNG_DECLINED, REGISTRIERUNG_BYSTANDER],
+        ids=["unconfirmed", "declined", "another address's"],
     )
     def test_a_registration_leaving_this_person_nothing_to_withdraw_is_refused(self, mongo_replica_set_url: str, registrierung_id: ObjectId):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:

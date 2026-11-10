@@ -56,7 +56,7 @@ from app.api.identity.services import (
     own_seats,
     referenced_addresses,
     seat_is_confirmed,
-    seat_saison_statuses,
+    seat_saisons,
     seats_naming,
     statuses_of,
     unreferenced,
@@ -64,9 +64,8 @@ from app.api.identity.services import (
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.outbox.services import ERASURE_SPARED_KINDS
 from app.api.registrierungen.crud import erase_registrierungen_in_session
-from app.api.registrierungen.services import build_eigene_registrierung_filter
+from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
-from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.collections import Collection
@@ -108,7 +107,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
 
     # Every live seat naming the address and not only its confirmed ones: the flag below reads an
     # unconfirmed seat's season too, so a seat whose season has no row stays loud whichever list counts it.
-    statuses = seat_saison_statuses(row for row, _ in seats_naming(live_seat_rows, identifier))
+    saisons = seat_saisons(row for row, _ in seats_naming(live_seat_rows, identifier))
 
     # The confirmation narrows HERE, through the predicates every reader shares, and never at a caller:
     # a caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.
@@ -122,7 +121,10 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
                     "team_id": row["team_id"],
                     "rolle": slot,
                     "team_name": row["name"],
-                    "saison_status": statuses[row["saison_id"]],
+                    "team_shorthand": row["shorthand"],
+                    "saison_status": saisons[row["saison_id"]]["status"],
+                    "saison_start_date": saisons[row["saison_id"]]["start_date"],
+                    "saison_end_date": saisons[row["saison_id"]]["end_date"],
                 }
             )
             for row in live_seat_rows
@@ -138,7 +140,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
             [
                 seat_is_confirmed(row, slot)
                 for row, slot in seats_naming(live_seat_rows, identifier)
-                if grants_a_panel(statuses[row["saison_id"]])
+                if grants_a_panel(saisons[row["saison_id"]]["status"])
             ]
             + [is_confirmed(row.get("einwilligung")) for row in [*pupil_rows, *live_schiedsrichter]]
         ),
@@ -246,7 +248,7 @@ def _only_with_panel(subject: FLSubject) -> FLSubject:
 def roles_from(identifier: str, *, seat_rows: Rows, referee_rows: Rows, pupil_rows: Rows) -> FLSubject:
     """`roles_of`'s answer over rows a caller already read through the subject's own selections, so none is read twice.
 
-    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, seats and `saison_status_lookup`'s `saison`, and
+    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, `shorthand`, seats and `seat_saison_lookup`'s `saison`, and
     each person's stamp and retirement.
     """
 
@@ -507,7 +509,6 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX}), person_group=None, run=end_the_address_changes_in_session),
     ErasureStep(reaches=frozenset({Collection.SPIELBESTAETIGUNGEN}), person_group="schiedsrichter", run=erase_referee_confirmations_in_session),
-    ErasureStep(reaches=frozenset({Collection.SPIELBERICHTE}), person_group="schiedsrichter", run=repoint_referee_reports_in_session),
     ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE}), person_group="schiedsrichter", run=erase_referee_in_session),
     ErasureStep(reaches=frozenset({Collection.REGISTRIERUNGEN}), person_group="spieler", run=erase_registrierungen_in_session),
     ErasureStep(
@@ -582,7 +583,7 @@ async def erase_everything(
     )
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person and the reports they sent; the pupils' takes the scorer and card entries naming them.
+    # person; the pupils' takes the scorer and card entries naming them.
     if _runs(erase_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if _runs(erase_person_in_session, scope) and subject.spieler:
@@ -618,14 +619,6 @@ async def erase_everything(
     if _runs(erase_referee_confirmations_in_session, scope):
         await erase_referee_confirmations_in_session(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
-            session=session,
-        )
-
-    # Repointed rather than removed, as the fixtures are: a report is the league's record of the match, after the ghost stands.
-    if _runs(repoint_referee_reports_in_session, scope):
-        await repoint_referee_reports_in_session(
-            spielberichte_collection=spielberichte_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
             session=session,
         )
@@ -858,7 +851,7 @@ async def erase_if_still_due(
     )
     registrierungen = await aggregate_many_from_db(
         collection=registrierungen_collection,
-        pipeline=[{"$match": build_eigene_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
+        pipeline=[{"$match": build_own_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
         session=session,
     )
     if not erasure_due(

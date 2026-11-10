@@ -51,6 +51,8 @@ SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(collection_de
 
 SpielberichteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]
 
+AufstellungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.AUFSTELLUNGEN))]
+
 AddressChangeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 
 
@@ -95,6 +97,8 @@ GrantsReadCollection = Annotated[ReadCollection, Depends(collection_dependency(C
 SpielbestaetigungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
 
 SpielberichteReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]
+
+AufstellungenReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.AUFSTELLUNGEN))]
 
 AddressChangeReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 
