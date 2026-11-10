@@ -188,7 +188,6 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
             party={"kind": "team", "team_id": TEAM_OID},
             _id=CONFIRMATION_OID,
             asked_at="2126-03-30",
-            kontakte={seat: {"token_hashes": ["b" * 64], "delivery": None} for seat in ("trainer", "ansprechperson", "stellvertretung")},
         )
     )
     await database[Collection.BEWERBUNGEN].insert_many(
