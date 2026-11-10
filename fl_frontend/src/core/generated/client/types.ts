@@ -2280,6 +2280,8 @@ export interface FLDeclineBewerbungResponse {
   id: string;
 }
 
+export type FLDeclinedRetentionDays = 14;
+
 /**
  * The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.
  */
@@ -3268,7 +3270,6 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
-  deletion_days: number;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;

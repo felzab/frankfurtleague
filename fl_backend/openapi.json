@@ -5019,6 +5019,10 @@
         "title": "FLDeclineBewerbungResponse",
         "type": "object"
       },
+      "FLDeclinedRetentionDays": {
+        "const": 14,
+        "type": "integer"
+      },
       "FLDeletionNoticeData": {
         "description": "The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.",
         "properties": {
@@ -9327,10 +9331,6 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
-          "deletion_days": {
-            "title": "Deletion Days",
-            "type": "integer"
-          },
           "kind": {
             "const": "registrierung_absage",
             "title": "Kind",
@@ -9361,8 +9361,7 @@
           "kind",
           "team",
           "saison_id",
-          "reason",
-          "deletion_days"
+          "reason"
         ],
         "title": "FLRegistrierungAbsageData",
         "type": "object"

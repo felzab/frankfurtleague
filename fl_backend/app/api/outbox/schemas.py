@@ -253,8 +253,6 @@ class FLRegistrierungAbsageData(BaseModel):
     team: str
     saison_id: str
     reason: FLRegistrierungDecisionReason | None
-    # The days the mail says the declined registration stands: the decline owes no deletion notice of its own.
-    deletion_days: int
 
 
 class FLInvitationData(BaseModel):

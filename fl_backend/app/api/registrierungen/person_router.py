@@ -78,7 +78,6 @@ from app.core.security import PersonIdentifier, get_person_identifier, verify_ac
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 
@@ -435,8 +434,6 @@ async def decline(
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
                             reason=decline_data.reason,
-                            # The bound the sweep erases a declined row by (`services.py :: decline_erasure_is_due`).
-                            deletion_days=DECLINED_RETENTION_DAYS,
                         ),
                         reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )
