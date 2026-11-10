@@ -207,7 +207,7 @@ const actRow = tv({
   },
 });
 
-/** One record in a card's rows: where it opens, its name with its chip, its one line, and its acts. */
+/** One record in a card's rows: where it opens, its name with its chip, its line where it has one, and its acts. */
 export type CardActRowProps = {
   href: Route;
   name: Words;
@@ -218,8 +218,8 @@ export type CardActRowProps = {
 };
 
 /**
- * One record in a card's rows whose open work is done where it shows: its name with its chip, one line saying
- * what is open, and its acts, one or two kit buttons, under the words on a phone and before the chevron from
+ * One record in a card's rows whose open work is done where it shows: its name with its chip, a line saying
+ * what is open where the name and the chip leave something to say, and its acts, one or two kit buttons, under the words on a phone and before the chevron from
  * `lg`, so the name keeps the phone's whole width. The whole row opens the record through its name, as every
  * card row does, and ends in the chevron, with acts or none; under the pointer the row takes the one hover layer
  * and an act's own stacks on it. A name too long for its line is cut with „…“, so
