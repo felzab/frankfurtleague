@@ -2305,7 +2305,7 @@ export const SpielberichtePutSpielberichtBerichtParams = zod.object({
 });
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
-export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielberichtePutSpielberichtBerichtBodyBerichtCardsMax = 60;
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min = 0;
@@ -2328,9 +2328,14 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
               colour: zod.enum(["gelb", "gelb_rot", "rot"]),
               minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp),
               side: zod.enum(["team1", "team2"]),
-              spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp),
+              spieler_id: zod.union([
+                zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdOneRegExp),
+                zod.null(),
+              ]),
             })
-            .describe("One card: who was shown it, when, and its colour."),
+            .describe(
+              "One card: who was shown it, when, and its colour.\n\nA null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad\nstill takes cards.",
+            ),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax),
       ergebnis_vorschlag: zod
