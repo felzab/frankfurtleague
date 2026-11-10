@@ -9,11 +9,6 @@
       "count": 1
     }
   },
-  "src/core/registrierungEmail.ts": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "src/core/teamVocabulary.ts": {
     "no-restricted-syntax": {
       "count": 24
