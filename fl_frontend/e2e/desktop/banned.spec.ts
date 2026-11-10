@@ -9,7 +9,7 @@ import { expect } from "@playwright/test";
 import { typeInto } from "../support/application";
 import { test as journey } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
-import { assertionsSigned, enrolPasskey, failureLine, signInWithCode } from "../support/signIn";
+import { assertionsSigned, declinePasskeyOffer, enrolPasskey, failureLine, PERSON_LANDING, signInWithCode } from "../support/signIn";
 import { standInForTurnstile } from "../support/turnstileStandIn";
 
 import type { Page } from "@playwright/test";
@@ -33,8 +33,7 @@ const test = journey.extend<{ desk: Page }>({
 test("a banned person is told, loses their session and cannot sign in, by the sentence", async ({ page, context, desk }) => {
   // The person: an account, so the ban owes its mail, and a passkey, which outlives the session the ban ends.
   await signInWithCode(page, PERSON);
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  await page.getByRole("button", { name: "Später" }).click();
+  await declinePasskeyOffer(page, PERSON_LANDING);
   await context.credentials.install();
   await page.goto("/account/security");
   await page.getByRole("button", { name: "Passkey einrichten" }).click();

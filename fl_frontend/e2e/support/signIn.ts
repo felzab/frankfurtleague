@@ -62,6 +62,24 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
 }
 
 /**
+ * Where a journey's own person lands once signed in: each is a confirmed referee no fixture books
+ * (`scripts/ops/seed/seed.js :: journeyPerson`), so their one place is the referee's
+ * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose address stays put for a referee in no season.
+ */
+export const PERSON_LANDING = "/area/schiedsrichter";
+
+/**
+ * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the
+ * landing's rule sends this person to. The press's navigation may pass through `/area` on its way there, and an
+ * address asked for before it arrives aborts one of the two, so a journey goes on from here alone.
+ */
+export async function declinePasskeyOffer(page: Page, landing: string): Promise<void> {
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+  await page.getByRole("button", { name: "Später" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === landing);
+}
+
+/**
  * The session cookies the browser holds for the site, by name: the library's, under whatever prefix the origin gives
  * it, as `fl_frontend/src/proxy.ts` matches it.
  */
