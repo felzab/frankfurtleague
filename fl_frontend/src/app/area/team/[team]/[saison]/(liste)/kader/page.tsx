@@ -3,10 +3,9 @@ import { ListPage } from "@/kit/ListPage";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { readAsSeatHolder, requireTeamSeats, teamSeatsAt } from "@/features/roles/resolvers";
+import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { getKader } from "@/features/spieler/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { KaderTable } from "./KaderTable";
 
@@ -21,9 +20,7 @@ const WORDS = COPY.admin.spieler;
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamKader.path(team, saison);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  // `teamSeatsAt` answers `null` rather than throwing: a `notFound()` thrown from `generateMetadata` leaves the tab the
-  // layout's title.
-  return metadataFor(teamSeatsAt(params, address), async () => pageMetadata(parent, ROUTES.teamKader, address(await params)));
+  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamKader, address(await params)));
 }
 
 /**

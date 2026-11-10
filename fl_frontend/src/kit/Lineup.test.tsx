@@ -86,10 +86,11 @@ function Held({
   );
 }
 
-/** A pupil's name at the start of what names its row or describes its cross, with whatever follows it there. */
+/** A pupil's name at the start of what names its row or describes its word or its cross, with whatever follows it there. */
 const named = (nummer: number) => new RegExp(`^${nameOf(nummer)}(?!\\d)`);
 const rowOf = (nummer: number) => screen.getByRole("row", { name: named(nummer) });
-const pick = (nummer: number) => userEvent.click(within(rowOf(nummer)).getByRole("button", { name: WORDS.pick }));
+// Found by its description, as a screen reader tells one row's word from the next: every row's word has the same name.
+const pick = (nummer: number) => userEvent.click(screen.getByRole("button", { name: WORDS.pick, description: named(nummer) }));
 const tickOf = (nummer: number) => screen.getByRole<HTMLInputElement>("checkbox", { name: `${WORDS.starts} ${nameOf(nummer)}` });
 const crossOf = (nummer: number) => screen.getByRole("button", { name: WORDS.remove, description: named(nummer) });
 

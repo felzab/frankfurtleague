@@ -700,11 +700,3 @@ class FLTeamSeat(BaseModel):
     name: str | None
     # Composed from the stamp and never the stamp itself, so no date about another person crosses.
     confirmed: bool
-
-
-class FLTeamSeatsResponse(BaseAPIResponse):
-    """A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."""
-
-    team_id: CustomObjectId
-    saison_id: str
-    seats: list[FLTeamSeat]

@@ -40,14 +40,12 @@ from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
-from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import (
     enter_a_club,
     found_a_club,
     pull_a_club_to_enter,
     refuse_a_gruppe_move,
     refuse_a_taken_colour,
-    void_moved_seats,
     write_the_club,
 )
 from app.api.teams.schemas import (
@@ -127,7 +125,6 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
-    SpielbestaetigungenCollection,
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
@@ -211,7 +208,6 @@ async def write_the_contact_block(
     saison_id: str,
     saison_teams_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     # Made outside the caller's callback, so a retried transaction owes this save's mails once and a second save its own.
     nonce: str,
@@ -265,12 +261,6 @@ async def write_the_contact_block(
         expected_version=expected_version,
         session=session,
         return_document=ReturnDocument.BEFORE,
-    )
-    # Judged on the block read in this transaction.
-    await void_moved_seats(
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
-        session=session,
     )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
     await record_act(
@@ -763,7 +753,6 @@ async def put_kontakt_seat(
     seat_data: Annotated[FLKontaktSeatPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -816,7 +805,6 @@ async def put_kontakt_seat(
             saison_id=saison_id,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
             outbox_collection=outbox_collection,
             nonce=nonce,
             today=today,
@@ -846,7 +834,6 @@ async def replace_saison_team(
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -953,13 +940,6 @@ async def replace_saison_team(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        # The outgoing club's people, read in this transaction, leave their match links behind.
-        await void_moved_seats(
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=outgoing_raw.get("kontakte"), kontakte=None)],
-            session=session,
-        )
-
         # By address and by name, the application being reached by document:
         # it spells an address the editor corrected on the row the old
         # way. Its other people keep their seats.

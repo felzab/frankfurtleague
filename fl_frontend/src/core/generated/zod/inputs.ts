@@ -2410,8 +2410,8 @@ export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
  * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
  * as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
  * each opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::
- * owe_the_austritt_notices_in_session`). A club is told at every address its season row's seats hold now, a referee at
- * the address their record holds; a party nobody is left to tell is told nothing.
+ * owe_the_austritt_notices_in_session`). A club is told at every address of its confirmed seats as they stand now, a
+ * referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
  * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
  * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -2419,22 +2419,27 @@ export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
  * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
  * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
  * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
- * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
- * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
- * occupied seat holding no link -- its holder replaced or newly seated -- is owed one too. A
+ * A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
+ * link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
+ * seat is asked once it holds one, while its row is open and in time. A referee row is owed its Einteilung. A
  * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
  * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
  * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
- * its answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture
+ * its answer about the new slot standing or no confirmed seat of its reachable, is owed the move's notice instead. A fixture
  * holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
  * its notice first.
  *
- * The one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's
- * days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every
- * one of them answers until the deadline, and stamps the day. It passes over each seat
- * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
- * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
- * other seats are reminded beside it.
+ * The one reminder goes to every address of the club's confirmed seats as they stand now, on each open team row never
+ * reminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and
+ * whose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is
+ * reminded of nothing.
+ *
+ * The line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose
+ * kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_HOURS` and `:: AUFSTELLUNG_DUE_HOURS`
+ * ahead and for which the club stores no line-up, neither the fixture decided or called off nor the club out by its
+ * day; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py
+ * :: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no
+ * reminder of it went. Each states the moment the line-up is due and is given up at it.
  *
  * Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
  * and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
@@ -2531,7 +2536,9 @@ export const SpielbestaetigungenPostSchiedsrichterAnswerBody = zod
  * the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
  * administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
  * outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
- * fixture (`spiel_double_booked`). The reason is stored as typed.
+ * fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside
+ * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
+ * than letting it stand.
  * @summary Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date
  */
 export const spielbestaetigungenPostTeamAnswerPathSpielbestaetigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3829,9 +3836,11 @@ export const TeamsReplaceSaisonTeamBody = zod
  * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
  * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
  * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
- * the league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and
- * an hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's
- * decision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.
+ * the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
+ * fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
+ * still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
+ * each with the pupil's own position and Stufe. And the team's three seats, each with its holder's name and whether
+ * that person confirmed it.
  *
  * No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
  * signed-in person holds no seat on this team in this season.
@@ -3845,26 +3854,12 @@ export const TeamsGetTeamOverviewParams = zod.object({
 });
 
 /**
- * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
- *
- * Always three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or
- * confirmation date is served, whoever asks.
- * @summary A team's seats in one season
- */
-export const teamsGetTeamSeatsPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const TeamsGetTeamSeatsParams = zod.object({
-  team_id: zod.string().regex(teamsGetTeamSeatsPathTeamIdRegExp),
-  saison_id: zod.string(),
-});
-
-/**
  * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
  *
  * Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
  * state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
- * the clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or
- * no hour.
+ * the clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about
+ * the fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.
  *
  * Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
  * @summary A team's fixtures in one season, with what is open on each

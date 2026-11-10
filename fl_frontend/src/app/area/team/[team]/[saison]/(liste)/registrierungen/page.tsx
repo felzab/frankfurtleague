@@ -6,10 +6,9 @@ import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getOpenRegistrierungen } from "@/features/registrierungen/queries";
-import { readAsSeatHolder, requireTeamSeats, teamSeatsAt } from "@/features/roles/resolvers";
+import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { kaderName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import { RegistrierungActs } from "./RegistrierungActs";
@@ -27,7 +26,7 @@ const WORDS = COPY.area.team.registrierung;
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamRegistrierungen.path(team, saison);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return metadataFor(teamSeatsAt(params, address), async () => pageMetadata(parent, ROUTES.teamRegistrierungen, address(await params)));
+  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamRegistrierungen, address(await params)));
 }
 
 /**

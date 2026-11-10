@@ -37,8 +37,8 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
-from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
-from app.api.teams.crud import pull_team_names, void_moved_seats
+from app.api.spielbestaetigungen.services import HeldSeats
+from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -427,10 +427,8 @@ async def sweep_saison(
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
         taken = batch.took(junction_rows[: batch.share])
 
-        # One patch per row and never `patch_many_in_db`: each row's stored seats name the match links its void takes.
-        voids = []
         for row in taken:
-            before = await patch_one_in_db(
+            await patch_one_in_db(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 # The links go with their people: each holds a token hash and the delivery record of the
@@ -440,21 +438,17 @@ async def sweep_saison(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-            voids.append(seat_void_of(saison_id=saison_id, team_id=before["team_id"], stored_kontakte=before.get("kontakte"), kontakte=None))
-        # Once for the share, so voiding its people's match links costs the pass the same however many rows it
-        # clears.
-        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        if voids:
+        if taken:
             await record_act(
                 collection=saison_teams_collection,
                 action="retention.kontakte",
                 by=ACT_BY_SYSTEM,
                 label=saison_id,
-                count=len(voids),
+                count=len(taken),
                 session=session,
             )
 
-        return len(voids)
+        return len(taken)
 
     async def clear_the_lapsed_seats(session: AsyncClientSession, batch: Batch) -> int:
         """A season row's seat past its own day unconfirmed, a share of rows a pass. Read in-session, so a retry re-judges."""
@@ -473,7 +467,6 @@ async def sweep_saison(
 
         emptied = 0
         held: list[HeldSeats] = []
-        voids = []
         for row in taken:
             stored_kontakte = row.get("kontakte")
             seats = lapsed_seats(kontakte=stored_kontakte, confirmations=row.get("confirmations"), today=today)
@@ -487,17 +480,8 @@ async def sweep_saison(
             )
             emptied += len(seats)
             held.append(HeldSeats(saison_id=saison_id, team_id=row["team_id"], seats=tuple(seats)))
-            voids.append(
-                seat_void_of(
-                    saison_id=saison_id,
-                    team_id=row["team_id"],
-                    stored_kontakte=stored_kontakte,
-                    kontakte=kontakte_without(stored_kontakte, seats),
-                )
-            )
 
-        # Once for the share, as the blocks' void is: the seats' people leave as a Widerspruch's do.
-        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        # Once for the share: the seats' people leave as a Widerspruch's do.
         await remove_the_seats_reasons(spielbestaetigungen_collection=spielbestaetigungen_collection, held=held, session=session)
         if emptied:
             await record_act(

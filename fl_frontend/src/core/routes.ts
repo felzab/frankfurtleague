@@ -162,8 +162,6 @@ export const ROUTES = {
     title: COPY.page.entryConfirmation,
     crawl: "disallow",
   },
-  // Session 8: the fixture mail links the team's Übersicht.
-  spielbestaetigung: { path: () => "/confirm/spiel" as const, title: COPY.page.spielbestaetigung, crawl: "disallow" },
   registrierungConfirmation: {
     path: () => "/confirm/spieler" as const,
     title: COPY.page.registrierungConfirmation,

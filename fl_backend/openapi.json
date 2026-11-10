@@ -12946,7 +12946,7 @@
         "type": "object"
       },
       "FLSpielRequestData": {
-        "description": "A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.",
+        "description": "A club's request to confirm a fixture, or the reminder of it, each leading to the club's own pages.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
@@ -14376,7 +14376,7 @@
         ]
       },
       "FLSpielbestaetigungByKontakt": {
-        "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
+        "description": "The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded.",
         "properties": {
           "kind": {
             "const": "kontakt",
@@ -14699,7 +14699,7 @@
         "type": "string"
       },
       "FLSpielbestaetigungViewAnsetzung": {
-        "description": "The clubs, the day, the hour and the ground a page or a message states.\n\nThe fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about.",
+        "description": "The clubs, the day, the hour and the ground a page or a message states.\n\nThe fixture as it stands, or on a row whose fixture moved since, the Ansetzung the row asked about.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17930,34 +17930,6 @@
           "confirmed"
         ],
         "title": "FLTeamSeat",
-        "type": "object"
-      },
-      "FLTeamSeatsResponse": {
-        "description": "A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them.",
-        "properties": {
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "seats": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamSeat"
-            },
-            "title": "Seats",
-            "type": "array"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "team_id",
-          "saison_id",
-          "seats"
-        ],
-        "title": "FLTeamSeatsResponse",
         "type": "object"
       },
       "FLTeamShorthandLength": {
@@ -26600,7 +26572,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,\neach opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::\nowe_the_austritt_notices_in_session`). A club is told at every address its season row's seats hold now, a referee at\nthe address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced or newly seated -- is owed one too. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's\ndays away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every\none of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A\nclub's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,\neach opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::\nowe_the_austritt_notices_in_session`). A club is told at every address of its confirmed seats as they stand now, a\nreferee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.\nA club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no\nlink, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed\nseat is asked once it holds one, while its row is open and in time. A referee row is owed its Einteilung. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no confirmed seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder goes to every address of the club's confirmed seats as they stand now, on each open team row never\nreminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and\nwhose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is\nreminded of nothing.\n\nThe line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose\nkick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_HOURS` and `:: AUFSTELLUNG_DUE_HOURS`\nahead and for which the club stores no line-up, neither the fixture decided or called off nor the club out by its\nday; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py\n:: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no\nreminder of it went. Each states the moment the line-up is due and is given up at it.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -26839,7 +26811,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team": {
       "post": {
-        "description": "Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the\nsigned-in person's own on the row's team, the first in order where they hold two.\n\nRefuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in\nits season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed\nunanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one\nwhose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the\ndeadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming\nthe day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the\nadministrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),\noutside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other\nfixture (`spiel_double_booked`). The reason is stored as typed.",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the\nsigned-in person's own on the row's team, the first in order where they hold two.\n\nRefuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in\nits season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed\nunanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one\nwhose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the\ndeadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming\nthe day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the\nadministrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),\noutside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other\nfixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
         "operationId": "spielbestaetigungen_post_team_answer",
         "parameters": [
           {
@@ -30790,7 +30762,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview": {
       "get": {
-        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until\nthe league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and\nan hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's\ndecision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
+        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until\nthe league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming\nfixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may\nstill enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,\neach with the pupil's own position and Stufe. And the team's three seats, each with its holder's name and whether\nthat person confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
         "operationId": "teams_get_team_overview",
         "parameters": [
           {
@@ -30876,97 +30848,9 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats": {
-      "get": {
-        "description": "The team's three seats in this season, each with its holder's name and whether that person has confirmed it.\n\nAlways three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or\nconfirmation date is served, whoever asks.",
-        "operationId": "teams_get_team_seats",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamSeatsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A team's seats in one season",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele": {
       "get": {
-        "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the\nstate of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase\nthe clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or\nno hour.\n\nRefused `role_not_held` where the signed-in person holds no seat on this team in this season.",
+        "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the\nstate of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase\nthe clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about\nthe fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.\n\nRefused `role_not_held` where the signed-in person holds no seat on this team in this season.",
         "operationId": "teams_get_team_spiele",
         "parameters": [
           {

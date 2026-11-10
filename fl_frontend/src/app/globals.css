@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Tailwind scans every file it is not told to skip, so a class name a test or the lint configuration only mentions
+   would ship as a rule. Neither reaches a page. */
+@source not "../../eslint.config.mjs";
+@source not "../../eslint-rules";
+@source not "../../e2e";
+@source not "../test-support";
+@source not "../../**/*.test.*";
+
 @import "./tokens.css";
 @import "./focus.css";
 

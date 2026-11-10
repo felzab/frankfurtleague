@@ -128,7 +128,7 @@ class FLSpielMailAnsetzung(FLSpielMailAppointment):
 
 
 class FLSpielRequestData(BaseModel):
-    """A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own."""
+    """A club's request to confirm a fixture, or the reminder of it, each leading to the club's own pages."""
 
     kind: Literal["spiel_request", "spiel_reminder"]
     # The reader's own club, one of the two sides.
