@@ -219,6 +219,12 @@ export const ROUTES = {
     title: COPY.page.spiele,
     crawl: "disallow",
   },
+  /** A match's line-up as its club's seats enter it, named by the match's two teams. */
+  teamAufstellung: {
+    path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
+    title: COPY.page.spiel,
+    crawl: "disallow",
+  },
   teamKader: {
     path: (team: string, saison: string) => `/area/team/${team}/${saison}/kader` as const,
     title: COPY.page.teamKader,
