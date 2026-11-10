@@ -775,6 +775,12 @@ export const COPY = catalogue({
     /** What a fixture's date still waits on from a club or a referee: the noun of the chip „Antwort fehlt“. */
     answer: "Antwort",
 
+    /** A pupil's own pages. */
+    spieler: {
+      /** A match card's chip on the pupil's own season: their place in their club's line-up, said to them. */
+      lineupPlace: { starts: "In der Startelf", bench: "Auf der Bank" },
+    },
+
     /** A team's pages, which any of its contact seats reads. */
     team: {
       /** The account row's second line in a team's frame: the club's Kürzel and the seats the person holds there. */
