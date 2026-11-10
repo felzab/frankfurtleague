@@ -10,7 +10,7 @@ import { now } from "@/core/clock";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import { bornBy, dayIn, dayOf, formatDate } from "@/core/format";
+import { bornAfter, bornBy, dayIn, dayOf, formatDate } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
@@ -123,6 +123,7 @@ function question(view: FLRegistrierungConfirmationViewResponse, token: string):
       <ConfirmationFields
         ageCheck={WORDS.ageCheck(view.minimum_age)}
         // The range the write judges, as the link's view serves it.
+        earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
         mediaLatestBirth={bornBy(today, view.media_minimum_age)}
         required={REQUIRED}
