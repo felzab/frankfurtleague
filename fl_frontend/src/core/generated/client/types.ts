@@ -4247,6 +4247,8 @@ export interface FLRegistrierungConfirmationViewResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   /** @exclusiveMinimum 0 */
+  maximum_age: number;
+  /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
   saison_id: string;
