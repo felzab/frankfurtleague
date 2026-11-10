@@ -50,8 +50,11 @@ type SpieltagTabs = {
   tabs: ReadonlyArray<{ id: string; label: Copy; panel: ReactNode }>;
 };
 
-/** A table's rows, and how a list past one read's cap reaches the rest; its head is the list's, stated before the read. */
-type TableContent = { table: TableBody; more?: ListMore };
+/**
+ * A table's rows, and how a list past one read's cap reaches the rest; its head is the list's, stated before the read.
+ * Or the table a client page draws, `ListTable` with its head, where its rows open a dialog of the page (`onOpen`).
+ */
+type TableContent = { table: TableBody; more?: ListMore } | { drawn: ReactElement };
 
 /** The season's matches once read: the matchday tabs, or why there are none. */
 export type SpieltageContent = {
@@ -468,7 +471,10 @@ async function NoticeOnceRead({ notice }: { notice: Promise<Copy | null> }) {
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table": {
-      const { table, more } = await list.content;
+      const content = await list.content;
+      // A server component hands a client element across its boundary, never a function such as a row's `onOpen`.
+      if ("drawn" in content) return content.drawn;
+      const { table, more } = content;
       return (
         <ListTable
           table={{ ...list.head, ...table }}
