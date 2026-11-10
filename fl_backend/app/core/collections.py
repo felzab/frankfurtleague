@@ -67,9 +67,10 @@ class Collection(StrEnum):
     MAILBOX_ANCHORS = "mailbox_anchors"
 
 
-# The collections a person edits through a form, one member per line: every update of one raises its `version`, and a
-# save carrying the version its form was read at matches only while no other write has raised it
-# (`app/core/crud.py :: patch_one_in_db`).
+# The collections a person edits through a form, one member per line: every update of what a form of one shows and
+# saves raises its `version`, and a save carrying the version its form was read at matches only while no such write
+# has raised it (`app/core/crud.py :: patch_one_in_db`). A write to a field no form saves leaves the count standing
+# (`:: patch_past_the_version_in_db`).
 EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
     {
         Collection.SPIELE,

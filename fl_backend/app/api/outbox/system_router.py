@@ -36,7 +36,7 @@ from app.api.outbox.services import (
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
 from app.core.logging import fl_logger
 from app.core.security import verify_access_system
@@ -165,13 +165,15 @@ async def post_handout(
             if row["_id"] in barred_ids or row["link"] is None:
                 continue
             raw, token_hash = mint_token()
-            minted = await stamp_in_db(
+            # Past the version: a hash changes nothing a reader sees, and raising the count would refuse the next
+            # save of an editor read before the hand-out.
+            minted = await patch_past_the_version_in_db(
                 collection=db[Collection(row["reference"]["collection"])],
                 db_filter=_link_record_filter(row),
                 update=_link_update(row["link"], token_hash),
                 session=session,
             )
-            if not minted:
+            if minted == 0:
                 dropped_ids.append(row["_id"])
                 continue
             tokens[row["_id"]] = raw
