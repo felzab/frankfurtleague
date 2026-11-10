@@ -83,7 +83,7 @@ class LandingWindows(NamedTuple):
     held: bool
 
 
-async def pull_landing_windows(*, saisons_collection: AsyncCollection, today: str) -> LandingWindows:
+async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str) -> LandingWindows:
     """The season taking applications today, the day the next window opens, each `None` where there is none, and whether any window stands.
 
     Judged over every season not yet ended by the rules the submission refuses on and the form's page reads, and never
