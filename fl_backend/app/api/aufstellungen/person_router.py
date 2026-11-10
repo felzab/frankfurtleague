@@ -110,10 +110,14 @@ async def put_aufstellung_self(
     fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
     (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
     the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
-    squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named
-    beside eleven regular players, or more nominees than the regular players leave open of eleven
-    (`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters
-    (`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.
+    squad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each
+    such entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries
+    (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee named beside eleven regular players, or
+    more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
+    `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
+    refused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils
+    erased since the match kicked off, which the screen serves as `erased`, are written back after the payload's as
+    they stand.
     Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
     a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
     """
