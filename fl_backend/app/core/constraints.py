@@ -254,12 +254,12 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for entries in ("scorers", "cards")
     ),
-    # Multikey, for the reports' reason: the line-ups are kept as long, and a pupil's own list reads them by it too.
+    # Multikey, for the reports' reason: the line-ups are kept as long.
     SupportIndex(
         Collection.AUFSTELLUNGEN,
         "aufstellungen_spieler_spieler_id",
         (("spieler.spieler_id", ASCENDING),),
-        "the line-ups naming a pupil, read inside their erasure's transaction and for their own list of matches",
+        "the line-ups naming a pupil, read inside their erasure's transaction",
     ),
     SupportIndex(
         Collection.AUFSTELLUNGEN,
