@@ -24,7 +24,7 @@ const { calls, answerWith } = doubleApiAnswers(() => Promise.resolve({ registrie
 
 // Both after the double: the page's module reads the link's view through the generated client too.
 const { submitRegistrierung } = await import("./submitRegistrierung");
-const { LINK_INVALID, REPLAY_FIELD, SUBMITTED } = await import("./invitation");
+const { LINK_INVALID, REPLAY_FIELD } = await import("./invitation");
 
 const KEY = "3f2b8c1e-7a4d-4e6f-9b1a-2c3d4e5f6a7b";
 const TOKEN = "kein-echtes-token";
@@ -91,8 +91,11 @@ beforeEach(() => {
 describe("the registration a press sends", () => {
   // The harm: a press whose answer was lost, sent again under another key, is a second registration and a second mail;
   // an untouched optional box sent as "" is refused by the write's pattern, on a box the pupil never filled in.
-  it("sends the form's replay key and the boxes as the write spells them, and forgets the link once done", async () => {
-    expect(await submitRegistrierung(posted(BOXES))).toStrictEqual({ ok: true, value: SUBMITTED });
+  it("sends the form's replay key and the boxes as the write spells them, forgets the link once done, and leads on", async () => {
+    const thrown: unknown = await submitRegistrierung(posted(BOXES)).catch((error: unknown) => error);
+    // Next's redirect, thrown past the action, names the done page; the link's own page would read the forgotten link.
+    const [kind, , address] = (thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "").split(";");
+    expect([kind, address]).toStrictEqual(["NEXT_REDIRECT", ROUTES.registrierungDone.path()]);
 
     expect(calls[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe(KEY);
     expect(requestsOf(calls)[0]?.body).toStrictEqual({
