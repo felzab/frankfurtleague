@@ -1,5 +1,5 @@
 """
-API · the rules a line-up's save holds the whole written list to, pinned on fabricated squads
+API · the rules a line-up's save judges whom it names by, pinned on fabricated squads
 
 A nominee is named only while the line-up names fewer than eleven regular players, and no more of them than the gap;
 and eleven start at most, an erased pupil's kept entry among them. Only a pupil the stored line-up does not name is
@@ -13,7 +13,7 @@ from bson import ObjectId
 from pydantic import ValidationError
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload
-from app.api.aufstellungen.services import find_nominee_refusal, judge_the_names, newly_named
+from app.api.aufstellungen.services import find_nominee_refusal, find_not_in_kader_refusal, judge_the_names, newly_named
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.core.sentinels import GHOST_SPIELER_ID
@@ -44,6 +44,25 @@ def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: 
     refusal = find_nominee_refusal(entries=entries, kader=KADER)
 
     assert (refusal is not None and refusal.error_code == Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE) is refused
+    # The bound the screen words the eleven from: dropped, its line would fall to the unexpected one.
+    assert refusal is None or (refusal.fields, refusal.bounds) == ((("spieler",),), {"max": AUFSTELLUNG_STARTERS_MAX})
+
+
+def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_naming_one():
+    """The paths the screen marks its rows by: an entry stored before, or in the squad, is never among them."""
+
+    outside, ausgetragen = ObjectId(), ObjectId()
+    kader = [
+        *({**row, "inactive_since": None} for row in KADER),
+        {"spieler_id": ausgetragen, "is_nachnominiert": False, "inactive_since": "2026-10-01"},
+    ]
+    saved = {"spieler": [{"spieler_id": ausgetragen, "starts": False}]}
+    entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in (REGULAR[0], outside, ausgetragen, outside)]
+
+    refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), kader=kader)
+
+    assert refusal is not None
+    assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 1, "spieler_id"), ("spieler", 3, "spieler_id")))
 
 
 @pytest.mark.parametrize(

@@ -1,8 +1,7 @@
 import { COPY } from "@/core/copy";
-import { KONTAKT_ROLLE_LONG_FORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 
 import type { Copy } from "@/core/copy";
-import type { FLAustrittType, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLAustrittType, FLKontaktRolle, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 // Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
@@ -39,21 +38,14 @@ export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType 
 }
 
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
-  return TRIKOT_FARBEN.find((option) => option.value === farbe)?.label ?? "";
+  return COPY.team.trikotFarbeName[farbe];
 }
 
 /**
- * The three seats a season holds per club, in every surface's order, the Trainer first as the application form draws them.
- *
- * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form, which `fl_frontend/src/core/teamVocabulary.ts :: KONTAKT_ROLLE_LONG_FORM` holds for the mails too. Both
- * are read from here, so no two surfaces name a seat differently.
+ * The three seats a season holds per club, in every surface's order, the Trainer first as the application form draws
+ * them; each is named by the catalogue (`COPY.team.seatName`, `rollenText`).
  */
-export const KONTAKT_ROLLEN = [
-  { value: "trainer", label: "Trainer", longForm: KONTAKT_ROLLE_LONG_FORM.trainer },
-  { value: "ansprechperson", label: "Ansprechperson", longForm: KONTAKT_ROLLE_LONG_FORM.ansprechperson },
-  { value: "stellvertretung", label: "Stellvertretung", longForm: KONTAKT_ROLLE_LONG_FORM.stellvertretung },
-] as const;
+export const KONTAKT_ROLLEN = ["trainer", "ansprechperson", "stellvertretung"] as const satisfies readonly FLKontaktRolle[];
 
 /**
  * The seat a double-seated Trainer's row stands for, on an application and on a club alike: one person holds both and

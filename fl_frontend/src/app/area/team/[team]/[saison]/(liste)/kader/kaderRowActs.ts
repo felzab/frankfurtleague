@@ -4,8 +4,8 @@ import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
+import { spielerDeleteKaderRow, spielerPatchKaderRow } from "@/core/generated/client/sdk";
 import { SpielerDeleteKaderRowParams, SpielerPatchKaderRowBody, SpielerPatchKaderRowParams } from "@/core/generated/zod/inputs";
-import { deleteKaderRow, patchKaderRow } from "@/features/spieler/mutations";
 
 const { shape } = SpielerPatchKaderRowBody;
 
@@ -30,7 +30,7 @@ export const saveKaderRow = action({
   paths: { rolle: "rolle" },
   examples: { nummer: COPY.shared.field.exampleDigits },
   run: async ({ team_id, saison_id, spieler_id, ...row }) => {
-    await patchKaderRow(team_id, saison_id, spieler_id, row);
+    await spielerPatchKaderRow(team_id, saison_id, spieler_id, row);
     return { ok: true, value: undefined };
   },
 });
@@ -45,7 +45,7 @@ export const deregisterKaderRow = action({
   name: "deregisterKaderRow",
   input: z.object(SpielerDeleteKaderRowParams.shape),
   run: async ({ team_id, saison_id, spieler_id }) => {
-    await deleteKaderRow(team_id, saison_id, spieler_id);
+    await spielerDeleteKaderRow(team_id, saison_id, spieler_id);
     return { ok: true, value: undefined };
   },
 });

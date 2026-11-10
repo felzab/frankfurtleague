@@ -131,8 +131,6 @@ describe("a press the action stops", () => {
           statusCode: 422,
           serverErrorCode: "bewerbung_kontakt_repeated",
           endpoint: "/",
-          method: "POST",
-          readOnly: false,
           traceId: "0",
           refusedFields: (["email", "phone"] as const).map((box) => ({
             path: ["kontakte", "stellvertretung", box],

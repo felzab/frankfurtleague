@@ -48,7 +48,7 @@ export function doubleOutbox(): {
     const mail = { to: payload.to, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {
-      throw new APINetworkError({ message: "Request failed.", url: BACKEND, method: "POST", readOnly: false, traceId: "0", isTimeout: false });
+      throw new APINetworkError({ message: "Request failed.", url: BACKEND, traceId: "0", isTimeout: false });
     }
 
     owed.push(payload);

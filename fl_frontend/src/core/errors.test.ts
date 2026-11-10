@@ -34,8 +34,6 @@ describe("a refusal read by its code, whatever its status", () => {
           url: "http://backend:8000/api/v0/x",
           endpoint: "/x",
           traceId: "ab".repeat(16),
-          method: "PATCH",
-          readOnly: false,
           message: "bad",
           statusCode: status,
           serverErrorCode: code,

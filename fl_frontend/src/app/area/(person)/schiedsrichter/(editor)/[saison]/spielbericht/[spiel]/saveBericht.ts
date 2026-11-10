@@ -7,10 +7,10 @@ import { COPY } from "@/core/copy";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
 import { SpielberichtePutSpielberichtBerichtBody, SpielberichtePutSpielberichtBerichtParams } from "@/core/generated/zod/inputs";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut } from "@/features/spiele/result";
 
 import { Cards, Goals } from "./berichtRules";
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_SCORER, valuesOf } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -86,9 +86,9 @@ function payloadOf(read: FLSpielberichtSchiedsrichterResponse, changes: Changes)
       sonderereignis,
       elfmeterschiessen: takesShootOut && shootOut1 !== null && shootOut2 !== null ? { team1: shootOut1, team2: shootOut2 } : null,
     },
-    // „Unbekannt“ is the null player the write reads as a scorer nobody named.
-    scorers: goals.map((goal) => ({ ...goal, spieler_id: goal.spieler_id === UNKNOWN_SCORER ? null : goal.spieler_id })),
-    cards: [...cardRows],
+    // „Unbekannt“ is the null player the write reads as a player nobody named.
+    scorers: goals.map((goal) => ({ ...goal, spieler_id: goal.spieler_id === UNKNOWN_PLAYER ? null : goal.spieler_id })),
+    cards: cardRows.map((card) => ({ ...card, spieler_id: card.spieler_id === UNKNOWN_PLAYER ? null : card.spieler_id })),
     remarks: changes.remarks === undefined ? (stored?.remarks ?? null) : changes.remarks,
   };
 }
@@ -105,8 +105,9 @@ export const saveBericht = action({
   claim: "record",
   name: "saveBericht",
   input: SaveBericht,
-  // The season's end, met by a form read before it; and goals entered beside a no-show, which the list's line words.
-  ownWords: ["saison_past", "nichtantreten_with_scorers"],
+  // The season's end, met by a form read before it; goals entered beside a no-show, which the list's line words; and a
+  // shoot-out typed level, which the form offers and the write refuses.
+  ownWords: ["saison_past", "nichtantreten_with_scorers", "elfmeterschiessen_without_winner"],
   // The no-show's rule judges the whole block, so the backend names the block, which this form shows as the goals.
   paths: { bericht: "changes.scorers" },
   examples: {

@@ -60,7 +60,7 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, ent
 export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
   const { kontakte, confirmations } = bewerbung;
   const also = seatBesideTrainer(kontakte);
-  return KONTAKT_ROLLEN.filter(({ value }) => value !== also).map(({ value: seat }) => {
+  return KONTAKT_ROLLEN.filter((seat) => seat !== also).map((seat) => {
     const entry = confirmations[seat];
     // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
     const state = entry?.state ?? "erased";

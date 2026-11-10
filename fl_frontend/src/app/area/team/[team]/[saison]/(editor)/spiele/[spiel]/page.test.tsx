@@ -37,17 +37,17 @@ doubleApiClient((): FLAufstellungResponse => ({
 }));
 
 const { default: AufstellungPage } = await import("./page");
-const { LockedLineup } = await import("./lockedView");
 const { TeamAufstellung } = await import("./TeamAufstellung");
+const { COPY } = await import("@/core/copy");
 
 /** What the page's one boundary resolves to at the team's address for the match, once its read lands. */
-async function pageAt(marks: FLAufstellungMarks): Promise<ReactElement> {
+async function pageAt(marks: FLAufstellungMarks): Promise<ReactElement<{ closed?: unknown }>> {
   state.marks = marks;
   const shell = AufstellungPage({
     params: Promise.resolve({ team: TEAM, saison: "2027", spiel: SPIEL }),
     searchParams: Promise.resolve({}),
   }) as ReactElement<{
-    editor: Promise<ReactElement>;
+    editor: Promise<ReactElement<{ closed?: unknown }>>;
   }>;
   return shell.props.editor;
 }
@@ -57,8 +57,12 @@ const MARKS = { stored: false, due_at: "2026-11-13T15:00:00Z", locks_at: "2026-1
 describe("a match's line-up at the team's address", () => {
   // The harm: an editor still standing from one hour before kick-off, whose every save the backend then refuses while
   // the page offers it as open.
-  it("opens read-only from the lock, and as the editor before it", async () => {
-    expect((await pageAt({ ...MARKS, phase: "locked" })).type).toBe(LockedLineup);
-    expect((await pageAt({ ...MARKS, phase: "overdue" })).type).toBe(TeamAufstellung);
+  it("opens closed from the lock, and open before it", async () => {
+    const locked = await pageAt({ ...MARKS, phase: "locked" });
+    expect(locked.type).toBe(TeamAufstellung);
+    expect(locked.props.closed).toBe(COPY.area.team.aufstellung.lockedLine);
+    const open = await pageAt({ ...MARKS, phase: "overdue" });
+    expect(open.type).toBe(TeamAufstellung);
+    expect(open.props.closed).toBeUndefined();
   });
 });

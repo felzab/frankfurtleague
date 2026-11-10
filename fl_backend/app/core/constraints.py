@@ -229,6 +229,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("party.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
         "a referee's own rows, on their panel and at their erasure",
     ),
+    # Read on every render of a referee's pages, and by the referee's erasure and retirement, none stating a fixture the
+    # season-leading index could narrow by; the season second, for the list of one season's fixtures.
+    SupportIndex(
+        Collection.SPIELE,
+        "spiele_schiedsrichter_schiedsrichter_id_saison_id",
+        (("schiedsrichter.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        "a referee's own fixtures, on their pages and at their erasure",
+    ),
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
@@ -246,12 +254,12 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for entries in ("scorers", "cards")
     ),
-    # Multikey, for the reports' reason: the line-ups are kept as long, and a pupil's own list reads them by it too.
+    # Multikey, for the reports' reason: the line-ups are kept as long.
     SupportIndex(
         Collection.AUFSTELLUNGEN,
         "aufstellungen_spieler_spieler_id",
         (("spieler.spieler_id", ASCENDING),),
-        "the line-ups naming a pupil, read inside their erasure's transaction and for their own list of matches",
+        "the line-ups naming a pupil, read inside their erasure's transaction",
     ),
     SupportIndex(
         Collection.AUFSTELLUNGEN,

@@ -2434,8 +2434,6 @@ async function erasureRefused(): Promise<Error> {
     statusCode: 409,
     serverErrorCode: "owner_erasure",
     endpoint: "/identity/account/erasure",
-    method: "POST",
-    readOnly: false,
     traceId: "0".repeat(32),
   });
 }

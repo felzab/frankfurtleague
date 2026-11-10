@@ -208,8 +208,6 @@ describe("a pass meeting a failure", () => {
         message: "The backend refused the request.",
         url: "http://backend:8000/api/v0/identity/references",
         endpoint: "/identity/references",
-        method: "POST",
-        readOnly: true,
         statusCode: 409,
         serverErrorCode: "no_owner",
         traceId: TRACE_ID,
@@ -241,8 +239,6 @@ describe("a pass meeting a failure", () => {
       throw new APINetworkError({
         message: "The backend did not answer.",
         url: "http://backend:8000/api/v0/identity/references",
-        method: "POST",
-        readOnly: true,
         traceId: TRACE_ID,
         isTimeout: true,
       });

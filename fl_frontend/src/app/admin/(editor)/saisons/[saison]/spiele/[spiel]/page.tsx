@@ -19,6 +19,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
+import { creditedSide, isNoShow } from "@/features/spiele/result";
+import { spielerName } from "@/features/spieler/constants";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -183,8 +185,7 @@ function scorerOf(bericht: FLSpielEditorBericht, spielerId: string | null): Word
   const words = SERVER_COPY.season.spiel;
   if (spielerId === null) return words.unknown;
   const named = bericht.named.find((spieler) => spieler.spieler_id === spielerId);
-  if (named === undefined || named.first_name === null) return words.anonymous;
-  return { record: named.last_name === null ? named.first_name : `${named.first_name} ${named.last_name}` };
+  return named === undefined ? words.anonymous : spielerName(named);
 }
 
 /** A minute as the report writes it, „45+2“, in the order it was played. */
@@ -208,8 +209,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
       return a[0] - b[0] || a[1] - b[1] || one.index - other.index;
     })
     .map(({ tor, index }) => {
-      const counts = tor.eigentor ? (tor.side === "team1" ? "team2" : "team1") : tor.side;
-      score[counts] += 1;
+      score[creditedSide(tor)] += 1;
       const plaque = plaques[tor.side];
       return {
         id: String(index),
@@ -230,7 +230,7 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
   const { team1_tore: tore1, team2_tore: tore2, elfmeterschiessen, sonderereignis } = bericht.ergebnis_vorschlag;
   const event = sonderereignis ?? NO_SONDEREREIGNIS;
   // A no-show's goals are the award the write composes: the proposal names the side that stayed away alone.
-  if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") {
+  if (isNoShow(sonderereignis)) {
     const words = eventOf({ ...spiel, sonderereignis, ergebnis: null });
     return words === null
       ? null
@@ -353,7 +353,7 @@ async function readEditor(params: Props["params"]) {
     { id: NO_SONDEREREIGNIS, label: WORDS.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      const open = !bothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2");
+      const open = !bothSides && isNoShow(event);
       return open ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];
@@ -400,6 +400,8 @@ async function readEditor(params: Props["params"]) {
       createSpielort={createSpielort}
       spielortRules={SPIELORT_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
+      // A planned season's match page answers not found to the public, so the strip offers none.
+      {...(view.saison_status === "future" ? {} : { spielPage: ROUTES.spiel.path(saved.saison_id, saved.id) })}
     />
   );
 }

@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielElfmeterschiessenPayload, FLSpielortFieldPublic
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
@@ -10,6 +10,7 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomTimeString,
+    CustomVersion,
     FLUtcInstant,
     parse_empty_string_to_none,
 )
@@ -75,6 +76,18 @@ class FLSpielberichtCard(BaseModel):
     colour: FLCardColour
 
 
+class FLSpielberichtScorerPayload(FLSpielberichtScorer):
+    """One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class FLSpielberichtCardPayload(FLSpielberichtCard):
+    """One card as the referee's save sends it: a key the card does not declare is refused, never dropped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class FLSpielberichtSides(BaseModel):
     """The clubs the fixture fielded at the block's last write, null on a slot then open.
 
@@ -121,7 +134,7 @@ class FLSpielberichtVorschlagPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # Both required as KEYS and null where unused: an omitted key would read as a form that forgot it.
-    elfmeterschiessen: FLSpielElfmeterschiessen | None
+    elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
     sonderereignis: FLSpielberichtSonderereignis | None
 
 
@@ -129,8 +142,9 @@ class FLSpielberichtBerichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ergebnis_vorschlag: FLSpielberichtVorschlagPayload
-    scorers: Annotated[list[FLSpielberichtScorer], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
-    cards: Annotated[list[FLSpielberichtCard], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    # The payload's own item models: a model's `extra` reaches none nested in it, and the stored ones stay lenient.
+    scorers: Annotated[list[FLSpielberichtScorerPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    cards: Annotated[list[FLSpielberichtCardPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     remarks: Annotated[CustomSpielberichtRemarks | None, BeforeValidator(parse_empty_string_to_none)]
 
     def proposed(self) -> FLSpielberichtVorschlag:
@@ -158,7 +172,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if proposed.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if proposed.elfmeterschiessen is not None:
-                raise rule_refusal("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
+                raise rule_refusal("nichtantreten_with_elfmeterschiessen", "a no-show proposes no shoot-out")
             if self.scorers:
                 raise rule_refusal("nichtantreten_with_scorers", "a no-show credits no scorer")
             return self
@@ -177,7 +191,7 @@ class FLSpielberichtPayload(BaseModel):
     bericht: FLSpielberichtBerichtPayload
     # The document's `version` the form was served, null where it showed no report: required with no default, since an
     # omitted one would check nothing (`app/core/crud.py :: find_stale_first_save_refusal`).
-    version: int | None
+    version: CustomVersion | None
 
 
 # --- The READ of the referee's form: the fixture, both live squads to pick from, and the stored block.
@@ -200,6 +214,8 @@ class FLSpielberichtSpiel(BaseModel):
     time: CustomTimeString | None
     team1: FLSpielberichtTeam | None
     team2: FLSpielberichtTeam | None
+    # The ground the form's lead names beside the day and the hour, null where none is assigned.
+    spielort: FLSpielortFieldPublic | None
     sonderereignis: FLSonderereignis | None
 
 

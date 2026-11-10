@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { ContractBreakError } from "@/core/errors";
 import { aufstellungenPutAufstellung } from "@/core/generated/client/sdk";
 import { AufstellungenPutAufstellungBody, AufstellungenPutAufstellungParams } from "@/core/generated/zod/inputs";
-import { entriesOf } from "@/features/aufstellungen/payload";
+import { entriesOf, refusedRows } from "@/features/aufstellungen/payload";
 import { getAufstellung } from "@/features/aufstellungen/queries";
 
 import type { ActionAnswer } from "@/core/action";
@@ -38,6 +38,8 @@ export const saveAufstellung = action({
     // block marks on the nominee's row and leaves the person to take out.
     "aufstellung_spiel_undated",
     "aufstellung_nominee_without_shortage",
+    // More starters than the bound, counted with the stored entries of erased pupils, which the block never shows.
+    "aufstellung_starters_exceed_eleven",
     // The season finished since the page was read, whose line-ups the write refuses whole.
     "saison_past",
   ],
@@ -45,7 +47,16 @@ export const saveAufstellung = action({
     const stored = await getAufstellung(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const written = await aufstellungenPutAufstellung(id, team_id, { spieler: entriesOf(stored, changes), version });
+    const spieler = entriesOf(stored, changes);
+    let written;
+    try {
+      written = await aufstellungenPutAufstellung(id, team_id, { spieler, version });
+    } catch (error) {
+      // A pupil refused by entry is marked on their row; every other refusal the action words.
+      const rows = refusedRows(error, spieler);
+      if (rows === undefined) throw error;
+      return rows;
+    }
     if (written.version === null) throw new ContractBreakError("A line-up's save answered no version.");
     return { ok: true, value: written.version };
   },

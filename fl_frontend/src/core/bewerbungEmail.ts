@@ -1,12 +1,12 @@
 import "server-only";
 
-import { COPY } from "./copy";
+import { COPY, rollenText } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong, formatList } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
-import { rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
+import { TRIKOT_FARBEN } from "./teamVocabulary";
 
 import type { Mail, Sentence } from "./emailShell";
 import type {

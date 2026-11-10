@@ -81,8 +81,10 @@ async def pull_bericht_context(
     )
 
     saison = await saisons_collection.find_one({"_id": saison_id}, projection={"_id": 0, "status": 1}, session=session)
+    # A fixture's season row stands for as long as the fixture does.
+    assert saison is not None
 
-    return BerichtContext(spiel=spiel, kader=kader, saison_status=None if saison is None else saison.get("status"))
+    return BerichtContext(spiel=spiel, kader=kader, saison_status=saison["status"])
 
 
 async def pull_named(

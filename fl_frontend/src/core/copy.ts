@@ -11,7 +11,6 @@ import {
   formatPeriod,
   formatTime,
 } from "./format";
-import { KONTAKT_ROLLE_LONG_FORM, rollenText } from "./teamVocabulary";
 
 import type { CalendarDay, Pair, TimeOfDay } from "./format";
 import type {
@@ -21,11 +20,30 @@ import type {
   FLCardColour,
   FLKontaktRolle,
   FLSchulform,
+  FLSonderereignis,
   FLSpielerRolle,
   FLSpielerStufe,
+  FLTrikotFarbe,
 } from "./generated/client/types";
 
 declare const copyBrand: unique symbol;
+
+/** Each seat's name in a sentence to the public, in the order `rollenText` joins them, and a seat's box's title. */
+const KONTAKT_ROLLE_LONG_FORM = {
+  ansprechperson: "Ansprechperson",
+  stellvertretung: "Stellvertretung",
+  trainer: "Trainerin oder Trainer",
+} as const satisfies Record<FLKontaktRolle, string>;
+
+/**
+ * The seats one reader holds, as the phrase a page or a mail addresses them by. In the table's order rather than the
+ * argument's: a person holding two seats reads one phrase whichever record the seats were collected from.
+ */
+export function rollenText(rollen: readonly FLKontaktRolle[]): string {
+  const order = Object.keys(KONTAKT_ROLLE_LONG_FORM) as FLKontaktRolle[];
+
+  return formatList(order.filter((rolle) => rollen.includes(rolle)).map((rolle) => KONTAKT_ROLLE_LONG_FORM[rolle]));
+}
 
 /**
  * A string the catalogue wrote. Every kit text prop takes this type, so a string typed into a page
@@ -277,6 +295,8 @@ export const COPY = catalogue({
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
       /** An area with no season yet, where a page shows a season's work. */
       noSaison: "Noch keine Saison",
+      /** An editor's way to its match's public page, in the strip beside the title, once the match has one. */
+      toSpiel: "Zur Spielseite",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
       /** A signed-in frame's way home, its role's Übersicht. */
@@ -293,6 +313,8 @@ export const COPY = catalogue({
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
     noValue: "–",
+    /** A pupil whose consent publishes no name, or one erased since; client components name a pupil too, so it stands here. */
+    anonymous: "anonym",
     /** Between a pairing's two sides where no score stands between them, as a fixture's pairing reads: a glyph, not a word. */
     versus: "–",
     overview: "Übersicht",
@@ -451,6 +473,8 @@ export const COPY = catalogue({
     box: "Deine Angaben",
     /** Under the address: the confirmation link goes there, and one address signs one person in. */
     ownAddress: "Deine eigene Adresse",
+    /** The number box's label, the shirt's own word, which a pupil reads where the squad's lists say „Nummer“. */
+    nummer: "Trikotnummer",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, as `bewerbung.notice`. */
     notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter ", after: "." },
   },
@@ -485,13 +509,40 @@ export const COPY = catalogue({
     website: "Website",
     gruppe: "Gruppe",
     trikotFarbe: "Trikotfarbe",
+    /** Each kit colour's name in the league's colour sheet, whose hexes stand in `fl_frontend/src/core/teamVocabulary.ts`. */
+    trikotFarbeName: {
+      schwarz: "Schwarz",
+      weiss: "Weiß",
+      grau: "Grau",
+      braun: "Braun",
+      bordeaux: "Bordeaux",
+      rot: "Rot",
+      koralle: "Koralle",
+      orange: "Orange",
+      gold: "Gold",
+      gelb: "Gelb",
+      limette: "Limette",
+      hellgruen: "Hellgrün",
+      gruen: "Grün",
+      smaragd: "Smaragd",
+      tuerkis: "Türkis",
+      cyan: "Cyan",
+      hellblau: "Hellblau",
+      meerblau: "Meerblau",
+      blau: "Blau",
+      dunkelblau: "Dunkelblau",
+      flieder: "Flieder",
+      violett: "Violett",
+      magenta: "Magenta",
+      rosa: "Rosa",
+    } satisfies Record<FLTrikotFarbe, string>,
     wunschfarbe: "Wunschfarbe",
     stufengroesse: "Größe der Stufe",
     trikotSet: "Vorhandene Trikotsätze",
     expectedKader: "Voraussichtliche Kadergröße",
     goodSpieler: "Davon im Verein",
     wunschgegner: "Wunschgegner",
-    /** The select in the Trainer's box, whose two other entries are `KONTAKT_ROLLE_LONG_FORM`'s. */
+    /** The select in the Trainer's box, whose two other entries are `seatName`'s. */
     trainerAlso: {
       label: "Übernimmt zugleich",
       description: "Eine Person kann zwei Rollen haben.",
@@ -772,6 +823,12 @@ export const COPY = catalogue({
     /** What a fixture's date still waits on from a club or a referee: the noun of the chip „Antwort fehlt“. */
     answer: "Antwort",
 
+    /** A pupil's own pages. */
+    spieler: {
+      /** A match card's chip on the pupil's own season: their place in their club's line-up, said to them. */
+      lineupPlace: { starts: "In der Startelf", bench: "Auf der Bank" },
+    },
+
     /** A team's pages, which any of its contact seats reads. */
     team: {
       /** The account row's second line in a team's frame: the club's Kürzel and the seats the person holds there. */
@@ -799,15 +856,18 @@ export const COPY = catalogue({
         /** The lower list's title: the squad's players the line-up does not name. */
         rest: "Nicht aufgestellt",
         /**
-         * Why „Aufstellen“ is locked: on a nominee's row once the line-up names eleven of the squad's own players, a
-         * nominee filling a shortage alone, and on every row of a fixture holding no date or no time.
+         * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
+         * filling a shortage alone: the bound the backend publishes, never a typed figure.
          */
-        nomineeLocked: "Nur, wenn weniger als 11 aufgestellt sind",
+        nomineeLocked: (max: number) => `Nur, wenn weniger als ${formatNumber(max)} aufgestellt sind`,
         needsSlot: "Erst mit Datum und Uhrzeit",
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
         dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
         overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
-        /** An overdue line-up's chip: after its own page's title, and on a Spiele card, where the chip names what is overdue. */
+        /**
+         * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
+         * Übersicht whose answer is past its deadline; on a Spiele card the chip names what is overdue.
+         */
         overdue: "Überfällig",
         overdueOnCard: "Aufstellung überfällig",
         /** Once the team's seats can change nothing more before the match: the page's chip, and its one line. */
@@ -824,8 +884,6 @@ export const COPY = catalogue({
         linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter ", after: "." },
         /** Muted in the line under a row's name: the registration's address is a stored person's. */
         returning: "War schon in der Liga",
-        /** That line where it holds more than one note, „War schon in der Liga · Nummer doppelt“. */
-        notes: (notes: readonly Copy[]) => notes.join(" · "),
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
         kaderFull: "Kader voll",
         awaitsConfirmation: "Erst, wenn die Person bestätigt hat",
@@ -846,6 +904,8 @@ export const COPY = catalogue({
     schiedsrichter: {
       /** What a referee answers, the object of „Einteilung ablehnen“. */
       einteilung: "Einteilung",
+      /** A game's chip on the referee's list once their report is stored, apart from the action log's entry of the same words. */
+      reported: "Spielbericht eingetragen",
 
       /** The match report's form; a goal's and a result's words are the match editor's and the match page's. */
       spielbericht: {
@@ -863,8 +923,8 @@ export const COPY = catalogue({
         goal: "Tor",
         /** The label over a goal's or a card's row, counting the rows from 1: „Tor 3“, „Karte 1“. */
         numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
-        /** A no-show's entry in the Sonderereignis, by the club that stayed away. */
-        nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+        /** The status card of a match called off or struck out, which takes no report. */
+        befell: { ausgefallen: "Spiel ausgefallen", annulliert: "Spiel annulliert" } satisfies Partial<Record<FLSonderereignis, string>>,
         /** Under the goals' title where a side fields another club than the report names, whose pupils left their rows. */
         sidesChanged: "Im Spiel stehen inzwischen andere Teams.",
       },
@@ -1215,7 +1275,7 @@ export const COPY = catalogue({
       existingTeam: "Bestehendes Team",
       /** The acceptance's group over the open Kürzel box, and „Team eintragen“'s group and entry. */
       newSchool: "Neue Schule",
-      /** A colour's description in the acceptance, by its `TRIKOT_FARBEN` name. */
+      /** A colour's description in the acceptance, by its `trikotFarbeName`. */
       wish: (farbe: string) => `Wunsch: ${farbe}`,
       /** Over a list the read's cap cut, which a flooded season reaches. */
       cut: "Nicht alle Bewerbungen sind geladen.",
@@ -1279,8 +1339,11 @@ export const COPY = catalogue({
       /** The exit's reason while locked: before the season's start the replacement is the route. */
       fromStart: "Erst ab Saisonbeginn",
       austrittReasonDescription: "Steht ohne Namen auf der Website",
-      /** Under the exit's date: the write calls no fixture off, so the line says only what it ends. */
-      austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden.",
+      /**
+       * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,
+       * and that its seats lose the line-up's page and its reminders, so the league alone enters a line-up from then.
+       */
+      austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden, Aufstellungen trägt die Liga ein.",
       /** „E-Mail an“'s value in the exit's dialog. */
       austrittMailTo: "Gegner und eingeteilte Schiedsrichter",
       /** The danger box's two consequences, under the act's name and in its question alike, as a venue's. */
@@ -1431,6 +1494,8 @@ export const COPY = catalogue({
       actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
       /** A pass's label: one form, so a count of 1 needs no singular. */
       passCount: (noun: Copy, count: number) => `${noun}: ${formatNumber(count)}`,
+      /** An admission's label: the address's other pending registrations it deleted, in `passCount`'s one form. */
+      admittedOthers: (count: number) => `Weitere Registrierungen gelöscht: ${formatNumber(count)}`,
       /** What a pass deleted, the noun of `passCount`, by the pass's stored action. */
       passNoun: {
         "retention.bewerbungen": BEWERBUNGEN,

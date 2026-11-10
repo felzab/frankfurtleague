@@ -94,6 +94,24 @@ def proposed(body: dict[str, Any]) -> tuple[int | None, int | None]:
     return vorschlag.team1_tore, vorschlag.team2_tore
 
 
+CARD = {"side": "team1", "spieler_id": None, "minute": "10", "colour": "gelb"}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({**payload([{**tor("team1"), "reason": "x"}])}, id="a goal"),
+        pytest.param({**payload([]), "cards": [{**CARD, "reason": "foulspiel"}]}, id="a card"),
+        pytest.param(payload([tor("team1"), tor("team2")], elfmeterschiessen={"team1": 4, "team2": 3, "reason": "x"}), id="a shoot-out"),
+    ],
+)
+def test_an_entry_carrying_a_key_it_does_not_declare_is_refused(body: dict[str, Any]):
+    """Accepted, the key would be dropped in silence: a client still sending a card's reason would be told it was saved."""
+
+    with pytest.raises(ValidationError, match="type=extra_forbidden,"):
+        FLSpielberichtBerichtPayload.model_validate(body)
+
+
 class TestTheProposalsCountsAreItsEntries:
     def test_each_side_is_credited_its_entries_and_an_own_goal_counts_for_the_other_side(self):
         """`side: team2, eigentor` credits team 1: the case a count by `side` alone gets wrong both ways."""
@@ -103,7 +121,7 @@ class TestTheProposalsCountsAreItsEntries:
     def test_a_no_show_proposes_the_event_alone(self):
         assert proposed(payload([], sonderereignis="nichtantreten_team2")) == (None, None)
 
-        with pytest.raises(ValidationError, match="type=nichtantreten_with_tore,"):
+        with pytest.raises(ValidationError, match="type=nichtantreten_with_elfmeterschiessen,"):
             FLSpielberichtBerichtPayload.model_validate(
                 payload([], sonderereignis="nichtantreten_team2", elfmeterschiessen={"team1": 4, "team2": 3})
             )

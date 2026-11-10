@@ -41,6 +41,7 @@ from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    aufstellung_document,
     kontakte_document,
     kontaktperson_document,
     registrierung_document,
@@ -130,6 +131,16 @@ def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
     report["bericht"]["scorers"][0]["spieler_id"] = numbered(position)
 
     return {Collection.SPIELBERICHTE: [report]}
+
+
+def a_line_up_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
+    """A line-up naming that due pupil on a match of an ended season, which kicked off: its entry is repointed."""
+
+    spiel = spiel_document(
+        spiel_id=numbered(8000 + position), saison_id="2024", spiel_nr=position + 1, spieltag_id=ObjectId(), date="2024-05-04", time="10:00:00"
+    )
+
+    return {Collection.SPIELE: [spiel], Collection.AUFSTELLUNGEN: [aufstellung_document(spiel, TEAM_OID, starters=[numbered(position)])]}
 
 
 async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict[str, Any]]]) -> None:
@@ -709,9 +720,9 @@ class TestNoJournalLine:
 FIRST_BATCH = 101
 
 
-# One pupil's commands on the wire at their costliest, a report naming them: the line-ups' repoint is one of them
-# whether or not a line-up names the pupil.
-COMMANDS_A_PERSON = 16
+# One pupil's commands on the wire at their costliest, a report and a played match's line-up naming them: the line-ups'
+# read is one of them whether or not a line-up names the pupil, and the repoint one more where one does.
+COMMANDS_A_PERSON = 17
 
 # The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
 # batch, the page being one document.
@@ -730,7 +741,11 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await seeded(
                 database,
-                *(shape for position in range(ERASURES_PER_PASS + 1) for shape in (a_due_pupil(position), a_report_naming(position))),
+                *(
+                    shape
+                    for position in range(ERASURES_PER_PASS + 1)
+                    for shape in (a_due_pupil(position), a_report_naming(position), a_line_up_naming(position))
+                ),
                 {Collection.REGISTRIERUNGEN: waiting},
             )
 

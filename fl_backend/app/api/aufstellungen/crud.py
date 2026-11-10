@@ -6,6 +6,7 @@ club's line-up write the same document: a refusal between them is a true conflic
 """
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
@@ -14,15 +15,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry
+from app.api.aufstellungen.services import kicked_off_by
+from app.core.collections import Collection
 from app.core.crud import (
+    aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
-    find_stale_first_save_refusal,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
-    refuse,
 )
 from app.core.recording import record_act
 from app.core.sentinels import GHOST_SPIELER_ID
@@ -37,6 +39,9 @@ async def write_aufstellung(
     spiel_id: ObjectId,
     team_id: ObjectId,
     spieler: Sequence[FLAufstellungEntry],
+    # The stored line-up as the caller read it in `session`, None where none stands: the caller has judged the payload's
+    # `version` against it (`app/core/crud.py :: find_stale_first_save_refusal`).
+    saved: Mapping[str, Any] | None,
     # REQUIRED with no default: the `version` the screen was served, null where it showed no line-up.
     version: int | None,
     # Who saves, as `record_act` takes it: `ACT_BY_KONTAKT` beside the club's name at the save for a seat, and both null
@@ -50,14 +55,13 @@ async def write_aufstellung(
 ) -> Mapping[str, Any]:
     """One club's line-up for one fixture written whole and recorded, created by its first save or replaced, answering the document as written.
 
-    Refused `version_stale` where the document is not the one the screen showed: another save has raised it, or a first
-    save of the same club has created it since. Two first saves at once meet on `uniq_aufstellung_spiel_id_team_id` as
-    a write conflict, and the retry of the later one reads the earlier one's document.
+    Judged on the caller's read in the same transaction, so no second read: a save committing after that read conflicts
+    with this write, and the retry reads and judges again. Two first saves at once meet on
+    `uniq_aufstellung_spiel_id_team_id` as a write conflict, and the retry of the later one reads the earlier one's
+    document.
     """
 
     key = {"spiel_id": spiel_id, "team_id": team_id}
-    saved = await aufstellungen_collection.find_one(key, session=session)
-    refuse(find_stale_first_save_refusal(saved, version=version))
     entries = [entry.model_dump(context={"keep_oid": True}) for entry in spieler]
 
     if saved is None:
@@ -90,30 +94,76 @@ async def write_aufstellung(
     return written
 
 
-async def repoint_pupil_aufstellungen_in_session(
+_SPIEL_AS = "spiel"
+
+
+async def erase_pupil_from_aufstellungen_in_session(
     *,
     aufstellungen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
+    # The erasing request's clock, which judges each match kicked off or still ahead.
+    now: datetime,
     # REQUIRED: the erasure's own, so a line-up never names the sentinel of an erasure that rolled back.
     session: AsyncClientSession,
 ) -> int:
-    """Repoint every line-up entry naming this pupil at the sentinel, answering how many line-ups changed.
+    """Repoint this pupil's entries on kicked-off matches' line-ups at the sentinel, remove the rest, answering how many line-ups changed.
 
-    The entry stands, as a report's does: the line-up is the club's record of whom it fielded, and a removed entry
-    would read as a pupil nobody picked.
+    A kicked-off match's entry stands, as a report's does: the line-up is the club's record of whom it fielded, and a
+    removed entry would read as a pupil nobody picked. A match still ahead fielded nobody yet, so its club picks again
+    rather than keeping a place nobody can fill.
     """
 
-    # The filter selects only the line-ups holding an entry to change, since an array-filtered update reaches
-    # `patch_many_in_db` unnarrowed (the manual's "$[<identifier>]" page).
-    repointed = await patch_many_in_db(
+    naming = await aggregate_many_from_db(
         collection=aufstellungen_collection,
-        db_filter={"spieler.spieler_id": spieler_id},
-        update={"$set": {"spieler.$[entry].spieler_id": GHOST_SPIELER_ID}},
-        array_filters=[{"entry.spieler_id": spieler_id}],
+        pipeline=[
+            {"$match": {"spieler.spieler_id": spieler_id}},
+            {
+                "$lookup": {
+                    "from": Collection.SPIELE,
+                    "localField": "spiel_id",
+                    "foreignField": "_id",
+                    "pipeline": [{"$project": {"_id": 0, "date": 1, "time": 1}}],
+                    "as": _SPIEL_AS,
+                }
+            },
+            {"$project": {"_id": 1, _SPIEL_AS: 1}},
+        ],
         session=session,
     )
+    # No write for none: most erased pupils are named by no line-up.
+    if not naming:
+        return 0
 
-    return repointed.modified_count
+    kicked_off = {
+        row["_id"] for row in naming if any(kicked_off_by(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in row[_SPIEL_AS])
+    }
+    # A match re-dated to no day or no hour since its line-up was saved counts as ahead: nothing says it was played.
+    ahead = sorted({row["_id"] for row in naming} - kicked_off, key=str)
+
+    changed = 0
+    if kicked_off:
+        # Narrowed to the line-ups holding an entry to change, since an array-filtered update reaches
+        # `patch_many_in_db` unnarrowed (the manual's "$[<identifier>]" page).
+        changed += (
+            await patch_many_in_db(
+                collection=aufstellungen_collection,
+                db_filter={"_id": {"$in": sorted(kicked_off, key=str)}, "spieler.spieler_id": spieler_id},
+                update={"$set": {"spieler.$[entry].spieler_id": GHOST_SPIELER_ID}},
+                array_filters=[{"entry.spieler_id": spieler_id}],
+                session=session,
+            )
+        ).modified_count
+    if ahead:
+        changed += (
+            await patch_many_in_db(
+                collection=aufstellungen_collection,
+                db_filter={"_id": {"$in": ahead}},
+                update={"$pull": {"spieler": {"spieler_id": spieler_id}}},
+                session=session,
+            )
+        ).modified_count
+
+    return changed
 
 
 async def remove_the_seasons_aufstellungen(

@@ -99,8 +99,6 @@ const NETWORK_FAILURE = () =>
   new APINetworkError({
     message: "Request failed.",
     url: "http://backend:8000",
-    method: "POST",
-    readOnly: false,
     traceId: "t".repeat(32),
     isTimeout: false,
   });
@@ -255,8 +253,6 @@ describe("POST /api/mail/delivery where the backend does not take the event", ()
         statusCode,
         serverErrorCode,
         endpoint: "/outbox/event",
-        method: "POST",
-        readOnly: false,
         traceId: "t".repeat(32),
       });
 

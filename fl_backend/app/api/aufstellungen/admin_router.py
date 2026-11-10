@@ -95,9 +95,13 @@ async def put_aufstellung(
     (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
     holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
     the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
-    squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past
-    the shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,
-    and every refusal but `version_stale` is asked again outside the transaction just before answering.
+    squad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each
+    such entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries
+    (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage
+    (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
+    save, and every refusal but `version_stale` is asked again outside the transaction just before answering. The
+    stored entries of pupils erased since the match kicked off, which the screen serves as `erased`, are written back
+    after the payload's as they stand.
     """
 
     answer, created = await save_aufstellung_screen(

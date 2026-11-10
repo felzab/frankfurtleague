@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, VEREIN_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
@@ -163,7 +163,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         # The premise: `decision_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(JUDGED_SPIEL_FIELDS, path)] == []
-        assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
+        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
 
     def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
@@ -176,7 +176,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         assert find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
 
         assert "austritt.date" in vereine_seen
-        assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
+        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:

@@ -354,7 +354,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
     seat_rows: list[Mapping[str, Any]] = [
         {
             **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier, confirmed_at=None)),
-            # As `app/api/identity/services.py :: seat_saison_lookup` joins the row's season.
+            # As `app/api/saisons/services.py :: SAISON_LOOKUP` joins the row's season.
             "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }
     ]

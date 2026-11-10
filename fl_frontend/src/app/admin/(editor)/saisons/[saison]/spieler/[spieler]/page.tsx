@@ -9,14 +9,14 @@ import { requires } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
-import { FLSpielerPosition } from "@/core/generated/client/types";
 import {
   SpielerPatchSpielerSaisonBody,
   spielerPatchSpielerSaisonBodyFirstNameMax,
   spielerPatchSpielerSaisonBodyLastNameOneMax,
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
-import { kaderName, orderStufen } from "@/features/spieler/constants";
+import { kaderName } from "@/features/spieler/constants";
+import { positionOptions, stufeOptions } from "@/features/spieler/options";
 import { getSpielerSaison } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -160,12 +160,8 @@ async function readEditor(params: Props["params"]) {
       kader={kaderFacts(found)}
       einwilligung={einwilligungFacts(found)}
       rules={RULES}
-      positions={Object.values(FLSpielerPosition).map((position) => ({ id: position, label: { record: position } }))}
-      // The season's levels, and a level the row holds that the season stopped offering, which stays valid.
-      stufen={orderStufen([...found.allowed_stufen, ...(kader.stufe === null ? [] : [kader.stufe])]).map((stufe) => ({
-        id: stufe,
-        label: COPY.admin.saison.stufe[stufe],
-      }))}
+      positions={positionOptions()}
+      stufen={stufeOptions(found.allowed_stufen, kader.stufe)}
       takenRollen={found.taken_rollen}
       danger={
         kader.inactive_since === null

@@ -1,5 +1,7 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import { z } from "zod";
 
 import { action, blankIsNull } from "@/core/action";
@@ -11,7 +13,7 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
-import { endOf, LINK_INVALID, readInvitation, REPLAY_FIELD, SUBMITTED } from "./invitation";
+import { endOf, LINK_INVALID, readInvitation, REPLAY_FIELD } from "./invitation";
 
 import type { Code } from "@/core/generated/client/types";
 
@@ -47,7 +49,9 @@ const moved = (error: unknown) => error instanceof APIBadStatusError && error.se
  * One pupil's registration through their team's link, sent with no session. The link is a team's, handed round a class,
  * so the bot check answers before anything is read: this write mails the address its sender types.
  *
- * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used. A refusal saying the link
+ * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
+ * registration's done page, as a deletion leads on to its own: the form's page, rendered again on the forgotten link,
+ * would title the tab and a reload as a link no longer valid. A refusal saying the link
  * has moved ends on the card the page opened again would show, read again here, since one code covers both a shut
  * window and a club out of the season; one whose link still opens the form, a Stufe the season stopped offering, says
  * the page is stale.
@@ -70,6 +74,6 @@ export const submitRegistrierung = action({
       return end === null ? { ok: false, reason: COPY.shared.failure.stale } : { ok: true, value: end };
     }
     await forgetMailedLink(ROUTES.registrierung.path());
-    return { ok: true, value: SUBMITTED };
+    redirect(ROUTES.registrierungDone.path());
   },
 });
