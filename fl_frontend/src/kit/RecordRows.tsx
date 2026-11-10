@@ -45,7 +45,8 @@ type RowCell<Row extends EditorRow> = {
 /**
  * A row's cells by their place. A phone's first line holds `lead`, a short choice heading the row, and `figure`, a
  * short field; its second `main`, the long field, and `beside`, a toggle at its end; `below` takes a third line, as a
- * card's colour does. From desktop up they stand on one line in this order, `beside` or `below` last.
+ * card's colour does. From desktop up the first four stand on one line in this order, and `below` keeps a line of its
+ * own under them.
  */
 export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowCell<Row>; main: RowCell<Row> } & (
   { beside?: RowCell<Row>; below?: never } | { below: RowCell<Row>; beside?: never }
@@ -67,8 +68,8 @@ const recordRows = tv({
     root: "grid w-full min-w-0",
     // The columns every row shares, so a field stands at one x in every row. A phone's first line: the lead, the
     // figure, and the remove control at the row's end. From desktop up one line: the lead and the figure at their own
-    // widths, the main field taking the room that is left, since a row spans its box, then the trailing cell at its
-    // own width and the remove control.
+    // widths, the main field taking the room that is left, since a row spans its box, up to its own standard width,
+    // then the cell beside it at its own width and the remove control.
     grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm lg:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] lg:gap-x-3 pointer-coarse:text-base",
     // A row brings the box's 16-px insets itself, so the hairline over it reaches the box's edges. Its label and its
     // lines stand 8 px apart, 16 px inside the hairlines over and under it. A field's message stands under that field
@@ -83,7 +84,9 @@ const recordRows = tv({
     second: `col-span-full row-start-3 grid items-start gap-x-2 lg:contents ${FIRST_MESSAGE_CLASSES}`,
     main: "lg:col-start-3 lg:row-start-2",
     beside: "lg:col-start-4 lg:row-start-2",
-    below: "col-span-full row-start-4 lg:col-span-1 lg:col-start-4 lg:row-start-2",
+    // A line of its own at every width, under the row's first line from desktop up, so the main field keeps the room
+    // a name needs beside the lead and the figure, which a card's three colours would leave it too little of.
+    below: "col-span-full row-start-4 lg:col-span-4 lg:col-start-1 lg:row-start-3",
     // The cross ends with the fields' edge: its button, as wide as a control is tall, reaches past the edge by the
     // room it keeps around its 16-px glyph, 8 px with a mouse and 12 px on a touch screen.
     remove: "col-start-3 row-start-2 -me-2 justify-self-end lg:col-start-5 pointer-coarse:-me-3",
@@ -195,7 +198,8 @@ function RecordRow<Row extends EditorRow>({
 
 /**
  * A list of records as rows of fields, such as a Spielbericht's goals: each row under the label counting it, its
- * fields on two or three lines on a phone and on one from desktop up, the remove control at its end, and the add
+ * fields on two or three lines on a phone and on one, or two with a cell below, from desktop up, the remove control at
+ * the end of its first line, and the add
  * control in the foot under the list. It stands edge to edge in its box (`./Section.tsx`'s `list`), the hairline
  * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.
@@ -327,8 +331,8 @@ export function RecordRows<Row extends EditorRow>({
 
 /**
  * The list while its record is read: `rows` rows, each its label's line over as many lines of fields as a row takes
- * on a phone, two, or three where it has a cell below, and over one from desktop up; then the foot's add control by
- * its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
+ * on a phone, two, or three where it has a cell below, and over one from desktop up, or two with a cell below; then the
+ * foot's add control by its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
  */
 export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; lines: 2 | 3; add: Copy }) {
   const slots = recordRows({ beside: false });
@@ -347,7 +351,8 @@ export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; line
               {Array.from({ length: lines }, (_, line) => (
                 <span
                   key={line}
-                  className={placeholderBar(line === 0 ? FIELD_LINE_CLASSES : `${FIELD_LINE_CLASSES} lg:hidden`)}
+                  // The phone's second line joins the first from desktop up; a cell below keeps its own line.
+                  className={placeholderBar(line === 1 ? `${FIELD_LINE_CLASSES} lg:hidden` : FIELD_LINE_CLASSES)}
                 />
               ))}
             </div>
