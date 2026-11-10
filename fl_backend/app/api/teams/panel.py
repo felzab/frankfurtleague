@@ -12,7 +12,7 @@ from app.api.saisons.schemas import FLTeamPageSpiel
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, FLSpielbestaetigungTeamState, FLSpielbestaetigungViewAnsetzung
 from app.api.teams.schemas import FLTeamSeat
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId
-from app.shared.schemas.literals import FLKontaktRolle, FLSpielSide, FLTrikotFarbe
+from app.shared.schemas.literals import FLKontaktRolle, FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -48,12 +48,15 @@ class FLTeamPanelAufstellung(BaseModel):
 
 
 class FLTeamPanelRegistrierung(BaseModel):
-    """One pending registration as the Übersicht names it: who waits, since when, and whether the team may admit them yet."""
+    """One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet."""
 
     registrierung_id: CustomObjectId
     first_name: CustomNonEmptyString
     last_name: CustomNonEmptyString
     submitted_at: CustomDateString
+    # The registration's own answers, null where the pupil left one open.
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
     # Whether the pupil answered their own link (`app/api/registrierungen/schemas.py :: FLOpenRegistrierung.admissible`).
     admissible: bool
 

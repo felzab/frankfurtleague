@@ -19,8 +19,11 @@ import type { Choice } from "./FieldParts";
  */
 type ListChoice = { id: string; label: Words; isDisabled?: boolean };
 
-/** An answer that needs describing: its title and the one line under it. */
-type DescribedChoice = Choice & { line: Copy };
+/**
+ * An answer that needs describing: its title and the one line under it, or its title alone where the title says the
+ * whole answer, as the same-person question's „Als … aufnehmen“ does.
+ */
+type DescribedChoice = Choice & { line?: Copy };
 
 /**
  * The circle drawn for an answer, the ring's target, so it stays the radio's direct child. Left empty in a
@@ -64,8 +67,8 @@ export function RadioGroupPlaceholder({ label, choices }: { label: string; choic
 
 /**
  * One required choice of two to four: the label above, one drawn circle per answer, its label right. Where
- * each answer needs describing, the answers are selectable cards: the circle, the title and its line in a box,
- * the chosen box edged in green.
+ * each answer needs describing, the answers are selectable cards: the circle, the title and any line under it in a
+ * box, the chosen box edged in green.
  */
 export function RadioGroup({
   label,
@@ -123,7 +126,8 @@ export function RadioGroup({
                       />
                       <span className={card.words()}>
                         <span className={card.title()}>{textOf(choice.label)}</span>
-                        <span className={card.line()}>{choice.line}</span>
+                        {/* None without a line: an empty one would still take the grid's gap under the title. */}
+                        {choice.line !== undefined && <span className={card.line()}>{choice.line}</span>}
                       </span>
                     </>
                   )}

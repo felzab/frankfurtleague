@@ -9625,6 +9625,11 @@
             "title": "Deadline",
             "type": "string"
           },
+          "maximum_age": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Age",
+            "type": "integer"
+          },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Media Minimum Age",
@@ -9658,6 +9663,7 @@
           "schule",
           "saison_id",
           "minimum_age",
+          "maximum_age",
           "media_minimum_age",
           "deadline",
           "answered_at"
@@ -17563,7 +17569,7 @@
         "type": "object"
       },
       "FLTeamPanelRegistrierung": {
-        "description": "One pending registration as the Übersicht names it: who waits, since when, and whether the team may admit them yet.",
+        "description": "One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet.",
         "properties": {
           "admissible": {
             "title": "Admissible",
@@ -17579,10 +17585,30 @@
             "title": "Last Name",
             "type": "string"
           },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id",
             "type": "string"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerStufe"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "submitted_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -17595,6 +17621,8 @@
           "first_name",
           "last_name",
           "submitted_at",
+          "position",
+          "stufe",
           "admissible"
         ],
         "title": "FLTeamPanelRegistrierung",

@@ -201,7 +201,6 @@ export const ROUTES = {
     crawl: "disallow",
   },
   areaSchiedsrichter: { path: () => "/area/schiedsrichter" as const, title: COPY.shared.overview, crawl: "disallow" },
-  // Session 8: its page is built.
   schiedsrichterOverview: {
     path: (saison: string) => `/area/schiedsrichter/${saison}` as const,
     title: COPY.shared.overview,

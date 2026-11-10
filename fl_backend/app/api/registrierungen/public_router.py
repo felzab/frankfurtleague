@@ -70,7 +70,12 @@ from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
+from app.shared.schemas.bounds import (
+    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    MEDIA_MIN_AGE_YEARS,
+    REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+    REGISTRIERUNG_MIN_AGE_YEARS,
+)
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
@@ -381,6 +386,7 @@ async def get_confirmation_view(
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
         minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
+        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         media_minimum_age=MEDIA_MIN_AGE_YEARS,
         # The token filter matched inside the block, so it stands, and its record model requires the day.
         deadline=str(raw["confirmation"]["deadline"]),
