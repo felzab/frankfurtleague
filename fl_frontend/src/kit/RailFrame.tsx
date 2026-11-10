@@ -184,11 +184,14 @@ export function RailFrame({
 /**
  * A rail frame's column below 1024 px around its page: the dark-green band at the top with the logo and the
  * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
- * logo's place, and no bottom bar follows; an area's own `back` does the same for every page of the area.
+ * logo's place; an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
+ * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
+ * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
+ * not-found card does.
  */
 export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Back; children: ReactNode }) {
   return (
-    <>
+    <div className="group/column contents">
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
           not drawn over them (`tokens.css`). */}
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
@@ -205,12 +208,14 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
         </Suspense>
       </header>
       {children}
-      {!editor && back === undefined && (
-        <Suspense fallback={<BarPlacesPlaceholder />}>
-          <BarPlaces />
-        </Suspense>
+      {back === undefined && (
+        <div className="contents group-has-[[data-kit-page-bar]]/column:hidden">
+          <Suspense fallback={<BarPlacesPlaceholder />}>
+            <BarPlaces />
+          </Suspense>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -335,7 +340,14 @@ export function RailPage({
           <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
         </main>
       </PageFade>
-      {bar}
+      {/* Marked, so the column leaves out the bottom bar whose place the page's own bar takes (`RailColumn`). */}
+      {bar !== undefined && (
+        <div
+          data-kit-page-bar
+          className="contents">
+          {bar}
+        </div>
+      )}
     </>
   );
 }
