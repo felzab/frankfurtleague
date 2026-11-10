@@ -5,10 +5,9 @@ import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { readAsSeatHolder, requireTeamSeats, teamSeatsAt } from "@/features/roles/resolvers";
+import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { getTeamOverview } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { AgreeAct } from "./AgreeAct";
 import { DeclineDialog } from "./DeclineDialog";
@@ -49,9 +48,7 @@ const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.t
 const spielHref = (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as Route;
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  // `teamSeatsAt` answers `null` rather than throwing: a `notFound()` thrown from `generateMetadata` leaves the tab the
-  // layout's title.
-  return metadataFor(teamSeatsAt(params, address), async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
+  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
 }
 
 /** A fixture by its two clubs, as the administration's rows name it. */

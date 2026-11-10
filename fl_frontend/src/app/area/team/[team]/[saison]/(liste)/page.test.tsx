@@ -21,7 +21,6 @@ vi.mock("@/features/teams/queries", () => ({ getTeamOverview: () => Promise.reso
 vi.mock("@/features/roles/resolvers", () => ({
   requireTeamSeats: () => Promise.resolve([{ team_id: "6af32ed4205642a3fd5ee7e1", saison_id: "2027" }]),
   readAsSeatHolder: <Read,>(read: () => Promise<Read>) => read(),
-  teamSeatsAt: () => Promise.resolve(null),
 }));
 vi.mock("@/core/clock", () => ({ now: () => new Date("2026-11-10T12:00:00+01:00") }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));

@@ -3,11 +3,10 @@ import { ListPage } from "@/kit/ListPage";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { readAsSeatHolder, requireTeamSeats, teamSeatsAt } from "@/features/roles/resolvers";
+import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchdayOf, matchRowOf, whenOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLTeamPanelSpiel } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -19,7 +18,7 @@ type Props = PageProps<"/area/team/[team]/[saison]/spiele">;
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamSpiele.path(team, saison);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return metadataFor(teamSeatsAt(params, address), async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
+  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
 }
 
 /** The states of a date the league asked the club about that still wait on the club's own answer. */
