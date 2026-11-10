@@ -1687,7 +1687,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
         """Every clock takes a page, every conditional read is made: two applications name a club.
 
-        Two cleared clubs hold open confirmations. One application no mail reaches closes the chase of every seat.
+        Two clubs' contact blocks clear. One application no mail reaches closes the chase of every seat.
         """
 
         link = {"token_hashes": ["a" * 64], "sent_at": "2026-03-02", "deadline": "2026-03-16", "declined_at": None}
@@ -1703,7 +1703,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                     {**junction_row(), "_id": numbered(2), "team_id": numbered(2), "confirmations": links},
                 ]
             )
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([open_confirmation(CLUB_OID), open_confirmation(numbered(2))])
             await database[Collection.SPIELBERICHTE].insert_one(a_report(SAISON_ID))
             await database[Collection.BEWERBUNGEN].insert_one(application(numbered(3)))
             await mails_that_bounced(database, bewerbung_ids=[numbered(3)], seats=BOTH_MAILBOXES)
@@ -1723,9 +1722,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, seats) for position, seats in enumerate(lapsing)])
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
-                [open_confirmation(numbered(position)) for position, _ in enumerate(lapsing)]
-            )
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
