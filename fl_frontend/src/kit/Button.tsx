@@ -43,6 +43,8 @@ type ButtonProps =
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
       icon?: never;
+      /** One repeated on every row of a list, such as a squad row's „Aufstellen“, is described by its row's name, as an icon is. */
+      "aria-describedby"?: string;
     })
   /**
    * An icon alone: `label` is its name, which the tooltip shows. One folding a region, such as the rail,
@@ -173,7 +175,7 @@ export function Button(props: ButtonProps) {
         data-kit-focus="ring"
         {...act}
         {...press}
-        aria-describedby={described()}
+        aria-describedby={described(props["aria-describedby"])}
         className={buttonLook({ look: props.variant, host: "aria", locked: isLocked })}>
         {isBusy ? (
           <Spinner />
