@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import SpielerOverviewPage from "./page";
+import SpielerOverviewPage, { generateMetadata } from "./page";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
 import type { ComponentProps } from "react";
@@ -93,6 +93,18 @@ describe("a pupil's own season", () => {
     const page = await landed(null);
     expect(page).not.toContain(COPY.admin.spieler.deregistered);
     expect(page).toContain(COPY.shared.startelf);
+  });
+
+  // The harm: a tab reading „Übersicht“ over the not-found card, which a season whose read holds no squad row of the
+  // pupil's draws; the tab is what a browser's tab list and a screen reader announce of the page.
+  it("titles the tab not found where the page's own read finds no squad row", async () => {
+    own.read = { saison_id: "2027", kader: null, spiele: [] };
+    const metadata = await generateMetadata(
+      { params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) },
+      Promise.resolve({}) as never,
+    );
+
+    expect(metadata.title).toBe(SERVER_COPY.notFound);
   });
 
   // The match's head names it, and a date line naming it again reads as a second match.

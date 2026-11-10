@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ReadPage } from "@/kit/ReadPage";
@@ -24,18 +25,21 @@ type Props = PageProps<"/area/spieler/[saison]">;
 const WORDS = COPY.admin.spieler;
 
 /**
- * The season of the address where the pupil's own records stand in it, else `null`; a person holding no pupil's
- * Funktion is sent on before. The seasons are the frame's own read, so judging the address costs no request.
+ * The pupil's own season, read once for the tab's title and the page alike: `null` for a season none of their records
+ * stands in, which the frame's own read judges at no request of its own, and for one whose read holds no squad row of
+ * theirs. A person holding no pupil's Funktion is sent on before anything is read.
  */
-async function ownSaison(params: Props["params"]): Promise<string | null> {
-  const { saison } = await params;
+const saisonOf = cache(async (saison: string) => {
   await requireRole("spieler", ROUTES.spielerOverview.path(saison));
   const saisons = await getOwnSaisons("spieler");
-  return saisons?.entries.some((entry) => entry.id === saison) === true ? saison : null;
-}
+  if (saisons?.entries.some((entry) => entry.id === saison) !== true) return null;
+  const { kader, spiele } = await readAsRoleHolder("spieler", () => getSpielerSaisonSelf(saison));
+  return kader === null ? null : { kader, spiele };
+});
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return metadataFor(ownSaison(params), (saison) => pageMetadata(parent, ROUTES.spielerOverview, ROUTES.spielerOverview.path(saison)));
+  const { saison } = await params;
+  return metadataFor(saisonOf(saison), () => pageMetadata(parent, ROUTES.spielerOverview, ROUTES.spielerOverview.path(saison)));
 }
 
 /** A fact of the squad row, the empty mark while the row holds none. */
@@ -61,12 +65,12 @@ function tilesOf(saison: string, kader: FLSpielerSelfKaderRow): readonly [StatTi
   ];
 }
 
-/** The pupil's own season, read once: a season their records do not stand in is no page of theirs. */
+/** The pupil's own season: a season their records do not stand in is no page of theirs. */
 async function readSaison(params: Props["params"]): Promise<ReadContent> {
-  const saison = await ownSaison(params);
-  if (saison === null) notFound();
-  const { kader, spiele } = await readAsRoleHolder("spieler", () => getSpielerSaisonSelf(saison));
-  if (kader === null) notFound();
+  const { saison } = await params;
+  const read = await saisonOf(saison);
+  if (read === null) notFound();
+  const { kader, spiele } = read;
   const deregistered = kader.inactive_since !== null;
   return {
     groups: [
