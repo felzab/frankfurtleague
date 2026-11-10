@@ -15,7 +15,7 @@ from app.api.registrierungen.services import (
     SUBMITTED,
     WITHOUT_TOKEN_HASHES,
     build_addresses_filter,
-    build_offene_filter,
+    build_open_filter,
     build_registrierungen_sort,
 )
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
@@ -25,7 +25,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
 
 
-async def pull_offene_registrierung(
+async def pull_open_registrierung(
     *, registrierungen_collection: AsyncCollection, registrierung_id: Any, session: AsyncClientSession
 ) -> Mapping[str, Any]:
     """The pending registration this id names, or a 404: an admitted one is gone, and a declined one is decided."""
@@ -43,7 +43,7 @@ async def pull_offene_registrierung(
 OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
 
 
-async def pull_offene_registrierungen(
+async def pull_open_registrierungen(
     *, registrierungen_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession
 ) -> list[Mapping[str, Any]]:
     """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most."""
@@ -51,7 +51,7 @@ async def pull_offene_registrierungen(
     return await aggregate_many_from_db(
         collection=registrierungen_collection,
         pipeline=[
-            {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
+            {"$match": build_open_filter(saison_id=saison_id, team_id=team_id)},
             {"$sort": dict(build_registrierungen_sort())},
             {"$limit": OPEN_REGISTRIERUNGEN_CAP},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
