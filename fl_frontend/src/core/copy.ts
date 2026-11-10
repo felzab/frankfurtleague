@@ -295,6 +295,8 @@ export const COPY = catalogue({
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
       /** An area with no season yet, where a page shows a season's work. */
       noSaison: "Noch keine Saison",
+      /** An editor's way to its match's public page, in the strip beside the title, once the match has one. */
+      toSpiel: "Zur Spielseite",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
       /** A signed-in frame's way home, its role's Übersicht. */

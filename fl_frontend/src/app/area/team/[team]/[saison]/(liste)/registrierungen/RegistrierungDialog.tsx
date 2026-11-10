@@ -40,6 +40,7 @@ const OTHER = "other";
  * the pupil's mail asks them to register under an address of their own.
  */
 async function admitted({ decided, admission }: RegistrierungEntry, formData: FormData): Promise<ActionAnswer> {
+  // The locked act sends nothing; the reason answers all the same should a press reach here.
   if (admission.kind === "locked") return { ok: false, reason: admission.reason };
   if (admission.kind === "asks" && formData.get("answer") === OTHER) return declineRegistrierung({ ...decided, reason: "other_person" });
   const answer = await admitRegistrierung({ ...decided, spieler_id: admission.spieler_id });
@@ -62,8 +63,7 @@ export function RegistrierungDialog({ entry, open }: { entry: RegistrierungEntry
       {...(notes === undefined ? {} : { lead: notes })}
       act={{ verb: "admit" }}
       action={(formData) => admitted(entry, formData)}
-      // Until the act takes its own lock, the reason it is locked is said before it is pressed.
-      {...(admission.kind === "locked" ? { consequence: admission.reason } : {})}
+      {...(admission.kind === "locked" ? { locked: admission.reason } : {})}
       open={open}
       danger={{
         name: COPY.shared.withObject(COPY.page.registrierung, "decline"),

@@ -19,6 +19,7 @@ import { CustomObjectIdStringSchema } from "@/core/objectId";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
+import { isPublicSaison } from "@/features/saisons/queries";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { matchName, matchTitle } from "@/features/spiele/blocks";
 import { spielerName } from "@/features/spieler/constants";
@@ -212,6 +213,7 @@ async function readPage(params: Props["params"]) {
       remarksMax={spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax}
       sidesChanged={found.sides_changed.length > 0}
       {...(found.completed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
+      {...((await isPublicSaison(saison)) ? { spielPage: ROUTES.spiel.path(saison, spiel.spiel_id) } : {})}
     />
   );
 }

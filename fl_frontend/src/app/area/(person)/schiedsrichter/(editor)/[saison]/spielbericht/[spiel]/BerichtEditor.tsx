@@ -26,6 +26,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { RowCells } from "@/kit/RecordRows";
 import type { ScoreOutcome } from "@/kit/ScoreRows";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { Route } from "next";
 import type { BerichtValues, Card, Goal } from "./berichtValues";
 
 /** The cells of the fields a goal's row and a card's hold alike. */
@@ -68,6 +69,7 @@ export function BerichtEditor({
   remarksMax,
   sidesChanged,
   closed,
+  spielPage,
 }: {
   title: PageTitle;
   /** When and where the match was played, under the title. */
@@ -88,6 +90,8 @@ export function BerichtEditor({
   sidesChanged: boolean;
   /** Why the report is read-only: its season has finished, and the write refuses it. */
   closed?: Copy;
+  /** The match's public page, where the public may read its season: the strip's way there. */
+  spielPage?: Route;
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
@@ -179,6 +183,7 @@ export function BerichtEditor({
       lead={lead}
       editor={editor}
       closed={closed}
+      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.end.toSpiel } })}
       sections={[
         {
           id: "ergebnis",

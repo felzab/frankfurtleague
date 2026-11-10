@@ -36,6 +36,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { Route } from "next";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
 
@@ -85,6 +86,7 @@ export function SpielEditor({
   createSpielort,
   spielortRules,
   closed,
+  spielPage,
 }: {
   title: PageTitle;
   /** The line under the title: the match as it is stored, read on the server. */
@@ -116,6 +118,8 @@ export function SpielEditor({
   spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
+  /** The match's public page, where the public may read its season: the strip's way there. */
+  spielPage?: Route;
 }) {
   // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
   const [adopted, setAdopted] = useState(false);
@@ -227,6 +231,7 @@ export function SpielEditor({
       lead={preview}
       editor={editor}
       closed={closed}
+      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.end.toSpiel } })}
       sections={framed([
         {
           id: "ansetzung",

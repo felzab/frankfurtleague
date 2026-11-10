@@ -400,6 +400,8 @@ async function readEditor(params: Props["params"]) {
       createSpielort={createSpielort}
       spielortRules={SPIELORT_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
+      // A planned season's match page answers not found to the public, so the strip offers none.
+      {...(view.saison_status === "future" ? {} : { spielPage: ROUTES.spiel.path(saved.saison_id, saved.id) })}
     />
   );
 }
