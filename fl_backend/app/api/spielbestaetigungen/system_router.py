@@ -782,8 +782,8 @@ async def sweep_spielbestaetigungen(
             if decision_of(spiel=spiel, austritte=[austritte[club] for club in clubs if club in austritte], tag=spiel["date"]) is not None:
                 return []
 
-            # A club no season row names was replaced and holds nobody to tell.
-            return [club for club in clubs if (spiel["_id"], club) not in stored and club in junctions]
+            # Every club a fixture fields holds its season row: no write removes one, and a replacement moves the fixtures.
+            return [club for club in clubs if (spiel["_id"], club) not in stored]
 
         owed = [(spiel, club) for spiel, clubs in batch.judged(due, clubs_owed) for club in clubs]
         reminded = {
@@ -810,8 +810,7 @@ async def sweep_spielbestaetigungen(
             if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
                 continue
             marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=now)
-            slot = spiel_mail_slot_of(spiel)
-            assert marks is not None and slot is not None
+            assert marks is not None
             junction = junctions[club]
             data = FLAufstellungReminderData(
                 kind="aufstellung_reminder",
@@ -819,7 +818,8 @@ async def sweep_spielbestaetigungen(
                 team_id=club,
                 saison_id=saison_id,
                 spiel_id=spiel["_id"],
-                appointment=slot,
+                # As the fixture's request states it, its ground among the rest.
+                appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
                 due_at=marks.due_at,
             )
             owed_here = [

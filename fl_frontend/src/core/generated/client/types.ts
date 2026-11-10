@@ -1106,11 +1106,12 @@ export interface FLAufstellungPublic {
 }
 
 /**
- * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
+ * A fixture as a mail asking about it states it, its ground among the rest.
  */
-export interface FLSpielMailAppointment {
+export interface FLSpielMailAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
+  spielort: string | null;
   team1: string;
   team2: string;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
@@ -1118,10 +1119,10 @@ export interface FLSpielMailAppointment {
 }
 
 /**
- * A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered.
+ * A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered.
  */
 export interface FLAufstellungReminderData {
-  appointment: FLSpielMailAppointment;
+  appointment: FLSpielMailAnsetzung;
   due_at: string;
   kind: "aufstellung_reminder";
   saison_id: string;
@@ -3194,25 +3195,24 @@ export interface FLSchiedsrichterConfirmationData {
   kind: "schiedsrichter_confirmation";
 }
 
-/**
- * A fixture as a mail asking about it states it, its ground among the rest.
- */
-export interface FLSpielMailAnsetzung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  spielort: string | null;
-  team1: string;
-  team2: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
 export type FLSpielRequestDataKind = (typeof FLSpielRequestDataKind)[keyof typeof FLSpielRequestDataKind];
 
 export const FLSpielRequestDataKind = {
   spiel_request: "spiel_request",
   spiel_reminder: "spiel_reminder",
 } as const;
+
+/**
+ * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
+ */
+export interface FLSpielMailAppointment {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  date: string;
+  team1: string;
+  team2: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  time: string;
+}
 
 /**
  * A club's request to confirm a fixture, or the reminder of it, each leading to the club's own pages.
@@ -3837,6 +3837,19 @@ export interface FLPatchSchiedsrichterResponse {
 }
 
 /**
+ * A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.
+ *
+ * Its own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the
+ * documents it reads.
+ */
+export interface FLSpielElfmeterschiessenPayload {
+  /** @minimum 0 */
+  team1: number;
+  /** @minimum 0 */
+  team2: number;
+}
+
+/**
  * The referee as the save sends it: who, and what this fixture pays them.
  */
 export interface FLSpielSchiedsrichterFieldPayload {
@@ -3882,7 +3895,7 @@ export interface FLSpielVoidedResult {
 
 export interface FLPatchSpielDataPayload {
   date: string | null;
-  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  elfmeterschiessen: FLSpielElfmeterschiessenPayload | null;
   note: string | null;
   schiedsrichter: FLSpielSchiedsrichterFieldPayload | null;
   sonderereignis: FLSonderereignis | null;
@@ -5048,6 +5061,17 @@ export interface FLSpielberichtBericht {
   submitted_at: string;
 }
 
+/**
+ * One card as the referee's save sends it: a key the card does not declare is refused, never dropped.
+ */
+export interface FLSpielberichtCardPayload {
+  colour: FLCardColour;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  side: FLSpielSide;
+  spieler_id: string | null;
+}
+
 export type FLSpielberichtVorschlagPayloadSonderereignis =
   (typeof FLSpielberichtVorschlagPayloadSonderereignis)[keyof typeof FLSpielberichtVorschlagPayloadSonderereignis] | null;
 
@@ -5061,17 +5085,28 @@ export const FLSpielberichtVorschlagPayloadSonderereignis = {
  * What the referee proposes beside the goals: a shoot-out, or the event the match ended in.
  */
 export interface FLSpielberichtVorschlagPayload {
-  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  elfmeterschiessen: FLSpielElfmeterschiessenPayload | null;
   sonderereignis: FLSpielberichtVorschlagPayloadSonderereignis;
+}
+
+/**
+ * One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped.
+ */
+export interface FLSpielberichtScorerPayload {
+  eigentor: boolean;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  side: FLSpielSide;
+  spieler_id: string | null;
 }
 
 export interface FLSpielberichtBerichtPayload {
   /** @maxItems 60 */
-  cards: FLSpielberichtCard[];
+  cards: FLSpielberichtCardPayload[];
   ergebnis_vorschlag: FLSpielberichtVorschlagPayload;
   remarks: string | null;
   /** @maxItems 60 */
-  scorers: FLSpielberichtScorer[];
+  scorers: FLSpielberichtScorerPayload[];
 }
 
 /**
@@ -5100,6 +5135,7 @@ export interface FLSpielberichtSpiel {
   sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
+  spielort: FLSpielortFieldPublic | null;
   team1: FLSpielberichtTeam | null;
   team2: FLSpielberichtTeam | null;
   time: string | null;
@@ -5902,14 +5938,15 @@ export interface FLTeamPanelRegistrierung {
 }
 
 /**
- * One seat as the people beside it see it: who holds it and whether they answered their link.
+ * One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.
  *
- * No address, telephone number or birthdate: only administrators see those.
+ * A Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,
+ * telephone number or birthdate: only administrators see those.
  */
 export interface FLTeamSeat {
   confirmed: boolean;
   name: string | null;
-  rolle: FLKontaktRolle;
+  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -6213,7 +6250,7 @@ export const Rule = {
   email_not_accepted: "email_not_accepted",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
   grant_wording_stale: "grant_wording_stale",
-  nichtantreten_with_tore: "nichtantreten_with_tore",
+  nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",

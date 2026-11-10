@@ -34,10 +34,8 @@ class Collection(StrEnum):
     #: references and nothing references back (`fl_backend/app/core/recording.py`).
     ACTION_LOG = "action_log"
     #: One barred address per row, kept past the erasure of the person it bars, whom it goes on barring.
-    #: Its author's erasure leaves the marker.
     BAN_LIST = "ban_list"
-    #: One minted registration link per row. It names a team, a season and the administrator who
-    #: minted it, whose erasure leaves the row standing with the marker in their place.
+    #: One minted registration link per row, naming a team and a season.
     INVITATIONS = "invitations"
     #: One pupil's pending registration for a team's season. Erased by its own clocks, by the
     #: admission, which writes the person and the squad row in the transaction that deletes it, and by

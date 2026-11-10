@@ -26,6 +26,7 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
     time: "15:00:00",
     team1: { team_id: "64b000000000000000000002", name: "Ahorn", shorthand: "AHO" },
     team2: { team_id: "64b000000000000000000003", name: "Kastanie", shorthand: "KAS" },
+    spielort: null,
     sonderereignis: null,
   },
   kader: { team1: [pupil(MIA, "9", "Mia"), pupil(NOAH, "10", "Noah")], team2: [pupil(LENA, "7", "Lena")] },

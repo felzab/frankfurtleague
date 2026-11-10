@@ -57,6 +57,12 @@ def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: 
     return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at, locks_at=locks_at)
 
 
+def kicked_off_by(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture's kick-off has come at `now`; never for one holding no day or no hour, which takes no line-up."""
+
+    return date is not None and time is not None and _at_kickoff_time(date, time, days_back=0) <= now
+
+
 def aufstellung_reminder_owed(*, date: str | None, time: str | None, now: datetime) -> bool:
     """Whether `now` lies in the window a team holding no line-up is owed its one reminder: from its mark up to the due mark.
 
@@ -129,7 +135,8 @@ def find_not_in_kader_refusal(
 ) -> WriteRefusal | None:
     """`spieler_not_in_kader`: a pupil newly named is in the club's live squad of the season.
 
-    On each entry it refuses, by its path, so the screen marks the row it names.
+    On each entry it refuses, by its path into the payload's `spieler`, so the screen marks the row it names rather
+    than reloading over the club's other picks.
     """
 
     live = {row["spieler_id"] for row in kader if row["inactive_since"] is None}
@@ -153,7 +160,13 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
     if named_nominees <= max(0, AUFSTELLUNG_STARTERS_MAX - regular):
         return None
 
-    return WriteRefusal(error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE, status=HTTPStatus.CONFLICT)
+    # The bound on the list, so the screen words the eleven from the server rather than a copied figure.
+    return WriteRefusal(
+        error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
+        status=HTTPStatus.CONFLICT,
+        fields=(("spieler",),),
+        bounds={"max": AUFSTELLUNG_STARTERS_MAX},
+    )
 
 
 def find_starters_refusal(entries: Sequence[FLAufstellungEntry]) -> WriteRefusal | None:

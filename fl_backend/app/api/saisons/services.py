@@ -40,6 +40,20 @@ def base_tier_status_term() -> dict[str, Any]:
     return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
 
 
+SAISON_AS = "saison"
+
+# A row's own `saisons` row beside it as `saison`, its status and its span alone: the one join a read asks a
+# season's state by, a seat's, a fixture's and a line-up's alike, keyed by the row's `saison_id`.
+SAISON_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SAISONS,
+        "localField": "saison_id",
+        "foreignField": "_id",
+        "pipeline": [{"$project": {"status": 1, "start_date": 1, "end_date": 1}}],
+        "as": SAISON_AS,
+    }
+}
+
 SPIELTAG_ROWS_AS = "spieltag_rows"
 
 # The matchday's `position` beside the match, and how many matchdays its phase holds in the season, in the same

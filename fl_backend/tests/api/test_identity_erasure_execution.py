@@ -48,6 +48,7 @@ from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
+    aufstellung_document,
     bericht_document,
     bewerbung_document,
     kontakte_document,
@@ -365,6 +366,10 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             )
             for spiel_nr, (spiel_id, referee_id) in enumerate(((THEIR_SPIEL_OID, REFEREE_OID), (OTHER_SPIEL_OID, OTHER_REFEREE_OID)), start=1)
         ]
+    )
+    # The pupil fielded in a match kicked off before `NOW`, so the pupil step has a line-up entry to repoint.
+    await database[Collection.AUFSTELLUNGEN].insert_one(
+        aufstellung_document({"_id": THEIR_SPIEL_OID, "saison_id": SAISON_ID}, HOME_TEAM_OID, starters=[PUPIL_OID, OTHER_PUPIL_OID])
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
@@ -783,6 +788,7 @@ class TestTheSentinelIsNobodyToErase:
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                     spieler_id=GHOST_SPIELER_ID,
+                    now=NOW,
                     session=session,
                 )
 
