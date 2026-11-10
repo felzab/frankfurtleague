@@ -23,7 +23,7 @@ export const LINEUP_WORDS: LineupWords = {
   none: COPY.shared.empty.none(SERVER_COPY.season.spiel.aufstellung),
   noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
   startersFull: COPY.shared.field.max(STARTERS_MAX),
-  nomineeLocked: COPY.area.team.aufstellung.nomineeLocked,
+  nomineeLocked: COPY.area.team.aufstellung.nomineeLocked(STARTERS_MAX),
 };
 
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */

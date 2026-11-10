@@ -799,10 +799,10 @@ export const COPY = catalogue({
         /** The lower list's title: the squad's players the line-up does not name. */
         rest: "Nicht aufgestellt",
         /**
-         * Why „Aufstellen“ is locked: on a nominee's row once the line-up names eleven of the squad's own players, a
-         * nominee filling a shortage alone, and on every row of a fixture holding no date or no time.
+         * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
+         * filling a shortage alone: the bound the backend publishes, never a typed figure.
          */
-        nomineeLocked: "Nur, wenn weniger als 11 aufgestellt sind",
+        nomineeLocked: (max: number) => `Nur, wenn weniger als ${formatNumber(max)} aufgestellt sind`,
         needsSlot: "Erst mit Datum und Uhrzeit",
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
         dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
