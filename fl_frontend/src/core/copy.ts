@@ -810,7 +810,10 @@ export const COPY = catalogue({
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
         dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
         overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
-        /** An overdue line-up's chip: after its own page's title, and on a Spiele card, where the chip names what is overdue. */
+        /**
+         * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
+         * Übersicht whose answer is past its deadline; on a Spiele card the chip names what is overdue.
+         */
         overdue: "Überfällig",
         overdueOnCard: "Aufstellung überfällig",
         /** Once the team's seats can change nothing more before the match: the page's chip, and its one line. */

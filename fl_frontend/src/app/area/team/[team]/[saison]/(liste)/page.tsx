@@ -101,7 +101,11 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
       };
     }
     case "expired":
-      return { ...base, line: line([when, venueOf(ansetzung), WORDS.answerOverdue(deadline), TEAM.leagueDecides]) };
+      return {
+        ...base,
+        chip: { tone: "danger", label: TEAM.aufstellung.overdue },
+        line: line([when, venueOf(ansetzung), WORDS.answerOverdue(deadline), TEAM.leagueDecides]),
+      };
     case "declined":
       return {
         ...base,
