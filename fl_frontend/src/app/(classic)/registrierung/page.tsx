@@ -1,6 +1,9 @@
 import { cache } from "react";
 
+import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MAILED_PAGE_METADATA, MailedPage, mailedTitle } from "@/kit/MailedPage";
+import { SectionPlaceholder } from "@/kit/Section";
 
 import { requires } from "@/core/action";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
@@ -56,8 +59,15 @@ const RULES: RegistrierungRules = {
   },
 };
 
-/** The Art. 21 objection around the league's address, read before anything is typed. */
-const OBJECTION: ConsentLine = [WORDS.objection.before, { href: KONTAKT_MAILTO, label: KONTAKT_EMAIL }, WORDS.objection.after];
+/** The two lines around the box: the Art. 21 objection around the league's address, and the sentence above the send. */
+const LINES: { objection: ConsentLine; notice: ConsentLine } = {
+  objection: [WORDS.objection.before, { href: KONTAKT_MAILTO, label: KONTAKT_EMAIL }, WORDS.objection.after],
+  notice: [
+    COPY.registrierung.notice.before,
+    { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
+    COPY.registrierung.notice.after,
+  ],
+};
 
 /**
  * `/registrierung`, the page a team's registration link opens, which the proxy hands its token in this page's cookie
@@ -65,6 +75,9 @@ const OBJECTION: ConsentLine = [WORDS.objection.before, { href: KONTAKT_MAILTO, 
  * once through the one-shot submit, its outcome replacing it. Where no form stands, the page is its status card: the
  * window shut or the season over, the club out of the season, the squad full, and the link no longer valid. The link is
  * the team's, opened by every pupil, so it has no state of having been answered.
+ *
+ * The wait draws the form, the state a link opens most days, with no sentence: only a nominee's page carries one, a
+ * line the wait cannot know of before the read.
  */
 export default function RegistrierungPage() {
   return (
@@ -72,6 +85,33 @@ export default function RegistrierungPage() {
       page={readState()}
       facts={3}
       act={SUBMIT}
+      sentence={false}
+      boxes
+      fields={
+        <>
+          <ConsentLinePlaceholder line={LINES.objection} />
+          <SectionPlaceholder
+            rows={[
+              "field",
+              "field",
+              "field",
+              <FieldPlaceholder
+                key="nummer"
+                width="C2"
+              />,
+              <FieldPlaceholder
+                key="position"
+                width="fit"
+              />,
+              <FieldPlaceholder
+                key="stufe"
+                width="fit"
+              />,
+            ]}
+          />
+          <ConsentLinePlaceholder line={LINES.notice} />
+        </>
+      }
     />
   );
 }
@@ -108,7 +148,7 @@ const readState = cache(async (): Promise<MailedState> => {
       <RegistrierungFields
         rules={RULES}
         stufen={orderStufen(view.allowed_stufen)}
-        objection={OBJECTION}
+        lines={LINES}
       />
     ),
   };

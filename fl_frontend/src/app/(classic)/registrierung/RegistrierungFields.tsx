@@ -9,7 +9,6 @@ import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
 import { FLSpielerPosition } from "@/core/generated/client/types";
-import { ROUTES } from "@/core/routes";
 
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
@@ -40,13 +39,16 @@ export type RegistrierungRules = {
 export function RegistrierungFields({
   rules,
   stufen,
-  objection,
+  lines: { objection, notice },
 }: {
   rules: RegistrierungRules;
   /** The season's Stufen in the league's order: a choice the write refuses is never offered. */
   stufen: readonly FLSpielerStufe[];
-  /** The Art. 21 objection with the league's address as its link, in the server catalogue's one wording. */
-  objection: Line;
+  /**
+   * The two lines around the box, which the page's wait draws too: the Art. 21 objection with the league's address as
+   * its link, in the server catalogue's one wording, and the sentence above the send.
+   */
+  lines: { objection: Line; notice: Line };
 }) {
   const objectionLine = useId();
   const noticeLine = useId();
@@ -110,7 +112,7 @@ export function RegistrierungFields({
       </Section>
       <ConsentLine
         id={noticeLine}
-        line={[WORDS.notice.before, { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice }, WORDS.notice.after]}
+        line={notice}
       />
     </>
   );
