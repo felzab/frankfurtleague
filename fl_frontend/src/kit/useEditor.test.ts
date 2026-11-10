@@ -100,6 +100,46 @@ describe("an editor's draft", () => {
   });
 });
 
+// The harm: a list whose rows a control builds anew on every edit reads as changed for good, so the frame's way back
+// asks about a draft that holds nothing and a save sends rows nobody changed.
+describe("an editor's list of records", () => {
+  type Goal = { side: string; minute: string; eigentor: boolean };
+  type Bericht = { scorers: ReadonlyArray<Goal> };
+
+  const OPENER: Goal = { side: "team1", minute: "12", eigentor: false };
+  const EQUALISER: Goal = { side: "team2", minute: "45+1", eigentor: true };
+  const GOALS: ReadonlyArray<Goal> = [OPENER, EQUALISER];
+  const REPORT: EditorRecord<Bericht> = { id: "bericht-1", version: 1, values: { scorers: GOALS } };
+
+  /** The stored rows as a control hands them back: each record a new object holding the same values. */
+  const typedBack = () => GOALS.map((goal) => ({ ...goal }));
+
+  it.each<[string, ReadonlyArray<Goal>]>([
+    ["added", [...GOALS, { side: "team1", minute: "", eigentor: false }]],
+    ["changed", [OPENER, { ...EQUALISER, minute: "46" }]],
+    ["removed", [OPENER]],
+  ])("is unsaved once a row is %s, sends the list whole, and is clean again typed back or reset", async (_edit, edited) => {
+    const save = vi.fn(async (_change: EditorSave<Bericht>): Promise<ActionAnswer<number>> => ({
+      ok: false,
+      reason: COPY.shared.failure.stale,
+    }));
+    const { result } = renderHook(() => useEditor(REPORT, save));
+
+    act(() => result.current.set("scorers", edited));
+    expect(result.current.count).toBe(1);
+    await press(result.current.submit);
+    expect(save).toHaveBeenCalledWith({ id: "bericht-1", version: 1, changes: { scorers: edited } });
+
+    act(() => result.current.set("scorers", typedBack()));
+    expect(result.current.count).toBe(0);
+
+    act(() => result.current.set("scorers", edited));
+    act(() => result.current.discard());
+    expect(result.current.draft.scorers).toBe(GOALS);
+    expect(result.current.count).toBe(0);
+  });
+});
+
 describe("an editor's refused save", () => {
   it("shows a refusal's own reason", async () => {
     const { result } = editorOn(STORED, async () => ({ ok: false, reason: COPY.shared.failure.stale }));

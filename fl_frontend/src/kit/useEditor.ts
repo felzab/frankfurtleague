@@ -12,8 +12,14 @@ import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FormStatus } from "./useFormAction";
 
-/** A value an editor's field holds: text, a figure, a choice, or nothing yet. */
-export type EditorValue = string | number | boolean | null | ReadonlyArray<string>;
+/** One record of a list an editor's field holds, such as a goal of a Spielbericht: each of its fields one value. */
+export type EditorRow = Readonly<Record<string, string | number | boolean | null>>;
+
+/**
+ * A value an editor's field holds: text, a figure, a choice, nothing yet, several choices, or a list of records. A list
+ * is one field: a save sends it whole once one of its items differs, and the count of unsaved fields counts it once.
+ */
+export type EditorValue = string | number | boolean | null | ReadonlyArray<string> | ReadonlyArray<EditorRow>;
 
 /**
  * A record as an editable read serves it: its id, its stored `version`, which every write to it raises, and
@@ -46,8 +52,18 @@ const CHANGES = "changes.";
 const byBox = (fieldErrors: Readonly<Record<string, Copy>>): Readonly<Record<string, Copy>> =>
   Object.fromEntries(Object.entries(fieldErrors).map(([path, text]) => [path.startsWith(CHANGES) ? path.slice(CHANGES.length) : path, text]));
 
+/** A record is the same by its fields' values: an edit builds the record anew, so a value typed back is another object. */
+function sameItem(a: string | EditorRow, b: string | EditorRow | undefined) {
+  if (typeof a !== "object" || typeof b !== "object") return a === b;
+  const fields = Object.keys(a);
+  return fields.length === Object.keys(b).length && fields.every((field) => Object.is(a[field], b[field]));
+}
+
 function sameValue(a: EditorValue | undefined, b: EditorValue | undefined) {
-  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => item === b[index]);
+  if (Array.isArray(a) && Array.isArray(b)) {
+    const others: ReadonlyArray<string | EditorRow> = b;
+    return a.length === others.length && a.every((item: string | EditorRow, index) => sameItem(item, others[index]));
+  }
   return Object.is(a, b);
 }
 
