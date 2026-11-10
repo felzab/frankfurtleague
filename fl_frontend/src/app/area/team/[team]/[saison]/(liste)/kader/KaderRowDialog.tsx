@@ -1,7 +1,6 @@
 "use client";
 
 import { Dialog } from "@/kit/Dialog";
-import { FieldPair } from "@/kit/FieldPair";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
@@ -25,8 +24,8 @@ const POSITIONS: readonly Option[] = Object.values(FLSpielerPosition).map((posit
 const ROLLEN = ["kapitaen", "co_kapitaen"] as const satisfies readonly FLSpielerRolle[];
 
 /**
- * A live squad row's dialog, the record titled by the player's name: its four values in two pairs, Nummer with
- * Position and Stufe with Rolle, as the administration's player editor holds them, and „Austragen“ in its danger row.
+ * A live squad row's dialog, the record titled by the player's name: its four values one under another, Nummer,
+ * Position, Stufe and Rolle, as the administration's player editor holds them, and „Austragen“ in its danger row.
  * A role another live row holds stands in its list locked, as the editor's does; the row's own role stays open, so its
  * holder may give it up.
  */
@@ -78,42 +77,32 @@ export function KaderRowDialog({
           onConfirm: () => deregisterKaderRow(where),
         },
       }}>
-      <FieldPair
-        short="both"
-        phone="pair">
-        <TextField
-          label={WORDS.nummer}
-          name="nummer"
-          width="C2"
-          kind="digits"
-          defaultValue={row.nummer ?? ""}
-        />
-        <Select
-          label={WORDS.position}
-          name="position"
-          width="fit"
-          options={[NOT_PROVIDED, ...POSITIONS]}
-          defaultValue={row.position ?? ""}
-        />
-      </FieldPair>
-      <FieldPair
-        short="both"
-        phone="pair">
-        <Select
-          label={WORDS.stufe}
-          name="stufe"
-          width="fit"
-          options={[NOT_PROVIDED, ...stufen]}
-          defaultValue={row.stufe ?? ""}
-        />
-        <Select
-          label={WORDS.rolle}
-          name="rolle"
-          width="fit"
-          options={[NOT_PROVIDED, ...rollen]}
-          defaultValue={row.rolle ?? ""}
-        />
-      </FieldPair>
+      <TextField
+        label={WORDS.nummer}
+        name="nummer"
+        width="short"
+        holds={2}
+        kind="digits"
+        defaultValue={row.nummer ?? ""}
+      />
+      <Select
+        label={WORDS.position}
+        name="position"
+        options={[NOT_PROVIDED, ...POSITIONS]}
+        defaultValue={row.position ?? ""}
+      />
+      <Select
+        label={WORDS.stufe}
+        name="stufe"
+        options={[NOT_PROVIDED, ...stufen]}
+        defaultValue={row.stufe ?? ""}
+      />
+      <Select
+        label={WORDS.rolle}
+        name="rolle"
+        options={[NOT_PROVIDED, ...rollen]}
+        defaultValue={row.rolle ?? ""}
+      />
     </Dialog>
   );
 }

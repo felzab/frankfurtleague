@@ -8,7 +8,7 @@ import { dateSegment, fieldFrame } from "./fieldStyles";
 /**
  * The segments of a date or a time, in German order: „TT.MM.JJJJ“ and „––:––“ empty, „14.03.2027“ and
  * „19:30“ filled. The active segment fills like an active list entry. A time's segments are the field
- * itself and carry its edge, five characters wide; a date's sit in a group with the calendar button, which
+ * itself and carry its edge, at the standard width; a date's sit in a group with the calendar button, which
  * carries it.
  *
  * React Aria draws a segment `contenteditable` on the server too, and a digit typed before hydration fails hydration,
@@ -23,7 +23,7 @@ export function Segments({ isField }: { isField: boolean }) {
       inert={useIsSSR()}
       data-kit-focus={isField ? "field" : ""}
       className={
-        isField ? fieldFrame({ width: "C5", inset: "full", layout: "group", figures: true }) : "flex h-full min-w-0 flex-1 items-center"
+        isField ? fieldFrame({ width: "standard", inset: "full", layout: "group", figures: true }) : "flex h-full min-w-0 flex-1 items-center"
       }>
       {(segment) => (
         <DateSegment

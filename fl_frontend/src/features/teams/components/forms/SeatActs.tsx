@@ -3,7 +3,6 @@
 import { Button } from "@/kit/Button";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
-import { FieldPair } from "@/kit/FieldPair";
 import { PressAct } from "@/kit/PressAct";
 import { TextField } from "@/kit/TextField";
 
@@ -80,32 +79,28 @@ export function SeatActs<Key>({
           action={write}
           carry={carry}
           trigger={edit}>
-          <FieldPair
-            short="both"
-            phone="stack">
-            <TextField
-              label={COPY.shared.firstName}
-              name="first_name"
-              width="W3"
-              kind="text"
-              isRequired={required.first_name}
-              maxLength={max.first_name}
-              defaultValue={person?.first_name}
-            />
-            <TextField
-              label={COPY.shared.lastName}
-              name="last_name"
-              width="W3"
-              kind="text"
-              isRequired={required.last_name}
-              maxLength={max.last_name}
-              defaultValue={person?.last_name}
-            />
-          </FieldPair>
+          <TextField
+            label={COPY.shared.firstName}
+            name="first_name"
+            width="standard"
+            kind="text"
+            isRequired={required.first_name}
+            maxLength={max.first_name}
+            defaultValue={person?.first_name}
+          />
+          <TextField
+            label={COPY.shared.lastName}
+            name="last_name"
+            width="standard"
+            kind="text"
+            isRequired={required.last_name}
+            maxLength={max.last_name}
+            defaultValue={person?.last_name}
+          />
           <TextField
             label={COPY.signIn.address}
             name="email"
-            width="W3"
+            width="standard"
             kind="email"
             autofill="off"
             isRequired={required.email}
@@ -115,7 +110,7 @@ export function SeatActs<Key>({
           <TextField
             label={COPY.shared.facts.phone}
             name="phone"
-            width="W3"
+            width="standard"
             kind="tel"
             isRequired={required.phone}
             defaultValue={person?.phone}

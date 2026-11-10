@@ -97,15 +97,16 @@ export default function RegistrierungPage() {
               "field",
               <FieldPlaceholder
                 key="nummer"
-                width="C2"
+                width="short"
+                holds={2}
               />,
               <FieldPlaceholder
                 key="position"
-                width="fit"
+                width="standard"
               />,
               <FieldPlaceholder
                 key="stufe"
-                width="fit"
+                width="standard"
               />,
             ]}
           />

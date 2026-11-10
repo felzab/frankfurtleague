@@ -15,7 +15,7 @@ describe("an address field's autofill", () => {
       <TextField
         label={COPY.signIn.address}
         kind="email"
-        width="W3"
+        width="standard"
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("email");
@@ -26,7 +26,7 @@ describe("an address field's autofill", () => {
       <TextField
         label={COPY.signIn.address}
         kind="email"
-        width="W3"
+        width="standard"
         autofill="username"
       />,
     );
@@ -39,7 +39,7 @@ describe("an address field's autofill", () => {
       <TextField
         label={COPY.signIn.address}
         kind="email"
-        width="W3"
+        width="standard"
         autofill="off"
       />,
     );
@@ -55,7 +55,8 @@ describe("a digits field", () => {
           label={COPY.shared.startelf}
           name="postcode"
           kind="digits"
-          width="C5"
+          width="short"
+          holds={5}
         />
         <Button
           variant="primary"
@@ -70,12 +71,13 @@ describe("a digits field", () => {
     expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleDigits))).toBeTruthy();
   });
 
-  it("sets its unit after the field and outside it, read once as the field's description", () => {
+  it("sets its unit after the value inside the field's frame, read once as the field's description", () => {
     render(
       <TextField
         label={COPY.shared.startelf}
         kind="digits"
-        width="C5"
+        width="short"
+        holds={5}
         unit={COPY.shared.unit.euro}
       />,
     );
@@ -85,6 +87,7 @@ describe("a digits field", () => {
     expect(unit?.getAttribute("aria-hidden")).toBe("true");
     expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(unit?.id);
     expect(field.contains(unit ?? null)).toBe(false);
+    expect(field.parentElement?.getAttribute("data-kit-focus")).toBe("field");
   });
 
   it("leaves a text field's characters free", () => {
@@ -92,7 +95,7 @@ describe("a digits field", () => {
       <TextField
         label={COPY.shared.startelf}
         kind="text"
-        width="W3"
+        width="standard"
       />,
     );
     expect(screen.getByRole("textbox").hasAttribute("pattern")).toBe(false);
@@ -111,7 +114,8 @@ describe("a minute field", () => {
           label={COPY.admin.spiel.minute}
           name="minute"
           kind="minute"
-          width="C5"
+          width="short"
+          holds={5}
           pattern={MINUTE}
           example={EXAMPLE}
           unit={COPY.shared.unit.minute}
@@ -148,7 +152,7 @@ describe("a field's message line", () => {
       <TextField
         label={COPY.shared.startelf}
         kind="text"
-        width="W3"
+        width="standard"
       />,
     );
     const field = screen.getByRole("textbox");
@@ -161,7 +165,7 @@ describe("a field's message line", () => {
         <TextField
           label={COPY.signIn.address}
           kind="email"
-          width="W3"
+          width="standard"
           line="withError"
         />
         <Button

@@ -89,7 +89,7 @@ function ReasonField() {
       label={COPY.admin.overview.reason}
       // The name `declineEinteilung` reads the reason by.
       name="reason"
-      width="W4"
+      width="full"
       kind="text"
       isRequired={requires(SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason, "")}
       maxLength={spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax}

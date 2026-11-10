@@ -49,7 +49,7 @@ const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key:
 const SELECT = (
   <FieldPlaceholder
     key="select"
-    width="fit"
+    width="standard"
   />
 );
 
@@ -111,13 +111,14 @@ export default function SaisonSettingsPage({ params }: Props) {
       // standing, and the rows of a season not yet the site's. Only the read says which one it is.
       wait={{
         sections: [
-          { note: WORDS.startFixed, rows: [{ rows: 2, width: "C10" }] },
-          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, width: "C2" }, SELECT, "subhead", { rows: 2, width: "C2" }] },
-          { note: WORDS.lockedByDraw, rows: [{ rows: 2, width: "C2" }, SELECT] },
+          { note: WORDS.startFixed, rows: [{ rows: 2, holds: "day" }] },
+          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, holds: "count" }, SELECT, "subhead", { rows: 2, holds: "count" }] },
+          { note: WORDS.lockedByDraw, rows: [{ rows: 2, holds: "count" }, SELECT] },
           [
             <FieldPlaceholder
               key="maxKader"
-              width="C2"
+              width="short"
+              holds={2}
             />,
             <ToggleBoxesPlaceholder
               key="stufen"
@@ -125,7 +126,7 @@ export default function SaisonSettingsPage({ params }: Props) {
             />,
           ],
           [
-            { rows: 2, width: "C10" },
+            { rows: 2, holds: "day" },
             <CheckboxPlaceholder
               key="paused"
               label={WORDS.bewerbungPaused}
@@ -134,7 +135,7 @@ export default function SaisonSettingsPage({ params }: Props) {
           [
             <FieldPlaceholder
               key="end"
-              width="C10"
+              width="standard"
             />,
             <CheckboxPlaceholder
               key="paused"

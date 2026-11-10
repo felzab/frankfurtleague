@@ -62,7 +62,7 @@ export default function SchiedsrichterConfirmationPage({ searchParams }: Props) 
       sentence={WORDS.question("2027-01-31")}
       fields={
         <>
-          <FieldPlaceholder width="C10" />
+          <FieldPlaceholder width="standard" />
           <RadioGroupPlaceholder
             label={scope.question}
             choices={[scope.options.kader_public, scope.options.internal]}

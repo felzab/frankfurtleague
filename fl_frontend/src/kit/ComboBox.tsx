@@ -100,7 +100,7 @@ export function ComboBox({
       )}
       <Group
         data-kit-focus="field"
-        className={fieldFrame({ width: "W3", inset: "start", layout: "group" })}>
+        className={fieldFrame({ width: "standard", inset: "start", layout: "group" })}>
         <Input
           data-kit-focus
           maxLength={free?.maxLength}

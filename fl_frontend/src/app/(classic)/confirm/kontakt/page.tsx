@@ -74,7 +74,7 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
       fields={
         <>
           <FieldPlaceholder
-            width="C10"
+            width="standard"
             description={WORDS.ageCheck(18)}
           />
           <CheckboxPlaceholder label={SEAT_WORDINGS.scope.label} />

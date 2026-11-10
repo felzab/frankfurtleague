@@ -63,7 +63,7 @@ export function SignInBoxes({
           <TextField
             label={COPY.account.address.new}
             name="email"
-            width="W3"
+            width="standard"
             kind="email"
             isRequired={addressRequired}
           />

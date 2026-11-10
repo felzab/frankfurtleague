@@ -19,7 +19,7 @@ export function BanFields() {
       <TextField
         label={COPY.signIn.address}
         name="email"
-        width="W3"
+        width="standard"
         kind="email"
         autofill="off"
         isRequired={requires(SignInPayloadSchema.shape.email, "")}
@@ -28,7 +28,7 @@ export function BanFields() {
       <TextField
         label={COPY.admin.spiel.reason}
         name="ban_reason"
-        width="W3"
+        width="standard"
         kind="text"
         description={COPY.admin.noNames}
         isRequired={requires(BanListPostBanListEntryBody.shape.ban_reason, "")}

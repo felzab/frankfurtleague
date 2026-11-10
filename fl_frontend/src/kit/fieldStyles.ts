@@ -77,54 +77,40 @@ export const statusLine = tv({
 });
 
 /**
- * How wide a form's long field grows from `lg`: about 30 characters (`--container-field`), so it reads as the length
- * of a name or an address rather than as the column, as GOV.UK sizes a text input to its expected answer. Set in the
- * field's own text, so `ch` measures its letters wherever the cap is read: on the frame, and on a pair's growing side,
- * which stops where its field does. A phone's field keeps the full row.
- */
-export const columnCap = tv({ base: "text-sm lg:max-w-field pointer-coarse:text-base" });
-
-/**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
- * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset. Inside a pair
- * sharing its row on a phone (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds
- * nothing to the width the side is laid out at, so the side starts from the field's width class and the frame then
- * fills what the side grew to.
+ * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger pointer-coarse:text-base",
   variants: {
-    // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
-    // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
-    // of characters and one more for the caret, inside the two 10-px insets, with 2 px to spare (1.375 rem
-    // together). Then a long field, the column up to `columnCap`; the column at four lines for a paragraph, free
-    // text taking the whole column; and a field filling the column it stands in, uncapped.
+    // A field's width says what it holds, since a person reads the length of a field as the length of its answer:
+    // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
+    // their length.
     width: {
-      // A score.
-      C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",
-      // A postcode, a time, whole euros, a house number.
-      C5: "h-8 w-[calc(6ch+1.375rem)] pointer-coarse:h-10",
-      // A date: the width of a ten-character field and its calendar button beside it, 32 px with a mouse
-      // and 40 on a touch screen as every field's button is.
-      C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
-      W3: `h-8 w-full ${columnCap()} pointer-coarse:h-10`,
-      // A long name, past the 30 characters a person's name or an address takes, such as a venue's: the column up to
-      // about 40 characters from `lg`, sized by the same measure.
-      W3L: "h-8 w-full text-sm lg:max-w-field-long pointer-coarse:h-10 pointer-coarse:text-base",
-      // A long field in a column narrower than the cap, which fills that column as a phone's field fills its row: the
-      // search over a list, at the reading width its toolbar gives it, and the sign-in's address in its column.
-      column: "h-8 w-full pointer-coarse:h-10",
-      // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
-      fit: "h-8 w-fit max-w-full min-w-40 pointer-coarse:h-10",
-      W4: "min-h-26 w-full resize-none py-2",
+      // A value of a known length, a score, a minute, a price: as wide as that value, by `holds`.
+      short: "h-8 pointer-coarse:h-10",
+      // Every value whose length varies, a name, an address, a date, a time, a choice: one width
+      // (`--container-field`), which a narrower column, a phone's row among them, cuts to its own.
+      standard: "h-8 w-full max-w-field pointer-coarse:h-10",
+      // Free text: its box's whole width, at four lines.
+      full: "min-h-26 w-full resize-none py-2",
     },
-    // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
-    // start. The padding is set per width below: the short widths take 10 px, the long ones 12 px.
+    // How many characters a short field holds, as the GOV.UK Design System counts its fixed-width inputs: the count
+    // and one more for the caret, measured in the field's own figures so the width grows with the reader's font
+    // size, inside the two 12-px insets with 2 px to spare (1.625 rem together). A unit after the value stands
+    // inside the frame, which is then as wide as the two (`fieldUnit`).
+    holds: {
+      // A score, a shirt number, a count.
+      2: "w-[calc(3ch+1.625rem)]",
+      // A minute, a price, a postcode, a house number.
+      5: "w-[calc(6ch+1.625rem)]",
+    },
+    // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its start.
     inset: {
-      full: "",
-      start: "",
+      full: "px-3",
+      start: "ps-3",
       // A search field's magnifier stands where the padding would.
       none: "",
     },
@@ -140,22 +126,25 @@ export const fieldFrame = tv({
       true: "font-numeric",
     },
   },
-  compoundVariants: [
-    { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
-    { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "full", class: "px-3" },
-    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "start", class: "ps-3" },
-  ],
 });
 
 /**
- * A unit after its field and outside it, as „€“ follows a price: 10 px off, as a box's label is, in the field's
- * own text, so the figure and its unit read as one value.
+ * A short field whose value has a unit, as „€“ follows a price: the unit stands inside the frame at its end, so the
+ * figure and its unit read as one value and the field keeps the box's one left edge. The frame is as wide as the
+ * value's room and the unit together. The value's room is `fieldFrame`'s count less the frame's insets, set on the
+ * input, whose figures the count is measured in; the unit keeps the page's face.
  */
 export const fieldUnit = tv({
   slots: {
-    row: "flex items-center gap-2.5",
-    unit: "text-sm text-fg pointer-coarse:text-base",
+    frame: "flex w-fit items-center gap-1.5 group-data-disabled:opacity-50",
+    value: "h-full min-w-0 bg-transparent font-numeric",
+    unit: "shrink-0 text-fg",
+  },
+  variants: {
+    holds: {
+      2: { value: "w-[calc(3ch+0.125rem)]" },
+      5: { value: "w-[calc(6ch+0.125rem)]" },
+    },
   },
 });
 

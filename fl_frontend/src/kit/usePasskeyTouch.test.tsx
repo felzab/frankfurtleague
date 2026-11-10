@@ -128,7 +128,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
         <TextField
           label={COPY.shared.name}
           name="name"
-          width="W3"
+          width="standard"
           kind="text"
         />
       </Dialog>,

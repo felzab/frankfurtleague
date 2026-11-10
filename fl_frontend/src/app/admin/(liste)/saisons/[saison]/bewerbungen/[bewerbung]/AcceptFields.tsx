@@ -51,7 +51,8 @@ export function AcceptFields({
     <TextField
       label={COPY.team.shorthand}
       name="shorthand"
-      width="C5"
+      width="short"
+      holds={5}
       kind="text"
       isRequired={shorthand === null}
       isDisabled={shorthand !== null}
@@ -67,7 +68,6 @@ export function AcceptFields({
       <Select
         label={COPY.team.gruppe}
         name="gruppe"
-        width="fit"
         isRequired={rules.required.gruppe}
         options={gruppeOptions(gruppen)}
         defaultValue={picked?.gruppe ?? null}
@@ -75,7 +75,6 @@ export function AcceptFields({
       <Select
         label={COPY.team.trikotFarbe}
         name="trikot_farbe"
-        width="fit"
         isRequired={rules.required.trikot_farbe}
         options={trikotOptions(taken)}
         defaultValue={taken.includes(colour) ? "" : colour}

@@ -143,7 +143,8 @@ export function BerichtEditor({
         label={label}
         labelHidden
         name={name}
-        width="C5"
+        width="short"
+        holds={5}
         kind="minute"
         pattern={minute.pattern}
         example={WORDS.minuteExample}
@@ -214,7 +215,6 @@ export function BerichtEditor({
                 label={SPIEL.sonderereignis}
                 name="sonderereignis"
                 options={sonderereignisse}
-                width="fit"
                 value={draft.sonderereignis}
                 onChange={(id) => {
                   if (id !== null) set("sonderereignis", id);
@@ -313,7 +313,7 @@ export function BerichtEditor({
               label={WORDS.remarks}
               labelHidden
               name="remarks"
-              width="W4"
+              width="full"
               kind="text"
               description={COPY.admin.noNames}
               maxLength={remarksMax}

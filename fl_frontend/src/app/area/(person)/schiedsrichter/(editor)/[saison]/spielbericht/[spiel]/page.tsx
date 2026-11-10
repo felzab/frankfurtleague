@@ -134,7 +134,7 @@ export default function SpielberichtPage({ params }: Props) {
               />
             ),
           },
-          [{ titled: "W4" }],
+          [{ titled: "full" }],
         ],
       }}
       editor={readPage(params)}

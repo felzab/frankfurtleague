@@ -56,9 +56,7 @@ export function DeclineDialog({
         />
       }>
       <FieldGroup name={COPY.admin.overview.vorschlag}>
-        <FieldPair
-          short="both"
-          phone="pair">
+        <FieldPair>
           <DateField
             label={COPY.admin.spiel.date}
             name="date"
@@ -76,7 +74,7 @@ export function DeclineDialog({
         label={COPY.admin.overview.reason}
         name="reason"
         // A paragraph, at four lines, its line breaks kept, as the administration's reasons are.
-        width="W4"
+        width="full"
         kind="text"
         isRequired={REQUIRED.reason}
         maxLength={spielbestaetigungenPostTeamAnswerBodyReasonOneMax}
