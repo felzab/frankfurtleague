@@ -1136,6 +1136,16 @@ export interface FLAufstellungSpieler {
   spieler_id: string;
 }
 
+export type FLSaisonPhase = (typeof FLSaisonPhase)[keyof typeof FLSaisonPhase];
+
+export const FLSaisonPhase = {
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
+} as const;
+
 export interface FLSpielberichtTeam {
   name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1143,13 +1153,19 @@ export interface FLSpielberichtTeam {
 }
 
 /**
- * The fixture a line-up is for, as its screen states it.
+ * The fixture a line-up is for, as its screen states it, with the matchday the screen's lead names it by.
  */
 export interface FLAufstellungSpiel {
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
   date: string | null;
+  for_third_place: boolean;
   saison_id: string;
+  saison_phase: FLSaisonPhase;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
+  /** @minimum 1 */
+  spieltag_position: number;
   team1: FLSpielberichtTeam | null;
   team2: FLSpielberichtTeam | null;
   time: string | null;
@@ -1167,6 +1183,18 @@ export interface FLAufstellungResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   version: number | null;
+}
+
+export type FLAufstellungStartersMax = 11;
+
+/**
+ * A stored line-up as the match editor states it per side: how many pupils it names, and how many of them start.
+ */
+export interface FLAufstellungSummary {
+  /** @minimum 0 */
+  count: number;
+  /** @minimum 0 */
+  starters: number;
 }
 
 /**
@@ -2752,16 +2780,6 @@ export interface FLKaderResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
-
-export type FLSaisonPhase = (typeof FLSaisonPhase)[keyof typeof FLSaisonPhase];
-
-export const FLSaisonPhase = {
-  gruppenphase: "gruppenphase",
-  achtelfinale: "achtelfinale",
-  viertelfinale: "viertelfinale",
-  halbfinale: "halbfinale",
-  finale: "finale",
-} as const;
 
 /**
  * The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won.
@@ -4782,6 +4800,14 @@ export interface FLSignInResponse {
 
 export type FLSignatoryMinAgeYears = 18;
 
+/**
+ * Each side's line-up as the editor's line states it, the club the fixture fields there now; null where it has stored none.
+ */
+export interface FLSpielEditorAufstellungen {
+  team1: FLAufstellungSummary | null;
+  team2: FLAufstellungSummary | null;
+}
+
 export type FLSpielberichtVorschlagSonderereignis =
   (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
 
@@ -5381,6 +5407,7 @@ export interface FLSpielbestaetigungenSelfResponse {
  * match read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
  */
 export interface FLSpieleAdminSingleResponse {
+  aufstellungen: FLSpielEditorAufstellungen;
   saison_status: FLSaisonStatus;
   schiedsrichter: FLSpielEditorSchiedsrichter[];
   spiel: FLSpielJoinedAdmin;

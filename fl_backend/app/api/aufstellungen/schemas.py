@@ -7,7 +7,7 @@ from app.api.spieler.schemas import FLSpielerRolle
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, FLUtcInstant
-from app.shared.schemas.literals import FLSpielerPosition
+from app.shared.schemas.literals import FLSaisonPhase, FLSpielerPosition
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # The most pupils one line-up names, far above any squad: the squad itself is the rule a save is judged by, and this
@@ -74,10 +74,16 @@ class FLAufstellungPayload(BaseModel):
 
 
 class FLAufstellungSpiel(BaseModel):
-    """The fixture a line-up is for, as its screen states it."""
+    """The fixture a line-up is for, as its screen states it, with the matchday the screen's lead names it by."""
 
     spiel_id: CustomObjectId
     saison_id: str
+    saison_phase: FLSaisonPhase
+    # The matchday's stored `position` and its phase's count of matchdays, as `FLTeamPageSpiel` serves them.
+    spieltag_position: int = Field(ge=1)
+    count_spieltage_in_phase: int = Field(ge=1)
+    # As `FLSpielJoined` serves it: the match for third place shares the Finale's matchday.
+    for_third_place: bool
     date: CustomDateString | None
     time: CustomTimeString | None
     team1: FLSpielberichtTeam | None
@@ -130,6 +136,13 @@ class FLAufstellungResponse(BaseAPIResponse):
     version: int | None
     # Null for a fixture holding no day or no hour, which owes no line-up and takes none.
     marks: FLAufstellungMarks | None
+
+
+class FLAufstellungSummary(BaseReadModel):
+    """A stored line-up as the match editor states it per side: how many pupils it names, and how many of them start."""
+
+    count: int = Field(ge=0)
+    starters: int = Field(ge=0)
 
 
 # --- The PUBLIC read: a line-up as the match page shows it, every pupil through the base tier's mask.
