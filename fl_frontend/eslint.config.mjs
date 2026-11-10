@@ -985,10 +985,9 @@ const DESIGN_BANS = [
   ),
 
   // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
-  // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
-  // classes are held here.
-  // Session 8: once HeroUI's stylesheets go, the theme resets Tailwind's namespaces to `initial` and the
-  // bans the resets make redundant go.
+  // the token colours. Tailwind's own scale stays defined beside the tokens' steps, so the classes are
+  // held here.
+  // Session 8: the theme resets Tailwind's namespaces to `initial`, and the bans the resets make redundant go.
   classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
     allow: [TOGGLE_OFFSET.home],
   }),
@@ -1391,7 +1390,7 @@ const eslintConfig = defineConfig([
           // The constants alone, which the Prettier plugin never sorts: a class list both tools sorted
           // would have two owners, and a version bump moving either order would set them fighting over it.
           selectors: [CLASS_LIST_CONSTANT],
-          // On, a HeroUI component class sorts ahead of `group` or `peer`, where the Prettier plugin
+          // On, a class of the components layer sorts ahead of `group` or `peer`, where the Prettier plugin
           // keeps both where they stand; off, the two orders agree.
           detectComponentClasses: false,
         },

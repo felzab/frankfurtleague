@@ -42,10 +42,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
-- **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
-- **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a
-  `@layer`
-- **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
+- **motion** — Stop a loading indicator under reduced motion
 - **copy** — Type a visitor string outside the catalogue; word a field from anything but its
   patterns; add a pattern the owner did not approve; explain why or how on a status line
 

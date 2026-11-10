@@ -7,7 +7,7 @@ import { tv } from "./tv";
  * a client button read the same recipe.
  */
 export const buttonLook = tv({
-  // The border colour is named on every variant: HeroUI's base sheet colours every element's border.
+  // The border colour is named on every variant: a border naming none takes its element's text colour.
   base: "inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:h-10",
   variants: {
     look: {

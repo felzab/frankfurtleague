@@ -5,7 +5,7 @@ import { tv } from "./tv";
  * The look every field shares, kept in one place so a ruling changes it in one edit: the label, the
  * frame, the message line, the drawn box of a checkbox, radio or switch, and the menu a select or a
  * combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
- * because HeroUI's base sheet colours every element's border.
+ * because a border naming none takes its element's text colour.
  *
  * The touch rule: every pressable control's press target is at least the kit's control height on a touch screen,
  * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is

@@ -73,11 +73,12 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
     <html
       lang="de"
       suppressHydrationWarning
+      // The viewport's scroll container is `<html>`, never `<body>`: its gutter is reserved, so a scrollbar
+      // appearing on a page that grows leaves the content's width alone.
       className={`${anton.variable} ${raleway.variable} ${inter.variable} scrollbar-gutter-stable`}>
       {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
-      {/* Session 8: `fluid-base`, which makes every unsized inherited text fluid, goes with the old pages. */}
-      <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
+      <body className="flex min-h-dvh w-full flex-col bg-bg font-primary text-fg antialiased">
         <BrandSprite />
         <RootProviders>
           <ThemeColor />
