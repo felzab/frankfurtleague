@@ -44,6 +44,8 @@ const PATTERNED = {
   spieltag_ends_before_start: notBeforeStart,
   good_spieler_exceed_kader: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
   starters_exceed_eleven: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
+  // The same bound judged with the stored entries of erased pupils, which no form sends, beside the payload's.
+  aufstellung_starters_exceed_eleven: atMost,
   // The confirmation pages' birthdate, refused for an age outside the range the write names.
   confirmation_age: ageRange,
   // A box left empty that the rule requires once another box is set.
