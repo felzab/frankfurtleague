@@ -5,7 +5,7 @@ import { startTransition, useId, useRef, useState } from "react";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { askingLook, buttonLook, buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
@@ -204,7 +204,7 @@ export function AccountBoxPlaceholder({
  * One box of a Konto page, every box the same shape: its 16-px title and one sentence under it saying what the box
  * holds, over a hairline across the box where content follows, as an editor's section heads its fields (`boxHead`),
  * its content, and a footer band holding the status line and its one act: the primary button for a save,
- * the danger button for an act whose question is a danger's, its box then taking the danger edge and title an editor's
+ * the outlined danger button for an act whose question is a danger's (`askingLook`), its box then taking the danger edge and title an editor's
  * danger box takes, the secondary button for every other. A box holding
  * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
  * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
@@ -296,7 +296,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const question = "confirm" in act.button ? act.button.confirm : undefined;
   const button = (
     <Button
-      variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : question.tone === "danger" ? "danger" : "secondary"}
+      variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : askingLook(question.tone)}
       type={question === undefined ? "submit" : "button"}
       label={"label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb)}
       isBusy={isBusy}

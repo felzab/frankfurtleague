@@ -5,6 +5,7 @@ import { Fragment, useRef } from "react";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
@@ -75,7 +76,7 @@ function DangerRow({ act }: { act: DangerAct }) {
   const locked = useLocked(act.locked);
   const button = (
     <Button
-      variant={act.dialog === undefined ? act.confirm.tone : act.dialog.tone}
+      variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
       label={label}
       locked={locked}
     />

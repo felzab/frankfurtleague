@@ -10,6 +10,7 @@ import { COPY, textOf } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
+import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { actLabel } from "./dialogAct";
 import { DialogOverlay } from "./DialogOverlay";
@@ -107,12 +108,13 @@ export function RouteDialog({
 }
 
 /**
- * A dialog's danger row, a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width: the hairline over it
- * runs out to both of the dialog's edges through the padding the box declares, as a field group's does, and 16 px under
- * it stand the act's name over its consequence and its button.
+ * A dialog's part ending its record, shaped as a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width:
+ * a part of its own between the fields and the footer, a hairline over it and under it running out to both of the
+ * dialog's edges through the padding the box declares, as a field group's does, and between them, 16 px from each, the
+ * act's name over its consequence at the left and its outlined button at the right.
  */
 const dangerRow = tv({
-  base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-t border-border px-(--dialog-padding) pt-4",
+  base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-y border-border px-(--dialog-padding) py-4",
 });
 
 /**
@@ -140,7 +142,7 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
         }}
         trigger={
           <Button
-            variant={confirm.tone}
+            variant={askingLook(confirm.tone)}
             label={COPY.shared.verb[confirm.verb]}
             isDisabled={isClosed}
           />
@@ -157,8 +159,9 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
  * refused passkey touch among them, stays with its input kept, each field's message under its field and the reason in
  * the status line beside the acts, as a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the
  * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it. The act
- * ending the record, where the dialog has one, stands last under the inputs (`DangerRow`), so the sentence and the facts
- * of the dialog's own act stay directly over its two buttons.
+ * ending the record, where the dialog has one, stands as its own part after the inputs and above the footer
+ * (`DangerRow`), apart from „Zurück“ and the save, and before the sentence and the facts of the dialog's own act, which
+ * stay directly over its two buttons.
  */
 function ActDialog({
   title,

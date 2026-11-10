@@ -5,7 +5,7 @@ import { startTransition, useLayoutEffect, useState } from "react";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
+import { askingLook, buttonPlaceholder } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldStack } from "./FieldStack";
@@ -110,7 +110,8 @@ export function QuestionForm<Input>({
           place="strip"
           status={status}>
           <Button
-            variant={tone}
+            // The press asks the question first, so an act that destroys keeps the red fill for the question's button.
+            variant={tone === "danger" ? askingLook(tone) : tone}
             type="submit"
             label={COPY.shared.verb[verb]}
             isBusy={isPending}

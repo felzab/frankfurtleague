@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "./Button";
+import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useLocked } from "./draftUnsaved";
 import { FormFooter } from "./FormFooter";
@@ -51,7 +52,8 @@ function ActButton({
   const { confirm } = act;
   const button = (
     <Button
-      variant={act.variant ?? "secondary"}
+      // An act that destroys takes the one outlined danger look its question's trigger takes everywhere.
+      variant={confirm?.tone === "danger" ? askingLook(confirm.tone) : (act.variant ?? "secondary")}
       label={act.label}
       isBusy={confirm === undefined && isBusy}
       isDisabled={act.isDisabled ?? false}

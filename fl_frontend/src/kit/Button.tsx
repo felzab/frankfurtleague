@@ -37,7 +37,7 @@ type Act = {
 
 type ButtonProps =
   | (Act & {
-      variant: "primary" | "secondary" | "danger" | "quiet";
+      variant: "primary" | "secondary" | "danger" | "dangerOutline" | "quiet";
       label: Copy;
       /** Closed for input still missing, which the fields beside it show; an act with a reason of its own is `locked`. */
       isDisabled?: boolean;
@@ -135,7 +135,8 @@ function LockedReason({
 }
 
 /**
- * The one control that acts: primary, secondary, danger, quiet, or an icon alone; disabled at half opacity.
+ * The one control that acts: primary, secondary, danger, outlined danger, quiet, or an icon alone; disabled at half
+ * opacity.
  * A labelled button may lead with a glyph.
  */
 export function Button(props: ButtonProps) {
