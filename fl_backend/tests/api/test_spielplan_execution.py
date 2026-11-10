@@ -880,7 +880,7 @@ REPORTING_REFEREE_EMAIL = "otto.gruber@example.com"
 # A goalless report, the least a write takes.
 NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
     {
-        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "ergebnis_vorschlag": {"elfmeterschiessen": None, "sonderereignis": None},
         "scorers": [],
         "cards": [],
         "remarks": None,
@@ -964,7 +964,7 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
     return await outcome_of(
         put_spielbericht_bericht(
             spiel_id=spiel_id,
-            bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, bericht_stand=None),
+            bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, version=None),
             response=Response(),
             identifier=REPORTING_REFEREE_EMAIL,
             spiele_collection=spiele,

@@ -1903,27 +1903,20 @@ class TestTheSeasonsEndStripsItsConfirmations:
         assert stored["next season"]["answer"] == rows["next season"]["answer"]
 
 
-def a_report(saison_id: str, *, remarks: str | None = "Starker Regen ab der Pause.", rot_reason: str | None = "taetlichkeit") -> dict[str, Any]:
-    """A report with a named scorer and two cards, a caution with its reason and a red card with or without one."""
+def a_report(saison_id: str, *, remarks: str | None = "Starker Regen ab der Pause.") -> dict[str, Any]:
+    """A report with a named scorer and a caution."""
 
-    cards = [
-        {"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"},
-        {"side": "team1", "spieler_id": ObjectId(), "minute": "80", "colour": "rot", "reason": rot_reason},
-    ]
-
-    return documents.spielbericht_document(
-        {"_id": ObjectId(), "saison_id": saison_id}, bericht=documents.bericht_document(remarks=remarks, cards=cards)
-    )
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, bericht=documents.bericht_document(remarks=remarks))
 
 
 class TestTheSeasonsEndStripsItsReports:
-    def test_the_remarks_and_card_reasons_go_and_another_season_keeps_them(self, mongo_replica_set_url: str):
+    def test_the_remarks_go_and_another_season_keeps_them(self, mongo_replica_set_url: str):
         """The scorers, the cards and the proposed result stay: the record of the match."""
 
         reports = {
             "this season": a_report(SAISON_ID),
-            # No remarks, and a card already without a reason: what a filter on a null reason passes over.
-            "this season, no remarks": a_report(SAISON_ID, remarks=None, rot_reason=None),
+            # What the strip writes nothing on, so its row counts the one report it changed.
+            "this season, no remarks": a_report(SAISON_ID, remarks=None),
             "next season": a_report(NEXT_SAISON_ID),
         }
 
@@ -1939,14 +1932,17 @@ class TestTheSeasonsEndStripsItsReports:
         response, stored, strip_rows = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert response.failed == 0
-        # One row for the strip's page, counting this season's reports alone, the next season's left standing.
-        assert [(row["label"], row["count"]) for row in strip_rows] == [(SAISON_ID, 2)]
+        # One row for the strip's page, counting this season's report holding remarks alone, the next season's left standing.
+        assert [(row["label"], row["count"]) for row in strip_rows] == [(SAISON_ID, 1)]
         for name in ("this season", "this season, no remarks"):
             kept = reports[name]["bericht"]
             left = stored[name]
             assert left["remarks"] is None, name
-            assert left["cards"] == [{**card, "reason": None} for card in kept["cards"]], name
-            assert (left["scorers"], left["ergebnis_vorschlag"]) == (kept["scorers"], kept["ergebnis_vorschlag"]), name
+            assert (left["scorers"], left["cards"], left["ergebnis_vorschlag"]) == (
+                kept["scorers"],
+                kept["cards"],
+                kept["ergebnis_vorschlag"],
+            ), name
         assert (stored["next season"]["remarks"], stored["next season"]["cards"]) == (
             reports["next season"]["bericht"]["remarks"],
             reports["next season"]["bericht"]["cards"],

@@ -51,10 +51,7 @@ export const Code = {
   grant_not_in_effect: "grant_not_in_effect",
   bericht_not_played: "bericht_not_played",
   bericht_not_officiated: "bericht_not_officiated",
-  bericht_not_in_kader: "bericht_not_in_kader",
   bericht_cancelled: "bericht_cancelled",
-  bericht_meanwhile_changed: "bericht_meanwhile_changed",
-  card_reason_missing: "card_reason_missing",
   bericht_elfmeter_in_the_gruppe: "bericht_elfmeter_in_the_gruppe",
   bewerbung_already_decided: "bewerbung_already_decided",
   bewerbung_subject_unresolved: "bewerbung_subject_unresolved",
@@ -158,6 +155,7 @@ export const Code = {
   kader_full: "kader_full",
   kader_rolle_taken: "kader_rolle_taken",
   kader_stufe_not_allowed: "kader_stufe_not_allowed",
+  spieler_not_in_kader: "spieler_not_in_kader",
   state_ergebnis_on_a_non_event: "state_ergebnis_on_a_non_event",
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   swap_not_a_swap: "swap_not_a_swap",
@@ -2106,21 +2104,6 @@ export const FLCardColour = {
   gelb: "gelb",
   gelb_rot: "gelb_rot",
   rot: "rot",
-} as const;
-
-export type FLCardReason = (typeof FLCardReason)[keyof typeof FLCardReason];
-
-export const FLCardReason = {
-  foulspiel: "foulspiel",
-  unsportlichkeit: "unsportlichkeit",
-  handspiel: "handspiel",
-  meckern: "meckern",
-  spielverzoegerung: "spielverzoegerung",
-  wiederholtes_foulspiel: "wiederholtes_foulspiel",
-  grobes_foulspiel: "grobes_foulspiel",
-  taetlichkeit: "taetlichkeit",
-  beleidigung: "beleidigung",
-  notbremse: "notbremse",
 } as const;
 
 export type FLConfirmationState = (typeof FLConfirmationState)[keyof typeof FLConfirmationState];
@@ -4639,8 +4622,8 @@ export const FLSpielberichtVorschlagSonderereignis = {
 /**
  * The referee's proposed result, which only the administrator's own save applies.
  *
- * Both counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals
- * could never equal.
+ * Each count is the entries credited to that side, written by the report's save and sent by no form. Both null on a
+ * no-show alone: the save composes its goals from the season's forfeit, which counted goals could never equal.
  */
 export interface FLSpielberichtVorschlag {
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
@@ -4694,8 +4677,8 @@ export const FLSpielberichtState = {
 /**
  * The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
  *
- * `version` is the one an adoption names (`adopts_bericht`), `sides` the clubs the report is about, and `named`
- * each pupil a goal names, by the names their record holds.
+ * `version` is the report document's, the one an adoption names (`adopts_bericht`), `sides` the clubs the report is
+ * about, and `named` each pupil a goal names, by the names their record holds.
  */
 export interface FLSpielEditorBericht {
   ergebnis_vorschlag: FLSpielberichtVorschlag;
@@ -4767,7 +4750,7 @@ export interface FLSpielberichtSpielerPublic {
 }
 
 /**
- * One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct.
+ * One card, `side` its player's club.
  */
 export interface FLSpielberichtCardPublic {
   colour: FLCardColour;
@@ -4836,62 +4819,51 @@ export interface FLSpielPageResponse {
 }
 
 /**
- * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
+ * One card: who was shown it, when, and its colour.
  */
 export interface FLSpielberichtCard {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
-  reason: FLCardReason | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
 }
 
-export interface FLSpielberichtBySchiedsrichter {
-  kind: "schiedsrichter";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-}
-
 /**
  * The referee's account of one match, one proposal, a correction after its adoption reading `differing`.
- *
- * `version` rises with each write of the content and the adoption records the one it took: adopted means equal, never
- * a clock.
  */
 export interface FLSpielberichtBericht {
-  adopted_at: string | null;
-  adopted_by: FLByAdmin | null;
-  adopted_version: number | null;
+  adopted: boolean;
   cards: FLSpielberichtCard[];
-  changed_at: string;
   ergebnis_vorschlag: FLSpielberichtVorschlag;
   remarks: string | null;
   scorers: FLSpielberichtScorer[];
   sides: FLSpielberichtSides;
   submitted_at: string;
-  submitted_by: FLSpielberichtBySchiedsrichter | FLByAdmin;
-  version: number;
 }
 
+export type FLSpielberichtVorschlagPayloadSonderereignis =
+  (typeof FLSpielberichtVorschlagPayloadSonderereignis)[keyof typeof FLSpielberichtVorschlagPayloadSonderereignis] | null;
+
+export const FLSpielberichtVorschlagPayloadSonderereignis = {
+  abgebrochen: "abgebrochen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+} as const;
+
 /**
- * One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`).
+ * What the referee proposes beside the goals: a shoot-out, or the event the match ended in.
  */
-export interface FLSpielberichtCardPayload {
-  colour: FLCardColour;
-  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
-  minute: string;
-  reason: FLCardReason | null;
-  side: FLSpielSide;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
+export interface FLSpielberichtVorschlagPayload {
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  sonderereignis: FLSpielberichtVorschlagPayloadSonderereignis;
 }
 
 export interface FLSpielberichtBerichtPayload {
   /** @maxItems 60 */
-  cards: FLSpielberichtCardPayload[];
-  ergebnis_vorschlag: FLSpielberichtVorschlag;
+  cards: FLSpielberichtCard[];
+  ergebnis_vorschlag: FLSpielberichtVorschlagPayload;
   remarks: string | null;
   /** @maxItems 60 */
   scorers: FLSpielberichtScorer[];
@@ -4910,8 +4882,7 @@ export interface FLSpielberichtKader {
  */
 export interface FLSpielberichtPayload {
   bericht: FLSpielberichtBerichtPayload;
-  bericht_stand: number | null;
-  version?: number | null;
+  version: number | null;
 }
 
 /**
@@ -4963,7 +4934,7 @@ export interface FLSpielberichtSpiel {
 }
 
 /**
- * The booked referee's form: the remarks and the card reasons included, and no `state`.
+ * The booked referee's form: the remarks included, and no `state`.
  */
 export interface FLSpielberichtSchiedsrichterResponse {
   bericht: FLSpielberichtBericht | null;
@@ -5935,7 +5906,6 @@ export const Rule = {
   elfmeterschiessen_without_draw: "elfmeterschiessen_without_draw",
   elfmeterschiessen_without_winner: "elfmeterschiessen_without_winner",
   email_not_accepted: "email_not_accepted",
-  ergebnis_missing_tore: "ergebnis_missing_tore",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
   grant_wording_stale: "grant_wording_stale",
   nichtantreten_with_tore: "nichtantreten_with_tore",
@@ -5944,7 +5914,6 @@ export const Rule = {
   saison_ends_before_start: "saison_ends_before_start",
   spieltag_ends_before_start: "spieltag_ends_before_start",
   text_version_of_another_wording: "text_version_of_another_wording",
-  scorers_not_matching_tore: "scorers_not_matching_tore",
   url_not_accepted: "url_not_accepted",
 } as const;
 

@@ -261,7 +261,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "confirmation": {
                 "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "sent_at": "2026-03-16",
-                "reminded_at": None,
                 "deadline": "2026-03-23",
             },
             "decision": None,
@@ -370,21 +369,15 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["invitations"],
         valid_document("invitations", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
-    # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
-    # pair carrying no key at all would pass while the partial filter matched nothing.
+    # Both rows keyed alike: the index refuses on the key alone, and a pair carrying no key at all would pass while
+    # the partial filter matched nothing.
     "uniq_bewerbung_idempotency_key": (
-        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
+        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY),
+        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY),
     ),
     "uniq_registrierung_idempotency_key": (
-        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
-    ),
-    # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
-    # junction's own index would refuse a pair sharing the person.
-    "uniq_saison_spieler_idempotency_key": (
-        valid_document("saison_spieler", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
+        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY),
+        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY),
     ),
     # Two persons differing in their name and sharing an address: the index refuses on the address alone.
     "uniq_spieler_email": (
@@ -555,7 +548,7 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
     """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
 
     async def body(database: AsyncDatabase) -> list[str]:
-        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64))
+        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY))
         explained = await database[collection].find(build_key_filter(key=IDEMPOTENCY_KEY)).explain()
 
         return winning_stages(explained)

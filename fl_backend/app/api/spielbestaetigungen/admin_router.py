@@ -337,7 +337,6 @@ async def adopt_spielbestaetigung(
                 payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
-                now=now,
                 act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )

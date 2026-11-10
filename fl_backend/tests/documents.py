@@ -226,23 +226,16 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, 
 
 
 def bericht_document(**fields: Any) -> dict[str, Any]:
-    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer, one caution with its reason."""
-
-    at = datetime(2026, 3, 15, 20, tzinfo=UTC)
+    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer and one caution."""
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
         "scorers": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
-        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
+        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb"}],
         "remarks": None,
         "sides": {"team1": None, "team2": None},
-        "submitted_at": at,
-        "submitted_by": {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-        "changed_at": at,
-        "version": 1,
-        "adopted_at": None,
-        "adopted_by": None,
-        "adopted_version": None,
+        "submitted_at": datetime(2026, 3, 15, 20, tzinfo=UTC),
+        "adopted": False,
         **fields,
     }
 

@@ -232,14 +232,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
-    # The reports are kept with no retention bound, and this read names no season the season-leading index could narrow by.
-    SupportIndex(
-        Collection.SPIELBERICHTE,
-        "spielberichte_submitted_by_schiedsrichter_id",
-        (("bericht.submitted_by.schiedsrichter_id", ASCENDING),),
-        "the reports a leaving referee sent, read inside their erasure's transaction",
-    ),
-    # For the referee's reason, one per clause of the pupil repoint's `$or`, for the registration's pair's reason; each multikey.
+    # The reports are kept with no retention bound, and the pupil repoint names no season the season-leading index could
+    # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.
     *(
         SupportIndex(
             Collection.SPIELBERICHTE,

@@ -2105,7 +2105,7 @@ export const SpielberichteGetSpielberichteQueryParams = zod.object({
  * What the booked referee's report form reads.
  *
  * The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
- * report, its remarks and card reasons included, or null.
+ * report, its remarks included, or null.
  *
  * Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
  * empty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,
@@ -2124,28 +2124,29 @@ export const SpielberichteGetSpielberichtBerichtParams = zod.object({
 /**
  * Write the whole report of one fixture as its booked referee, replacing what stood.
  *
- * The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
- * write changing it raises its `version`, so a report the administrator adopted reads `differing` again until it
- * is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
- * so a report a knockout correction re-fielded a side under reads `sides_changed` until it is written again. Writes
- * no fixture: the result is the administrator's to save.
+ * The shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are
+ * the entries credited to each side, an own goal crediting the other one, and no form sends them. The first write
+ * creates it and answers 201; every write changing it clears its adoption in the same update, so a report the
+ * administrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes
+ * nothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side
+ * under reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.
  *
- * `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
- * another version would replace a report its sender never saw.
+ * `version` is the report document's as the form was served it, null where the form showed no report: a write composed
+ * on another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form
+ * read before an adoption saves stale once.
  *
  * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
  * (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
  * (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
- * `bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated
+ * `version` other than the document's now, or than null where none stands (`version_stale`); one undated
  * or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out
- * proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's
- * live squad of the season, a pupil the report already named on that side staying while the side fields the club it
- * did (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`card_reason_missing`). Every refusal but
- * `bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a
- * write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
- * landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
- * whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is
- * refused.
+ * proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil the write newly names on a side
+ * outside that side's live squad of the season, a pupil the report already named on that side staying while the side
+ * fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale` is asked again outside the
+ * transaction just before answering, the referee's records included, so a write landing on what was judged before
+ * that second asking refuses the report rather than letting it stand, and one landing after it stands beside the
+ * report; a write of the report itself landing mid-press conflicts with this one, whose retry meets `version_stale`.
+ * Two first writes at once are two forms opened on no report: the later is refused.
  * @summary Write one fixture's report as its referee
  */
 export const spielberichtePutSpielberichtBerichtPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2162,10 +2163,6 @@ export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfm
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min = 0;
 
-export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam1ToreOneMin = 0;
-
-export const spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam2ToreOneMin = 0;
-
 export const spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax = 2000;
 
 export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp = new RegExp("^[0-9]{1,3}(\\+[0-9]{1,2})?$");
@@ -2181,25 +2178,10 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
             .object({
               colour: zod.enum(["gelb", "gelb_rot", "rot"]),
               minute: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemMinuteRegExp),
-              reason: zod.union([
-                zod.enum([
-                  "foulspiel",
-                  "unsportlichkeit",
-                  "handspiel",
-                  "meckern",
-                  "spielverzoegerung",
-                  "wiederholtes_foulspiel",
-                  "grobes_foulspiel",
-                  "taetlichkeit",
-                  "beleidigung",
-                  "notbremse",
-                ]),
-                zod.null(),
-              ]),
               side: zod.enum(["team1", "team2"]),
               spieler_id: zod.string().regex(spielberichtePutSpielberichtBerichtBodyBerichtCardsItemSpielerIdRegExp),
             })
-            .describe("One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."),
+            .describe("One card: who was shown it, when, and its colour."),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax),
       ergebnis_vorschlag: zod
@@ -2214,12 +2196,8 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
             zod.null(),
           ]),
           sonderereignis: zod.union([zod.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]), zod.null()]),
-          team1_tore: zod.union([zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam1ToreOneMin), zod.null()]),
-          team2_tore: zod.union([zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagTeam2ToreOneMin), zod.null()]),
         })
-        .describe(
-          "The referee's proposed result, which only the administrator's own save applies.\n\nBoth counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals\ncould never equal.",
-        ),
+        .describe("What the referee proposes beside the goals: a shoot-out, or the event the match ended in."),
       remarks: zod.union([zod.string().min(1).max(spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax), zod.null()]),
       scorers: zod
         .array(
@@ -2239,8 +2217,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax),
     }),
-    bericht_stand: zod.union([zod.int(), zod.null()]),
-    version: zod.union([zod.int(), zod.null()]).optional(),
+    version: zod.union([zod.int(), zod.null()]),
   })
   .describe("The whole `bericht` block, written wholesale by the referee's PUT.");
 
@@ -2483,11 +2460,13 @@ export const SpielePatchSpielParams = zod.object({
   spiel_id: zod.string().regex(spielePatchSpielPathSpielIdRegExp),
 });
 
+export const spielePatchSpielQueryAdoptsBerichtOneMin = 0;
+
 export const spielePatchSpielQueryDryRunDefault = false;
 
 export const SpielePatchSpielQueryParams = zod.object({
   adopts_bericht: zod
-    .union([zod.int().min(1), zod.null()])
+    .union([zod.int().min(spielePatchSpielQueryAdoptsBerichtOneMin), zod.null()])
     .optional()
     .describe("The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
   dry_run: zod

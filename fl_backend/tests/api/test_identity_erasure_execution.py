@@ -220,19 +220,15 @@ OWED_CARRY_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
 THEIR_REMARKS = "Flutlicht fiel in der 70. Minute aus."
 
 
-def a_report(report_id: ObjectId, schiedsrichter_id: ObjectId, *, spiel_id: ObjectId) -> dict[str, Any]:
-    return spielbericht_document(
-        {"_id": spiel_id, "saison_id": SAISON_ID},
-        _id=report_id,
-        bericht=bericht_document(submitted_by={"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}, remarks=THEIR_REMARKS),
-    )
+def a_report(report_id: ObjectId, *, spiel_id: ObjectId) -> dict[str, Any]:
+    return spielbericht_document({"_id": spiel_id, "saison_id": SAISON_ID}, _id=report_id, bericht=bericht_document(remarks=THEIR_REMARKS))
 
 
 async def their_reports(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBERICHTE].insert_many(
         [
-            a_report(THEIR_REPORT_OID, REFEREE_OID, spiel_id=THEIR_SPIEL_OID),
-            a_report(OTHER_REPORT_OID, OTHER_REFEREE_OID, spiel_id=OTHER_SPIEL_OID),
+            a_report(THEIR_REPORT_OID, spiel_id=THEIR_SPIEL_OID),
+            a_report(OTHER_REPORT_OID, spiel_id=OTHER_SPIEL_OID),
         ]
     )
 
@@ -744,21 +740,18 @@ class TestWhatStandsBesideThem:
 
         assert on_a_league(mongo_replica_set_url, body) == [OTHER_CONFIRMATION_OID, TEAM_CONFIRMATION_OID]
 
-    def test_their_reports_stand_naming_the_ghost(self, mongo_replica_set_url: str):
-        """The report is the league's record of the match: it stays, its remarks with it, and another referee's report is theirs."""
+    def test_the_reports_on_their_fixtures_stand(self, mongo_replica_set_url: str):
+        """The report is the league's record of the match: it stays, its remarks with it, and it names no referee to take off it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await erased_over_http(mongo_replica_set_url)
 
             return [
-                (row["_id"], row["bericht"]["submitted_by"]["schiedsrichter_id"], row["bericht"]["remarks"])
+                (row["_id"], row["bericht"]["remarks"])
                 for row in await database[Collection.SPIELBERICHTE].find().sort("_id").to_list(length=None)
             ]
 
-        assert on_a_league(mongo_replica_set_url, body) == [
-            (THEIR_REPORT_OID, GHOST_SCHIEDSRICHTER_ID, THEIR_REMARKS),
-            (OTHER_REPORT_OID, OTHER_REFEREE_OID, THEIR_REMARKS),
-        ]
+        assert on_a_league(mongo_replica_set_url, body) == [(THEIR_REPORT_OID, THEIR_REMARKS), (OTHER_REPORT_OID, THEIR_REMARKS)]
 
     def test_a_mailbox_sharing_their_local_part_keeps_every_record(self, mongo_replica_set_url: str):
         """Read before as well, so a seed that stopped writing a record fails rather than agreeing with the erasure on a zero."""

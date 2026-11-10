@@ -66,7 +66,6 @@ from app.api.outbox.services import ERASURE_SPARED_KINDS
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
-from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.collections import Collection
@@ -507,7 +506,6 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX}), person_group=None, run=end_the_address_changes_in_session),
     ErasureStep(reaches=frozenset({Collection.SPIELBESTAETIGUNGEN}), person_group="schiedsrichter", run=erase_referee_confirmations_in_session),
-    ErasureStep(reaches=frozenset({Collection.SPIELBERICHTE}), person_group="schiedsrichter", run=repoint_referee_reports_in_session),
     ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE}), person_group="schiedsrichter", run=erase_referee_in_session),
     ErasureStep(reaches=frozenset({Collection.REGISTRIERUNGEN}), person_group="spieler", run=erase_registrierungen_in_session),
     ErasureStep(
@@ -582,7 +580,7 @@ async def erase_everything(
     )
 
     # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person and the reports they sent; the pupils' takes the scorer and card entries naming them.
+    # person; the pupils' takes the scorer and card entries naming them.
     if _runs(erase_referee_in_session, scope) and subject.schiedsrichter:
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if _runs(erase_person_in_session, scope) and subject.spieler:
@@ -618,14 +616,6 @@ async def erase_everything(
     if _runs(erase_referee_confirmations_in_session, scope):
         await erase_referee_confirmations_in_session(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
-            session=session,
-        )
-
-    # Repointed rather than removed, as the fixtures are: a report is the league's record of the match, after the ghost stands.
-    if _runs(repoint_referee_reports_in_session, scope):
-        await repoint_referee_reports_in_session(
-            spielberichte_collection=spielberichte_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
             session=session,
         )

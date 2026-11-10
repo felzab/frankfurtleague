@@ -152,7 +152,7 @@ def seeded_url(mongo_replica_set_url: str) -> str:
         database[Collection.SPIELE].insert_many(spiele)
         database[Collection.SPIELBERICHTE].insert_one(
             documents.spielbericht_document(
-                spiele[0], bericht=documents.bericht_document(version=BERICHT_VERSION, sides=documents.spielbericht_sides(spiele[0]))
+                spiele[0], bericht=documents.bericht_document(sides=documents.spielbericht_sides(spiele[0])), version=BERICHT_VERSION
             )
         )
 

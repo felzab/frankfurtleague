@@ -810,8 +810,8 @@ const REGISTRATIONS = [
   registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), reason: "Nicht an dieser Schule" } }),
 ];
 
-// Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted the next morning: a named scorer, a
-// scorer nobody named, an erased pupil's goal under the sentinel, a caution with its reason and a red card without.
+// Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted since: a named scorer, a scorer
+// nobody named, an erased pupil's goal under the sentinel, a caution and a red card.
 const REPORTED = running.spiele.find((row) => row.spiel_nr === 1);
 const SENT = new Date(`${day(-14)}T17:00:00Z`);
 const REPORTS = [
@@ -827,18 +827,13 @@ const REPORTS = [
         { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
       cards: [
-        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", reason: "foulspiel" },
-        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", reason: null },
+        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb" },
+        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot" },
       ],
       remarks: null,
       sides: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },
       submitted_at: SENT,
-      submitted_by: { kind: "schiedsrichter", schiedsrichter_id: REPORTED.schiedsrichter.schiedsrichter_id },
-      changed_at: SENT,
-      version: 1,
-      adopted_at: new Date(`${day(-13)}T09:00:00Z`),
-      adopted_by: { kind: "admin" },
-      adopted_version: 1,
+      adopted: true,
     },
   },
 ];

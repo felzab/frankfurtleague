@@ -33,7 +33,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     stored_in_slice,
 )
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
+from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -85,8 +85,8 @@ class FLSpielEditorTeam(BaseReadModel):
 class FLSpielEditorBericht(BaseReadModel):
     """The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
 
-    `version` is the one an adoption names (`adopts_bericht`), `sides` the clubs the report is about, and `named`
-    each pupil a goal names, by the names their record holds.
+    `version` is the report document's, the one an adoption names (`adopts_bericht`), `sides` the clubs the report is
+    about, and `named` each pupil a goal names, by the names their record holds.
     """
 
     state: FLSpielberichtState
@@ -193,11 +193,11 @@ async def _spielbericht_of(
 ) -> FLSpielEditorBericht | None:
     """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's."""
 
-    document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1})
-    block = None if document is None else document.get("bericht")
-    if block is None:
+    document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1, VERSION_FIELD: 1})
+    if document is None:
         return None
 
+    block = document["bericht"]
     bericht = FLSpielberichtBericht.model_validate(block)
     context = await pull_bericht_context(
         spiele_collection=spiele_collection,
@@ -211,7 +211,7 @@ async def _spielbericht_of(
 
     return FLSpielEditorBericht(
         state=bericht_state_of(bericht, context.spiel),
-        version=bericht.version,
+        version=document.get(VERSION_FIELD, 0),
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
         sides=bericht.sides,
         scorers=bericht.scorers,
