@@ -68,8 +68,6 @@ const refusal = (code: Code, status: number) =>
     statusCode: status,
     serverErrorCode: code,
     endpoint: "/",
-    method: "POST",
-    readOnly: false,
     traceId: "0",
     refusedFields: [],
   });

@@ -355,8 +355,6 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
       message: "Mail request failed.",
       isTimeout: error instanceof Error && error.name === "TimeoutError",
       url: MAIL_ENDPOINT,
-      method: "POST",
-      readOnly: false,
       traceId,
       originalError: error,
     });

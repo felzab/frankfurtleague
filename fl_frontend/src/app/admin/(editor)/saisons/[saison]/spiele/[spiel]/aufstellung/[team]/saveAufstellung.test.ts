@@ -98,8 +98,6 @@ describe("the league's save of a line-up", () => {
       serverErrorCode: "spieler_not_in_kader",
       refusedFields: [{ kind: "spieler_not_in_kader", path: ["spieler", 0, "spieler_id"], ctx: {}, in: "body" }],
       endpoint: "/",
-      method: "PUT",
-      readOnly: false,
       traceId: "0",
     });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [TWO, ONE, THREE] } });
@@ -120,8 +118,6 @@ describe("the league's save of a line-up", () => {
       serverErrorCode: "aufstellung_nominee_without_shortage",
       refusedFields: [{ kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 9 }, in: "body" }],
       endpoint: "/",
-      method: "PUT",
-      readOnly: false,
       traceId: "0",
     });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [ONE, TWO, THREE] } });
@@ -143,8 +139,6 @@ describe("the league's save of a line-up", () => {
       serverErrorCode: "aufstellung_starters_exceed_eleven",
       refusedFields: [{ kind: "aufstellung_starters_exceed_eleven", path: ["spieler"], ctx: { max: 11 }, in: "body" }],
       endpoint: "/",
-      method: "PUT",
-      readOnly: false,
       traceId: "0",
     });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE, TWO] } });

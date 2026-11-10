@@ -96,8 +96,6 @@ const failure = (statusCode: number, code: Code | undefined, refusedFields: read
     serverErrorCode: code,
     refusedFields,
     endpoint: "/spielorte",
-    method: "POST",
-    readOnly: false,
     traceId: "0",
   });
 

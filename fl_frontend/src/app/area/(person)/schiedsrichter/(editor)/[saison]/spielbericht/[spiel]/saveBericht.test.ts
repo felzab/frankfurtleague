@@ -84,8 +84,6 @@ describe("a shoot-out the form takes level", () => {
       serverErrorCode: "payload_refused",
       refusedFields: [{ kind: "elfmeterschiessen_without_winner", path: ["bericht", "ergebnis_vorschlag"], ctx: {}, in: "body" }],
       endpoint: "/",
-      method: "PUT",
-      readOnly: false,
       traceId: "0",
     });
     const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Elfmeter" } });
