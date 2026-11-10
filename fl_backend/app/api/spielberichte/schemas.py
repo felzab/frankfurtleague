@@ -314,30 +314,13 @@ class FLSpielberichtCardPublic(BaseReadModel):
     spieler: FLSpielberichtSpielerPublic
 
 
-class FLAufstellungEntryPublic(FLSpielberichtSpielerPublic):
-    starts: bool
-
-
-class FLAufstellungPublic(BaseReadModel):
-    """One club's line-up for the match, starters and substitutes in the order the club entered them."""
-
-    team_id: CustomObjectId
-    spieler: list[FLAufstellungEntryPublic]
-
-
-class FLAufstellungenPublic(BaseReadModel):
-    team1: FLAufstellungPublic | None
-    team2: FLAufstellungPublic | None
-
-
 class FLSpielberichtPublic(BaseReadModel):
     """What the public may read of one match's report.
 
-    The line-ups whenever a club entered one: they are the clubs' own submissions. The scorers and the cards only
-    while the referee's report reads `adopted` -- adopted, unchanged since, and matching the result -- each by minute;
-    null otherwise, which is "not official yet" where an empty list is "nobody scored".
+    The scorers and the cards only while the referee's report reads `adopted` -- adopted, unchanged since, and
+    matching the result -- each by minute; null otherwise, which is "not official yet" where an empty list is "nobody
+    scored".
     """
 
-    aufstellungen: FLAufstellungenPublic
     scorers: list[FLSpielberichtScorerPublic] | None
     cards: list[FLSpielberichtCardPublic] | None

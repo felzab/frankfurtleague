@@ -229,12 +229,17 @@ def _an_acceptance_gives_no_reason(reason: str | None, info: ValidationInfo) -> 
     return reason
 
 
-class FLSpielbestaetigungAnswerPayload(BaseModel):
-    """One club's answer about one Ansetzung, from whichever of its seats pressed first."""
+# A team's date as its own pages read it, while its row is open or answered: `valid` asks for its answer, `vorschlag`
+# asks while the other club's decline proposes another date, `expired` is unanswered past its deadline, and `agreed` and
+# `declined` are its own answer. A row closed since reads as none of them: nothing then asks the team.
+type FLSpielbestaetigungTeamState = Literal["valid", "vorschlag", "expired", "agreed", "declined"]
+
+
+class FLSpielbestaetigungTeamAnswerPayload(BaseModel):
+    """One club's answer about one Ansetzung, from whichever of its seats presses first."""
 
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomToken
     answer: FLSpielbestaetigungAnswerKind
     # Both required as KEYS and null where unused: an omitted key would read as a client that forgot it.
     vorschlag: FLSpielbestaetigungVorschlagPayload | None
@@ -263,11 +268,14 @@ class FLSpielbestaetigungAnswerPayload(BaseModel):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
-    """What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.
+class FLSpielbestaetigungAnswerPayload(FLSpielbestaetigungTeamAnswerPayload):
+    """The club's answer as a mailed link carries it, the link's token beside it."""
 
-    So a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.
-    """
+    token: CustomToken
+
+
+class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
+    """What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it."""
 
     state: FLSpielbestaetigungAnswerKind
     answered_by: FLSpielbestaetigungBy

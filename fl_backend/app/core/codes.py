@@ -91,6 +91,13 @@ class Code(StrEnum):
     BERICHT_NOT_OFFICIATED = auto()
     BERICHT_CANCELLED = auto()
     BERICHT_ELFMETER_IN_THE_GRUPPE = auto()
+    # A seat's save from one hour before kick-off: the line-up is the administration's from then. Never an
+    # administrator's refusal, and never a line-up's being due or overdue, which refuses nothing.
+    AUFSTELLUNG_LOCKED = auto()
+    # A fixture holding no day or no hour owes no line-up and takes none, from a seat or an administrator.
+    AUFSTELLUNG_SPIEL_UNDATED = auto()
+    # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
+    AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()
@@ -308,7 +315,9 @@ type Rule = Literal[
     "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
+    "spieler_named_twice",
     "spieltag_ends_before_start",
+    "starters_exceed_eleven",
     "text_version_of_another_wording",
     "url_not_accepted",
 ]

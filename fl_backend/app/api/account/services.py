@@ -13,7 +13,7 @@ from typing import Any, Final, Literal, get_args
 from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
 from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, saison_status_lookup
+from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, seat_saison_lookup
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
@@ -289,13 +289,14 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                "shorthand": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "birth_date", "einwilligung")},
             }
         },
         # Read by the same Funktionen.
-        saison_status_lookup(),
+        seat_saison_lookup(),
     ]
 
 

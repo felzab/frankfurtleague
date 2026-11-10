@@ -443,9 +443,6 @@ def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
     return {"saison_id": saison_id, "bericht.remarks": {"$type": "string"}}
 
 
-# Where the clubs' line-ups stand on the report document, one block per side, as the public report reads them.
-AUFSTELLUNGEN_FIELD: Final = "aufstellungen"
-
 _NAMED_IDS_AS = "named_ids"
 PUBLIC_PERSONS_AS = "persons"
 PUBLIC_SQUAD_ROWS_AS = "squad_rows"
@@ -458,20 +455,13 @@ def build_public_bericht_pipeline(spiel_id: ObjectId) -> list[Mapping[str, Any]]
     withheld name leaves the database; the squad rows of the match's season alone.
     """
 
-    named = [
-        {"$ifNull": [path, []]}
-        for path in (
-            "$bericht.scorers.spieler_id",
-            "$bericht.cards.spieler_id",
-            *(f"${AUFSTELLUNGEN_FIELD}.{side}.spieler.spieler_id" for side in SIDES),
-        )
-    ]
+    named = ["$bericht.scorers.spieler_id", "$bericht.cards.spieler_id"]
 
     return [
         {"$match": {"spiel_id": spiel_id}},
         # The whole block, which the adoption is judged on; `FLSpielberichtPublic` is the allow-list, and serves no
         # remarks.
-        {"$project": {"saison_id": 1, "bericht": 1, AUFSTELLUNGEN_FIELD: 1, _NAMED_IDS_AS: {"$setUnion": named}}},
+        {"$project": {"saison_id": 1, "bericht": 1, _NAMED_IDS_AS: {"$setUnion": named}}},
         {
             "$lookup": {
                 "from": Collection.SPIELER,
@@ -532,23 +522,12 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
             "position": row.get("position"),
         }
 
-    def aufstellung(side: FLSpielSide) -> dict[str, Any] | None:
-        block = (document.get(AUFSTELLUNGEN_FIELD) or {}).get(side)
-        if block is None:
-            return None
-
-        return {
-            "team_id": block["team_id"],
-            "spieler": [{**spieler(entry["spieler_id"], side), "starts": entry["starts"]} for entry in block["spieler"]],
-        }
-
-    bericht_raw = document.get("bericht")
-    adopted = bericht_raw is not None and bericht_state_of(FLSpielberichtBericht.model_validate(bericht_raw), spiel_raw) == "adopted"
+    bericht_raw = document["bericht"]
+    adopted = bericht_state_of(FLSpielberichtBericht.model_validate(bericht_raw), spiel_raw) == "adopted"
     gated = bericht_raw if adopted else None
 
     return FLSpielberichtPublic.model_validate(
         {
-            AUFSTELLUNGEN_FIELD: {side: aufstellung(side) for side in SIDES},
             "scorers": None
             if gated is None
             else [

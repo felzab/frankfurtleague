@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, status
@@ -16,8 +17,10 @@ from app.api.account.services import (
 from app.api.identity.crud import refuse_without_a_seat, roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import holds_a_seat, own_seats, seat_is_confirmed
+from app.api.teams.panel import FLTeamOverviewResponse, FLTeamSpieleResponse
 from app.api.teams.schemas import FLTeamSeat, FLTeamSeatsResponse
 from app.core.clock import utc_stamp
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
@@ -27,6 +30,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exceptions import APIError
 from app.core.journal import Journal
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -177,3 +181,49 @@ async def patch_einwilligung(
     async with journal:
         async with transaction_session(db) as session:
             await session.with_transaction(write)
+
+
+@router.get(
+    "/{team_id:objectid}/saisons/{saison_id}/self/overview",
+    response_model=FLTeamOverviewResponse,
+    summary="A team's Übersicht in one season",
+)
+async def get_team_overview(team_id: CustomRouteObjectId, saison_id: str, identifier: PersonIdentifier) -> FLTeamOverviewResponse:
+    """
+    Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+
+    The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
+    asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
+    date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
+    the league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and
+    an hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's
+    decision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.
+
+    No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
+    signed-in person holds no seat on this team in this season.
+    """
+
+    # Session 8: the read joins the team's season row, its open confirmation rows, its coming fixtures with their
+    # line-ups, and its pending registrations in one snapshot.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+
+
+@router.get(
+    "/{team_id:objectid}/saisons/{saison_id}/self/spiele",
+    response_model=FLTeamSpieleResponse,
+    summary="A team's fixtures in one season, with what is open on each",
+)
+async def get_team_spiele(team_id: CustomRouteObjectId, saison_id: str, identifier: PersonIdentifier) -> FLTeamSpieleResponse:
+    """
+    Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
+
+    Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
+    state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
+    the clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or
+    no hour.
+
+    Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+    """
+
+    # Session 8: the read joins the team's fixtures to its newest confirmation row and its line-up for each.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)

@@ -52,6 +52,9 @@ class Collection(StrEnum):
     #: One fixture's report: the referee's proposed result, scorers, cards and remarks, which the fixture's
     #: result never reads. Created by its first writer, one per fixture.
     SPIELBERICHTE = "spielberichte"
+    #: One club's line-up for one fixture: the pupils it fields and who starts. Created by the club's first save, one
+    #: per club per fixture, and removed with the season's draw.
+    AUFSTELLUNGEN = "aufstellungen"
     #: One address's pending change of the address it signs in on, keyed by that address, one live change per address;
     #: ended, it keeps no address but a sign-in account's carry still owed, its links answering how it ended until its
     #: TTL index removes it.
@@ -71,6 +74,7 @@ EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
     {
         Collection.SPIELE,
         Collection.SPIELBERICHTE,
+        Collection.AUFSTELLUNGEN,
         Collection.SAISONS,
         Collection.SAISON_TEAMS,
         Collection.SPIELTAGE,

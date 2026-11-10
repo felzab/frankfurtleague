@@ -56,7 +56,7 @@ from app.api.identity.services import (
     own_seats,
     referenced_addresses,
     seat_is_confirmed,
-    seat_saison_statuses,
+    seat_saisons,
     seats_naming,
     statuses_of,
     unreferenced,
@@ -107,7 +107,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
 
     # Every live seat naming the address and not only its confirmed ones: the flag below reads an
     # unconfirmed seat's season too, so a seat whose season has no row stays loud whichever list counts it.
-    statuses = seat_saison_statuses(row for row, _ in seats_naming(live_seat_rows, identifier))
+    saisons = seat_saisons(row for row, _ in seats_naming(live_seat_rows, identifier))
 
     # The confirmation narrows HERE, through the predicates every reader shares, and never at a caller:
     # a caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.
@@ -121,7 +121,10 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
                     "team_id": row["team_id"],
                     "rolle": slot,
                     "team_name": row["name"],
-                    "saison_status": statuses[row["saison_id"]],
+                    "team_shorthand": row["shorthand"],
+                    "saison_status": saisons[row["saison_id"]]["status"],
+                    "saison_start_date": saisons[row["saison_id"]]["start_date"],
+                    "saison_end_date": saisons[row["saison_id"]]["end_date"],
                 }
             )
             for row in live_seat_rows
@@ -137,7 +140,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
             [
                 seat_is_confirmed(row, slot)
                 for row, slot in seats_naming(live_seat_rows, identifier)
-                if grants_a_panel(statuses[row["saison_id"]])
+                if grants_a_panel(saisons[row["saison_id"]]["status"])
             ]
             + [is_confirmed(row.get("einwilligung")) for row in [*pupil_rows, *live_schiedsrichter]]
         ),
@@ -245,7 +248,7 @@ def _only_with_panel(subject: FLSubject) -> FLSubject:
 def roles_from(identifier: str, *, seat_rows: Rows, referee_rows: Rows, pupil_rows: Rows) -> FLSubject:
     """`roles_of`'s answer over rows a caller already read through the subject's own selections, so none is read twice.
 
-    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, seats and `saison_status_lookup`'s `saison`, and
+    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, `shorthand`, seats and `seat_saison_lookup`'s `saison`, and
     each person's stamp and retirement.
     """
 

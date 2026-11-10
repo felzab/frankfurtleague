@@ -26,6 +26,7 @@ from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     address_change_document,
+    aufstellung_document,
     bericht_document,
     kontaktperson_document,
     minted_confirmations,
@@ -296,6 +297,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
+        "aufstellungen": aufstellung_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}, TEAM_OID, starters=[SPIELER_OID]),
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "address_changes": {
@@ -400,6 +402,11 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_spielbericht_spiel_id": (
         valid_documents()["spielberichte"],
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(remarks="Zweiter Bericht")),
+    ),
+    # Two line-ups of one club for one fixture, naming different pupils: the index refuses on the pair alone.
+    "uniq_aufstellung_spiel_id_team_id": (
+        valid_documents()["aufstellungen"],
+        valid_document("aufstellungen", _id=TEAM_OID, spieler=[]),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
     "uniq_address_change_address": (

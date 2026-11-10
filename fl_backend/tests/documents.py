@@ -12,7 +12,7 @@ Invariants:
 """
 
 import copy
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, Final, TypeAliasType, get_args
 from zoneinfo import ZoneInfo
@@ -257,6 +257,19 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
     }
 
 
+def aufstellung_document(spiel: Mapping[str, Any], team_id: Any, *, starters: Sequence[Any] = (), bench: Sequence[Any] = ()) -> dict[str, Any]:
+    """One club's line-up for `spiel` as its first save stores it, the starters ahead of the bench."""
+
+    return {
+        "_id": ObjectId(),
+        "saison_id": spiel["saison_id"],
+        "spiel_id": spiel["_id"],
+        "team_id": team_id,
+        "spieler": [{"spieler_id": spieler_id, "starts": starts} for starts, ids in ((True, starters), (False, bench)) for spieler_id in ids],
+        "version": 0,
+    }
+
+
 def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
     """A seat's decline as its link stores it, proposing another date."""
 
@@ -481,6 +494,7 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
         "position": "Angriff",
         "nummer": None,
         "inactive_since": None,
+        "version": 0,
         **fields,
     }
 

@@ -26,6 +26,7 @@ import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail"
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
 import {
+  buildAufstellungReminderEmail,
   buildAustrittNoticeEmail,
   buildSpielEinteilungEmail,
   buildSpielEinteilungLiftedEmail,
@@ -101,6 +102,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   spiel_cancelled: buildSpielNoticeEmail,
   spiel_einteilung_lifted: buildSpielEinteilungLiftedEmail,
   spiel_vorschlag_discarded: buildSpielVorschlagDiscardedEmail,
+  aufstellung_reminder: buildAufstellungReminderEmail,
   austritt_notice: buildAustrittNoticeEmail,
   registrierung_confirmation: (data, handout) => buildRegistrierungBestaetigungEmail(data, minted(handout)),
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),

@@ -187,6 +187,9 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
                 "last_name": f"${AS_NAME}.last_name",
                 "position": 1,
                 "nummer": 1,
+                # The captaincy, for the mark beside the name, and null beside a withheld one: the mark would say
+                # which of the squad the nameless row is.
+                "rolle": {"$cond": {"if": {"$eq": [f"${AS_NAME}.first_name", None]}, "then": None, "else": "$rolle"}},
             }
         },
         # After the projection, so `first_name` orders by the name served, which the join masked.

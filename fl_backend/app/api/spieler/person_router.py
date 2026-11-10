@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, status
@@ -19,6 +20,7 @@ from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import refuse_a_taken_rolle
+from app.api.spieler.panel import FLSpielerSaisonSelfResponse
 from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderRow,
@@ -33,6 +35,7 @@ from app.api.spieler.services import (
     mark_shared_nummern,
 )
 from app.core.clock import utc_stamp
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
@@ -44,6 +47,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exceptions import APIError
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
@@ -411,3 +415,25 @@ async def patch_einwilligung(
     async with journal:
         async with transaction_session(db) as session:
             await session.with_transaction(write)
+
+
+@spieler_router.get(
+    "/self/{saison_id}",
+    response_model=FLSpielerSaisonSelfResponse,
+    summary="A signed-in pupil's own season: their squad row and their team's fixtures",
+)
+async def get_self_saison(saison_id: str, identifier: PersonIdentifier) -> FLSpielerSaisonSelfResponse:
+    """
+    What the signed-in pupil's own page shows of one season, in one read.
+
+    The seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the
+    season under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with
+    whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
+    none is stored (null).
+
+    Refuses an address holding no confirmed pupil record (`role_not_held`).
+    """
+
+    # Session 8: the read goes from the pupil's own record through this season's squad row to its club's fixtures and
+    # the line-ups naming the pupil.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)

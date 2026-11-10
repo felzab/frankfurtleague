@@ -27,7 +27,7 @@ from tests.documents import spieler_document
 class TestSpieler:
     def test_accepts_the_stufe_no_row_holds_yet(self):
         """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
-        row = FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": "E2", "rolle": None})
+        row = FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": "E2", "rolle": None, "version": 0})
 
         assert row.stufe == "E2"
 

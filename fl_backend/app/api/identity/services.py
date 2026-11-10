@@ -33,35 +33,35 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableD
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
 
 
-def saison_status_lookup() -> Mapping[str, Any]:
-    """Each season row's own `saisons` row beside it as `saison`, its status alone: the read that finds a seat answers its season too."""
+def seat_saison_lookup() -> Mapping[str, Any]:
+    """Each season row's own `saisons` row beside it as `saison`, its status and span alone: the read finding a seat answers its season too."""
 
     return {
         "$lookup": {
             "from": DbCollection.SAISONS,
             "localField": "saison_id",
             "foreignField": "_id",
-            "pipeline": [{"$project": {"status": 1}}],
+            "pipeline": [{"$project": {"status": 1, "start_date": 1, "end_date": 1}}],
             "as": "saison",
         }
     }
 
 
-def seat_saison_statuses(rows: Iterable[Mapping[str, Any]]) -> dict[str, FLSaisonStatus]:
-    """The status of each row's season, off the `saison` that `saison_status_lookup` joined.
+def seat_saisons(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    """Each row's season, by its id, as `seat_saison_lookup` joined it: its status and its span.
 
     Raised rather than dropped: a seat whose season has no row is a database this read cannot answer truthfully for, and a
     silently shorter list is a person shown no panel at all.
     """
 
-    statuses: dict[str, FLSaisonStatus] = {}
+    saisons: dict[str, Mapping[str, Any]] = {}
     for row in rows:
         [saison] = row.get("saison") or [None]
         if saison is None:
             raise RuntimeError(f"saison_teams holds a seat in {row['saison_id']}, which saisons has no row for")
-        statuses[row["saison_id"]] = saison["status"]
+        saisons[row["saison_id"]] = saison
 
-    return statuses
+    return saisons
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -69,13 +69,14 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": rows_seating(identifier)},
-        # `name` rides along free, this read opening the row anyway, and it is the row's own rather
+        # `name` and `shorthand` ride along free, this read opening the row anyway, and they are the row's own rather
         # than the club's.
         {
             "$project": {
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                "shorthand": 1,
                 "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")},
             }
@@ -83,7 +84,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
         # otherwise answered in whatever order the collection was written in.
         {"$sort": {"saison_id": 1, "team_id": 1}},
-        saison_status_lookup(),
+        seat_saison_lookup(),
     ]
 
 

@@ -13,7 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity import crud as identity_crud
 from app.api.identity.crud import roles_from
 from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
-from app.api.identity.services import own_entries, seat_saison_statuses
+from app.api.identity.services import own_entries, seat_saisons
 from app.api.identity.system_router import get_sign_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -331,11 +331,11 @@ class TestTheFlagsBesideIt:
 
 
 def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
-    """A silently shorter list is a person shown no panel at all; the control reads a joined season's status."""
+    """A silently shorter list is a person shown no panel at all; the control reads a joined season."""
 
-    assert seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": [{"status": "active"}]}]) == {ACTIVE_SAISON: "active"}
+    assert seat_saisons([{"saison_id": ACTIVE_SAISON, "saison": [{"status": "active"}]}]) == {ACTIVE_SAISON: {"status": "active"}}
     with pytest.raises(RuntimeError):
-        seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": []}])
+        seat_saisons([{"saison_id": ACTIVE_SAISON, "saison": []}])
 
 
 def test_every_role_list_is_drawn_from_the_own_records():
@@ -349,8 +349,8 @@ def test_every_role_list_is_drawn_from_the_own_records():
     seat_rows: list[Mapping[str, Any]] = [
         {
             **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier.upper(), confirmed_at=None)),
-            # As `app/api/identity/services.py :: saison_status_lookup` joins the row's season.
-            "saison": [{"status": "active"}],
+            # As `app/api/identity/services.py :: seat_saison_lookup` joins the row's season.
+            "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }
     ]
     referee_rows: list[Mapping[str, Any]] = [_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None)]

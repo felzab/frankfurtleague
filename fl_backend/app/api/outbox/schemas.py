@@ -133,6 +133,9 @@ class FLSpielRequestData(BaseModel):
     kind: Literal["spiel_request", "spiel_reminder"]
     # The reader's own club, one of the two sides.
     team: str
+    # That club and the fixture's season, which name the team's own pages: the reader answers there, signed in.
+    team_id: CustomObjectId
+    saison_id: str
     ansetzung: FLSpielMailAnsetzung
     # The row's stored deadline, which a reminder repeats.
     deadline: CustomDateString
@@ -190,6 +193,22 @@ class FLSpielVorschlagDiscardedData(BaseModel):
 
     kind: Literal["spiel_vorschlag_discarded"]
     appointment: FLSpielMailAppointment
+
+
+class FLAufstellungReminderData(BaseModel):
+    """A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered."""
+
+    kind: Literal["aufstellung_reminder"]
+    # The reader's own club, one of the two sides.
+    team: str
+    # That club, the fixture's season and the fixture, which name the team's own pages: the reader enters it there, signed in.
+    team_id: CustomObjectId
+    saison_id: str
+    spiel_id: CustomObjectId
+    appointment: FLSpielMailAppointment
+    # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_HOURS` before the kick-off:
+    # carried, so the mail states it and no builder counts the hours a second time.
+    due_at: AwareDatetime
 
 
 class FLSpielMailEntry(BaseModel):
@@ -345,6 +364,7 @@ FLOutboxData = Annotated[
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAufstellungReminderData
     | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
@@ -379,6 +399,7 @@ FLOutboxKind = Literal[
     "spiel_cancelled",
     "spiel_einteilung_lifted",
     "spiel_vorschlag_discarded",
+    "aufstellung_reminder",
     "austritt_notice",
     "registrierung_confirmation",
     "registrierung_absage",

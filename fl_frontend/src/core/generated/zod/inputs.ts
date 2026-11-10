@@ -39,7 +39,7 @@ export const actionLogGetActionLogBodyByOneMax = 254;
 export const actionLogGetActionLogBodyCursorOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const actionLogGetActionLogBodyQOneMax = 200;
 
-export const actionLogGetActionLogBodyTypeOneMax = 16;
+export const actionLogGetActionLogBodyTypeOneMax = 17;
 
 export const ActionLogGetActionLogBody = zod
   .object({
@@ -57,6 +57,7 @@ export const ActionLogGetActionLogBody = zod
               "spiel",
               "spielbestaetigung",
               "spielbericht",
+              "aufstellung",
               "team",
               "bewerbung",
               "registrierung",
@@ -300,6 +301,129 @@ export const addressChangeInviteAddressChangePathAddressChangeIdRegExp = new Reg
 export const AddressChangeInviteAddressChangeParams = zod.object({
   address_change_id: zod.string().regex(addressChangeInviteAddressChangePathAddressChangeIdRegExp),
 });
+
+/**
+ * The line-up screen of one club for one fixture, as the club's own seat holders read it.
+ *
+ * `document_not_found` for a fixture that does not exist or does not field this club.
+ * @summary One club's line-up for one fixture as an administrator reads it
+ */
+export const aufstellungenGetAufstellungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenGetAufstellungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const AufstellungenGetAufstellungParams = zod.object({
+  spiel_id: zod.string().regex(aufstellungenGetAufstellungPathSpielIdRegExp),
+  team_id: zod.string().regex(aufstellungenGetAufstellungPathTeamIdRegExp),
+});
+
+/**
+ * Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.
+ *
+ * The document a seat holder's save writes, on the same payload, so the lock never reaches this save
+ * (`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as
+ * `aufstellung.saved`.
+ *
+ * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
+ * (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
+ * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
+ * squad of the season does not hold (`spieler_not_in_kader`); and a nominee past the shortage
+ * (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save.
+ * @summary Save one club's line-up for one fixture as an administrator
+ */
+export const aufstellungenPutAufstellungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenPutAufstellungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const AufstellungenPutAufstellungParams = zod.object({
+  spiel_id: zod.string().regex(aufstellungenPutAufstellungPathSpielIdRegExp),
+  team_id: zod.string().regex(aufstellungenPutAufstellungPathTeamIdRegExp),
+});
+
+export const aufstellungenPutAufstellungBodySpielerItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenPutAufstellungBodySpielerMax = 60;
+
+export const aufstellungenPutAufstellungBodyVersionOneMin = 0;
+
+export const AufstellungenPutAufstellungBody = zod
+  .object({
+    spieler: zod
+      .array(
+        zod
+          .object({
+            spieler_id: zod.string().regex(aufstellungenPutAufstellungBodySpielerItemSpielerIdRegExp),
+            starts: zod.boolean(),
+          })
+          .describe("One pupil a club fields in one match: on the pitch from the start, or on the bench."),
+      )
+      .max(aufstellungenPutAufstellungBodySpielerMax),
+    version: zod.union([zod.int().min(aufstellungenPutAufstellungBodyVersionOneMin), zod.null()]),
+  })
+  .describe("A club's whole line-up for one fixture, written wholesale.");
+
+/**
+ * The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
+ *
+ * The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
+ * saved, every pupil it names outside that squad, the document's `version` and the line-up's marks: whether one is
+ * stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is null for a fixture
+ * holding no day or no hour, which takes no line-up.
+ *
+ * Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, and
+ * `document_not_found` for a fixture that does not exist or does not field this club.
+ * @summary One club's line-up for one fixture as its seat holder reads it
+ */
+export const aufstellungenGetAufstellungSelfPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenGetAufstellungSelfPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const AufstellungenGetAufstellungSelfParams = zod.object({
+  spiel_id: zod.string().regex(aufstellungenGetAufstellungSelfPathSpielIdRegExp),
+  team_id: zod.string().regex(aufstellungenGetAufstellungSelfPathTeamIdRegExp),
+});
+
+/**
+ * Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
+ *
+ * The first save creates the document and answers 201. `version` is the document's as the screen was served it, null
+ * where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
+ * `aufstellung.saved`.
+ *
+ * Refuses, in this order, each writing nothing: no seat on this club in the fixture's season (`role_not_held`); a
+ * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
+ * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
+ * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
+ * squad of the season does not hold (`spieler_not_in_kader`); and a nominee named beside eleven regular players, or
+ * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`). A pupil named
+ * twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are refused as the
+ * payload's own rules. A line-up being due or overdue refuses nothing.
+ * @summary Save one club's line-up for one fixture as its seat holder
+ */
+export const aufstellungenPutAufstellungSelfPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenPutAufstellungSelfPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const AufstellungenPutAufstellungSelfParams = zod.object({
+  spiel_id: zod.string().regex(aufstellungenPutAufstellungSelfPathSpielIdRegExp),
+  team_id: zod.string().regex(aufstellungenPutAufstellungSelfPathTeamIdRegExp),
+});
+
+export const aufstellungenPutAufstellungSelfBodySpielerItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenPutAufstellungSelfBodySpielerMax = 60;
+
+export const aufstellungenPutAufstellungSelfBodyVersionOneMin = 0;
+
+export const AufstellungenPutAufstellungSelfBody = zod
+  .object({
+    spieler: zod
+      .array(
+        zod
+          .object({
+            spieler_id: zod.string().regex(aufstellungenPutAufstellungSelfBodySpielerItemSpielerIdRegExp),
+            starts: zod.boolean(),
+          })
+          .describe("One pupil a club fields in one match: on the pitch from the start, or on the bench."),
+      )
+      .max(aufstellungenPutAufstellungSelfBodySpielerMax),
+    version: zod.union([zod.int().min(aufstellungenPutAufstellungSelfBodyVersionOneMin), zod.null()]),
+  })
+  .describe("A club's whole line-up for one fixture, written wholesale.");
 
 /**
  * Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
@@ -1658,8 +1782,8 @@ export const SaisonsGetSaisonOverviewParams = zod.object({
 /**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
- * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
- * unchanged since, every pupil through the public mask.
+ * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
+ * and unchanged since, every pupil through the public mask.
  * @summary One Spiel's page
  */
 export const saisonsGetSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1960,6 +2084,21 @@ export const SchiedsrichterGetConfirmationViewBody = zod
     token: zod.string().min(1).max(schiedsrichterGetConfirmationViewBodyTokenMax).regex(schiedsrichterGetConfirmationViewBodyTokenRegExp),
   })
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
+
+/**
+ * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+ *
+ * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
+ * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
+ * today, and when its report was first sent. Beside them the seasons in which a fixture is booked to them, newest
+ * first. Nobody's address is served, and no reason an administrator entered.
+ *
+ * Refuses an address holding no live, confirmed referee record (`role_not_held`).
+ * @summary A signed-in referee's fixtures of one season, one row a fixture
+ */
+export const SchiedsrichterGetSelfSpieleParams = zod.object({
+  saison_id: zod.string(),
+});
 
 /**
  * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
@@ -2368,6 +2507,53 @@ export const SpielbestaetigungenPostSchiedsrichterAnswerBody = zod
   .describe("A referee's answer about one row naming them: a decline gives a reason, which the administrator reads.");
 
 /**
+ * Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
+ *
+ * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
+ * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the
+ * signed-in person's own on the row's team, the first in order where they hold two.
+ *
+ * Refuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in
+ * its season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed
+ * unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one
+ * whose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the
+ * deadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming
+ * the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
+ * administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
+ * outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
+ * fixture (`spiel_double_booked`). The reason is stored as typed.
+ * @summary Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date
+ */
+export const spielbestaetigungenPostTeamAnswerPathSpielbestaetigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const SpielbestaetigungenPostTeamAnswerParams = zod.object({
+  spielbestaetigung_id: zod.string().regex(spielbestaetigungenPostTeamAnswerPathSpielbestaetigungIdRegExp),
+});
+
+export const spielbestaetigungenPostTeamAnswerBodyReasonOneMax = 500;
+
+export const spielbestaetigungenPostTeamAnswerBodyReasonOneRegExp = new RegExp("^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$");
+export const spielbestaetigungenPostTeamAnswerBodyVorschlagOneDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const spielbestaetigungenPostTeamAnswerBodyVorschlagOneTimeRegExp = new RegExp("^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$");
+
+export const SpielbestaetigungenPostTeamAnswerBody = zod
+  .object({
+    answer: zod.enum(["agreed", "declined"]),
+    reason: zod.union([
+      zod.string().min(1).max(spielbestaetigungenPostTeamAnswerBodyReasonOneMax).regex(spielbestaetigungenPostTeamAnswerBodyReasonOneRegExp),
+      zod.null(),
+    ]),
+    vorschlag: zod.union([
+      zod.object({
+        date: zod.string().regex(spielbestaetigungenPostTeamAnswerBodyVorschlagOneDateRegExp),
+        time: zod.string().regex(spielbestaetigungenPostTeamAnswerBodyVorschlagOneTimeRegExp),
+      }),
+      zod.null(),
+    ]),
+  })
+  .describe("One club's answer about one Ansetzung, from whichever of its seats presses first.");
+
+/**
  * Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.
  *
  * IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
@@ -2743,6 +2929,7 @@ export const SpielerPatchKaderRowParams = zod.object({
 });
 
 export const spielerPatchKaderRowBodyNummerOneRegExp = new RegExp("^[0-9]{1,4}$");
+export const spielerPatchKaderRowBodyVersionMin = 0;
 
 export const SpielerPatchKaderRowBody = zod
   .object({
@@ -2750,7 +2937,7 @@ export const SpielerPatchKaderRowBody = zod
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
-    version: zod.union([zod.int(), zod.null()]).optional(),
+    version: zod.int().min(spielerPatchKaderRowBodyVersionMin),
   })
   .describe("A seat holder's edit of a squad row.");
 
@@ -2762,6 +2949,21 @@ export const SpielerPatchKaderRowBody = zod
  * @summary One Saison's squad rows for its list
  */
 export const SpielerGetSpielerAdminQueryParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * What the signed-in pupil's own page shows of one season, in one read.
+ *
+ * The seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the
+ * season under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with
+ * whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
+ * none is stored (null).
+ *
+ * Refuses an address holding no confirmed pupil record (`role_not_held`).
+ * @summary A signed-in pupil's own season: their squad row and their team's fixtures
+ */
+export const SpielerGetSelfSaisonParams = zod.object({
   saison_id: zod.string(),
 });
 
@@ -3611,6 +3813,27 @@ export const TeamsReplaceSaisonTeamBody = zod
   .describe("Which club takes this season's row over. The path names the club going OUT.");
 
 /**
+ * Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+ *
+ * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
+ * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
+ * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
+ * the league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and
+ * an hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's
+ * decision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.
+ *
+ * No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
+ * signed-in person holds no seat on this team in this season.
+ * @summary A team's Übersicht in one season
+ */
+export const teamsGetTeamOverviewPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsGetTeamOverviewParams = zod.object({
+  team_id: zod.string().regex(teamsGetTeamOverviewPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+/**
  * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
  *
  * Always three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or
@@ -3621,5 +3844,23 @@ export const teamsGetTeamSeatsPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$")
 
 export const TeamsGetTeamSeatsParams = zod.object({
   team_id: zod.string().regex(teamsGetTeamSeatsPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+/**
+ * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
+ *
+ * Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
+ * state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
+ * the clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or
+ * no hour.
+ *
+ * Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+ * @summary A team's fixtures in one season, with what is open on each
+ */
+export const teamsGetTeamSpielePathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsGetTeamSpieleParams = zod.object({
+  team_id: zod.string().regex(teamsGetTeamSpielePathTeamIdRegExp),
   saison_id: zod.string(),
 });

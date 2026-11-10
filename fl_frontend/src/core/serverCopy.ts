@@ -28,6 +28,9 @@ const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.
+/** One sentence for a full squad, whichever write meets it. */
+const KADER_FULL = "Der Kader ist voll.";
+
 const DOUBLE_BOOKED = {
   spielort: "Der Spielort ist zu dieser Zeit schon belegt.",
   schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
@@ -166,10 +169,19 @@ export const SERVER_COPY = catalogue({
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
     /** An application's club retired since the acceptance opened. */
     team_retired: "Das Team ist stillgelegt.",
-    /** A reactivated squad row past the season's cap. */
-    kader_full: "Der Kader ist voll.",
+    /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
+    kader_full: KADER_FULL,
+    registrierung_kader_full: KADER_FULL,
+    /** An admission of a pupil a squad of the season holds already. */
+    registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
+    /** A club's decline proposing the day and hour the fixture holds. */
+    ansetzung_vorschlag_unchanged: "Das ist der angesetzte Termin.",
+    /** A line-up's save by a seat once the lock has passed, one naming more nominees than the eleven lack, and one for a fixture holding no day or hour. */
+    aufstellung_locked: "Die Aufstellung ist gesperrt.",
+    aufstellung_nominee_without_shortage: "Nachnominierte füllen nur die Lücke bis 11.",
+    aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
@@ -205,7 +217,6 @@ export const SERVER_COPY = catalogue({
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
     elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
-    scorers_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
   } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */

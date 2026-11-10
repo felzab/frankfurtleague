@@ -5,6 +5,7 @@ from typing import Any, Final
 from fastapi import APIRouter, Depends
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aufstellungen.schemas import FLAufstellungenPublic
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_landing_windows
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
@@ -564,8 +565,8 @@ async def get_spiel(
 ) -> FLSpielPageResponse:
     """One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
 
-    Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
-    unchanged since, every pupil through the public mask.
+    Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
+    and unchanged since, every pupil through the public mask.
     """
 
     saison, spiele_raw, berichte_raw = await asyncio.gather(
@@ -599,5 +600,7 @@ async def get_spiel(
         spieltag_position=matchday["spieltag_position"],
         count_spieltage_in_phase=matchday["count_spieltage_in_phase"],
         standings=standings,
+        # Session 8: the fixture's read joins, per side, the stored line-up of the club the fixture fields there now.
+        aufstellungen=FLAufstellungenPublic(team1=None, team2=None),
         bericht=compose_public_bericht(berichte_raw[0], spiel_raw) if berichte_raw else None,
     )

@@ -177,6 +177,15 @@ ADMIN_READS = [
     ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
     # Every report's proposed result, which the public result never serves.
     ("/api/v0/spielberichte", "get"),
+    # A line-up's read serves the squad to pick from with every surname whole, to the club's seats and to an
+    # administrator: past the initial `READ-PUPIL-001` keeps for a visitor.
+    ("/api/v0/aufstellungen/{spiel_id}/{team_id}", "get"),
+    ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "get"),
+    # A team's open work names the pupils awaiting its decision and its seats' holders.
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview", "get"),
+    # A pupil's own season and a referee's own fixtures, the second with the reason they declined one for.
+    ("/api/v0/spieler/self/{saison_id}", "get"),
+    ("/api/v0/schiedsrichter/self/spiele/{saison_id}", "get"),
 ]
 
 
@@ -228,9 +237,15 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/{registrierung_id}/admit", "post"),
         ("/api/v0/registrierungen/{registrierung_id}/decline", "post"),
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele", "get"),
+        ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "get"),
+        ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "put"),
         ("/api/v0/spieler/self", "get"),
+        ("/api/v0/spieler/self/{saison_id}", "get"),
         ("/api/v0/spieler/account/einwilligung", "patch"),
         ("/api/v0/schiedsrichter/self", "get"),
+        ("/api/v0/schiedsrichter/self/spiele/{saison_id}", "get"),
         ("/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung", "patch"),
         ("/api/v0/account/einwilligungen", "get"),
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung", "patch"),
@@ -240,6 +255,7 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/identity/account/erasure/view", "get"),
         ("/api/v0/spielbestaetigungen/self", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer", "post"),
+        ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team", "post"),
         ("/api/v0/spielberichte/self", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),

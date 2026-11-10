@@ -212,6 +212,21 @@ SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.
 SPIELBERICHT_ENTRIES_MAX: Final = 60
 
+# A line-up's three marks, each counted back from its fixture's kick-off, here and nowhere else: from the first a team
+# holding none is owed its one reminder, from the second a missing line-up reads overdue, and from the third the team's
+# line-up is locked and the administration alone writes it.
+AUFSTELLUNG_REMINDER_HOURS: Final = 48
+AUFSTELLUNG_DUE_HOURS: Final = 24
+AUFSTELLUNG_LOCK_HOURS: Final = 1
+
+# Each mark inside the one before it: a lock ahead of the due mark would close a line-up before it is owed, and a
+# reminder inside the due mark would remind of one already overdue.
+if not AUFSTELLUNG_LOCK_HOURS < AUFSTELLUNG_DUE_HOURS < AUFSTELLUNG_REMINDER_HOURS:
+    raise RuntimeError("A line-up's marks nest: the lock inside the due mark, the due mark inside the reminder's.")
+
+# How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it.
+AUFSTELLUNG_STARTERS_MAX: Final = 11
+
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
 # other.

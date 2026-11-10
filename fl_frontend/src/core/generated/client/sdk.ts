@@ -38,6 +38,8 @@ import type {
   FLAddressChangeStopResponse,
   FLAddressChangeSweepResponse,
   FLAddressChangeViewResponse,
+  FLAufstellungPayload,
+  FLAufstellungResponse,
   FLAustrittPayload,
   FLBanListResponse,
   FLBanListWriteResponse,
@@ -142,6 +144,7 @@ import type {
   FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
+  FLSchiedsrichterSpieleResponse,
   FLSchiedsrichterSweepResponse,
   FLSeatEinwilligungPayload,
   FLSignInResponse,
@@ -149,15 +152,18 @@ import type {
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
+  FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelfResponse,
   FLSpielbestaetigungEnterPayload,
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
+  FLSpielbestaetigungTeamAnswerPayload,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminListResponse,
   FLSpielerSaisonAdminResponse,
+  FLSpielerSaisonSelfResponse,
   FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
@@ -176,10 +182,12 @@ import type {
   FLSwapGruppenResponse,
   FLSweepSaisonsResponse,
   FLTabelleResponse,
+  FLTeamOverviewResponse,
   FLTeamPageResponse,
   FLTeamsAdminListResponse,
   FLTeamSaisonAdminResponse,
   FLTeamSeatsResponse,
+  FLTeamSpieleResponse,
   FLTeamsSingleResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
@@ -736,6 +744,145 @@ export const addressChangeInviteAddressChange = async (
   return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
     ...options,
     method: "POST",
+  });
+};
+
+export const getAufstellungenGetAufstellungUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * The line-up screen of one club for one fixture, as the club's own seat holders read it.
+ *
+ * `document_not_found` for a fixture that does not exist or does not field this club.
+ * @summary One club's line-up for one fixture as an administrator reads it
+ */
+export const aufstellungenGetAufstellung = async (
+  spielId: string,
+  teamId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenGetAufstellungUrl(spielId, teamId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}`;
+};
+
+/**
+ * Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.
+ *
+ * The document a seat holder's save writes, on the same payload, so the lock never reaches this save
+ * (`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as
+ * `aufstellung.saved`.
+ *
+ * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
+ * (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
+ * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
+ * squad of the season does not hold (`spieler_not_in_kader`); and a nominee past the shortage
+ * (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save.
+ * @summary Save one club's line-up for one fixture as an administrator
+ */
+export const aufstellungenPutAufstellung = async (
+  spielId: string,
+  teamId: string,
+  fLAufstellungPayload: FLAufstellungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungUrl(spielId, teamId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAufstellungPayload),
+  });
+};
+
+export const getAufstellungenGetAufstellungSelfUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}/self`;
+};
+
+/**
+ * The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
+ *
+ * The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
+ * saved, every pupil it names outside that squad, the document's `version` and the line-up's marks: whether one is
+ * stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is null for a fixture
+ * holding no day or no hour, which takes no line-up.
+ *
+ * Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, and
+ * `document_not_found` for a fixture that does not exist or does not field this club.
+ * @summary One club's line-up for one fixture as its seat holder reads it
+ */
+export const aufstellungenGetAufstellungSelf = async (
+  spielId: string,
+  teamId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenGetAufstellungSelfUrl(spielId, teamId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: string) => {
+  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}/self`;
+};
+
+/**
+ * Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
+ *
+ * The first save creates the document and answers 201. `version` is the document's as the screen was served it, null
+ * where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
+ * `aufstellung.saved`.
+ *
+ * Refuses, in this order, each writing nothing: no seat on this club in the fixture's season (`role_not_held`); a
+ * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
+ * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
+ * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
+ * squad of the season does not hold (`spieler_not_in_kader`); and a nominee named beside eleven regular players, or
+ * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`). A pupil named
+ * twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are refused as the
+ * payload's own rules. A line-up being due or overdue refuses nothing.
+ * @summary Save one club's line-up for one fixture as its seat holder
+ */
+export const aufstellungenPutAufstellungSelf = async (
+  spielId: string,
+  teamId: string,
+  fLAufstellungPayload: FLAufstellungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungSelfUrl(spielId, teamId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAufstellungPayload),
   });
 };
 
@@ -2511,8 +2658,8 @@ export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
 /**
  * One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
  *
- * Its report's line-ups whenever a club entered one, the scorers and cards only while the report is adopted and
- * unchanged since, every pupil through the public mask.
+ * Each side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted
+ * and unchanged since, every pupil through the public mask.
  * @summary One Spiel's page
  */
 export const saisonsGetSpiel = async (
@@ -2916,6 +3063,31 @@ export const getSchiedsrichterGetSelfUrl = () => {
  */
 export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelfResponse> => {
   return adminKeyTransport<FLSchiedsrichterSelfResponse>(getSchiedsrichterGetSelfUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
+  return `/api/v0/schiedsrichter/self/spiele/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+ *
+ * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
+ * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
+ * today, and when its report was first sent. Beside them the seasons in which a fixture is booked to them, newest
+ * first. Nobody's address is served, and no reason an administrator entered.
+ *
+ * Refuses an address holding no live, confirmed referee record (`role_not_held`).
+ * @summary A signed-in referee's fixtures of one season, one row a fixture
+ */
+export const schiedsrichterGetSelfSpiele = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSchiedsrichterSpieleResponse> => {
+  return adminKeyTransport<FLSchiedsrichterSpieleResponse>(getSchiedsrichterGetSelfSpieleUrl(saisonId), {
     ...options,
     method: "GET",
   });
@@ -3457,6 +3629,53 @@ export const spielbestaetigungenPostSchiedsrichterAnswer = async (
   );
 };
 
+export const getSpielbestaetigungenPostTeamAnswerUrl = (spielbestaetigungId: string) => {
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer/team`;
+};
+
+/**
+ * Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
+ *
+ * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
+ * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the
+ * signed-in person's own on the row's team, the first in order where they hold two.
+ *
+ * Refuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in
+ * its season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed
+ * unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one
+ * whose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the
+ * deadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming
+ * the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
+ * administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
+ * outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
+ * fixture (`spiel_double_booked`). The reason is stored as typed.
+ * @summary Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date
+ */
+export const spielbestaetigungenPostTeamAnswer = async (
+  spielbestaetigungId: string,
+  fLSpielbestaetigungTeamAnswerPayload: FLSpielbestaetigungTeamAnswerPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielbestaetigungAnswerResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return adminKeyTransport<FLSpielbestaetigungAnswerResponse>(getSpielbestaetigungenPostTeamAnswerUrl(spielbestaetigungId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLSpielbestaetigungTeamAnswerPayload),
+  });
+};
+
 export const getSpielbestaetigungenDiscardSpielbestaetigungUrl = (spielbestaetigungId: string) => {
   return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/discard`;
 };
@@ -3809,6 +4028,31 @@ export const getSpielerGetSelfUrl = () => {
  */
 export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelfResponse> => {
   return adminKeyTransport<FLSpielerSelfResponse>(getSpielerGetSelfUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpielerGetSelfSaisonUrl = (saisonId: string) => {
+  return `/api/v0/spieler/self/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * What the signed-in pupil's own page shows of one season, in one read.
+ *
+ * The seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the
+ * season under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with
+ * whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
+ * none is stored (null).
+ *
+ * Refuses an address holding no confirmed pupil record (`role_not_held`).
+ * @summary A signed-in pupil's own season: their squad row and their team's fixtures
+ */
+export const spielerGetSelfSaison = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerSaisonSelfResponse> => {
+  return adminKeyTransport<FLSpielerSaisonSelfResponse>(getSpielerGetSelfSaisonUrl(saisonId), {
     ...options,
     method: "GET",
   });
@@ -4698,6 +4942,35 @@ export const teamsReplaceSaisonTeam = async (
   });
 };
 
+export const getTeamsGetTeamOverviewUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/overview`;
+};
+
+/**
+ * Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+ *
+ * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
+ * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
+ * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
+ * the league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and
+ * an hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's
+ * decision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.
+ *
+ * No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
+ * signed-in person holds no seat on this team in this season.
+ * @summary A team's Übersicht in one season
+ */
+export const teamsGetTeamOverview = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamOverviewResponse> => {
+  return adminKeyTransport<FLTeamOverviewResponse>(getTeamsGetTeamOverviewUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getTeamsGetTeamSeatsUrl = (teamId: string, saisonId: string) => {
   return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/seats`;
 };
@@ -4715,6 +4988,32 @@ export const teamsGetTeamSeats = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLTeamSeatsResponse> => {
   return adminKeyTransport<FLTeamSeatsResponse>(getTeamsGetTeamSeatsUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getTeamsGetTeamSpieleUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/spiele`;
+};
+
+/**
+ * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
+ *
+ * Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
+ * state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
+ * the clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or
+ * no hour.
+ *
+ * Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+ * @summary A team's fixtures in one season, with what is open on each
+ */
+export const teamsGetTeamSpiele = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamSpieleResponse> => {
+  return adminKeyTransport<FLTeamSpieleResponse>(getTeamsGetTeamSpieleUrl(teamId, saisonId), {
     ...options,
     method: "GET",
   });

@@ -13,6 +13,7 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
+from app.api.aufstellungen.schemas import FLAufstellungenPublic
 from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
@@ -587,13 +588,16 @@ class FLSpielPageResponse(BaseAPIResponse):
     """One match as its page and its pop-up show it.
 
     The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
-    each side stands, and what the public may read of its report, null where none is stored.
+    each side stands, each side's line-up from the moment its club stores one, and what the public may read of its
+    report, null where none is stored.
     """
 
     spiel: FLSpielJoined
     spieltag_position: int = Field(ge=1)
     count_spieltage_in_phase: int = Field(ge=1)
     standings: FLSpielSideStandings
+    # Beside the report and never inside it: a line-up is the club's own, stored days before any report.
+    aufstellungen: FLAufstellungenPublic
     bericht: FLSpielberichtPublic | None
 
 

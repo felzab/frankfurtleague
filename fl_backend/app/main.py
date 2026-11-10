@@ -13,6 +13,8 @@ from app.api.action_log.admin_router import router as action_log_admin_router
 from app.api.address_change.admin_router import router as address_change_admin_router
 from app.api.address_change.public_router import router as address_change_public_router
 from app.api.address_change.system_router import router as address_change_system_router
+from app.api.aufstellungen.admin_router import router as aufstellungen_admin_router
+from app.api.aufstellungen.person_router import router as aufstellungen_person_router
 from app.api.ban_list.admin_router import router as ban_list_admin_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.person_router import router as bewerbungen_person_router
@@ -77,6 +79,7 @@ from app.shared.schemas.responses import FLFailureBody
 ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "address_change": (address_change_public_router, address_change_admin_router, address_change_system_router),
     "action_log": (action_log_admin_router,),
+    "aufstellungen": (aufstellungen_admin_router, aufstellungen_person_router),
     "grants": (grants_admin_router, grants_system_router),
     "bewerbungen": (bewerbungen_admin_router, bewerbungen_public_router, bewerbungen_person_router, bewerbungen_system_router),
     "identity": (identity_system_router, identity_admin_router, identity_person_router),

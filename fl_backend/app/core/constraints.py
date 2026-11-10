@@ -110,6 +110,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
+    # The same for two seats of one club saving its first line-up at once, and the key every read of a fixture's
+    # line-ups joins on. The club and never the side: a side re-fielded by a knockout correction keeps no other club's.
+    UniqueIndex(Collection.AUFSTELLUNGEN, "uniq_aufstellung_spiel_id_team_id", ("spiel_id", "team_id"), "one line-up per club per fixture"),
     # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
     # ending's null address out; a keyed read carries it too (`app/api/address_change/services.py :: build_address_filter`),
     # or the planner scans.
@@ -242,6 +245,19 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             "the reports naming a leaving pupil, read inside their erasure's transaction",
         )
         for entries in ("scorers", "cards")
+    ),
+    # Multikey, for the reports' reason: the line-ups are kept as long, and a pupil's own list reads them by it too.
+    SupportIndex(
+        Collection.AUFSTELLUNGEN,
+        "aufstellungen_spieler_spieler_id",
+        (("spieler.spieler_id", ASCENDING),),
+        "the line-ups naming a pupil, read inside their erasure's transaction and for their own list of matches",
+    ),
+    SupportIndex(
+        Collection.AUFSTELLUNGEN,
+        "aufstellungen_saison_id_team_id",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
+        "a season's line-ups, which a replace's or an undraw's removal filters on, and one club's among them",
     ),
     # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
     # on every write, the squad page on every read.

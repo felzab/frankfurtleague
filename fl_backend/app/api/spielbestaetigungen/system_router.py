@@ -202,7 +202,15 @@ def _request(
 
     view = view_ansetzung_of(spiel)
     team = view.team1_name if side_of(row) == "team1" else view.team2_name
-    data = FLSpielRequestData(kind=kind, team=team, ansetzung=spiel_mail_ansetzung_of(view), deadline=row["deadline"], moved_from=moved_from)
+    data = FLSpielRequestData(
+        kind=kind,
+        team=team,
+        team_id=row["party"]["team_id"],
+        saison_id=row["saison_id"],
+        ansetzung=spiel_mail_ansetzung_of(view),
+        deadline=row["deadline"],
+        moved_from=moved_from,
+    )
 
     return [
         OwedMail(

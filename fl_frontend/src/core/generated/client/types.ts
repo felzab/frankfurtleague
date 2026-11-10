@@ -53,6 +53,9 @@ export const Code = {
   bericht_not_officiated: "bericht_not_officiated",
   bericht_cancelled: "bericht_cancelled",
   bericht_elfmeter_in_the_gruppe: "bericht_elfmeter_in_the_gruppe",
+  aufstellung_locked: "aufstellung_locked",
+  aufstellung_spiel_undated: "aufstellung_spiel_undated",
+  aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
   bewerbung_already_decided: "bewerbung_already_decided",
   bewerbung_subject_unresolved: "bewerbung_subject_unresolved",
   bewerbung_schule_unusable: "bewerbung_schule_unusable",
@@ -557,6 +560,7 @@ export const FLAction = {
   spielbestaetigungvorschlag_adopted: "spielbestaetigung.vorschlag_adopted",
   spielbestaetigunganswered: "spielbestaetigung.answered",
   spielberichtsaved: "spielbericht.saved",
+  aufstellungsaved: "aufstellung.saved",
   teamentered: "team.entered",
   teamchanged: "team.changed",
   teamretired: "team.retired",
@@ -629,6 +633,7 @@ export const FLActionType = {
   spiel: "spiel",
   spielbestaetigung: "spielbestaetigung",
   spielbericht: "spielbericht",
+  aufstellung: "aufstellung",
   team: "team",
   bewerbung: "bewerbung",
   registrierung: "registrierung",
@@ -1002,6 +1007,15 @@ export interface FLAddressPayload {
   street: string;
 }
 
+/**
+ * One pupil a club fields in one match: on the pitch from the start, or on the bench.
+ */
+export interface FLAufstellungEntry {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
+  starts: boolean;
+}
+
 export type FLSpielerPosition = (typeof FLSpielerPosition)[keyof typeof FLSpielerPosition];
 
 export const FLSpielerPosition = {
@@ -1009,6 +1023,13 @@ export const FLSpielerPosition = {
   Abwehr: "Abwehr",
   Mittelfeld: "Mittelfeld",
   Angriff: "Angriff",
+} as const;
+
+export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
+
+export const FLSpielerRolle = {
+  kapitaen: "kapitaen",
+  co_kapitaen: "co_kapitaen",
 } as const;
 
 export type FLSpielberichtSpielerType = (typeof FLSpielberichtSpielerType)[keyof typeof FLSpielberichtSpielerType];
@@ -1019,13 +1040,50 @@ export const FLSpielberichtSpielerType = {
   unknown: "unknown",
 } as const;
 
+/**
+ * One pupil of a line-up, as the base tier serves them, with the captaincy their squad row holds.
+ *
+ * `rolle` only where `type` is `named`: the mark stands beside a name, and beside a withheld one it would say who the
+ * nameless pupil is.
+ */
 export interface FLAufstellungEntryPublic {
   first_name: string | null;
   last_name: string | null;
   nummer: string | null;
   position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
   starts: boolean;
   type: FLSpielberichtSpielerType;
+}
+
+export type FLAufstellungPhase = (typeof FLAufstellungPhase)[keyof typeof FLAufstellungPhase];
+
+export const FLAufstellungPhase = {
+  open: "open",
+  overdue: "overdue",
+  locked: "locked",
+} as const;
+
+/**
+ * What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.
+ *
+ * Two facts and two instants, never one combined state: a page calls a line-up due where it is `open` with none
+ * stored, and overdue where the due mark has passed with none stored.
+ */
+export interface FLAufstellungMarks {
+  due_at: string;
+  locks_at: string;
+  phase: FLAufstellungPhase;
+  stored: boolean;
+}
+
+/**
+ * A club's whole line-up for one fixture, written wholesale.
+ */
+export interface FLAufstellungPayload {
+  /** @maxItems 60 */
+  spieler: FLAufstellungEntry[];
+  version: number | null;
 }
 
 /**
@@ -1033,10 +1091,87 @@ export interface FLAufstellungEntryPublic {
  */
 export interface FLAufstellungPublic {
   spieler: FLAufstellungEntryPublic[];
+}
+
+/**
+ * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
+ */
+export interface FLSpielMailAppointment {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  date: string;
+  team1: string;
+  team2: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  time: string;
+}
+
+/**
+ * A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered.
+ */
+export interface FLAufstellungReminderData {
+  appointment: FLSpielMailAppointment;
+  due_at: string;
+  kind: "aufstellung_reminder";
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  team: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
 
+/**
+ * A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.
+ *
+ * Both names null where an erasure took the record, whose entries name the sentinel.
+ */
+export interface FLAufstellungSpieler {
+  first_name: string | null;
+  is_nachnominiert: boolean;
+  last_name: string | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
+}
+
+export interface FLSpielberichtTeam {
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+/**
+ * The fixture a line-up is for, as its screen states it.
+ */
+export interface FLAufstellungSpiel {
+  date: string | null;
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  team1: FLSpielberichtTeam | null;
+  team2: FLSpielberichtTeam | null;
+  time: string | null;
+}
+
+/**
+ * One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
+ */
+export interface FLAufstellungResponse {
+  kader: FLAufstellungSpieler[];
+  marks: FLAufstellungMarks | null;
+  named: FLAufstellungSpieler[];
+  spiel: FLAufstellungSpiel;
+  spieler: FLAufstellungEntry[];
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  version: number | null;
+}
+
+/**
+ * Each side's line-up, the one whose club the fixture fields there now; null where that club has stored none.
+ */
 export interface FLAufstellungenPublic {
   team1: FLAufstellungPublic | null;
   team2: FLAufstellungPublic | null;
@@ -2584,13 +2719,6 @@ export interface FLInvitationWriteResponse {
   team_id: string;
 }
 
-export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
-
-export const FLSpielerRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * One squad row as its team's seat holder reads it (`READ-KADER-001`).
  *
@@ -3047,18 +3175,6 @@ export const FLSpielRequestDataKind = {
 } as const;
 
 /**
- * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
- */
-export interface FLSpielMailAppointment {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  team1: string;
-  team2: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
-/**
  * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
  */
 export interface FLSpielRequestData {
@@ -3067,7 +3183,10 @@ export interface FLSpielRequestData {
   deadline: string;
   kind: FLSpielRequestDataKind;
   moved_from: FLSpielMailAppointment | null;
+  saison_id: string;
   team: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
 }
 
 /**
@@ -3176,6 +3295,7 @@ export interface FLOutboxHandout {
     | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
+    | FLAufstellungReminderData
     | FLAustrittNoticeData
     | FLRegistrierungLinkData
     | FLRegistrierungAbsageData
@@ -3530,7 +3650,8 @@ export interface FLPatchKaderRowPayload {
   position: FLSpielerPosition | null;
   rolle: FLSpielerRolle | null;
   stufe: FLSpielerStufe | null;
-  version?: number | null;
+  /** @minimum 0 */
+  version: number;
 }
 
 /**
@@ -4576,6 +4697,48 @@ export interface FLSchiedsrichterSingleResponse {
   schiedsrichter: FLSchiedsrichter;
 }
 
+export type FLSchiedsrichterSpielState = (typeof FLSchiedsrichterSpielState)[keyof typeof FLSchiedsrichterSpielState] | null;
+
+export const FLSchiedsrichterSpielState = {
+  valid: "valid",
+  agreed: "agreed",
+  declined: "declined",
+  expired: "expired",
+  invalid: "invalid",
+  cancelled: "cancelled",
+} as const;
+
+/**
+ * One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.
+ */
+export interface FLSchiedsrichterSpiel {
+  date: string | null;
+  entered: boolean;
+  past: boolean;
+  reason: string | null;
+  reportable: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  spielbestaetigung_id: string | null;
+  spielort: FLSpielortFieldPublic | null;
+  state: FLSchiedsrichterSpielState;
+  submitted_at: string | null;
+  team1_name: string | null;
+  team2_name: string | null;
+  time: string | null;
+}
+
+/**
+ * A referee's fixtures of one season, open work first, and the seasons they have fixtures in.
+ */
+export interface FLSchiedsrichterSpieleResponse {
+  saison_id: string;
+  saison_ids: string[];
+  spiele: FLSchiedsrichterSpiel[];
+}
+
 /**
  * One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due.
  */
@@ -4774,12 +4937,11 @@ export interface FLSpielberichtScorerPublic {
 /**
  * What the public may read of one match's report.
  *
- * The line-ups whenever a club entered one: they are the clubs' own submissions. The scorers and the cards only
- * while the referee's report reads `adopted` -- adopted, unchanged since, and matching the result -- each by minute;
- * null otherwise, which is "not official yet" where an empty list is "nobody scored".
+ * The scorers and the cards only while the referee's report reads `adopted` -- adopted, unchanged since, and
+ * matching the result -- each by minute; null otherwise, which is "not official yet" where an empty list is "nobody
+ * scored".
  */
 export interface FLSpielberichtPublic {
-  aufstellungen: FLAufstellungenPublic;
   cards: FLSpielberichtCardPublic[] | null;
   scorers: FLSpielberichtScorerPublic[] | null;
 }
@@ -4806,9 +4968,11 @@ export interface FLSpielSideStandings {
  * One match as its page and its pop-up show it.
  *
  * The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
- * each side stands, and what the public may read of its report, null where none is stored.
+ * each side stands, each side's line-up from the moment its club stores one, and what the public may read of its
+ * report, null where none is stored.
  */
 export interface FLSpielPageResponse {
+  aufstellungen: FLAufstellungenPublic;
   bericht: FLSpielberichtPublic | null;
   /** @minimum 1 */
   count_spieltage_in_phase: number;
@@ -4910,12 +5074,6 @@ export interface FLSpielberichtPersonEntry {
   team1_name: string | null;
   team2_name: string | null;
   time: string | null;
-}
-
-export interface FLSpielberichtTeam {
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
 }
 
 /**
@@ -5078,6 +5236,15 @@ export interface FLSpielbestaetigung {
 }
 
 /**
+ * What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it.
+ */
+export interface FLSpielbestaetigungAnswerResponse {
+  answered_by: FLSpielbestaetigungBy;
+  state: FLSpielbestaetigungAnswerKind;
+  vorschlag: FLSpielbestaetigungAppointment | null;
+}
+
+/**
  * The administrator's Zusage for a party that answered elsewhere, and how it was given.
  *
  * No way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.
@@ -5159,6 +5326,32 @@ export interface FLSpielbestaetigungSweepResponse {
   reminded: number;
   saison_id: string;
 }
+
+export interface FLSpielbestaetigungVorschlagPayload {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  date: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  time: string;
+}
+
+/**
+ * One club's answer about one Ansetzung, from whichever of its seats presses first.
+ */
+export interface FLSpielbestaetigungTeamAnswerPayload {
+  answer: FLSpielbestaetigungAnswerKind;
+  reason: string | null;
+  vorschlag: FLSpielbestaetigungVorschlagPayload | null;
+}
+
+export type FLSpielbestaetigungTeamState = (typeof FLSpielbestaetigungTeamState)[keyof typeof FLSpielbestaetigungTeamState];
+
+export const FLSpielbestaetigungTeamState = {
+  valid: "valid",
+  vorschlag: "vorschlag",
+  expired: "expired",
+  agreed: "agreed",
+  declined: "declined",
+} as const;
 
 /**
  * The rows newest first, closed ones included.
@@ -5262,6 +5455,7 @@ export interface FLSpielerPublic {
   last_name: string | null;
   nummer: string | null;
   position: FLSpielerPosition | null;
+  rolle: FLSpielerRolle | null;
 }
 
 /**
@@ -5319,6 +5513,53 @@ export interface FLSpielerSelfKaderRow {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string;
+}
+
+/**
+ * One fixture of the pupil's club, with their own place in the club's line-up for it.
+ */
+export interface FLSpielerSaisonSelfSpiel {
+  ansetzung_confirmed: boolean | null;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
+  date: string | null;
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  ergebnis: string | null;
+  for_third_place: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  note: string | null;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  schiedsrichter: FLSpielSchiedsrichterFieldPublic | null;
+  sonderereignis: FLSonderereignis | null;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  spielort: FLSpielortFieldPublic | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieltag_id: string;
+  /** @minimum 1 */
+  spieltag_position: number;
+  starts: boolean | null;
+  team1: FLSpielTeamFieldJoined | null;
+  team1_quelle: FLSpielQuelle | null;
+  team2: FLSpielTeamFieldJoined | null;
+  team2_quelle: FLSpielQuelle | null;
+  time: string | null;
+}
+
+/**
+ * A pupil's own season: where they play, and their club's fixtures.
+ */
+export interface FLSpielerSaisonSelfResponse {
+  kader: FLSpielerSelfKaderRow | null;
+  saison_id: string;
+  saison_ids: string[];
+  spiele: FLSpielerSaisonSelfSpiel[];
 }
 
 /**
@@ -5480,11 +5721,16 @@ export interface FLSubjectSchiedsrichter {
  */
 export interface FLSubjectSeat {
   rolle: FLKontaktRolle;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  saison_end_date: string;
   saison_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  saison_start_date: string;
   saison_status: FLSaisonStatus;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string;
+  team_shorthand: string;
 }
 
 /**
@@ -5679,6 +5925,87 @@ export interface FLTeamMembership {
 }
 
 /**
+ * One coming fixture of the team holding a day and an hour, with its line-up's marks.
+ */
+export interface FLTeamPanelAufstellung {
+  ansetzung: FLSpielbestaetigungViewAnsetzung;
+  marks: FLAufstellungMarks;
+  side: FLSpielSide;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+}
+
+/**
+ * One pending registration as the Übersicht names it: who waits, since when, and whether the team may admit them yet.
+ */
+export interface FLTeamPanelRegistrierung {
+  admissible: boolean;
+  /** @minLength 1 */
+  first_name: string;
+  /** @minLength 1 */
+  last_name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  registrierung_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  submitted_at: string;
+}
+
+/**
+ * One seat as the people beside it see it: who holds it and whether they answered their link.
+ *
+ * No address, telephone number or birthdate: only administrators see those.
+ */
+export interface FLTeamSeat {
+  confirmed: boolean;
+  name: string | null;
+  rolle: FLKontaktRolle;
+}
+
+/**
+ * One date the league asked the team to confirm, while it still holds work for the team or waits on the league.
+ *
+ * An agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or
+ * discards it.
+ */
+export interface FLTeamPanelTermin {
+  ansetzung: FLSpielbestaetigungViewAnsetzung;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
+  reason: string | null;
+  side: FLSpielSide;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spielbestaetigung_id: string;
+  state: FLSpielbestaetigungTeamState;
+  vorschlag: FLSpielbestaetigungAppointment | null;
+}
+
+/**
+ * A team's Übersicht in one read: who the team is, the work open for it, and its three seats.
+ *
+ * The three lists are open work alone and carry no totals: the dates awaiting the team's answer or the league's
+ * decision, the coming fixtures the team has entered no line-up for, and the registrations awaiting its decision.
+ */
+export interface FLTeamOverviewResponse {
+  aufstellungen: FLTeamPanelAufstellung[];
+  /** @minLength 1 */
+  full_name: string;
+  /** @minLength 1 */
+  name: string;
+  registrierungen: FLTeamPanelRegistrierung[];
+  rollen: FLKontaktRolle[];
+  saison_id: string;
+  seats: FLTeamSeat[];
+  /** @minLength 1 */
+  shorthand: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  termine: FLTeamPanelTermin[];
+  trikot_farbe: FLTrikotFarbe | null;
+}
+
+/**
  * The club as its page in one season shows it: the school, its group, and how it left the season if it did.
  *
  * The whole `austritt` record, reason and day: this page is the one that publishes them.
@@ -5752,6 +6079,44 @@ export interface FLTeamPageResponse {
 }
 
 /**
+ * One of the team's matches as its own list shows it: the fixture and its matchday, and the two things that can be open on it.
+ */
+export interface FLTeamPanelSpiel {
+  ansetzung_confirmed: boolean | null;
+  aufstellung: FLAufstellungMarks | null;
+  /** @minimum 1 */
+  count_spieltage_in_phase: number;
+  date: string | null;
+  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  ergebnis: string | null;
+  for_third_place: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  note: string | null;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  saison_id: string;
+  saison_phase: FLSaisonPhase;
+  schiedsrichter: FLSpielSchiedsrichterFieldPublic | null;
+  sonderereignis: FLSonderereignis | null;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  spielort: FLSpielortFieldPublic | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieltag_id: string;
+  /** @minimum 1 */
+  spieltag_position: number;
+  team1: FLSpielTeamFieldJoined | null;
+  team1_quelle: FLSpielQuelle | null;
+  team2: FLSpielTeamFieldJoined | null;
+  team2_quelle: FLSpielQuelle | null;
+  termin: FLSpielbestaetigungTeamState | null;
+  time: string | null;
+}
+
+/**
  * The club document as it is STORED, and what the write endpoints echo.
  *
  * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
@@ -5804,17 +6169,6 @@ export interface FLTeamSaisonAdminResponse {
 }
 
 /**
- * One seat as the people beside it see it: who holds it and whether they answered their link.
- *
- * No address, telephone number or birthdate: only administrators see those.
- */
-export interface FLTeamSeat {
-  confirmed: boolean;
-  name: string | null;
-  rolle: FLKontaktRolle;
-}
-
-/**
  * A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them.
  */
 export interface FLTeamSeatsResponse {
@@ -5825,6 +6179,16 @@ export interface FLTeamSeatsResponse {
 }
 
 export type FLTeamShorthandLength = 3;
+
+/**
+ * Every fixture of one team in one season, in the order the draw numbered them.
+ */
+export interface FLTeamSpieleResponse {
+  saison_id: string;
+  spiele: FLTeamPanelSpiel[];
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
 
 /**
  * One club as the Teams list shows it: the name it plays this season under, or today's for a club holding no row of it.
@@ -5912,7 +6276,9 @@ export const Rule = {
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
+  spieler_named_twice: "spieler_named_twice",
   spieltag_ends_before_start: "spieltag_ends_before_start",
+  starters_exceed_eleven: "starters_exceed_eleven",
   text_version_of_another_wording: "text_version_of_another_wording",
   url_not_accepted: "url_not_accepted",
 } as const;
