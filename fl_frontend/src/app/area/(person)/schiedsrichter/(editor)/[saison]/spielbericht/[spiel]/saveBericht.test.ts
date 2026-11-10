@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { UNKNOWN_SCORER } from "./berichtValues";
+import { UNKNOWN_PLAYER } from "./berichtValues";
 
 import type { FLSpielberichtPayload, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
@@ -95,7 +95,7 @@ describe("each row the save sends", () => {
         scorers: [
           { side: "team1", spieler_id: NOAH, minute: "45+1", eigentor: false },
           { side: "team2", spieler_id: LENA, minute: "58", eigentor: true },
-          { side: "team2", spieler_id: UNKNOWN_SCORER, minute: "77", eigentor: false },
+          { side: "team2", spieler_id: UNKNOWN_PLAYER, minute: "77", eigentor: false },
         ],
       },
     });
@@ -106,6 +106,16 @@ describe("each row the save sends", () => {
       { side: "team2", spieler_id: null, minute: "77", eigentor: false },
     ]);
     expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team2", spieler_id: LENA, minute: "40", colour: "gelb" }]);
+  });
+
+  it("sends a card's „Unbekannt“ as the null player, as a goal's", async () => {
+    await saveBericht({
+      id: SPIEL_ID,
+      version: 3,
+      changes: { cards: [{ side: "team1", spieler_id: UNKNOWN_PLAYER, minute: "63", colour: "rot" }] },
+    });
+
+    expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team1", spieler_id: null, minute: "63", colour: "rot" }]);
   });
 
   it("sends no row whose player is not chosen, saying so on that row's box", async () => {

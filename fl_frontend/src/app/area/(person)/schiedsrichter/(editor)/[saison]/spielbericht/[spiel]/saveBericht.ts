@@ -10,7 +10,7 @@ import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { admitsShootOut } from "@/features/spiele/result";
 
 import { Cards, Goals } from "./berichtRules";
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_SCORER, valuesOf } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, valuesOf } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -86,9 +86,9 @@ function payloadOf(read: FLSpielberichtSchiedsrichterResponse, changes: Changes)
       sonderereignis,
       elfmeterschiessen: takesShootOut && shootOut1 !== null && shootOut2 !== null ? { team1: shootOut1, team2: shootOut2 } : null,
     },
-    // „Unbekannt“ is the null player the write reads as a scorer nobody named.
-    scorers: goals.map((goal) => ({ ...goal, spieler_id: goal.spieler_id === UNKNOWN_SCORER ? null : goal.spieler_id })),
-    cards: [...cardRows],
+    // „Unbekannt“ is the null player the write reads as a player nobody named.
+    scorers: goals.map((goal) => ({ ...goal, spieler_id: goal.spieler_id === UNKNOWN_PLAYER ? null : goal.spieler_id })),
+    cards: cardRows.map((card) => ({ ...card, spieler_id: card.spieler_id === UNKNOWN_PLAYER ? null : card.spieler_id })),
     remarks: changes.remarks === undefined ? (stored?.remarks ?? null) : changes.remarks,
   };
 }

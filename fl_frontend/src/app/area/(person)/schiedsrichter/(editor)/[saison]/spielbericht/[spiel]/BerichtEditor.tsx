@@ -16,7 +16,7 @@ import { COPY } from "@/core/copy";
 import { FLCardColour } from "@/core/generated/client/types";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_SCORER } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
@@ -43,6 +43,8 @@ type Side = { name: Words; plaque: RecordText | null };
 
 /** The minute's rule, the write's own pattern, which the server reads off the published contract. */
 type MinuteRule = { pattern: string };
+
+const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: WORDS.unknown };
 
 const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label: WORDS.colour[colour], mark: <CardMark colour={colour} /> }));
 
@@ -149,8 +151,8 @@ export function BerichtEditor({
       />
     ),
   };
-  /** A row's player, from its side's squad; a goal's list opens on „Unbekannt“, a scorer nobody can name. */
-  const playerCell = (first: readonly Option[], isRequired: boolean): Cells["main"] => ({
+  /** A row's player, from its side's squad, the list opening on „Unbekannt“, a player nobody can name. */
+  const playerCell = (isRequired: boolean): Cells["main"] => ({
     field: "spieler_id",
     label: COPY.shared.spieler,
     control: ({ row, name, label, change }) => (
@@ -159,7 +161,7 @@ export function BerichtEditor({
         labelHidden
         name={name}
         isRequired={isRequired}
-        options={row.side === null ? [] : [...first, ...squads[row.side]]}
+        options={row.side === null ? [] : [UNKNOWN, ...squads[row.side]]}
         value={row.spieler_id}
         onChange={(spielerId) => change({ spieler_id: spielerId })}
       />
@@ -239,7 +241,7 @@ export function BerichtEditor({
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
-                    main: playerCell([{ id: UNKNOWN_SCORER, label: WORDS.unknown }], required.goalPlayer),
+                    main: playerCell(required.goalPlayer),
                     beside: {
                       field: "eigentor",
                       label: eigentor,
@@ -277,7 +279,7 @@ export function BerichtEditor({
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
-                    main: playerCell([], required.cardPlayer),
+                    main: playerCell(required.cardPlayer),
                     below: {
                       field: "colour",
                       label: cardNoun,

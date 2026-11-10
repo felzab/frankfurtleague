@@ -6,10 +6,10 @@ import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } 
 export const NO_SONDEREREIGNIS = "none";
 
 /**
- * The player list's first entry on a goal, a scorer nobody can name, which the write takes as a null player; a row's
- * `null` is a player not yet chosen, which the write refuses.
+ * The player list's first entry on a goal and a card, a player nobody can name, which the write takes as a null player;
+ * a row's `null` is a player not yet chosen, which the form refuses.
  */
-export const UNKNOWN_SCORER = "unknown";
+export const UNKNOWN_PLAYER = "unknown";
 
 /** One goal as its row holds it: a new row's side and player are `null` until chosen, so no goal is credited by default. */
 export type Goal = { side: FLSpielSide | null; spieler_id: string | null; minute: string; eigentor: boolean };
@@ -45,13 +45,13 @@ export function valuesOf({ bericht, kader, sides_changed: changed }: Read): Beri
     shootOut2: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team2),
     scorers: bericht.scorers.map(({ side, spieler_id: spielerId, minute, eigentor }) => ({
       side,
-      spieler_id: spielerId === null ? UNKNOWN_SCORER : departed(side, spielerId) ? null : spielerId,
+      spieler_id: spielerId === null ? UNKNOWN_PLAYER : departed(side, spielerId) ? null : spielerId,
       minute,
       eigentor,
     })),
     cards: bericht.cards.map(({ side, spieler_id: spielerId, minute, colour }) => ({
       side,
-      spieler_id: departed(side, spielerId) ? null : spielerId,
+      spieler_id: spielerId === null ? UNKNOWN_PLAYER : departed(side, spielerId) ? null : spielerId,
       minute,
       colour,
     })),
