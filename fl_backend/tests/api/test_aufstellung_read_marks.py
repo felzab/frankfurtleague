@@ -36,13 +36,44 @@ def test_each_mark_opens_the_phase_it_names(now: datetime, phase: str):
     assert (marks.phase, marks.due_at, marks.locks_at) == (phase, ANPFIFF - timedelta(hours=24), ANPFIFF - timedelta(hours=1))
 
 
-def test_a_mark_across_a_clock_change_counts_real_hours():
-    """Sunday 25 October 2026, 16:00 in Berlin, the day summer time ends: the due mark is 24 hours earlier, 17:00 on the Saturday."""
+@pytest.mark.parametrize(
+    ("date", "reminder_from", "due_at", "locks_at"),
+    [
+        # Summer time ends that Sunday at 03:00: the kick-off is 15:00 UTC, the Friday and the Saturday 14:00 UTC.
+        pytest.param(
+            "2026-10-25",
+            datetime(2026, 10, 23, 14, tzinfo=UTC),
+            datetime(2026, 10, 24, 14, tzinfo=UTC),
+            datetime(2026, 10, 25, 14, tzinfo=UTC),
+            id="the autumn Sunday",
+        ),
+        # Summer time starts that Sunday at 02:00: the kick-off is 14:00 UTC, the Friday and the Saturday 15:00 UTC.
+        pytest.param(
+            "2026-03-29",
+            datetime(2026, 3, 27, 15, tzinfo=UTC),
+            datetime(2026, 3, 28, 15, tzinfo=UTC),
+            datetime(2026, 3, 29, 13, tzinfo=UTC),
+            id="the spring Sunday",
+        ),
+    ],
+)
+def test_a_day_back_across_a_clock_change_keeps_the_kickoffs_clock_time(
+    date: str, reminder_from: datetime, due_at: datetime, locks_at: datetime
+):
+    """A Sunday 16:00 kick-off is due at 16:00 on the Saturday and reminded from 16:00 on the Friday; the lock is one real hour."""
 
-    marks = aufstellung_marks(date="2026-10-25", time="16:00:00", stored=True, now=datetime(2026, 10, 1, tzinfo=UTC))
+    marks = aufstellung_marks(date=date, time=TIME, stored=False, now=reminder_from)
 
     assert marks is not None
-    assert marks.due_at == datetime(2026, 10, 24, 15, tzinfo=UTC)
+    assert (marks.due_at, marks.locks_at) == (due_at, locks_at)
+    assert [
+        aufstellung_reminder_owed(date=date, time=TIME, now=now) for now in (reminder_from - TICK, reminder_from, due_at - TICK, due_at)
+    ] == [
+        False,
+        True,
+        True,
+        False,
+    ]
 
 
 @pytest.mark.parametrize(

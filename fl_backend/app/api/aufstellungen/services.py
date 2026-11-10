@@ -20,23 +20,22 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
-from app.shared.schemas.bounds import AUFSTELLUNG_DUE_HOURS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_HOURS, AUFSTELLUNG_STARTERS_MAX
+from app.shared.schemas.bounds import AUFSTELLUNG_DUE_DAYS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_DAYS, AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.literals import FLSpielSide
 
-_REMINDER_BEFORE: Final = timedelta(hours=AUFSTELLUNG_REMINDER_HOURS)
-_DUE_BEFORE: Final = timedelta(hours=AUFSTELLUNG_DUE_HOURS)
 _LOCK_BEFORE: Final = timedelta(hours=AUFSTELLUNG_LOCK_HOURS)
 
 
-def _anpfiff(date: str | None, time: str | None) -> datetime | None:
-    """The fixture's kick-off as a UTC instant, from its day and its Berlin wall time; none where either is unset."""
+def _at_kickoff_time(date: str, time: str, *, days_back: int) -> datetime:
+    """The UTC instant `days_back` days before the fixture's day, at its kick-off's clock time in Berlin.
 
-    if date is None or time is None:
-        return None
+    Counted back on the naive wall time and converted once, so a mark across a clock change keeps the kick-off's hour:
+    the day before a Sunday 16:00 kick-off is Saturday 16:00, on the night summer time ends too.
+    """
 
-    # In UTC before any mark is counted back: an aware value in a `ZoneInfo` subtracts in wall time, so a mark across a
-    # clock change would land an hour off the hours it names.
-    return datetime.fromisoformat(f"{date}T{time}").replace(tzinfo=clock.GERMANY).astimezone(UTC)
+    wall = datetime.fromisoformat(f"{date}T{time}") - timedelta(days=days_back)
+
+    return wall.replace(tzinfo=clock.GERMANY).astimezone(UTC)
 
 
 def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: datetime) -> FLAufstellungMarks | None:
@@ -46,11 +45,12 @@ def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: 
     `overdue` from it up to the lock, `locked` from the lock on: each mark belongs to the phase it opens.
     """
 
-    anpfiff = _anpfiff(date, time)
-    if anpfiff is None:
+    if date is None or time is None:
         return None
 
-    due_at, locks_at = anpfiff - _DUE_BEFORE, anpfiff - _LOCK_BEFORE
+    due_at = _at_kickoff_time(date, time, days_back=AUFSTELLUNG_DUE_DAYS)
+    # The lock in real hours, counted on the UTC instant, where subtraction is never wall time.
+    locks_at = _at_kickoff_time(date, time, days_back=0) - _LOCK_BEFORE
     phase: FLAufstellungPhase = "open" if now < due_at else "overdue" if now < locks_at else "locked"
 
     return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at, locks_at=locks_at)
@@ -62,9 +62,12 @@ def aufstellung_reminder_owed(*, date: str | None, time: str | None, now: dateti
     Never for a fixture holding no day or no hour, which owes no line-up.
     """
 
-    anpfiff = _anpfiff(date, time)
+    if date is None or time is None:
+        return False
 
-    return anpfiff is not None and anpfiff - _REMINDER_BEFORE <= now < anpfiff - _DUE_BEFORE
+    return (
+        _at_kickoff_time(date, time, days_back=AUFSTELLUNG_REMINDER_DAYS) <= now < _at_kickoff_time(date, time, days_back=AUFSTELLUNG_DUE_DAYS)
+    )
 
 
 # --- What a save judges, each refusal writing nothing.
