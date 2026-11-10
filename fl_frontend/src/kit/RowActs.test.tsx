@@ -173,3 +173,61 @@ describe("a row removed by its own act", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 })));
   });
 });
+
+const SQUAD = ["pia@example.org", "ben@example.org", "tom@example.org"];
+
+/**
+ * A list whose rows each open one question held beside the list, whose act leaves the row standing but opening nothing,
+ * as a squad row taken out does. The page read again arrives while the question still stands, as an action's does.
+ */
+function Squad() {
+  const [live, setLive] = useState(SQUAD);
+  const [opened, setOpened] = useState<string | null>(null);
+  return (
+    <>
+      <h1>{COPY.page.teams}</h1>
+      <Table
+        label={COPY.page.teams}
+        nameLabel={COPY.signIn.address}
+        columns={[]}
+        empty={EMPTY}
+        rows={SQUAD.map((address) => ({
+          id: address,
+          name: { record: address },
+          cells: {},
+          muted: !live.includes(address),
+          ...(live.includes(address) ? { onOpen: () => setOpened(address) } : {}),
+        }))}
+      />
+      <ConfirmDialog
+        verb="remove"
+        subject={COPY.page.teams}
+        consequence={COPY.page.teams}
+        tone="danger"
+        open={{ isOpen: opened !== null, onOpenChange: (isOpen) => setOpened(isOpen ? opened : null) }}
+        onConfirm={async () => {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          setLive((addresses) => addresses.filter((address) => address !== opened));
+          // A frame with the row's press gone and the question still standing over the page.
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        }}
+      />
+    </>
+  );
+}
+
+// The harm: the question hands the focus back to the row's press it opened from, which is gone by then, so the focus
+// drops on `body` and a keyboard's next Tab starts at the top of the document.
+describe("a row its own question's act leaves opening nothing", () => {
+  it("hands the focus to the row after it once the question closes", async () => {
+    render(<Squad />);
+    await userEvent.tab();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+
+    const after = screen.getByRole("row", { name: /ben@example.org/ });
+    await waitFor(() => expect(document.activeElement).toBe(within(after).getByRole("button")));
+  });
+});
