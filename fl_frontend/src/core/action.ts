@@ -248,6 +248,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "ansetzung_decided",
   "ansetzung_changed",
   "ansetzung_deadline_past",
+  // A team's proposed day that the date passed between the dialog's drawing and its press, past midnight: the reloaded
+  // page draws the box from the new today, which then refuses that day itself.
+  "ansetzung_vorschlag_past",
   // A registration's stored person named or renamed since the list offering its admission was read.
   "registrierung_person_not_named",
   // A referee's report whose fixture moved since the form was read: booked to another referee, struck out or called
