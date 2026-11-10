@@ -168,77 +168,82 @@ describe("the toolbar's acts the read decides", () => {
   });
 });
 
+type Cards = Extract<ComponentProps<typeof ListPage>["list"], { kind: "cards" }>;
+
+/** A page of cards as a browser holds it while its one read runs, and once the read has landed. */
+async function drawnCards(wait: Cards["wait"], content: Awaited<Cards["content"]>) {
+  const page = (read: Cards["content"]) => (
+    <ListPage
+      head={{ scope: "saison", title: { route: "spielplan" } }}
+      list={{ kind: "cards", wait, content: read }}
+    />
+  );
+  const waiting = document.createElement("div");
+  waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+
+  const { prelude } = await prerender(
+    page(Promise.resolve(content)),
+    // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
+    { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+  );
+  const landed = document.createElement("div");
+  landed.innerHTML = await new Response(prelude).text();
+  return { waiting, landed };
+}
+
+/** The grid a page's cards share. */
+const GRID = "[class~='lg:grid-cols-2']";
+
 describe("open work beside its record's seats", () => {
   const ACTS = [COPY.shared.verb.adopt, COPY.shared.verb.discard] as const;
   const TITLES = [COPY.page.spiele, COPY.page.registrierungen, COPY.team.kontakte] as const;
   const SPIEL = "Ahorn vs. Eiche";
 
-  /** The page as a browser holds it while its one read runs, and once the read has landed. */
-  async function drawn() {
-    const page = (content: Extract<ComponentProps<typeof ListPage>["list"], { kind: "cards" }>["content"]) => (
-      <ListPage
-        head={{ scope: "saison", title: { route: "spielplan" } }}
-        list={{
-          kind: "cards",
-          wait: { rows: 2, cards: [{ title: TITLES[0], acts: ACTS }, { title: TITLES[1] }], seats: TITLES[2] },
-          content,
-        }}
-      />
-    );
-    const waiting = document.createElement("div");
-    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
-
-    const { prelude } = await prerender(
-      page(
-        Promise.resolve({
-          cards: [
-            {
-              id: "spiele",
-              title: TITLES[0],
-              rows: [
-                {
-                  id: "1",
-                  href: "/",
-                  name: { record: SPIEL },
-                  line: COPY.page.spiele,
-                  acts: (
-                    <>
-                      <Button
-                        variant="primary"
-                        label={ACTS[0]}
-                      />
-                      <Button
-                        variant="secondary"
-                        label={ACTS[1]}
-                      />
-                    </>
-                  ),
-                },
-              ],
-            },
-            { id: "registrierungen", title: TITLES[1], rows: [] },
-          ],
-          seats: {
-            title: TITLES[2],
-            rows: (["ansprechperson", "trainer", "stellvertretung"] as const).map((seat) => ({
-              id: seat,
-              name: { record: "Lena Ahlers" },
-              chips: [],
-              line: COPY.admin.seatLine([seat], null, null),
-            })),
+  const drawn = () =>
+    drawnCards(
+      { rows: 2, cards: [{ title: TITLES[0], acts: ACTS }, { title: TITLES[1] }], seats: TITLES[2] },
+      {
+        cards: [
+          {
+            id: "spiele",
+            title: TITLES[0],
+            rows: [
+              {
+                id: "1",
+                href: "/",
+                name: { record: SPIEL },
+                line: COPY.page.spiele,
+                acts: (
+                  <>
+                    <Button
+                      variant="primary"
+                      label={ACTS[0]}
+                    />
+                    <Button
+                      variant="secondary"
+                      label={ACTS[1]}
+                    />
+                  </>
+                ),
+              },
+            ],
           },
-        }),
-      ),
-      // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
-      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+          { id: "registrierungen", title: TITLES[1], rows: [] },
+        ],
+        seats: {
+          title: TITLES[2],
+          rows: (["ansprechperson", "trainer", "stellvertretung"] as const).map((seat) => ({
+            id: seat,
+            name: { record: "Lena Ahlers" },
+            chips: [],
+            line: COPY.admin.seatLine([seat], null, null),
+          })),
+        },
+      },
     );
-    const landed = document.createElement("div");
-    landed.innerHTML = await new Response(prelude).text();
-    return { waiting, landed };
-  }
 
   /** The cards of a page, in the order their grid holds them. */
-  const cardsOf = (page: Element) => [...(page.querySelector("[class~='lg:grid-cols-2']")?.children ?? [])];
+  const cardsOf = (page: Element) => [...(page.querySelector(GRID)?.children ?? [])];
   /** A seats' card's rows: the card's body holds the list alone. */
   const seatsOf = (card: Element | undefined) => [...(card?.lastElementChild?.firstElementChild?.children ?? [])];
 
@@ -275,6 +280,33 @@ describe("open work beside its record's seats", () => {
         .map(({ decl }) => decl.value);
     expect(await lineOf(acts)).toStrictEqual(["2"]);
     expect(await lineOf(words)).toStrictEqual([]);
+  });
+});
+
+describe("a page of one card holding a list", () => {
+  const TITLE = COPY.page.spiele;
+  const drawn = (rows: Awaited<Cards["content"]>["cards"][number]["rows"]) =>
+    drawnCards(
+      { rows: 2, cards: [{ title: TITLE, count: false }] },
+      { cards: [{ id: "spiele", title: TITLE, rows, count: false, empty: { kind: "none", plural: TITLE } }] },
+    );
+
+  // The harm: in the grid a lone card stands at half the content's width from `lg`, and one that waits there and lands
+  // outside it doubles its width as the rows arrive.
+  it("waits and lands outside the grid, at the content's width", async () => {
+    const { waiting, landed } = await drawn([{ id: "1", href: "/", name: { record: "Ahorn vs. Eiche" }, line: TITLE }]);
+
+    expect(landed.querySelector("h2")?.textContent).toBe(TITLE);
+    // Counted, never the node: a failing comparison would print the whole card.
+    expect([waiting, landed].map((page) => page.querySelectorAll(GRID).length)).toStrictEqual([0, 0]);
+  });
+
+  // The harm: a list with nothing in it yet under „Nichts offen.“ tells a referee their work is done, where none is booked.
+  it("gives way to the list's own empty state", async () => {
+    const { landed } = await drawn([]);
+
+    // Its text alone: the card's title before it would say the card still stands.
+    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
   });
 });
 
