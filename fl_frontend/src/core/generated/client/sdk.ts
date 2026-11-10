@@ -783,8 +783,9 @@ export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: strin
  * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
  * (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold (`spieler_not_in_kader`); and a nominee past the shortage
- * (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save.
+ * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past
+ * the shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,
+ * and every refusal but `version_stale` is asked again outside the transaction just before answering.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellung = async (
@@ -855,10 +856,12 @@ export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: s
  * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
  * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold (`spieler_not_in_kader`); and a nominee named beside eleven regular players, or
- * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`). A pupil named
- * twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are refused as the
- * payload's own rules. A line-up being due or overdue refuses nothing.
+ * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named
+ * beside eleven regular players, or more nominees than the regular players leave open of eleven
+ * (`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters
+ * (`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.
+ * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
+ * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
  * @summary Save one club's line-up for one fixture as its seat holder
  */
 export const aufstellungenPutAufstellungSelf = async (
