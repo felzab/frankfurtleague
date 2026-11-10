@@ -10,6 +10,7 @@ from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
+from app.core.collections import Collection
 from app.core.exceptions import Twins, WriteRefusal, as_judged_on_stored_state
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
@@ -37,6 +38,44 @@ def base_tier_status_term() -> dict[str, Any]:
     """
 
     return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
+
+
+SPIELTAG_ROWS_AS = "spieltag_rows"
+
+# The matchday's `position` beside the match, and how many matchdays its phase holds in the season, in the same
+# aggregation: the landing's opening match, the club page's matches and a match's page each name its matchday by them,
+# a knockout round spread over several matchdays telling each apart by its position.
+SPIELTAG_POSITION_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SPIELTAGE,
+        "localField": "spieltag_id",
+        "foreignField": "_id",
+        "pipeline": [
+            {
+                "$lookup": {
+                    "from": Collection.SPIELTAGE,
+                    "let": {"saison_id": "$saison_id", "saison_phase": "$saison_phase"},
+                    # Both equalities, so `uniq_saison_id_saison_phase_position`'s prefix serves the count.
+                    "pipeline": [
+                        {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$eq": ["$saison_phase", "$$saison_phase"]}]}}},
+                        {"$count": "spieltage"},
+                    ],
+                    "as": "in_phase",
+                }
+            },
+            {"$project": {"_id": 0, "position": 1, "count_in_phase": {"$first": "$in_phase.spieltage"}}},
+        ],
+        "as": SPIELTAG_ROWS_AS,
+    }
+}
+
+
+def matchday_of(spiel_raw: Mapping[str, Any]) -> dict[str, int]:
+    """A match's matchday as `SPIELTAG_POSITION_LOOKUP` joined it: its `position` and its phase's count of matchdays."""
+
+    joined = spiel_raw[SPIELTAG_ROWS_AS][0]
+
+    return {"spieltag_position": joined["position"], "count_spieltage_in_phase": joined["count_in_phase"]}
 
 
 def has_started(*, start_date: str, today: str) -> bool:
