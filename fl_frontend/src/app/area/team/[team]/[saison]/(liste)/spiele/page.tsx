@@ -64,7 +64,7 @@ async function readSpiele(params: Props["params"]) {
         },
       };
     }),
-    empty: { kind: "none", plural: COPY.page.spiele } as const,
+    empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" } as const,
   };
 }
 

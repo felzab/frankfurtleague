@@ -133,7 +133,7 @@ async function readSpiele(params: Props["params"]) {
         title: TITLE,
         rows: read.spiele.map((spiel) => rowOf(spiel, saison)),
         count: false as const,
-        empty: { kind: "none" as const, plural: TITLE },
+        empty: { kind: "none" as const, plural: TITLE, glyph: "spielplan" as const },
       },
     ],
   };
