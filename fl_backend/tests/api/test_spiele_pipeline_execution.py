@@ -332,7 +332,7 @@ def a_refereed_spiel(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]
 
 
 def a_referee_row(spiel: Mapping[str, Any], party: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
-    return spielbestaetigung_document(spiel, party=party, kontakte=None, **fields)
+    return spielbestaetigung_document(spiel, party=party, **fields)
 
 
 def on_a_refereed_spiel(

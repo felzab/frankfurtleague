@@ -32,7 +32,7 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     admits_a_nominee,
     build_admission_erasure_filter,
-    compose_ablehnung_update,
+    compose_decline_update,
     compose_kader_fields,
     compose_person,
     compose_person_update,
@@ -45,8 +45,8 @@ from app.api.registrierungen.services import (
     registrierung_is_confirmed,
 )
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spieler.crud import find_full_squad_refusal, refuse_a_full_squad
-from app.api.spieler.services import build_live_squad_filter
+from app.api.spieler.crud import refuse_a_full_squad
+from app.api.spieler.services import build_live_squad_filter, find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -201,7 +201,7 @@ async def get_open_registrierungen(
 )
 async def admit(
     registrierung_id: CustomRouteObjectId,
-    aufnahme_data: Annotated[FLRegistrierungAdmitPayload, Body()],
+    admit_data: Annotated[FLRegistrierungAdmitPayload, Body()],
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -258,7 +258,7 @@ async def admit(
         address = sign_in_identifier(str(registrierung_raw["email"]))
         resolved = await persons_at(spieler_collection=spieler_collection, addresses=[address], session=session)
         address_raw = resolved[0] if resolved else None
-        refuse(find_person_refusal(registrierung_raw=registrierung_raw, address_raw=address_raw, spieler_id=aufnahme_data.spieler_id))
+        refuse(find_person_refusal(registrierung_raw=registrierung_raw, address_raw=address_raw, spieler_id=admit_data.spieler_id))
         person_raw = address_raw
         spieler_id = person_raw["_id"] if person_raw is not None else ObjectId()
 
@@ -406,7 +406,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(reason=decline_data.reason, today=today),
+            update=compose_decline_update(reason=decline_data.reason, today=today),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,

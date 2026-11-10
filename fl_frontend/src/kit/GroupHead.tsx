@@ -19,8 +19,8 @@ export function GroupHeadPlaceholder({ inset }: { inset?: "cells" | "rows" }) {
   return (
     <div className={slots.text({ class: `flex items-center ${slots.rule()}` })}>
       <PlaceholderLine
-        text=""
-        width="w-24"
+        textClass=""
+        widthClass="w-24"
       />
     </div>
   );

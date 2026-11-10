@@ -34,7 +34,7 @@ from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
 from app.api.outbox.system_router import post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
-from app.api.registrierungen.services import compose_ablehnung_update
+from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -294,7 +294,7 @@ class TestTheLinks:
         assert on_a_person(mongo_replica_set_url, body) == ("not_confirmable", None, refused)
 
     @pytest.mark.parametrize(
-        ("step", "waits_on", "bisherig", "email", "deadline", "wait_ends"),
+        ("step", "waits_on", "previous", "email", "deadline", "wait_ends"),
         [
             ("an administrator's start", "new_address", "open", MASKED_NEW_EMAIL, A_LINK_S_DEADLINE, None),
             ("previous_address", "previous_address", "release_open", NEW_EMAIL, A_LINK_S_DEADLINE, None),
@@ -306,7 +306,7 @@ class TestTheLinks:
         mongo_replica_set_url: str,
         step: str,
         waits_on: str,
-        bisherig: str,
+        previous: str,
         email: str | None,
         deadline: datetime | None,
         wait_ends: datetime | None,
@@ -331,7 +331,7 @@ class TestTheLinks:
             seen = (await view(database, client, minted.stop_token)).view
             return open.waits_on, seen.state, seen.email, open.valid_until, open.effective_from
 
-        assert on_a_person(mongo_replica_set_url, body) == (waits_on, bisherig, email, deadline, wait_ends)
+        assert on_a_person(mongo_replica_set_url, body) == (waits_on, previous, email, deadline, wait_ends)
 
     def test_the_address_on_file_s_lapsed_question_names_no_address(self, mongo_replica_set_url: str):
         """Past its deadline the page offers no confirmation the press refuses `link_expired`, as the new mailbox's link does."""
@@ -381,11 +381,11 @@ class TestTheLinks:
                 await refused_code(stop_by_link(database, client, minted.stop_token)),
             )
 
-        new, bisherig, pressed, stopped = on_a_person(mongo_replica_set_url, body)
+        new, previous, pressed, stopped = on_a_person(mongo_replica_set_url, body)
 
         # The day it ended on, which the page names beside what became of it.
         assert (new.view.side, new.view.state, new.view.kind, new.view.ended_on) == ("new", "ended", "stopped", TODAY)
-        assert (bisherig.view.side, bisherig.view.state, bisherig.view.kind, bisherig.view.ended_on) == ("previous", "ended", "stopped", TODAY)
+        assert (previous.view.side, previous.view.state, previous.view.kind, previous.view.ended_on) == ("previous", "ended", "stopped", TODAY)
         assert (pressed, stopped) == (Code.ADDRESS_CHANGE_ENDED, Code.ADDRESS_CHANGE_ENDED)
 
     def test_a_confirmed_link_answers_its_state_and_takes_no_second_press(self, mongo_replica_set_url: str):
@@ -416,13 +416,13 @@ class TestTheAddressOnFileConfirmsFirst:
             minted = await start(database, client, released=False)
             return minted, await change(database, minted.id), await view(database, client, minted.stop_token)
 
-        minted, record, bisherig = on_a_person(mongo_replica_set_url, body)
+        minted, record, previous = on_a_person(mongo_replica_set_url, body)
 
         assert (minted.token, minted.stop_token is not None) == (None, True)
         assert (record["token_hashes"], record["stop"]["token_hashes"], record["released_at"]) == ([], [hash_token(minted.stop_token)], None)
-        assert (bisherig.view.side, bisherig.view.state, bisherig.view.way) == ("previous", "release_open", "account")
+        assert (previous.view.side, previous.view.state, previous.view.way) == ("previous", "release_open", "account")
         # Its question names the address the change goes to, and no day it was answered on.
-        assert (bisherig.view.email, bisherig.view.released_on) == (NEW_EMAIL, None)
+        assert (previous.view.email, previous.view.released_on) == (NEW_EMAIL, None)
 
     def test_its_confirmation_answers_that_nothing_moved(self, mongo_replica_set_url: str):
         """The new mailbox is yet to confirm: `effective` true here has the frontend carry the sign-in account while every record stays."""
@@ -441,14 +441,14 @@ class TestTheAddressOnFileConfirmsFirst:
             declined = await answer(database, client, minted.stop_token, "declined")
             return declined, await change(database, minted.id), await view(database, client, minted.stop_token)
 
-        declined, record, bisherig = on_a_person(mongo_replica_set_url, body)
+        declined, record, previous = on_a_person(mongo_replica_set_url, body)
 
         assert (declined.answer, record["email"], record["ended"]["kind"], record["token_hashes"]) == ("declined", None, "declined", [])
         # `effective` true has the frontend carry the sign-in account to a mailbox nothing moved to.
         assert declined.effective is False
-        assert (bisherig.view.state, bisherig.view.kind, bisherig.view.ended_on) == ("ended", "declined", TODAY)
+        assert (previous.view.state, previous.view.kind, previous.view.ended_on) == ("ended", "declined", TODAY)
         # Declined before it confirmed anything: the link names no day of a confirmation.
-        assert (bisherig.view.way, bisherig.view.released_on) == ("account", None)
+        assert (previous.view.way, previous.view.released_on) == ("account", None)
 
     def test_past_its_deadline_it_confirms_nothing_and_still_declines(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1487,7 +1487,7 @@ THIRD_EMAIL = "lenore.dritte@nochwoanders.example.org"
 
 
 class TestTheMovedAddressLeavesNothingBehind:
-    def test_a_second_change_leaves_the_first_one_s_address_nowhere_past_the_loeschung(self, mongo_replica_set_url: str):
+    def test_a_second_change_leaves_the_first_one_s_address_nowhere_past_the_erasure(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await start(database, client)
             await answer(database, client, first.token)
@@ -1589,7 +1589,7 @@ async def confirmed_and_moved(database: AsyncDatabase, client: AsyncMongoClient)
     await answer(database, client, minted.token)
 
 
-class TestWhatTheEffectLeavesTheLoeschung:
+class TestWhatTheEffectLeavesTheErasure:
     """Everything of the person the replaced address keyed, within reach of an erasure of the new one."""
 
     def test_the_old_mailbox_s_registration_link_confirms_nothing_afterwards(self, mongo_replica_set_url: str):
@@ -1615,7 +1615,7 @@ class TestWhatTheEffectLeavesTheLoeschung:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             declined = registration(DECLINED_REG_OID, SECOND_TEAM_OID, confirmed=False, token="the-declined-registrations-link")
-            declined.update(compose_ablehnung_update(reason=None, today=TODAY)["$set"])
+            declined.update(compose_decline_update(reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
             return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
@@ -1641,8 +1641,8 @@ class TestWhatTheEffectLeavesTheLoeschung:
         assert on_a_person(mongo_replica_set_url, body) == [(FOREIGN_EMAIL, NEW_EMAIL), (EMAIL, NEW_EMAIL)]
 
 
-class TestTheLoeschung:
-    def test_an_geloescht_new_address_ends_another_address_s_change_and_holds_it_nowhere(self, mongo_replica_set_url: str):
+class TestTheErasure:
+    def test_an_erased_new_address_ends_another_address_s_change_and_holds_it_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             await erase(database, client, NEW_EMAIL)
@@ -1653,7 +1653,7 @@ class TestTheLoeschung:
         assert (record["ended"]["kind"], record["email"]) == ("discarded", None)
         assert held == {NEW_EMAIL: []}
 
-    def test_an_geloescht_address_on_file_ends_its_own_change_and_neither_address_is_held(self, mongo_replica_set_url: str):
+    def test_an_erased_address_on_file_ends_its_own_change_and_neither_address_is_held(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             await erase(database, client, EMAIL)

@@ -208,7 +208,6 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "from": Collection.SPIELBESTAETIGUNGEN,
                 "pipeline": [
                     {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
-                    {"$project": {"kontakte": 0}},
                     # Each party by its own record's name, as the acts' recipients below are named.
                     *build_party_name_stages(saison_id=saison_id),
                 ],

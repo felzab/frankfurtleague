@@ -133,11 +133,11 @@ export function AccountBoxPlaceholder({
   const words = (
     <>
       <PlaceholderLine
-        text="text-base font-semibold"
-        width="w-1/3"
+        textClass="text-base font-semibold"
+        widthClass="w-1/3"
       />
       <PlaceholderSentence
-        text={slots.description()}
+        textClass={slots.description()}
         words={description}
       />
     </>
@@ -168,12 +168,12 @@ export function AccountBoxPlaceholder({
                   className={row.row()}>
                   <span className={row.words()}>
                     <PlaceholderLine
-                      text="text-sm"
-                      width="w-1/2"
+                      textClass="text-sm"
+                      widthClass="w-1/2"
                     />
                     <PlaceholderLine
-                      text="text-xs"
-                      width="w-1/3"
+                      textClass="text-xs"
+                      widthClass="w-1/3"
                     />
                   </span>
                   {[0, 1].map((act) => (

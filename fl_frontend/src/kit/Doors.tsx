@@ -57,11 +57,11 @@ export function DoorsPlaceholder({ more, question }: { more: Copy; question: { t
       <div className={slots.root()}>
         <div className={slots.door()}>
           <PlaceholderLine
-            text={slots.title()}
-            width="w-1/3"
+            textClass={slots.title()}
+            widthClass="w-1/3"
           />
           <PlaceholderSentence
-            text={slots.text()}
+            textClass={slots.text()}
             words={question.text}
           />
           <div className={slots.act()}>

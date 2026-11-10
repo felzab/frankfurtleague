@@ -25,7 +25,7 @@ import type { Words } from "@/core/copy";
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/schiedsrichter/[saison]">;
 
@@ -48,9 +48,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   const { saison } = await params;
   return metadataFor(spieleOf(saison), () => pageMetadata(parent, ROUTES.schiedsrichterOverview, ROUTES.schiedsrichterOverview.path(saison)));
 }
-
-// Session 8: `ROUTES.schiedsrichterSpielbericht.path(saison, spiel)` once the match report's row stands.
-const spielberichtOf = (saison: string, spiel: string): Route => `/area/schiedsrichter/${saison}/spielbericht/${spiel}`;
 
 /** A game by its two clubs, a side the draw has not settled yet as such. */
 const nameOf = ({ team1_name: team1, team2_name: team2 }: FLSchiedsrichterSpiel) =>
@@ -108,7 +105,7 @@ function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & 
   const id = spiel.spielbestaetigung_id;
   return {
     id: spiel.spiel_id,
-    href: spielberichtOf(saison, spiel.spiel_id),
+    href: ROUTES.schiedsrichterSpielbericht.path(saison, spiel.spiel_id),
     name,
     ...(chip === undefined ? {} : { chip }),
     line: SERVER_COPY.area.line([

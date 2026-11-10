@@ -87,12 +87,12 @@ class TestThePairedSeat:
     def test_no_pairing_where_the_form_named_none(self):
         assert paired_seat(kontakte=kontakte(), confirmations=CONFIRMATIONS, seat="trainer") is None
 
-    @pytest.mark.parametrize("zugleich", ["ansprechperson", "stellvertretung"])
-    def test_the_pairing_reads_in_both_directions(self, zugleich: str):
-        block = kontakte(trainer_is_also=zugleich)
+    @pytest.mark.parametrize("also", ["ansprechperson", "stellvertretung"])
+    def test_the_pairing_reads_in_both_directions(self, also: str):
+        block = kontakte(trainer_is_also=also)
 
-        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="trainer") == zugleich
-        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat=zugleich) == "trainer"
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="trainer") == also
+        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat=also) == "trainer"
 
     def test_the_third_seat_is_nobodys_pair(self):
         block = kontakte(trainer_is_also="ansprechperson")

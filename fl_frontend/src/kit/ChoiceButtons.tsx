@@ -214,8 +214,8 @@ export function ToggleBoxesPlaceholder({ count }: { count: number }) {
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
-        text={fieldLabel()}
-        width="w-24"
+        textClass={fieldLabel()}
+        widthClass="w-24"
       />
       <span className={choiceGroup({ kind: "boxes" })}>
         {Array.from({ length: count }, (_, index) => (
@@ -223,8 +223,8 @@ export function ToggleBoxesPlaceholder({ count }: { count: number }) {
             key={index}
             className={choiceButton({ kind: "boxes" })}>
             <PlaceholderLine
-              text=""
-              width="w-5"
+              textClass=""
+              widthClass="w-5"
             />
           </span>
         ))}

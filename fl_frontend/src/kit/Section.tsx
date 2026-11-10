@@ -83,8 +83,8 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
     return (
       <PlaceholderLine
         // The subgroup's space above its name, and under it the grid's 8-px gap in place of the name's own.
-        text={subgroup().name({ class: "mb-0 not-first:mt-2" })}
-        width="w-24"
+        textClass={subgroup().name({ class: "mb-0 not-first:mt-2" })}
+        widthClass="w-24"
       />
     );
   if ("titled" in row)
@@ -133,12 +133,12 @@ export function SectionPlaceholder(
     <div className={cardSurface({ class: props.danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
         <PlaceholderLine
-          text="text-base font-semibold"
-          width="w-1/3"
+          textClass="text-base font-semibold"
+          widthClass="w-1/3"
         />
         {props.note !== undefined && (
           <PlaceholderSentence
-            text="text-sm"
+            textClass="text-sm"
             words={props.note}
           />
         )}
@@ -162,11 +162,11 @@ export function SectionPlaceholder(
               className={dangerRow()}>
               <div className="grid min-w-0 flex-1">
                 <PlaceholderSentence
-                  text="text-sm font-semibold"
+                  textClass="text-sm font-semibold"
                   words={name}
                 />
                 <PlaceholderSentence
-                  text={statusLine({ placement: "column", tone: "resting" })}
+                  textClass={statusLine({ placement: "column", tone: "resting" })}
                   words={consequence}
                 />
               </div>

@@ -162,7 +162,7 @@ export function QuestionForm<Input>({
 /** A `QuestionForm` while what it needs is read: the placeholders of its fields, then its act's. */
 export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; children: ReactNode }) {
   return (
-    <Waiting layout={BOX_CLASSES}>
+    <Waiting layoutClass={BOX_CLASSES}>
       {children}
       <StatusActRow>
         <span className={statusLine({ placement: "row", tone: "none" })} />

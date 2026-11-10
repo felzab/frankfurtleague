@@ -238,7 +238,7 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, reason: st
 
     return await decline_bewerbung(
         bewerbung_id=bewerbung_id,
-        ablehnung_data=FLDeclineBewerbungPayload(reason=reason, version=version),
+        decline_data=FLDeclineBewerbungPayload(reason=reason, version=version),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],
@@ -760,11 +760,11 @@ class TestWhatTheDecisionRecords:
 
             return response.status_code, stored["decision"]
 
-        status_code, entscheidung = on_a_league(mongo_replica_set_url, body)
+        status_code, decision = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served acceptance did not succeed, so what it stored proves nothing"
         # The injected clock reached it too, so the date is the request's rather than the wall's.
-        assert (entscheidung["made_at"], entscheidung["reason"]) == (TODAY, None)
+        assert (decision["made_at"], decision["reason"]) == (TODAY, None)
 
     def test_the_log_row_for_that_write_names_the_administrator(self, mongo_replica_set_url: str):
         """Catches an actor resolved before the router-level binder, which would file every decision under SYSTEM."""
@@ -791,10 +791,10 @@ class TestWhatTheDecisionRecords:
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
 
-        status_code, entscheidung = on_a_league(mongo_replica_set_url, body)
+        status_code, decision = on_a_league(mongo_replica_set_url, body)
 
         assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
-        assert entscheidung["made_at"] == TODAY
+        assert decision["made_at"] == TODAY
 
 
 # The two fields a decline is allowed to move. Everything else on the document is the submission.
@@ -839,10 +839,10 @@ class TestADeclineTouchesNothingElse:
 
             return stored["status"], stored["decision"], stored["team_id"], await junction_rows(database)
 
-        status, entscheidung, team_id, rows = on_a_league(mongo_replica_set_url, body)
+        status, decision, team_id, rows = on_a_league(mongo_replica_set_url, body)
 
         assert status == "declined"
-        assert entscheidung == {"made_at": TODAY, "reason": DECISION_REASON}
+        assert decision == {"made_at": TODAY, "reason": DECISION_REASON}
         # Left as the applicant picked it: a decline creates no reference and clears none.
         assert (team_id, rows) == (EXISTING_OID, [])
 
@@ -965,7 +965,7 @@ class TestTwoDeclinesAtOnce:
             with pytest.raises(APIError) as conflict:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
-                    ablehnung_data=FLDeclineBewerbungPayload(reason=OTHER_DECISION_REASON, version=0),
+                    decline_data=FLDeclineBewerbungPayload(reason=OTHER_DECISION_REASON, version=0),
                     bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
                     outbox_collection=database[Collection.OUTBOX],

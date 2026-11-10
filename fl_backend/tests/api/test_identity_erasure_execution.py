@@ -29,7 +29,7 @@ from app.api.address_change.services import masked_address
 from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
-from app.api.registrierungen.services import compose_ablehnung_update
+from app.api.registrierungen.services import compose_decline_update
 from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
@@ -76,7 +76,7 @@ from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_funktionen_loeschung_test")
+DATABASE_NAME = worker_database("fl_funktionen_erasure_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
@@ -250,7 +250,7 @@ def a_confirmation(row_id: ObjectId, party: dict[str, Any], *, spiel_id: ObjectI
         team2={"team_id": OTHER_TEAM_OID},
     )
 
-    return spielbestaetigung_document(spiel, party=party, _id=row_id, deadline="2126-03-08", asked_at="2126-03-01", kontakte=None)
+    return spielbestaetigung_document(spiel, party=party, _id=row_id, deadline="2126-03-08", asked_at="2126-03-01")
 
 
 def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
@@ -275,10 +275,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
                 **a_confirmation(OTHER_CONFIRMATION_OID, a_referee(OTHER_REFEREE_OID), spiel_id=OTHER_SPIEL_OID),
                 "answer": declined(OTHER_REASON),
             },
-            {
-                **a_confirmation(TEAM_CONFIRMATION_OID, {"kind": "team", "team_id": HOME_TEAM_OID}, spiel_id=THEIR_SPIEL_OID),
-                "kontakte": {"trainer": None, "ansprechperson": {"token_hashes": [hash_token("their-seats-link")]}, "stellvertretung": None},
-            },
+            a_confirmation(TEAM_CONFIRMATION_OID, {"kind": "team", "team_id": HOME_TEAM_OID}, spiel_id=THEIR_SPIEL_OID),
         ]
     )
 
@@ -375,7 +372,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             a_registration(
                 DECLINED_OID,
                 IDENTIFIER,
-                **compose_ablehnung_update(reason=None, today="2126-03-28")["$set"],
+                **compose_decline_update(reason=None, today="2126-03-28")["$set"],
             ),
         ]
     )
@@ -758,7 +755,7 @@ class TestWhatStandsBesideThem:
 
 
 class TestTheSentinels:
-    def test_the_first_loeschung_writes_a_sentinel_naming_nobody_and_recording_no_consent(self, mongo_replica_set_url: str):
+    def test_the_first_erasure_writes_a_sentinel_naming_nobody_and_recording_no_consent(self, mongo_replica_set_url: str):
         """A name here is published on every erased pupil's surviving entry; a record here is counted as a consent."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -772,7 +769,7 @@ class TestTheSentinels:
         assert (sentinel["first_name"], sentinel["last_name"], sentinel["einwilligung"]) == (None, None, None)
 
 
-class TestTheSentinelIsNobodyToLoeschen:
+class TestTheSentinelIsNobodyToErase:
     def test_the_pupil_step_handed_the_sentinel_removes_nothing(self, mongo_replica_set_url: str):
         """Catches the step keying its removals on the bare id: the sentinel would go, and every reference repointed at it dangle."""
 
@@ -860,7 +857,7 @@ class TestTheMail:
 
 class TestTheJournal:
     @pytest.mark.parametrize("route", ["the person's own", "an administrator's"])
-    def test_one_line_per_loeschung_names_its_records_by_id_and_no_address(
+    def test_one_line_per_erasure_names_its_records_by_id_and_no_address(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, route: str
     ):
         """Catches the line built from the wrong rows, or holding what it outlives: it stays in the stream after the person has gone.
@@ -1098,7 +1095,7 @@ class TestEachStepWritesWhatItDeclares:
         # The whole erasure ends every change naming the address first, leaving the emptied change's step nothing: its own case.
         assert writes == {step.run.__name__: {str(collection) for collection in step.reaches} for step in ERASURE_STEPS if step != EMPTIED}
 
-    def test_a_pupils_loeschung_ends_the_change_of_an_address_it_empties_writing_what_that_step_declares(self, mongo_replica_set_url: str):
+    def test_a_pupils_erasure_ends_the_change_of_an_address_it_empties_writing_what_that_step_declares(self, mongo_replica_set_url: str):
         """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move."""
 
         writes: dict[str, set[str]] = {}
@@ -1115,7 +1112,7 @@ class TestEachStepWritesWhatItDeclares:
         # Its address on file goes too: no erasure of the address follows a pupil's to take it.
         assert (change["ended"]["kind"], change["address"], change["email"]) == ("discarded", None, None)
 
-    def test_a_pupils_loeschung_leaves_the_change_of_an_address_still_holding_records(self, mongo_replica_set_url: str):
+    def test_a_pupils_erasure_leaves_the_change_of_an_address_still_holding_records(self, mongo_replica_set_url: str):
         """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1170,7 +1167,7 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
     )
 
 
-class TestAnAdmissionInsideTheLoeschung:
+class TestAnAdmissionInsideTheErasure:
     """The subject is read inside the transaction's callback, so the retry a conflict forces re-reads what the rival wrote."""
 
     def test_the_person_the_admission_made_does_not_survive_the_retry(self, mongo_replica_set_url: str):
@@ -1182,7 +1179,7 @@ class TestAnAdmissionInsideTheLoeschung:
             async def admission() -> None:
                 await admit(
                     registrierung_id=PENDING_OID,
-                    aufnahme_data=FLRegistrierungAdmitPayload(spieler_id=None),
+                    admit_data=FLRegistrierungAdmitPayload(spieler_id=None),
                     identifier=SEAT_HOLDER,
                     registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],

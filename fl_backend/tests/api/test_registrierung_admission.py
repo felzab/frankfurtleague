@@ -232,7 +232,7 @@ async def admit(
 
     return await person_router.admit(
         registrierung_id=registrierung_id,
-        aufnahme_data=FLRegistrierungAdmitPayload(spieler_id=spieler_id),
+        admit_data=FLRegistrierungAdmitPayload(spieler_id=spieler_id),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],

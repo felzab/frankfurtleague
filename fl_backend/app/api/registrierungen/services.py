@@ -125,7 +125,7 @@ def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapp
 def find_kader_refusal(*, free: bool) -> WriteRefusal | None:
     """`registrierung_kader_full`: the squad has no room for this entry, the answer the link's `kader_free` gives.
 
-    `free` is `app/api/spieler/crud.py :: find_full_squad_refusal`'s verdict, the cap's one copy.
+    `free` is `app/api/spieler/services.py :: find_full_squad_refusal`'s verdict, the cap's one copy.
     """
 
     if free:
@@ -359,7 +359,7 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     )
 
 
-def find_alter_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing."""
 
     # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other; the ceiling is
@@ -689,5 +689,5 @@ def compose_kader_fields(*, registrierung_raw: Mapping[str, Any], team_id: Any, 
     }
 
 
-def compose_ablehnung_update(*, reason: Any, today: str) -> Mapping[str, Any]:
+def compose_decline_update(*, reason: Any, today: str) -> Mapping[str, Any]:
     return {"$set": {"status": DECLINED, "decision": {"made_at": today, "reason": reason}}}

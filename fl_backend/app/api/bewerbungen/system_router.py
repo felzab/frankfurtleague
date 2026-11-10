@@ -11,14 +11,14 @@ from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     acceptance_erasure_is_due,
     build_deletion_filter,
-    build_erinnerung_filter,
     build_lapsed_seats_filter,
+    build_reminder_filter,
     closed_chases,
     compose_chase_update,
-    compose_erinnerung_update,
     compose_lapsed_seats_update,
+    compose_reminder_update,
     days_after,
-    decline_loeschung_is_due,
+    decline_erasure_is_due,
     deletion_is_due,
     lapsed_seats,
     next_saison_id,
@@ -29,7 +29,7 @@ from app.api.bewerbungen.services import (
     schule_name,
     season_after_has_ended,
     season_has_ended,
-    undecided_loeschung_is_due,
+    undecided_erasure_is_due,
     unreachable_seats,
 )
 from app.api.kontakte.crud import remove_the_seats_reasons
@@ -182,7 +182,7 @@ async def sweep_saison(
 
         return result.deleted_count
 
-    async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+    async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The season's own end, undecided having served nothing: owe the notice and erase. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -200,7 +200,7 @@ async def sweep_saison(
         owed = batch.judged(
             [
                 row
-                for row, due in batch.judged(rows, lambda row: undecided_loeschung_is_due(bewerbung_raw=row, saison_status=saison_status))
+                for row, due in batch.judged(rows, lambda row: undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status))
                 if due
             ],
             lambda row: owed_deletion_notices(bewerbung_raw=row, saison_id=saison_id),
@@ -229,7 +229,7 @@ async def sweep_saison(
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
+                db_filter=batch.within(build_reminder_filter(saison_id=saison_id, today=today)),
                 limit=SWEEP_PAGE + 1,
                 # Oldest first, as near the fourteen-day clock's order as a key on the record comes, each seat keeping
                 # its own day; `_id` makes the page the same page whichever plan the server picks.
@@ -290,7 +290,7 @@ async def sweep_saison(
             await patch_past_the_version_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
-                update=compose_erinnerung_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
+                update=compose_reminder_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
                 session=session,
             )
         # One write a seat, however many rows, a write a row being a page's worth of commands.
@@ -312,7 +312,7 @@ async def sweep_saison(
 
         return len(taken)
 
-    async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+    async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The fourteen-day clock: owe the notice and erase in one transaction. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -348,7 +348,7 @@ async def sweep_saison(
 
         return len(rows), await erase_page(ids, session)
 
-    async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+    async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The decline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -368,7 +368,7 @@ async def sweep_saison(
                 session=session,
             )
         )
-        taken = batch.took([row for row in rows if decline_loeschung_is_due(bewerbung_raw=row, today=today)])
+        taken = batch.took([row for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)])
         if not taken:
             refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0
@@ -522,22 +522,22 @@ async def sweep_saison(
         await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
-    ohne_entscheidung, failed = 0, 0
+    undecided, failed = 0, 0
     # AHEAD of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, passed = await drain(
+        undecided, passed = await drain(
             db=db,
-            page_of=loeschen_the_undecided,
+            page_of=erase_the_undecided,
             page=SWEEP_PAGE,
             what="Application",
             clock="season's end",
         )
         failed += len(passed)
 
-    abgelehnte, passed = await drain(
+    declined, passed = await drain(
         db=db,
-        page_of=loeschen_declined,
+        page_of=erase_declined,
         page=SWEEP_PAGE,
         what="Application",
         clock="decline",
@@ -607,7 +607,7 @@ async def sweep_saison(
     # chase, and a season that has ended took its undecided rows already.
     erased_count, passed = await drain(
         db=db,
-        page_of=loeschen_the_unconfirmed,
+        page_of=erase_the_unconfirmed,
         page=SWEEP_PAGE,
         what="Application",
         clock="fourteen-day",
@@ -629,9 +629,9 @@ async def sweep_saison(
         saison_id=saison_id,
         reminded=sum(reminded),
         erased=erased_count,
-        erased_declined=abgelehnte,
+        erased_declined=declined,
         erased_accepted=accepted,
-        erased_without_decision=ohne_entscheidung,
+        erased_without_decision=undecided,
         kontakt_blocks_emptied=emptied,
         kontakt_seats_emptied=seats_emptied,
         failed=failed,

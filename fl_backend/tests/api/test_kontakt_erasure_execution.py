@@ -156,9 +156,9 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
     return {
         row_id: {
             **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_ROLLEN, roles, strict=True)},
-            "trainer_is_also": zugleich,
+            "trainer_is_also": also,
         }
-        for row_id, (roles, zugleich) in SEEDED_ROLES.items()
+        for row_id, (roles, also) in SEEDED_ROLES.items()
     }
 
 

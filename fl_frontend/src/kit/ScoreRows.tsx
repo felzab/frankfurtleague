@@ -215,7 +215,7 @@ export function ScoreRowsPlaceholder() {
     <div className={slots.root()}>
       <div className={slots.row({ place: "head" })}>
         <PlaceholderLine
-          text={slots.head({ column: "tore" })}
+          textClass={slots.head({ column: "tore" })}
           words={COPY.shared.tore}
         />
       </div>
@@ -226,8 +226,8 @@ export function ScoreRowsPlaceholder() {
           <span className={slots.side()}>
             <span className={placeholderBar("h-6 w-10")} />
             <PlaceholderLine
-              text={slots.name()}
-              width="w-24"
+              textClass={slots.name()}
+              widthClass="w-24"
             />
           </span>
           <span

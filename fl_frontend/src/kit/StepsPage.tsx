@@ -21,7 +21,7 @@ export function StepsPage({ title, wait, steps }: { title: PageTitle; wait: Reac
       scope="area"
       title={title}>
       <div className={formColumn()}>
-        <PageWait fallback={<Waiting layout="grid gap-6">{wait}</Waiting>}>
+        <PageWait fallback={<Waiting layoutClass="grid gap-6">{wait}</Waiting>}>
           <StepsOnceRead steps={steps} />
         </PageWait>
       </div>

@@ -116,14 +116,14 @@ export function AnswerRowsPlaceholder({ rows }: { rows: number }) {
           <span className={s.head()}>
             <span className={placeholderBar("h-6 w-10")} />
             <PlaceholderLine
-              text={s.name()}
-              width="w-24"
+              textClass={s.name()}
+              widthClass="w-24"
             />
             <span className={placeholderBar("h-5 w-16")} />
           </span>
           <PlaceholderLine
-            text={s.line()}
-            width="w-1/3"
+            textClass={s.line()}
+            widthClass="w-1/3"
           />
         </div>
       ))}

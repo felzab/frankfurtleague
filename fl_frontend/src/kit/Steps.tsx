@@ -63,9 +63,9 @@ async function Band({ band }: { band: Promise<StepsBand> }) {
 function BandPlaceholder({ sentence }: { sentence: Copy }) {
   const slots = steps();
   return (
-    <Placeholder layout={slots.band()}>
+    <Placeholder layoutClass={slots.band()}>
       <PlaceholderSentence
-        text={slots.sentence()}
+        textClass={slots.sentence()}
         words={sentence}
       />
       <span className={buttonPlaceholder()}>{COPY.page.about}</span>

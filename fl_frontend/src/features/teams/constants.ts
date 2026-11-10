@@ -50,9 +50,9 @@ export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
  * are read from here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [
-  { value: "trainer", label: "Trainer", langform: KONTAKT_ROLLE_LONG_FORM.trainer },
-  { value: "ansprechperson", label: "Ansprechperson", langform: KONTAKT_ROLLE_LONG_FORM.ansprechperson },
-  { value: "stellvertretung", label: "Stellvertretung", langform: KONTAKT_ROLLE_LONG_FORM.stellvertretung },
+  { value: "trainer", label: "Trainer", longForm: KONTAKT_ROLLE_LONG_FORM.trainer },
+  { value: "ansprechperson", label: "Ansprechperson", longForm: KONTAKT_ROLLE_LONG_FORM.ansprechperson },
+  { value: "stellvertretung", label: "Stellvertretung", longForm: KONTAKT_ROLLE_LONG_FORM.stellvertretung },
 ] as const;
 
 /**

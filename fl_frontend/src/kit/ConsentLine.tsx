@@ -12,7 +12,7 @@ const consentLine = tv({ base: "text-sm text-fg-muted" });
 export function ConsentLinePlaceholder({ line }: { line: Line }) {
   return (
     <PlaceholderSentence
-      text={consentLine()}
+      textClass={consentLine()}
       words={line.map((part) => (typeof part === "string" ? part : part.label)).join("")}
     />
   );

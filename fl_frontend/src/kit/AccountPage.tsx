@@ -38,7 +38,7 @@ export function AccountPage({
   waitOnceRead?: Promise<ReactNode>;
   children: ReactNode;
 }) {
-  const waiting = (boxes: ReactNode) => <Waiting layout="grid gap-6">{boxes}</Waiting>;
+  const waiting = (boxes: ReactNode) => <Waiting layoutClass="grid gap-6">{boxes}</Waiting>;
   return (
     <RailPage
       scope="area"
@@ -97,8 +97,8 @@ export function AccountListPlaceholder() {
           className={slots.row()}>
           <span className={placeholderBar("size-4.5")} />
           <PlaceholderLine
-            text={slots.words()}
-            width="w-1/3"
+            textClass={slots.words()}
+            widthClass="w-1/3"
           />
           <RowEnd />
         </span>

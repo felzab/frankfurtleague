@@ -330,7 +330,7 @@ def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> Wr
     )
 
 
-def find_alter_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing.
 
     The bounds go with the refusal, so the field's message names the range the write judges.

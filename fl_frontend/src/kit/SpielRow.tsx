@@ -273,8 +273,8 @@ function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
     <span className={row({ mirrored }).side()}>
       {!mirrored && plaque}
       <PlaceholderLine
-        text="text-sm"
-        width="w-24"
+        textClass="text-sm"
+        widthClass="w-24"
       />
       {mirrored && plaque}
     </span>

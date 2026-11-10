@@ -39,7 +39,7 @@ export function TabsPlaceholder({ count, children }: { count: number; children: 
             key={index}
             className={tab()}>
             <PlaceholderLine
-              text="text-sm"
+              textClass="text-sm"
               words={COPY.shared.spieltag(index + 1)}
             />
           </span>

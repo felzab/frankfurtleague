@@ -107,16 +107,16 @@ export function Prose({ blocks }: { blocks: ReadonlyArray<ProseBlock> }) {
 export function ProseLinksPlaceholder({ heading, links }: { heading: string; links: readonly Copy[] }) {
   const slots = prose();
   return (
-    <Placeholder layout={slots.root()}>
+    <Placeholder layoutClass={slots.root()}>
       <PlaceholderLine
-        text={slots.heading()}
+        textClass={slots.heading()}
         words={heading}
       />
       <div className={slots.links()}>
         {links.map((link) => (
           <PlaceholderLine
             key={link}
-            text="text-base"
+            textClass="text-base"
             words={link}
           />
         ))}

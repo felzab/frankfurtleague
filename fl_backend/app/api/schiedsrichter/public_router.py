@@ -18,8 +18,8 @@ from app.api.schiedsrichter.services import (
     build_token_filter,
     compose_confirmation_update,
     compose_decline_update,
+    find_age_refusal,
     find_already_answered_refusal,
-    find_alter_refusal,
     find_expired_token_refusal,
     find_media_refusal,
     find_unknown_token_refusal,
@@ -150,7 +150,7 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
         refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save

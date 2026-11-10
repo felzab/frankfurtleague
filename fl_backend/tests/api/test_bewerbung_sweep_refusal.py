@@ -6,7 +6,7 @@ import pytest
 
 from app.api.bewerbungen.services import (
     ansprechperson_mailbox,
-    decline_loeschung_is_due,
+    decline_erasure_is_due,
     deletion_day,
     deletion_is_due,
     first_name_of,
@@ -376,14 +376,14 @@ class TestTheDeclineClock:
     def test_each_boundary_falls_fourteen_days_after_the_decision(self, made_at: str, due: bool):
         declined = application(status="declined", decision={"made_at": made_at, "reason": "kein Platz"})
 
-        assert decline_loeschung_is_due(bewerbung_raw=declined, today=TODAY) == due
+        assert decline_erasure_is_due(bewerbung_raw=declined, today=TODAY) == due
 
     @pytest.mark.parametrize("status", ["submitted", "accepted"])
     def test_only_a_declined_application_is_on_this_clock(self, status: str):
-        assert not decline_loeschung_is_due(bewerbung_raw=application(status=status, decision={"made_at": "2020-01-01"}), today=TODAY)
+        assert not decline_erasure_is_due(bewerbung_raw=application(status=status, decision={"made_at": "2020-01-01"}), today=TODAY)
 
     def test_a_decision_with_no_day_is_never_due(self):
-        assert not decline_loeschung_is_due(bewerbung_raw=application(status="declined", decision=None), today=TODAY)
+        assert not decline_erasure_is_due(bewerbung_raw=application(status="declined", decision=None), today=TODAY)
 
 
 class TestWhatTheNoticesNeed:

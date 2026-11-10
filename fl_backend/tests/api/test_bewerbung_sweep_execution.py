@@ -637,7 +637,7 @@ async def declined_on(database: AsyncDatabase, version: int) -> Mapping[str, Any
 
     await decline_bewerbung(
         bewerbung_id=REMIND_OID,
-        ablehnung_data=FLDeclineBewerbungPayload(reason="kein Platz", version=version),
+        decline_data=FLDeclineBewerbungPayload(reason="kein Platz", version=version),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
         outbox_collection=database[Collection.OUTBOX],

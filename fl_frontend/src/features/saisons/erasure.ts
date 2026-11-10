@@ -17,7 +17,7 @@ export type ErasureSweep = (ErasureSum & { abgebrochen: false }) | (Omit<Erasure
  * what the calls before a failure erased.
  */
 export async function sweepErasure(run: (after: string | null) => Promise<FLErasureSweepResponse>): Promise<ErasureSweep> {
-  let summe: ErasureSum = {
+  let total: ErasureSum = {
     completed_saison_id: null,
     spieler: 0,
     saison_spieler: 0,
@@ -31,13 +31,13 @@ export async function sweepErasure(run: (after: string | null) => Promise<FLEras
     let after: string | null = null;
     do {
       const response = await run(after);
-      summe = {
+      total = {
         completed_saison_id: response.completed_saison_id,
-        spieler: summe.spieler + response.spieler,
-        saison_spieler: summe.saison_spieler + response.saison_spieler,
-        registrierungen: summe.registrierungen + response.registrierungen,
-        skipped: summe.skipped + response.skipped,
-        failed: summe.failed + response.failed,
+        spieler: total.spieler + response.spieler,
+        saison_spieler: total.saison_spieler + response.saison_spieler,
+        registrierungen: total.registrierungen + response.registrierungen,
+        skipped: total.skipped + response.skipped,
+        failed: total.failed + response.failed,
         remaining: response.remaining,
       };
 
@@ -47,14 +47,14 @@ export async function sweepErasure(run: (after: string | null) => Promise<FLEras
         throw new ContractBreakError("The deletion answered a place not past the one it was sent.");
       }
 
-      // The pass's one end: `verbleibend` counts a failing person, who stays due, and a call erasing nobody may stand
+      // The pass's one end: `remaining` counts a failing person, who stays due, and a call erasing nobody may stand
       // in front of a due person the next call reaches.
       after = response.after;
     } while (after !== null);
   } catch (error) {
-    const { remaining: _unknown, ...previous } = summe;
+    const { remaining: _unknown, ...previous } = total;
     return { ...previous, abgebrochen: true, error };
   }
 
-  return { ...summe, abgebrochen: false };
+  return { ...total, abgebrochen: false };
 }

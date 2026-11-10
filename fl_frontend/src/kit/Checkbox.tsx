@@ -25,14 +25,14 @@ export function CheckboxPlaceholder({ label, description }: { label: string; des
       <span className={toggleRow({ in: "field" })}>
         <span className={placeholderBar(toggleBox({ shape: "square", class: "border-transparent" }))} />
         <PlaceholderSentence
-          text=""
+          textClass=""
           words={label}
         />
       </span>
       {description !== undefined && (
         <div className={toggleLine()}>
           <PlaceholderSentence
-            text={messageLine()}
+            textClass={messageLine()}
             words={description}
           />
         </div>

@@ -28,8 +28,8 @@ from app.api.registrierungen.services import (
     compose_confirmation,
     compose_confirmation_update,
     compose_registrierung,
+    find_age_refusal,
     find_already_confirmed_refusal,
-    find_alter_refusal,
     find_expired_token_refusal,
     find_kader_refusal,
     find_media_refusal,
@@ -42,8 +42,7 @@ from app.api.registrierungen.services import (
     state_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
-from app.api.spieler.crud import find_full_squad_refusal
-from app.api.spieler.services import build_live_squad_filter
+from app.api.spieler.services import build_live_squad_filter, find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -427,7 +426,7 @@ async def post_confirmation(
         departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
-        refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
         refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
         await patch_one_in_db(

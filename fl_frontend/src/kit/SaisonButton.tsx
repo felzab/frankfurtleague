@@ -65,7 +65,7 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
   const { place, root, lines, arrow, glyph } = trigger({ placement });
   if (!holds) return null;
   return (
-    <Placeholder layout={place()}>
+    <Placeholder layoutClass={place()}>
       <span className={root()}>
         {placement === "rail" ? (
           <>
@@ -74,18 +74,18 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
             </span>
             <span className={lines({ class: "w-full" })}>
               <PlaceholderLine
-                text="text-sm"
+                textClass="text-sm"
                 words={SAISON_WORDS}
               />
               <PlaceholderLine
-                text="text-xs"
-                width="w-3/4"
+                textClass="text-xs"
+                widthClass="w-3/4"
               />
             </span>
           </>
         ) : (
           <PlaceholderLine
-            text="text-sm"
+            textClass="text-sm"
             words={SAISON_WORDS}
           />
         )}

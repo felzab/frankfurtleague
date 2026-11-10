@@ -112,19 +112,19 @@ export function FactsPlaceholder({
             key={index}
             className={row()}>
             <PlaceholderLine
-              text={term()}
-              width="w-1/4"
+              textClass={term()}
+              widthClass="w-1/4"
             />
             {index === wraps?.pair ? (
               <PlaceholderSentence
-                text={detail()}
+                textClass={detail()}
                 words={wraps.words}
                 lines={2}
               />
             ) : (
               <PlaceholderLine
-                text={detail()}
-                width="w-1/2"
+                textClass={detail()}
+                widthClass="w-1/2"
               />
             )}
           </div>

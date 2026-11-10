@@ -40,7 +40,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_loeschung_isolation_test")
+DATABASE_NAME = worker_database("fl_erasure_isolation_test")
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
@@ -213,7 +213,7 @@ KEEPING_WRITES: dict[str, Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[
 }
 
 
-class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
+class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
     """The row is what the erasure writes, so a write changing it meets the erasure there and one of the two runs again.
 
     A write leaving the row unchanged writes nothing the erasure writes.

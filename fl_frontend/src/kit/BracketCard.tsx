@@ -101,8 +101,8 @@ function LinePlaceholder() {
       <span className={style.name({ class: "flex-1" })}>
         <span className={placeholderBar("h-6 w-10")} />
         <PlaceholderLine
-          text="flex-1 text-sm max-lg:hidden"
-          width="w-3/4"
+          textClass="flex-1 text-sm max-lg:hidden"
+          widthClass="w-3/4"
         />
       </span>
       <span className={placeholderBar("h-3 w-3")} />
@@ -120,8 +120,8 @@ export function BracketCardPlaceholder() {
         <LinePlaceholder />
         <span className={style.when()}>
           <PlaceholderLine
-            text="text-xs"
-            width="w-1/2"
+            textClass="text-xs"
+            widthClass="w-1/2"
           />
         </span>
       </span>

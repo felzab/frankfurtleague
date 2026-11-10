@@ -251,8 +251,8 @@ class TestTheLogOfABan:
         assert BANNED_RETYPED not in str(rows)
 
 
-class TestAnLoeschungLeavesTheListStanding:
-    def test_loeschen_a_pupil_moves_no_row_of_the_ban_list(self, mongo_replica_set_url: str):
+class TestAnErasureLeavesTheListStanding:
+    def test_erase_a_pupil_moves_no_row_of_the_ban_list(self, mongo_replica_set_url: str):
         """The deliberate exception: the one record a person's own erasure does not reach.
 
         Driven through the real erasure rather than asserted about it, so a collection added to that
@@ -272,10 +272,10 @@ class TestAnLoeschungLeavesTheListStanding:
 
             return gone.spieler, before, await rows_of(database)
 
-        geloescht_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
+        erased_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
 
         # The premise: an erasure reaching nobody leaves the list standing too.
-        assert geloescht_pupils == 1
+        assert erased_pupils == 1
         # Non-empty first: two empty lists compare equal, and an erasure that emptied the collection
         # would then read as one that left it alone.
         assert before

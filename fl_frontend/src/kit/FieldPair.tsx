@@ -47,8 +47,8 @@ export function FieldPlaceholder({
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
-        text={fieldLabel({ class: "self-stretch" })}
-        width="w-full max-w-24"
+        textClass={fieldLabel({ class: "self-stretch" })}
+        widthClass="w-full max-w-24"
       />
       {/* The frame's own text size and face, which a short width's `ch` is counted in. */}
       <span
@@ -58,7 +58,7 @@ export function FieldPlaceholder({
       />
       {description !== undefined ? (
         <PlaceholderSentence
-          text={messageLine()}
+          textClass={messageLine()}
           words={description}
         />
       ) : (
@@ -108,7 +108,8 @@ export function FieldPair({
   // fields may each shrink instead, and on a phone each grows from its width to fill the row; the row breaks
   // on those starting widths, so the second drops under the first only where the row is narrower than both.
   // A field not shown, such as a price revealed only once its venue is chosen, leaves no wrapper and no gap.
-  const keeps = short === "both" ? "min-w-0 empty:hidden max-lg:flex-auto" : paired ? "shrink-0 empty:hidden" : "empty:hidden lg:shrink-0";
+  const KEEPS_CLASSES =
+    short === "both" ? "min-w-0 empty:hidden max-lg:flex-auto" : paired ? "shrink-0 empty:hidden" : "empty:hidden lg:shrink-0";
   // The long side grows as far as its field does, the form's cap from `lg`, so its short partner stands beside it
   // rather than at the row's far end.
   const grows = columnCap({ class: paired ? "min-w-0 flex-1 empty:hidden" : "min-w-0 empty:hidden lg:flex-1" });
@@ -117,10 +118,10 @@ export function FieldPair({
     <div
       data-pair={paired || undefined}
       className={`group/pair ${paired ? "flex w-full flex-wrap items-start gap-x-3 gap-y-2" : "grid w-full gap-2 lg:flex lg:items-start lg:gap-3"}`}>
-      <div className={reach({ side: "first", class: short === "second" ? grows : keeps })}>{first}</div>
+      <div className={reach({ side: "first", class: short === "second" ? grows : KEEPS_CLASSES })}>{first}</div>
       <div
         data-pair-side="second"
-        className={reach({ side: short === "both" ? "second" : "none", class: short === "first" ? grows : keeps })}>
+        className={reach({ side: short === "both" ? "second" : "none", class: short === "first" ? grows : KEEPS_CLASSES })}>
         {second}
       </div>
     </div>

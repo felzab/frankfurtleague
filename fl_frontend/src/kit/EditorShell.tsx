@@ -46,18 +46,18 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
           scope="area"
           title={null}
           bar={
-            <Placeholder layout={editorBarLook().bar()}>
+            <Placeholder layoutClass={editorBarLook().bar()}>
               <span className={editorBarLook().row()}>
                 <span className="min-w-0 flex-1" />
                 <span className={buttonPlaceholder()}>{COPY.shared.verb.save}</span>
               </span>
             </Placeholder>
           }>
-          <Waiting layout={formColumn()}>
+          <Waiting layoutClass={formColumn()}>
             {wait.lead === true && (
               <PlaceholderLine
-                text="text-sm"
-                width="w-2/3"
+                textClass="text-sm"
+                widthClass="w-2/3"
               />
             )}
             {wait.sections.map((section, index) =>

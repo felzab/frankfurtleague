@@ -298,7 +298,7 @@ function ListPlaceholder({ list }: { list: ListContent }) {
 
 /** What a list's boundary holds while its blocks are read, laid out as the blocks will be. */
 function ListWait({ children }: { children: ReactNode }) {
-  return <Waiting layout="flex flex-col gap-6">{children}</Waiting>;
+  return <Waiting layoutClass="flex flex-col gap-6">{children}</Waiting>;
 }
 
 /**
