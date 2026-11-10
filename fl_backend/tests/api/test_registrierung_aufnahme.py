@@ -15,9 +15,8 @@ from app.api.account.services import compose_person_move
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
-from app.api.registrierungen.public_router import get_confirmation_view, post_confirmation
+from app.api.registrierungen.public_router import post_confirmation
 from app.api.registrierungen.schemas import (
-    FLOffeneRegistrierungenParams,
     FLRegistrierungAdmitPayload,
     FLRegistrierungConfirmationPayload,
     FLRegistrierungDeclinePayload,
@@ -33,7 +32,6 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
 from tests import documents
@@ -42,7 +40,6 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
-from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.records import record_collections
@@ -301,7 +298,6 @@ async def read(
     return await get_open_registrierungen(
         team_id=team_id,
         saison_id=saison_id,
-        params=FLOffeneRegistrierungenParams(),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -397,7 +393,6 @@ class TestWhatAnAdmissionWrites:
                 ),
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
-                spieler_collection=database[Collection.SPIELER],
                 db=client,
                 today=TODAY,
                 germany_now=NOW,
@@ -805,147 +800,6 @@ class TestTheSentinelIsNobodyToAdmit:
 
         assert code == Code.REGISTRIERUNG_PERSON_NOT_NAMED
         assert after == before
-
-
-async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The returning pupil's page pressed over a stored birthdate: no label, no choice and no date."""
-
-    return await post_confirmation(
-        answer_data=FLRegistrierungConfirmationPayload(
-            token=TOKEN,
-            birth_date=None,
-            scope=None,
-            media=None,
-            text_versions=None,
-        ),
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieler_collection=database[Collection.SPIELER],
-        db=client,
-        today=TODAY,
-        germany_now=NOW,
-    )
-
-
-class TestAReturningRegistration:
-    """A registration confirmed on the returning pupil's page moves nothing on the person's record."""
-
-    # Confirmed on an earlier day, its media grant standing, so a renewal of either choice would move a byte. No label
-    # but the current one exists yet, so a restamp of the label would move none.
-    HELD = granted_by_an_earlier_registration()
-
-    def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str):
-        """Not as a new person: the registration carries no choice for one to stand on."""
-
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            await confirm_as_returning(database, client)
-            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"email": "thessaly.umgezogen@beispielschule.de"}})
-            before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id, spieler_id=None))
-
-            return code, before, await snapshot(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.REGISTRIERUNG_PERSON_MISSING
-        assert after == before
-
-    def test_its_person_geloescht_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
-        """The erasure is keyed on the address the registration holds too, so the admission finds nothing to admit."""
-
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            await confirm_as_returning(database, client)
-            gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
-            before = await snapshot(database)
-            with pytest.raises(DocumentNotFoundError):
-                await admit(database, client, registrierung_id, spieler_id=None)
-
-            return (gone.spieler, gone.registrierungen), before, await snapshot(database)
-
-        counted, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert counted == (1, 1)
-        assert after == before
-        assert [person["_id"] for person in after[Collection.SPIELER] if person["_id"] != GHOST_SPIELER_ID] == []
-
-    def test_the_admission_leaves_the_persons_record_byte_for_byte(self, mongo_replica_set_url: str):
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            await confirm_as_returning(database, client)
-            answer = await admit(database, client, registrierung_id)
-
-            return answer.spieler_id, (await persons(database))[0]
-
-        admitted, person = on_a_league(mongo_replica_set_url, body)
-
-        assert admitted == person["_id"] == stored_id
-        assert person["einwilligung"] == self.HELD
-        assert (person["birth_date"], person["email"]) == (BIRTH_DATE, FOLDED_EMAIL)
-
-    def test_an_administrators_correction_of_the_birthdate_made_since_stands(self, mongo_replica_set_url: str):
-        """The registration holds the date its page took from the person; written back, it would undo the correction unseen."""
-
-        stored_id = ObjectId()
-        corrected = "2009-06-14"
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            await confirm_as_returning(database, client)
-            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"birth_date": corrected}})
-            await admit(database, client, registrierung_id, spieler_id=stored_id)
-
-            return (await persons(database))[0]
-
-        person = on_a_league(mongo_replica_set_url, body)
-
-        assert (person["birth_date"], person["email"]) == (corrected, FOLDED_EMAIL)
-
-    def test_a_withdrawal_made_while_the_page_stood_open_stands(self, mongo_replica_set_url: str):
-        """The page opened while media stood on, the account page withdrew it, the page was pressed, the team admitted.
-
-        A press re-sending the opening choices would stamp that grant after the withdrawal, and the admission carry it.
-        """
-
-        stored_id = ObjectId()
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
-            registrierung_id = await seed(database, registrierung_document(confirmed=False))
-            view = await get_confirmation_view(
-                view_data=FLTokenPayload(token=TOKEN),
-                registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                teams_collection=database[Collection.TEAMS],
-                spieler_collection=database[Collection.SPIELER],
-                today=TODAY,
-            )
-            held = (await database[Collection.SPIELER].find_one({"_id": stored_id}) or {})["einwilligung"]
-            press = compose_person_move(
-                saved=held, chosen={"media": False}, at="2026-04-01T09:00:00+00:00", text_versions=SPIELER_TEXT_VERSIONS
-            )
-            assert press is not None, "the withdrawal moved nothing, so this case proves nothing"
-            await database[Collection.SPIELER].update_one({"_id": stored_id}, press)
-            await confirm_as_returning(database, client)
-            await admit(database, client, registrierung_id)
-
-            return view, (await persons(database))[0]["einwilligung"]
-
-        view, einwilligung = on_a_league(mongo_replica_set_url, body)
-
-        assert view.page == "confirmation_spieler_returning"
-        assert (einwilligung["media"], einwilligung["evidence"]["media"]["text_version"]) == (False, KONTO_LABEL)
 
 
 class TestARetiredRow:

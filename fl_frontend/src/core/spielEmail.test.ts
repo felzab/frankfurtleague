@@ -25,6 +25,8 @@ describe("the fixture confirmation's link", () => {
     const data = {
       kind: "spiel_request",
       team: "Goethe-Gymnasium",
+      team_id: "6890a1b2c3d4e5f607000001",
+      saison_id: "2026",
       ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00", spielort: null },
       deadline: "2026-11-10",
       moved_from: null,

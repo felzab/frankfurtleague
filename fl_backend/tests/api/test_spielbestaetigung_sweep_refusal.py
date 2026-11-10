@@ -86,7 +86,7 @@ class TestWhyARowCloses:
     def test_an_answered_row_closes_as_an_open_one_does(self):
         """The close's reach is `closed: null` alone, so a kept agreement records why it stopped applying."""
 
-        answered = row(TEAM, answer={"kind": "zugesagt"})
+        answered = row(TEAM, answer={"kind": "agreed"})
 
         assert reason_to_close(row=answered, spiel=spiel(time="19:00:00"), austritte={}, today=TODAY) == "ansetzung_changed"
         assert reason_to_close(row=answered, spiel=spiel(), austritte={}, today=AFTER_THE_DAY) == "spiel_past"

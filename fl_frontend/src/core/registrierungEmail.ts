@@ -4,8 +4,15 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 
 import type { Mail } from "./emailShell";
-import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
+import type { FLRegistrierungAbsageData, FLRegistrierungConfirmationDeadlineDays, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
+
+/**
+ * The window the mail states, checked against `fl_backend/app/shared/schemas/bounds.py ::
+ * REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`: the backend moving it fails the type check here. Its own copy beside the
+ * slice's, since `core` may not import a feature.
+ */
+const DEADLINE_DAYS = 14 satisfies FLRegistrierungConfirmationDeadlineDays;
 
 // Beside the builders that spend it rather than in the slice: `core` may not import a feature.
 
@@ -23,11 +30,11 @@ function spielerBestaetigungsLink(origin: string, token: string): string {
  * The link a submission mints, named for the deadline the sweep deletes on. It names no pupil: this address has proved
  * nothing, and after a typo its stranger is owed no pupil's name.
  *
- * **The number is the backend's bound, never a word here**: the mail and the page would otherwise state two
- * deadlines, and one would not move.
+ * **The number is the backend's published bound, never a word here**: the mail and the page would otherwise state
+ * two deadlines, and one would not move.
  */
 export function buildRegistrierungBestaetigungEmail(
-  { team: teamName, saison_id: saisonId, deadline_days: fristTage }: FLRegistrierungLinkData,
+  { team: teamName, saison_id: saisonId }: FLRegistrierungLinkData,
   { origin, token }: MailLink,
 ): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
@@ -48,38 +55,9 @@ export function buildRegistrierungBestaetigungEmail(
         "Erst danach kann Dein Team Dich in den Kader aufnehmen.",
       ],
       [
-        `Bestätigst Du nicht innerhalb von ${String(fristTage)} Tagen, löschen wir die Registrierung mit allen Angaben.`,
+        `Bestätigst Du nicht innerhalb von ${String(DEADLINE_DAYS)} Tagen, löschen wir die Registrierung mit allen Angaben.`,
         "Du kannst Dich dann über den Link Deines Teams neu registrieren.",
       ],
-    ],
-    button: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
-  };
-}
-
-/**
- * The sweep's one reminder.
- *
- * It says that the deadline has not moved, because a reminder that merely repeats the request reads
- * as a fresh clock — and the row is erased on the day the first message named.
- */
-export function buildRegistrierungErinnerungEmail(
-  { team: teamName, saison_id: saisonId, deadline_days: fristTage }: FLRegistrierungLinkData,
-  { origin, token }: MailLink,
-): Mail {
-  const site = mailOrigin(origin);
-
-  return {
-    kind: "firstContact",
-    subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
-    origin: site,
-    paragraphs: [
-      [["Deine Registrierung für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
-      [
-        `Die Frist von ${String(fristTage)} Tagen läuft weiter.`,
-        "Diese Erinnerung verschiebt sie nicht.",
-        "Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.",
-      ],
-      ["Der Link aus der ersten E-Mail funktioniert weiterhin.", "Dieser hier funktioniert genauso."],
     ],
     button: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
   };

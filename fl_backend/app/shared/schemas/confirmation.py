@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomOptionalDateString
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString
 from app.shared.schemas.responses import BaseReadModel
 
 # The raw token of a person's link. The ceiling counts what arrives and the strip runs after it, so the
@@ -31,7 +31,6 @@ class FLConfirmation(BaseReadModel):
     """
 
     sent_at: CustomDateString
-    reminded_at: CustomOptionalDateString
     # Stored beside the send rather than derived from it: raising the bound would otherwise move the
     # deadline of every link already in somebody's inbox.
     deadline: CustomDateString

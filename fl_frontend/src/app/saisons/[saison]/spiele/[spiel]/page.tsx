@@ -82,7 +82,7 @@ export default function SpielPage({ params }: Props) {
 
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
-  const { spiel, standings, bericht } = page;
+  const { spiel, standings, aufstellungen, bericht } = page;
   const { team1, team2 } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
@@ -99,8 +99,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         folds: (
           <ReadFolds
             cards={[
-              { title: team1.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-              { title: team2.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+              { title: team1.name, ...lineupOf(aufstellungen.team1) },
+              { title: team2.name, ...lineupOf(aufstellungen.team2) },
             ]}
           />
         ),

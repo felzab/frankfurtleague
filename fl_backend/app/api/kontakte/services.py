@@ -125,7 +125,4 @@ def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False, 
     if takes_the_notice_back:
         cleared["erasure_announced_at"] = None
 
-    # Whatever the block: the submission digest was taken over this person's details too, and a hash
-    # of personal data is personal data. An `$unset` creates nothing
-    # where none is held.
-    return {"$set": cleared, "$unset": {"idempotency_fingerprint": ""}}
+    return {"$set": cleared}

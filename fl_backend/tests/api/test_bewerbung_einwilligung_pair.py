@@ -135,7 +135,7 @@ class TestAPairedDecline:
         assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
-        assert response.ergebnis == "declined"
+        assert response.outcome == "declined"
 
     def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
@@ -151,7 +151,7 @@ class TestAPairedDecline:
 
         response, document = on_a_league(mongo_replica_set_url, body, documents=[emptied])
 
-        assert response.ergebnis == "declined"
+        assert response.outcome == "declined"
         assert document["kontakte"]["ansprechperson"] is None
         assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
         assert document["confirmations"]["trainer"] is None

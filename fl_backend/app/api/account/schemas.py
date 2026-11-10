@@ -97,10 +97,8 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
     # The club's own name, today; null where its document is gone.
     team_name: str | None
     saison_id: str
-    # Both null on a returning pupil's registration, which asked none: the page shows its stored data
-    # and offers no consent control, the person's own record holding their choices.
-    scope: FLEinwilligungScope | None
-    media: bool | None
+    scope: FLEinwilligungScope
+    media: bool
     evidence_state: FLEinwilligungState
     # As the registration stores them: the facts the account page's box names its pupil by.
     first_name: str

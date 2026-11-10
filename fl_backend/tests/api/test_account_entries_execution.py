@@ -19,7 +19,6 @@ from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_own_entries
-from app.api.registrierungen.schemas import FLRegistrierungPage
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -96,7 +95,6 @@ BEWERBUNG_UNANSWERED = ObjectId("6890a1b2c3d4e5f607860123")
 REGISTRIERUNG_NEW = ObjectId("6890a1b2c3d4e5f607860131")
 REGISTRIERUNG_UNCONFIRMED = ObjectId("6890a1b2c3d4e5f607860132")
 REGISTRIERUNG_DECLINED = ObjectId("6890a1b2c3d4e5f607860133")
-REGISTRIERUNG_RETURNING = ObjectId("6890a1b2c3d4e5f607860134")
 REGISTRIERUNG_KAETHE = ObjectId("6890a1b2c3d4e5f607860135")
 
 EXPECTED: dict[str, set[tuple[str, str]]] = {
@@ -109,7 +107,6 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
         ("seats", f"{TEAMS[2]}/{ACTIVE}"),
         ("bewerbungen", str(BEWERBUNG_PENDING)),
         ("registrierungen", str(REGISTRIERUNG_NEW)),
-        ("registrierungen", str(REGISTRIERUNG_RETURNING)),
     },
     KAETHE: {("schiedsrichter", str(REFEREE_KAETHE)), ("registrierungen", str(REGISTRIERUNG_KAETHE))},
     NOBODY: set(),
@@ -157,14 +154,13 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
     )
 
 
-def _registrierung(
-    oid: ObjectId, email: str, *, page: FLRegistrierungPage | None = "confirmation_spieler", first_name: str = "Wiltrudis"
-) -> dict[str, Any]:
-    """A registration as its composers leave it; `page` the confirmation page its pupil answered, `None` for none yet."""
+def _registrierung(oid: ObjectId, email: str, *, answered: bool = True, first_name: str = "Wiltrudis") -> dict[str, Any]:
+    """A registration as its composers leave it, its pupil's own confirmation among them unless `answered` is false."""
 
-    chosen: dict[str, Any] = {"scope": "kader_public", "media": True} if page == "confirmation_spieler" else {}
     confirmed = (
-        None if page is None else registrierung_confirmed(birth_date="2008-05-09", today="2026-09-21", at="2026-09-21T08:00:00+00:00", **chosen)
+        registrierung_confirmed(birth_date="2008-05-09", today="2026-09-21", at="2026-09-21T08:00:00+00:00", scope="kader_public", media=True)
+        if answered
+        else None
     )
 
     return registrierung_document(
@@ -227,10 +223,8 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),
-            _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, page=None),
+            _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, answered=False),
             declined,
-            # A returning pupil's: no choice on it, their own record standing.
-            _registrierung(REGISTRIERUNG_RETURNING, WILTRUDIS, page="confirmation_spieler_returning"),
             _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", first_name="Käthe"),
         ]
     )

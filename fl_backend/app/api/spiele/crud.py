@@ -1,6 +1,5 @@
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
@@ -835,7 +834,6 @@ async def save_spiel_in_session(
     payload: FLPatchSpielDataPayload,
     collections: SpielSaveCollections,
     adopts_bericht: int | None,
-    now: datetime,
     # The act another route saves a fixture under, which records this one save; `None` for the save's own.
     act: FLAction | None = None,
     # REQUIRED: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
@@ -844,7 +842,7 @@ async def save_spiel_in_session(
     """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket, as `PATCH /spiele/{id}` does.
 
     Safe to retry: every pass re-reads what it judges. With `adopts_bericht` the fixture's report is stamped adopted
-    where it still stands at that version about the clubs the save leaves; a miss refuses nothing.
+    where its document still stands at that version about the clubs the save leaves; a miss refuses nothing.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=session)
@@ -915,7 +913,6 @@ async def save_spiel_in_session(
             spiel_id=spiel_id,
             version=adopts_bericht,
             sides=sides_of(saved),
-            now=now,
             session=session,
         )
 

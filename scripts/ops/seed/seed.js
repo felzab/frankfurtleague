@@ -156,7 +156,7 @@ const LINK_DAYS = 14;
  * the day `sentOn` days from today. No hash: the seed owes no mail, and the hand-out writes one only as it mints a link.
  */
 function confirmationBlock(sentOn) {
-  return { token_hashes: [], sent_at: day(sentOn), reminded_at: null, deadline: day(sentOn + LINK_DAYS) };
+  return { token_hashes: [], sent_at: day(sentOn), deadline: day(sentOn + LINK_DAYS) };
 }
 
 // Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
@@ -545,7 +545,7 @@ function confirmedPerson(person, answeredOn) {
 
 /**
  * A seat's bookkeeping beside its slot. An application's link takes one reminder
- * (`fl_backend/app/api/bewerbungen/services.py :: compose_bestaetigung`); a season row's is chased by nothing, and its
+ * (`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation`); a season row's is chased by nothing, and its
  * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_confirmation`).
  */
 function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn = null } = {}) {
@@ -612,7 +612,7 @@ running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
 };
 
 // The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
-// row whose `stand` is not its fixture's is about a slot the fixture left, which neither act takes.
+// row whose `digest` is not its fixture's is about a slot the fixture left, which neither act takes.
 function ansetzungOf(spiel) {
   const values = {
     date: spiel.date,
@@ -624,7 +624,7 @@ function ansetzungOf(spiel) {
   const canonical = Object.values(values)
     .map((value) => (typeof value === "string" ? value : value.toHexString()))
     .join("|");
-  return { ...values, stand: createHash("sha256").update(canonical, "utf8").digest("hex") };
+  return { ...values, digest: createHash("sha256").update(canonical, "utf8").digest("hex") };
 }
 
 // Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
@@ -773,7 +773,7 @@ function invitation(clubName) {
 const INVITATIONS = { Ahorn: invitation("Ahorn"), Kastanie: invitation("Kastanie"), Weide: invitation("Weide") };
 
 // `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`.
-const REGISTRATION_LINK_DAYS = 7;
+const REGISTRATION_LINK_DAYS = 14;
 
 /**
  * One pupil's row through Kastanie's link (`fl_backend/app/api/registrierungen/services.py :: compose_registrierung`),
@@ -798,7 +798,6 @@ function registration(person, submittedOn, { confirmed = false, decision = null 
     confirmation: {
       token_hashes: [linkHash(`${person.first_name.toLowerCase()}-registration`)],
       sent_at: day(submittedOn),
-      reminded_at: null,
       deadline: day(submittedOn + REGISTRATION_LINK_DAYS),
     },
     decision,
@@ -811,8 +810,8 @@ const REGISTRATIONS = [
   registration(pupil("Ben", "Stark"), -4, { decision: { made_at: day(-2), reason: "Nicht an dieser Schule" } }),
 ];
 
-// Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted the next morning: a named scorer, a
-// scorer nobody named, an erased pupil's goal under the sentinel, a caution with its reason and a red card without.
+// Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted since: a named scorer, a scorer
+// nobody named, an erased pupil's goal under the sentinel, a caution and a red card.
 const REPORTED = running.spiele.find((row) => row.spiel_nr === 1);
 const SENT = new Date(`${day(-14)}T17:00:00Z`);
 const REPORTS = [
@@ -828,18 +827,13 @@ const REPORTS = [
         { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
       cards: [
-        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb", reason: "foulspiel" },
-        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot", reason: null },
+        { side: "team2", spieler_id: PUPILS.lena._id, minute: "33", colour: "gelb" },
+        { side: "team1", spieler_id: PUPILS.jonas._id, minute: "78", colour: "rot" },
       ],
       remarks: null,
       sides: { team1: REPORTED.team1.team_id, team2: REPORTED.team2.team_id },
       submitted_at: SENT,
-      submitted_by: { kind: "schiedsrichter", schiedsrichter_id: REPORTED.schiedsrichter.schiedsrichter_id },
-      changed_at: SENT,
-      version: 1,
-      adopted_at: new Date(`${day(-13)}T09:00:00Z`),
-      adopted_by: { kind: "admin" },
-      adopted_version: 1,
+      adopted: true,
     },
   },
 ];

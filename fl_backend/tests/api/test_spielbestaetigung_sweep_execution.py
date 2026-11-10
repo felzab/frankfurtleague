@@ -21,7 +21,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSweepResponse,
 )
 from app.api.spielbestaetigungen.services import (
-    ansetzung_stand_of,
+    ansetzung_digest_of,
     build_holding_filter,
     build_token_filter,
     compose_answer_update,
@@ -493,7 +493,7 @@ async def press_answer(database: AsyncDatabase, client: AsyncMongoClient, token:
     """A club's Zusage through the link's own endpoint."""
 
     return await post_spielbestaetigung(
-        answer_data=FLSpielbestaetigungAnswerPayload(token=token, answer="zugesagt", vorschlag=None, reason=None),
+        answer_data=FLSpielbestaetigungAnswerPayload(token=token, answer="agreed", vorschlag=None, reason=None),
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spiele_collection=database[Collection.SPIELE],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -698,7 +698,7 @@ class TestASpielCalledOffAndReinstatedIsAskedAgain:
         assert Counter((row["closed"] or {}).get("reason") for row in stored) == {"cancelled": 3, None: 3}
 
 
-def answered(answer: Literal["zugesagt", "declined"]) -> dict[str, Any]:
+def answered(answer: Literal["agreed", "declined"]) -> dict[str, Any]:
     """A seat's answer as its press stores it, a decline proposing the day after."""
 
     return compose_answer_update(
@@ -729,7 +729,7 @@ async def alphas_discard_beside_betas_agreement(database: AsyncDatabase, client:
 
     await sweep(database, client)
     await discard(database, ALPHA)
-    await database[Collection.SPIELBESTAETIGUNGEN].update_one({"party.team_id": BETA}, answered("zugesagt"))
+    await database[Collection.SPIELBESTAETIGUNGEN].update_one({"party.team_id": BETA}, answered("agreed"))
 
     return row_of(await rows(database), team_id=ALPHA)["_id"]
 
@@ -801,8 +801,8 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
                 held = await rows(database, spiel_id=SPIEL, **{"party.kind": "schiedsrichter"}, **build_holding_filter())
                 seen.append(
                     (
-                        [row["ansetzung"]["stand"] for row in held],
-                        ansetzung_stand_of(spiel),
+                        [row["ansetzung"]["digest"] for row in held],
+                        ansetzung_digest_of(spiel),
                         [einteilung.moved_from is not None for einteilung in passed.einteilungen],
                     )
                 )
@@ -901,7 +901,7 @@ class TestAMovedSpielAsksAgain:
         standing = [row for row in stored if row["closed"] is None]
         assert answered_id in {row["_id"] for row in closed}
         assert [row["closed"]["reason"] for row in closed] == ["ansetzung_changed"] * 3
-        assert (answered["answer"]["kind"], answered["answer"]["by"]["rolle"]) == ("zugesagt", "trainer")
+        assert (answered["answer"]["kind"], answered["answer"]["by"]["rolle"]) == ("agreed", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["answer"] == answered["answer"]
         assert [row["answer"] for row in closed if row["_id"] != answered_id] == [None, None]
         assert refusals == [Code.ANSETZUNG_ANSWERED, Code.ANSETZUNG_CLOSED]
@@ -1790,7 +1790,7 @@ class TestARefereeWhoAcceptedIsToldTheyWereTakenOff:
     def test_their_acceptance_is_no_reason_to_tell_them_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
-            await as_the_referee(database, client, "zugesagt")
+            await as_the_referee(database, client, "agreed")
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": booked(OTHER_SCHIEDSRICHTER)}})
             return await sweep(database, client)
 

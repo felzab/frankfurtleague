@@ -26,6 +26,7 @@ from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     address_change_document,
+    aufstellung_document,
     bericht_document,
     kontaktperson_document,
     minted_confirmations,
@@ -261,7 +262,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "confirmation": {
                 "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "sent_at": "2026-03-16",
-                "reminded_at": None,
                 "deadline": "2026-03-23",
             },
             "decision": None,
@@ -297,6 +297,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
+        "aufstellungen": aufstellung_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}, TEAM_OID, starters=[SPIELER_OID]),
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "address_changes": {
@@ -370,21 +371,15 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["invitations"],
         valid_document("invitations", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
-    # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
-    # pair carrying no key at all would pass while the partial filter matched nothing.
+    # Both rows keyed alike: the index refuses on the key alone, and a pair carrying no key at all would pass while
+    # the partial filter matched nothing.
     "uniq_bewerbung_idempotency_key": (
-        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
+        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY),
+        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY),
     ),
     "uniq_registrierung_idempotency_key": (
-        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
-    ),
-    # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
-    # junction's own index would refuse a pair sharing the person.
-    "uniq_saison_spieler_idempotency_key": (
-        valid_document("saison_spieler", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
+        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY),
+        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY),
     ),
     # Two persons differing in their name and sharing an address: the index refuses on the address alone.
     "uniq_spieler_email": (
@@ -407,6 +402,11 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_spielbericht_spiel_id": (
         valid_documents()["spielberichte"],
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(remarks="Zweiter Bericht")),
+    ),
+    # Two line-ups of one club for one fixture, naming different pupils: the index refuses on the pair alone.
+    "uniq_aufstellung_spiel_id_team_id": (
+        valid_documents()["aufstellungen"],
+        valid_document("aufstellungen", _id=TEAM_OID, spieler=[]),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
     "uniq_address_change_address": (
@@ -482,7 +482,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
     """
 
-    answer = {"kind": "zugesagt", "at": "2026-03-01", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+    answer = {"kind": "agreed", "at": "2026-03-01", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
     async def body(database: AsyncDatabase) -> int:
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
@@ -555,7 +555,7 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
     """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
 
     async def body(database: AsyncDatabase) -> list[str]:
-        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64))
+        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY))
         explained = await database[collection].find(build_key_filter(key=IDEMPOTENCY_KEY)).explain()
 
         return winning_stages(explained)

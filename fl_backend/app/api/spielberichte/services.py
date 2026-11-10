@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import season_has_ended
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
-    FLSpielberichtBy,
     FLSpielberichtPublic,
     FLSpielberichtSpieler,
     FLSpielberichtState,
@@ -85,10 +84,10 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
 
 
 def build_submitted_pipeline(*, saison_id: str, spiel_fields: Mapping[str, int]) -> list[Mapping[str, Any]]:
-    """A season's reports holding a block, each joined to `spiel_fields` of its fixture."""
+    """A season's reports, each joined to `spiel_fields` of its fixture."""
 
     return [
-        {"$match": {"saison_id": saison_id, "bericht": {"$ne": None}}},
+        {"$match": {"saison_id": saison_id}},
         {
             "$lookup": {
                 "from": Collection.SPIELE,
@@ -103,7 +102,7 @@ def build_submitted_pipeline(*, saison_id: str, spiel_fields: Mapping[str, int])
 
 
 def build_state_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """A season's reports holding a block, each beside its fixture's result fields."""
+    """A season's reports, each beside its fixture's result fields."""
 
     return [
         *build_submitted_pipeline(
@@ -158,7 +157,11 @@ def named_ids_of(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | Non
     if bericht is None:
         return named
 
-    raw = bericht.model_dump(context={"keep_oid": True}) if isinstance(bericht, FLSpielberichtBerichtPayload) else bericht
+    raw = (
+        bericht.model_dump(context={"keep_oid": True}, include={"scorers", "cards"})
+        if isinstance(bericht, FLSpielberichtBerichtPayload)
+        else bericht
+    )
     for entry in [*raw["scorers"], *raw["cards"]]:
         if entry["spieler_id"] is not None:
             named[entry["side"]].add(entry["spieler_id"])
@@ -269,52 +272,18 @@ def kader_is_open(context: BerichtContext, *, today: str) -> bool:
     return takes_a_bericht(context.spiel, today=today) and not is_concluded(context)
 
 
-def find_bericht_stand_refusal(*, stand: int | None, saved: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`bericht_meanwhile_changed`: the write was composed on the version standing now, or on none where none stands.
-
-    Judged on the transaction's read: a write committing meanwhile, a crossing first one included, conflicts with this
-    one, whose retry is refused.
-    """
-
-    if stand == (None if saved is None else saved["version"]):
-        return None
-
-    return WriteRefusal(
-        error_code=Code.BERICHT_MEANWHILE_CHANGED,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> WriteRefusal | None:
-    """`bericht_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season."""
+    """`spieler_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season."""
 
     for side in SIDES:
         kader = {row["spieler_id"] for row in live_kader(context, side)}
         if not new[side] <= kader:
             return WriteRefusal(
-                error_code=Code.BERICHT_NOT_IN_KADER,
+                error_code=Code.SPIELER_NOT_IN_KADER,
                 status=HTTPStatus.CONFLICT,
             )
 
     return None
-
-
-def find_card_reason_missing_refusal(*, payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
-    """`card_reason_missing`: a caution names its reason.
-
-    A stored caution whose reason the end of the season after the match stripped is never resent: only the referee
-    writes a report, and only while its season runs (`saison_past`).
-    """
-
-    if all(card.colour == "rot" or card.reason is not None for card in payload.cards):
-        return None
-
-    return WriteRefusal(
-        error_code=Code.CARD_REASON_MISSING,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        # The list, a refusal's field being a literal: the form refuses the card itself before any press.
-        fields=(("bericht", "cards"),),
-    )
 
 
 def judge_bericht(
@@ -330,7 +299,6 @@ def judge_bericht(
     refuse(find_cancelled_refusal(sonderereignis=context.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_gruppe_refusal(spiel_raw=context.spiel, payload=payload))
     refuse(find_not_in_kader_refusal(context=context, new=new))
-    refuse(find_card_reason_missing_refusal(payload=payload))
 
 
 def vorschlag_matches(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str, Any]) -> bool:
@@ -368,7 +336,7 @@ def is_open(state: FLSpielberichtState) -> TypeIs[FLSpielberichtOpenState]:
 
 
 def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtState:
-    """The state a report reads in, from the fixture, the adoption and the block's version.
+    """The state a report reads in, from the fixture and the adoption.
 
     No result reads `proposed` however the report was stamped, as after a later save emptied the result or on an
     abandonment still owing its result.
@@ -385,8 +353,7 @@ def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any
     if spiel_raw.get("ergebnis") is None:
         return "proposed"
 
-    # Equal versions, never instants: a correction and an adoption in one second are two writes.
-    if bericht.adopted_version == bericht.version and vorschlag_matches(bericht.ergebnis_vorschlag, spiel_raw):
+    if bericht.adopted and vorschlag_matches(bericht.ergebnis_vorschlag, spiel_raw):
         return "adopted"
 
     return "differing"
@@ -401,7 +368,7 @@ def compose_view(
     """
 
     spiel = context.spiel
-    bericht = None if document is None else document.get("bericht")
+    bericht = None if document is None else document["bericht"]
 
     def team(side: FLSpielSide) -> dict[str, Any] | None:
         team_field = spiel.get(side)
@@ -427,76 +394,54 @@ def compose_view(
     }
 
 
-def bericht_unchanged(
-    payload: FLSpielberichtBerichtPayload, saved: Mapping[str, Any] | None, sides: Mapping[FLSpielSide, ObjectId | None]
-) -> bool:
+def content_of(payload: FLSpielberichtBerichtPayload) -> dict[str, Any]:
+    """What a write stores of its payload: the entries and the remarks as sent, the proposal with the two counts they credit."""
+
+    return {
+        **payload.model_dump(context={"keep_oid": True}, exclude={"ergebnis_vorschlag"}),
+        "ergebnis_vorschlag": payload.proposed().model_dump(),
+    }
+
+
+def bericht_unchanged(payload: FLSpielberichtBerichtPayload, saved: Mapping[str, Any], sides: Mapping[FLSpielSide, ObjectId | None]) -> bool:
     """Whether the stored block already says what the payload says, for the clubs `sides` names, so a save of it writes nothing.
 
     A save sent unchanged after the clubs moved re-stamps them, making the report adoptable again.
     """
 
-    return (
-        saved is not None
-        and saved.get("sides") == sides
-        and all(saved.get(key) == value for key, value in payload.model_dump(context={"keep_oid": True}).items())
-    )
+    return saved.get("sides") == sides and all(saved.get(key) == value for key, value in content_of(payload).items())
 
 
 def compose_new_bericht(
-    payload: FLSpielberichtBerichtPayload, *, by: FLSpielberichtBy, sides: Mapping[FLSpielSide, ObjectId | None], now: datetime
-) -> dict[str, Any]:
-    """The block's first write: version 1, and no adoption."""
-
-    return {
-        **payload.model_dump(context={"keep_oid": True}),
-        "sides": dict(sides),
-        "submitted_at": now,
-        "submitted_by": by.model_dump(context={"keep_oid": True}),
-        "changed_at": now,
-        "version": 1,
-        "adopted_at": None,
-        "adopted_by": None,
-        "adopted_version": None,
-    }
-
-
-def compose_bericht_update(
     payload: FLSpielberichtBerichtPayload, *, sides: Mapping[FLSpielSide, ObjectId | None], now: datetime
 ) -> dict[str, Any]:
-    """A later write of the block: the content replaced, the version raised, who first wrote it and the adoption kept.
+    """The block's first write, which nobody has adopted."""
 
-    The adoption stays as it was, so the raised version is what returns the report to `differing`.
+    return {**content_of(payload), "sides": dict(sides), "submitted_at": now, "adopted": False}
+
+
+def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, sides: Mapping[FLSpielSide, ObjectId | None]) -> dict[str, Any]:
+    """A later write of the block: the content replaced, when it was first sent kept, and the adoption cleared with it.
+
+    Cleared in the same update, so an adoption never stands on content its administrator did not see: the report reads
+    `differing` until it is adopted anew.
     """
 
     return {
-        "$set": {f"bericht.{key}": value for key, value in payload.model_dump(context={"keep_oid": True}).items()}
-        | {"bericht.sides": dict(sides), "bericht.changed_at": now},
-        "$inc": {"bericht.version": 1},
+        "$set": {f"bericht.{key}": value for key, value in content_of(payload).items()}
+        | {"bericht.sides": dict(sides), "bericht.adopted": False}
     }
 
 
-# --- The STRIP once the season after the match ends: the remarks and every card's reason; the scorers, the cards and
-# the proposed result stand as the league's record of the match.
+# --- The STRIP once the season after the match ends: the remarks; the scorers, the cards and the proposed result stand
+# as the league's record of the match.
 
 
 def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
-    """This season's reports still holding remarks or a card's reason, so a season stripped already is written nothing."""
+    """This season's reports still holding remarks, so a season stripped already is written nothing."""
 
-    # `$type` and never `$ne: null`, which a list of cards matches only where no card holds a null reason.
-    return {"saison_id": saison_id, "$or": [{"bericht.remarks": {"$type": "string"}}, {"bericht.cards.reason": {"$type": "string"}}]}
+    return {"saison_id": saison_id, "bericht.remarks": {"$type": "string"}}
 
-
-# --- The REFEREE'S ERASURE: the reports they sent.
-
-
-def build_referee_reports_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
-    """Every report one of these referees first sent."""
-
-    return {"bericht.submitted_by.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
-
-
-# Where the clubs' line-ups stand on the report document, one block per side, as the public report reads them.
-AUFSTELLUNGEN_FIELD: Final = "aufstellungen"
 
 _NAMED_IDS_AS = "named_ids"
 PUBLIC_PERSONS_AS = "persons"
@@ -510,20 +455,13 @@ def build_public_bericht_pipeline(spiel_id: ObjectId) -> list[Mapping[str, Any]]
     withheld name leaves the database; the squad rows of the match's season alone.
     """
 
-    named = [
-        {"$ifNull": [path, []]}
-        for path in (
-            "$bericht.scorers.spieler_id",
-            "$bericht.cards.spieler_id",
-            *(f"${AUFSTELLUNGEN_FIELD}.{side}.spieler.spieler_id" for side in SIDES),
-        )
-    ]
+    named = ["$bericht.scorers.spieler_id", "$bericht.cards.spieler_id"]
 
     return [
         {"$match": {"spiel_id": spiel_id}},
-        # The whole block, which the adoption is judged on; `FLSpielberichtPublic` is the allow-list, and serves neither
-        # the remarks nor a card's reason.
-        {"$project": {"saison_id": 1, "bericht": 1, AUFSTELLUNGEN_FIELD: 1, _NAMED_IDS_AS: {"$setUnion": named}}},
+        # The whole block, which the adoption is judged on; `FLSpielberichtPublic` is the allow-list, and serves no
+        # remarks.
+        {"$project": {"saison_id": 1, "bericht": 1, _NAMED_IDS_AS: {"$setUnion": named}}},
         {
             "$lookup": {
                 "from": Collection.SPIELER,
@@ -584,23 +522,12 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
             "position": row.get("position"),
         }
 
-    def aufstellung(side: FLSpielSide) -> dict[str, Any] | None:
-        block = (document.get(AUFSTELLUNGEN_FIELD) or {}).get(side)
-        if block is None:
-            return None
-
-        return {
-            "team_id": block["team_id"],
-            "spieler": [{**spieler(entry["spieler_id"], side), "starts": entry["starts"]} for entry in block["spieler"]],
-        }
-
-    bericht_raw = document.get("bericht")
-    adopted = bericht_raw is not None and bericht_state_of(FLSpielberichtBericht.model_validate(bericht_raw), spiel_raw) == "adopted"
+    bericht_raw = document["bericht"]
+    adopted = bericht_state_of(FLSpielberichtBericht.model_validate(bericht_raw), spiel_raw) == "adopted"
     gated = bericht_raw if adopted else None
 
     return FLSpielberichtPublic.model_validate(
         {
-            AUFSTELLUNGEN_FIELD: {side: aufstellung(side) for side in SIDES},
             "scorers": None
             if gated is None
             else [

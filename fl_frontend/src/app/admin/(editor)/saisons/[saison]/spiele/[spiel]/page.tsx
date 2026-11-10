@@ -262,7 +262,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   const { answer } = row;
   if (answer === null) return { ...shown, chip: open, line: WORDS.answerBy(dayOf(row.deadline)) };
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
-  if (answer.kind === "zugesagt") return { ...shown, chip: { tone: "success", label: WORDS.zugesagt }, line: day };
+  if (answer.kind === "agreed") return { ...shown, chip: { tone: "success", label: WORDS.zugesagt }, line: day };
   const { vorschlag, reason } = answer;
   const line =
     vorschlag === null

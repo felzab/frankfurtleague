@@ -50,11 +50,11 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
                 {"side": "team1", "spieler_id": NAMED, "minute": "45+2", "eigentor": False},
             ],
             cards=[
-                {"side": "team2", "spieler_id": INTERNAL, "minute": "60", "colour": "gelb", "reason": "foulspiel"},
-                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot", "reason": None},
+                {"side": "team2", "spieler_id": INTERNAL, "minute": "60", "colour": "gelb"},
+                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot"},
             ],
             sides=documents.spielbericht_sides(spiel),
-            **{"version": 1, "adopted_version": 1, **bericht},
+            **{"adopted": True, **bericht},
         ),
     )
 
@@ -62,12 +62,11 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("adoption", "public"),
     [
-        pytest.param({}, True, id="adopted and unchanged"),
-        pytest.param({"adopted_version": None}, False, id="never adopted"),
-        pytest.param({"version": 2}, False, id="corrected since its adoption"),
+        pytest.param({}, True, id="adopted"),
+        pytest.param({"adopted": False}, False, id="never adopted, or corrected since"),
     ],
 )
-def test_only_an_adopted_unchanged_report_publishes_its_scorers_and_cards(adoption: dict[str, Any], public: bool):
+def test_only_an_adopted_report_publishes_its_scorers_and_cards(adoption: dict[str, Any], public: bool):
     spiel = adopted_match()
     served = compose_public_bericht(report_of(spiel, **adoption), spiel)
 

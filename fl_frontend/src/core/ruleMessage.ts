@@ -43,10 +43,10 @@ const PATTERNED = {
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
   good_spieler_exceed_kader: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
+  starters_exceed_eleven: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
   // The confirmation pages' birthdate, refused for an age outside the range the write names.
   confirmation_age: ageRange,
   // A box left empty that the rule requires once another box is set.
-  ergebnis_missing_tore: () => field.required,
   decline_without_proposal: () => field.required,
   decline_without_reason: () => field.required,
   email_not_accepted: () => field.format(field.exampleAddress),

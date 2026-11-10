@@ -1455,6 +1455,7 @@ export const COPY = catalogue({
         "spielbestaetigung.vorschlag_adopted": "Vorschlag übernommen",
         "spielbestaetigung.answered": "Termin beantwortet",
         "spielbericht.saved": "Spielbericht eingetragen",
+        "aufstellung.saved": "Aufstellung eingetragen",
         "team.entered": "Team eingetragen",
         "team.changed": "Team geändert",
         "team.retired": "Team stillgelegt",

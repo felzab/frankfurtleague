@@ -1,11 +1,10 @@
 import hashlib
-import json
 from collections.abc import Container, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, TypeIs, get_args
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungState,
@@ -254,18 +253,6 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
 # --- The SUBMISSION KEY, which the registration's submission takes from here.
 
 
-def payload_fingerprint(payload: BaseModel) -> str:
-    """The digest a replayed key's payload is compared by.
-
-    Over the VALIDATED payload: two spellings the model stores alike, or one body serialised in two
-    key orders, are one request. Keys sorted, so a mapping-typed field cannot reorder it.
-    """
-
-    canonical = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
 def build_key_filter(*, key: str) -> Mapping[str, Any]:
     """The key lookup, carrying the unique index's partial term.
 
@@ -273,22 +260,6 @@ def build_key_filter(*, key: str) -> Mapping[str, Any]:
     """
 
     return {"idempotency_key": {"$eq": key, "$type": "string"}}
-
-
-def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
-    """Why this key cannot be replayed, or `None`: it already carries an application sent with other details.
-
-    Refused rather than answered as the stored one, which would tell the applicant a changed field
-    had arrived.
-    """
-
-    if saved == fingerabdruck:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.BEWERBUNG_KEY_DIFFERING,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-    )
 
 
 def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[str, Any]:
@@ -994,9 +965,7 @@ def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool)
     if announced:
         written["erasure_announced_at"] = today
 
-    # The submission's digest was taken over this person's details too, and a hash of personal data is
-    # still personal data. A replay then meets the refusal of other details, which stays true.
-    return {"$set": written, "$unset": {"idempotency_fingerprint": ""}}
+    return {"$set": written}
 
 
 def _fresh_links(*, seats: Sequence[str], today: str) -> dict[str, Any]:

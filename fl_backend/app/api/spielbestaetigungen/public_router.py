@@ -140,7 +140,7 @@ async def get_spielbestaetigung_view(
         deadline=str(row["deadline"]),
         # Never the row's own proposal on `declined`: the page shows an answered link its answering role alone.
         vorschlag=vorschlag_open if state == "vorschlag" else None,
-        answered_by=answer["by"] if state in ("zugesagt", "declined") and answer is not None else None,
+        answered_by=answer["by"] if state in ("agreed", "declined") and answer is not None else None,
     )
 
 

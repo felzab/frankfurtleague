@@ -12,7 +12,7 @@ Invariants:
 """
 
 import copy
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, Final, TypeAliasType, get_args
 from zoneinfo import ZoneInfo
@@ -21,7 +21,7 @@ from bson import ObjectId
 
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.registrierungen.services import compose_confirmation, compose_confirmation_update, compose_registrierung
 from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.core.clock import utc_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
@@ -206,7 +206,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
     """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
 
-    So its `stand` is the digest of its own values, which a hand-written one never is.
+    So its `digest` is that of its own values, which a hand-written one never is.
     """
 
     return {
@@ -226,23 +226,16 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, 
 
 
 def bericht_document(**fields: Any) -> dict[str, Any]:
-    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer, one caution with its reason."""
-
-    at = datetime(2026, 3, 15, 20, tzinfo=UTC)
+    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer and one caution."""
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
         "scorers": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
-        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
+        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb"}],
         "remarks": None,
         "sides": {"team1": None, "team2": None},
-        "submitted_at": at,
-        "submitted_by": {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-        "changed_at": at,
-        "version": 1,
-        "adopted_at": None,
-        "adopted_by": None,
-        "adopted_version": None,
+        "submitted_at": datetime(2026, 3, 15, 20, tzinfo=UTC),
+        "adopted": False,
         **fields,
     }
 
@@ -261,6 +254,19 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
         "bericht": bericht_document(sides=spielbericht_sides(spiel)),
         "version": 0,
         **fields,
+    }
+
+
+def aufstellung_document(spiel: Mapping[str, Any], team_id: Any, *, starters: Sequence[Any] = (), bench: Sequence[Any] = ()) -> dict[str, Any]:
+    """One club's line-up for `spiel` as its first save stores it, the starters ahead of the bench."""
+
+    return {
+        "_id": ObjectId(),
+        "saison_id": spiel["saison_id"],
+        "spiel_id": spiel["_id"],
+        "team_id": team_id,
+        "spieler": [{"spieler_id": spieler_id, "starts": starts} for starts, ids in ((True, starters), (False, bench)) for spieler_id in ids],
+        "version": 0,
     }
 
 
@@ -398,11 +404,10 @@ def registrierung_document(
             position=position,
             nummer=nummer,
             stufe=stufe,
-            confirmation={**compose_bestaetigung(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
+            confirmation={**compose_confirmation(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
         "idempotency_key": str(registrierung_id),
-        "idempotency_fingerprint": "f" * 64,
     }
     if confirmed is not None:
         document.update(compose_confirmation_update(**confirmed)["$set"])
@@ -489,6 +494,7 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
         "position": "Angriff",
         "nummer": None,
         "inactive_since": None,
+        "version": 0,
         **fields,
     }
 
@@ -542,17 +548,10 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
-    """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
+def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str, media: bool) -> dict[str, Any]:
+    """`registrierung_document`'s `confirmed` for a pupil's confirmation."""
 
-    return {
-        "birth_date": birth_date,
-        "scope": scope,
-        "media": media,
-        "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,
-        "today": today,
-        "at": at,
-    }
+    return {"birth_date": birth_date, "scope": scope, "media": media, "text_versions": SPIELER_TEXT_VERSIONS, "today": today, "at": at}
 
 
 def address_change_document(

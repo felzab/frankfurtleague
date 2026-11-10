@@ -4,6 +4,8 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSchiedsrichterState
+from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SCHIEDSRICHTER_SCHULE_MAX_LENGTH
@@ -14,7 +16,9 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
+    CustomTimeString,
     CustomVersion,
+    FLUtcInstant,
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
@@ -254,3 +258,42 @@ class FLSchiedsrichterSelfResponse(BaseAPIResponse):
     """Every confirmed referee record the signed-in address holds, the ghost never among them."""
 
     schiedsrichter: list[FLSchiedsrichterSelf]
+
+
+class FLSchiedsrichterSpiel(BaseModel):
+    """One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe."""
+
+    spiel_id: CustomObjectId
+    # Which of the address's referee records the fixture books.
+    schiedsrichter_id: CustomObjectId
+    team1_name: str | None
+    team2_name: str | None
+    # Null on a fixture holding no day or no hour yet.
+    date: CustomOptionalDateString
+    time: CustomTimeString | None
+    spielort: FLSpielortFieldPublic | None
+    # The newest row asking them to confirm the fixture, which an answer names
+    # (`POST /spielbestaetigungen/{spielbestaetigung_id}/answer`); null where none asks them.
+    spielbestaetigung_id: CustomObjectId | None
+    # Null exactly where `spielbestaetigung_id` is.
+    state: FLSpielbestaetigungSchiedsrichterState | None
+    # Their own decline's reason, null on every other row.
+    reason: CustomNonEmptyString | None
+    # Whether the league recorded the answer for them, so the list never shows it as their own.
+    entered: bool
+    # Whether the fixture's day lies before today in Europe/Berlin, judged here so a page rendered around midnight
+    # agrees with the order the read answered.
+    past: bool
+    # Whether the fixture takes a report today: played, not called off or struck out, its season running.
+    reportable: bool
+    # When its report was first sent, whoever wrote it; null where none stands.
+    submitted_at: FLUtcInstant | None
+
+
+class FLSchiedsrichterSpieleResponse(BaseAPIResponse):
+    """A referee's fixtures of one season, open work first, and the seasons they have fixtures in."""
+
+    saison_id: str
+    # Every season in which a fixture is booked to one of their records, newest first, which the page's season button offers.
+    saison_ids: list[str]
+    spiele: list[FLSchiedsrichterSpiel]

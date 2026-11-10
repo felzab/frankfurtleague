@@ -41,6 +41,7 @@ const CHOICE_OF: Record<FLActionType, ActionTypeChoice> = {
   spiel: "spiel",
   spielbestaetigung: "spiel",
   spielbericht: "spiel",
+  aufstellung: "spiel",
   team: "team",
   bewerbung: "bewerbung",
   registrierung: "registrierung",

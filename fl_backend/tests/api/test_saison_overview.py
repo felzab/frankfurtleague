@@ -131,7 +131,7 @@ ROWS = [
         HOME,
         deadline="2026-03-20",
         asked_at="2026-03-12",
-        answer={"kind": "zugesagt", "at": "2026-03-13", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
+        answer={"kind": "agreed", "at": "2026-03-13", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
     documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, deadline="2026-03-20", asked_at=None),
 ]
