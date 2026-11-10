@@ -16,8 +16,8 @@ from app.api.spielbestaetigungen.services import (
     compose_ansetzung,
     find_spent_link_refusal,
     proposal_payload,
+    state_of,
     view_ansetzung_of,
-    zustand_of,
 )
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpiel
 from app.core.codes import Code
@@ -157,7 +157,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
 
-        assert zustand_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, vorschlag_open=None) == "valid"
+        assert state_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, vorschlag_open=None) == "valid"
         view_ansetzung_of(situation.spiel)
 
         # The premise: `decision_of` read the fixture to its last test.

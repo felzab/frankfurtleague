@@ -92,13 +92,13 @@ async def get_spielbestaetigungen(
     if filters.spiel_id is not None:
         db_filter["spiel_id"] = filters.spiel_id
 
-    rows, vollstaendig = await pull_admin_rows(
+    rows, complete = await pull_admin_rows(
         spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
     )
 
     return FLSpielbestaetigungenListResponse(
         spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
-        complete=vollstaendig,
+        complete=complete,
     )
 
 

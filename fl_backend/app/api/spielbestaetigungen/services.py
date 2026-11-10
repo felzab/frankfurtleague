@@ -187,7 +187,7 @@ def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], today: str) -> b
     return today > str(spielbestaetigung_raw["deadline"])
 
 
-def zustand_of(
+def state_of(
     *,
     spielbestaetigung_raw: Mapping[str, Any],
     ansetzung_state: AnsetzungState,
@@ -258,12 +258,12 @@ def team_state_of(
     today: str,
     vorschlag_open: FLSpielbestaetigungAppointment | None,
 ) -> FLSpielbestaetigungTeamState | None:
-    """What a team's own pages show of its unclosed row about the fixture as it stands: `zustand_of`'s state, or `None`.
+    """What a team's own pages show of its unclosed row about the fixture as it stands: `state_of`'s state, or `None`.
 
     `None` where the row asks the team nothing: about an Ansetzung left, a fixture called off, or a date the league kept.
     """
 
-    match zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=vorschlag_open):
+    match state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=vorschlag_open):
         case "valid" | "vorschlag" | "expired" | "agreed" | "declined" as state:
             return state
         case _:
@@ -675,7 +675,7 @@ def schiedsrichter_state_of(
 ) -> FLSpielbestaetigungSchiedsrichterState:
     """What the panel shows of a referee's own row: the link's state, which no proposal reaches here."""
 
-    state = zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=None)
+    state = state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=None)
     assert state != "vorschlag" and state != "discarded"
 
     return state
@@ -1027,7 +1027,7 @@ def parties_told_of_the_change(
 def discard_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
     """Whether a discard owes the club a notice that the date stands: about a day to come.
 
-    No stamp asked, as `notice_owed` asks one: the decline it discards came through one of the club's own links.
+    No stamp asked, as `notice_owed` asks one: the decline it discards was the club's own answer, given signed in.
     """
 
     return _notice_to_come(row=row, reason="discarded", spiel={}, today=today)

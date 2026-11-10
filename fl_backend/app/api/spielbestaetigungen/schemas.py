@@ -35,7 +35,7 @@ FLSpielbestaetigungClosedReason = Literal[
     "spiel_past",
 ]
 
-# What a row reads as, the first state matching winning (`app/api/spielbestaetigungen/services.py :: zustand_of`).
+# What a row reads as, the first state matching winning (`app/api/spielbestaetigungen/services.py :: state_of`).
 # `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was
 # answered; `discarded`: the league discarded this decline's proposal.
 FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "discarded", "expired", "invalid", "cancelled"]
