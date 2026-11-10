@@ -12,13 +12,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
-    SUBMITTED,
     WITHOUT_TOKEN_HASHES,
     build_addresses_filter,
     build_open_filter,
     build_registrierungen_sort,
+    find_unknown_registrierung_refusal,
 )
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -26,17 +26,20 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
 
 
-async def pull_open_registrierung(
+async def pull_registrierung(
     *, registrierungen_collection: AsyncCollection, registrierung_id: Any, session: AsyncClientSession
 ) -> Mapping[str, Any]:
-    """The pending registration this id names, or a 404: an admitted one is gone, and a declined one is decided."""
+    """The registration this id names, of any status, or `role_not_held` where no row holds it.
 
-    return await pull_one_from_db(
-        collection=registrierungen_collection,
-        db_filter={"_id": registrierung_id, "status": SUBMITTED},
-        projection=dict(WITHOUT_TOKEN_HASHES),
-        session=session,
-    )
+    Never a 404, which would answer before the caller judges the seat: an unknown id and another team's row answer alike,
+    so nobody learns which ids exist. An admitted row is gone, so its id is one no row holds.
+    """
+
+    row = await registrierungen_collection.find_one({"_id": registrierung_id}, projection=dict(WITHOUT_TOKEN_HASHES), session=session)
+    refuse(find_unknown_registrierung_refusal(found=row is not None))
+    assert row is not None
+
+    return row
 
 
 # The most pending rows one read serves a team, newest first: the collection is written by anybody holding a team's

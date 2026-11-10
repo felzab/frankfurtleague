@@ -557,6 +557,21 @@ def build_admission_erasure_filter(*, registrierung_id: Any, saison_id: str, add
     return {"saison_id": saison_id, "$or": [{"_id": registrierung_id}, dict(build_own_registrierung_filter(address))]}
 
 
+def find_unknown_registrierung_refusal(*, found: bool) -> WriteRefusal | None:
+    """`role_not_held` for an id no registration holds, the answer the seat check gives another team's row.
+
+    One answer for both, so a signed-in stranger learns nothing of which ids exist.
+    """
+
+    if found:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.ROLE_NOT_HELD,
+        status=HTTPStatus.FORBIDDEN,
+    )
+
+
 def find_unconfirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """`registrierung_unconfirmed`: the pupil has not answered their own link, so nobody may admit them yet.
 

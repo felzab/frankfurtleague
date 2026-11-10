@@ -2237,10 +2237,10 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
  * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
  * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
- * about any of them.
+ * about any of them, and the admission's act counts them.
  *
- * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
- * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
+ * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
+ * the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
  * offer (`registrierung_stufe_not_allowed`), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
  * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
@@ -2284,8 +2284,8 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
- * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
- * (`role_not_held`).
+ * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
+ * one the team has declined already (404).
  * @summary Decline a registration
  */
 export const registrierungenDecline = async (
