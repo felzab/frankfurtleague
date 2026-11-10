@@ -111,6 +111,24 @@ describe("an editor's refused save", () => {
   });
 });
 
+// The harm: a line-up of six players moved reading „1 Änderung“, its one field, on the bar and in the way back's question.
+describe("an editor whose one field holds many things", () => {
+  it("counts what `countOf` counts while a field differs, and nothing once the draft is the stored record again", () => {
+    type Picked = { picked: ReadonlyArray<string> };
+    const stored: EditorRecord<Picked> = { id: "spiel-1", version: 1, values: { picked: ["a"] } };
+    const added = (was: Picked, now: Picked) => now.picked.filter((id) => !was.picked.includes(id)).length;
+    const { result } = renderHook(() => useEditor(stored, async () => ({ ok: true, value: 2 }), { countOf: added }));
+
+    act(() => result.current.set("picked", ["a", "b", "c"]));
+    expect(result.current.count).toBe(2);
+    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(2) });
+
+    act(() => result.current.set("picked", ["a"]));
+    expect(result.current.count).toBe(0);
+    expect(result.current.status).toBeNull();
+  });
+});
+
 // The harm: a confirmation reaching a draft it was not asked about, or a question nobody can answer.
 describe("an editor's save the server holds back for a question", () => {
   const QUESTION = { subject: COPY.admin.spiel.ergebnis, consequence: COPY.admin.spiel.voids([31]), confirm: "31" };

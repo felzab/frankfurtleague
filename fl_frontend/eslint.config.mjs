@@ -758,7 +758,7 @@ const OFF_SCALE = (except) =>
 /** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */
 const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
-const TABLE_BLOCK = { allow: ["src/kit/Table.tsx"] };
+const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 const PALETTE =
   "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
@@ -797,8 +797,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The table block is the one that writes a table; the kit's link writes the one plain anchor, its
-      // full-document load, which neither Next's link nor React Aria's under the app's router makes.
+      // The table block writes a table, and the line-up's block its own, whose rows hold a control and stay one line
+      // on a phone; the kit's link writes the one plain anchor, its full-document load, which neither Next's link nor
+      // React Aria's under the app's router makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -963,13 +964,14 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The seven blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
-    // page header's title, a school's tile and a party's answer.
+    // The eight blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's, a
+    // record's facts, the page header's title, a school's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
         "src/kit/Table.tsx",
         "src/kit/Card.tsx",
+        "src/kit/Lineup.tsx",
         "src/kit/SpielRow.tsx",
         "src/kit/Facts.tsx",
         "src/kit/RailFrame.tsx",
