@@ -116,6 +116,10 @@ test("a referee answers the coming game, saves the played game's report, and rea
   // Konto's referee box holds the fee the league pays them.
   await page.goto("/account/entries");
   const entry = page.getByRole("main").locator("section", { has: page.getByRole("heading", { name: "Schiedsrichter", exact: true }) });
-  const fee = entry.getByRole("definition", { name: "Honorar", exact: true });
+  // The definition after its term: ARIA prohibits naming either, so a screen reader reads the two in order.
+  const fee = entry
+    .getByRole("term")
+    .filter({ hasText: /^Honorar$/ })
+    .locator("xpath=following-sibling::dd[1]");
   await expect(fee).toHaveText(/^\d+,\d{2}\s€$/);
 });

@@ -42,9 +42,15 @@ function birthDate(): string {
   return `0101${String(new Date().getFullYear() - 17)}`;
 }
 
-/** A fact's value, which its term names for a screen reader. */
+/**
+ * A fact's value: the definition after its term. ARIA prohibits naming a `term` or a `definition`, so neither is found by
+ * a name; a screen reader reads the two in order.
+ */
 function valueOf(scope: Locator, term: string): Locator {
-  return scope.getByRole("definition", { name: term, exact: true });
+  return scope
+    .getByRole("term")
+    .filter({ hasText: new RegExp(`^${term}$`) })
+    .locator("xpath=following-sibling::dd[1]");
 }
 
 /**
