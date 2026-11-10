@@ -243,10 +243,10 @@ export type Account = {
   /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
-   * Every Funktion the person holds, by the page each opens on, the one this area serves marked current; two or more
-   * open „Funktion wechseln“, one being no choice to offer.
+   * Every Funktion the person holds, by the page each opens on; two or more open „Funktion wechseln“, one being no
+   * choice to offer. The menu marks the one the page lies under, so a reader of the person marks none.
    */
-  roles?: ReadonlyArray<MenuLink>;
+  roles?: ReadonlyArray<Omit<MenuLink, "isCurrent">>;
 };
 
 /**
@@ -294,7 +294,7 @@ export function ThemeChoicePlaceholder() {
 
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
- * more Funktionen, its submenu marking the one this area serves; Konto and Abmelden; Impressum and Datenschutz; and at
+ * more Funktionen, its submenu marking the one the page lies under; Konto and Abmelden; Impressum and Datenschutz; and at
  * its foot the theme as one row, „Darstellung“ with the three glyphs. It heads with the person's whole address, under
  * their name where one is stored, for every role alike: the row is one line, which cuts a long address, so the menu is
  * where it is read in full. `accountPage` is the Konto page the menu opens: the phone's list of its pages, or on desktop
@@ -311,7 +311,15 @@ function AccountMenu({
   trigger: ReactElement;
   beside?: boolean;
 }) {
-  const roles = account.roles ?? [];
+  const path = usePathname();
+  const held = account.roles ?? [];
+  // Marked from the address, which alone names the team and the season of a team's page: the layout reading the
+  // person stands above both.
+  const here = currentOf(
+    path,
+    held.map((role) => role.href),
+  );
+  const roles = held.map((role) => ({ ...role, isCurrent: role.href === here }));
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
   return (
