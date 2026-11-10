@@ -1,8 +1,10 @@
 import { COPY } from "@/core/copy";
 
 import { Icon } from "./Icon";
+import { Link } from "./Link";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
+import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { IconName } from "./Icon";
 
@@ -28,6 +30,11 @@ export type EmptyStateProps = {
    * its „Spieler“, „Keine Spieler für diese Suche.“
    */
   searchPlural?: Copy;
+  /**
+   * A muted line under the sentence of a list with nothing in it yet, saying where its records come from: the
+   * catalogue's words, or its words around one link, such as the league's address a team's registration link comes from.
+   */
+  line?: Copy | { before: Copy; link: { href: Route; label: Words }; after: Copy };
   /** The one act that fills the list, a kit `Button`. */
   action?: ReactElement;
   /** The mark over a list with nothing in it yet: the list's own rail mark, ⓘ where it names none. */
@@ -59,6 +66,23 @@ export function EmptyState(props: EmptyStateProps | Clear) {
         <p className="text-base text-fg-muted">
           {props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}
         </p>
+        {props.line !== undefined && (
+          <p className="text-sm text-fg-muted">
+            {typeof props.line === "string" ? (
+              props.line
+            ) : (
+              <>
+                {props.line.before}
+                <Link
+                  href={props.line.link.href}
+                  placement="text"
+                  label={props.line.link.label}
+                />
+                {props.line.after}
+              </>
+            )}
+          </p>
+        )}
         {props.action !== undefined && <div>{props.action}</div>}
       </div>
     );
