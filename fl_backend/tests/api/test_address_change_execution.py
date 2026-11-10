@@ -33,7 +33,7 @@ from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
 from app.api.outbox.schemas import FLBanData, FLOutboxEventPayload, FLOutboxLink, FLOutboxReference, FLRegistrierungLinkData
-from app.api.outbox.services import OwedMail, row_of
+from app.api.outbox.services import OwedMail, final_update, row_of
 from app.api.outbox.system_router import post_event, post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_decline_update
@@ -1501,6 +1501,26 @@ class TestTheMovedAddressLeavesNothingBehind:
             return await where_held(database, NEW_EMAIL, folded=True)
 
         assert on_a_person(mongo_replica_set_url, body) == {NEW_EMAIL: []}
+
+    def test_a_holder_s_sent_notices_keep_no_trace_of_the_old_address_past_its_erasure(self, mongo_replica_set_url: str):
+        """A sent notice's row stands as a tombstone of its key, which no erasure reads, so the key names no recipient's address."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await granted(database)
+            minted = await start(database, client)
+            await answer(database, client, minted.token)
+            # Every notice the change owed so far handed out and sent, as the drain leaves it.
+            await database[Collection.OUTBOX].update_many({"kind": "grant"}, final_update("sent", now=NOW))
+            await sweep(database, client, germany_now=NOW + timedelta(hours=GRANT_WAIT_HOURS, minutes=1))
+            await erase(database, client, EMAIL)
+            return await database[Collection.OUTBOX].count_documents({"kind": "grant", "to": None}), await where_held(
+                database, EMAIL, folded=True
+            )
+
+        tombstones, held = on_a_person(mongo_replica_set_url, body)
+
+        assert tombstones > 0
+        assert held == {EMAIL: []}
 
 
 async def outcome_code(call: Awaitable[Any]) -> str | None:
