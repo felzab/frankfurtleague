@@ -207,6 +207,12 @@ export const ROUTES = {
     title: COPY.shared.overview,
     crawl: "disallow",
   },
+  /** A fixture's report as its booked referee writes it, named by the two teams as the match's own page is. */
+  schiedsrichterSpielbericht: {
+    path: (saison: string, spiel: string) => `/area/schiedsrichter/${saison}/spielbericht/${spiel}` as const,
+    title: COPY.page.spiel,
+    crawl: "disallow",
+  },
 
   teamOverview: {
     path: (team: string, saison: string) => `/area/team/${team}/${saison}` as const,
