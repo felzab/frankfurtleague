@@ -194,7 +194,10 @@ async function readPage(params: Props["params"]) {
   return (
     <BerichtEditor
       title={title}
-      lead={COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time))}
+      lead={SERVER_COPY.area.line([
+        COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
+        spiel.spielort === null ? null : { record: spiel.spielort.name },
+      ])}
       record={{ id: spiel.spiel_id, version: found.version, values: valuesOf(found) }}
       save={saveBericht}
       phase={spiel.saison_phase}

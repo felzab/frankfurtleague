@@ -70,7 +70,7 @@ export function BerichtEditor({
   closed,
 }: {
   title: PageTitle;
-  /** When the match was played, under the title. */
+  /** When and where the match was played, under the title. */
   lead: Copy;
   record: EditorRecord<BerichtValues, number | null>;
   save: (sent: EditorSave<BerichtValues, number | null>) => Promise<ActionAnswer<number>>;
