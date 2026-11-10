@@ -463,13 +463,34 @@ const CLASS_LIST_CONSTANT = {
   name: "^[A-Z][A-Z0-9_]*_CLASSES$",
   match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }],
 };
-const UNSUFFIXED_CONSTANT = "[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/])";
+/** The kit's placeholder builders, each taking a class list as its argument. */
+const CLASS_LIST_CALLEES = "^(?:placeholderBar|buttonPlaceholder)$";
+/** A kit component's prop holding a class list, suffixed as `className` is, so one selector reads every one. */
+const CLASS_LIST_PROP = "^[a-z][A-Za-z0-9]*Class$";
+/** The class a recipe's call adds to its own, `buttonLook({ class })`, under either of the two keys `tv` takes. */
+const RECIPE_CLASS_KEY = "^class(?:Name)?$";
+
+/** Where the kit writes a class list beyond the plugin's defaults, which read a `className` and a `tv` config alone. */
+const CLASS_LIST_SELECTORS = [
+  ...getDefaultSelectors(),
+  CLASS_LIST_CONSTANT,
+  { kind: SelectorKind.Callee, name: CLASS_LIST_CALLEES, match: [{ type: MatcherType.String }] },
+  { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP },
+];
+/** A recipe call's key, read in any call, since a recipe is any function a `tv` call returned. */
+const RECIPE_CLASS = { kind: SelectorKind.Callee, name: "^.+$", match: [{ type: MatcherType.ObjectValue, path: RECIPE_CLASS_KEY }] };
+
+/** An upper-case constant read as a value, never a key or a member's name, that is not named for a class list. */
+const UNSUFFIXED_CONSTANT =
+  "Identifier[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/]):not(Property > Identifier.key):not(MemberExpression > Identifier.property)";
+/** Each place a class list stands, as the plugin reads it: its defaults' and `CLASS_LIST_SELECTORS`'. */
 const CLASS_LIST_SITES = [
-  'JSXAttribute[name.name="className"] > JSXExpressionContainer',
-  'JSXAttribute[name.name="className"] > JSXExpressionContainer > TemplateLiteral',
-  "VariableDeclarator[id.name=/_CLASSES$/] > TemplateLiteral",
-  "VariableDeclarator[id.name=/_CLASSES$/] > ObjectExpression > Property > TemplateLiteral",
-].join(", ");
+  `JSXAttribute[name.name=/^className$|${CLASS_LIST_PROP}/] > JSXExpressionContainer`,
+  `CallExpression[callee.name=/${CLASS_LIST_CALLEES}/]`,
+  `Property[key.name=/${RECIPE_CLASS_KEY}/]`,
+  'CallExpression[callee.name="tv"]',
+  "VariableDeclarator[id.name=/_CLASSES$/]",
+];
 
 /**
  * `NODE_ENV` and `NEXT_RUNTIME` are Next's own, not the deployment's: Next assigns the first per command
@@ -592,13 +613,11 @@ const SOURCE_BANS = [
   ),
   syntaxBan(TRANSITION_REWRAP, SOURCE),
   syntaxBan(
-    // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
-    // only a constant the class list itself holds is refused.
-
-    // Two arms rather than one `site > :matches(…)`: a combinator inside that `:matches` asks the site to
-    // be the member's own parent, so its member arm can match nothing.
+    // A constant handed to a call inside a class list, `labelBadge(TONE)`, is that call's argument rather than a
+    // class list, so only a constant the class list itself holds is refused, a branch or an interpolation of it
+    // included.
     syntax(
-      `:matches(:matches(${CLASS_LIST_SITES}) > Identifier${UNSUFFIXED_CONSTANT}, :matches(${CLASS_LIST_SITES}) > MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
+      CLASS_LIST_SITES.map((site) => `${site} ${UNSUFFIXED_CONSTANT}:not(${site} CallExpression *)`).join(", "),
       "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",
     ),
     SOURCE,
@@ -1371,7 +1390,7 @@ const eslintConfig = defineConfig([
         detectComponentClasses: true,
         // The plugin reads a variable by its whole name and nothing else, so a class list held in a
         // module constant is reached through the suffix every such constant carries.
-        selectors: [...getDefaultSelectors(), CLASS_LIST_CONSTANT],
+        selectors: [...CLASS_LIST_SELECTORS, RECIPE_CLASS],
       },
     },
     rules: {
@@ -1397,6 +1416,13 @@ const eslintConfig = defineConfig([
         },
       ],
     },
+  },
+  // A test hands an assertion objects under computed keys, `toEqual({ [name]: "settled" })`, and the plugin reads a
+  // value whose path it cannot name as standing under every path, the recipe's key included, so a test's calls are
+  // read for no recipe's class: a test writes no recipe call.
+  {
+    files: TEST_FILES,
+    settings: { "better-tailwindcss": { selectors: CLASS_LIST_SELECTORS } },
   },
 
   // Syntax, import and class bans rather than test sweeps: a comment naming a spelling is no literal, so

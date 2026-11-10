@@ -55,7 +55,7 @@ export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowC
  * A later cell's message goes while an earlier one says something: a row has one line, and its first refused field
  * speaks on it, as a box shows the first refusal it meets.
  */
-const FIRST_MESSAGE = "[&>:has([data-kit-message]:not(:empty))~*_[data-kit-message]]:hidden";
+const FIRST_MESSAGE_CLASSES = "[&>:has([data-kit-message]:not(:empty))~*_[data-kit-message]]:hidden";
 
 /*
  * The rows' whole look, in the one place a ruling changes it: the grid, the hairline between rows, the row's label and
@@ -76,13 +76,13 @@ const recordRows = tv({
     // appearing moves nothing. Each field's own line is laid there, out of the row's flow, so a field keeps its own
     // check and its own description for a screen reader. It hangs from its top, so a message too long for one line
     // runs on into the empty room over the next row rather than up over its own row's fields.
-    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 px-4 pt-4 pb-6 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-4 [&_[data-kit-message]]:top-full [&_[data-kit-message]]:-mt-4 [&_[data-kit-message]]:-translate-y-1 ${FIRST_MESSAGE}`,
+    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 px-4 pt-4 pb-6 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-4 [&_[data-kit-message]]:top-full [&_[data-kit-message]]:-mt-4 [&_[data-kit-message]]:-translate-y-1 ${FIRST_MESSAGE_CLASSES}`,
     // The label counting the row, „Tor 1“, on the kit's label rung, the same at every width.
     label: smallCaps({ class: "col-span-full row-start-1" }),
     lead: "col-start-1 row-start-2",
     figure: "col-start-2 row-start-2",
     // A phone's second line, the main field and what stands beside it; from desktop up its two cells are the row's own.
-    second: `col-span-full row-start-3 grid items-center gap-x-2 lg:contents ${FIRST_MESSAGE}`,
+    second: `col-span-full row-start-3 grid items-center gap-x-2 lg:contents ${FIRST_MESSAGE_CLASSES}`,
     main: "lg:col-start-3 lg:row-start-2",
     beside: "lg:col-start-4 lg:row-start-2",
     below: "col-span-full row-start-4 lg:col-span-1 lg:col-start-4 lg:row-start-2",
@@ -104,7 +104,7 @@ const recordRows = tv({
 });
 
 /** One line of a row's fields while they are read: a bar across the row, as tall as a control. */
-const FIELD_LINE = "col-span-full h-8 rounded-lg pointer-coarse:h-10";
+const FIELD_LINE_CLASSES = "col-span-full h-8 rounded-lg pointer-coarse:h-10";
 
 type Slots = ReturnType<typeof recordRows>;
 
@@ -342,7 +342,7 @@ export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; line
               {Array.from({ length: lines }, (_, line) => (
                 <span
                   key={line}
-                  className={placeholderBar(line === 0 ? FIELD_LINE : `${FIELD_LINE} lg:hidden`)}
+                  className={placeholderBar(line === 0 ? FIELD_LINE_CLASSES : `${FIELD_LINE_CLASSES} lg:hidden`)}
                 />
               ))}
             </div>
