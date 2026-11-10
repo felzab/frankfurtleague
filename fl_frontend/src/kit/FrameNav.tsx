@@ -238,16 +238,31 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 export type Account = {
   /** The person's name; an administrator's grant stores none, so the row names the address instead. */
   name?: RecordText;
-  /** The role the area is for, the row's second line. */
+  /** The role the area is for, the row's second line on a page whose place gives none of its own. */
   role: Copy;
   /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
    * Every Funktion the person holds, by the page each opens on; two or more open „Funktion wechseln“, one being no
-   * choice to offer. The menu marks the one the page lies under, so a reader of the person marks none.
+   * choice to offer. The menu marks the one the page lies under, so a reader of the person marks none. A place's own
+   * `role` is the row's second line on every page under it, as a team's short code and the seats held there: the
+   * area's line cannot name the team, which the address alone knows.
    */
-  roles?: ReadonlyArray<Omit<MenuLink, "isCurrent">>;
+  roles?: ReadonlyArray<Omit<MenuLink, "isCurrent"> & { role?: Copy }>;
 };
+
+/**
+ * The place of the person's the page at `path` lies under, read from the address: a team's layout stands above the
+ * team and the season of its address, so it names neither.
+ */
+function placeAt(account: Account, path: string) {
+  const places = account.roles ?? [];
+  const href = currentOf(
+    path,
+    places.map((place) => place.href),
+  );
+  return places.find((place) => place.href === href);
+}
 
 /**
  * Ends the session and leaves the document whole, as Next's guide advises for a sign-out: a soft navigation
@@ -311,15 +326,8 @@ function AccountMenu({
   trigger: ReactElement;
   beside?: boolean;
 }) {
-  const path = usePathname();
-  const held = account.roles ?? [];
-  // Marked from the address, which alone names the team and the season of a team's page: the layout reading the
-  // person stands above both.
-  const here = currentOf(
-    path,
-    held.map((role) => role.href),
-  );
-  const roles = held.map((role) => ({ ...role, isCurrent: role.href === here }));
+  const here = placeAt(account, usePathname());
+  const roles = (account.roles ?? []).map((place) => ({ ...place, isCurrent: place.href === here?.href }));
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
   return (
@@ -500,7 +508,8 @@ const avatar = tv({
 export type AccountRead = Promise<Account | null>;
 
 /**
- * The rail's foot when signed in: the avatar, the name and the role under it. The whole row is the one button opening
+ * The rail's foot when signed in: the avatar, the name and the role under it, the role of the place the page lies
+ * under where that place gives its own, else the area's. The whole row is the one button opening
  * the account menu, filled under the pointer as the season button over it is, so it carries no „…“ of its own, which
  * would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar alone stands centred, 8
  * px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu then opens beside the
@@ -508,9 +517,11 @@ export type AccountRead = Promise<Account | null>;
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
+  const path = usePathname();
   const account = use(read);
   if (account === null) return null;
   const { record: name } = account.name ?? account.address;
+  const role = placeAt(account, path)?.role ?? account.role;
   return (
     <AccountMenu
       account={account}
@@ -527,7 +538,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             <span className="truncate font-semibold text-fg">{name}</span>
-            <span className="truncate text-xs text-fg-muted">{account.role}</span>
+            <span className="truncate text-xs text-fg-muted">{role}</span>
           </span>
         </AriaButton>
       }

@@ -106,3 +106,30 @@ describe("the account menu", () => {
     ).toEqual(marked);
   });
 });
+
+// On a team's Spiele, Kader and Registrierungen nothing else names the team, so a person holding two reads there
+// which one the page is of; the area's line stays wherever the place has none.
+describe("the rail's account row", () => {
+  const AHORN = COPY.account.role.seats(COPY.shared.saisonName("2026"), ["trainer"]);
+
+  it.each([
+    { path: "/area/team/ahorn/2026/kader", line: AHORN },
+    { path: "/area/team/weide/2027", line: COPY.admin.role },
+    { path: "/admin/spielorte", line: COPY.admin.role },
+  ])("reads under the name the line of the place the page at $path lies under, else the area's", async ({ path, line }) => {
+    address.path = path;
+    onTestFinished(() => {
+      address.path = "/admin/spielorte";
+    });
+    const roles = [
+      { href: "/area/team/ahorn/2027", label: { record: "Ahorn" }, role: COPY.account.role.seats(COPY.shared.saisonName("2027"), ["trainer"]) },
+      { href: "/area/team/ahorn/2026", label: { record: "Ahorn" }, role: AHORN },
+      { href: "/area/team/weide/2027", label: { record: "Weide" } },
+      { href: "/admin", label: COPY.admin.role },
+    ];
+
+    await renderFrame(Promise.resolve({ ...ACCOUNT, roles }));
+
+    expect(screen.getByText(ACCOUNT.address.record).nextElementSibling?.textContent).toBe(line);
+  });
+});
