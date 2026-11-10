@@ -42,12 +42,9 @@ function birthDate(): string {
   return `0101${String(new Date().getFullYear() - 17)}`;
 }
 
-/** A fact's value under its term, as a definition list pairs them for a screen reader. */
+/** A fact's value, which its term names for a screen reader. */
 function valueOf(scope: Locator, term: string): Locator {
-  return scope
-    .getByRole("term")
-    .filter({ hasText: new RegExp(`^${term}$`) })
-    .locator("xpath=following-sibling::dd[1]");
+  return scope.getByRole("definition", { name: term, exact: true });
 }
 
 /**
