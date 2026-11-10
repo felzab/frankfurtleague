@@ -77,8 +77,8 @@ export function BerichtEditor({
   /** Each side's pupils to pick from, its squad's and any a stored row names beside them, each by number and name. */
   squads: Readonly<Record<FLSpielSide, readonly Option[]>>;
   minute: MinuteRule;
-  /** Whether a row's minute and each list's player are required, read from the write's rules on the server. */
-  required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean };
+  /** Whether a row's minute, its side, each list's player and a card's colour are required, read from the write's rules on the server. */
+  required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean; side: boolean; cardColour: boolean };
   /** An own goal's toggle, the server catalogue's word for it. */
   eigentor: Copy;
   remarksMax: number;
@@ -126,6 +126,7 @@ export function BerichtEditor({
       <Segmented
         label={label}
         labelHidden
+        isRequired={required.side}
         choices={choices}
         value={row.side}
         errorMessage={error}
@@ -288,6 +289,7 @@ export function BerichtEditor({
                         <Segmented
                           label={label}
                           labelHidden
+                          isRequired={required.cardColour}
                           choices={COLOURS}
                           value={row.colour}
                           errorMessage={error}

@@ -10,8 +10,11 @@ const HOME = '[data-kit-focus="home"]';
 /** One record of a list, whose neighbours take the focus it leaves: a table's row, a card's, a Konto box's. */
 const ROW = "[data-kit-row]";
 
-/** What a keyboard reaches in a row: every act and link the kit draws is one of these, a locked act included. */
-const PRESSABLE = "a[href], button:not(:disabled)";
+/**
+ * What a keyboard reaches in a row: every act and link the kit draws is one of these, a locked act included, and a
+ * record row's choice, whose radio the Tab key reaches unless its group holds it out (`tabindex="-1"`).
+ */
+const PRESSABLE = 'a[href], button:not(:disabled), input:not([type="hidden"], :disabled, [tabindex="-1"])';
 
 /** A dialog or a question standing over the page, which hands the focus back to what opened it as it closes. */
 const DIALOG = '[role="dialog"], [role="alertdialog"]';

@@ -888,6 +888,7 @@ const DESIGN_BANS = [
     {
       allow: [
         "src/kit/Checkbox.tsx",
+        "src/kit/ChoiceButtons.tsx",
         "src/kit/CodeField.tsx",
         "src/kit/ComboBox.tsx",
         "src/kit/RadioGroup.tsx",
