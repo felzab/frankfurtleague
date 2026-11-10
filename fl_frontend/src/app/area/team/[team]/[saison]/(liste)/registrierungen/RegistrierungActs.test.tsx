@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -72,6 +72,9 @@ describe("a registration's acts", () => {
     };
 
     await userEvent.click((await ask()).getByRole("button", { name: COPY.shared.verb.confirm }));
+    // The question closes in a transition, which may commit after the press returns; while it stands, the row under it
+    // is hidden from every query.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const second = await ask();
     await userEvent.click(second.getByRole("radio", { name: COPY.area.team.registrierung.otherPerson }));
     await userEvent.click(second.getByRole("button", { name: COPY.shared.verb.confirm }));
