@@ -781,8 +781,8 @@ async def sweep_spielbestaetigungen(
             if decision_of(spiel=spiel, austritte=[austritte[club] for club in clubs if club in austritte], tag=spiel["date"]) is not None:
                 return []
 
-            # A club no season row names was replaced and holds nobody to tell.
-            return [club for club in clubs if (spiel["_id"], club) not in stored and club in junctions]
+            # Every club a fixture fields holds its season row: no write removes one, and a replacement moves the fixtures.
+            return [club for club in clubs if (spiel["_id"], club) not in stored]
 
         owed = [(spiel, club) for spiel, clubs in batch.judged(due, clubs_owed) for club in clubs]
         reminded = {
