@@ -1,7 +1,5 @@
 "use client";
 
-import { useId } from "react";
-
 import { ConsentLine } from "@/kit/ConsentLine";
 import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
@@ -23,39 +21,33 @@ export type RegistrierungRules = {
 };
 
 /**
- * The pupil's one box, „Deine Angaben“, between the objection, read before anything is typed, and the sentence above
- * the send, as the application form boxes its fields: the name and the address the confirmation link goes to, then
- * the squad's three optional answers, the Stufe offered from the season's own list.
+ * The pupil's one box, „Deine Angaben“, under the objection, read before anything is typed, as the application form
+ * boxes its fields: the name and the address the confirmation link goes to, then the squad's three optional answers,
+ * the Stufe offered from the season's own list. The sentence the send rests on stands in the form's footer, beside it.
  */
 export function RegistrierungFields({
   rules,
   stufen,
-  lines: { objection, notice },
+  objection,
 }: {
   rules: RegistrierungRules;
   /** The season's Stufen in the league's order: a choice the write refuses is never offered. */
   stufen: readonly FLSpielerStufe[];
   /**
-   * The two lines around the box, which the page's wait draws too: the Art. 21 objection with the league's address as
-   * its link, in the server catalogue's one wording, and the sentence above the send.
+   * The line over the box, which the page's wait draws too: the Art. 21 objection with the league's address as its
+   * link, in the server catalogue's one wording.
    */
-  lines: { objection: Line; notice: Line };
+  objection: Line;
 }) {
-  const objectionLine = useId();
-  const noticeLine = useId();
   const { required, maxLength } = rules;
 
   return (
     <>
-      <ConsentLine
-        id={objectionLine}
-        line={objection}
-      />
+      <ConsentLine line={objection} />
       <Section title={WORDS.box}>
         <TextField
           label={COPY.shared.firstName}
           name="first_name"
-          width="standard"
           kind="text"
           autofill="given-name"
           isRequired={required.firstName}
@@ -64,7 +56,6 @@ export function RegistrierungFields({
         <TextField
           label={COPY.shared.lastName}
           name="last_name"
-          width="standard"
           kind="text"
           autofill="family-name"
           isRequired={required.lastName}
@@ -74,7 +65,6 @@ export function RegistrierungFields({
           label={COPY.signIn.address}
           name="email"
           description={WORDS.ownAddress}
-          width="standard"
           kind="email"
           autofill="email"
           isRequired={required.email}
@@ -83,7 +73,6 @@ export function RegistrierungFields({
         <TextField
           label={WORDS.nummer}
           name="nummer"
-          width="short"
           holds={2}
           kind="digits"
         />
@@ -100,10 +89,6 @@ export function RegistrierungFields({
           options={stufeOptions(stufen)}
         />
       </Section>
-      <ConsentLine
-        id={noticeLine}
-        line={notice}
-      />
     </>
   );
 }
