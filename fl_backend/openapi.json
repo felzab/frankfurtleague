@@ -955,7 +955,7 @@
         "type": "object"
       },
       "FLAccountSchiedsrichterEinwilligung": {
-        "description": "One referee record on the account page: the stored data its box shows and the consent the page moves.",
+        "description": "One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -968,6 +968,10 @@
               }
             ],
             "title": "Birth Date"
+          },
+          "default_payment": {
+            "title": "Default Payment",
+            "type": "integer"
           },
           "einwilligung": {
             "$ref": "#/components/schemas/FLAccountEinwilligung"
@@ -1019,6 +1023,7 @@
           "schule",
           "kontakt",
           "birth_date",
+          "default_payment",
           "einwilligung",
           "evidence_state",
           "givable",
@@ -11363,7 +11368,7 @@
         "type": "string"
       },
       "FLSchiedsrichterSelf": {
-        "description": "The referee's own page's read: the record and its fee.\n\nThe fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.",
+        "description": "The referee's own page's read: the record and its fee.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -14081,6 +14086,10 @@
             "title": "Name",
             "type": "string"
           },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -14089,7 +14098,8 @@
         },
         "required": [
           "team_id",
-          "name"
+          "name",
+          "shorthand"
         ],
         "title": "FLSpielberichtTeam",
         "type": "object"

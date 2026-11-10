@@ -40,8 +40,9 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
 
 
 class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
-    """One referee record on the account page: the stored data its box shows and the consent the page moves."""
+    """One referee record on the account page: the stored data its box shows, its fee and the consent the page moves."""
 
+    default_payment: int
     einwilligung: FLAccountEinwilligung
     evidence_state: FLEinwilligungState
     givable: bool
