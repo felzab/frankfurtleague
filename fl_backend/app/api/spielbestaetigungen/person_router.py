@@ -56,8 +56,8 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
 
-# A person's own router beside the link's and the pass's, binding its own actor at router level:
-# every write is recorded under the referee's Funktion.
+# The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason: a
+# referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
