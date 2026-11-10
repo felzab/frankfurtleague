@@ -6,13 +6,13 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { buttonLook, buttonPlaceholder } from "./buttonStyles";
-import { cardSurface, headGround, stacked } from "./cardStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
-import { StatusLine } from "./FieldParts";
 import { FieldStack } from "./FieldStack";
+import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { useFocusHome } from "./RowActs";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
@@ -99,7 +99,6 @@ const box = tv({
     // The title and the sentence under it, in an inline box's row or a stacked box's head (`boxHead`).
     words: "grid gap-1",
     description: "text-sm text-fg-muted",
-    foot: `flex items-center justify-end gap-3 border-t border-border ${headGround()} px-4 py-3`,
     // The one box without a footer: its words at the start and its control at the end, in one row that wraps on a
     // phone too narrow for both.
     inline: "flex flex-wrap items-center justify-between gap-4 p-4",
@@ -193,9 +192,9 @@ export function AccountBoxPlaceholder({
         </div>
       )}
       {foot !== undefined && (
-        <div className={slots.foot()}>
+        <FormFooterPlaceholder place="strip">
           <span className={buttonPlaceholder()}>{foot}</span>
-        </div>
+        </FormFooterPlaceholder>
       )}
     </div>
   );
@@ -325,11 +324,9 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
             <FieldStack>{children}</FieldStack>
           </div>
         )}
-        <div className={slots.foot()}>
-          <StatusLine
-            status={questionNote ?? status}
-            placement="row"
-          />
+        <FormFooter
+          place="strip"
+          status={questionNote ?? status}>
           {question === undefined || locked !== undefined ? (
             button
           ) : (
@@ -339,7 +336,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
               trigger={button}
             />
           )}
-        </div>
+        </FormFooter>
       </HeldForm>
     </section>
   );

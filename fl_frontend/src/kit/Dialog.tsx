@@ -12,11 +12,11 @@ import { goBackOrPush } from "@/core/goBackOrPush";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { actLabel } from "./dialogAct";
-import { ActRow, DialogOverlay } from "./DialogOverlay";
+import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
-import { StatusLine } from "./FieldParts";
 import { FieldStack } from "./FieldStack";
 import { statusLine } from "./fieldStyles";
+import { FormFooter } from "./FormFooter";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
@@ -234,11 +234,7 @@ function ActDialog({
             )}
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
             {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
-            <ActRow>
-              <StatusLine
-                status={status}
-                placement="row"
-              />
+            <FormFooter status={status}>
               <Button
                 variant="secondary"
                 label={COPY.shared.back}
@@ -253,7 +249,7 @@ function ActDialog({
                 isDisabled={noted !== null}
                 locked={locked}
               />
-            </ActRow>
+            </FormFooter>
           </Form>
         </FormContext.Provider>
       </AriaDialog>

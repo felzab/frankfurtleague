@@ -19,9 +19,8 @@ const DONE: ActionAnswer = { ok: true, value: undefined };
 /** An act on the inputs a section holds. */
 const page = (inputs: ReadonlyArray<unknown>) => (
   <SectionAct
-    label={LABEL}
+    acts={[{ label: LABEL, run: async () => DONE }]}
     inputs={inputs}
-    run={async () => DONE}
   />
 );
 
@@ -43,10 +42,14 @@ describe("a section's act", () => {
     const reason = COPY.template.draftUnsaved;
     render(
       <SectionAct
-        label={LABEL}
-        locked={reason}
-        confirm={{ verb: "swap", subject: COPY.page.teams, consequence: reason, tone: "primary" }}
-        run={async () => DONE}
+        acts={[
+          {
+            label: LABEL,
+            locked: reason,
+            confirm: { verb: "swap", subject: COPY.page.teams, consequence: reason, tone: "primary" },
+            run: async () => DONE,
+          },
+        ]}
       />,
     );
 

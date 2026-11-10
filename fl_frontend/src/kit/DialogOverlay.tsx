@@ -70,8 +70,3 @@ export function DialogOverlay({
     </ModalOverlay>
   );
 }
-
-/** The way back and the act: the act on the right, stacked on a phone with the act on top. */
-export function ActRow({ children }: { children: ReactNode }) {
-  return <div className="flex items-center justify-end gap-3 max-lg:flex-col-reverse max-lg:items-stretch">{children}</div>;
-}

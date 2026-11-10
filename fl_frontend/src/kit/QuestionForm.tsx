@@ -8,11 +8,11 @@ import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { ActRow } from "./DialogOverlay";
-import { StatusLine } from "./FieldParts";
 import { FieldStack } from "./FieldStack";
+import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { formColumn } from "./RailFrame";
+import { boxHead } from "./Section";
 import { Waiting } from "./Skeleton";
 import { statusOf, useFormAction } from "./useFormAction";
 
@@ -22,21 +22,14 @@ import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
 import type { FormStatus } from "./useFormAction";
 
-/** One box as wide as the sign-in's column from `lg`, its fields filling it: a page that is one question reads as that page does. */
-const BOX_CLASSES = formColumn({ class: cardSurface({ class: "gap-4 p-4 lg:max-w-signin" }) });
-
 /**
- * The status line and the act. From `lg` the line beside the button can wrap to two, and a row growing with it would
- * move the button under the pointer, so the row holds two lines' height at rest. On a phone the line stands under the
- * button, where nothing above it moves.
+ * One box as wide as the sign-in's column from `lg`, its fields filling it, a page that is one question reading as that
+ * page does; its act in the box's strip, as a Konto box's.
  */
-function StatusActRow({ children }: { children: ReactNode }) {
-  return (
-    <div className="lg:grid lg:min-h-10 lg:items-center">
-      <ActRow>{children}</ActRow>
-    </div>
-  );
-}
+const BOX_CLASSES = formColumn({ class: cardSurface({ class: "gap-0 overflow-hidden lg:max-w-signin" }) });
+
+/** The fields in the box's 16 px, as a box's content stands under its head (`boxHead`). */
+const CONTENT_CLASSES = boxHead().content();
 
 /** What the press read: the question's words, and the input the final press sends as the read held it to its rules. */
 export type AskedInput<Input> = {
@@ -110,19 +103,19 @@ export function QuestionForm<Input>({
           submit(formData);
         }}
         className={BOX_CLASSES}>
-        <FieldStack key={emptied}>{children}</FieldStack>
-        <StatusActRow>
-          <StatusLine
-            status={status}
-            placement="row"
-          />
+        <div className={CONTENT_CLASSES}>
+          <FieldStack key={emptied}>{children}</FieldStack>
+        </div>
+        <FormFooter
+          place="strip"
+          status={status}>
           <Button
             variant={tone}
             type="submit"
             label={COPY.shared.verb[verb]}
             isBusy={isPending}
           />
-        </StatusActRow>
+        </FormFooter>
       </HeldForm>
       {/* Mounted closed from the first render, the sign-in client's chunk with it (`usePasskeyTouch`), and one component
           type in both arms: a swapped one would unmount, and its unmount closes the question it opens
@@ -163,10 +156,12 @@ export function QuestionForm<Input>({
 export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; children: ReactNode }) {
   return (
     <Waiting layoutClass={BOX_CLASSES}>
-      <FieldStack>{children}</FieldStack>
-      <StatusActRow>
+      <div className={CONTENT_CLASSES}>
+        <FieldStack>{children}</FieldStack>
+      </div>
+      <FormFooterPlaceholder place="strip">
         <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
-      </StatusActRow>
+      </FormFooterPlaceholder>
     </Waiting>
   );
 }

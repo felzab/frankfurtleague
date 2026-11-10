@@ -9,6 +9,7 @@ import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
 import { FieldStack } from "./FieldStack";
 import { fieldFrame, fieldRoot, statusLine } from "./fieldStyles";
+import { FormFooterPlaceholder } from "./FormFooter";
 import { HelpPopover } from "./HelpPopover";
 import { ScoreRowsPlaceholder } from "./ScoreRows";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
@@ -79,7 +80,7 @@ export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 
  * One row of a section as its placeholder draws it: one field at the standard width, two forming one value as
  * `FieldPair` sets them, `FieldRows`' rows of one kind by what they hold, a match's score, the hairline between two
  * groups of fields (`SectionRule`), a subgroup's name over the rows after it, a field whose label the section's title
- * is (`titled`, at its width), an act of the section (`SectionAct`) by its label, its status line under it, or the
+ * is (`titled`, at its width), the section's footer strip with its acts (`SectionAct`) by their labels, last, or the
  * placeholder of whatever else the section holds, such as its facts' or a table's.
  */
 export type FieldRow =
@@ -90,7 +91,7 @@ export type FieldRow =
   | "rule"
   | { rows: 2 | 3; holds: "count" | "day" }
   | { titled: "standard" | "full" }
-  | { act: Copy }
+  | { acts: readonly [Copy, ...Copy[]] }
   | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
@@ -113,7 +114,18 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
         <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[row.titled]}`)} />
       </div>
     );
-  if ("act" in row) return <span className={buttonPlaceholder()}>{row.act}</span>;
+  if ("acts" in row)
+    return (
+      <FormFooterPlaceholder place="section">
+        {row.acts.map((act) => (
+          <span
+            key={act}
+            className={buttonPlaceholder()}>
+            {act}
+          </span>
+        ))}
+      </FormFooterPlaceholder>
+    );
   return (
     <FieldRowsPlaceholder
       rows={row.rows}
