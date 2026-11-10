@@ -699,7 +699,9 @@ spent_request() { # $1 a label, the rest curl options naming one transfer; each 
   local label="$1" half; shift
   for half in a b; do
     ACTION_LABELS+=( "$label" )
-    ACTION_REQUESTS+=( --next -s -D "${SCRATCH}/${label}-${half}.headers" -o "${SCRATCH}/${label}-${half}.body"
+    # curl refuses a `--next` opening its line, which a curl starting on this probe would hold.
+    if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
+    ACTION_REQUESTS+=( -s -D "${SCRATCH}/${label}-${half}.headers" -o "${SCRATCH}/${label}-${half}.body"
       -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
   done
 }
@@ -737,8 +739,9 @@ action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;c
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
-# Sent here and the link pages' run in a second curl, Windows capping one command line below both. A
-# transfer either curl never answered reads as `none`, the second's statuses kept at their labels.
+# Sent here, then the link pages' flood and the probes after it each in a curl of its own, Windows
+# capping one command line below any two. A transfer a curl never answered reads as `none`, each later
+# curl's statuses kept at their labels.
 mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 ACTION_SENT=${#ACTION_LABELS[@]}
 ACTION_REQUESTS=()
@@ -751,6 +754,9 @@ LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) no
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
   action_request link-flood "${BASE}/confirm/kontakt?token=${TOK}"
 done
+mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+ACTION_SENT=${#ACTION_LABELS[@]}
+ACTION_REQUESTS=()
 # The key spent: every link page, each block's own twin and the spellings nginx resolves before
 # choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
 LINK_MARKER="fl-link"
