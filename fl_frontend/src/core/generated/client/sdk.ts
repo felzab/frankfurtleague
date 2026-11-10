@@ -751,7 +751,8 @@ export const getAufstellungenGetAufstellungUrl = (spielId: string, teamId: strin
 /**
  * The line-up screen of one club for one fixture, as the club's own seat holders read it.
  *
- * `document_not_found` for a fixture that does not exist or does not field this club.
+ * With the season's status, so a finished season's line-up opens read-only. `document_not_found` for a fixture that
+ * does not exist or does not field this club.
  * @summary One club's line-up for one fixture as an administrator reads it
  */
 export const aufstellungenGetAufstellung = async (
@@ -777,7 +778,8 @@ export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: strin
  * `aufstellung.saved`.
  *
  * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
- * (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
+ * (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
+ * holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
  * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past
  * the shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,
@@ -818,12 +820,12 @@ export const getAufstellungenGetAufstellungSelfUrl = (spielId: string, teamId: s
  * The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
  *
  * The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
- * saved, every pupil it names outside that squad, the document's `version` and the line-up's marks: whether one is
- * stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is null for a fixture
- * holding no day or no hour, which takes no line-up.
+ * saved, every pupil it names outside that squad, the season's status, the document's `version` and the line-up's
+ * marks: whether one is stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is
+ * null for a fixture holding no day or no hour, which takes no line-up.
  *
- * Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, and
- * `document_not_found` for a fixture that does not exist or does not field this club.
+ * Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, a finished
+ * season granting none, and `document_not_found` for a fixture that does not exist or does not field this club.
  * @summary One club's line-up for one fixture as its seat holder reads it
  */
 export const aufstellungenGetAufstellungSelf = async (
@@ -848,7 +850,8 @@ export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: s
  * where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
  * `aufstellung.saved`.
  *
- * Refuses, in this order, each writing nothing: no seat on this club in the fixture's season (`role_not_held`); a
+ * Refuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season
+ * granting none (`role_not_held`); a
  * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
  * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live

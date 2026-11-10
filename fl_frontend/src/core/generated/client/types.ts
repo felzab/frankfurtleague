@@ -1137,6 +1137,14 @@ export interface FLAufstellungSpieler {
   spieler_id: string;
 }
 
+export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
+
+export const FLSaisonStatus = {
+  past: "past",
+  active: "active",
+  future: "future",
+} as const;
+
 export type FLSaisonPhase = (typeof FLSaisonPhase)[keyof typeof FLSaisonPhase];
 
 export const FLSaisonPhase = {
@@ -1175,11 +1183,15 @@ export interface FLAufstellungSpiel {
 
 /**
  * One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
+ *
+ * `saison_status` as the match editor's read serves it (`FLSpieleAdminSingleResponse`): a finished season's line-up
+ * opens read-only, which the save refuses (`saison_past`).
  */
 export interface FLAufstellungResponse {
   kader: FLAufstellungSpieler[];
   marks: FLAufstellungMarks | null;
   named: FLAufstellungSpieler[];
+  saison_status: FLSaisonStatus;
   spiel: FLAufstellungSpiel;
   spieler: FLAufstellungEntry[];
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1689,14 +1701,6 @@ export interface FLBewerbungGruppeOffer {
   free: number;
   gruppe: FLGruppenNames;
 }
-
-export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
-
-export const FLSaisonStatus = {
-  past: "past",
-  active: "active",
-  future: "future",
-} as const;
 
 /**
  * What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.

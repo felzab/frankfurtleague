@@ -277,6 +277,12 @@ export const ROUTES = {
     title: COPY.page.spiel,
     crawl: "disallow",
   },
+  /** One club's line-up for a match as the league enters it, named by the match's two teams as the team's own is. */
+  adminAufstellung: {
+    path: (saison: string, spiel: string, team: string) => `/admin/saisons/${saison}/spiele/${spiel}/aufstellung/${team}` as const,
+    title: COPY.page.spiel,
+    crawl: "disallow",
+  },
   adminSpielorte: { path: () => "/admin/spielorte" as const, title: COPY.page.adminSpielorte, crawl: "disallow" },
   /** A venue's own page, named by the venue. */
   adminSpielort: {

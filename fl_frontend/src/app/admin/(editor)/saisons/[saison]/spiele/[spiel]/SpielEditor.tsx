@@ -4,12 +4,14 @@ import { useState } from "react";
 
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
+import { CardActRow } from "@/kit/Card";
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
 import { ScoreRows } from "@/kit/ScoreRows";
+import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { Table } from "@/kit/Table";
@@ -27,12 +29,14 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
+import type { CardActRowProps } from "@/kit/Card";
 import type { EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { ComponentProps } from "react";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
 
@@ -57,8 +61,9 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, a side per row, a shoot-out's column appearing by itself on level
  * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
- * its own; and the report's goals and every party's answer, read-only. Saved together from the editor's bar; a save
- * that would delete a later match's result the server holds back with its question, which the bar asks.
+ * its own; the report's goals and every party's answer, read-only; and last a link to each side's line-up, which its
+ * own page saves. Saved together from the editor's bar; a save that would delete a later match's result the server
+ * holds back with its question, which the bar asks.
  */
 export function SpielEditor({
   title,
@@ -77,6 +82,7 @@ export function SpielEditor({
   report,
   adoption,
   answers,
+  aufstellungen,
   createSpielort,
   spielortRules,
   closed,
@@ -105,6 +111,8 @@ export function SpielEditor({
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
   answers: readonly AnswerRow[];
+  /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored. */
+  aufstellungen: ReadonlyArray<CardActRowProps & { id: string }>;
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
   spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
@@ -194,8 +202,28 @@ export function SpielEditor({
             </>
           ),
         };
-  const withBegegnung = (rest: readonly [EditorSection, ...EditorSection[]]): readonly [EditorSection, ...EditorSection[]] =>
-    begegnung === null ? rest : [begegnung, ...rest];
+  // Last, each side's line-up, which its own page saves: its rows lead there, edge to edge in a box of their own.
+  const lineups =
+    aufstellungen.length === 0
+      ? []
+      : [
+          {
+            id: "aufstellungen",
+            block: (
+              <Section
+                title={COPY.area.team.aufstellung.plural}
+                list={aufstellungen.map(({ id, ...row }) => (
+                  <CardActRow
+                    key={id}
+                    {...row}
+                  />
+                ))}
+              />
+            ),
+          },
+        ];
+  const framed = (rest: readonly [EditorSection, ...EditorSection[]]): ComponentProps<typeof EditorPage<SpielValues>>["sections"] =>
+    begegnung === null ? [...rest, ...lineups] : [begegnung, ...rest, ...lineups];
 
   return (
     <EditorPage
@@ -203,7 +231,7 @@ export function SpielEditor({
       lead={preview}
       editor={editor}
       closed={closed}
-      sections={withBegegnung([
+      sections={framed([
         {
           id: "ansetzung",
           title: WORDS.ansetzung,

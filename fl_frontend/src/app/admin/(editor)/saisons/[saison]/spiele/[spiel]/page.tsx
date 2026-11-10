@@ -2,8 +2,10 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
+import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
 import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
+import { SectionPlaceholder } from "@/kit/Section";
 import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
 
@@ -14,6 +16,7 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -35,6 +38,7 @@ import type {
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
+import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -165,6 +169,8 @@ export default function SpielEditorPage({ params }: Props) {
               rows={3}
             />,
           ],
+          // Both sides' line-up rows, as a dated match with its two clubs shows them.
+          { block: <SectionPlaceholder list={<CardRowsPlaceholder rows={2} />} /> },
         ],
       }}
       editor={readEditor(params)}
@@ -254,7 +260,7 @@ const openRowOf = (rows: readonly FLSpielbestaetigung[], party: (row: FLSpielbes
  * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
  * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined, declined: Copy): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
   const open = { tone: "warn", label: COPY.template.open } as const;
@@ -268,7 +274,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
     vorschlag === null
       ? day
       : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
-  return { ...shown, chip: { tone: "danger", label: declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
+  return { ...shown, chip: { tone: "danger", label: WORDS.declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
 /** Each party's answer about the fixture as it stands: both clubs, then the referee where one is booked. */
@@ -283,7 +289,6 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             { record: team.name },
             team.shorthand,
             openRowOf(rows, (row) => row.party.kind === "team" && row.party.team_id === team.team_id),
-            WORDS.declined,
           ),
         ];
   const booked = spiel.schiedsrichter;
@@ -296,10 +301,33 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             booked.name === null ? COPY.shared.notProvided : { record: booked.name },
             null,
             openRowOf(rows, (row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
-            WORDS.cancelled,
           ),
         ];
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
+}
+
+/**
+ * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
+ * „Fehlt“ where none is stored. A side the draw has not settled has no club to name one; a match with no day or hour,
+ * and one called off, owe none, so neither shows a row.
+ */
+function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
+  const { spiel, aufstellungen } = view;
+  if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
+  const words = COPY.area.team.aufstellung;
+  return (["team1", "team2"] as const).flatMap((side) => {
+    const club = spiel[side];
+    if (club === null) return [];
+    const stored = aufstellungen[side];
+    return [
+      {
+        id: side,
+        href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
+        name: words.ofTeam({ record: club.name }),
+        line: stored === null ? words.missing : words.counts(stored.count, stored.starters, STARTERS_MAX),
+      },
+    ];
+  });
 }
 
 /** A knockout match's clubs for its two sides by hand, each a club the write would not field noted why. */
@@ -368,6 +396,7 @@ async function readEditor(params: Props["params"]) {
       report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
       answers={answerRows(view)}
+      aufstellungen={aufstellungRows(view)}
       createSpielort={createSpielort}
       spielortRules={SPIELORT_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}

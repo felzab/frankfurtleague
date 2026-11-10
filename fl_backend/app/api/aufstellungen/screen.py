@@ -36,17 +36,31 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import find_role_refusal
-from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
+from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, find_saison_past_refusal, matchday_of
 from app.api.spielberichte.crud import anchor_the_pupils_named
 from app.api.spielberichte.services import SIDES, team_id_of
 from app.api.spiele.services import build_spiele_pipeline, spiel_label
 from app.core.codes import Code
+from app.core.collections import Collection
 from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, find_stale_first_save_refusal, pull_many_from_db, refuse
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
 from app.core.transactions import transaction_session
-from app.shared.schemas.literals import FLSpielSide
+from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
+
+_SAISON_ROWS_AS = "saison_rows"
+
+# The fixture's season's status beside it, in the fixture's own aggregation: a finished season's line-up is read-only.
+_SAISON_STATUS_LOOKUP: Mapping[str, Any] = {
+    "$lookup": {
+        "from": Collection.SAISONS,
+        "localField": "saison_id",
+        "foreignField": "_id",
+        "pipeline": [{"$project": {"_id": 0, "status": 1}}],
+        "as": _SAISON_ROWS_AS,
+    }
+}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -73,6 +87,7 @@ class _State:
 
     spiel: Mapping[str, Any]
     side: FLSpielSide
+    saison_status: FLSaisonStatus
     # Every squad row of the club in the fixture's season, ausgetragen ones too, in shirt-number order.
     kader: Sequence[Mapping[str, Any]]
 
@@ -93,11 +108,14 @@ def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: Ob
 
 
 async def _pull_spiel(*, spiele_collection: ReadCollection, spiel_id: ObjectId, session: AsyncClientSession) -> Mapping[str, Any] | None:
-    """The fixture as the public reads join it, each side named, with its matchday's position; none for an id no fixture holds."""
+    """The fixture as the public reads join it, each side named, with its matchday's position and its season's status.
+
+    None for an id no fixture holds.
+    """
 
     found = await aggregate_many_from_db(
         collection=spiele_collection,
-        pipeline=[*build_spiele_pipeline(db_filter={"_id": spiel_id}), SPIELTAG_POSITION_LOOKUP],
+        pipeline=[*build_spiele_pipeline(db_filter={"_id": spiel_id}), SPIELTAG_POSITION_LOOKUP, _SAISON_STATUS_LOOKUP],
         limit=1,
         session=session,
     )
@@ -130,7 +148,20 @@ async def _read_state(
         session=session,
     )
 
-    return _State(spiel=spiel, side=fielding[0], kader=kader)
+    return _State(spiel=spiel, side=fielding[0], saison_status=spiel[_SAISON_ROWS_AS][0]["status"], kader=kader)
+
+
+def _judge_the_fixture(state: _State, *, locks: bool, now: datetime) -> None:
+    """The fixture's season and its clock, as a save asks them inside its transaction and again outside it.
+
+    `saison_past` first, as the match report's write asks it: a finished season's record takes no write at all, from
+    anybody. A seat never meets it, since a finished season grants no seat and `role_not_held` comes first.
+    """
+
+    refuse(find_saison_past_refusal(saison_status=state.saison_status))
+    # The marks' phase is the clock's alone, so whether one is stored is no part of the judgement.
+    spiel = state.spiel
+    judge_the_kickoff(aufstellung_marks(date=spiel.get("date"), time=spiel.get("time"), stored=False, now=now), locks=locks)
 
 
 async def _pull_people(
@@ -180,6 +211,7 @@ def _compose(
 
     return FLAufstellungResponse(
         spiel=FLAufstellungSpiel.model_validate({**spiel, "spiel_id": spiel["_id"], **matchday_of(spiel)}),
+        saison_status=state.saison_status,
         team_id=team_id,
         kader=[FLAufstellungSpieler.model_validate(row) for row in live],
         named=[outside(entry["spieler_id"]) for entry in entries if entry["spieler_id"] not in live_ids],
@@ -233,8 +265,7 @@ async def save_aufstellung_screen(
 
         state = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=session)
         spiel = state.spiel
-        # The marks' phase is the clock's alone, so whether one is stored is no part of the judgement.
-        judge_the_kickoff(aufstellung_marks(date=spiel.get("date"), time=spiel.get("time"), stored=False, now=now), locks=seat is not None)
+        _judge_the_fixture(state, locks=seat is not None, now=now)
         saved = await aufstellungen_collection.find_one({"spiel_id": spiel_id, "team_id": team_id}, session=session)
         refuse(find_stale_first_save_refusal(saved, version=payload.version))
         new = newly_named(entries, saved)
@@ -257,13 +288,11 @@ async def save_aufstellung_screen(
         )
         people = await _pull_people(spieler_collection=reads.spieler, state=state, saved=written, session=session)
 
-        # Nothing judged is written here, so a seat ending, a fixture re-dated or re-fielded or a pupil ausgetragen
-        # conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
+        # Nothing judged is written here, so a seat ending, a season closed, a fixture re-dated or re-fielded or a pupil
+        # ausgetragen conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
         async with db.start_session(snapshot=True) as outside:
             current = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=outside)
-        judge_the_kickoff(
-            aufstellung_marks(date=current.spiel.get("date"), time=current.spiel.get("time"), stored=False, now=now), locks=seat is not None
-        )
+        _judge_the_fixture(current, locks=seat is not None, now=now)
         judge_the_names(entries=entries, new=new, kader=current.kader)
 
         return _compose(state=state, team_id=team_id, saved=written, people=people, now=now), saved is None
