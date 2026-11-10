@@ -32,7 +32,7 @@ export function spielConfirmationLink(origin: string, token: string): string {
   return `${mailOrigin(origin)}${ROUTES.spielbestaetigung.path()}?token=${encodeURIComponent(token)}`;
 }
 
-/** The referee's own panel, the address `fl_frontend/src/features/funktionen/utils.ts` opens their Funktion on. */
+/** The referee's own panel, the address `fl_frontend/src/features/roles/utils.ts` opens their Funktion on. */
 const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
 
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */

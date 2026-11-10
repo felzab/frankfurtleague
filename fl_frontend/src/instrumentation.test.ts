@@ -61,7 +61,7 @@ vi.doMock("@/core/db.ts", () => ({
   },
 }));
 vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
-vi.doMock("@/features/funktionen/sweep.ts", () => ({ runAccountSweep: job("account") }));
+vi.doMock("@/features/roles/sweep.ts", () => ({ runAccountSweep: job("account") }));
 vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("erasure") }));
 vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
 vi.doMock("@/features/grants/sweep.ts", () => ({ runHandoverPass: job("grants") }));

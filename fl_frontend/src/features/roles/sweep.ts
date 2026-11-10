@@ -4,13 +4,13 @@ import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 
-import { postReferenzen } from "./mutations";
+import { postReferences } from "./mutations";
 
 /**
  * The most addresses one references read judges, mirroring the backend's `REFERENCES_ADDRESSES_MAX`
  * (`fl_backend/app/shared/schemas/bounds.py`): a larger batch is refused whole, every pass alike.
  */
-export const REFERENZEN_ADRESSEN_MAX = 250;
+export const REFERENCES_ADDRESSES_MAX = 250;
 
 /** What one pass did, by count and never by address: the scheduler's pass line is all that records it. */
 type AccountSweepCount = {
@@ -32,12 +32,12 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
 
   // Batch by batch, each within the read's ceiling: a larger one, or an empty one, is refused whole,
   // every pass alike, and the sweep would then delete nothing ever after.
-  for (let start = 0; start < accounts.length; start += REFERENZEN_ADRESSEN_MAX) {
-    const batch = accounts.slice(start, start + REFERENZEN_ADRESSEN_MAX);
+  for (let start = 0; start < accounts.length; start += REFERENCES_ADDRESSES_MAX) {
+    const batch = accounts.slice(start, start + REFERENCES_ADDRESSES_MAX);
     let unreferenced: readonly string[];
 
     try {
-      ({ unreferenced } = await postReferenzen({ identifiers: batch }));
+      ({ unreferenced } = await postReferences({ identifiers: batch }));
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
       count.failed += batch.length;
@@ -60,7 +60,7 @@ async function deleteUnreferencedAccount(address: string, count: AccountSweepCou
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered
     // since then keeps its account, and the race narrows to the seconds between this answer and the delete.
-    const { unreferenced } = await postReferenzen({ identifiers: [address] });
+    const { unreferenced } = await postReferences({ identifiers: [address] });
     if (!unreferenced.includes(address)) return;
 
     if (await deleteAccountFor(address)) count.deleted += 1;
