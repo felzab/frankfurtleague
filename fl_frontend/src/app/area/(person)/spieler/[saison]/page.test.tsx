@@ -19,7 +19,7 @@ vi.mock("@/features/roles/resolvers", () => ({
   readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
 }));
 vi.mock("@/features/roles/queries", () => ({
-  getOwnSaisons: async () => ({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
+  readOwnSaisons: async () => ({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
 }));
 
 // The public frame's read, cached for every visitor, which a unit render has no cache for.

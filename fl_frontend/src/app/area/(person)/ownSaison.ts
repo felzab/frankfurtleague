@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { getOwnSaisons } from "@/features/roles/queries";
-import { requireRole } from "@/features/roles/resolvers";
+import { readOwnSaisons } from "@/features/roles/queries";
+import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 
 import type { PersonKind } from "@/features/roles/queries";
 import type { StatusCardProps } from "@/kit/StatusPage";
@@ -23,7 +23,7 @@ const PLACE = {
  */
 export async function isOwnSaison(kind: PersonKind, saison: string): Promise<boolean> {
   await requireRole(kind, PLACE[kind].overview.path(saison));
-  const saisons = await getOwnSaisons(kind);
+  const saisons = await readAsRoleHolder(kind, () => readOwnSaisons(kind));
   return saisons?.entries.some((entry) => entry.id === saison) === true;
 }
 
@@ -35,7 +35,7 @@ export async function isOwnSaison(kind: PersonKind, saison: string): Promise<boo
  */
 export async function standardSaisonCard(kind: PersonKind): Promise<StatusCardProps> {
   await requireRole(kind, PLACE[kind].area.path());
-  const saisons = await getOwnSaisons(kind);
+  const saisons = await readAsRoleHolder(kind, () => readOwnSaisons(kind));
   if (saisons !== null) redirect(PLACE[kind].overview.path(saisons.standard));
   return {
     tone: "info",

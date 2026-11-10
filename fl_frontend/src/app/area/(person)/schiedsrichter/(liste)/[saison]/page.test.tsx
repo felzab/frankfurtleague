@@ -12,7 +12,7 @@ vi.mock("@/features/roles/resolvers", () => ({
   readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
 }));
 vi.mock("@/features/roles/queries", () => ({
-  getOwnSaisons: () => Promise.resolve({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
+  readOwnSaisons: () => Promise.resolve({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
 }));
 vi.mock("@/features/schiedsrichter/queries", () => ({
   getOwnSpiele: () => Promise.resolve({ saison_id: "2027", spiele: state.spiele }),
