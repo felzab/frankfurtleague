@@ -38,6 +38,8 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "sonderereignis": 1,
     "ergebnis": 1,
     "elfmeterschiessen": 1,
+    # The ground the form's lead names, never its rent.
+    **dict.fromkeys(("spielort.spielort_id", "spielort.name", "spielort.maps_link"), 1),
 }
 
 
@@ -387,6 +389,8 @@ def compose_view(
             "time": spiel.get("time"),
             "team1": team("team1"),
             "team2": team("team2"),
+            # Absent rather than null where the projection met a fixture without a ground.
+            "spielort": spiel.get("spielort"),
             "sonderereignis": spiel.get("sonderereignis"),
         },
         "kader": {side: live_kader(context, side) if kader_open else [] for side in SIDES},

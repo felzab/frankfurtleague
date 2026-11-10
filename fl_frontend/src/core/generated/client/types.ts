@@ -5096,6 +5096,7 @@ export interface FLSpielberichtSpiel {
   sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
+  spielort: FLSpielortFieldPublic | null;
   team1: FLSpielberichtTeam | null;
   team2: FLSpielberichtTeam | null;
   time: string | null;

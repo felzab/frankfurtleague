@@ -13787,6 +13787,16 @@
             "title": "Spiel Id",
             "type": "string"
           },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielortFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "team1": {
             "anyOf": [
               {
@@ -13828,6 +13838,7 @@
           "time",
           "team1",
           "team2",
+          "spielort",
           "sonderereignis"
         ],
         "title": "FLSpielberichtSpiel",
