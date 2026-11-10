@@ -576,7 +576,10 @@ class TestTheReads:
 
         answer = on_the_league(mongo_replica_set_url, body)
 
-        assert sorted((spieler.spieler_id, spieler.last_name) for spieler in answer.named) == [(LINA, "Krause"), (MIA, None)]
+        assert sorted((spieler.spieler_id, spieler.first_name, spieler.last_name) for spieler in answer.named) == [
+            (LINA, "Lina", "Krause"),
+            (MIA, None, None),
+        ]
 
     def test_after_the_season_the_referee_reads_the_report_alone(self, mongo_replica_set_url: str):
         """Played and standing, so only the season's end decides: the persons the report names, no squad to pick from."""
