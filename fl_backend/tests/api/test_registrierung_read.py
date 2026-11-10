@@ -62,7 +62,6 @@ def registrierung_document(
         "confirmation": {
             "token_hashes": [TOKEN_HASH],
             "sent_at": submitted_at,
-            "reminded_at": None,
             "deadline": "2026-04-08",
         },
         "decision": None,
@@ -76,7 +75,7 @@ def on_a_league(url: str, body: Body) -> Any:
     """A clean database carrying the shipped indexes.
 
     Four rows: one awaiting its pupil's answer, one they confirmed, one of another season, which is what makes a read
-    narrowing nothing fail, and one declined, which waits out its month asking nothing of an administrator.
+    narrowing nothing fail, and one declined, which waits out its days asking nothing of an administrator.
     """
 
     async def _run() -> Any:

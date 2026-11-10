@@ -40,11 +40,12 @@ export function targetsOf(roles: readonly Role[]): RoleTarget[] {
 }
 
 /**
- * The team a person's landing sends them straight on to, or `null` where the Übersicht stands: a team's own landing
- * is one, so a lone team goes straight on, and any other lone place is one card of the Übersicht. Every way into the
- * person area asks this, so a sign-in lands where `/area` would send it.
+ * Where a person's landing sends them straight on to: Konto's list where they hold no place, the place where they hold
+ * one, whatever kind it is; `null` where they hold several, which the landing lists. Every way into the person area
+ * asks this, so a sign-in lands where `/area` would send it without passing through it.
  */
-export function soleTeamOf(targets: readonly RoleTarget[]): string | null {
+export function landingTargetOf(targets: readonly RoleTarget[]): string | null {
   const [first, ...rest] = targets;
-  return first !== undefined && rest.length === 0 && first.roles[0].kind === "kontakt" ? first.href : null;
+  if (first === undefined) return ROUTES.account.path();
+  return rest.length === 0 ? first.href : null;
 }

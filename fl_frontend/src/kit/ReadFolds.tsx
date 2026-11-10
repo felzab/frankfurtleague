@@ -24,7 +24,7 @@ export type FoldedCard = {
 const folds = (count: number) => (count > 1 ? "grid content-start items-start gap-3 lg:grid-cols-2" : "grid");
 
 /** One card under another at every width, as the list template sets its cards. */
-const COLUMN = "grid gap-6";
+const COLUMN_CLASSES = "grid gap-6";
 
 /**
  * A fold head's count while it is read. The bar stands inline, so its line keeps the count's strut and with it a
@@ -105,7 +105,7 @@ export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: 
  */
 export function ReadFolds({ cards, column = false }: { cards: ReadonlyArray<FoldedCard>; column?: boolean }) {
   return (
-    <div className={column ? COLUMN : folds(cards.length)}>
+    <div className={column ? COLUMN_CLASSES : folds(cards.length)}>
       {cards.map(({ tables, ...card }) => (
         <CardFold
           key={textOf(card.title)}

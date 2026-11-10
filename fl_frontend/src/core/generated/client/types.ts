@@ -2309,6 +2309,8 @@ export interface FLDeclineBewerbungResponse {
   id: string;
 }
 
+export type FLDeclinedRetentionDays = 14;
+
 /**
  * The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.
  */
@@ -3105,6 +3107,7 @@ export interface FLOpenRegistrierung {
   admissible: boolean;
   /** @minLength 1 */
   first_name: string;
+  kader_full: boolean;
   /** @minLength 1 */
   last_name: string;
   nummer: string | null;
@@ -4264,6 +4267,8 @@ export interface FLRegistrierungConfirmationViewResponse {
   answered_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  /** @exclusiveMinimum 0 */
+  maximum_age: number;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
@@ -5598,29 +5603,6 @@ export interface FLSpielerSaisonSelfResponse {
 }
 
 /**
- * The pupil's own page's read: the record and every squad row it holds.
- *
- * The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
- */
-export interface FLSpielerSelf {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  birth_date: string;
-  /** @minLength 1 */
-  first_name: string;
-  kader: FLSpielerSelfKaderRow[];
-  last_name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-}
-
-/**
- * The signed-in address's own pupil record: one at most, `spieler.email` being unique.
- */
-export interface FLSpielerSelfResponse {
-  spieler: FLSpielerSelf;
-}
-
-/**
  * One player as the BASE TIER serves them -- an allow-list of what this surface needs.
  *
  * Squad fields are season-scoped, and inventing a season would make the answer depend on a default
@@ -5971,7 +5953,7 @@ export interface FLTeamPanelAufstellung {
 }
 
 /**
- * One pending registration as the Übersicht names it: who waits, since when, and whether the team may admit them yet.
+ * One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet.
  */
 export interface FLTeamPanelRegistrierung {
   admissible: boolean;
@@ -5979,8 +5961,10 @@ export interface FLTeamPanelRegistrierung {
   first_name: string;
   /** @minLength 1 */
   last_name: string;
+  position: FLSpielerPosition | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
+  stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
 }

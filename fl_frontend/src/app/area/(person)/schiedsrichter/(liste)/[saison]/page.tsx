@@ -1,0 +1,169 @@
+import { cache } from "react";
+import { notFound } from "next/navigation";
+
+import { ListPage } from "@/kit/ListPage";
+import { TextField } from "@/kit/TextField";
+
+import { requires } from "@/core/action";
+import { COPY } from "@/core/copy";
+import { dayOf, timeOf } from "@/core/format";
+import {
+  SpielbestaetigungenPostSchiedsrichterAnswerBody,
+  spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax,
+} from "@/core/generated/zod/inputs";
+import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { getOwnSaisons } from "@/features/roles/queries";
+import { requireRole } from "@/features/roles/resolvers";
+import { getOwnSpiele } from "@/features/schiedsrichter/queries";
+import { pageMetadata } from "@/shared/utils/metadata";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
+
+import { EinteilungActs } from "./EinteilungActs";
+
+import type { Words } from "@/core/copy";
+import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
+import type { CardActRowProps } from "@/kit/Card";
+import type { ChipProps } from "@/kit/Chip";
+import type { Metadata, ResolvingMetadata, Route } from "next";
+
+type Props = PageProps<"/area/schiedsrichter/[saison]">;
+
+const SPIEL = COPY.admin.spiel;
+const TITLE = COPY.page.spiele;
+
+/**
+ * The signed-in referee's games of the address's season, `null` for a season none of their bookings stands in: one
+ * read for the tab's title and the page alike. A person holding no referee record is sent on before anything is read.
+ */
+const spieleOf = cache(async (saison: string) => {
+  await requireRole("schiedsrichter", ROUTES.schiedsrichterOverview.path(saison));
+  // The frame's own read, memoised for the render.
+  const saisons = await getOwnSaisons("schiedsrichter");
+  if (saisons === null || !saisons.entries.some((entry) => entry.id === saison)) return null;
+  return getOwnSpiele(saison);
+});
+
+export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+  const { saison } = await params;
+  return metadataFor(spieleOf(saison), () => pageMetadata(parent, ROUTES.schiedsrichterOverview, ROUTES.schiedsrichterOverview.path(saison)));
+}
+
+// Session 8: `ROUTES.schiedsrichterSpielbericht.path(saison, spiel)` once the match report's row stands.
+const spielberichtOf = (saison: string, spiel: string): Route => `/area/schiedsrichter/${saison}/spielbericht/${spiel}`;
+
+/** A game by its two clubs, a side the draw has not settled yet as such. */
+const nameOf = ({ team1_name: team1, team2_name: team2 }: FLSchiedsrichterSpiel) =>
+  COPY.page.spiel(
+    team1 === null ? COPY.spielplan.quelle.open : { record: team1 },
+    team2 === null ? COPY.spielplan.quelle.open : { record: team2 },
+  );
+
+/** What a row says of where the game stands for the referee: its chip, and what its line adds after the slot and ground. */
+type Standing = { chip?: ChipProps; adds?: Words; open?: true };
+
+/**
+ * The row's standing, the first that holds: a game called off and the referee's own decline end the booking; a
+ * booking still to answer before its day carries the two answers; then the report, stored or owed once the game
+ * takes one; then an agreement, the league's marked as entered for them; then a booking that lapsed unanswered. A
+ * booking the league is to ask again, or never asked, carries no chip.
+ */
+function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
+  if (spiel.state === "cancelled") return { chip: { tone: "danger", label: SPIEL.cancelled } };
+  if (spiel.state === "declined") {
+    return { chip: { tone: "danger", label: SPIEL.declined }, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
+  }
+  if (spiel.state === "valid" && !spiel.past) {
+    return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, open: true };
+  }
+  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.admin.actionLog.action["spielbericht.saved"] } };
+  if (spiel.reportable) return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(SPIEL.spielbericht) } };
+  if (spiel.state === "agreed") {
+    return { chip: { tone: "success", label: SPIEL.zugesagt }, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
+  }
+  if (spiel.state === "expired") return { chip: { tone: "neutral", label: COPY.admin.expired } };
+  return {};
+}
+
+/** The reason's box of „Einteilung ablehnen“, drawn here so the write's schema stays on the server. */
+function ReasonField() {
+  return (
+    <TextField
+      label={COPY.admin.overview.reason}
+      // The name `declineEinteilung` reads the reason by.
+      name="reason"
+      width="W4"
+      kind="text"
+      isRequired={requires(SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason, "")}
+      maxLength={spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax}
+      description={COPY.admin.noNames}
+    />
+  );
+}
+
+/** One game's row: it opens the game's match report, and a booking still to answer carries the two answers. */
+function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string } {
+  const { chip, adds, open } = standingOf(spiel);
+  const name = nameOf(spiel);
+  const id = spiel.spielbestaetigung_id;
+  return {
+    id: spiel.spiel_id,
+    href: spielberichtOf(saison, spiel.spiel_id),
+    name,
+    ...(chip === undefined ? {} : { chip }),
+    line: SERVER_COPY.area.line([
+      COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
+      spiel.spielort === null ? null : { record: spiel.spielort.name },
+      adds ?? null,
+    ]),
+    ...(open === true && id !== null
+      ? {
+          acts: (
+            <EinteilungActs
+              id={id}
+              spiel={name}>
+              <ReasonField />
+            </EinteilungActs>
+          ),
+        }
+      : {}),
+  };
+}
+
+/** The referee's games of the season, read once: not-found for a season none of their bookings stands in. */
+async function readSpiele(params: Props["params"]) {
+  const { saison } = await params;
+  const read = await spieleOf(saison);
+  if (read === null) notFound();
+  return {
+    cards: [
+      {
+        id: "spiele",
+        title: TITLE,
+        rows: read.spiele.map((spiel) => rowOf(spiel, saison)),
+        count: false as const,
+        empty: { kind: "none" as const, plural: TITLE },
+      },
+    ],
+  };
+}
+
+/**
+ * A referee's Übersicht of one season: one box „Spiele“, a row a game in the order the read gives, open work first,
+ * then the games to come, then the finished. A booking is answered on its row, and every row opens its game's match
+ * report.
+ */
+export default function SchiedsrichterOverviewPage({ params }: Props) {
+  return (
+    <ListPage
+      head={{ scope: "area", title: { route: "schiedsrichterOverview" } }}
+      list={{
+        kind: "cards",
+        // A rail page's wait draws its taller state (`kit/Skeleton.tsx`): every row with its two acts' bars, which a
+        // row without acts lands a line shorter than on a phone, collapsing unseen under `main`.
+        wait: { rows: 5, cards: [{ title: TITLE, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline], count: false }] },
+        content: readSpiele(params),
+      }}
+    />
+  );
+}

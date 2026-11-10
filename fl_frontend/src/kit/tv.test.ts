@@ -28,8 +28,8 @@ function themeClasses(): Array<{ token: string; own: string; known: string }> {
     theme.walkDecls(/^--/, ({ prop }) => {
       const namespace = (Object.keys(CLOSED) as Array<keyof typeof CLOSED>).find((key) => prop.startsWith(`--${key}-`));
       const name = namespace === undefined ? undefined : prop.slice(`--${namespace}-`.length);
-      // A sub-property such as `--text-xs--line-height` names no class of its own.
-      if (namespace === undefined || name === undefined || name.includes("--")) return;
+      // A sub-property such as `--text-xs--line-height` names no class of its own, nor does a namespace's reset, `--text-*`.
+      if (namespace === undefined || name === undefined || name.includes("--") || name.endsWith("*")) return;
       const { utility, known } = CLOSED[namespace];
       found.push({ token: prop, own: `${utility}-${name}`, known });
     });

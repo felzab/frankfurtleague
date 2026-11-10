@@ -463,13 +463,34 @@ const CLASS_LIST_CONSTANT = {
   name: "^[A-Z][A-Z0-9_]*_CLASSES$",
   match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }],
 };
-const UNSUFFIXED_CONSTANT = "[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/])";
+/** The kit's placeholder builders, each taking a class list as its argument. */
+const CLASS_LIST_CALLEES = "^(?:placeholderBar|buttonPlaceholder)$";
+/** A kit component's prop holding a class list, suffixed as `className` is, so one selector reads every one. */
+const CLASS_LIST_PROP = "^[a-z][A-Za-z0-9]*Class$";
+/** The class a recipe's call adds to its own, `buttonLook({ class })`, under either of the two keys `tv` takes. */
+const RECIPE_CLASS_KEY = "^class(?:Name)?$";
+
+/** Where the kit writes a class list beyond the plugin's defaults, which read a `className` and a `tv` config alone. */
+const CLASS_LIST_SELECTORS = [
+  ...getDefaultSelectors(),
+  CLASS_LIST_CONSTANT,
+  { kind: SelectorKind.Callee, name: CLASS_LIST_CALLEES, match: [{ type: MatcherType.String }] },
+  { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP },
+];
+/** A recipe call's key, read in any call, since a recipe is any function a `tv` call returned. */
+const RECIPE_CLASS = { kind: SelectorKind.Callee, name: "^.+$", match: [{ type: MatcherType.ObjectValue, path: RECIPE_CLASS_KEY }] };
+
+/** An upper-case constant read as a value, never a key or a member's name, that is not named for a class list. */
+const UNSUFFIXED_CONSTANT =
+  "Identifier[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/]):not(Property > Identifier.key):not(MemberExpression > Identifier.property)";
+/** Each place a class list stands, as the plugin reads it: its defaults' and `CLASS_LIST_SELECTORS`'. */
 const CLASS_LIST_SITES = [
-  'JSXAttribute[name.name="className"] > JSXExpressionContainer',
-  'JSXAttribute[name.name="className"] > JSXExpressionContainer > TemplateLiteral',
-  "VariableDeclarator[id.name=/_CLASSES$/] > TemplateLiteral",
-  "VariableDeclarator[id.name=/_CLASSES$/] > ObjectExpression > Property > TemplateLiteral",
-].join(", ");
+  `JSXAttribute[name.name=/^className$|${CLASS_LIST_PROP}/] > JSXExpressionContainer`,
+  `CallExpression[callee.name=/${CLASS_LIST_CALLEES}/]`,
+  `Property[key.name=/${RECIPE_CLASS_KEY}/]`,
+  'CallExpression[callee.name="tv"]',
+  "VariableDeclarator[id.name=/_CLASSES$/]",
+];
 
 /**
  * `NODE_ENV` and `NEXT_RUNTIME` are Next's own, not the deployment's: Next assigns the first per command
@@ -592,13 +613,11 @@ const SOURCE_BANS = [
   ),
   syntaxBan(TRANSITION_REWRAP, SOURCE),
   syntaxBan(
-    // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
-    // only a constant the class list itself holds is refused.
-
-    // Two arms rather than one `site > :matches(…)`: a combinator inside that `:matches` asks the site to
-    // be the member's own parent, so its member arm can match nothing.
+    // A constant handed to a call inside a class list, `labelBadge(TONE)`, is that call's argument rather than a
+    // class list, so only a constant the class list itself holds is refused, a branch or an interpolation of it
+    // included.
     syntax(
-      `:matches(:matches(${CLASS_LIST_SITES}) > Identifier${UNSUFFIXED_CONSTANT}, :matches(${CLASS_LIST_SITES}) > MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
+      CLASS_LIST_SITES.map((site) => `${site} ${UNSUFFIXED_CONSTANT}:not(${site} CallExpression *)`).join(", "),
       "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",
     ),
     SOURCE,
@@ -759,10 +778,6 @@ const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
-const PALETTE =
-  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
-const COLOURED =
-  "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -950,8 +965,8 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The eight blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's, a
-    // record's facts, the page header's title, a school's tile and a party's answer.
+    // The nine blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's, a
+    // record's facts, the page header's title, a school's tile, a figure's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
@@ -962,6 +977,7 @@ const DESIGN_BANS = [
         "src/kit/Facts.tsx",
         "src/kit/RailFrame.tsx",
         "src/kit/TileGrid.tsx",
+        "src/kit/StatTiles.tsx",
       ],
     },
   ),
@@ -985,10 +1001,10 @@ const DESIGN_BANS = [
     PRODUCTION,
   ),
 
-  // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
-  // the token colours. Tailwind's own scale stays defined beside the tokens' steps, so the classes are
-  // held here.
-  // Session 8: the theme resets Tailwind's namespaces to `initial`, and the bans the resets make redundant go.
+  // The scale: one spacing scale, seven type sizes, four corners and a round shape, two shadows and the token colours.
+  // The theme resets Tailwind's type sizes, corners, shadows and colours (`src/app/tokens.css`), so a class off those
+  // compiles to nothing and `no-unknown-classes` refuses it; what the reset leaves is held here. Spacing keeps
+  // Tailwind's steps, on which the widths and heights are drawn, and a value in brackets compiles in any namespace.
   classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
     allow: [TOGGLE_OFFSET.home],
   }),
@@ -1007,26 +1023,17 @@ const DESIGN_BANS = [
     "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
     KIT,
   ),
+  // A square corner is Tailwind's own `none` value, set by no theme name.
   classBan(
-    CLASS(String.raw`text-(?:lg|[4-9]xl)`),
-    "Type is seven sizes: text-2xs for a phone's compact table alone, then text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
-    PRODUCTION,
-  ),
-  classBan(
-    CLASS(String.raw`rounded(?:-${SIDES})?(?:-(?:none|xs|2xl|3xl|4xl))?`),
+    CLASS(String.raw`rounded(?:-${SIDES})?-none`),
     "A corner is rounded-sm (4 px), rounded-md (6 px), rounded-lg (8 px) or rounded-xl (12 px), or rounded-full for a shape round by nature.",
     PRODUCTION,
   ),
+  // These three families take a colour, `none` or a value in brackets beside their reset steps.
   classBan(
-    CLASS(String.raw`(?:shadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner))?|(?:inset-shadow|drop-shadow|text-shadow)(?:-.+)?)`),
+    CLASS(String.raw`(?:inset-shadow|drop-shadow|text-shadow)(?:-.+)?`),
     "Only menus and pop-ups cast a shadow: shadow-menu or shadow-dialog.",
     PRODUCTION,
-  ),
-  classBan(CLASS(String.raw`(?:${COLOURED})-(?:${PALETTE})-\d+(?:\x2F.+)?`), "A colour is one of the tokens.", PRODUCTION),
-  classBan(
-    CLASS(String.raw`(?:${COLOURED})-(?:black|white)(?:\x2F.+)?`),
-    "A colour is one of the tokens; the scrim is the kit's.",
-    OUTSIDE_KIT,
   ),
   classBan(
     String.raw`^.*(?:\[|\(--).*$`,
@@ -1371,7 +1378,7 @@ const eslintConfig = defineConfig([
         detectComponentClasses: true,
         // The plugin reads a variable by its whole name and nothing else, so a class list held in a
         // module constant is reached through the suffix every such constant carries.
-        selectors: [...getDefaultSelectors(), CLASS_LIST_CONSTANT],
+        selectors: [...CLASS_LIST_SELECTORS, RECIPE_CLASS],
       },
     },
     rules: {
@@ -1397,6 +1404,13 @@ const eslintConfig = defineConfig([
         },
       ],
     },
+  },
+  // A test hands an assertion objects under computed keys, `toEqual({ [name]: "settled" })`, and the plugin reads a
+  // value whose path it cannot name as standing under every path, the recipe's key included, so a test's calls are
+  // read for no recipe's class: a test writes no recipe call.
+  {
+    files: TEST_FILES,
+    settings: { "better-tailwindcss": { selectors: CLASS_LIST_SELECTORS } },
   },
 
   // Syntax, import and class bans rather than test sweeps: a comment naming a spelling is no literal, so
@@ -1465,6 +1479,10 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/tokens.css"],
     language: "css/css",
+    // A theme's namespace reset, `--color-*: initial`, is Tailwind's syntax rather than CSS's: the parser takes it only
+    // when tolerant, the mode @eslint/css documents for syntax outside CSS. Not the Tailwind syntax it also documents,
+    // `tailwind-csstree`, which refuses a class's opacity under `@apply`. Tailwind's own compile still refuses a real error.
+    languageOptions: { tolerant: true },
     plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
     rules: { "tokens/contrast": "error" },
   },

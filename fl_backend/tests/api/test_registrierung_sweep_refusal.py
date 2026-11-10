@@ -4,11 +4,11 @@ from typing import Any
 import pytest
 
 from app.api.registrierungen.services import (
-    bestaetigung_loeschung_is_due,
     build_decline_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
-    decline_loeschung_is_due,
+    confirmation_erasure_is_due,
+    decline_erasure_is_due,
 )
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
@@ -24,7 +24,7 @@ def einwilligung() -> dict[str, Any]:
     return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY)
 
 
-def bestaetigung(**overrides: Any) -> dict[str, Any]:
+def confirmation(**overrides: Any) -> dict[str, Any]:
     """One live link inside its deadline, that each case moves one thing of."""
 
     return {
@@ -44,7 +44,7 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
         "first_name": "Quillhilde",
         "email": "quillhilde@example.com",
         "einwilligung": None,
-        "confirmation": bestaetigung(),
+        "confirmation": confirmation(),
         "decision": None,
         **overrides,
     }
@@ -61,26 +61,26 @@ class TestTheDeadlineClock:
         ],
     )
     def test_each_boundary_falls_where_the_bound_says(self, deadline: str | None, due: bool):
-        stored = registrierung(confirmation=bestaetigung(deadline=deadline))
+        stored = registrierung(confirmation=confirmation(deadline=deadline))
 
-        assert bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY) == due
+        assert confirmation_erasure_is_due(registrierung_raw=stored, today=TODAY) == due
 
     def test_a_confirmed_registration_waits_for_the_seasons_end_instead(self):
         """The clock's whole reach: a row nobody confirmed leaves at its deadline, and a confirmed one leaves with its season."""
 
-        stored = registrierung(confirmation=bestaetigung(deadline=YESTERDAY), einwilligung=einwilligung())
+        stored = registrierung(confirmation=confirmation(deadline=YESTERDAY), einwilligung=einwilligung())
 
-        assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
+        assert not confirmation_erasure_is_due(registrierung_raw=stored, today=TODAY)
 
-    def test_a_declined_registration_is_the_one_month_clocks(self):
-        stored = registrierung(status="declined", confirmation=bestaetigung(deadline=YESTERDAY))
+    def test_a_declined_registration_is_the_decline_clocks(self):
+        stored = registrierung(status="declined", confirmation=confirmation(deadline=YESTERDAY))
 
-        assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
+        assert not confirmation_erasure_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_registration_stored_without_a_block_is_never_taken_by_this_clock(self):
         """A row with no readable deadline is held rather than destroyed: the date this clock counts from is the one thing it needs."""
 
-        assert not bestaetigung_loeschung_is_due(registrierung_raw=registrierung(confirmation=None), today=TODAY)
+        assert not confirmation_erasure_is_due(registrierung_raw=registrierung(confirmation=None), today=TODAY)
 
 
 class TestTheDeclineClock:
@@ -95,13 +95,13 @@ class TestTheDeclineClock:
     def test_each_boundary_falls_fourteen_days_after_the_decision(self, made_at: str, due: bool):
         declined = registrierung(status="declined", decision={"made_at": made_at, "reason": "kein Platz"})
 
-        assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
+        assert decline_erasure_is_due(registrierung_raw=declined, today=TODAY) == due
 
     @pytest.mark.parametrize("status", ["submitted", "declined"])
     def test_a_decision_with_no_day_and_a_row_nobody_decided_are_both_left_standing(self, status: str):
         stored = registrierung(status=status, decision=None)
 
-        assert not decline_loeschung_is_due(registrierung_raw=stored, today=TODAY)
+        assert not decline_erasure_is_due(registrierung_raw=stored, today=TODAY)
 
 
 SAISON_ID = "2026"

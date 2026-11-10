@@ -3,12 +3,10 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Card, CardPlaceholder } from "./Card";
-import { stacked } from "./cardStyles";
 import { Countdown } from "./Countdown";
-import { GroupHead, GroupHeadPlaceholder } from "./GroupHead";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
-import { SpielList, SpielListPlaceholder } from "./SpielRow";
+import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -82,26 +80,8 @@ const block = tv({
     // The plaques alone, one short line a phone never wraps.
     opening: "flex items-center gap-2 text-sm",
     openingLabel: "text-fg-muted",
-    // The last and the next match, each under its head, a hairline between the two.
-    group: stacked(),
   },
 });
-
-function Group({ title, spiel }: { title: Copy; spiel: Shown }) {
-  const slots = block();
-  return (
-    <section className={slots.group()}>
-      <GroupHead
-        text={title}
-        inset="rows"
-      />
-      <SpielList
-        matches={[spiel]}
-        bare
-      />
-    </section>
-  );
-}
 
 function Body({ state }: { state: SaisonState }) {
   const slots = block();
@@ -143,14 +123,14 @@ function Body({ state }: { state: SaisonState }) {
       return (
         <>
           {state.last !== undefined && (
-            <Group
-              title={SERVER_COPY.landing.saison.last}
+            <SpielGroup
+              head={SERVER_COPY.landing.saison.last}
               spiel={state.last}
             />
           )}
           {state.next !== undefined && (
-            <Group
-              title={SERVER_COPY.landing.saison.next}
+            <SpielGroup
+              head={SERVER_COPY.landing.saison.next}
               spiel={state.next}
             />
           )}
@@ -167,19 +147,11 @@ function Body({ state }: { state: SaisonState }) {
  * days in, whose words the other states do not hold.
  */
 export function SaisonBlockPlaceholder() {
-  const slots = block();
   return (
     <CardPlaceholder chip>
+      {/* The last and the next match, each under its head. */}
       {[0, 1].map((index) => (
-        <div
-          key={index}
-          className={slots.group()}>
-          <GroupHeadPlaceholder inset="rows" />
-          <SpielListPlaceholder
-            count={1}
-            bare
-          />
-        </div>
+        <SpielGroupPlaceholder key={index} />
       ))}
     </CardPlaceholder>
   );

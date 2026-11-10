@@ -448,14 +448,12 @@ export const COPY = catalogue({
 
   /** The public registration form's own words; its squad fields read the labels `admin.spieler` gives them. */
   registrierung: {
+    /** The one box's title, over the pupil's own fields. */
+    box: "Deine Angaben",
     /** Under the address: the confirmation link goes there, and one address signs one person in. */
     ownAddress: "Deine eigene Adresse",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, as `bewerbung.notice`. */
     notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter ", after: "." },
-    // Redesign: goes with `RegistrierungFormPanel.tsx`.
-    /** The old registration panel's paragraph once a registration is in: `days` is how long the link stands. */
-    received: (days: number) =>
-      `Bestätige deine Registrierung über den Link in der E-Mail. Erst dann kann dein Team dich in den Kader aufnehmen. Bestätigst du nicht innerhalb von ${formatNumber(days)} Tagen, löschen wir die Registrierung wieder. Keine Mail bekommen? Prüfe die Adresse und registriere dich einfach erneut.`,
   },
 
   /**
@@ -826,6 +824,8 @@ export const COPY = catalogue({
         linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter ", after: "." },
         /** Muted in the line under a row's name: the registration's address is a stored person's. */
         returning: "War schon in der Liga",
+        /** That line where it holds more than one note, „War schon in der Liga · Nummer doppelt“. */
+        notes: (notes: readonly Copy[]) => notes.join(" · "),
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
         kaderFull: "Kader voll",
         awaitsConfirmation: "Erst, wenn die Person bestätigt hat",
@@ -859,6 +859,14 @@ export const COPY = catalogue({
         colour: { gelb: "Gelb", gelb_rot: "Gelb-Rot", rot: "Rot" } satisfies Record<FLCardColour, string>,
         /** The section for what no field holds, and its text area's label. */
         remarks: "Bemerkungen",
+        /** One goal: the object of „Tor eintragen“ and „Tor entfernen“, and the noun its row is counted by. */
+        goal: "Tor",
+        /** The label over a goal's or a card's row, counting the rows from 1: „Tor 3“, „Karte 1“. */
+        numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
+        /** A no-show's entry in the Sonderereignis, by the club that stayed away. */
+        nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+        /** Under the goals' title where a side fields another club than the report names, whose pupils left their rows. */
+        sidesChanged: "Im Spiel stehen inzwischen andere Teams.",
       },
     },
   },
