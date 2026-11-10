@@ -19,10 +19,10 @@ const WEIDE = "6890a1b2c3d4e5f607250012";
 const LINDE = "6890a1b2c3d4e5f607250013";
 
 // A person holding two clubs, one of them in two seasons: Ahorn in the running season and the coming one, Weide in
-// the coming one alone.
+// a season Ahorn is not held in.
 const SUBJECT = person({
   seats: [
-    seat({ team_id: WEIDE, team_name: "Weide", saison_id: "2027", saison_status: "future" }),
+    seat({ team_id: WEIDE, team_name: "Weide", saison_id: "2028", saison_status: "future" }),
     seat({ team_id: AHORN, team_name: "Ahorn", saison_id: "2026", saison_status: "active" }),
     seat({ team_id: AHORN, team_name: "Ahorn", saison_id: "2027", saison_status: "future", rolle: "trainer" }),
   ],
