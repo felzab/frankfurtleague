@@ -8,13 +8,6 @@ paths:
 
 Each fails silently. The ratified decisions for this surface are in `docs/decisions.md`.
 
-<!-- Session 8: the HeroUI trap below goes with HeroUI's last stylesheet import. -->
-
-- A HeroUI component a page not yet rebuilt imports needs its stylesheet imported into
-  `fl_frontend/src/app/globals.css`, which loads on every route, at the position it holds in
-  `node_modules/@heroui/styles/dist/components/index.css`, and so does every part it renders beneath
-  it: a popover, a listbox, a button. Without it the component renders unstyled while `tsc`,
-  `next build` and ESLint all pass.
 - A page whose address holds a token never forwards it into another address and never loads a
   third-party script with it in the address: one that must do either joins the proxy's mailed-link
   table (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), which moves the token into a
@@ -30,8 +23,7 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   since React writes that text back while hydrating, before any effect reads the edit; a
   `contenteditable` control stands `inert` (`fl_frontend/src/kit/dateParts.tsx :: Segments`, which the
   lint keeps React Aria's date segments in), since a changed text fails hydration and discards its
-  whole boundary. Pages call the kit: React Aria and
-  a raw control are banned outside it. The old HeroUI pages keep the loss until their session rebuilds them.
+  whole boundary. Pages call the kit: React Aria and a raw control are banned outside it.
 - An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
   `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box or the
   one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind

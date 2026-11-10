@@ -23,7 +23,6 @@ writing a line that depends on it.
 | **Next.js**             | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                                   | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
 | **React Aria**          | [llms.txt](https://react-aria.adobe.com/llms.txt)                                   | — (index only)                                                             |
 | **shadcn/ui**           | [llms.txt](https://ui.shadcn.com/llms.txt)                                          | — (index only)                                                             |
-| **HeroUI**              | [react/llms.txt](https://heroui.com/react/llms.txt)                                 | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
 | **Vitest**              | [llms.txt](https://vitest.dev/llms.txt)                                             | [llms-full.txt](https://vitest.dev/llms-full.txt)                          |
 | **Pydantic**            | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt)                    | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
 | **Zod**                 | [llms.txt](https://zod.dev/llms.txt)                                                | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
@@ -43,8 +42,7 @@ writing a line that depends on it.
   the `llms.txt` above only where they are silent, since it tracks the newest release.
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
-  plus the installed typings in `node_modules`, and say which you used. For HeroUI use the `react/`
-  URLs, never the bare `heroui.com/llms-full.txt`, which merges in HeroUI Native.
+  plus the installed typings in `node_modules`, and say which you used.
 - Tailwind, FastAPI and Playwright publish none, and PyMongo's is a topic index of unconfirmed
   conformance, so their prose docs stay authoritative: [Tailwind](https://tailwindcss.com/docs) ·
   [FastAPI](https://fastapi.tiangolo.com) · [Playwright](https://playwright.dev/docs/intro) ·
