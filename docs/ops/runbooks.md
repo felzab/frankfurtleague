@@ -366,8 +366,9 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a session
   a passkey signed in.
-- **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
-  sign-out, which arms on the first press and ends the session on the second.
+- **An admin ending their own session needs no restart at all**: the account menu every frame carries
+  holds „Abmelden“ (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`), which ends the session on its
+  press.
 
 ## 4. When the application queue has been flooded
 
