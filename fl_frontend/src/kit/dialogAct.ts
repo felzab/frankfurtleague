@@ -48,6 +48,11 @@ export type DialogAct = {
   /** `danger` for an act taking a record out of something, as a danger box's question names its verb's tone. */
   tone?: "primary" | "danger";
   /**
+   * Why the act cannot run on the record as it stands, which the dialog's facts show: its button answers a press with
+   * the reason, as every locked act of the kit does (`Button`'s `locked`), and the form sends nothing.
+   */
+  locked?: Copy;
+  /**
    * The act ending the record the dialog's inputs edit, beside the dialog's own: a client page's, since its question's
    * act is a function, which cannot cross from the server.
    */
