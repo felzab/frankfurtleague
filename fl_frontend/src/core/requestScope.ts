@@ -33,16 +33,9 @@ interface RequestScope {
   deadlineAt: number;
   // The writes sent that may stand, each counted as it is sent and taken back once its own answer refuses it: the
   // action builder clears the site's cache tag by it, where an action declaring its writes would repeat what each call
-  // already says. Held by reference, so the scope `runAnsweringOwnCut` derives counts into it.
+  // already says.
   standing: { writes: number };
-  // Redesign: the two flags below go with the write-outcome functions further down, and so do the lines that seed
-  // them in each scope and set `outcomeUnknown` in `boundCall`.
-  // Set as a write is sent, whatever its answer, which the old write path's spines judge a throw by.
-  writeSent: boolean;
-  // Set where a call may have landed unanswered, which the spines read once the request's work is done.
-  outcomeUnknown: boolean;
-  // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
-  // `runAnsweringOwnCut` derives shares it.
+  // `oncePerRequest`'s reads, by the function each wraps.
   memo: Map<() => Promise<unknown>, Promise<unknown>>;
   // Set on a background pass's scope, the scheduler's and the Postausgang's drain: its writes are drained by the pass
   // itself, never behind a response it has not got.
@@ -66,8 +59,6 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "ac
     ...scope,
     deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
     standing: { writes: 0 },
-    outcomeUnknown: false,
-    writeSent: false,
     memo: new Map(),
     background: false,
   };
@@ -102,8 +93,6 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     traceId,
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
     standing: { writes: 0 },
-    outcomeUnknown: false,
-    writeSent: false,
     memo: new Map(),
     background: false,
   };
@@ -127,8 +116,6 @@ export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Pro
     traceId,
     deadlineAt: Infinity,
     standing: { writes: 0 },
-    outcomeUnknown: false,
-    writeSent: false,
     memo: new Map(),
     background: true,
   };
@@ -159,25 +146,9 @@ export function boundCall(ownBoundMs: number): AbortSignal {
   const store = storage.getStore();
   const left = requestTimeLeft();
 
-  if (store !== undefined && left <= 0) {
-    store.outcomeUnknown = true;
+  if (store !== undefined && left <= 0) return AbortSignal.abort(new DOMException("The request's deadline had passed.", "TimeoutError"));
 
-    return AbortSignal.abort(new DOMException("The request's deadline had passed.", "TimeoutError"));
-  }
-  if (store === undefined || ownBoundMs <= left) return AbortSignal.timeout(ownBoundMs);
-
-  const signal = AbortSignal.timeout(left);
-  // Marked only where the deadline is the nearer bound: a call its own bound ended is answered by its own error. One
-  // answered before the deadline is marked as it passes all the same, which only work outliving the deadline reads.
-  signal.addEventListener(
-    "abort",
-    () => {
-      store.outcomeUnknown = true;
-    },
-    { once: true },
-  );
-
-  return signal;
+  return AbortSignal.timeout(store === undefined || ownBoundMs <= left ? ownBoundMs : left);
 }
 
 /**
@@ -192,7 +163,6 @@ export function recordWriteSent(): () => void {
   const store = storage.getStore();
   if (store === undefined) return () => undefined;
 
-  store.writeSent = true;
   store.standing.writes += 1;
   return () => {
     store.standing.writes -= 1;
@@ -202,36 +172,6 @@ export function recordWriteSent(): () => void {
 /** Whether a write this request sent may stand: sent, and not refused by its own answer. `false` outside a scope. */
 export function requestWriteMayStand(): boolean {
   return (storage.getStore()?.standing.writes ?? 0) > 0;
-}
-
-// Redesign: the write-outcome functions below go with their last importers, the old write path's spines and the
-// slices' old actions and mails. The builder in `fl_frontend/src/core/action.ts` reads none of them.
-
-/** Whether the transport has sent a write of this request, refused or not. `false` outside a scope. */
-export function requestWriteSent(): boolean {
-  return storage.getStore()?.writeSent === true;
-}
-
-/**
- * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request.
- * A write it sends still counts as sent. A no-op outside a scope.
- */
-export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
-  const store = storage.getStore();
-  if (store === undefined) return fn();
-
-  // A scope of its own rather than the flag reset afterwards, which would also clear a cut of a call running beside it.
-  const own: RequestScope = { ...store, outcomeUnknown: false };
-  try {
-    return await storage.run(own, fn);
-  } finally {
-    if (own.writeSent) store.writeSent = true;
-  }
-}
-
-/** Whether the deadline cut a call of this request. `false` outside a scope. */
-export function requestOutcomeUnknown(): boolean {
-  return storage.getStore()?.outcomeUnknown === true;
 }
 
 export function getRequestTraceId(): string | undefined {

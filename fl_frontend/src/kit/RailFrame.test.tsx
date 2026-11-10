@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -9,8 +9,9 @@ import { RailFrame } from "./RailFrame";
 
 import type { Account } from "./FrameNav";
 
+const address = vi.hoisted(() => ({ path: "/admin/spielorte" }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/spielorte",
+  usePathname: () => address.path,
   useParams: () => ({}),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
@@ -73,5 +74,62 @@ describe("the account menu", () => {
 
     await vi.waitFor(() => expect(leave.appToast).toHaveBeenCalledWith("danger", COPY.shared.toast.failure));
     expect(leave.leaveDocumentFor).not.toHaveBeenCalled();
+  });
+
+  // The layout reading the person stands above a team's address, so it can name the kind of place and never which
+  // team or season: a mark set there lands on the first of a person's team places wherever they are.
+  it.each([
+    { path: "/area/team/ahorn/2026/kader", marked: ["/area/team/ahorn/2026"] },
+    { path: "/admin/spielorte", marked: ["/admin"] },
+    { path: "/account/security", marked: [] },
+  ])("marks under „Funktion wechseln“ the place the page at $path lies under", async ({ path, marked }) => {
+    address.path = path;
+    onTestFinished(() => {
+      address.path = "/admin/spielorte";
+    });
+    const roles = [
+      { href: "/area/team/ahorn/2027", label: { record: "Ahorn" }, detail: COPY.shared.saisonName("2027") },
+      { href: "/area/team/ahorn/2026", label: { record: "Ahorn" }, detail: COPY.shared.saisonName("2026") },
+      { href: "/area/team/weide/2027", label: { record: "Weide" } },
+      { href: "/admin", label: COPY.admin.role },
+    ];
+    await renderFrame(Promise.resolve({ ...ACCOUNT, roles }));
+    await openMenu();
+
+    await userEvent.hover(screen.getByRole("menuitem", { name: COPY.shared.switchRole }));
+    const places = await screen.findByRole("menu", { name: COPY.shared.switchRole });
+
+    expect(
+      within(places)
+        .queryAllByRole("menuitemradio", { checked: true })
+        .map((place) => place.getAttribute("href")),
+    ).toEqual(marked);
+  });
+});
+
+// On a team's Spiele, Kader and Registrierungen nothing else names the team, so a person holding two reads there
+// which one the page is of; the area's line stays wherever the place has none.
+describe("the rail's account row", () => {
+  const AHORN = COPY.account.role.seats(COPY.shared.saisonName("2026"), ["trainer"]);
+
+  it.each([
+    { path: "/area/team/ahorn/2026/kader", line: AHORN },
+    { path: "/area/team/weide/2027", line: COPY.admin.role },
+    { path: "/admin/spielorte", line: COPY.admin.role },
+  ])("reads under the name the line of the place the page at $path lies under, else the area's", async ({ path, line }) => {
+    address.path = path;
+    onTestFinished(() => {
+      address.path = "/admin/spielorte";
+    });
+    const roles = [
+      { href: "/area/team/ahorn/2027", label: { record: "Ahorn" }, role: COPY.account.role.seats(COPY.shared.saisonName("2027"), ["trainer"]) },
+      { href: "/area/team/ahorn/2026", label: { record: "Ahorn" }, role: AHORN },
+      { href: "/area/team/weide/2027", label: { record: "Weide" } },
+      { href: "/admin", label: COPY.admin.role },
+    ];
+
+    await renderFrame(Promise.resolve({ ...ACCOUNT, roles }));
+
+    expect(screen.getByText(ACCOUNT.address.record).nextElementSibling?.textContent).toBe(line);
   });
 });

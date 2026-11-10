@@ -495,28 +495,6 @@ const ACTION_STATE_BAN = syntax(
   "Take `useActionState` through the kit's `useFormAction` in src/kit/useFormAction.ts, which answers every throw as the form's own failure line.",
 );
 
-/** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
-const handedOnError = (object) =>
-  [
-    `Property[key.name="description"] > MemberExpression.value[object.type="Identifier"][property.name="error"]${object}`,
-    `Property[key.name="description"] > LogicalExpression.value[operator="??"] > MemberExpression.left[object.type="Identifier"][property.name="error"]${object}`,
-  ].map((handed) => `CallExpression[callee.object.name="appToast"][callee.property.name="danger"] > ObjectExpression.arguments > ${handed}`);
-
-/**
- * `appToast.failure` titles a write of unknown outcome neutrally, where a danger titled at the site says
- * it did not happen. `sent` is a public form's transport answer, whose `error` is no action's, in a
- * module posting one.
- */
-// Redesign: `gesendet` goes with the confirmation pages sessions 7 and 8 delete, the last spelling it.
-const SENT = "/^(?:sent|gesendet)$/";
-const FAILURE_BY_HAND = syntax(
-  [
-    ...handedOnError(`:not([object.name=${SENT}])`),
-    ...handedOnError(`[object.name=${SENT}]`).map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
-  ].join(", "),
-  "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there.",
-);
-
 /**
  * A transition's start function is known by its name alone: React's standalone `startTransition`,
  * and every `useTransition` start function, named `start` and the act it runs. One named otherwise
@@ -595,8 +573,7 @@ const SOURCE_BANS = [
       "A link opening a new tab is the kit's `Link`, which opens every other site's address in one: a target spelled here tells a screen reader nothing.",
     ),
     SOURCE,
-    // Redesign: goes with its last importer. `NewTabLink` is the old pages' new-tab link.
-    { allow: ["src/kit/Link.tsx", "src/shared/components/ui/NewTabLink.tsx"] },
+    { allow: ["src/kit/Link.tsx"] },
   ),
   syntaxBan(
     // Tailwind's `screen` height is 100vh, and lvh is by definition the chrome-hidden height; svh and
@@ -615,12 +592,6 @@ const SOURCE_BANS = [
     SOURCE,
   ),
   syntaxBan(TRANSITION_REWRAP, SOURCE),
-  syntaxBan(FAILURE_BY_HAND, SOURCE, {
-    allow: [
-      // A failure no FastAPI write words, so none carries an unknown outcome: Better Auth answers the sign-out.
-      "src/shared/hooks/useSignOut.ts",
-    ],
-  }),
   syntaxBan(
     // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
     // only a constant the class list itself holds is refused.
@@ -638,19 +609,18 @@ const SOURCE_BANS = [
     // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "The save spines, fl_frontend/src/core/action.ts on its administrator's and person's lanes and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
+      "The save spine, fl_frontend/src/core/action.ts on its administrator's and person's lanes, clears the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
-    { allow: ["src/shared/utils/adminMutation.ts", "src/core/action.ts"] },
+    { allow: ["src/core/action.ts"] },
   ),
   syntaxBan(
     // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-      "fl_frontend/src/shared/utils/publicRoute.ts clears the site's cache tag after a route's write: a route clears nothing itself.",
+      "A route handler clears no cache tag: every write a browser makes is a server action, whose spine in fl_frontend/src/core/action.ts clears the site's tag.",
     ),
     SOURCE,
-    { allow: ["src/shared/utils/publicRoute.ts"] },
   ),
   syntaxBan(
     // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
@@ -717,12 +687,9 @@ const SOURCE_BANS = [
         "address-change",
         "ban-list",
         "bewerbungen",
-        "funktionen",
         "grants",
         "registrierungen",
         "schiedsrichter",
-        "spielberichte",
-        "spielbestaetigungen",
         "spielorte",
       ].map((slice) => `src/features/${slice}/queries.ts`),
     },
@@ -739,7 +706,7 @@ const PROPERTY_BANS = [
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
-      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
+      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush`." },
       SOURCE,
       { allow: ["src/core/goBackOrPush.ts"] },
     ),
@@ -791,16 +758,16 @@ const OFF_SCALE = (except) =>
 /** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */
 const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
-const TABLE_BLOCK = { allow: ["src/kit/Table.tsx"] };
+const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
 const PALETTE =
   "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
 const COLOURED =
   "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
-/** The three keyframes and their module that each old page loses with its rebuild. */
-// Session 8: goes with the last old page, with the two bans that read it.
-const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|toast-timer";
+/** The old toaster's keyframes, which nothing new draws. */
+// Session 8: goes with the toaster, with the ban that reads it.
+const OLD_KEYFRAMES = "toast-timer";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -830,8 +797,9 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The table block is the one that writes a table; the kit's link writes the one plain anchor, its
-      // full-document load, which neither Next's link nor React Aria's under the app's router makes.
+      // The table block writes a table, and the line-up's block its own, whose rows hold a control and stay one line
+      // on a phone; the kit's link writes the one plain anchor, its full-document load, which neither Next's link nor
+      // React Aria's under the app's router makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -918,32 +886,13 @@ const DESIGN_BANS = [
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
   ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
-  // Session 8: these two bans go with the last old page. HeroUI and its icon set leave with their last
-  // importer; the kit builds on neither.
+  // Session 8: this ban goes with HeroUI's last importer; the kit builds on none of it.
   kitImport(
     {
       regex: packageUnder("@heroui/react", "@heroui/styles"),
-      message: "The old component set goes with the last page importing it: build on the kit.",
+      message: "The old component set goes with the last module importing it: build on the kit.",
     },
     PRODUCTION,
-  ),
-  kitImport(
-    {
-      regex: packageUnder("@gravity-ui/icons"),
-      message: "The old icon set goes with the last page importing it: draw a glyph with the kit's `Icon`.",
-    },
-    PRODUCTION,
-  ),
-  // Session 8: this ban goes with the last old page, and its allowance once the logo moves into the kit.
-  // The old shared components go the same way. The kit's `Brand` draws the old logo until the logo moves
-  // into the kit.
-  kitImport(
-    {
-      regex: String.raw`^(?:@\x2F|\.{1,2}\x2F(?:.*\x2F)?)shared\x2Fcomponents\x2F`,
-      message: "The old components go with the last page importing them: build on the kit.",
-    },
-    PRODUCTION,
-    { allow: ["src/kit/Brand.tsx"] },
   ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
@@ -1015,13 +964,14 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The seven blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
-    // page header's title, a school's tile and a party's answer.
+    // The eight blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's, a
+    // record's facts, the page header's title, a school's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
         "src/kit/Table.tsx",
         "src/kit/Card.tsx",
+        "src/kit/Lineup.tsx",
         "src/kit/SpielRow.tsx",
         "src/kit/Facts.tsx",
         "src/kit/RailFrame.tsx",
@@ -1101,18 +1051,14 @@ const DESIGN_BANS = [
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
   classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
 
-  // Motion: the token pair inside the kit, and nothing new from the old keyframes or their module.
+  // Motion: the token pair inside the kit, and nothing new from the old keyframes.
   classBan(
     CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
     "Motion is the kit's, from the token pair under reduced motion.",
     OUTSIDE_KIT,
   ),
-  // Session 8: the old keyframes' and the old motion module's bans go with the last old page.
-  classBan(String.raw`^.*(?:${OLD_KEYFRAMES}).*$`, "The old keyframes go with each page's rebuild: nothing new uses them.", PRODUCTION),
-  kitImport(
-    { regex: moduleNamed("motion"), message: "The old motion module goes with each page's rebuild: nothing new imports it." },
-    PRODUCTION,
-  ),
+  // Session 8: the old keyframes' ban goes with the toaster, the last to draw one.
+  classBan(String.raw`^.*(?:${OLD_KEYFRAMES}).*$`, "The old keyframes go with the toaster: nothing new uses them.", PRODUCTION),
 
   // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
   // The required mark is a glyph, not a word.
@@ -1473,14 +1419,6 @@ const eslintConfig = defineConfig([
   // Syntax, import and class bans rather than test sweeps: a comment naming a spelling is no literal, so
   // prose never trips one.
   ...BAN_BLOCKS,
-
-  // A mailed link's confirmation answers a POST alone: a mail scanner opening the link sends a GET,
-  // and a GET handler here would confirm the seat in the scanner's name. Any upper-case export but
-  // `POST` is a method Next.js would route.
-  {
-    files: ["src/app/api/bestaetigung/**/route.ts"],
-    rules: { "no-restricted-exports": ["error", { restrictedNamedExportsPattern: "^(?!POST$)[A-Z]+$" }] },
-  },
 
   // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
   // route handlers no browser form posts to, the four that stay: three for callers that are not a browser, and the

@@ -71,7 +71,7 @@ export function RailFrame({
 }: {
   groups: ReadonlyArray<RailGroup>;
   bar: Bar;
-  /** The person's seasons, for the season button and the entries that are a season's pages. */
+  /** The person's seasons, or those of each team they hold, for the season button and the entries that are a season's pages. */
   saison?: FrameSaisons;
   foot: RailFoot;
   back?: Route;
@@ -89,7 +89,7 @@ export function RailFrame({
           { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
         ]
       : [];
-  const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])));
+  const entries = groups.flatMap((group) => group.entries);
 
   // The menus read the address and the seasons, which no prerender knows: each streams in its own boundary,
   // so the frame around them is drawn without waiting.
@@ -147,7 +147,13 @@ export function RailFrame({
       </LeaveGuardProvider>
     </MenuScope>
   );
-  return saison === undefined ? frame : <SaisonScope value={{ ...saison, pages }}>{frame}</SaisonScope>;
+  if (saison === undefined) return frame;
+  // The season pages the menu lists, which a season switch from a record's page lands among: a team's in a team's frame.
+  const scope =
+    saison.teams === undefined
+      ? { ...saison, pages: entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])) }
+      : { ...saison, pages: entries.flatMap((entry) => (entry.team === undefined ? [] : [entry.team])) };
+  return <SaisonScope value={scope}>{frame}</SaisonScope>;
 }
 
 /**

@@ -1,13 +1,9 @@
-import { cache } from "react";
-
 import { orMissing } from "@/core/errors";
-import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelf } from "@/core/generated/client/sdk";
+import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
-import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLSchiedsrichterListResponse,
-  FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
   SchiedsrichterGetSchiedsrichterParams,
 } from "@/core/generated/client/types";
@@ -36,10 +32,3 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
     orMissing(schiedsrichterGetSchiedsrichterById(schiedsrichterId)),
   );
 }
-
-/**
- * The signed-in referee's own records, refused `role_not_held` where the backend holds no confirmed
- * referee row for the address the page's own check passed.
- */
-// Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getSchiedsrichterSelf = cache(async (): Promise<FLSchiedsrichterSelfResponse> => runPersonRead(() => schiedsrichterGetSelf()));

@@ -25,7 +25,7 @@ export type Pair = { readonly team1: number; readonly team2: number };
 
 // Every instant is shown on the league's clock: without a zone the runtime's decides, so a server in
 // UTC and a browser elsewhere disagree about the day and the hour. The frontend's one spelling of it.
-export const TIME_ZONE = "Europe/Berlin";
+const TIME_ZONE = "Europe/Berlin";
 
 const DATE = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });

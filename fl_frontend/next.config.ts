@@ -43,11 +43,6 @@ const nextConfig: NextConfig = {
     // with record rows, about 400 requests a second (vercel/next.js#100055). Removed by the Next
     // upgrade that carries the fix, then measured again.
     optimisticRouting: false,
-    // Session 8: goes with HeroUI's packages.
-    // HeroUI's root is imported for `useOverlayState` alone, which no subpath publishes.
-    // `@heroui/styles` is consumed as CSS and every icon by its own subpath, so neither has a root
-    // import to narrow.
-    optimizePackageImports: ["@heroui/react"],
     // Off, or an agent's `next build`, the gate's included, asks the registry for advisories, stops on
     // any with instructions for that agent, and passes the same build retried. The gate's advisory
     // check is `pnpm audit:prod`.

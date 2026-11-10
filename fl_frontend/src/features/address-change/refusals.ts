@@ -1,4 +1,4 @@
-import { isRefusal, isRuleRefusal } from "@/shared/utils/actionError";
+import { isRefusal, isRuleRefusal } from "@/core/errors";
 
 import type { Code } from "@/core/generated/client/types";
 
