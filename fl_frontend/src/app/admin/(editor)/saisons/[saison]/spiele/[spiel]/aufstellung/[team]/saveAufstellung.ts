@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { ContractBreakError } from "@/core/errors";
 import { aufstellungenPutAufstellung } from "@/core/generated/client/sdk";
 import { AufstellungenPutAufstellungBody, AufstellungenPutAufstellungParams } from "@/core/generated/zod/inputs";
-import { entriesOf } from "@/features/aufstellungen/payload";
+import { entriesOf, refusedRows } from "@/features/aufstellungen/payload";
 import { getAufstellung } from "@/features/aufstellungen/queries";
 
 import type { ActionAnswer } from "@/core/action";
@@ -45,7 +45,16 @@ export const saveAufstellung = action({
     const stored = await getAufstellung(id, team_id);
     if (stored === null) return { ok: false, reason: COPY.shared.failure.stale };
 
-    const written = await aufstellungenPutAufstellung(id, team_id, { spieler: entriesOf(stored, changes), version });
+    const spieler = entriesOf(stored, changes);
+    let written;
+    try {
+      written = await aufstellungenPutAufstellung(id, team_id, { spieler, version });
+    } catch (error) {
+      // A pupil refused by entry is marked on their row; every other refusal the action words.
+      const rows = refusedRows(error, spieler);
+      if (rows === undefined) throw error;
+      return rows;
+    }
     if (written.version === null) throw new ContractBreakError("A line-up's save answered no version.");
     return { ok: true, value: written.version };
   },

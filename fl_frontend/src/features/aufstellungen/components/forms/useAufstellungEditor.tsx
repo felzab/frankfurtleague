@@ -6,6 +6,7 @@ import { useEditor } from "@/kit/useEditor";
 import { COPY } from "@/core/copy";
 
 import { STARTERS_MAX } from "../../constants";
+import { REFUSED_ROW } from "../../payload";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -45,6 +46,12 @@ export function useAufstellungEditor({ aufstellung, players, words, locked, save
   };
   const editor = useEditor<LineupValue, number | null>(record, save, { countOf: lineupMoves });
   const { draft, set } = editor;
+  // The pupils the save refused, each on their own row, while the refusal stands over the draft it was sent with.
+  const refusals = Object.fromEntries(
+    Object.entries(editor.fieldErrors ?? {}).flatMap(([box, text]) =>
+      box.startsWith(REFUSED_ROW) ? [[box.slice(REFUSED_ROW.length), text]] : [],
+    ),
+  );
 
   return {
     editor,
@@ -61,6 +68,7 @@ export function useAufstellungEditor({ aufstellung, players, words, locked, save
         startersMax={STARTERS_MAX}
         words={words}
         locked={locked}
+        refusals={refusals}
       />
     ),
   };
