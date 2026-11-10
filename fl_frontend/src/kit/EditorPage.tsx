@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { Fragment, useRef } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -30,6 +30,15 @@ import type { Editor, EditorValue } from "./useEditor";
  * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
  */
 export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; note?: Copy; fields: ReactElement };
+
+/**
+ * A part of an editor that draws its own boxes, such as a line-up's two lists (`Lineup`): placed bare in the sections'
+ * column, where a section's box around it would stand as a box in a box. It says its own state on its own lines; a
+ * closed editor's reason stands under the first section's title.
+ */
+type EditorBlock = { id: string; block: ReactElement };
+
+type EditorPart = EditorSection | EditorBlock;
 
 /**
  * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
@@ -114,6 +123,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   chip,
   lead,
   editor,
+  barText,
   sections,
   danger,
   closed,
@@ -132,11 +142,14 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   /** The chip of a closed record whose state says more than „Abgeschlossen“. */
   closedChip?: ChipProps;
   editor: Editor<Values>;
-  sections: readonly [EditorSection, ...EditorSection[]];
+  /** The page's own words on the bar's status line, before its count of unsaved changes (`EditorBar`'s `text`). */
+  barText?: Copy;
+  sections: readonly [EditorPart, ...EditorPart[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct>; outlivesClosed?: true };
 }) {
   const form = useRef<HTMLFormElement>(null);
+  const titled = sections.find((section) => !("block" in section));
 
   return (
     <RailPage
@@ -147,6 +160,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         closed === undefined ? (
           <EditorBar
             status={editor.status}
+            text={barText}
             isPending={editor.isPending}
             // A save the server held back asks its question from the bar, before it goes again.
             question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
@@ -169,16 +183,20 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
         <FormClosed value={closed !== undefined}>
           <DraftUnsaved value={editor.count > 0 ? COPY.template.draftUnsaved : undefined}>
-            {sections.map((section, index) => (
-              <Section
-                key={section.id}
-                title={section.title}
-                help={section.help}
-                // A closed record's one reason covers every field, so it stands alone, under the first box's title.
-                note={closed === undefined ? section.note : index === 0 ? closed : undefined}>
-                {section.fields}
-              </Section>
-            ))}
+            {sections.map((section) =>
+              "block" in section ? (
+                <Fragment key={section.id}>{section.block}</Fragment>
+              ) : (
+                <Section
+                  key={section.id}
+                  title={section.title}
+                  help={section.help}
+                  // A closed record's one reason covers every field, so it stands alone, under the first box's title.
+                  note={closed === undefined ? section.note : section === titled ? closed : undefined}>
+                  {section.fields}
+                </Section>
+              ),
+            )}
             {(closed === undefined || danger?.outlivesClosed === true) && danger !== undefined && danger.acts.length > 0 && (
               <Section
                 title={danger.title}

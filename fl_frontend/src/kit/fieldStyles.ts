@@ -391,14 +391,17 @@ export const entryMark = tv({
 
 /**
  * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame, and the
- * toggle boxes of a small multi-select, each box standing alone; both transparent inside their edges.
+ * toggle boxes of a small multi-select, each box standing alone; both transparent inside their edges. A choice the
+ * write refused (`data-invalid`) takes the red edge a refused field's frame takes: the segments' frame, and each box
+ * not chosen, a chosen one keeping the mark that says it is chosen.
  */
 export const choiceGroup = tv({
   base: "flex flex-wrap",
   variants: {
     kind: {
-      segmented: "inline-flex h-8 self-start rounded-lg border border-border-control bg-transparent p-0.5 pointer-coarse:h-10",
-      boxes: "gap-2",
+      segmented:
+        "inline-flex h-8 self-start rounded-lg border border-border-control bg-transparent p-0.5 data-invalid:border-danger pointer-coarse:h-10",
+      boxes: "gap-2 data-invalid:*:not-data-selected:border-danger",
     },
   },
 });
