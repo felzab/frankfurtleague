@@ -334,7 +334,7 @@ def confirmation_deadline_from(*, today: str) -> str:
     return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
 
 
-def compose_bestaetigung(*, today: str) -> dict[str, Any]:
+def compose_confirmation(*, today: str) -> dict[str, Any]:
     """One seat's bookkeeping as the create and the re-send write it: mailed today, its 14 days from today, nobody reminded or declined.
 
     No link yet: the hand-out of the mail the same write owes mints it into `token_hashes`, so a link replaced here opens
@@ -354,7 +354,7 @@ def compose_bestaetigung(*, today: str) -> dict[str, Any]:
 def compose_confirmations(*, today: str, unmailed: Container[str] = ()) -> dict[str, Any]:
     """Every seat's bookkeeping at the submission. An `unmailed` seat's `sent_at` is null, which no reminder reaches: no mail was owed it."""
 
-    return {seat: {**compose_bestaetigung(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_ROLLEN}
+    return {seat: {**compose_confirmation(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_ROLLEN}
 
 
 # The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
@@ -970,13 +970,13 @@ def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool)
 
 def _fresh_links(*, seats: Sequence[str], today: str) -> dict[str, Any]:
     # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
-    return {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}
+    return {f"confirmations.{seat}": compose_confirmation(today=today) for seat in seats}
 
 
 def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str], today: str) -> bool:
     """Whether fresh links on these seats move `deletion_day`, the earliest day and not always the declining seat's, which a notice named."""
 
-    fresh = {**(confirmations if isinstance(confirmations, Mapping) else {}), **{seat: compose_bestaetigung(today=today) for seat in seats}}
+    fresh = {**(confirmations if isinstance(confirmations, Mapping) else {}), **{seat: compose_confirmation(today=today) for seat in seats}}
     unanswered = {**(kontakte if isinstance(kontakte, Mapping) else {}), **dict.fromkeys(seats)}
 
     return deletion_day(kontakte=unanswered, confirmations=fresh) != deletion_day(kontakte=kontakte, confirmations=confirmations)
@@ -1249,7 +1249,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) ->
     return list(grouped.values())
 
 
-def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+def compose_reminder_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
     """The reminder's stamp per seat. `sent_at` and the seat's deadline stay: a reminder is not a re-send, and its link joins the first."""
 
     return {"$set": {f"confirmations.{seat}.reminded_at": today for seat in seats}}
@@ -1328,7 +1328,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     }
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+def build_reminder_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """Every application with a seat owed its reminder, as `reminder_seats` judges it.
 
     In the query: the clock stamps a share a pass, and a read keeping stamped rows hands the next

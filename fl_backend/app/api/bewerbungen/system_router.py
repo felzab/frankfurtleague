@@ -11,12 +11,12 @@ from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     acceptance_erasure_is_due,
     build_deletion_filter,
-    build_erinnerung_filter,
     build_lapsed_seats_filter,
+    build_reminder_filter,
     closed_chases,
     compose_chase_update,
-    compose_erinnerung_update,
     compose_lapsed_seats_update,
+    compose_reminder_update,
     days_after,
     decline_erasure_is_due,
     deletion_is_due,
@@ -229,7 +229,7 @@ async def sweep_saison(
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
+                db_filter=batch.within(build_reminder_filter(saison_id=saison_id, today=today)),
                 limit=SWEEP_PAGE + 1,
                 # Oldest first, as near the fourteen-day clock's order as a key on the record comes, each seat keeping
                 # its own day; `_id` makes the page the same page whichever plan the server picks.
@@ -290,7 +290,7 @@ async def sweep_saison(
             await patch_past_the_version_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
-                update=compose_erinnerung_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
+                update=compose_reminder_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
                 session=session,
             )
         # One write a seat, however many rows, a write a row being a page's worth of commands.
