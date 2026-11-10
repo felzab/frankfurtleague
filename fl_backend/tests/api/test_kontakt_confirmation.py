@@ -268,6 +268,7 @@ async def replace(database: AsyncDatabase) -> Any:
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=database.client,
         today=TODAY,
     )
@@ -564,7 +565,7 @@ class TestTheLinkConfirms:
         before, answered, row, after = on_a_league(mongo_replica_set_url, body)
 
         assert before == []
-        assert (answered.quelle, answered.ergebnis, answered.birth_date, answered.whatsapp) == (
+        assert (answered.quelle, answered.outcome, answered.birth_date, answered.whatsapp) == (
             "saison",
             "confirmed",
             AN_ADULTS_BIRTHDATE,
@@ -635,7 +636,7 @@ class TestTheLinkConfirms:
 
         answered, row, view = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered.quelle, answered.ergebnis, answered.birth_date) == ("saison", "declined", None)
+        assert (answered.quelle, answered.outcome, answered.birth_date) == ("saison", "declined", None)
         assert row["kontakte"]["stellvertretung"] is None
         assert row["confirmations"]["stellvertretung"]["declined_at"] == TODAY
         assert view.state == "declined"
@@ -785,7 +786,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
         view, answered = on_a_league(mongo_replica_set_url, body)
 
         assert (view.quelle, view.schule, view.rolle, view.row) == ("bewerbung", TEAM_NAME, "trainer", None)
-        assert (answered.quelle, answered.ergebnis) == ("bewerbung", "confirmed")
+        assert (answered.quelle, answered.outcome) == ("bewerbung", "confirmed")
 
 
 class TestARowNoLongerInTheSeason:
@@ -830,7 +831,7 @@ class TestARowNoLongerInTheSeason:
             (["ansprechperson"], kontakt_row),
             (["stellvertretung"], kontakt_row),
         ]
-        assert (view.state, consent, objection.ergebnis) == ("saison_past", Code.KONTAKT_SAISON_PAST, "declined")
+        assert (view.state, consent, objection.outcome) == ("saison_past", Code.KONTAKT_SAISON_PAST, "declined")
         assert row["kontakte"]["trainer"] is None
 
     @pytest.mark.parametrize(
@@ -923,7 +924,7 @@ class TestALinkOutlivingItsSeason:
 
         answered, row, reopened = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered.ergebnis, answered.media) == ("declined", False)
+        assert (answered.outcome, answered.media) == ("declined", False)
         assert row["kontakte"]["trainer"] is None
         # Its answer outranks the closed row, as `confirmed` does.
         assert reopened.state == "declined"
@@ -971,7 +972,7 @@ class TestARolloverInsideTheConsentPress:
             answered = await answer(database, token, saisons=cast(AsyncCollection, seasons))
             saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, projection={"status": 1})
 
-            return answered.ergebnis, seasons.passes, saison, await row_now(database)
+            return answered.outcome, seasons.passes, saison, await row_now(database)
 
         ergebnis, passes, saison, row = on_a_league(mongo_replica_set_url, body)
 

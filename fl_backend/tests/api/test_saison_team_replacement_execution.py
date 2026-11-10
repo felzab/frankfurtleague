@@ -15,6 +15,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    aufstellung_document,
     confirmed_kenntnisnahme,
     saison_document,
     saison_spieler_document,
@@ -279,6 +280,7 @@ async def call_replace(
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         today=REPLACED_ON,
     )
@@ -465,6 +467,22 @@ class TestTheOutgoingClubsSquadIsRetired:
         squad = on_a_seeded_season(mongo_replica_set_url, _squad_after)
 
         assert squad[5]["inactive_since"] is None
+
+    def test_its_line_ups_go_and_every_other_stays(self, mongo_replica_set_url: str):
+        """Kills leaving them, which keeps a squad's pupils named for fixtures their club no longer plays, and a filter missing either term."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, ObjectId]]:
+            await database[Collection.AUFSTELLUNGEN].insert_many(
+                [
+                    aufstellung_document({"_id": ObjectId(), "saison_id": saison_id}, team_id, starters=[ObjectId()])
+                    for saison_id, team_id in ((SAISON_ID, WITHDRAWN), (SAISON_ID, RIVAL), (PRIOR_SAISON_ID, WITHDRAWN))
+                ]
+            )
+            await call_replace(database, client)
+
+            return [(row["saison_id"], row["team_id"]) async for row in database[Collection.AUFSTELLUNGEN].find().sort("_id")]
+
+        assert on_a_seeded_season(mongo_replica_set_url, body) == [(SAISON_ID, RIVAL), (PRIOR_SAISON_ID, WITHDRAWN)]
 
     def test_an_abort_takes_the_retirement_back(self, mongo_replica_set_url: str):
         """Kills dropping `session=`, which retires a squad for a replacement that never landed. The echo rejects the stored `gruppe`."""

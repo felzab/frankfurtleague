@@ -211,6 +211,7 @@ async def call_draw(
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
@@ -227,6 +228,7 @@ async def call_undraw(
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
     )
 
@@ -1086,6 +1088,23 @@ class TestAReplaceTakesTheSeasonsConfirmations:
             )
 
         assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+
+    def test_the_seasons_line_ups_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the line-ups' removal and this fails: one would name pupils for a fixture the replace removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
+            await call_draw(database, client)
+            await database[Collection.AUFSTELLUNGEN].insert_many(
+                [
+                    documents.aufstellung_document({"_id": ObjectId(), "saison_id": saison_id}, ObjectId(), starters=[ObjectId()])
+                    for saison_id in (SAISON_ID, NEIGHBOUR_SAISON_ID)
+                ]
+            )
+            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            return [row["saison_id"] async for row in database[Collection.AUFSTELLUNGEN].find()]
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == [NEIGHBOUR_SAISON_ID]
 
 
 class TestAConfirmedReplaceRedrawsTheWholeSeason:

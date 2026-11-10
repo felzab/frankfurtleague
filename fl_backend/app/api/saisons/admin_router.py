@@ -10,6 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
+from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
@@ -109,6 +110,7 @@ from app.core.crud import (
     refuse,
 )
 from app.core.dependencies import (
+    AufstellungenCollection,
     BanListCollection,
     DBClient,
     InvitationsCollection,
@@ -951,6 +953,7 @@ async def post_spielplan(
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
@@ -1083,6 +1086,7 @@ async def post_spielplan(
             # NOT extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
+            await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -1160,6 +1164,7 @@ async def delete_spielplan(
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
 ) -> FLUndrawSpielplanResponse:
     """
@@ -1197,10 +1202,11 @@ async def delete_spielplan(
         # holding no watermark, and the report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
-        # Fixtures first, the reverse of the draw's write order. Confirmations and reports go first of
+        # Fixtures first, the reverse of the draw's write order. Confirmations, reports and line-ups go first of
         # all, each naming the fixture it is about.
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
         await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
+        await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 

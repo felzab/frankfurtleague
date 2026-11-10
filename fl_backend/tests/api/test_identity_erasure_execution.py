@@ -99,9 +99,6 @@ BIRTH_DATE = "2008-07-14"
 # The one their referee row holds, which they typed otherwise.
 REFEREE_BIRTH_DATE = "1990-02-03"
 
-# The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
-THEIR_DIGEST = "digest-7f3a1c-mit-block"
-THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
 # Why they declined to officiate, in their own words.
 THEIR_REASON = "Knieverletzung beim Hallenturnier"
 
@@ -113,8 +110,6 @@ THEIR_VALUES = (
     "7771234",
     BIRTH_DATE,
     REFEREE_BIRTH_DATE,
-    THEIR_DIGEST,
-    THEIR_BLOCKLESS_DIGEST,
     THEIR_REASON,
 )
 
@@ -320,7 +315,6 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             submitted_at="2126-03-10",
             confirmation_deadline="2126-04-10",
             schule=new_schule_document("Neue"),
-            idempotency_fingerprint=THEIR_DIGEST,
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -331,7 +325,6 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(ansprechperson=their_seat()),
             submitted_at="2126-02-10",
             schule=new_schule_document("Alte"),
-            idempotency_fingerprint=THEIR_BLOCKLESS_DIGEST,
         )
     )
     einwilligung = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-03-02")
@@ -685,7 +678,6 @@ class TestWhatStandsBesideThem:
         assert (row["kontakte"]["stellvertretung"]["first_name"], row["kontakte"]["trainer"]["first_name"]) == ("Quillhilde", "Bramblewick")
         assert (bewerbung["kontakte"]["trainer"], bewerbung["confirmations"]["trainer"]) == (None, None)
         assert bewerbung["confirmations"]["ansprechperson"] is not None
-        assert "idempotency_fingerprint" not in bewerbung
 
     @pytest.mark.parametrize(
         ("change_id", "collection", "row_id", "path", "stored"),
@@ -792,6 +784,7 @@ class TestTheSentinelIsNobodyToLoeschen:
                     spieler_collection=database[Collection.SPIELER],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
+                    aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                     spieler_id=GHOST_SPIELER_ID,
                     session=session,
                 )

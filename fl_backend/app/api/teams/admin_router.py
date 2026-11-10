@@ -9,6 +9,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import invitation_reference, owed_invitation_mails
@@ -118,6 +119,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AufstellungenCollection,
     BewerbungenCollection,
     DBClient,
     InvitationsCollection,
@@ -845,6 +847,7 @@ async def replace_saison_team(
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLReplaceSaisonTeamResponse:
@@ -970,6 +973,10 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
             update={"$set": {"inactive_since": today}},
             session=session,
+        )
+        # The outgoing club's line-ups go with its place: each names pupils of a squad the fixture no longer fields.
+        await remove_the_seasons_aufstellungen(
+            aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, team_id=team_id, session=session
         )
         await record_act(
             collection=saison_teams_collection, action="team.replaced", record_id=team_id, label=str(updated_raw["name"]), session=session

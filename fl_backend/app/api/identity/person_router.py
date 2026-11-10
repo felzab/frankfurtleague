@@ -13,6 +13,7 @@ from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AufstellungenCollection,
     BewerbungenCollection,
     DBClient,
     GrantsCollection,
@@ -54,6 +55,7 @@ async def post_account_erasure(
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     action_log_collection: ActionLogCollection,
     grants_collection: GrantsCollection,
@@ -108,6 +110,7 @@ async def post_account_erasure(
             spiele_collection=spiele_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
+            aufstellungen_collection=aufstellungen_collection,
             registrierungen_collection=registrierungen_collection,
             action_log_collection=action_log_collection,
             grants_collection=grants_collection,

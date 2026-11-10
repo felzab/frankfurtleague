@@ -302,7 +302,7 @@ class TestASeasonNobodyHas:
 
 
 # The commands of the worst call, erasing one page per clock.
-COMMANDS = 15
+COMMANDS = 9
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
