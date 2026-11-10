@@ -188,8 +188,8 @@ def newly_named(
 def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
     """`bericht_not_officiated`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
 
-    gebucht = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
-    if gebucht is not None and gebucht in set(schiedsrichter_ids):
+    booked = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
+    if booked is not None and booked in set(schiedsrichter_ids):
         return None
 
     return WriteRefusal(
