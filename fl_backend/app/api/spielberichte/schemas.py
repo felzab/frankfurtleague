@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielortFieldPublic
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
@@ -200,6 +200,8 @@ class FLSpielberichtSpiel(BaseModel):
     time: CustomTimeString | None
     team1: FLSpielberichtTeam | None
     team2: FLSpielberichtTeam | None
+    # The ground the form's lead names beside the day and the hour, null where none is assigned.
+    spielort: FLSpielortFieldPublic | None
     sonderereignis: FLSonderereignis | None
 
 

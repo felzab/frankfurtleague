@@ -13,9 +13,10 @@ from typing import Any, Final, Literal, get_args
 from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
 from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, seat_saison_lookup
+from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_own_registrierung_filter
+from app.api.saisons.services import SAISON_LOOKUP
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
@@ -287,7 +288,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
             }
         },
         # Read by the same Funktionen.
-        seat_saison_lookup(),
+        SAISON_LOOKUP,
     ]
 
 

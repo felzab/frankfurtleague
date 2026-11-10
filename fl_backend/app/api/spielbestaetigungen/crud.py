@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     AnsetzungState,
@@ -103,32 +103,13 @@ async def pull_ansetzung_state(
     return AnsetzungState(spiel=spiel, vereine=vereine)
 
 
-async def pull_vorschlag_open(
-    *, spielbestaetigungen_collection: ReadCollection, spielbestaetigung_raw: Mapping[str, Any]
-) -> FLSpielbestaetigungAppointment | None:
-    """The other club's proposal about this same Ansetzung while its decline stands open, its date and hour alone.
-
-    Open, because a discarded proposal is in front of nobody.
-    """
-
-    other = await spielbestaetigungen_collection.find_one(
-        {
-            "saison_id": spielbestaetigung_raw["saison_id"],
-            "spiel_id": spielbestaetigung_raw["spiel_id"],
-            "party.kind": "team",
-            "party.team_id": {"$ne": spielbestaetigung_raw["party"]["team_id"]},
-            "ansetzung.digest": spielbestaetigung_raw["ansetzung"]["digest"],
-            "answer.kind": "declined",
-            "closed": None,
-        },
-        projection={"answer.vorschlag": 1},
-    )
-    vorschlag = ((other or {}).get("answer") or {}).get("vorschlag")
-
-    return FLSpielbestaetigungAppointment.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
-
-
 # --- The ADMINISTRATOR's read.
+
+# What the list serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
+# no administrator reads, an old seat's address among them, never leaves the database.
+ADMIN_ROW_FIELDS: Final[list[str]] = [
+    field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()
+]
 
 
 async def pull_admin_rows(
@@ -139,7 +120,7 @@ async def pull_admin_rows(
     A cut across all rows would drop the oldest open ones, the overdue, first.
     """
 
-    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}).to_list(length=None)
+    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_ROW_FIELDS).to_list(length=None)
     # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
     # its closed image wins below.
     rest = await pull_many_from_db(
@@ -149,6 +130,7 @@ async def pull_admin_rows(
         limit=limit + 1,
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
+        projection=ADMIN_ROW_FIELDS,
     )
     rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
 

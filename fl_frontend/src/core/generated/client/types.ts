@@ -1106,11 +1106,12 @@ export interface FLAufstellungPublic {
 }
 
 /**
- * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
+ * A fixture as a mail asking about it states it, its ground among the rest.
  */
-export interface FLSpielMailAppointment {
+export interface FLSpielMailAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
+  spielort: string | null;
   team1: string;
   team2: string;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
@@ -1118,10 +1119,10 @@ export interface FLSpielMailAppointment {
 }
 
 /**
- * A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered.
+ * A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered.
  */
 export interface FLAufstellungReminderData {
-  appointment: FLSpielMailAppointment;
+  appointment: FLSpielMailAnsetzung;
   due_at: string;
   kind: "aufstellung_reminder";
   saison_id: string;
@@ -3193,25 +3194,24 @@ export interface FLSchiedsrichterConfirmationData {
   kind: "schiedsrichter_confirmation";
 }
 
-/**
- * A fixture as a mail asking about it states it, its ground among the rest.
- */
-export interface FLSpielMailAnsetzung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  spielort: string | null;
-  team1: string;
-  team2: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
 export type FLSpielRequestDataKind = (typeof FLSpielRequestDataKind)[keyof typeof FLSpielRequestDataKind];
 
 export const FLSpielRequestDataKind = {
   spiel_request: "spiel_request",
   spiel_reminder: "spiel_reminder",
 } as const;
+
+/**
+ * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
+ */
+export interface FLSpielMailAppointment {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  date: string;
+  team1: string;
+  team2: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  time: string;
+}
 
 /**
  * A club's request to confirm a fixture, or the reminder of it, each leading to the club's own pages.
@@ -5096,6 +5096,7 @@ export interface FLSpielberichtSpiel {
   sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
+  spielort: FLSpielortFieldPublic | null;
   team1: FLSpielberichtTeam | null;
   team2: FLSpielberichtTeam | null;
   time: string | null;

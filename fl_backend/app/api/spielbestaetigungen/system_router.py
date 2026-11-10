@@ -809,8 +809,7 @@ async def sweep_spielbestaetigungen(
             if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
                 continue
             marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=now)
-            slot = spiel_mail_slot_of(spiel)
-            assert marks is not None and slot is not None
+            assert marks is not None
             junction = junctions[club]
             data = FLAufstellungReminderData(
                 kind="aufstellung_reminder",
@@ -818,7 +817,8 @@ async def sweep_spielbestaetigungen(
                 team_id=club,
                 saison_id=saison_id,
                 spiel_id=spiel["_id"],
-                appointment=slot,
+                # As the fixture's request states it, its ground among the rest.
+                appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
                 due_at=marks.due_at,
             )
             owed_here = [

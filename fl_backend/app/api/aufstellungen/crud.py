@@ -21,12 +21,10 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
-    find_stale_first_save_refusal,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
-    refuse,
 )
 from app.core.recording import record_act
 from app.core.sentinels import GHOST_SPIELER_ID
@@ -41,6 +39,9 @@ async def write_aufstellung(
     spiel_id: ObjectId,
     team_id: ObjectId,
     spieler: Sequence[FLAufstellungEntry],
+    # The stored line-up as the caller read it in `session`, None where none stands: the caller has judged the payload's
+    # `version` against it (`app/core/crud.py :: find_stale_first_save_refusal`).
+    saved: Mapping[str, Any] | None,
     # REQUIRED with no default: the `version` the screen was served, null where it showed no line-up.
     version: int | None,
     # Who saves, as `record_act` takes it: `ACT_BY_KONTAKT` beside the club's name at the save for a seat, and both null
@@ -54,14 +55,13 @@ async def write_aufstellung(
 ) -> Mapping[str, Any]:
     """One club's line-up for one fixture written whole and recorded, created by its first save or replaced, answering the document as written.
 
-    Refused `version_stale` where the document is not the one the screen showed: another save has raised it, or a first
-    save of the same club has created it since. Two first saves at once meet on `uniq_aufstellung_spiel_id_team_id` as
-    a write conflict, and the retry of the later one reads the earlier one's document.
+    Judged on the caller's read in the same transaction, so no second read: a save committing after that read conflicts
+    with this write, and the retry reads and judges again. Two first saves at once meet on
+    `uniq_aufstellung_spiel_id_team_id` as a write conflict, and the retry of the later one reads the earlier one's
+    document.
     """
 
     key = {"spiel_id": spiel_id, "team_id": team_id}
-    saved = await aufstellungen_collection.find_one(key, session=session)
-    refuse(find_stale_first_save_refusal(saved, version=version))
     entries = [entry.model_dump(context={"keep_oid": True}) for entry in spieler]
 
     if saved is None:

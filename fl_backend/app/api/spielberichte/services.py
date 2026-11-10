@@ -38,6 +38,8 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "sonderereignis": 1,
     "ergebnis": 1,
     "elfmeterschiessen": 1,
+    # The ground the form's lead names, never its rent.
+    **dict.fromkeys(("spielort.spielort_id", "spielort.name", "spielort.maps_link"), 1),
 }
 
 
@@ -273,7 +275,11 @@ def kader_is_open(context: BerichtContext, *, today: str) -> bool:
 
 
 def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> WriteRefusal | None:
-    """`spieler_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season."""
+    """`spieler_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season.
+
+    Naming no entry, unlike the line-up's: the referee's form takes it as a page gone stale, whose reload serves the
+    squads as they stand.
+    """
 
     for side in SIDES:
         kader = {row["spieler_id"] for row in live_kader(context, side)}
@@ -383,6 +389,8 @@ def compose_view(
             "time": spiel.get("time"),
             "team1": team("team1"),
             "team2": team("team2"),
+            # Absent rather than null where the projection met a fixture without a ground.
+            "spielort": spiel.get("spielort"),
             "sonderereignis": spiel.get("sonderereignis"),
         },
         "kader": {side: live_kader(context, side) if kader_open else [] for side in SIDES},
@@ -390,7 +398,7 @@ def compose_view(
         "bericht": bericht,
         # Served rather than re-derived by the forms, which mark these sides' entries and offer none of their old pupils.
         "sides_changed": [] if bericht is None else sorted(sides_changed(bericht["sides"], spiel)),
-        "version": None if document is None else document.get(VERSION_FIELD, 0),
+        "version": None if document is None else document[VERSION_FIELD],
     }
 
 
