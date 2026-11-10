@@ -12,51 +12,47 @@ import { targetsOf } from "@/features/roles/utils";
 
 import type { JudgedSession } from "@/core/auth/guards";
 import type { Copy } from "@/core/copy";
-import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
 import type { RoleTarget } from "@/features/roles/utils";
 import type { Account } from "@/kit/FrameNav";
-import type { MenuLink } from "@/kit/Menu";
 import type { Route } from "next";
 
 /** One place a person's Funktionen open on, as „Funktion wechseln“ lists it: a team by its name, the rest by their area. */
-function entryOf(target: RoleTarget, current: Role["kind"] | undefined): MenuLink {
+function entryOf(target: RoleTarget): NonNullable<Account["roles"]>[number] {
   const [first] = target.roles;
   // An address built from the person's own records, which no literal can spell.
   const href = target.href as Route;
-  const isCurrent = first.kind === current;
   switch (first.kind) {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
       const rollen = target.roles.flatMap((role) => (role.kind === "kontakt" ? [role.rolle] : []));
       return {
         href,
-        isCurrent,
         label: { record: first.team_name },
         detail: COPY.account.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
       };
     }
     case "spieler":
-      return { href, isCurrent, label: COPY.shared.spieler };
+      return { href, label: COPY.shared.spieler };
     case "schiedsrichter":
-      return { href, isCurrent, label: COPY.shared.schiedsrichter };
+      return { href, label: COPY.shared.schiedsrichter };
     case "administration":
-      return { href, isCurrent, label: COPY.admin.role };
+      return { href, label: COPY.admin.role };
   }
 }
 
 /**
  * The person signed in as a frame's account row shows them: their address, `role` the area's line under it, and every
- * place their Funktionen open on, the kind `current` names marked as this area's; `null` for no session, whose page
- * sends it on. Konto, no Funktion's, marks none.
+ * place their Funktionen open on; `null` for no session, whose page sends it on. The menu marks the place the page
+ * lies under (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`), since a team's layout cannot name its team.
  */
-export async function readAccount(role: Copy, current?: Role["kind"]): Promise<Account | null> {
+export async function readAccount(role: Copy): Promise<Account | null> {
   const subject = await getSubjectSession();
   if (subject === null) return null;
   return {
     role,
     address: { record: subject.email },
-    roles: targetsOf(rolesOf(subject).roles).map((target) => entryOf(target, current)),
+    roles: targetsOf(rolesOf(subject).roles).map(entryOf),
   };
 }
 
