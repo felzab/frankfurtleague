@@ -79,6 +79,7 @@ const REFEREE_STORED =
  */
 type RetentionBounds = {
   bewerbungDays: number;
+  registrierungDays: number;
   schiedsrichterDays: number;
   addressChangeLinkHours: number;
   code: { minutes: number; mailHours: 1; failureHours: number };
@@ -927,10 +928,8 @@ export const SERVER_COPY = catalogue({
       },
       kader: {
         heading: "Im Kader",
-        // Session 8: the link's 14 days become a parameter read from `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that
-        // constant holds the 14 days every link confirming a registered person lives.
-        text: (minAge: number) =>
-          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von 14 Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+        text: (minAge: number, days: number) =>
+          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von ${formatNumber(days)} Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
@@ -1010,8 +1009,11 @@ export const SERVER_COPY = catalogue({
             period: (bound: RetentionBounds) =>
               `${formatNumber(bound.bewerbungDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach`,
           },
-          // Session 8: the 14 days become `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that constant holds them.
-          { name: "Registrierung", content: "Name, Adresse, Geburtsdatum", period: "14 Tage, wenn unbestätigt oder abgelehnt" },
+          {
+            name: "Registrierung",
+            content: "Name, Adresse, Geburtsdatum",
+            period: (bound: RetentionBounds) => `${formatNumber(bound.registrierungDays)} Tage, wenn unbestätigt oder abgelehnt`,
+          },
           {
             name: "Registrierungslinks",
             content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
