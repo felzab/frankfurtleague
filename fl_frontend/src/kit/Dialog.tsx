@@ -10,19 +10,25 @@ import { COPY, textOf } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { actLabel } from "./dialogAct";
 import { ActRow, DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
+import { statusLine } from "./fieldStyles";
+import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { DialogAct } from "./dialogAct";
+import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
+
+const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
 /**
  * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
@@ -100,12 +106,58 @@ export function RouteDialog({
 }
 
 /**
+ * A dialog's danger row, a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width: the hairline over it
+ * runs out to both of the dialog's edges through the padding the box declares, as a field group's does, and 16 px under
+ * it stand the act's name over its consequence and its button.
+ */
+const dangerRow = tv({
+  base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-t border-border px-(--dialog-padding) pt-4",
+});
+
+/**
+ * The act ending the record a dialog edits, asked before it runs as every destructive act is: its button opens the
+ * question over the dialog, which React Aria's modal makes inert under it, so the dialog's own act cannot be sent while
+ * the question stands, and `isClosed` closes the button while the dialog's own act runs. The question shows its act's
+ * refusal and stays open with it; a done act closes it and, through `onDone`, the dialog.
+ */
+function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
+  const { confirm } = danger;
+  return (
+    <div className={dangerRow()}>
+      <div className="grid min-w-0 flex-1 text-sm">
+        <span className="font-semibold">{danger.name}</span>
+        <p className={statusLine({ placement: "column", tone: "resting" })}>{danger.consequence}</p>
+      </div>
+      <ConfirmDialog
+        {...confirm}
+        onConfirm={async () => {
+          // An act answering nothing is done, as the question reads it.
+          const answered = (await confirm.onConfirm()) ?? DONE;
+          // An update after the `await` commits outside the question's transition unless it opens one of its own.
+          if (answered.ok) startTransition(onDone);
+          return answered;
+        }}
+        trigger={
+          <Button
+            variant={confirm.tone}
+            label={COPY.shared.verb[confirm.verb]}
+            isDisabled={isClosed}
+          />
+        }
+      />
+    </div>
+  );
+}
+
+/**
  * The dialog and its form, mounted anew at each opening, so a refusal it showed goes with the dialog and never greets
  * the next opening. A done act closes the dialog, but one whose answer notes what else the write moved, which stays open
  * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one, a
  * refused passkey touch among them, stays with its input kept, each field's message under its field and the reason in
  * the status line beside the acts, as a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the
- * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it.
+ * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it. The act
+ * ending the record, where the dialog has one, stands last under the inputs (`DangerRow`), so the sentence and the facts
+ * of the dialog's own act stay directly over its two buttons.
  */
 function ActDialog({
   title,
@@ -118,8 +170,9 @@ function ActDialog({
   consequence,
   facts,
   tone = "primary",
+  danger,
   children,
-}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "children"> & {
+}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "danger" | "children"> & {
   label: Copy;
   opened: HeldOpen;
   touched: ReturnType<typeof usePasskeyTouch>;
@@ -169,7 +222,16 @@ function ActDialog({
               {title}
             </Heading>
             {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
-            <div className="grid justify-items-start gap-4">{children}</div>
+            <div className="grid justify-items-start gap-4">
+              {children}
+              {danger !== undefined && (
+                <DangerRow
+                  danger={danger}
+                  isClosed={isPending}
+                  onDone={close}
+                />
+              )}
+            </div>
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
             {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
             <ActRow>
