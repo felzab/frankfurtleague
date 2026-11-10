@@ -9625,6 +9625,11 @@
             "title": "Deadline",
             "type": "string"
           },
+          "maximum_age": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Age",
+            "type": "integer"
+          },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Media Minimum Age",
@@ -9658,6 +9663,7 @@
           "schule",
           "saison_id",
           "minimum_age",
+          "maximum_age",
           "media_minimum_age",
           "deadline",
           "answered_at"
