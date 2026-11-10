@@ -28,12 +28,12 @@ export const LINEUP_WORDS: LineupWords = {
 };
 
 /** The captain's or the co-captain's mark after the name, where the squad row holds either role. */
-export function markOf({ rolle }: Pick<FLAufstellungSpieler, "rolle">): RoleMarkProps | undefined {
+function markOf({ rolle }: Pick<FLAufstellungSpieler, "rolle">): RoleMarkProps | undefined {
   return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.admin.spieler.rolleOption[rolle] };
 }
 
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
-export function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
+function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
   return is_nachnominiert ? { tone: "info", label: COPY.admin.spieler.nominee } : undefined;
 }
 

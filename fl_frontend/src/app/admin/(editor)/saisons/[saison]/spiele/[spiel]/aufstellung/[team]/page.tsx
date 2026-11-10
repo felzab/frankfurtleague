@@ -9,6 +9,7 @@ import { ContractBreakError } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellung } from "@/features/aufstellungen/queries";
 import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
@@ -93,14 +94,14 @@ export default function AdminAufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        // Nobody named yet and the whole squad under it, the taller of the block's two states.
+        // The line-up the board drew: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {
             block: (
               <LineupPlaceholder
                 words={LINEUP_WORDS}
-                picked={0}
-                rest={20}
+                picked={STARTERS_MAX}
+                rest={9}
               />
             ),
           },

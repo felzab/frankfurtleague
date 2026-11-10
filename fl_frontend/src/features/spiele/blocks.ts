@@ -98,7 +98,7 @@ function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | nul
  * A side as a page names it where a read serves its club's name alone: the club, or „Noch offen“ while the draw has
  * not settled it, the word a list's row gives a side with no source to name.
  */
-export const sideName = (name: string | null): Words => (name === null ? COPY.spielplan.quelle.open : { record: name });
+const sideName = (name: string | null): Words => (name === null ? COPY.spielplan.quelle.open : { record: name });
 
 /** A match by its two sides, as every page about one match is titled, its tab and a row leading to it alike. */
 export const matchName = (team1: string | null, team2: string | null): Copy => COPY.page.spiel(sideName(team1), sideName(team2));
