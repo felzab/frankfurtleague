@@ -1,5 +1,3 @@
-import { RoleMark } from "@/kit/RoleMark";
-
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { kaderName } from "@/features/spieler/constants";
@@ -26,6 +24,7 @@ export const LINEUP_WORDS: LineupWords = {
   noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
   startersFull: COPY.shared.field.max(STARTERS_MAX),
   nomineeLocked: COPY.area.team.aufstellung.nomineeLocked,
+  anonymous: SERVER_COPY.season.spiel.anonymous,
 };
 
 /** A pupil as the club's own people read them, or „anonym“ where an erasure took the record. */
@@ -57,7 +56,7 @@ function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
     name: nameOf(spieler),
     nummer: nummerOf(spieler),
     ...(spieler.position === null ? {} : { position: { record: spieler.position } }),
-    ...(mark === undefined ? {} : { mark: <RoleMark {...mark} /> }),
+    ...(mark === undefined ? {} : { mark }),
     ...(chip === undefined ? {} : { chip }),
     ...(spieler.is_nachnominiert ? { nominee: true } : {}),
     // A pupil the stored line-up names whom the squad no longer holds: deregistered or erased since.

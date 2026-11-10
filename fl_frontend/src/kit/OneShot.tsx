@@ -8,6 +8,7 @@ import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { StatusLine } from "./FieldParts";
 import { HeldForm } from "./HeldForm";
+import { RowActs } from "./RowActs";
 import { StatusPage } from "./StatusPage";
 import { useBotCheck } from "./useBotCheck";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -181,22 +182,26 @@ export function OneShotForm({
           {/* Full width on a phone; from `lg` each act as wide as its label, centred in the column, as a status card
               sets its way on, with the status line centred under them. */}
           <div className="grid gap-3 lg:justify-items-center lg:text-center">
-            <Button
-              variant="primary"
-              type="submit"
-              label={acts.primary}
-              isBusy={isBusy && pressed === "primary"}
-            />
-            {acts.secondary !== undefined && (
+            {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
+                so a screen reader hears what the press did. */}
+            <RowActs className="contents">
               <Button
-                variant="quiet"
-                label={acts.secondary}
-                isBusy={isBusy && pressed === "secondary"}
-                onPress={() => {
-                  if (form.current !== null && !isBusy) send(new FormData(form.current), "secondary");
-                }}
+                variant="primary"
+                type="submit"
+                label={acts.primary}
+                isBusy={isBusy && pressed === "primary"}
               />
-            )}
+              {acts.secondary !== undefined && (
+                <Button
+                  variant="quiet"
+                  label={acts.secondary}
+                  isBusy={isBusy && pressed === "secondary"}
+                  onPress={() => {
+                    if (form.current !== null && !isBusy) send(new FormData(form.current), "secondary");
+                  }}
+                />
+              )}
+            </RowActs>
             <StatusLine
               status={status}
               placement="column"

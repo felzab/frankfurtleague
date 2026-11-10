@@ -49,7 +49,7 @@ export function valuesOf({ bericht, kader, sides_changed: changed }: Read): Beri
     })),
     cards: bericht.cards.map(({ side, spieler_id: spielerId, minute, colour }) => ({
       side,
-      spieler_id: departed(side, spielerId) ? null : spielerId,
+      spieler_id: spielerId === null ? UNKNOWN_SCORER : departed(side, spielerId) ? null : spielerId,
       minute,
       colour,
     })),

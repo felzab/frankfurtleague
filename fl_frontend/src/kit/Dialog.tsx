@@ -170,9 +170,10 @@ function ActDialog({
   consequence,
   facts,
   tone = "primary",
+  locked,
   danger,
   children,
-}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "danger" | "children"> & {
+}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
   label: Copy;
   opened: HeldOpen;
   touched: ReturnType<typeof usePasskeyTouch>;
@@ -251,6 +252,7 @@ function ActDialog({
                 label={label}
                 isBusy={isPending}
                 isDisabled={noted !== null}
+                locked={locked}
               />
             </ActRow>
           </Form>

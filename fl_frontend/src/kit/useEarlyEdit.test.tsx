@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 
 import { AddressFields } from "./AddressFields";
 import { Checkbox } from "./Checkbox";
+import { Segmented, ToggleBoxes } from "./ChoiceButtons";
 import { CodeField } from "./CodeField";
 import { ComboBox } from "./ComboBox";
 import { DateField } from "./DateField";
@@ -297,6 +298,33 @@ const FIELDS: Case[] = [
       />
     ),
     ...chose("ja"),
+  },
+  {
+    field: "a segmented choice",
+    page: (onChange) => (
+      <Segmented
+        label={WORD}
+        defaultValue="ja"
+        choices={YES_NO}
+        onChange={onChange}
+      />
+    ),
+    ...chose("nein"),
+  },
+  {
+    field: "toggle boxes",
+    page: (onChange) => (
+      <ToggleBoxes
+        label={WORD}
+        defaultValue={["ja"]}
+        choices={YES_NO}
+        onChange={onChange}
+      />
+    ),
+    edit: (root) => tick(root, "nein"),
+    raised: ["ja", "nein"],
+    shown: (root) => shownChecked(root, "nein"),
+    kept: true,
   },
 ];
 

@@ -1,12 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-
-import { Button } from "@/kit/Button";
+import { PressAct } from "@/kit/PressAct";
 import { RowAct } from "@/kit/RowAct";
-import { appToast } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
 import { usePasskeyTouch } from "@/kit/usePasskeyTouch";
 
 import { COPY } from "@/core/copy";
@@ -37,23 +32,17 @@ export function ChangeActs({
   /** The address the page was drawn for, which the touch and each act post. */
   holder: string;
 }) {
-  const router = useRouter();
-  const [isSending, startSending] = useTransition();
   const touched = usePasskeyTouch(true, holder);
 
   return (
     <>
       {resends && (
-        <Button
+        <PressAct
           variant="secondary"
           label={COPY.shared.withObject(COPY.account.address.link, "send")}
-          isBusy={isSending}
-          onPress={() =>
-            startSending(async () => {
-              const answer = await answering(touched(resendChangeLink), router.refresh)({ address_change_id: id, holder });
-              appToast(answer.ok ? "success" : "danger", answer.ok ? COPY.shared.toast.linkSent : (answer.reason ?? COPY.shared.toast.failure));
-            })
-          }
+          act={touched(resendChangeLink)}
+          payload={{ address_change_id: id, holder }}
+          done={COPY.shared.toast.linkSent}
         />
       )}
       <RowAct

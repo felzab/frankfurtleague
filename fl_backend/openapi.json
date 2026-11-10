@@ -186,6 +186,7 @@
           "aufstellung_locked",
           "aufstellung_spiel_undated",
           "aufstellung_nominee_without_shortage",
+          "aufstellung_starters_exceed_eleven",
           "bewerbung_already_decided",
           "bewerbung_subject_unresolved",
           "bewerbung_schule_unusable",
@@ -2374,6 +2375,20 @@
         "title": "FLAufstellungEntryPublic",
         "type": "object"
       },
+      "FLAufstellungErased": {
+        "description": "An entry of the stored line-up naming a pupil erased after the match kicked off, which the club fielded and nobody names.\n\nRead-only and counted: no save names it, and every save keeps it as stored, since it is the record of whom the club\nfielded.",
+        "properties": {
+          "starts": {
+            "title": "Starts",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "starts"
+        ],
+        "title": "FLAufstellungErased",
+        "type": "object"
+      },
       "FLAufstellungMarks": {
         "description": "What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.\n\nTwo facts and two instants, never one combined state: a page calls a line-up due where it is `open` with none\nstored, and overdue where the due mark has passed with none stored.",
         "properties": {
@@ -2511,6 +2526,13 @@
       "FLAufstellungResponse": {
         "description": "One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.\n\n`saison_status` as the match editor's read serves it (`FLSpieleAdminSingleResponse`): a finished season's line-up\nopens read-only, which the save refuses (`saison_past`).",
         "properties": {
+          "erased": {
+            "items": {
+              "$ref": "#/components/schemas/FLAufstellungErased"
+            },
+            "title": "Erased",
+            "type": "array"
+          },
           "kader": {
             "items": {
               "$ref": "#/components/schemas/FLAufstellungSpieler"
@@ -2572,6 +2594,7 @@
           "kader",
           "named",
           "spieler",
+          "erased",
           "version",
           "marks"
         ],
@@ -2668,7 +2691,7 @@
         "type": "object"
       },
       "FLAufstellungSpieler": {
-        "description": "A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.\n\nBoth names null where an erasure took the record, whose entries name the sentinel.",
+        "description": "A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.\n\nBoth names null where no record holds the pupil.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -13412,7 +13435,7 @@
         "type": "object"
       },
       "FLSpielberichtCard": {
-        "description": "One card: who was shown it, when, and its colour.",
+        "description": "One card: who was shown it, when, and its colour.\n\nA null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad\nstill takes cards.",
         "properties": {
           "colour": {
             "$ref": "#/components/schemas/FLCardColour"
@@ -13426,9 +13449,16 @@
             "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
           }
         },
         "required": [
