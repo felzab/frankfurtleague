@@ -169,7 +169,7 @@ export function isRuleRefusal(error: unknown): error is APIBadStatusError {
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
  * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.
  */
-export function isRecordMissing(error: unknown): boolean {
+function isRecordMissing(error: unknown): boolean {
   return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "document_not_found";
 }
 

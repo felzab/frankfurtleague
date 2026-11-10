@@ -14,7 +14,7 @@ its invalidation live here rather than in the backend.
 | `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                               |
 | `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                        |
 | `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                           |
-| `src/shared/`            | What a rendered page is built from beside the kit: components, hooks and the utilities those call                                                                                     |
+| `src/shared/`            | What a rendered page is built from beside the kit: hooks and utilities                                                                                                                |
 | `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                       |
 | `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                    |
 | `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                      |
@@ -35,7 +35,7 @@ rendered page is built from. A module some `src/core/` module imports belongs in
 importing anything from `src/shared/` cannot sit there. Exports are named and no folder has a barrel
 file.
 
-**Every lint rule holds new code from the start.** The old pages' existing violations are counted per
+**Every lint rule holds new code from the start.** The old modules' existing violations are counted per
 file and rule in `fl_frontend/eslint-suppressions.json`, which ESLint's
 [bulk suppressions](https://eslint.org/docs/latest/use/suppressions) write and read. A file breaking
 a rule more often than its count fails the lint, and so does a count larger than what the file still
@@ -43,7 +43,7 @@ breaks; the gate also fails a count kept for a file that no longer exists. A ses
 file removes that file's entries by running `pnpm exec eslint --prune-suppressions <its files>` in
 `fl_frontend`, and commits the rewritten list with the rebuild. The editor's ESLint extension reads
 the list only through ESLint's `applySuppressions` option, which ESLint 9 lacks, so on the installed
-ESLint 9 it underlines an old page's counted violations as errors that `pnpm run lint` passes.
+ESLint 9 it underlines an old module's counted violations as errors that `pnpm run lint` passes.
 
 ## Data flow
 
@@ -52,8 +52,7 @@ by `fl_frontend/src/core/action.ts :: action`, which runs its lane's guard (the 
 person's seat or record, or the bot check), strips and parses the input against the generated schema,
 and answers the kit's `ActionAnswer`, the backend's refusal code with it; the lint rule
 `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built any other
-way, and the forms not yet moved onto it are counted in the suppressions list until their area
-moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
+way. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
 SITE_CACHE_TAG`, so no write names the reads it moves. The builder clears it at the end of an action
 exactly when the action's body sent a backend write that may have landed, on every lane. It reads
 the count `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest` keeps: each write is counted
@@ -62,10 +61,7 @@ answer is a 4xx carrying a code, the backend's refusal of it. A 5xx keeps the co
 may fail after its commit, and a write that may stand answers one, `unknown_outcome` with a 500. An
 action whose body sent no such write carries only its answer and renders no page again; one that
 changes state outside the cache, the sign-in store's, calls `refresh()` itself. A write behind the
-response clears nothing, so no league write moves there. The old
-`fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
-`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler, clear it
-after a write that may stand. The league's reads keep Next's `minutes` lifetime. **The
+response clears nothing, so no league write moves there. The league's reads keep Next's `minutes` lifetime. **The
 administration's reads are not cached**: each runs through
 `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, which judges the session first.
 
@@ -86,9 +82,7 @@ the tree and fails a tree where either is stale. Each path parameter is percent-
 generated URL is built (Orval's `urlEncodeParameters`), so no call site encodes its own. An answer
 is typed by the generated types and parsed nowhere. A form's action judges its input on the server
 through `fl_frontend/src/core/action.ts` with the generated Zod schema, or a draft built from its
-fields. A hand-written payload schema in a slice's `schemas.ts` belongs to an old form: it is
-marked `Redesign: goes with its last importer.` and goes with the form its area's session rebuilds.
-A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)` or
+fields. A value list in any slice is the generated value, as in `z.enum(FLSaisonStatus)` or
 `Object.values(FLSpielerStufe)`, never a copy.
 
 ## Rendering
@@ -111,8 +105,7 @@ uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own pol
 **The kit's components take every wording prop as `fl_frontend/src/core/copy.ts :: Words`**: the
 catalogue's `Copy`, or a record's own data as `{ record }`, which lint keeps free of literals, so a
 string typed into a page has no way into a text slot; a slot holding a block takes a kit element. A
-rebuilt page formats every date, time and number through `fl_frontend/src/core/format.ts`; a page a
-later session rebuilds renders HeroUI components and carries its own strings and date formatting.
+page formats every date, time and number through `fl_frontend/src/core/format.ts`.
 How a string is written is [`copy.md`](copy.md).
 
 ## Authentication and authorization
@@ -129,8 +122,7 @@ and sits on every authorization check. Application data goes through FastAPI wit
 `fl_frontend/src/core/grant.ts :: grantOf`, and the backend checks it again on every
 administration request. A backend that cannot answer admits nobody, and a revoked grant admits
 nothing from the next request on. Every admin server action opens on
-`fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane or, for a form
-not yet moved onto it, `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`.
+`fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or `/account` carrying no
 session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a
@@ -138,7 +130,7 @@ proxy check. The session, its sign-in factor and the grant are judged where the 
 layout turns a session away, because Next renders a page whatever its layout decides.
 
 **A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
-every signed-in shell and every frame's account menu links it, and an act on the passkey touch's fixed
+every frame's account menu links it, and an act on the passkey touch's fixed
 list, a passkey's removal and the address change's start among them, runs only on a passkey sign-in
 made seconds before, for a person holding a passkey (`fl_frontend/src/core/action.ts`, a lane's
 `passkey`). The touch is always such an act's last step: the person presses the act, answers any

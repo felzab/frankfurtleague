@@ -1,15 +1,9 @@
 /**
- * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, its other
- * caller: the sign-in fold and the mailer read these rules, and
- * `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`. A second spelling
- * over there is what disagrees with this one.
+ * `core`, because the sign-in fold and the mailer read these rules, and
+ * `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`.
  */
 
-/**
- * The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Declared here rather than beside
- * `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which re-exports it, because
- * `isDeliverableAddress` below holds the same ceiling and `core` may not import from `shared`.
- */
+/** The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`, which `isDeliverableAddress` below holds. */
 export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
 /**
@@ -61,11 +55,6 @@ export function isOneBareMailbox(value: string): boolean {
 /** Whether the lower-cased host is a special-use name or under one, compared as the API compares its domain. */
 const isSpecialUseHost = (host: string): boolean => SPECIAL_USE_DOMAINS.some((name) => host === name || host.endsWith(`.${name}`));
 
-/** The one refusal of the API's resting on a list this rule can copy, and so the one its box can word. */
-export function isSpecialUseAddress(value: string): boolean {
-  return isSpecialUseHost(asciiLowerCase(value.slice(value.lastIndexOf("@") + 1)));
-}
-
 // The API's refusals that rest on a registry this rule cannot copy stay the API's: IDNA 2008's
 // reading of an `xn--` label and RFC 5890's reserved labels.
 /**
@@ -83,12 +72,6 @@ export function isDeliverableAddress(value: string): boolean {
   const labels = host.split(".");
   // A host with no dot is deliverable nowhere, which is the reason the API refuses one.
   return labels.length > 1 && labels.every((label) => label.length <= EMAIL_HOST_LABEL_MAX_OCTETS && EMAIL_HOST_LABEL_REGEX.test(label));
-}
-
-/** Whether what stands before the at sign is ASCII: the one refusal a box words apart, the rest reading as a mistyped address. */
-export function hasAsciiLocalPart(value: string): boolean {
-  const at = value.lastIndexOf("@");
-  return at === -1 || /^\p{ASCII}*$/u.test(value.slice(0, at));
 }
 
 /** ASCII's 26 letters, never `toLowerCase`, whose tables move with the runtime's Unicode release: the API lowers the same 26. */

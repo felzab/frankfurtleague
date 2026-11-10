@@ -1,13 +1,11 @@
-import { formatList } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { EINSAETZE_TITEL, VERWALTUNG_TITEL } from "@/core/seitenNamen";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
-
-import { teamHref } from "./teamSeats";
 
 import type { Role } from "@/core/roles";
-import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
-import type { PersonEintrag } from "./constants";
+
+/** A team's area, the team and the season being its whole address. */
+function teamHref(teamId: string, saisonId: string): string {
+  return `/area/team/${teamId}/${saisonId}`;
+}
 
 /** The address one Funktion opens on. */
 function funktionHref(funktion: Role): string {
@@ -50,54 +48,4 @@ export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
 export function soleTeamOf(ziele: readonly FunktionZiel[]): string | null {
   const [first, ...rest] = ziele;
   return first !== undefined && rest.length === 0 && first.funktionen[0].kind === "kontakt" ? first.href : null;
-}
-
-/** One address's two lines: what it is, and which of the person's Funktionen lead there. */
-export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } {
-  const [erste] = ziel.funktionen;
-
-  switch (erste.kind) {
-    case "kontakt": {
-      // Every seat at one address shares its team and season, so the first names both.
-      const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.kind === "kontakt" ? [funktion.rolle] : [])));
-      // In `KONTAKT_ROLLEN`'s order rather than the lookup's, so one person's roles read alike on every visit.
-      const rollen = KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.label);
-      return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${formatList(rollen)}` };
-    }
-    case "spieler":
-      return { titel: "Spieler", detail: "Dein Kadereintrag" };
-    case "schiedsrichter":
-      return { titel: "Schiedsrichter", detail: EINSAETZE_TITEL };
-    case "administration":
-      return { titel: VERWALTUNG_TITEL, detail: "Die Verwaltung der Liga" };
-  }
-}
-
-/**
- * The places `FunktionSwitcher` lists, labelled as the landing's cards are, in the landing's order.
- * One place is no choice to offer, so the switcher shows only from two.
- */
-export function funktionOrteOf(funktionen: readonly Role[]): FunktionOrt[] {
-  const orte = zieleOf(funktionen).map((ziel) => ({ ziel, ...zeilenOf(ziel) }));
-
-  return orte.map(({ ziel, titel, detail }) => {
-    const [erste] = ziel.funktionen;
-    // One team in two seasons is two places under one title, which a screen reader would name alike.
-    const geteilt = erste.kind === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
-    const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
-
-    return { href: ziel.href, titel, detail, name };
-  });
-}
-
-/**
- * The landing is listed whatever is held: for a person whose one place is a team or the
- * administration, „Übersicht“ is the account page's way back.
- */
-export function personEintraegeOf(funktionen: readonly Role[]): ReadonlySet<PersonEintrag> {
-  const eintraege = new Set<PersonEintrag>(["landing"]);
-  if (funktionen.some((funktion) => funktion.kind === "spieler")) eintraege.add("spieler");
-  if (funktionen.some((funktion) => funktion.kind === "schiedsrichter")) eintraege.add("schiedsrichter");
-
-  return eintraege;
 }

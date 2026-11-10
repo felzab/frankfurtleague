@@ -1,15 +1,4 @@
-import { FLEinwilligungScope } from "@/core/generated/client/types";
-import { BEWERBUNG_MAX_AGE } from "@/features/bewerbungen/constants";
-
 import type { FLMedienMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
-
-/**
- * The pupil's confirmation deadline, mirrored from `fl_backend/app/shared/schemas/bounds.py`.
- *
- * Shorter than the application's fourteen because it carries a second job: it is the window inside
- * which a mistyped address is discovered.
- */
-export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 7;
 
 // For the published notice, which states the floor with no answer to read it off; checked against
 // `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`, so the backend moving it
@@ -21,14 +10,3 @@ export const REGISTRIERUNG_MIN_ALTER = 16 satisfies FLRegistrierungMinAgeYears;
 // checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS` as the floor above
 // is, and the pages take the served `medien_mindestalter` for the reason given above.
 export const MEDIEN_MIN_ALTER = 18 satisfies FLMedienMinAgeYears;
-
-/** The two publication scopes, both in one list: a control offering one answer and a blank reads as a default. */
-export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungScope[] = Object.values(FLEinwilligungScope);
-
-// Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
-// 190-year-old date with „mindestens 16“, which is a different fault.
-
-// The ceiling is the contact seat's constant, which
-// `fl_backend/app/api/registrierungen/services.py :: find_alter_refusal` applies to a pupil too.
-export const alterAusserhalb = (mindestalter: number): string =>
-  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_AGE)} Jahre alt sein.`;

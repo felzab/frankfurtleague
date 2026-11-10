@@ -1,11 +1,7 @@
 import { beforeAll, beforeEach, vi } from "vitest";
 
-import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
-
 import type { AdminRefusal } from "@/core/auth/guards.ts";
 import type { SubjectSession } from "@/core/subject.ts";
-import type { ActionFailure } from "@/shared/types/types.ts";
-import type * as AppToastModule from "@/shared/utils/appToast.ts";
 
 // Every double here is registered with `vi.doMock`, which reaches only the modules a suite imports
 // after it: a suite calls these first and imports its subject with `await import`.
@@ -329,43 +325,4 @@ export function doubleActionRequest({
     },
     setRefusal: (next) => void (answers.refusal = next),
   };
-}
-
-/** One announcement a component raised: the severity it chose, and the words it handed the reader. */
-export interface RaisedToast {
-  readonly variant: string;
-  readonly title: string;
-  readonly description: string | undefined;
-  /** Everything else the call passed: where `failure` keeps its marker. */
-  readonly options: { description?: string; outcome?: ActionFailure["outcome"] } | undefined;
-}
-
-/**
- * Replaces the toast module at the module boundary, every member of the real `appToast` recording its
- * call: a double short of one answers `undefined` where a component raises it.
- *
- * The real module hands its raising to HeroUI's queue rather than back to the caller.
- */
-export function doubleToasts(): { raised: RaisedToast[] } {
-  const raised: RaisedToast[] = [];
-  const raise =
-    (variant: string) =>
-    (title: string, options?: RaisedToast["options"]): string => {
-      raised.push({ variant, title, description: options?.description, options });
-      return String(raised.length);
-    };
-  // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
-  // in every suite rather than under the raising site's title.
-  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unclearTitle?: string): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome, unclearTitle), {
-      description: failure?.unplacedError ?? failure?.error,
-      outcome: failure?.outcome,
-    });
-  vi.doMock("@/shared/utils/appToast.ts", async (importOriginal) => {
-    const { appToast } = await importOriginal<typeof AppToastModule>();
-    const members = Object.keys(appToast).map((name): [string, unknown] => [name, name === "failure" ? fail : raise(name)]);
-    return { appToast: Object.fromEntries(members) };
-  });
-
-  return { raised };
 }
