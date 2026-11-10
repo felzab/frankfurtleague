@@ -14,7 +14,7 @@ from app.api.spieler.services import (
     build_live_squad_filter,
     build_self_pupil_filter,
     build_spieler_filter,
-    find_squad_capacity_refusal,
+    find_full_squad_refusal,
     find_squad_rolle_refusal,
 )
 from app.core.crud import (
@@ -24,7 +24,6 @@ from app.core.crud import (
     pull_one_from_db,
     refuse,
 )
-from app.core.exceptions import WriteRefusal
 from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
@@ -73,19 +72,6 @@ async def refuse_a_full_squad(
             nominee=nominee,
         )
     )
-
-
-def find_full_squad_refusal(*, squad_size: int, max_kader_size: int, nominee: bool) -> WriteRefusal | None:
-    """`kader_full` where a squad holding `squad_size` capped rows takes no further entry, or `None`.
-
-    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
-    asking whether a squad takes an entry answers by.
-    """
-
-    if nominee:
-        return None
-
-    return find_squad_capacity_refusal(squad_size=squad_size, max_kader_size=max_kader_size)
 
 
 async def refuse_a_taken_rolle(

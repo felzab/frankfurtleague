@@ -938,10 +938,10 @@ def _seat_state(row: Mapping[str, Any], seat: str) -> str:
     and its hand-out writes the same hash into both.
     """
 
-    zugleich = (row.get("kontakte") or {}).get("trainer_is_also")
+    also = (row.get("kontakte") or {}).get("trainer_is_also")
     links = row.get("confirmations") or {}
-    if seat == "trainer" and zugleich in KONTAKT_ROLLEN and links.get(zugleich) == links.get("trainer"):
-        return str(zugleich)
+    if seat == "trainer" and also in KONTAKT_ROLLEN and links.get(also) == links.get("trainer"):
+        return str(also)
 
     return seat
 
@@ -1145,14 +1145,14 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
     """
 
     block = kontakte if isinstance(kontakte, Mapping) else {}
-    zugleich = block.get("trainer_is_also")
+    also = block.get("trainer_is_also")
     people: list[tuple[FLKontaktRolle, ...]] = []
 
     for slot in KONTAKT_ROLLEN:
-        if slot == zugleich:
+        if slot == also:
             continue
 
-        held: tuple[FLKontaktRolle, ...] = (slot, zugleich) if slot == "trainer" and zugleich in KONTAKT_ROLLEN else (slot,)
+        held: tuple[FLKontaktRolle, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_ROLLEN else (slot,)
         filled: tuple[FLKontaktRolle, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
         if filled:
             people.append(filled)

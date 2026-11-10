@@ -474,7 +474,7 @@ async def accept_bewerbung(
 )
 async def decline_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    ablehnung_data: Annotated[FLDeclineBewerbungPayload, Body()],
+    decline_data: Annotated[FLDeclineBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
@@ -503,9 +503,9 @@ async def decline_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "declined", "decision": _decision(today=today, reason=ablehnung_data.reason)}},
+            update={"$set": {"status": "declined", "decision": _decision(today=today, reason=decline_data.reason)}},
             session=session,
-            expected_version=ablehnung_data.version,
+            expected_version=decline_data.version,
             return_document=ReturnDocument.BEFORE,
         )
         team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
@@ -522,7 +522,7 @@ async def decline_bewerbung(
                         team=team,
                         saison_id=str(stored_raw["saison_id"]),
                         rollen=seats,
-                        reason=ablehnung_data.reason,
+                        reason=decline_data.reason,
                         deletion_days=DECLINED_RETENTION_DAYS,
                     ),
                 )

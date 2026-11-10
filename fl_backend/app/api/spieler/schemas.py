@@ -266,7 +266,7 @@ class FLKaderResponse(BaseAPIResponse):
     team_id: CustomObjectId
     saison_id: str
     # What the editor may offer, the PATCH refusing anything else it was not already holding (`kader_stufe_not_allowed`).
-    # The floor `app/api/saisons/schemas.py :: FLSaisonRules.erlaubte_stufen` writes, so the document
+    # The floor `app/api/saisons/schemas.py :: FLSaisonRules.allowed_stufen` writes, so the document
     # publishes what the season guarantees.
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
     kader: list[FLKaderRow]

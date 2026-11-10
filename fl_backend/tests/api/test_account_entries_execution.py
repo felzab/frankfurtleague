@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_own_entries
-from app.api.registrierungen.services import compose_ablehnung_update
+from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -219,7 +219,7 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
     declined = _registrierung(REGISTRIERUNG_DECLINED, WILTRUDIS)
-    declined.update(compose_ablehnung_update(reason=None, today="2026-09-22")["$set"])
+    declined.update(compose_decline_update(reason=None, today="2026-09-22")["$set"])
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),

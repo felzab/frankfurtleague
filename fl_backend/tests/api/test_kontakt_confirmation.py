@@ -186,7 +186,7 @@ class Mailed:
     confirmations: list[Link]
 
     @property
-    def bestaetigung(self) -> Link:
+    def confirmation(self) -> Link:
         [link] = self.confirmations
         return link
 
@@ -437,16 +437,16 @@ class TestTheResend:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await resend(database, "ansprechperson")
 
-            return response, await row_now(database), await read_view(database, response.bestaetigung.token)
+            return response, await row_now(database), await read_view(database, response.confirmation.token)
 
         response, row, view = on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
 
-        assert (response.bestaetigung.rollen, response.bestaetigung.email, response.bestaetigung.deadline) == (
+        assert (response.confirmation.rollen, response.confirmation.email, response.confirmation.deadline) == (
             ["ansprechperson"],
             "jonas@example.com",
             DEADLINE,
         )
-        assert response.bestaetigung.schule == TEAM_NAME
+        assert response.confirmation.schule == TEAM_NAME
         assert (row["confirmations"]["trainer"], row["confirmations"]["stellvertretung"]) == (None, None)
         assert (view.rolle, view.state) == ("ansprechperson", "valid")
 
@@ -460,7 +460,7 @@ class TestTheResend:
         first, again, code, row = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.LINK_INVALID
-        assert row["confirmations"]["trainer"]["deadline"] == confirmation_deadline_from(today="2026-04-05") == again.bestaetigung.deadline
+        assert row["confirmations"]["trainer"]["deadline"] == confirmation_deadline_from(today="2026-04-05") == again.confirmation.deadline
         # The two seats the re-send did not name keep the links already in their inboxes.
         assert row["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(first.confirmations[1].token)]
 
@@ -474,7 +474,7 @@ class TestTheResend:
 
         response, row = on_a_league(mongo_replica_set_url, body, kontakte=paired)
 
-        assert response.bestaetigung.rollen == ["trainer", "stellvertretung"]
+        assert response.confirmation.rollen == ["trainer", "stellvertretung"]
         assert row["confirmations"]["trainer"] == row["confirmations"]["stellvertretung"] is not None
 
     @pytest.mark.parametrize(
@@ -702,7 +702,7 @@ class TestTheDeadline:
             await save(database, THREE)
             fresh = await resend(database, "trainer", today=AFTER_THE_DEADLINE)
 
-            return await answer(database, fresh.bestaetigung.token, today=AFTER_THE_DEADLINE)
+            return await answer(database, fresh.confirmation.token, today=AFTER_THE_DEADLINE)
 
         assert on_a_league(mongo_replica_set_url, body).outcome == "confirmed"
 

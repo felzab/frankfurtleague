@@ -27,7 +27,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import erasure_due_page, saison_statuses
 from app.api.identity.schemas import FLErasureSweepParams
 from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
-from app.api.registrierungen.services import compose_ablehnung_update
+from app.api.registrierungen.services import compose_decline_update
 from app.api.saisons.admin_router import activate_saison
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
@@ -62,7 +62,7 @@ from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_loeschung_sweep_test")
+DATABASE_NAME = worker_database("fl_erasure_sweep_test")
 CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identity/erasure/sweep"
@@ -108,7 +108,7 @@ def registration(registrierung_id: ObjectId, email: str, *, declined: bool = Fal
         deadline="2026-03-09",
     )
 
-    return {**document, **compose_ablehnung_update(reason=None, today="2026-03-05")["$set"]} if declined else document
+    return {**document, **compose_decline_update(reason=None, today="2026-03-05")["$set"]} if declined else document
 
 
 def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
@@ -406,7 +406,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         assert (answer["spieler"], answer["skipped"], answer["remaining"], standing) == (0, 1, 0, 1)
 
-    def test_an_address_corrected_by_hand_is_geloescht_as_it_stands_now(self, mongo_replica_set_url: str):
+    def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
         """Carry the read's address into the erasure and this fails: the pupil stands, and a stranger's registration goes."""
 
         corrected = "quintessa.neu@beispielschule.de"
@@ -511,7 +511,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 
 class TestOneRecordHoldsBackNobody:
-    def test_a_refused_loeschung_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A report refusing the pupil's repoint, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.

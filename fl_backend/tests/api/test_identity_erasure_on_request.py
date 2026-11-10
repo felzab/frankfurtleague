@@ -63,7 +63,7 @@ from .test_identity_erasure_execution import (
 )
 from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
 
-DATABASE_NAME = worker_database("fl_loeschung_auf_anfrage_test")
+DATABASE_NAME = worker_database("fl_erasure_auf_anfrage_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
@@ -296,7 +296,7 @@ class TestAGrantHoldersAddress:
         assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.ADMIN_ADDRESS, True)
         assert journal_records(caplog) == []
 
-    def test_a_grant_landing_inside_the_loeschung_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+    def test_a_grant_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
         """The rival adds the address after the first attempt's judgement and before its first write.
 
         Judged once ahead of the transaction instead, the retry ends a grant this administrator could not revoke. The person
@@ -346,7 +346,7 @@ class TestAGrantHoldersAddress:
 class TestTheCounts:
     """What the person's erasure removes or empties, by its own selections, counted, named nowhere and stored nowhere."""
 
-    def test_they_count_the_loeschungs_own_answer_and_name_nobody(self, mongo_replica_set_url: str):
+    def test_they_count_the_erasures_own_answer_and_name_nobody(self, mongo_replica_set_url: str):
         """Read against the erasure's own answer, so a kind counted short is caught whatever the seed holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -401,7 +401,7 @@ class TestAGrantHoldersPendingChange:
 
         assert on_a_league(mongo_replica_set_url, body) == [1, 2]
 
-    def test_the_loeschung_ending_it_is_the_owners(self, mongo_replica_set_url: str):
+    def test_the_erasure_ending_it_is_the_owners(self, mongo_replica_set_url: str):
         """Ending it is a discard, which only the owner makes of an administrator's change."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -422,7 +422,7 @@ class TestAGrantHoldersPendingChange:
 
 @pytest.mark.db
 class TestTheReference:
-    def test_the_loeschungs_one_row_holds_it_stripped_and_names_the_administrator(self, mongo_replica_set_url: str):
+    def test_the_erasures_one_row_holds_it_stripped_and_names_the_administrator(self, mongo_replica_set_url: str):
         """Catches the row left out, or written under the erased person: it is the one record of an erasure past the mail thread."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -513,7 +513,7 @@ class TestTheReasonIsRefusedAtTheBox:
             pytest.param(erasure_of(reason="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
         ],
     )
-    def test_the_loeschung_is_refused_naming_it(self, body: dict[str, str]):
+    def test_the_erasure_is_refused_naming_it(self, body: dict[str, str]):
         with pytest.raises(ValidationError) as raised:
             FLErasurePayload.model_validate(body)
 

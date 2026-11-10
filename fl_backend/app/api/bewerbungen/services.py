@@ -535,7 +535,7 @@ def find_already_answered_refusal(*, kontakte: Any, confirmations: Any, seat: st
     return None
 
 
-def find_alter_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
     Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged BEFORE any write, so
@@ -565,7 +565,7 @@ def _seat_state_of(*, kontakte: Any, confirmations: Any, seat: str, over: bool) 
     return "expired" if over else "valid"
 
 
-def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungState:
+def state_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungState:
     """What a reopened link shows. A confirmed seat on an accepted application reads as confirmed."""
 
     confirmations = bewerbung_raw.get("confirmations")
@@ -1101,11 +1101,11 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     a seat write fills and would leave one of them holding the other's link.
     """
 
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    if zugleich is None:
+    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
+    if also is None:
         return None
 
-    return seat_named(zugleich) if seat == "trainer" else ("trainer" if seat == zugleich else None)
+    return seat_named(also) if seat == "trainer" else ("trainer" if seat == also else None)
 
 
 def compose_kontakt_seat_update(
@@ -1399,16 +1399,16 @@ def compose_lapsed_seats_update(*, kontakte: Any, seats: Sequence[str]) -> Mappi
     return {"$set": {**slots, **{f"confirmations.{seat}": None for seat in seats}}}
 
 
-def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
+def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the decline clock takes this declined application, counted from the day the decision was taken."""
 
     if bewerbung_raw.get("status") != "declined":
         return False
 
-    entscheidung = bewerbung_raw.get("decision")
-    getroffen_am = entscheidung.get("made_at") if isinstance(entscheidung, Mapping) else None
+    decision = bewerbung_raw.get("decision")
+    made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
 
-    return isinstance(getroffen_am, str) and days_after(day=getroffen_am, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
 
 
 def season_has_ended(*, saison_status: Any) -> bool:
@@ -1434,7 +1434,7 @@ def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_
     return bewerbung_raw.get("status") == "accepted" and season_after_has_ended(later_saison_status=later_saison_status)
 
 
-def undecided_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this application: undecided, and its season is over.
 
     Nothing else is asked: a confirmed seat drops an application out of the fourteen-day clock.
@@ -1495,13 +1495,13 @@ def pending_people(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPe
     An emptied seat counts, its first name `None`: the application cannot complete without it.
     """
 
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
+    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
     people: list[FLBewerbungPerson] = []
 
     for seat in KONTAKT_ROLLEN:
-        if seat not in seats or (seat == "trainer" and zugleich in seats):
+        if seat not in seats or (seat == "trainer" and also in seats):
             continue
-        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == zugleich and "trainer" in seats else [seat]
+        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == also and "trainer" in seats else [seat]
         people.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=rollen))
 
     return people
@@ -1566,7 +1566,7 @@ def owed_at_submission(
                 )
             )
             continue
-        andere = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+        others = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
         mails.append(
             OwedMail(
                 key=f"{stem}/received",
@@ -1575,7 +1575,7 @@ def owed_at_submission(
                     kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
-                    pending=pending_people(kontakte=kontakte, seats=andere),
+                    pending=pending_people(kontakte=kontakte, seats=others),
                     deadline=deadline,
                 ),
                 reference=bewerbung_reference(bewerbung_id, seats),
@@ -1783,8 +1783,8 @@ def seat_state(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
     """
 
     kontakte = row.get("kontakte")
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    mirrored = states.get((row["_id"], zugleich)) if seat == "trainer" and zugleich else None
+    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
+    mirrored = states.get((row["_id"], also)) if seat == "trainer" and also else None
 
     return mirrored or states.get((row["_id"], seat))
 
@@ -1798,7 +1798,7 @@ def unreachable_seats(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str 
 def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None], FLOutboxStatus], *, today: str) -> dict[str, Any]:
     """A stored application with each seat's last mail and its state beside its bookkeeping, as every read serves it.
 
-    The state is `zustand_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
+    The state is `state_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
     """
 
     confirmations = row.get("confirmations")
@@ -1811,7 +1811,7 @@ def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
             seat: {
                 **entry,
                 "delivery": seat_state(row=row, states=states, seat=seat),
-                "state": zustand_of(bewerbung_raw=row, seat=seat, today=today),
+                "state": state_of(bewerbung_raw=row, seat=seat, today=today),
             }
             if isinstance(entry, Mapping)
             else entry

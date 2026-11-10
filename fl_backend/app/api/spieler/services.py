@@ -253,6 +253,19 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kader_size: int) -> Writ
     return None
 
 
+def find_full_squad_refusal(*, squad_size: int, max_kader_size: int, nominee: bool) -> WriteRefusal | None:
+    """`kader_full` where a squad holding `squad_size` capped rows takes no further entry, or `None`.
+
+    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
+    asking whether a squad takes an entry answers by.
+    """
+
+    if nominee:
+        return None
+
+    return find_squad_capacity_refusal(squad_size=squad_size, max_kader_size=max_kader_size)
+
+
 def build_live_rolle_filter(
     *, saison_id: str, team_id: CustomObjectId, rolle: FLSpielerRolle, excluding_spieler_id: CustomObjectId
 ) -> Mapping[str, Any]:
