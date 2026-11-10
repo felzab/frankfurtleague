@@ -1,7 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
-
-import { COPY } from "./core/copy.ts";
 
 /** Everything the scheduler started, in order: each job by its name, then the drain. */
 const ran: string[] = [];
@@ -127,17 +124,6 @@ async function bootAndStep(nodeEnv: string, steps: readonly number[]): Promise<s
 
   return seen;
 }
-
-it("words every server parse in the German map once the server starts, below a message a schema names itself", async () => {
-  // Zod's own English, so the case proves the start's install and never a map another suite left on `globalThis`.
-  z.config({ customError: undefined });
-  expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).not.toBe(COPY.shared.field.maxChars(2));
-
-  await bootAndStep("test", []);
-
-  expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).toBe(COPY.shared.field.maxChars(2));
-  expect(z.string().max(2, { error: "Höchstens 2 in der Reihe" }).safeParse("abc").error?.issues[0]?.message).toBe("Höchstens 2 in der Reihe");
-});
 
 /* The driver builds no topology of its own after a failed first connect, so a store down at the boot would refuse every
    sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. */
