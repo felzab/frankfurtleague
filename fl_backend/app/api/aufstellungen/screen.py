@@ -292,6 +292,7 @@ async def save_aufstellung_screen(
             spiel_id=spiel_id,
             team_id=team_id,
             spieler=[*entries, *kept],
+            saved=saved,
             version=payload.version,
             by=None if seat is None else ACT_BY_KONTAKT,
             team=None if seat is None else spiel[state.side]["name"],

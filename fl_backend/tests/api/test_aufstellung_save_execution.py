@@ -27,7 +27,7 @@ from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -128,16 +128,17 @@ async def seat_saves(
     payload: FLAufstellungPayload,
     *,
     seat: str = HOME_SEAT,
+    team_id: ObjectId = HOME,
     spiel_id: ObjectId = SPIEL,
     now: datetime = OPEN,
     aufstellungen: Any = None,
 ) -> tuple[FLAufstellungResponse, int]:
-    """The home club's line-up saved through the seat's handler, and the status it answers: 201 for a create, else 200."""
+    """A club's line-up, the home club's unless named, saved through the seat's handler, and the status it answers: 201 for a create."""
 
     response = Response()
     answer = await put_aufstellung_self(
         spiel_id=spiel_id,
-        team_id=HOME,
+        team_id=team_id,
         aufstellung_data=payload,
         response=response,
         identifier=seat,
@@ -405,3 +406,65 @@ class TestAnErasedPupilsEntry:
             return stored["spieler"]
 
         assert on_a_season(mongo_replica_set_url, body) == [{"spieler_id": OLE, "starts": True}]
+
+
+# --- One document per club per fixture: a club's two seats saving at once meet on it, and the other club's save never does.
+
+
+async def stored_line_ups(database: AsyncDatabase) -> list[tuple[ObjectId, list[ObjectId], int]]:
+    """Every stored line-up of the fixture: its club, whom it names and its count, in the order written."""
+
+    rows = await database[Collection.AUFSTELLUNGEN].find({"spiel_id": SPIEL}).sort("_id").to_list(length=None)
+
+    return [(row["team_id"], [entry["spieler_id"] for entry in row["spieler"]], row["version"]) for row in rows]
+
+
+class LineUpsRunningARivalBeforeTheirInsert(InterleavedCollection):
+    """An `aufstellungen` stand-in running one rival after the save read no line-up and before it inserts its own."""
+
+    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+
+        return await self._collection.insert_one(*args, **kwargs)
+
+
+def test_a_clubs_second_first_save_meets_the_first_and_is_told_the_page_is_stale(mongo_replica_set_url: str):
+    """Two seats of one club open the empty screen and both save: one line-up stands, the earlier one.
+
+    The later save's insert conflicts with the earlier's commit, and its retry reads the line-up now standing. What this
+    case holds is the retry's judgement, without which the later save overwrites the earlier.
+    """
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        async def the_other_seat_saves() -> None:
+            await seat_saves(database, client, _payload(OLE))
+
+        aufstellungen = LineUpsRunningARivalBeforeTheirInsert(database[Collection.AUFSTELLUNGEN], the_other_seat_saves)
+        outcome = await outcome_of(seat_saves(database, client, _payload(LINA), aufstellungen=aufstellungen))
+        # Committed before it, the rival is met at the read and the save never reaches its insert.
+        aufstellungen.assert_landed_inside(serially=0)
+
+        return outcome, await stored_line_ups(database)
+
+    assert on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 0)])
+
+
+def test_a_save_on_a_count_another_save_raised_is_refused(mongo_replica_set_url: str):
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        first, _ = await seat_saves(database, client, _payload(LINA))
+        await seat_saves(database, client, _payload(OLE, version=first.version))
+        outcome = await outcome_of(seat_saves(database, client, _payload(LINA, version=first.version)))
+
+        return outcome, await stored_line_ups(database)
+
+    assert on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 1)])
+
+
+def test_the_other_clubs_first_save_for_the_same_fixture_stands_beside_it(mongo_replica_set_url: str):
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await seat_saves(database, client, _payload(LINA))
+        outcome = await outcome_of(seat_saves(database, client, _payload(FREMD), seat=AWAY_SEAT, team_id=AWAY))
+
+        return outcome, await stored_line_ups(database)
+
+    assert on_a_season(mongo_replica_set_url, body) == (COMMITTED, [(HOME, [LINA], 0), (AWAY, [FREMD], 0)])
