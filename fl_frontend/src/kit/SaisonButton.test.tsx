@@ -9,7 +9,19 @@ import { ROUTES } from "@/core/routes";
 
 import { RailFrame } from "./RailFrame";
 
+import type { ComponentProps } from "react";
 import type { RailGroup } from "./FrameNav";
+
+// Next's link, standing in as an anchor that says whether its navigation replaces the history entry.
+vi.mock("next/link", () => ({
+  default: ({ replace, children, ...props }: ComponentProps<"a"> & { replace?: boolean }) => (
+    <a
+      data-replace={replace}
+      {...props}>
+      {children}
+    </a>
+  ),
+}));
 
 const GROUPS: RailGroup[] = [
   {
@@ -34,8 +46,8 @@ const TEAMS = [
   },
 ];
 
-/** Where the season button's entry for the season leads, from the team frame's rail at this address. */
-async function switchTo(saison: string, pathname: string, params: Record<string, string>) {
+/** The season button's entry for the season, from the team frame's rail at this address. */
+async function entryFor(saison: string, pathname: string, params: Record<string, string>) {
   await act(async () =>
     render(
       underNext(
@@ -54,7 +66,12 @@ async function switchTo(saison: string, pathname: string, params: Record<string,
   const [button] = screen.getAllByRole("button", { name: new RegExp(COPY.shared.saisonName(params.saison ?? "")) });
   if (button === undefined) throw new Error("the frame draws no season button");
   await userEvent.click(button);
-  return screen.getByRole("menuitemradio", { name: COPY.shared.saisonName(saison) }).getAttribute("href");
+  return screen.getByRole("menuitemradio", { name: COPY.shared.saisonName(saison) });
+}
+
+/** Where that entry leads. */
+async function switchTo(saison: string, pathname: string, params: Record<string, string>) {
+  return (await entryFor(saison, pathname, params)).getAttribute("href");
 }
 
 beforeEach(() => {
@@ -74,5 +91,12 @@ describe("the season button in a team's frame", () => {
     const href = await switchTo("2026", "/area/team/ahorn/2027/spiele/s1", { team: "ahorn", saison: "2027", spiel: "s1" });
 
     expect(href).toBe("/area/team/ahorn/2026/spiele");
+  });
+
+  // A switch that added a history entry would make Back walk through every season looked at before leaving the pages.
+  it("takes the current history entry's place, so Back skips the switch", async () => {
+    const entry = await entryFor("2026", "/area/team/ahorn/2027/kader", { team: "ahorn", saison: "2027" });
+
+    expect(entry.getAttribute("data-replace")).toBe("true");
   });
 });

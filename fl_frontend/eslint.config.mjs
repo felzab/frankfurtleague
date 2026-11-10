@@ -262,11 +262,10 @@ const SITE_ORIGIN = {
  * react-aria's locale provider, mounted once at the root: it reads the nearest one, so a second mount
  * formats a subtree's dates by whatever it pins. Tests mount their own.
  */
-// Session 8: retargeted from HeroUI's re-export to `react-aria-components` as the provider moves there.
 const LOCALE_PROVIDER = {
-  regex: packageUnder("@heroui/react/rac"),
+  regex: packageUnder("react-aria", "react-aria-components"),
   importNames: ["I18nProvider"],
-  message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
+  message: "The locale is pinned once, in fl_frontend/src/kit/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
 
 const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
@@ -386,7 +385,7 @@ const IMPORT_BANS = [
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
   // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
-  importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
+  importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/kit/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
@@ -765,10 +764,6 @@ const PALETTE =
 const COLOURED =
   "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
-/** The old toaster's keyframes, which nothing new draws. */
-// Session 8: goes with the toaster, with the ban that reads it.
-const OLD_KEYFRAMES = "toast-timer";
-
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
   // row has nothing to be composed from.
@@ -798,8 +793,7 @@ const DESIGN_BANS = [
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
       // The table block writes a table, and the line-up's block its own, whose rows hold a control and stay one line
-      // on a phone; the kit's link writes the one plain anchor, its full-document load, which neither Next's link nor
-      // React Aria's under the app's router makes.
+      // on a phone; the kit's link writes the one plain anchor, its full-document load, which Next's link never makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -886,14 +880,6 @@ const DESIGN_BANS = [
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
   ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
-  // Session 8: this ban goes with HeroUI's last importer; the kit builds on none of it.
-  kitImport(
-    {
-      regex: packageUnder("@heroui/react", "@heroui/styles"),
-      message: "The old component set goes with the last module importing it: build on the kit.",
-    },
-    PRODUCTION,
-  ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[
@@ -1000,10 +986,9 @@ const DESIGN_BANS = [
   ),
 
   // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
-  // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
-  // classes are held here.
-  // Session 8: once HeroUI's stylesheets go, the theme resets Tailwind's namespaces to `initial` and the
-  // bans the resets make redundant go.
+  // the token colours. Tailwind's own scale stays defined beside the tokens' steps, so the classes are
+  // held here.
+  // Session 8: the theme resets Tailwind's namespaces to `initial`, and the bans the resets make redundant go.
   classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
     allow: [TOGGLE_OFFSET.home],
   }),
@@ -1051,14 +1036,12 @@ const DESIGN_BANS = [
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
   classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
 
-  // Motion: the token pair inside the kit, and nothing new from the old keyframes.
+  // Motion: the token pair inside the kit.
   classBan(
     CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
     "Motion is the kit's, from the token pair under reduced motion.",
     OUTSIDE_KIT,
   ),
-  // Session 8: the old keyframes' ban goes with the toaster, the last to draw one.
-  classBan(String.raw`^.*(?:${OLD_KEYFRAMES}).*$`, "The old keyframes go with the toaster: nothing new uses them.", PRODUCTION),
 
   // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
   // The required mark is a glyph, not a word.
@@ -1408,7 +1391,7 @@ const eslintConfig = defineConfig([
           // The constants alone, which the Prettier plugin never sorts: a class list both tools sorted
           // would have two owners, and a version bump moving either order would set them fighting over it.
           selectors: [CLASS_LIST_CONSTANT],
-          // On, a HeroUI component class sorts ahead of `group` or `peer`, where the Prettier plugin
+          // On, a class of the components layer sorts ahead of `group` or `peer`, where the Prettier plugin
           // keeps both where they stand; off, the two orders agree.
           detectComponentClasses: false,
         },

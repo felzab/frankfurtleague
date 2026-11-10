@@ -133,8 +133,8 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   writes and a precondition only the system knows are never explained, since the reader cannot act
   on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** is one of `toast`'s five titles, and only for an action that leaves nothing on the page
-  to change.
+- **A toast** is one of `toast`'s titles, and only for an action that leaves nothing on the page to
+  change.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
   `empty.filter` only where the list keeps a filter.

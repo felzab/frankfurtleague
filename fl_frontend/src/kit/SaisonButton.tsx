@@ -128,7 +128,7 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
             href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }),
             isCurrent: id === saison.active,
             // The browser's Back skips a season switch, returning to the page before the season's pages.
-            routerOptions: { replace: true },
+            replace: true,
           })),
         ]}
         trigger={

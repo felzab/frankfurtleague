@@ -353,7 +353,7 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." \
     && ok "every peer in range"
 
   # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
-  # one package; HeroUI's components then split React context with the app's.
+  # one package, and two copies of React Aria split the contexts its components share.
   step "frontend · pnpm  (no copy a dedupe would remove)"
   check "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
 Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \

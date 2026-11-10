@@ -26,9 +26,7 @@ check is on this page.
   a visitor reads is not a name and keeps its words. A page address and a mailed link's address follow
   this rule as a name does, each segment a league word or English, save `/impressum` and `/datenschutz`,
   the words German law and a German visitor look for (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`,
-  which `fl_frontend/src/core/routes.test.ts` holds every address to but those under the tree its
-  `UNHELD` names: `/api/bestaetigung`, the confirmation handlers, until session 8 moves their last
-  importers). A stored or served name — a collection, a field, a value, an index — follows this rule
+  which `fl_frontend/src/core/routes.test.ts` holds every address to). A stored or served name — a collection, a field, a value, an index — follows this rule
   as a code name does: a core entity or attribute of the league keeps the glossary's German word
   (`saison_phase`, `sonderereignis`, `mietpreis`), and every other data noun is English
   (`first_name`, never `vorname`; `date`, never `datum`; `reason`, never `grund`). Each is renamed in

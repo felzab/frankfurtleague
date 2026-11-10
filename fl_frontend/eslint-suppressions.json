@@ -1,9 +1,4 @@
 {
-  "src/core/dismissControl.ts": {
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 4
-    }
-  },
   "src/core/mail.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -11,25 +6,6 @@
   },
   "src/core/passkeyLastUse.ts": {
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/providers/AppToaster.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    },
-    "better-tailwindcss/no-restricted-classes": {
-      "count": 6
-    },
-    "no-restricted-syntax": {
-      "count": 3
-    },
-    "react/forbid-component-props": {
-      "count": 5
-    }
-  },
-  "src/core/providers/RootProviders.tsx": {
-    "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
   },
