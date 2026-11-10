@@ -2,7 +2,7 @@ import optimizeLocales from "@react-aria/optimize-locales-plugin";
 
 import type { NextConfig } from "next";
 
-// Every locale an `I18nProvider` sets belongs here (`fl_frontend/src/core/providers/RootProviders.tsx`):
+// Every locale an `I18nProvider` sets belongs here (`fl_frontend/src/kit/RootProviders.tsx`):
 // React Aria's strings for any other are emptied from the server bundle and the client's alike.
 const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
 

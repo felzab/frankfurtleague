@@ -3,11 +3,11 @@ import "./globals.css";
 import { Anton, Inter, Raleway } from "next/font/google";
 
 import { BrandSprite } from "@/kit/BrandSprite";
+import { RootProviders } from "@/kit/RootProviders";
 import { ThemeColor } from "@/kit/ThemeColor";
 
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
-import { RootProviders } from "@/core/providers/RootProviders";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
 

@@ -262,11 +262,10 @@ const SITE_ORIGIN = {
  * react-aria's locale provider, mounted once at the root: it reads the nearest one, so a second mount
  * formats a subtree's dates by whatever it pins. Tests mount their own.
  */
-// Session 8: retargeted from HeroUI's re-export to `react-aria-components` as the provider moves there.
 const LOCALE_PROVIDER = {
-  regex: packageUnder("@heroui/react/rac"),
+  regex: packageUnder("react-aria", "react-aria-components"),
   importNames: ["I18nProvider"],
-  message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
+  message: "The locale is pinned once, in fl_frontend/src/kit/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
 
 const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
@@ -386,7 +385,7 @@ const IMPORT_BANS = [
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
   // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
-  importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
+  importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/kit/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
@@ -794,7 +793,7 @@ const DESIGN_BANS = [
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
       // The table block is the one that writes a table; the kit's link writes the one plain anchor, its
-      // full-document load, which neither Next's link nor React Aria's under the app's router makes.
+      // full-document load, which Next's link never makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -881,14 +880,6 @@ const DESIGN_BANS = [
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
   ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
-  // Session 8: this ban goes with HeroUI's last importer; the kit builds on none of it.
-  kitImport(
-    {
-      regex: packageUnder("@heroui/react", "@heroui/styles"),
-      message: "The old component set goes with the last module importing it: build on the kit.",
-    },
-    PRODUCTION,
-  ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[

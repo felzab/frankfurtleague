@@ -3,7 +3,7 @@ import { afterEach, beforeEach } from "vitest";
 // For a file under `// @vitest-environment jsdom`; a node-environment file has no window and gets nothing here.
 if (typeof window !== "undefined") {
   // jsdom answers `language` with `en-US`, which react-aria reads as its default where no `I18nProvider`
-  // is mounted. The site pins `de-DE` (`fl_frontend/src/core/providers/RootProviders.tsx`); so does the test window.
+  // is mounted. The site pins `de-DE` (`fl_frontend/src/kit/RootProviders.tsx`); so does the test window.
   Object.defineProperties(window.navigator, {
     language: { configurable: true, value: "de-DE" },
     languages: { configurable: true, value: ["de-DE"] },
