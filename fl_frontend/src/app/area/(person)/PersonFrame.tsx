@@ -2,17 +2,14 @@ import { RailFrame } from "@/kit/RailFrame";
 import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatPeriod } from "@/core/format";
-import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
-import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
-import { getSaisonFrame } from "@/features/saisons/queries";
+import { getOwnSaisons } from "@/features/roles/queries";
 
 import { AREA_HOME } from "../areaHome";
 
 import type { Copy } from "@/core/copy";
-import type { FrameSaisons, RailGroup, Saisons } from "@/kit/FrameNav";
+import type { FrameSaisons, RailGroup } from "@/kit/FrameNav";
 import type { ReactNode } from "react";
 
 /** A person's own seasons, as a frame of one place takes them. */
@@ -57,45 +54,13 @@ const FRAMES = {
 
 const BAR = ["overview"] as const;
 
-/** One season a person's own records stand in, as the seasons read of their place serves it, the newest first. */
-type OwnSaison = { id: string; start_date: string; end_date: string };
-
-/**
- * Session 8: a pupil's and a referee's seasons are their place's own read, `GET /spieler/self/saisons` and
- * `GET /schiedsrichter/self/saisons`: the seasons their squad rows and their fixtures stand in. Until the generated
- * client holds the two, the one season the site is on.
- */
-async function readOwnSaisons(): Promise<OwnSaison[]> {
-  const { saisons, active_saison_id: active } = await getSaisonFrame();
-  return saisons.filter((saison) => saison.id === active);
-}
-
-/**
- * The seasons a place's season button offers and the one its „Übersicht“ leads to: the season the site is on where
- * the person's records stand in it, else their newest; `null` where they stand in none. A session turned away and a
- * person holding no such Funktion are shown none, without a read: their page sends them on, and a read the backend
- * refuses here would fail the frame around that redirect.
- */
-async function readSeasons(kind: "spieler" | "schiedsrichter"): Promise<Saisons | null> {
-  const subject = await getSubjectSession();
-  if (subject === null || !rolesOf(subject).roles.some((role) => role.kind === kind)) return null;
-
-  const own = await readOwnSaisons();
-  const [newest] = own;
-  if (newest === undefined) return null;
-  const { active_saison_id: running } = await getSaisonFrame();
-  return {
-    entries: own.map((saison) => ({ id: saison.id, span: formatPeriod(dayOf(saison.start_date), dayOf(saison.end_date)) })),
-    standard: own.find((saison) => saison.id === running)?.id ?? newest.id,
-  };
-}
-
 /**
  * The frame of a person's own pages, one for each place, each a layout of its own: a frame takes one menu and one
  * list of seasons, and the three differ in both. A place's frame stands above the season of its address, whose
  * subtree Next keys on its value, so a season switch remounts the page alone and keeps the frame. It is drawn without
  * waiting for the session, the seasons and the account streaming into their places, and judges no page: each page's
- * read asks who the person is itself (`fl_frontend/src/features/roles/resolvers.ts :: requireRole`).
+ * read asks who the person is itself (`fl_frontend/src/features/roles/resolvers.ts :: requireRole`). A place's seasons
+ * are a read of its own (`fl_frontend/src/features/roles/queries.ts :: getOwnSaisons`), which its pages share.
  */
 export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; children: ReactNode }) {
   const frame: Frame = FRAMES[place];
@@ -108,7 +73,7 @@ export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; c
       <RailFrame
         groups={frame.groups}
         bar={BAR}
-        saison={place === "landing" ? undefined : { saisons: readSeasons(place), ...FRAMES[place].saison }}
+        saison={place === "landing" ? undefined : { saisons: getOwnSaisons(place), ...FRAMES[place].saison }}
         foot={{ kind: "account", account: readAccount(frame.role) }}
         columnInLayouts={frame.columnInLayouts}>
         {children}

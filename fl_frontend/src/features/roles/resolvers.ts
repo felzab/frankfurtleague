@@ -11,6 +11,7 @@ import { getSubjectSession } from "@/core/subject";
 
 import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
+import type { PersonKind } from "./queries";
 
 /**
  * The signed-in person a page at `path` under `/area` is drawn for, or a redirect to sign in carrying `path` back, as
@@ -24,9 +25,6 @@ export async function requireSubjectSession(path: string): Promise<SubjectSessio
   if (subject === null) redirect(withReturnAddress(ROUTES.signIn.path(), path));
   return subject;
 }
-
-/** The two Funktionen a person holds across every season, each with a place of its own under `/area`. */
-type PersonKind = Extract<Role["kind"], "spieler" | "schiedsrichter">;
 
 /**
  * The signed-in person a pupil's or a referee's page at `path` is drawn for. A person holding no such Funktion is
