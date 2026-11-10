@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends
 from app.api.aufstellungen.services import compose_public_aufstellungen, public_aufstellungen_lookup
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_landing_windows
 from app.api.saisons.schemas import (
+    SAISON_FRAME_FIELDS,
+    SAISON_FRAME_ORDER,
     FLBewerbungWindow,
     FLLandingBeforeStart,
     FLLandingCounts,
@@ -85,8 +87,8 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
     saisons_raw = await pull_many_from_db(
         collection=saisons_collection,
         db_filter=base_tier_status_term(),
-        sort_by=[("_id", -1)],
-        projection=["_id", "start_date", "end_date", "status"],
+        sort_by=list(SAISON_FRAME_ORDER.items()),
+        projection=["_id", *SAISON_FRAME_FIELDS, "status"],
         limit=LIST_LIMIT_MAX,
     )
 

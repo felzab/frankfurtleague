@@ -4,6 +4,7 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, season_has_ended
+from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
@@ -518,14 +519,13 @@ def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mappi
                 "from": Collection.SAISONS,
                 "localField": "_id",
                 "foreignField": "_id",
-                "pipeline": [{"$project": {"start_date": 1, "end_date": 1}}],
+                "pipeline": [{"$project": dict.fromkeys(SAISON_FRAME_FIELDS, 1)}],
                 "as": "saison",
             }
         },
         {"$unwind": "$saison"},
         {"$replaceWith": "$saison"},
-        # As the public frame orders its seasons (`app/api/saisons/public_router.py :: get_frame`).
-        {"$sort": {"_id": -1}},
+        {"$sort": dict(SAISON_FRAME_ORDER)},
     ]
 
 
