@@ -199,10 +199,15 @@ export const ROUTES = {
     crawl: "disallow",
   },
   areaSchiedsrichter: { path: () => "/area/schiedsrichter" as const, title: COPY.shared.overview, crawl: "disallow" },
-  // Session 8: its page is built.
   schiedsrichterOverview: {
     path: (saison: string) => `/area/schiedsrichter/${saison}` as const,
     title: COPY.shared.overview,
+    crawl: "disallow",
+  },
+  /** A fixture's report as its booked referee writes it, named by the two teams as the match's own page is. */
+  schiedsrichterSpielbericht: {
+    path: (saison: string, spiel: string) => `/area/schiedsrichter/${saison}/spielbericht/${spiel}` as const,
+    title: COPY.page.spiel,
     crawl: "disallow",
   },
 

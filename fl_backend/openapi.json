@@ -955,7 +955,7 @@
         "type": "object"
       },
       "FLAccountSchiedsrichterEinwilligung": {
-        "description": "One referee record on the account page: the stored data its box shows and the consent the page moves.",
+        "description": "One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -968,6 +968,10 @@
               }
             ],
             "title": "Birth Date"
+          },
+          "default_payment": {
+            "title": "Default Payment",
+            "type": "integer"
           },
           "einwilligung": {
             "$ref": "#/components/schemas/FLAccountEinwilligung"
@@ -1019,6 +1023,7 @@
           "schule",
           "kontakt",
           "birth_date",
+          "default_payment",
           "einwilligung",
           "evidence_state",
           "givable",
@@ -5014,6 +5019,10 @@
         "title": "FLDeclineBewerbungResponse",
         "type": "object"
       },
+      "FLDeclinedRetentionDays": {
+        "const": 14,
+        "type": "integer"
+      },
       "FLDeletionNoticeData": {
         "description": "The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.",
         "properties": {
@@ -7049,6 +7058,10 @@
             "title": "First Name",
             "type": "string"
           },
+          "kader_full": {
+            "title": "Kader Full",
+            "type": "boolean"
+          },
           "last_name": {
             "minLength": 1,
             "title": "Last Name",
@@ -7119,6 +7132,7 @@
           "position",
           "stufe",
           "admissible",
+          "kader_full",
           "nummer_double",
           "person"
         ],
@@ -9610,6 +9624,11 @@
             "title": "Deadline",
             "type": "string"
           },
+          "maximum_age": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Age",
+            "type": "integer"
+          },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Media Minimum Age",
@@ -9643,6 +9662,7 @@
           "schule",
           "saison_id",
           "minimum_age",
+          "maximum_age",
           "media_minimum_age",
           "deadline",
           "answered_at"
@@ -11363,7 +11383,7 @@
         "type": "string"
       },
       "FLSchiedsrichterSelf": {
-        "description": "The referee's own page's read: the record and its fee.\n\nThe fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.",
+        "description": "The referee's own page's read: the record and its fee.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -14081,6 +14101,10 @@
             "title": "Name",
             "type": "string"
           },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -14089,7 +14113,8 @@
         },
         "required": [
           "team_id",
-          "name"
+          "name",
+          "shorthand"
         ],
         "title": "FLSpielberichtTeam",
         "type": "object"
@@ -15672,53 +15697,6 @@
         "const": "2026-11-name-kader-1",
         "type": "string"
       },
-      "FLSpielerSelf": {
-        "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
-        "properties": {
-          "birth_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Birth Date",
-            "type": "string"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "kader": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerSelfKaderRow"
-            },
-            "title": "Kader",
-            "type": "array"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "first_name",
-          "last_name",
-          "spieler_id",
-          "birth_date",
-          "kader"
-        ],
-        "title": "FLSpielerSelf",
-        "type": "object"
-      },
       "FLSpielerSelfKaderRow": {
         "description": "One squad row as its own pupil reads it, with the name the club played that season under.",
         "properties": {
@@ -15805,19 +15783,6 @@
           "inactive_since"
         ],
         "title": "FLSpielerSelfKaderRow",
-        "type": "object"
-      },
-      "FLSpielerSelfResponse": {
-        "description": "The signed-in address's own pupil record: one at most, `spieler.email` being unique.",
-        "properties": {
-          "spieler": {
-            "$ref": "#/components/schemas/FLSpielerSelf"
-          }
-        },
-        "required": [
-          "spieler"
-        ],
-        "title": "FLSpielerSelfResponse",
         "type": "object"
       },
       "FLSpielerSingleResponse": {
@@ -23149,7 +23114,7 @@
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.",
+        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.",
         "operationId": "registrierungen_get_open_registrierungen",
         "parameters": [
           {
@@ -28174,73 +28139,6 @@
           }
         ],
         "summary": "One Saison's squad rows for its list",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/self": {
-      "get": {
-        "description": "Answer the signed-in address's own pupil record's stored data with every squad row it holds.\n\nPERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.\nIts consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
-        "operationId": "spieler_get_self",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSelfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A signed-in pupil's own record",
         "tags": [
           "spieler"
         ]

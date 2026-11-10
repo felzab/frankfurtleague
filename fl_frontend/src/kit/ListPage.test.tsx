@@ -12,10 +12,11 @@ import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { actLabel } from "./dialogAct";
 import { ListPage } from "./ListPage";
+import { ListTable } from "./ListTable";
 import { RailPage } from "./RailFrame";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { ListRoleActs, SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
@@ -357,6 +358,41 @@ describe("a page of one card holding a list", () => {
 
     // Its text alone: the card's title before it would say the card still stands.
     expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
+  });
+});
+
+describe("a table a client page draws", () => {
+  const HEAD = { nameLabel: COPY.shared.name, columns: [] } as const;
+  const page = (content: Promise<{ drawn: ReactElement }>) => (
+    <ListPage
+      head={{ scope: "area", title: { route: "teamKader" } }}
+      list={{ kind: "table", search: { label: COPY.admin.spieler.search }, head: HEAD, wait: 3, content }}
+    />
+  );
+
+  // The harm: a page whose rows open its dialog draws its table itself, and a table standing outside the template's
+  // wait or its search scope lands without a placeholder or ignores what is typed into the toolbar's field.
+  it("waits in the template's placeholder and is searched by the toolbar's field", async () => {
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+    expect(waiting.querySelectorAll("[aria-busy] tbody tr")).toHaveLength(3);
+
+    const drawn = (
+      <ListTable
+        table={{
+          ...HEAD,
+          label: COPY.page.teamKader,
+          rows: ["Lea Bauer", "Finn Claus"].map((name) => ({ id: name, name: { record: name }, onOpen: vi.fn(), cells: {} })),
+          empty: { kind: "none", plural: COPY.page.teamKader, one: true },
+        }}
+      />
+    );
+    render(page(Promise.resolve({ drawn })));
+    expect(await screen.findByText("Finn Claus")).toBeTruthy();
+    await userEvent.type(screen.getByRole("searchbox"), "lea");
+
+    expect(screen.queryByText("Finn Claus")).toBe(null);
+    expect(screen.getByText("Lea Bauer")).toBeTruthy();
   });
 });
 

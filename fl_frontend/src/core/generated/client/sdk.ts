@@ -165,7 +165,6 @@ import type {
   FLSpielerAdminListResponse,
   FLSpielerSaisonAdminResponse,
   FLSpielerSaisonSelfResponse,
-  FLSpielerSelfResponse,
   FLSpielerSingleResponse,
   FLSpieleSingleResponse,
   FLSpieleSpielplanAdminResponse,
@@ -2140,6 +2139,7 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, sais
 /**
  * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
  *
+ * Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
  * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
@@ -4025,26 +4025,6 @@ export const spielerGetSpielerAdmin = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielerAdminListResponse> => {
   return adminKeyTransport<FLSpielerAdminListResponse>(getSpielerGetSpielerAdminUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielerGetSelfUrl = () => {
-  return `/api/v0/spieler/self`;
-};
-
-/**
- * Answer the signed-in address's own pupil record's stored data with every squad row it holds.
- *
- * PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.
- * Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
- *
- * Refuses an address holding no confirmed pupil record (`role_not_held`).
- * @summary A signed-in pupil's own record
- */
-export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelfResponse> => {
-  return adminKeyTransport<FLSpielerSelfResponse>(getSpielerGetSelfUrl(), {
     ...options,
     method: "GET",
   });

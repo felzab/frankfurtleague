@@ -62,24 +62,29 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
 type EmailAutofill = "email" | "username" | "off";
 
 /**
- * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is
- * `C2`; a postcode, whole euros or a house number `C5`; a name, an address, a phone number or a URL `W3`, a long
- * field up to the form's cap; a long name past it, a venue's, `W3L`; `column` such a field in a column narrower than
- * the cap, which it fills.
+ * A single line at its width, its keyboard set by `kind`; a URL and a minute name the example their message shows. A
+ * score is `C2`; a postcode, whole euros, a house number or a minute `C5`; a name, an address, a phone number or a URL
+ * `W3`, a long field up to the form's cap; a long name past it, a venue's, `W3L`; `column` such a field in a column
+ * narrower than the cap, which it fills.
  */
 type SingleLine = {
   width: "C2" | "C5" | "W3" | "W3L" | "column";
 } & (
-  | { kind: "text"; autofill?: Autofill; example?: never; unit?: never }
+  | { kind: "text"; autofill?: Autofill; example?: never; unit?: never; pattern?: never }
   /** `unit` stands after the field, outside it, as „€“ after a price. */
-  | { kind: "digits"; autofill?: Autofill; example?: never; unit?: Copy }
-  | { kind: "email"; autofill?: EmailAutofill; example?: never; unit?: never }
-  | { kind: "tel" | "search"; autofill?: never; example?: never; unit?: never }
-  | { kind: "url"; autofill?: never; example: Copy; unit?: never }
+  | { kind: "digits"; autofill?: Autofill; example?: never; unit?: Copy; pattern?: never }
+  | { kind: "email"; autofill?: EmailAutofill; example?: never; unit?: never; pattern?: never }
+  | { kind: "tel" | "search"; autofill?: never; example?: never; unit?: never; pattern?: never }
+  | { kind: "url"; autofill?: never; example: Copy; unit?: never; pattern?: never }
+  /**
+   * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
+   * off the published contract, a server module the kit cannot import, and `unit` stands after it as a digits field's.
+   */
+  | { kind: "minute"; autofill?: never; example: Copy; unit?: Copy; pattern: string }
 );
 
 /** A paragraph: the column's width at four lines. */
-type Paragraph = { width: "W4"; kind: "text"; autofill?: never; example?: never; unit?: never };
+type Paragraph = { width: "W4"; kind: "text"; autofill?: never; example?: never; unit?: never; pattern?: never };
 
 export type TextFieldProps = Shared & Line & (SingleLine | Paragraph);
 
@@ -93,6 +98,9 @@ const KINDS = {
   // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone, so
   // anything else reads „Format: …“ at the send rather than reaching the server.
   digits: { type: "text", inputMode: "numeric", autoComplete: undefined, pattern: "[0-9]*" },
+  // The phone pad, which carries the plus beside the digits where `numeric`'s pad carries none; a plain text field
+  // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
+  minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
   email: { type: "email", inputMode: undefined, autoComplete: "email", pattern: undefined },
   tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
   url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
@@ -150,9 +158,10 @@ export function TextField(props: TextFieldProps) {
   const constraints: Constraints = {
     maxLength,
     minLength,
-    example: props.kind === "url" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
+    example:
+      props.kind === "url" || props.kind === "minute" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
   };
-  const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" });
+  const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
     width === "W4" ? (
       <ParagraphBox
@@ -184,7 +193,7 @@ export function TextField(props: TextFieldProps) {
       minLength={minLength}
       type={keys.type}
       inputMode={keys.inputMode}
-      pattern={keys.pattern}
+      pattern={props.pattern ?? keys.pattern}
       autoComplete={props.autofill ?? keys.autoComplete}
       aria-describedby={props.unit === undefined ? undefined : unitId}>
       {!labelHidden && (

@@ -202,18 +202,8 @@ def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One pupil row's stored data and its squad rows, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads them."""
-
-    return {**_compose_spieler_person(row), "kader": row["kader"]}
-
-
 def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it.
-
-    Its own rather than `app/api/spieler/services.py :: build_self_pupil_pipeline`, whose lookups join every squad row
-    the pupil holds for an entry serving none.
-    """
+    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it."""
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
@@ -250,23 +240,30 @@ def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """This address's referee rows as their account entries and the Funktionen the page judges a grant by read them.
-
-    Its own rather than `app/api/schiedsrichter/services.py :: build_self_referee_pipeline`, whose projection takes the fee
-    for an entry serving none.
-    """
+    """This address's referee rows as their account entries and the Funktionen the page judges a grant by read them."""
 
     return [
         {"$match": build_self_referee_filter(identifier)},
-        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "birth_date": 1, "inactive_since": 1, EINWILLIGUNG_FIELD: 1}},
+        {
+            "$project": {
+                "name": 1,
+                "schule": 1,
+                "kontakt": 1,
+                "birth_date": 1,
+                "default_payment": 1,
+                "inactive_since": 1,
+                EINWILLIGUNG_FIELD: 1,
+            }
+        },
     ]
 
 
 def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
-    """One referee row's account entry: its stored data and its consent, never its fee, which the page shows nowhere."""
+    """One referee row's account entry: its stored data, its fee and its consent."""
 
     return {
         **_compose_schiedsrichter_person(row),
+        "default_payment": row["default_payment"],
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "givable": givable,

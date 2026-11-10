@@ -1,10 +1,12 @@
 import { orMissing } from "@/core/errors";
-import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById } from "@/core/generated/client/sdk";
+import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelfSpiele } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
+import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLSchiedsrichterListResponse,
   FLSchiedsrichterSingleResponse,
+  FLSchiedsrichterSpieleResponse,
   SchiedsrichterGetSchiedsrichterParams,
 } from "@/core/generated/client/types";
 
@@ -31,4 +33,13 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
     // status still throws.
     orMissing(schiedsrichterGetSchiedsrichterById(schiedsrichterId)),
   );
+}
+
+/**
+ * The signed-in referee's own fixtures of one season, open work first, as their Übersicht lists them.
+ *
+ * **Uncached** for the reason the list is: a person's read is keyed by who reads it.
+ */
+export async function getOwnSpiele(saisonId: string): Promise<FLSchiedsrichterSpieleResponse> {
+  return runPersonRead(() => schiedsrichterGetSelfSpiele(saisonId));
 }

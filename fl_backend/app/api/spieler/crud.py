@@ -24,6 +24,7 @@ from app.core.crud import (
     pull_one_from_db,
     refuse,
 )
+from app.core.exceptions import WriteRefusal
 from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
@@ -50,7 +51,8 @@ async def refuse_a_full_squad(
     """
 
     # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
-    # unless something puts them in one write set.
+    # unless something puts them in one write set. A nominee's write anchors too: it still contends
+    # with a window moved under the verdict that made them one.
 
     await anchor_in_db(
         collection=saisons_collection,
@@ -58,22 +60,32 @@ async def refuse_a_full_squad(
         session=session,
     )
 
-    # After the anchor: a nominee counts nothing, and still contends with a window moved under the verdict that made them one.
-    if nominee:
-        return
-
     squad_size = await saison_spieler_collection.count_documents(
         build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id), session=session
     )
 
     refuse(
-        find_squad_capacity_refusal(
+        find_full_squad_refusal(
             squad_size=squad_size,
             # Validated, not read raw: a season missing the key fails here rather than admitting a
             # player against a bound nobody chose.
             max_kader_size=FLSaisonRules.model_validate(rules).max_kader_size,
+            nominee=nominee,
         )
     )
+
+
+def find_full_squad_refusal(*, squad_size: int, max_kader_size: int, nominee: bool) -> WriteRefusal | None:
+    """`kader_full` where a squad holding `squad_size` capped rows takes no further entry, or `None`.
+
+    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
+    asking whether a squad takes an entry answers by.
+    """
+
+    if nominee:
+        return None
+
+    return find_squad_capacity_refusal(squad_size=squad_size, max_kader_size=max_kader_size)
 
 
 async def refuse_a_taken_rolle(
