@@ -267,6 +267,7 @@ export function RailPage({
   chip,
   flag,
   action,
+  link,
   bar,
   children,
 }: {
@@ -283,6 +284,11 @@ export function RailPage({
    * magnifier names its season, so it streams in a boundary of its own, its icon button's place held meanwhile.
    */
   action?: ReactElement;
+  /**
+   * A way to the record's public page, such as a match editor's to the match's own page, in words at the strip's end
+   * as the strip's legal links stand; absent until the record has one.
+   */
+  link?: { href: Route; label: Copy };
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
   bar?: ReactElement;
   children: ReactNode;
@@ -317,6 +323,14 @@ export function RailPage({
           </span>
         )}
         {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
+        {link !== undefined && (
+          <NextLink
+            href={link.href}
+            data-kit-focus="ring"
+            className={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
+            {link.label}
+          </NextLink>
+        )}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}

@@ -17,6 +17,7 @@ import { formColumn, RailPage } from "./RailFrame";
 import { dangerRow, Section } from "./Section";
 
 import type { Copy } from "@/core/copy";
+import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { ConfirmDialogProps } from "./ConfirmDialog";
@@ -124,6 +125,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
   chip,
   lead,
+  link,
   editor,
   barText,
   sections,
@@ -139,6 +141,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
    * changes, which the bar's status line counts.
    */
   lead?: Copy;
+  /** The way to the record's public page in the strip, such as a match's own page, once the record has one (`RailPage`). */
+  link?: { href: Route; label: Copy };
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
   closed?: Copy;
   /** The chip of a closed record whose state says more than „Abgeschlossen“. */
@@ -158,6 +162,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
       scope="area"
       title={title}
       chip={closed === undefined ? chip : closedChip}
+      link={link}
       bar={
         closed === undefined ? (
           <EditorBar
