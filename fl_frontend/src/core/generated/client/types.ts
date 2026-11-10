@@ -1139,6 +1139,7 @@ export interface FLAufstellungSpieler {
 
 export interface FLSpielberichtTeam {
   name: string;
+  shorthand: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }

@@ -859,6 +859,14 @@ export const COPY = catalogue({
         colour: { gelb: "Gelb", gelb_rot: "Gelb-Rot", rot: "Rot" } satisfies Record<FLCardColour, string>,
         /** The section for what no field holds, and its text area's label. */
         remarks: "Bemerkungen",
+        /** One goal: the object of „Tor eintragen“ and „Tor entfernen“, and the noun its row is counted by. */
+        goal: "Tor",
+        /** The label over a goal's or a card's row, counting the rows from 1: „Tor 3“, „Karte 1“. */
+        numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
+        /** A no-show's entry in the Sonderereignis, by the club that stayed away. */
+        nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+        /** Under the goals' title where a side fields another club than the report names, whose pupils left their rows. */
+        sidesChanged: "Im Spiel stehen inzwischen andere Teams.",
       },
     },
   },

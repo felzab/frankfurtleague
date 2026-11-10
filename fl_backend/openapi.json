@@ -14101,6 +14101,10 @@
             "title": "Name",
             "type": "string"
           },
+          "shorthand": {
+            "title": "Shorthand",
+            "type": "string"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -14109,7 +14113,8 @@
         },
         "required": [
           "team_id",
-          "name"
+          "name",
+          "shorthand"
         ],
         "title": "FLSpielberichtTeam",
         "type": "object"

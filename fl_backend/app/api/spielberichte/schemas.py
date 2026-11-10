@@ -182,7 +182,9 @@ class FLSpielberichtPayload(BaseModel):
 
 class FLSpielberichtTeam(BaseModel):
     team_id: CustomObjectId
+    # Both as the club's row in the fixture's own season holds them.
     name: str
+    shorthand: str
 
 
 class FLSpielberichtSpiel(BaseModel):

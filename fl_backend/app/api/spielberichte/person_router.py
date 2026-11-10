@@ -286,7 +286,7 @@ async def put_spielbericht_bericht(
 
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
-        eigene = [record.schiedsrichter_id for record in subject.schiedsrichter]
+        own = [record.schiedsrichter_id for record in subject.schiedsrichter]
 
         context = await pull_bericht_context(
             spiele_collection=spiele_collection,
@@ -297,7 +297,7 @@ async def put_spielbericht_bericht(
         )
         saved = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         new = newly_named(payload, None if saved is None else saved["bericht"], context.spiel)
-        refuse(find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=eigene))
+        refuse(find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=own))
         refuse(find_saison_ended_refusal(context))
         refuse(find_stale_first_save_refusal(saved, version=bericht_data.version))
         judge_bericht(context=context, payload=payload, new=new, today=today)
@@ -331,9 +331,9 @@ async def put_spielbericht_bericht(
 
         # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
         # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction.
-        async with db.start_session(snapshot=True) as ausserhalb:
-            subjekt_jetzt = await roles_of(identifier, records, session=ausserhalb)
-        refuse(find_own_entry_refusal(held=bool(subjekt_jetzt.schiedsrichter)))
+        async with db.start_session(snapshot=True) as outside:
+            subject_now = await roles_of(identifier, records, session=outside)
+        refuse(find_own_entry_refusal(held=bool(subject_now.schiedsrichter)))
         current = await pull_bericht_context(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
@@ -343,22 +343,22 @@ async def put_spielbericht_bericht(
         )
         refuse(
             find_not_refereed_refusal(
-                spiel_raw=current.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subjekt_jetzt.schiedsrichter]
+                spiel_raw=current.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subject_now.schiedsrichter]
             )
         )
         refuse(find_saison_ended_refusal(current))
         judge_bericht(context=current, payload=payload, new=new, today=today)
 
-        angelegt = saved is None
+        created = saved is None
         view = {**compose_view(context, kader_open=True, named=named, document=document), "completed": False}
 
-        return FLSpielberichtSchiedsrichterResponse.model_validate(view), angelegt
+        return FLSpielberichtSchiedsrichterResponse.model_validate(view), created
 
     async with transaction_session(db) as session:
-        answer, angelegt = await session.with_transaction(write_the_report)
+        answer, created = await session.with_transaction(write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
-    if angelegt:
+    if created:
         response.status_code = HTTPStatus.CREATED
 
     return answer

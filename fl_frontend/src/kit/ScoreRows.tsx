@@ -3,6 +3,7 @@
 import { useId } from "react";
 
 import { COPY, textOf } from "@/core/copy";
+import { formatNumber } from "@/core/format";
 
 import { smallCaps } from "./cardStyles";
 import { RequiredMark } from "./FieldParts";
@@ -34,6 +35,12 @@ type ScoreColumn = {
   isRequired: boolean;
 };
 
+/**
+ * The goals as figures nobody types, home first, counted from what the form lists elsewhere, as a match report counts
+ * its goals rows: shown where the column's fields would stand, beside a shoot-out's fields.
+ */
+type CountedColumn = { label: Copy; head?: never; counted: readonly [number, number] };
+
 const scoreRows = tv({
   slots: {
     // 8 px more above it than between two fields, as a sub-group sets itself off.
@@ -48,6 +55,9 @@ const scoreRows = tv({
     side: "col-start-1 row-start-1 flex h-8 min-w-0 items-center gap-2 pointer-coarse:h-10",
     name: "truncate text-sm font-medium",
     field: "contents [&_[data-kit-message]]:row-start-2 [&_[data-kit-message]]:text-end [&_input]:row-start-1 [&>*]:contents",
+    // A counted figure in a field's place and at its width and inset, so it stands where a typed one would, in the bold
+    // a score takes.
+    figure: `col-start-2 row-start-1 flex items-center px-2.5 font-numeric text-base font-bold ${fieldFrame.variants.width.C2}`,
     line: "col-span-full row-start-4 min-h-5 text-sm font-medium",
   },
   variants: {
@@ -97,6 +107,9 @@ const SIDES = [0, 1] as const;
  * whole sets off, such as level knockout goals leaving the bracket waiting, else what the figures decide, „… gewinnt
  * 3:1“ or „Unentschieden 2:2“, in its outcome's tone. A row is a group named by its club, so a field is heard as its
  * column on its club's row.
+ *
+ * Goals counted elsewhere on the form stand as figures in their fields' place (`counted`), heard as the column's label
+ * and the figure, beside a shoot-out's fields, which stay typed.
  */
 export function ScoreRows({
   sides,
@@ -107,7 +120,7 @@ export function ScoreRows({
 }: {
   /** The two clubs, home first. */
   sides: readonly [ScoreSide, ScoreSide];
-  tore: ScoreColumn;
+  tore: ScoreColumn | CountedColumn;
   /** The shoot-out's column, on a level knockout score alone. */
   shootOut: ScoreColumn | null;
   /** What the score's present value sets off beyond it, in the warn colour of a field's consequence. */
@@ -122,10 +135,19 @@ export function ScoreRows({
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
-  const columnHead = (column: "tore" | "shootOut", { label, head, isRequired }: ScoreColumn) => (
+  const columnHead = (column: "tore" | "shootOut", shown: ScoreColumn | CountedColumn) => (
     <span className={slots.head({ column })}>
-      {head ?? label}
-      <RequiredMark isRequired={isRequired} />
+      {shown.head ?? shown.label}
+      <RequiredMark isRequired={"counted" in shown ? false : shown.isRequired} />
+    </span>
+  );
+  const counted = (side: 0 | 1, { label, counted: figures }: CountedColumn) => (
+    <span
+      key="counted"
+      className={slots.figure()}>
+      {/* Heard as the column it stands in, as a typed field's hidden label is: each a flex item, so the two are two words. */}
+      <span className="sr-only">{label}</span>
+      <span>{formatNumber(figures[side])}</span>
     </span>
   );
   const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired }: ScoreColumn) => (
@@ -172,7 +194,7 @@ export function ScoreRows({
               {textOf(sides[side].name)}
             </span>
           </span>
-          {field(side, "tore", tore)}
+          {"counted" in tore ? counted(side, tore) : field(side, "tore", tore)}
           {shootOut !== null && field(side, "shootOut", shootOut)}
         </div>
       ))}
