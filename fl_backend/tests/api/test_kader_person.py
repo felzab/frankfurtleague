@@ -396,6 +396,21 @@ class TestAnEdit:
         # Now wearing `07` beside `ZERO_SEVEN`, judged against the squad after the write.
         assert response.json()["nummer_double"] is True
 
+    def test_a_save_on_the_version_another_save_moved_is_refused_and_the_first_stands(self, mongo_replica_set_url: str):
+        """Two seat holders open the row on one version and both save: unchecked, the second overwrites the first unseen."""
+
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, tuple[int, str | None], Any]:
+            first = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "9"})
+            second = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), TRAINER_ALONE, {**PAYLOAD, "nummer": "10"})
+
+            return first.status_code, answered(second), await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
+
+        first, second, row = on_a_league(mongo_replica_set_url, run)
+
+        assert first == 200
+        assert second == (409, Code.VERSION_STALE)
+        assert (row["nummer"], row["version"]) == ("9", 1)
+
     @pytest.mark.parametrize("extra", [{"team_id": str(TEAM_B)}, {"is_nachnominiert": True}], ids=["team_id", "is_nachnominiert"])
     def test_a_field_the_payload_does_not_declare_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, extra: Mapping[str, Any]):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, **extra})
