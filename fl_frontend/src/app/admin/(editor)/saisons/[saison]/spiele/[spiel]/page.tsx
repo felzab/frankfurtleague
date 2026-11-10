@@ -2,8 +2,10 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
+import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
 import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
+import { SectionPlaceholder } from "@/kit/Section";
 import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
 
@@ -14,6 +16,7 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -35,6 +38,7 @@ import type {
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
+import type { CardActRowProps } from "@/kit/Card";
 import type { Option } from "@/kit/OptionList";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -165,6 +169,8 @@ export default function SpielEditorPage({ params }: Props) {
               rows={3}
             />,
           ],
+          // Both sides' line-up rows, as a dated match with its two clubs shows them.
+          { block: <SectionPlaceholder list={<CardRowsPlaceholder rows={2} />} /> },
         ],
       }}
       editor={readEditor(params)}
@@ -300,6 +306,30 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
 }
 
+/**
+ * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
+ * „Fehlt“ where none is stored. A side the draw has not settled has no club to name one; a match with no day or hour,
+ * and one called off, owe none, so neither shows a row.
+ */
+function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
+  const { spiel, aufstellungen } = view;
+  if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
+  const words = COPY.area.team.aufstellung;
+  return (["team1", "team2"] as const).flatMap((side) => {
+    const club = spiel[side];
+    if (club === null) return [];
+    const stored = aufstellungen[side];
+    return [
+      {
+        id: side,
+        href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
+        name: words.ofTeam({ record: club.name }),
+        line: stored === null ? words.missing : words.counts(stored.count, stored.starters, STARTERS_MAX),
+      },
+    ];
+  });
+}
+
 /** A knockout match's clubs for its two sides by hand, each a club the write would not field noted why. */
 function clubsOf(view: FLSpieleAdminSingleResponse): Club[] | null {
   return (
@@ -366,6 +396,7 @@ async function readEditor(params: Props["params"]) {
       report={{ head: REPORT_HEAD, rows: view.spielbericht === null ? [] : berichtRows(saved, view.spielbericht) }}
       adoption={adoptionOf(saved, view.spielbericht)}
       answers={answerRows(view)}
+      aufstellungen={aufstellungRows(view)}
       createSpielort={createSpielort}
       spielortRules={SPIELORT_RULES}
       {...(closed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}

@@ -1,0 +1,80 @@
+import { doubleApiClient } from "@/test-support/apiClientDouble";
+import { describe, expect, it, vi } from "vitest";
+
+import { COPY } from "@/core/copy";
+
+import type { FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
+import type { ReactElement } from "react";
+import type { SpielEditor } from "./SpielEditor";
+
+const SPIEL_ID = "64b000000000000000000001";
+const TEAM1 = "64b000000000000000000003";
+const TEAM2 = "64b000000000000000000004";
+
+/** A dated group match whose first side's club has stored a line-up and whose second side's has not. */
+const VIEW: FLSpieleAdminSingleResponse = {
+  spiel: {
+    id: SPIEL_ID,
+    spieltag_id: "64b000000000000000000002",
+    team1: { team_id: TEAM1, name: "Ahorn", shorthand: "AHO", tore: null, austritt_type: null },
+    team2: { team_id: TEAM2, name: "Eiche", shorthand: "EIC", tore: null, austritt_type: null },
+    team1_quelle: null,
+    team2_quelle: null,
+    date: "2026-11-14",
+    time: "16:00:00",
+    spielort: null,
+    schiedsrichter: null,
+    ergebnis: null,
+    elfmeterschiessen: null,
+    spiel_nr: 3,
+    sonderereignis: null,
+    saison_phase: "gruppenphase",
+    saison_id: "2027",
+    note: null,
+    ansetzung_confirmed: null,
+    for_third_place: false,
+    version: 3,
+  },
+  aufstellungen: { team1: { count: 14, starters: 11 }, team2: null },
+  saison_status: "active",
+  schiedsrichter: [],
+  spielbericht: null,
+  spielbestaetigungen: [],
+  spielorte: [],
+  teams: null,
+};
+
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
+
+doubleApiClient(() => VIEW);
+
+const { default: SpielEditorPage } = await import("./page");
+
+describe("the match editor's links to the line-ups", () => {
+  // The harm: one club's line-up counted under the other's name, or a row leading to the other club's line-up, so the
+  // league reads a missing line-up as entered and enters it for the wrong club.
+  it("states and links each side's own club's line-up", async () => {
+    const shell = SpielEditorPage({
+      params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }),
+      searchParams: Promise.resolve({}),
+    }) as ReactElement<{ editor: Promise<ReactElement<Parameters<typeof SpielEditor>[0]>> }>;
+    const editor = await shell.props.editor;
+
+    const words = COPY.area.team.aufstellung;
+    expect(editor.props.aufstellungen).toStrictEqual([
+      {
+        id: "team1",
+        href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM1}`,
+        name: words.ofTeam({ record: "Ahorn" }),
+        line: words.counts(14, 11, 11),
+      },
+      {
+        id: "team2",
+        href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM2}`,
+        name: words.ofTeam({ record: "Eiche" }),
+        line: words.missing,
+      },
+    ]);
+  });
+});
