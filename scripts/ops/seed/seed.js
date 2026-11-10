@@ -838,6 +838,33 @@ const REPORTS = [
   },
 ];
 
+/**
+ * One club's line-up for a fixture (`fl_backend/app/api/aufstellungen/schemas.py :: FLAufstellung`), the starters
+ * ahead of the bench.
+ */
+function lineup(spiel, clubName, starters, bench = []) {
+  return {
+    _id: ObjectId(),
+    saison_id: "2027",
+    spiel_id: spiel._id,
+    team_id: club[clubName]._id,
+    spieler: [
+      ...starters.map((person) => ({ spieler_id: person._id, starts: true })),
+      ...bench.map((person) => ({ spieler_id: person._id, starts: false })),
+    ],
+  };
+}
+
+// Both clubs' for match 1; Ahorn's alone, seven starters short of a side, for match 9 next week, whose other club has
+// entered none; and none for today's matches still to come, each past the hour its line-up was due.
+const UPCOMING = running.spiele.find((row) => row.spiel_nr === 9);
+const ELEVEN = [PUPILS.mia, PUPILS.jonas, ...AHORN_SQUAD.slice(0, 9)];
+const LINEUPS = [
+  lineup(REPORTED, "Ahorn", ELEVEN, AHORN_SQUAD.slice(9, 12)),
+  lineup(REPORTED, "Kastanie", [PUPILS.lena]),
+  lineup(UPCOMING, "Ahorn", ELEVEN.slice(0, 7), [AHORN_SQUAD[9]]),
+];
+
 // --- The planned season ---------------------------------------------------------------------------
 
 const PLANNED = "2028";
@@ -1153,6 +1180,7 @@ const DOCUMENTS = {
   spieler: [GHOST_SPIELER, ...Object.values(PUPILS), ...AHORN_SQUAD, NOMINEE, RETIRED_NOMINEE, SEASON_AFTER_PUPIL],
   saison_spieler: SQUADS,
   spielberichte: REPORTS,
+  aufstellungen: LINEUPS,
   bewerbungen: APPLICATIONS,
 };
 
