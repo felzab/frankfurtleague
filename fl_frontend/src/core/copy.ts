@@ -778,8 +778,9 @@ export const COPY = catalogue({
       /** The account row's second line in a team's frame: the club's Kürzel and the seats the person holds there. */
       accountLine: (shorthand: Words, rollen: readonly FLKontaktRolle[]) => `${textOf(shorthand)} · ${rollenText(rollen)}`,
       /**
-       * A declined date: the decline dialog's one sentence, a proposal moving nothing until the league saves a date,
-       * and the last part of the declined row's line while it stands on the Übersicht without acts.
+       * What the league decides: the decline dialog's one sentence, a proposal moving nothing until the league saves a
+       * date; and the last part of an overdue date's line on the Übersicht, which takes no answer past its deadline. A
+       * declined row's line ends on the team's proposal.
        */
       declineConsequence: "Über den Termin entscheidet die Liga.",
       leagueDecides: "Die Liga entscheidet",

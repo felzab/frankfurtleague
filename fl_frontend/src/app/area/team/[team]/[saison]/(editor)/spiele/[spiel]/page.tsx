@@ -10,7 +10,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
-import { readAsSeatHolder, requireTeamSeats, teamSeatsAt } from "@/features/roles/resolvers";
+import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchdayOf } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -49,11 +49,12 @@ const sideOf = (team: FLAufstellungSpiel["team1"]): Words => (team === null ? CO
 const titleOf = ({ team1, team2 }: FLAufstellungSpiel): PageTitle => ({ route: "spiel", team1: sideOf(team1), team2: sideOf(team2) });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  const found = teamSeatsAt(params, address).then((seats) => (seats === null ? null : lineupAt(params, seats[0].team_id, seats[0].saison_id)));
-  return metadataFor(found, async ({ spiel }) =>
-    pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
-      title: COPY.page.spiel(sideOf(spiel.team1), sideOf(spiel.team2)),
-    }),
+  return teamMetadata(params, address, ([seat]) =>
+    metadataFor(lineupAt(params, seat.team_id, seat.saison_id), async ({ spiel }) =>
+      pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
+        title: COPY.page.spiel(sideOf(spiel.team1), sideOf(spiel.team2)),
+      }),
+    ),
   );
 }
 

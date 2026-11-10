@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { dayOf, timeOf } from "@/core/format";
+import { SERVER_COPY } from "@/core/serverCopy";
 
-import { eventOf, matchRowOf, outcomeFor } from "./blocks";
+import { eventOf, headedMatchOf, matchRowOf, outcomeFor } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -51,6 +53,15 @@ describe("a match as a row", () => {
   // A row with a result draws its figures; one drawn for an unplayed match would read 0:0.
   it("carries no result until one is entered", () => {
     expect(matchRowOf(spiel(null)).result).toBeUndefined();
+  });
+
+  // The Finale's matchday holds the final beside it, so a list with no head over the match tells the two apart by the
+  // date line alone; under its own head the name stands once.
+  it("names the third-place match once, in its head where it has one and else before its date", () => {
+    const third = { ...spiel(null), saison_phase: "finale", for_third_place: true, spieltag_position: 1, count_spieltage_in_phase: 1 } as const;
+    const when = COPY.spielplan.when(dayOf(third.date), timeOf(third.time));
+    expect(matchRowOf(third).when).toBe(SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when));
+    expect(headedMatchOf(third)).toMatchObject({ head: SERVER_COPY.season.thirdPlace, spiel: { when } });
   });
 
   // Each of the three sources: a winner's slot worded as a loser's names the other club of that match.
