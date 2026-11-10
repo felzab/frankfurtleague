@@ -1335,8 +1335,11 @@ export const COPY = catalogue({
       /** The exit's reason while locked: before the season's start the replacement is the route. */
       fromStart: "Erst ab Saisonbeginn",
       austrittReasonDescription: "Steht ohne Namen auf der Website",
-      /** Under the exit's date: the write calls no fixture off, so the line says only what it ends. */
-      austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden.",
+      /**
+       * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,
+       * and that its seats lose the line-up's page and its reminders, so the league alone enters a line-up from then.
+       */
+      austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden, Aufstellungen trägt die Liga ein.",
       /** „E-Mail an“'s value in the exit's dialog. */
       austrittMailTo: "Gegner und eingeteilte Schiedsrichter",
       /** The danger box's two consequences, under the act's name and in its question alike, as a venue's. */
