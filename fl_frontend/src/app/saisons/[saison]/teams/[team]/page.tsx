@@ -18,10 +18,10 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
-import type { Words } from "@/core/copy";
 import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
+import type { TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/saisons/[saison]/teams/[team]">;
@@ -70,11 +70,17 @@ export default function TeamPage({ params }: Props) {
   );
 }
 
-/** A pupil of the squad as the public read names them: a name the consent publishes, else „anonym“. */
-const personOf = (spieler: FLSpielerPublic): Words =>
-  spieler.first_name === null
-    ? SERVER_COPY.season.spiel.anonymous
-    : { record: [spieler.first_name, spieler.last_name].filter((name) => name !== null).join(" ") };
+/**
+ * A pupil of the squad as the public read names them: a name the consent publishes, with the captain's or the
+ * Co-Kapitän's mark after it; else „anonym“, never with a mark, which would say who the nameless pupil is.
+ */
+function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
+  if (spieler.first_name === null) return { name: SERVER_COPY.season.spiel.anonymous };
+  const name = { record: [spieler.first_name, spieler.last_name].filter((part) => part !== null).join(" ") };
+  return spieler.rolle === null
+    ? { name }
+    : { name, mark: { letters: COPY.shared.rolleMark[spieler.rolle], label: COPY.admin.spieler.rolleOption[spieler.rolle] } };
+}
 
 /** A pupil's number and position, each left out while the record holds none. */
 const cellsOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">) => ({
@@ -177,7 +183,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                     ],
                     rows: kader.map((spieler, index) => ({
                       id: String(index),
-                      name: personOf(spieler),
+                      ...personOf(spieler),
                       cells: cellsOf(spieler),
                     })),
                     empty: { kind: "none", plural: COPY.page.teamKader, one: true },
