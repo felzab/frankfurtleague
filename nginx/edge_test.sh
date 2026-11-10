@@ -687,11 +687,33 @@ fi
 # both form posts count as actions, and a request that is no action is never metered.
 ACTION_FAILURES=0
 ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
+# Every transfer of this pass goes to one curl as lines of a config read from stdin (`curl -K -`), not
+# as arguments: a pass grows with the bursts it floods past, and Windows caps one command line at
+# 32,767 characters. Nothing rewrites a config line as MSYS rewrites an argument, so each file this
+# pass writes is named relative to the repository root, where the library leaves the working
+# directory, and a body nobody reads goes to a scratch file rather than to `/dev/null`, which a
+# Windows curl cannot open.
+config_transfer() { # curl options naming one transfer, its one bare argument the URL
+  local value
+  if (( ${#ACTION_CONFIG[@]} > 0 )); then ACTION_CONFIG+=( "--next" ); fi
+  while (( $# > 0 )); do
+    case "$1" in
+      -s|--path-as-is|--head|--compressed) ACTION_CONFIG+=( "$1" ); shift ;;
+      -o|-w|-D|-H|-X|-A|-F|--data|--max-time)
+        # Quoted, as a value holding a space must be, with the two escapes a quoted value reads.
+        value="${2//\\/\\\\}"; value="${value//\"/\\\"}"
+        ACTION_CONFIG+=( "$1 \"${value}\"" ); shift 2 ;;
+      -*) refuse "nginx/edge_test.sh's config_transfer has no rule for curl's $1, so it cannot write that transfer." ;;
+      *)
+        value="${1//\\/\\\\}"; value="${value//\"/\\\"}"
+        ACTION_CONFIG+=( "--url \"${value}\"" ); shift ;;
+    esac
+  done
+}
 action_request() { # $1 a label, the rest curl options naming one transfer
   local label="$1"; shift
   ACTION_LABELS+=( "$label" )
-  if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
-  ACTION_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
+  config_transfer -s -o "${SCRATCH_NAME}/unread.body" -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@"
 }
 # A spent key still admits one request per refill interval, which a lone probe can land on. Sent
 # twice back to back, a pair never holds two admissions, while a key nothing spent answers 200 twice.
@@ -699,14 +721,19 @@ spent_request() { # $1 a label, the rest curl options naming one transfer; each 
   local label="$1" half; shift
   for half in a b; do
     ACTION_LABELS+=( "$label" )
-    # curl refuses a `--next` opening its line, which a curl starting on this probe would hold.
-    if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
-    ACTION_REQUESTS+=( -s -D "${SCRATCH}/${label}-${half}.headers" -o "${SCRATCH}/${label}-${half}.body"
-      -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
+    config_transfer -s -D "${SCRATCH_NAME}/${label}-${half}.headers" -o "${SCRATCH_NAME}/${label}-${half}.body" \
+      -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@"
   done
 }
 ACTION_LABELS=()
-ACTION_REQUESTS=()
+ACTION_CONFIG=()
+# Each burst off its own block, so a figure moved there is driven as written.
+ACTION_BURST="$(sed -n '/^location \/ {$/,/^}$/s/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
+[[ -n "$ACTION_BURST" ]] || refuse "nginx/shared/site.conf declares no action burst on location / this test can read."
+LINK_ACTION_BURST="$(sed -n '/^location \/confirm\/ {$/,/^}$/s/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
+[[ -n "$LINK_ACTION_BURST" ]] || refuse "nginx/shared/site.conf declares no action burst on location /confirm/ this test can read."
+(( LINK_ACTION_BURST > ACTION_BURST + 10 )) \
+  || refuse "the link pages' action burst, ${LINK_ACTION_BURST}, leaves no room above location /'s ${ACTION_BURST} for this test's link-rhythm case."
 # Twenty saves at once, under the burst of thirty.
 for _ in $(seq 1 20); do
   action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
@@ -723,8 +750,20 @@ spent_request urlencoded -X POST --data "probe=1" "${BASE}/"
 spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# Each link page's block, whose own pair has room left here, so only its restated action pair refuses.
+# Each link page's block restates the action pair at a burst above location /'s, for a squad's sends:
+# with the key spent past `/`'s burst, sends spread over every block still pass, ten short of the
+# link pages' burst, which a block restating `/`'s figure would refuse. Then a flood past it.
 LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /registrierung/ /erasure /erasure/ )
+for _i in $(seq 0 $(( LINK_ACTION_BURST - ACTION_BURST - 11 ))); do
+  action_request link-rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
+    "${BASE}${LINK_ACTION_PATHS[_i % ${#LINK_ACTION_PATHS[@]}]}"
+done
+for _ in $(seq 1 30); do
+  action_request link-action-flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
+    "${BASE}/confirm/kontakt"
+done
+# Each link page's block, whose link pair has room left here, so only its restated action pair refuses,
+# and only at the link pages' own burst: a block restating it higher passes these.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
@@ -739,12 +778,6 @@ action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;c
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
-# Sent here, then the link pages' flood and the probes after it each in a curl of its own, Windows
-# capping one command line below any two. A transfer a curl never answered reads as `none`, each later
-# curl's statuses kept at their labels.
-mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
-ACTION_SENT=${#ACTION_LABELS[@]}
-ACTION_REQUESTS=()
 
 # The link pages' pair, every request it meters a page render or the proxy's redirect into one. Its
 # burst read off the file, so a burst moved there is still flooded past, with twenty more for the
@@ -754,9 +787,6 @@ LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) no
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
   action_request link-flood "${BASE}/confirm/kontakt?token=${TOK}"
 done
-mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
-ACTION_SENT=${#ACTION_LABELS[@]}
-ACTION_REQUESTS=()
 # The key spent: every link page, each block's own twin and the spellings nginx resolves before
 # choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
 LINK_MARKER="fl-link"
@@ -789,7 +819,8 @@ for _ in $(seq 1 $(( CODE_BURST + 5 ))); do
   action_request code-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/api/auth/sign-in/email-otp"
 done
 
-mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+# A transfer curl never answered reads as `none`.
+mapfile -t ACTION_STATUSES < <(printf '%s\n' "${ACTION_CONFIG[@]}" | curl -K - || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
   local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
   for _j in "${!ACTION_LABELS[@]}"; do
@@ -938,6 +969,8 @@ expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
+expect_action link-rhythm 200
+expect_action link-action-flood some:429
 # A link page's action still reads the sentence: the page is its load's alone.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   _before=$ACTION_FAILURES
