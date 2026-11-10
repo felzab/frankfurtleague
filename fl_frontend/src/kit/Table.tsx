@@ -181,19 +181,19 @@ export type TableHead = Pick<TableProps, "nameLabel" | "rankLabel" | "columns" |
 export type TableBody = Omit<TableProps, keyof TableHead>;
 
 /** A stacked phone row's two columns: its cells, then its chevron, the kit's 12-px gap between them. */
-const PHONE_END_ROW = "max-lg:grid-cols-[minmax(0,1fr)_auto] max-lg:gap-x-3";
+const PHONE_END_ROW_CLASSES = "max-lg:grid-cols-[minmax(0,1fr)_auto] max-lg:gap-x-3";
 
 /** That chevron's column, the row's second, centring the chevron on the lines it spans. */
-const PHONE_END = "max-lg:col-start-2 max-lg:flex max-lg:w-auto max-lg:items-center max-lg:pe-0";
+const PHONE_END_CLASSES = "max-lg:col-start-2 max-lg:flex max-lg:w-auto max-lg:items-center max-lg:pe-0";
 
 /** Words on a phone wrapping rather than cut, a long address breaking anywhere rather than widening the row. */
-const PHONE_WRAPS = "max-lg:whitespace-normal max-lg:wrap-anywhere";
+const PHONE_WRAPS_CLASSES = "max-lg:wrap-anywhere max-lg:whitespace-normal";
 
 /** What else the name cell holds, on a line of its own under the name. */
-const PHONE_NAME_LINE = "max-lg:col-span-full max-lg:px-3";
+const PHONE_NAME_LINE_CLASSES = "max-lg:col-span-full max-lg:px-3";
 
 /** A column a phone's act row keeps, on the line under the name cell's, in its own track (`phoneTrack`). */
-const PHONE_COLUMN = "max-lg:pt-1";
+const PHONE_COLUMN_CLASSES = "max-lg:pt-1";
 
 const table = tv({
   slots: {
@@ -304,8 +304,8 @@ const table = tv({
         head: "max-lg:sr-only",
         row: "max-lg:grid max-lg:h-auto max-lg:grid-cols-1 max-lg:gap-1 max-lg:px-3 max-lg:py-3",
         name: "max-lg:col-start-1 max-lg:w-auto max-lg:px-0 max-lg:py-0",
-        whole: PHONE_WRAPS,
-        cell: `max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start ${PHONE_WRAPS}`,
+        whole: PHONE_WRAPS_CLASSES,
+        cell: `max-lg:col-start-1 max-lg:grid max-lg:grid-cols-[4rem_minmax(0,1fr)] max-lg:gap-x-3 max-lg:px-0 max-lg:text-start ${PHONE_WRAPS_CLASSES}`,
         label: "text-xs text-fg-muted lg:hidden",
       },
     },
@@ -327,22 +327,22 @@ const table = tv({
         head: "max-lg:leading-10",
         row: "max-lg:col-span-full max-lg:grid max-lg:h-auto max-lg:grid-cols-subgrid max-lg:items-center max-lg:pb-3",
         name: "max-lg:contents",
-        whole: PHONE_WRAPS,
-        line: PHONE_NAME_LINE,
-        lineWords: PHONE_WRAPS,
-        refusal: PHONE_NAME_LINE,
-        cell: PHONE_COLUMN,
+        whole: PHONE_WRAPS_CLASSES,
+        line: PHONE_NAME_LINE_CLASSES,
+        lineWords: PHONE_WRAPS_CLASSES,
+        refusal: PHONE_NAME_LINE_CLASSES,
+        cell: PHONE_COLUMN_CLASSES,
         acts: "max-lg:hidden",
       },
       // The kit's act row, as `Card.tsx`'s and `SeatRows.tsx`'s: 12 px over the words and under the acts, 8 between them.
       row: {
         row: "max-lg:col-span-full max-lg:grid max-lg:h-auto max-lg:grid-cols-subgrid max-lg:items-center max-lg:pb-3",
         name: "max-lg:contents",
-        whole: PHONE_WRAPS,
-        line: PHONE_NAME_LINE,
-        lineWords: PHONE_WRAPS,
-        refusal: PHONE_NAME_LINE,
-        cell: PHONE_COLUMN,
+        whole: PHONE_WRAPS_CLASSES,
+        line: PHONE_NAME_LINE_CLASSES,
+        lineWords: PHONE_WRAPS_CLASSES,
+        refusal: PHONE_NAME_LINE_CLASSES,
+        cell: PHONE_COLUMN_CLASSES,
         acts: "max-lg:col-span-full max-lg:w-auto max-lg:px-3 max-lg:pt-2",
       },
     },
@@ -370,8 +370,8 @@ const table = tv({
     { cut: true, stack: true, class: { cell: "max-lg:max-w-none" } },
     // A prose or a stacked row on a phone stands its cells in one column and its chevron in a column of its own at its
     // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
-    { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
-    { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW, end: PHONE_END } },
+    { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
+    { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
   ],
 });
 
@@ -452,7 +452,7 @@ function Cell({ cell, slot, cut, stack }: { cell: TableCell | undefined; slot: b
     return (
       <CutText
         text={textOf(value)}
-        className={stack ? `block truncate ${PHONE_WRAPS}` : "block truncate"}
+        className={stack ? `block truncate ${PHONE_WRAPS_CLASSES}` : "block truncate"}
       />
     );
   if (!slot) return textOf(value);
