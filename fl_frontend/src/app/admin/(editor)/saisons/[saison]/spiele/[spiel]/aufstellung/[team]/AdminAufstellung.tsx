@@ -18,12 +18,15 @@ export function AdminAufstellung({
   team,
   title,
   lead,
+  closed,
   ...editing
 }: Omit<AufstellungEditing, "save"> & {
   team: string;
   title: PageTitle;
   /** The line-up as the line under the title states it: whose it is, its matchday and when the match is played. */
   lead: Copy;
+  /** Why the line-up is closed read-only: its season has finished, and the write refuses every change to it. */
+  closed?: Copy;
 }) {
   const { editor, barText, block } = useAufstellungEditor({
     ...editing,
@@ -35,6 +38,7 @@ export function AdminAufstellung({
       lead={lead}
       editor={editor}
       barText={barText}
+      closed={closed}
       sections={[{ id: "aufstellung", block }]}
     />
   );

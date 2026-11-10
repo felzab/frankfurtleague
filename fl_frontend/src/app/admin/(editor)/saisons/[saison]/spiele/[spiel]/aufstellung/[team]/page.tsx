@@ -69,12 +69,16 @@ function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
 
 /**
  * The page once read: the editor, open before the team's lock and after it alike, since the clock locks nothing for the
- * league. A match with no day or hour takes no line-up, so its editor opens with nobody to name.
+ * league. A match with no day or hour takes no line-up, so its editor opens with nobody to name. A finished season's
+ * line-ups take no write (`saison_past`), so the editor opens on one read-only, as the match editor does.
  */
 async function readEditor(params: Props["params"]) {
   const found = await findAufstellung(params);
   if (found === null) notFound();
 
+  const closed = found.saison_status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
+  // The block's every act answers a press with why it is closed: the season's end before the missing slot.
+  const locked = closed ?? (found.marks === null ? COPY.area.team.aufstellung.needsSlot : undefined);
   return (
     <AdminAufstellung
       team={found.team_id}
@@ -83,7 +87,8 @@ async function readEditor(params: Props["params"]) {
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      {...(found.marks === null ? { locked: COPY.area.team.aufstellung.needsSlot } : {})}
+      {...(locked === undefined ? {} : { locked })}
+      {...(closed === undefined ? {} : { closed })}
     />
   );
 }

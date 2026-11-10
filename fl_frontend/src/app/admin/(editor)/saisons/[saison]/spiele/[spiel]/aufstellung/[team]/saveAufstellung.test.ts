@@ -40,6 +40,7 @@ const STORED: FLAufstellungResponse = {
   ],
   version: 3,
   marks: null,
+  saison_status: "active",
 };
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));

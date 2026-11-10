@@ -38,6 +38,8 @@ export const saveAufstellung = action({
     // block marks on the nominee's row and leaves the person to take out.
     "aufstellung_spiel_undated",
     "aufstellung_nominee_without_shortage",
+    // The season finished since the page was read, whose line-ups the write refuses whole.
+    "saison_past",
   ],
   run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAufstellung(id, team_id);
