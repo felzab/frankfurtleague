@@ -7049,6 +7049,10 @@
             "title": "First Name",
             "type": "string"
           },
+          "kader_full": {
+            "title": "Kader Full",
+            "type": "boolean"
+          },
           "last_name": {
             "minLength": 1,
             "title": "Last Name",
@@ -7119,6 +7123,7 @@
           "position",
           "stufe",
           "admissible",
+          "kader_full",
           "nummer_double",
           "person"
         ],
@@ -9317,6 +9322,10 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
+          "deletion_days": {
+            "title": "Deletion Days",
+            "type": "integer"
+          },
           "kind": {
             "const": "registrierung_absage",
             "title": "Kind",
@@ -9347,7 +9356,8 @@
           "kind",
           "team",
           "saison_id",
-          "reason"
+          "reason",
+          "deletion_days"
         ],
         "title": "FLRegistrierungAbsageData",
         "type": "object"
@@ -9610,6 +9620,11 @@
             "title": "Deadline",
             "type": "string"
           },
+          "maximum_age": {
+            "exclusiveMinimum": 0.0,
+            "title": "Maximum Age",
+            "type": "integer"
+          },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Media Minimum Age",
@@ -9643,6 +9658,7 @@
           "schule",
           "saison_id",
           "minimum_age",
+          "maximum_age",
           "media_minimum_age",
           "deadline",
           "answered_at"
@@ -23155,7 +23171,7 @@
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.",
+        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.",
         "operationId": "registrierungen_get_open_registrierungen",
         "parameters": [
           {

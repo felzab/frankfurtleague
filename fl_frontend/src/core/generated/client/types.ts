@@ -3085,6 +3085,7 @@ export interface FLOpenRegistrierung {
   admissible: boolean;
   /** @minLength 1 */
   first_name: string;
+  kader_full: boolean;
   /** @minLength 1 */
   last_name: string;
   nummer: string | null;
@@ -3266,6 +3267,7 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
+  deletion_days: number;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;
@@ -4244,6 +4246,8 @@ export interface FLRegistrierungConfirmationViewResponse {
   answered_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  /** @exclusiveMinimum 0 */
+  maximum_age: number;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
