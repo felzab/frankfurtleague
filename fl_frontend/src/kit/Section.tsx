@@ -59,6 +59,15 @@ export const boxHead = tv({
 });
 
 /**
+ * A hairline between two groups of a section's fields that one title holds, such as a match's score and its
+ * Sonderereignis: across the box's whole width as the rule under the title, 16 px from the fields over and under it, the
+ * box's own inset.
+ */
+export function SectionRule() {
+  return <hr className="-mx-4 my-2 justify-self-stretch border-t border-border" />;
+}
+
+/**
  * One flat row of an editor's danger box: its name and its consequence at the left, its button at the right, parted
  * from the row above by the hairline every stacked part takes.
  */
@@ -66,16 +75,26 @@ export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 
 
 /**
  * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
- * sets them, `FieldRows`' rows of one kind at their width class, a match's score, a subgroup's name over the rows
+ * sets them, `FieldRows`' rows of one kind at their width class, a match's score, the hairline between two groups of
+ * fields (`SectionRule`), a subgroup's name over the rows
  * after it, a field whose label the section's title is (`titled`, at its width), an act of the section (`SectionAct`)
  * by its label, its status line under it, or the placeholder of whatever else the section holds, such as its facts' or
  * a table's.
  */
 export type FieldRow =
-  "field" | "pair" | "subhead" | "score" | { rows: 2 | 3; width: "C2" | "C10" } | { titled: "fit" | "W4" } | { act: Copy } | ReactElement;
+  | "field"
+  | "pair"
+  | "subhead"
+  | "score"
+  | "rule"
+  | { rows: 2 | 3; width: "C2" | "C10" }
+  | { titled: "fit" | "W4" }
+  | { act: Copy }
+  | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
+  if (row === "rule") return <SectionRule />;
   if (row === "pair") return <FieldPairPlaceholder />;
   if (row === "field") return <FieldPlaceholder width="W3" />;
   if (row === "score") return <ScoreRowsPlaceholder />;

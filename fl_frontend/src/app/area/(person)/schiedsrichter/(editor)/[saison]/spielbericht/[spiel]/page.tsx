@@ -107,7 +107,7 @@ export default function SpielberichtPage({ params }: Props) {
       wait={{
         lead: true,
         sections: [
-          ["score", "field"],
+          ["score", "rule", "field"],
           {
             block: (
               <SectionPlaceholder

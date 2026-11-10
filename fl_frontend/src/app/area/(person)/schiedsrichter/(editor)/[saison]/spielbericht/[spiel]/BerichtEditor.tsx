@@ -7,7 +7,7 @@ import { ComboBox } from "@/kit/ComboBox";
 import { EditorPage } from "@/kit/EditorPage";
 import { RecordRows } from "@/kit/RecordRows";
 import { ScoreRows } from "@/kit/ScoreRows";
-import { Section } from "@/kit/Section";
+import { Section, SectionRule } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
@@ -209,6 +209,7 @@ export function BerichtEditor({
                   {...(shootOut && !shootOutTyped ? { consequence: SPIEL.shootOutMissing } : {})}
                 />
               )}
+              {!noShow && <SectionRule />}
               <Select
                 label={SPIEL.sonderereignis}
                 name="sonderereignis"
