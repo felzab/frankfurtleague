@@ -18,7 +18,14 @@ from app.core.collections import Collection
 from app.core.crud import composite_version
 from app.core.sentinels import GHOST_SPIELER_ID
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, spielbericht_document, spieler_document
+from tests.documents import (
+    aufstellung_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spielbericht_document,
+    spieler_document,
+)
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.whole_database import where_held
@@ -287,6 +294,30 @@ class TestTheirReportEntriesNameTheSentinel:
         assert spieler_id not in {
             entry["spieler_id"] for row in stored.values() for entry in [*row["bericht"]["scorers"], *row["bericht"]["cards"]]
         }
+
+    def test_no_line_up_names_them_and_every_other_entry_and_line_up_stands(self, mongo_replica_set_url: str):
+        """A line-up is the club's record of whom it fielded, so its entry stays and names nobody: a repoint reaching every entry fails."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            document = person_row(ERASED_FIRST_NAME)
+            other = person_row(OTHER_FIRST_NAME)
+            await database[Collection.SPIELER].insert_many([document, other])
+            spieler_id, other_id = document["_id"], other["_id"]
+
+            spiel = {"_id": ObjectId(), "saison_id": SAISON_ID}
+            theirs = aufstellung_document(spiel, ObjectId(), starters=[other_id, spieler_id], bench=[])
+            elsewhere = aufstellung_document(spiel, ObjectId(), starters=[other_id], bench=[])
+            await database[Collection.AUFSTELLUNGEN].insert_many([theirs, elsewhere])
+            await erase_the_pupil(database, client, spieler_id)
+
+            stored = {row["_id"]: row for row in await database[Collection.AUFSTELLUNGEN].find().to_list(length=None)}
+
+            return other_id, stored[theirs["_id"]]["spieler"], (stored[elsewhere["_id"]], elsewhere)
+
+        other_id, entries, (untouched, seeded) = on_a_league(mongo_replica_set_url, body)
+
+        assert entries == [{"spieler_id": other_id, "starts": True}, {"spieler_id": GHOST_SPIELER_ID, "starts": True}]
+        assert untouched == seeded
 
     def test_the_repoint_reads_an_index_per_kind_of_entry(self, mongo_replica_set_url: str):
         """The reports are kept with no retention bound, and every pupil's erasure reads them inside its transaction."""

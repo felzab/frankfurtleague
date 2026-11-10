@@ -709,8 +709,9 @@ class TestNoJournalLine:
 FIRST_BATCH = 101
 
 
-# One pupil's commands on the wire at their costliest, a report naming them.
-COMMANDS_A_PERSON = 15
+# One pupil's commands on the wire at their costliest, a report naming them: the line-ups' repoint is one of them
+# whether or not a line-up names the pupil.
+COMMANDS_A_PERSON = 16
 
 # The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
 # batch, the page being one document.
