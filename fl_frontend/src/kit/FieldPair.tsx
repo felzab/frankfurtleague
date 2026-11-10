@@ -1,48 +1,47 @@
 import { fieldFrame, fieldLabel, fieldRoot, fieldUnit, messageLine } from "./fieldStyles";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
-import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
- * Where a short side's message line may run past its field, on desktop, where a short field such as a house number
- * is narrower than „Pflichtfeld“: the line wraps at the field's width otherwise, its words adding nothing to the width
- * a field is laid out at (`fieldStyles.ts :: messageLine`). A short first side's line runs on under the second side
- * while the second side's own line stands empty, so two messages never overlap. A side at the row's end wraps, and so
- * does each side on a phone, at its share of the row.
+ * What a field holds, which sets its width on the kit's scale (`fieldStyles.ts :: fieldFrame`): a short value by its
+ * count and its unit, or a field's kind, a value whose length varies at the standard width by default.
  */
-const reach = tv({
-  variants: {
-    side: {
-      first:
-        "lg:[&_[data-kit-message]]:whitespace-nowrap lg:group-has-[[data-pair-side=second]_[data-kit-message]:not(:empty)]/pair:[&_[data-kit-message]]:whitespace-normal",
-      none: "",
-    },
-  },
-});
+type PlaceholderShape =
+  { holds: 2 | 5; unit?: Copy; kind?: never } | { kind?: "field" | "paragraph" | "date" | "time"; holds?: never; unit?: never };
 
-/** A field's width on the kit's scale (`fieldStyles.ts :: fieldFrame`), a short one with its count and its unit. */
-type PlaceholderWidth = { width: "short"; holds: 2 | 5; unit?: Copy } | { width: "standard" | "full"; holds?: never; unit?: never };
+/** The frame's size and face for each kind, a short one's `ch` counted in the numeric face as its field's is. */
+const KIND_CLASSES = {
+  field: fieldFrame.variants.width.standard,
+  paragraph: fieldFrame.variants.width.full,
+  date: `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[10]} ${fieldFrame.variants.figures.true}`,
+  time: `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[5]} ${fieldFrame.variants.figures.true}`,
+} as const;
 
 /**
- * A field while the record filling it is read: its label's line, its frame at its width's size, and, where the field
- * carries a description, the description's words set unseen, so a box of placeholders stands as tall as its fields
- * will. Its label's bar adds nothing to the width the field is laid out at, so a short field stands as wide as its
- * value. `figures` says a five-character field holds digits, whose `ch` is the numeric face's, as a two-character
- * one's and a unit's always are. A short field's `unit` is set unseen inside the bar, which is then as wide as the
- * field with its unit.
+ * A field while the record filling it is read: its label's line, its frame at the size of what it holds, and, where
+ * the field carries a description, the description's words set unseen, so a box of placeholders stands as tall as its
+ * fields will. Its label's bar adds nothing to the width the field is laid out at, so a short field stands as wide as
+ * its value. `figures` says a five-character field holds digits, whose `ch` is the numeric face's, as a two-character
+ * one's and a unit's always are. A short field's `unit` is set unseen inside the bar, which is then as wide as the field
+ * with its unit.
  */
 export function FieldPlaceholder({
   figures = false,
   description,
   ...at
-}: PlaceholderWidth & {
+}: PlaceholderShape & {
   figures?: boolean;
   description?: Copy;
 }) {
   const unit = fieldUnit({ holds: at.holds });
   const numeric = figures || at.holds === 2;
+  const short = at.holds !== undefined || at.kind === "date" || at.kind === "time";
+  const size =
+    at.holds === undefined
+      ? KIND_CLASSES[at.kind ?? "field"]
+      : `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[at.holds]} ${numeric ? fieldFrame.variants.figures.true : ""}`;
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine
@@ -52,12 +51,12 @@ export function FieldPlaceholder({
       {/* The frame's own text size and face, which a short width's `ch` is counted in. */}
       {at.unit === undefined ? (
         <span
-          className={placeholderBar(
-            `rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width[at.width]} ${at.holds === undefined ? "" : fieldFrame.variants.holds[at.holds]} ${numeric ? fieldFrame.variants.figures.true : ""}`,
-          )}
+          data-kit-short={short || undefined}
+          className={placeholderBar(`rounded-lg text-sm pointer-coarse:text-base ${size}`)}
         />
       ) : (
         <span
+          data-kit-short
           className={placeholderBar(
             `rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width.short} ${fieldFrame.variants.inset.full} ${unit.frame()}`,
           )}>
@@ -79,34 +78,27 @@ export function FieldPlaceholder({
 export function FieldPairPlaceholder() {
   return (
     <FieldPair>
-      <FieldPlaceholder width="standard" />
-      <FieldPlaceholder width="standard" />
+      <FieldPlaceholder kind="date" />
+      <FieldPlaceholder kind="time" />
     </FieldPair>
   );
 }
 
 /**
  * Two fields forming one value, sharing one row at every screen width: a day with its time, a street with its number,
- * a postcode with its town. Together they are as wide as one standard field, so the pair ends where the fields over
- * and under it end. `short` names a side holding a short field, which keeps its width while the other side takes the
- * room it leaves; without it the two share the row in equal halves. The address writes the number after its street
- * but the postcode before its town, which is why `short` names a side. Two fields holding two values stand one under
- * the other, as every field does, and values of one kind, or a span's two ends, stand as `FieldRows`.
+ * a postcode with its town. A side holding a short field keeps its width (its frame says so, `data-kit-short`) and a
+ * side holding a standard one takes the room it leaves, so a street and its number together end where the standard
+ * fields over and under them end, and a day and its time stand at their own two widths. A short side's message wraps
+ * at its field's width, as every field's does. Two fields holding two values stand one under the other, as every field
+ * does, and values of one kind, or a span's two ends, stand as `FieldRows`.
  */
-export function FieldPair({ short, children }: { short?: "first" | "second"; children: [ReactNode, ReactNode] }) {
+export function FieldPair({ children }: { children: [ReactNode, ReactNode] }) {
   const [first, second] = children;
-  const KEEPS_CLASSES = "shrink-0";
-  const GROWS_CLASSES = "min-w-0 flex-1";
+  const SIDE_CLASSES = "min-w-0 flex-1 has-[[data-kit-short]]:flex-none";
   return (
-    <div className="group/pair flex w-full max-w-field items-start gap-x-3">
-      <div className={reach({ side: short === "first" ? "first" : "none", class: short === "first" ? KEEPS_CLASSES : GROWS_CLASSES })}>
-        {first}
-      </div>
-      <div
-        data-pair-side="second"
-        className={short === "second" ? KEEPS_CLASSES : GROWS_CLASSES}>
-        {second}
-      </div>
+    <div className="flex w-full max-w-field items-start gap-x-3">
+      <div className={SIDE_CLASSES}>{first}</div>
+      <div className={SIDE_CLASSES}>{second}</div>
     </div>
   );
 }

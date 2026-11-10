@@ -63,18 +63,23 @@ type Kind =
    */
   | { kind: "minute"; autofill?: never; example: Copy; pattern: string };
 
+/*
+ * A field's width follows from what it holds, so no caller sets one: a value of a known length is short, a paragraph
+ * takes its box's whole width, and every other value the one standard width (`fieldStyles.ts :: fieldFrame`).
+ */
+
 /**
  * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score, a shirt number or a
  * count, 5 for a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
  * „€“ after a price.
  */
-type Short = { width: "short"; holds: 2 | 5; unit?: Copy } & Kind;
+type Short = { holds: 2 | 5; unit?: Copy } & Kind;
 
 /** A value whose length varies, a name, an address, a phone number or a URL: the one standard width. */
-type Standard = { width: "standard"; holds?: never; unit?: never } & Kind;
+type Standard = { holds?: never; unit?: never } & Kind;
 
 /** A paragraph: its box's whole width at four lines. */
-type Paragraph = { width: "full"; holds?: never; kind: "text"; autofill?: never; example?: never; unit?: never; pattern?: never };
+type Paragraph = { kind: "paragraph"; holds?: never; autofill?: never; example?: never; unit?: never; pattern?: never };
 
 export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
@@ -85,6 +90,7 @@ export type TextFieldProps = Shared & (Short | Standard | Paragraph);
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
+  paragraph: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
   // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone, so
   // anything else reads „Format: …“ at the send rather than reaching the server.
   digits: { type: "text", inputMode: "numeric", autoComplete: undefined, pattern: "[0-9]*" },
@@ -126,19 +132,9 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const {
-    label,
-    labelHidden = false,
-    description,
-    consequence,
-    isRequired = false,
-    isDisabled = false,
-    width,
-    kind,
-    maxLength,
-    minLength,
-  } = props;
+  const { label, labelHidden = false, description, consequence, isRequired = false, isDisabled = false, kind, maxLength, minLength } = props;
   const keys = KINDS[kind];
+  const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
   const constraints: Constraints = {
     maxLength,
     minLength,
@@ -155,6 +151,8 @@ export function TextField(props: TextFieldProps) {
     ) : (
       <Input
         data-kit-focus="field"
+        // Names a short field to the pair around it (`FieldPair`), which leaves it its width.
+        data-kit-short={width === "short" || undefined}
         className={frame}
       />
     );
@@ -192,6 +190,7 @@ export function TextField(props: TextFieldProps) {
         // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused.
         <div
           data-kit-focus="field"
+          data-kit-short
           className={fieldFrame({ width: "short", inset: "full", class: unit.frame() })}>
           <Input
             data-kit-focus

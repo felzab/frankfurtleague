@@ -179,7 +179,7 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             <ClassicTitle text={title} />
             <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
-                <FieldPlaceholder width="standard" />
+                <FieldPlaceholder />
                 {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
                 <span />
                 <span className={buttonPlaceholder("w-full")} />
@@ -325,7 +325,6 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         <TextField
           label={address.label}
           name="email"
-          width="standard"
           kind="email"
           autofill="username"
           // Not marked required: no record's type derives it, and an empty send meets the server's refusal of

@@ -76,8 +76,9 @@ function MonthCalendar() {
 }
 
 /**
- * Enter a date: segmented in German order, with the calendar button beside it. The value is the stored
- * `YYYY-MM-DD` day, so no page handles a date library's objects; a form receives the same string.
+ * Enter a date: segmented in German order, with the calendar button beside it, the field as wide as a date's figures
+ * and its button. The value is the stored `YYYY-MM-DD` day, so no page handles a date library's objects; a form
+ * receives the same string.
  */
 export function DateField({
   label,
@@ -126,7 +127,8 @@ export function DateField({
       {/* One field rings as a whole, its calendar button included. */}
       <Group
         data-kit-focus="field"
-        className={fieldFrame({ width: "standard", inset: "start", layout: "group", figures: true })}>
+        data-kit-short
+        className={fieldFrame({ width: "short", holds: 10, inset: "start", layout: "group", figures: true })}>
         <Segments isField={false} />
         <AriaButton
           data-kit-focus

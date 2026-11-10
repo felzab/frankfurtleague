@@ -43,7 +43,6 @@ function HeldEditor() {
             <TextField
               label={WORDS.address}
               name="name"
-              width="standard"
               kind="text"
               value={editor.draft.name}
             />

@@ -57,9 +57,9 @@ export function QuestionPage<Input>({
             {fields.map((field) => (
               <FieldPlaceholder
                 key={field.name}
-                {...(field.width === "short"
-                  ? { width: "short", holds: field.holds, ...(field.unit === undefined ? {} : { unit: field.unit }) }
-                  : { width: field.width })}
+                {...(field.holds === undefined
+                  ? { kind: field.kind === "paragraph" ? "paragraph" : "field" }
+                  : { holds: field.holds, ...(field.unit === undefined ? {} : { unit: field.unit }) })}
                 {...(field.description === undefined ? {} : { description: field.description })}
               />
             ))}

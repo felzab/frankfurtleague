@@ -77,7 +77,6 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 label={label}
                 labelHidden
                 name={name}
-                width="short"
                 holds={5}
                 kind="text"
                 isRequired

@@ -162,7 +162,6 @@ export function ScoreRows({
         label={label}
         labelHidden
         name={names[side]}
-        width="short"
         holds={2}
         kind="digits"
         isRequired={isRequired}

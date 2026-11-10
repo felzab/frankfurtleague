@@ -29,14 +29,12 @@ const twoFields = (): [ReactElement, ReactElement] => [
     key="first"
     label={FIRST}
     name="first"
-    width="standard"
     kind="text"
   />,
   <TextField
     key="second"
     label={SECOND}
     name="second"
-    width="standard"
     kind="text"
   />,
 ];

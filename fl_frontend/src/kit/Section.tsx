@@ -91,15 +91,18 @@ export type FieldRow =
   | "score"
   | "rule"
   | { rows: 2 | 3; holds: "count" | "day" }
-  | { titled: "standard" | "full" }
+  | { titled: "field" | "paragraph" }
   | { acts: readonly [Copy, ...Copy[]] }
   | ReactElement;
+
+/** A titled field's frame: a single line at the standard width, or a paragraph at the box's. */
+const TITLED_CLASSES = { field: fieldFrame.variants.width.standard, paragraph: fieldFrame.variants.width.full } as const;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
   if (row === "rule") return <SectionRule />;
   if (row === "pair") return <FieldPairPlaceholder />;
-  if (row === "field") return <FieldPlaceholder width="standard" />;
+  if (row === "field") return <FieldPlaceholder />;
   if (row === "score") return <ScoreRowsPlaceholder />;
   if (row === "subhead")
     return (
@@ -112,7 +115,7 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
   if ("titled" in row)
     return (
       <div className={fieldRoot()}>
-        <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[row.titled]}`)} />
+        <span className={placeholderBar(`rounded-lg ${TITLED_CLASSES[row.titled]}`)} />
       </div>
     );
   if ("acts" in row)

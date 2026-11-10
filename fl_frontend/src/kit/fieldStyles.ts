@@ -107,10 +107,11 @@ export const fieldFrame = tv({
     // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
     // their length.
     width: {
-      // A value of a known length, a score, a minute, a price: as wide as that value, by `holds`.
+      // A value of a known length, a score, a minute, a price, a date, a time: as wide as that value, by `holds`, at
+      // every screen width and in every row, a label-left one included.
       short: "h-8 pointer-coarse:h-10",
-      // Every value whose length varies, a name, an address, a date, a time, a choice: one width
-      // (`--container-field`), which a narrower column, a phone's row among them, cuts to its own.
+      // Every value whose length varies, a name, an address, a choice: one width (`--container-field`), which a
+      // narrower column, a phone's row among them, cuts to its own.
       standard: "h-8 w-full max-w-field pointer-coarse:h-10",
       // Free text: its box's whole width, at four lines.
       full: "min-h-26 w-full resize-none py-2",
@@ -122,8 +123,11 @@ export const fieldFrame = tv({
     holds: {
       // A score, a shirt number, a count.
       2: "w-[calc(3ch+1.625rem)]",
-      // A minute, a price, a postcode, a house number.
+      // A minute, a price, a postcode, a house number, a time's „19:30“.
       5: "w-[calc(6ch+1.625rem)]",
+      // A date's „14.03.2027“ and its calendar button: the ten figures and one more inside the 12-px start inset, then
+      // the button, as wide as the field is tall.
+      10: "w-[calc(11ch+2.75rem)] pointer-coarse:w-[calc(11ch+3.25rem)]",
     },
     // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its start.
     inset: {

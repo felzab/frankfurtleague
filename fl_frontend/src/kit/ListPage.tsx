@@ -364,7 +364,7 @@ function FiltersPlaceholder({ count }: { count: number }) {
           <span
             key={index}
             className="w-40">
-            <FieldPlaceholder width="standard" />
+            <FieldPlaceholder />
           </span>
         ))}
       </span>

@@ -1,8 +1,6 @@
 import { smallCaps } from "./cardStyles";
 import { FieldPlaceholder } from "./FieldPair";
 import { FieldStack } from "./FieldStack";
-import { fieldButton, fieldFrame, fieldLabel, fieldRoot } from "./fieldStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -68,33 +66,20 @@ export function FieldRows({ label, children }: { label?: Copy; children: readonl
 
 /**
  * Rows of fields while the record filling them is read, each field's placeholder in the block's own row: counts, each
- * two characters wide, or days. A row's control stands in a column as wide as its content, so a day's bar holds the
- * room of a day's figures and its calendar button, as the field in the row does.
+ * two characters wide, or days, each as wide as a day's figures and its calendar button, as the field in the row is.
  */
 export function FieldRowsPlaceholder({ rows, holds }: { rows: 2 | 3; holds: "count" | "day" }) {
   const [first, second, ...rest] = Array.from({ length: rows }, (_, index) =>
     holds === "count" ? (
       <FieldPlaceholder
         key={index}
-        width="short"
         holds={2}
       />
     ) : (
-      <div
+      <FieldPlaceholder
         key={index}
-        className={fieldRoot()}>
-        <PlaceholderLine
-          textClass={fieldLabel({ class: "self-stretch" })}
-          widthClass="w-full max-w-24"
-        />
-        <span
-          className={placeholderBar(
-            `rounded-lg text-sm pointer-coarse:text-base ${fieldFrame({ width: "standard", inset: "start", layout: "group", figures: true })}`,
-          )}>
-          <span className="w-[9ch]" />
-          <span className={fieldButton()} />
-        </span>
-      </div>
+        kind="date"
+      />
     ),
   );
   return <FieldRows>{[first, second, ...rest]}</FieldRows>;
