@@ -6,7 +6,7 @@ from app.core.crud import Anchored
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpielerTextVersions, cite_their_kind
-from app.shared.schemas.kontakt import CustomKontaktName
+from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLEinwilligungScope,
     FLSpielerPosition,
@@ -112,9 +112,9 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     # Nullable for `first_name`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
-    # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
-    # breaks it silently.
-    email: str | None = None
+    # seam joining a signed-in person to this row is an equality on the stored value, so a raw write
+    # breaks it, which the read-back names.
+    email: CustomStoredAddress | None = None
     version: int = 0
 
     @model_validator(mode="after")

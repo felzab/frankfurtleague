@@ -43,7 +43,7 @@ from app.shared.schemas.einwilligung import (
     FLSeatTextVersions,
     cite_their_kind,
 )
-from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
+from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
@@ -181,6 +181,24 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_is_also: FLTrainerAlso | None
 
 
+class FLKontaktpersonRecord(FLKontaktperson):
+    """One seat's person as a season row and an application store them, the address in the fold every seat lookup compares."""
+
+    email: CustomStoredAddress
+
+
+class FLSaisonTeamKontakteRecord(FLSaisonTeamKontakte):
+    """The three seats as stored, for the record models alone.
+
+    A page's read keeps the plain address, so one stray row is named by the read-back rather than refusing the whole
+    list it stands in.
+    """
+
+    trainer: FLKontaktpersonRecord | None
+    ansprechperson: FLKontaktpersonRecord | None
+    stellvertretung: FLKontaktpersonRecord | None
+
+
 class FLSaisonTeamConfirmation(BaseModel):
     """One seat's confirmation link as the season row stores it -- and NO `token_hashes`, the raw document key the link's lookup alone reads."""
 
@@ -224,7 +242,7 @@ class FLSaisonTeamRecord(Anchored):
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
     trikot_farbe: FLTrikotFarbe | None
-    kontakte: FLSaisonTeamKontakte | None
+    kontakte: FLSaisonTeamKontakteRecord | None
     confirmations: FLSaisonTeamConfirmationsRecord | None = None
     name: str
     shorthand: str

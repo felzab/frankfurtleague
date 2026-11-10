@@ -17,7 +17,7 @@ from app.shared.schemas.einwilligung import (
     cite_their_kind,
     refuse_a_stale_grant,
 )
-from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
+from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLConfirmationState,
     FLEinwilligungScope,
@@ -58,7 +58,7 @@ class _RegistrierungStored(BaseModel):
     status: FLRegistrierungStatus
     first_name: CustomNonEmptyString
     last_name: CustomNonEmptyString
-    email: CustomNonEmptyString
+    email: CustomStoredAddress
     # The three a squad often does not know at registration, each stated by the caller rather than
     # defaulted.
     position: FLSpielerPosition | None

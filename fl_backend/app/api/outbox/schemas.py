@@ -7,7 +7,7 @@ from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -502,8 +502,8 @@ class FLOutboxRow(BaseModel):
     key: str
     kind: FLOutboxKind
     # Null on a settled row whose address was replaced since, kept for its key alone
-    # (`app/api/outbox/services.py :: TOMBSTONE_UPDATE`).
-    to: str | None
+    # (`app/api/outbox/services.py :: TOMBSTONE_UPDATE`). Folded, as the erasure finds a person's mail by the fold.
+    to: CustomStoredAddress | None
     # Both removed by the row's final state, after which only its delivery is read.
     data: FLOutboxData | None = Field(default=None)
     # Ciphertext the backend cannot read, under the frontend's key.
