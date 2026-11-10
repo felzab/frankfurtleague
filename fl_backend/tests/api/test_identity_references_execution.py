@@ -150,7 +150,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAM_OIDS[0],
                 PAST_SAISON,
                 "SVX",
-                kontakte=kontakte_document(trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SEAT_PAST_OPEN, confirmed_at=None)),
+                kontakte=kontakte_document(trainer=_seat(SEAT_PAST), ansprechperson=_seat(SEAT_PAST_OPEN, confirmed_at=None)),
             ),
             _row(TEAM_OIDS[1], ACTIVE_SAISON, "SOX", kontakte=kontakte_document(trainer=_seat(SEAT_OPEN, confirmed_at=None))),
             _row(TEAM_OIDS[2], ACTIVE_SAISON, "SWX", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SEAT_EXITED))),
