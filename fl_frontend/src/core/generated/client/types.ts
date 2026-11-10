@@ -415,10 +415,11 @@ export interface FLKontakt {
 }
 
 /**
- * One referee record on the account page: the stored data its box shows and the consent the page moves.
+ * One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   birth_date: string | null;
+  default_payment: number;
   einwilligung: FLAccountEinwilligung;
   evidence_state: FLEinwilligungState;
   givable: boolean;
@@ -3267,6 +3268,7 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
+  deletion_days: number;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;
@@ -4681,8 +4683,6 @@ export interface FLSchiedsrichterReactivateResponse {
 
 /**
  * The referee's own page's read: the record and its fee.
- *
- * The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
  */
 export interface FLSchiedsrichterSelf {
   birth_date: string | null;
