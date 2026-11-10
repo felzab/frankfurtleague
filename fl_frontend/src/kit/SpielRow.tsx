@@ -42,13 +42,15 @@ export type SpielRowProps = {
 };
 
 /**
- * The one-line row's grid and the card's lines. The when column holds the date with the chip under it, so the sides
- * stand under each other in every row, chip or none. A card's date line is a chip's height, chip or none, so every
- * card stands as tall as every other and as its wait, which cannot know whether a list holds a chip.
+ * The one-line row's grid and the card's lines. The when column holds the date with the chip beside it, „Sa., 21.11.2026 ·
+ * 16:00 [Antwort fehlt]“, as the owner ruled for every list's match row on a wide screen: at least a date's width, and as
+ * wide as a date and its chip where the row holds one, the sides taking what is left. A card's date line is a chip's
+ * height, chip or none, so every card stands as tall as every other and as its wait, which cannot know whether a list
+ * holds a chip.
  */
 const forms = tv({
   slots: {
-    line: "grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
+    line: "grid min-h-14 grid-cols-[minmax(9.5rem,max-content)_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
     card: "grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1.25rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
   },
 });
@@ -165,13 +167,13 @@ const scoreCell = tv({
 });
 
 /**
- * When the match is played: wrapping in the one-line row's two lines, and cut with „…“ on the card's one date line
- * and above a chip, which keeps its size and leaves the words one line of the row.
+ * When the match is played: on the one-line row's line with its chip beside it, and cut with „…“ on the card's one
+ * date line.
  */
 const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { cut: { true: "max-w-full truncate" } } });
 
 /**
- * A match in a list, the whole row a link to it, or opening nothing where it has no `href`. In a wide list one line, 56 px: when with the row's chip under
+ * A match in a list, the whole row a link to it, or opening nothing where it has no `href`. In a wide list one line, 56 px: when with the row's chip beside
  * it, the first side, the score with „n. E.“ centred under it, the second side, the chevron. In a
  * narrow one a card of two lines under the date line, whose right end holds the chip and „n. E.“, each side with
  * its goals at the right, and no chevron; every row the same height with or without a shoot-out or a chip.
@@ -185,8 +187,8 @@ function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefe
   const body = (
     <>
       <span className={form.line()}>
-        <span className="col-start-1 row-span-2 row-start-1 flex min-w-0 flex-col items-start gap-1">
-          <span className={whenWords({ cut: chip !== undefined })}>{when}</span>
+        <span className="col-start-1 row-span-2 row-start-1 flex items-center gap-2 whitespace-nowrap">
+          <span className={whenWords()}>{when}</span>
           {chip !== undefined && <Chip {...chip} />}
         </span>
         <span className="col-start-2 row-span-2 row-start-1">
