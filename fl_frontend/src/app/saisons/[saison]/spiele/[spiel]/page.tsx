@@ -215,7 +215,8 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
       const { card } = event;
       return {
         id: `k${String(index)}`,
-        mark: { record: card.minute },
+        point: { record: card.minute },
+        mark: { colour: card.colour },
         title: words.event(words.card[card.colour], personOf(card.spieler)),
         detail: shorthand[card.side],
       };
@@ -224,7 +225,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
     score[tor.eigentor ? (tor.side === "team1" ? "team2" : "team1") : tor.side] += 1;
     return {
       id: `t${String(index)}`,
-      mark: { record: tor.minute },
+      point: { record: tor.minute },
       title: words.event(tor.eigentor ? words.eigentor : words.tor, personOf(tor.spieler)),
       detail: SERVER_COPY.season.labelled(shorthand[tor.side], { record: formatErgebnis(score) }),
     };
