@@ -175,6 +175,8 @@ export const SERVER_COPY = catalogue({
     registrierung_kader_full: KADER_FULL,
     /** An admission of a pupil a squad of the season holds already. */
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
+    /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
+    registrierung_stufe_not_allowed: "Diese Stufe ist in dieser Saison nicht zugelassen.",
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     /** A club's decline proposing the day and hour the fixture holds. */
