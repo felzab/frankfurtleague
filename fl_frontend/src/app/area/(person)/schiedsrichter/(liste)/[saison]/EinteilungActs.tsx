@@ -41,6 +41,8 @@ export function EinteilungActs({
       <Dialog
         title={TITLE}
         act={{ verb: "decline" }}
+        // A refusal is the dialog's destroying act: the red fill every destroying press takes.
+        tone="danger"
         lead={spiel}
         action={declineEinteilung}
         carry={{ id }}

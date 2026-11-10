@@ -139,7 +139,8 @@ export function RailFrame({
             <Suspense fallback={<RailEntriesPlaceholder groups={groups} />}>
               <RailEntries groups={groups} />
             </Suspense>
-            <div className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "h-(--rail-foot)" : ""}`}>
+            <div
+              className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "min-h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
                 <Suspense fallback={<AccountRowPlaceholder />}>
                   <AccountRow account={foot.account} />

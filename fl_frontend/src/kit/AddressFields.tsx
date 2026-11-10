@@ -44,13 +44,10 @@ export function AddressFields({
   };
   return (
     <>
-      <FieldPair
-        short="second"
-        phone="pair">
+      <FieldPair>
         <TextField
           label={WORDS.street}
           description={streetDescription}
-          width="W3"
           kind="text"
           isRequired={required.street}
           maxLength={maxLength.street}
@@ -58,19 +55,17 @@ export function AddressFields({
         />
         <TextField
           label={WORDS.houseNumber}
-          width="C5"
+          holds={5}
           kind="text"
           isRequired={required.house_number}
           maxLength={maxLength.house_number}
           {...bound("house_number")}
         />
       </FieldPair>
-      <FieldPair
-        short="first"
-        phone="pair">
+      <FieldPair>
         <TextField
           label={WORDS.postcode}
-          width="C5"
+          holds={5}
           kind="digits"
           isRequired={required.postcode}
           maxLength={postcodeLength}
@@ -79,7 +74,6 @@ export function AddressFields({
         />
         <TextField
           label={WORDS.city}
-          width="W3"
           kind="text"
           isRequired={required.city}
           maxLength={maxLength.city}
@@ -88,7 +82,6 @@ export function AddressFields({
       </FieldPair>
       <TextField
         label={WORDS.district}
-        width="W3"
         kind="text"
         isRequired={required.district}
         maxLength={maxLength.district}

@@ -43,6 +43,8 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
     <Dialog
       title={COPY.shared.withObject(OBJECT, "decline")}
       act={{ verb: "decline" }}
+      // A refusal is the dialog's destroying act: the red fill every destroying press takes.
+      tone="danger"
       action={declineBewerbung}
       carry={{ id, version: String(version) }}
       trigger={
@@ -54,8 +56,7 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
       <TextField
         label={COPY.admin.spiel.reason}
         name="reason"
-        width="W4"
-        kind="text"
+        kind="paragraph"
         isRequired={required}
         maxLength={max}
         description={COPY.admin.noNames}

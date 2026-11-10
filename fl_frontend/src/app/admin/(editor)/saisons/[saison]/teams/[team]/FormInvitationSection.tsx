@@ -72,35 +72,25 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
         </>
       )}
       {live === null ? (
-        <SectionAct
-          label={COPY.shared.withObject(LINK, "create")}
-          locked={locked}
-          run={mint}
-        />
+        <SectionAct acts={[{ label: COPY.shared.withObject(LINK, "create"), locked, run: mint }]} />
       ) : (
-        <>
-          <SectionAct
-            label={COPY.shared.withObject(LINK, "send")}
-            locked={locked}
-            run={() => mailInvitation({ ...key, invitation_id: live })}
-          />
-          <SectionAct
-            label={COPY.shared.withObject(LINK, "replace")}
-            locked={locked}
-            confirm={REPLACED}
-            run={mint}
-          />
-          <SectionAct
-            label={COPY.shared.withObject(LINK, "withdraw")}
-            locked={locked}
-            confirm={TAKEN_BACK}
-            run={async () => {
-              const answer = await revokeInvitation(key);
-              if (answer.ok) setFresh(null);
-              return answer;
-            }}
-          />
-        </>
+        // The live link's three acts share the box's one footer and its one line.
+        <SectionAct
+          acts={[
+            { label: COPY.shared.withObject(LINK, "send"), locked, run: () => mailInvitation({ ...key, invitation_id: live }) },
+            { label: COPY.shared.withObject(LINK, "replace"), locked, confirm: REPLACED, run: mint },
+            {
+              label: COPY.shared.withObject(LINK, "withdraw"),
+              locked,
+              confirm: TAKEN_BACK,
+              run: async () => {
+                const answer = await revokeInvitation(key);
+                if (answer.ok) setFresh(null);
+                return answer;
+              },
+            },
+          ]}
+        />
       )}
     </>
   );

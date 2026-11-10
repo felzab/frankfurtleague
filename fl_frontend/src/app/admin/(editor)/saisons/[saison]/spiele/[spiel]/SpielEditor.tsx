@@ -239,9 +239,7 @@ export function SpielEditor({
           fields: (
             <>
               {/* A day and its time are one value, sharing their row at every width. */}
-              <FieldPair
-                short="both"
-                phone="pair">
+              <FieldPair>
                 <DateField
                   label={WORDS.date}
                   name="date"
@@ -255,71 +253,63 @@ export function SpielEditor({
                   onChange={(time) => set("time", time)}
                 />
               </FieldPair>
-              <FieldPair
-                short="second"
-                phone="stack">
-                <ComboBox
-                  label={ORT.object}
-                  name="spielort"
-                  options={spielorte.map((spielort) => spielort.option)}
-                  value={draft.spielort}
-                  onChange={(spielort) => {
-                    set("spielort", spielort);
-                    // A venue chosen brings its own price, which the person may still change for this match.
-                    const chosen = spielorte.find((each) => each.option.id === spielort);
-                    if (chosen !== undefined) set("mietpreis", String(chosen.price));
-                  }}
-                  create={{
-                    label: ORT.createEntry,
-                    onCreate: (typed) => {
-                      setNewName(typed);
-                      setCreating(true);
-                    },
-                  }}
+              <ComboBox
+                label={ORT.object}
+                name="spielort"
+                options={spielorte.map((spielort) => spielort.option)}
+                value={draft.spielort}
+                onChange={(spielort) => {
+                  set("spielort", spielort);
+                  // A venue chosen brings its own price, which the person may still change for this match.
+                  const chosen = spielorte.find((each) => each.option.id === spielort);
+                  if (chosen !== undefined) set("mietpreis", String(chosen.price));
+                }}
+                create={{
+                  label: ORT.createEntry,
+                  onCreate: (typed) => {
+                    setNewName(typed);
+                    setCreating(true);
+                  },
+                }}
+              />
+              {/* Revealed with the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
+              {draft.spielort !== null && (
+                <TextField
+                  label={ORT.mietpreis}
+                  name="mietpreis"
+                  holds={5}
+                  kind="digits"
+                  unit={COPY.shared.unit.euro}
+                  isRequired={required.mietpreis}
+                  value={draft.mietpreis}
+                  onChange={(mietpreis) => set("mietpreis", mietpreis)}
                 />
-                {/* Revealed with the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
-                {draft.spielort !== null && (
-                  <TextField
-                    label={ORT.mietpreis}
-                    name="mietpreis"
-                    width="C5"
-                    kind="digits"
-                    unit={COPY.shared.unit.euro}
-                    isRequired={required.mietpreis}
-                    value={draft.mietpreis}
-                    onChange={(mietpreis) => set("mietpreis", mietpreis)}
-                  />
-                )}
-              </FieldPair>
-              {/* The booking is the Ansetzung's, the fee beside the referee as the price beside the venue. */}
-              <FieldPair
-                short="second"
-                phone="stack">
-                <ComboBox
-                  label={COPY.shared.schiedsrichter}
-                  name="schiedsrichter"
-                  options={schiedsrichter.map((person) => person.option)}
-                  value={draft.schiedsrichter}
-                  onChange={(id) => {
-                    set("schiedsrichter", id);
-                    // A referee chosen brings their own fee, which the person may still change for this match.
-                    const chosen = schiedsrichter.find((each) => each.option.id === id);
-                    if (chosen !== undefined) set("payment", String(chosen.price));
-                  }}
+              )}
+              {/* The booking is the Ansetzung's, the fee under the referee as the price under the venue. */}
+              <ComboBox
+                label={COPY.shared.schiedsrichter}
+                name="schiedsrichter"
+                options={schiedsrichter.map((person) => person.option)}
+                value={draft.schiedsrichter}
+                onChange={(id) => {
+                  set("schiedsrichter", id);
+                  // A referee chosen brings their own fee, which the person may still change for this match.
+                  const chosen = schiedsrichter.find((each) => each.option.id === id);
+                  if (chosen !== undefined) set("payment", String(chosen.price));
+                }}
+              />
+              {draft.schiedsrichter !== null && (
+                <TextField
+                  label={COPY.admin.payment}
+                  name="payment"
+                  holds={5}
+                  kind="digits"
+                  unit={COPY.shared.unit.euro}
+                  isRequired={required.payment}
+                  value={draft.payment}
+                  onChange={(payment) => set("payment", payment)}
                 />
-                {draft.schiedsrichter !== null && (
-                  <TextField
-                    label={COPY.admin.payment}
-                    name="payment"
-                    width="C5"
-                    kind="digits"
-                    unit={COPY.shared.unit.euro}
-                    isRequired={required.payment}
-                    value={draft.payment}
-                    onChange={(payment) => set("payment", payment)}
-                  />
-                )}
-              </FieldPair>
+              )}
               <Dialog
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
@@ -397,8 +387,7 @@ export function SpielEditor({
               label={WORDS.note}
               labelHidden
               name="note"
-              width="W4"
-              kind="text"
+              kind="paragraph"
               maxLength={noteMax}
               value={draft.note}
               onChange={(note) => set("note", note)}
@@ -415,7 +404,6 @@ export function SpielEditor({
               labelHidden
               name="sonderereignis"
               options={sonderereignisse}
-              width="fit"
               value={draft.sonderereignis}
               onChange={(id) => {
                 if (id !== null) set("sonderereignis", id);

@@ -5,13 +5,14 @@ import { startTransition, useId, useRef, useState } from "react";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
-import { cardSurface, headGround, stacked } from "./cardStyles";
+import { askingLook, buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
-import { StatusLine } from "./FieldParts";
+import { FieldStack } from "./FieldStack";
+import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { useFocusHome } from "./RowActs";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
@@ -98,7 +99,6 @@ const box = tv({
     // The title and the sentence under it, in an inline box's row or a stacked box's head (`boxHead`).
     words: "grid gap-1",
     description: "text-sm text-fg-muted",
-    foot: `flex items-center gap-3 border-t border-border ${headGround()} px-4 py-3`,
     // The one box without a footer: its words at the start and its control at the end, in one row that wraps on a
     // phone too narrow for both.
     inline: "flex flex-wrap items-center justify-between gap-4 p-4",
@@ -158,42 +158,43 @@ export function AccountBoxPlaceholder({
     <div className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <div className={held.head()}>{words}</div>
       {hasContent && (
-        <div className={held.content({ class: "gap-4" })}>
-          {children}
-          {rows > 0 && (
-            <div className={row.list()}>
-              {Array.from({ length: rows }, (_, index) => (
-                <div
-                  key={index}
-                  className={row.row()}>
-                  <span className={row.words()}>
-                    <PlaceholderLine
-                      textClass="text-sm"
-                      widthClass="w-1/2"
-                    />
-                    <PlaceholderLine
-                      textClass="text-xs"
-                      widthClass="w-1/3"
-                    />
-                  </span>
-                  {[0, 1].map((act) => (
-                    <span
-                      key={act}
-                      className={buttonLook({ look: "icon", host: "aria" })}>
-                      <span className={placeholderBar("size-4")} />
+        <div className={held.content()}>
+          <FieldStack>
+            {children}
+            {rows > 0 && (
+              <div className={row.list()}>
+                {Array.from({ length: rows }, (_, index) => (
+                  <div
+                    key={index}
+                    className={row.row()}>
+                    <span className={row.words()}>
+                      <PlaceholderLine
+                        textClass="text-sm"
+                        widthClass="w-1/2"
+                      />
+                      <PlaceholderLine
+                        textClass="text-xs"
+                        widthClass="w-1/3"
+                      />
                     </span>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
+                    {[0, 1].map((act) => (
+                      <span
+                        key={act}
+                        className={buttonLook({ look: "icon", host: "aria" })}>
+                        <span className={placeholderBar("size-4")} />
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </FieldStack>
         </div>
       )}
       {foot !== undefined && (
-        <div className={slots.foot()}>
-          <span className="min-h-5 min-w-0 flex-1" />
+        <FormFooterPlaceholder place="strip">
           <span className={buttonPlaceholder()}>{foot}</span>
-        </div>
+        </FormFooterPlaceholder>
       )}
     </div>
   );
@@ -203,7 +204,7 @@ export function AccountBoxPlaceholder({
  * One box of a Konto page, every box the same shape: its 16-px title and one sentence under it saying what the box
  * holds, over a hairline across the box where content follows, as an editor's section heads its fields (`boxHead`),
  * its content, and a footer band holding the status line and its one act: the primary button for a save,
- * the danger button for an act whose question is a danger's, its box then taking the danger edge and title an editor's
+ * the outlined danger button for an act whose question is a danger's (`askingLook`), its box then taking the danger edge and title an editor's
  * danger box takes, the secondary button for every other. A box holding
  * one control that acts at once, Darstellung's, is the one exception: its title and sentence at the start and its
  * control at the end of one row, no footer; and a box holding nothing this page acts on, an address change an
@@ -247,7 +248,11 @@ export function AccountBox(
         data-kit-focus="home"
         className={slots.root()}>
         <div className={held.head()}>{words}</div>
-        {props.children !== undefined && <div className={held.content({ class: "gap-4" })}>{props.children}</div>}
+        {props.children !== undefined && (
+          <div className={held.content()}>
+            <FieldStack>{props.children}</FieldStack>
+          </div>
+        )}
       </section>
     );
   }
@@ -291,7 +296,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   const question = "confirm" in act.button ? act.button.confirm : undefined;
   const button = (
     <Button
-      variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : question.tone === "danger" ? "danger" : "secondary"}
+      variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : askingLook(question.tone)}
       type={question === undefined ? "submit" : "button"}
       label={"label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb)}
       isBusy={isBusy}
@@ -314,12 +319,14 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
           send(carried(formData));
         }}>
         <div className={held.head()}>{words}</div>
-        {children !== undefined && <div className={held.content({ class: "gap-4" })}>{children}</div>}
-        <div className={slots.foot()}>
-          <StatusLine
-            status={questionNote ?? status}
-            placement="row"
-          />
+        {children !== undefined && (
+          <div className={held.content()}>
+            <FieldStack>{children}</FieldStack>
+          </div>
+        )}
+        <FormFooter
+          place="strip"
+          status={questionNote ?? status}>
           {question === undefined || locked !== undefined ? (
             button
           ) : (
@@ -329,7 +336,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
               trigger={button}
             />
           )}
-        </div>
+        </FormFooter>
       </HeldForm>
     </section>
   );

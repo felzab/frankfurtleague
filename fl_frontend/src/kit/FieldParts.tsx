@@ -94,7 +94,7 @@ export function FieldLabel({ label, isRequired }: { label: Words; isRequired: bo
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
   const tone = status?.tone ?? "none";
   return (
-    <p className={statusLine({ placement, tone })}>
+    <p className={statusLine({ placement, tone, quiet: status === null })}>
       <span role="status">{tone === "changes" ? null : status?.text}</span>
       {tone === "changes" && status?.text}
     </p>
@@ -102,9 +102,9 @@ export function StatusLine({ status, placement }: { status: FormStatus; placemen
 }
 
 /**
- * The line under a field, always there: the error once the value is committed or the form submitted,
- * else a change's consequence, else the description, else empty. `data-kit-message` names it to a `FieldPair`,
- * which lets a short field's line run on past the field into the room beside it.
+ * The line under a field: the error once the value is committed or the form submitted, else a change's consequence,
+ * else the description, else nothing at all, so a field with nothing to say ends at its frame. `data-kit-message`
+ * names it to a `FieldPair`, which lets a short field's line run on past the field into the room beside it.
  */
 export function MessageLine({
   description,
@@ -146,11 +146,5 @@ export function MessageLine({
       </Text>
     );
   }
-  // An empty line holds the place, describing nothing.
-  return (
-    <div
-      data-kit-message
-      className={messageLine({ tone: "description" })}
-    />
-  );
+  return null;
 }

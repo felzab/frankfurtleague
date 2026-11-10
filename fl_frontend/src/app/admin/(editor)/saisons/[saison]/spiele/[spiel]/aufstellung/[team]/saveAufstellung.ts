@@ -38,8 +38,6 @@ export const saveAufstellung = action({
     // block marks on the nominee's row and leaves the person to take out.
     "aufstellung_spiel_undated",
     "aufstellung_nominee_without_shortage",
-    // More starters than the bound, counted with the stored entries of erased pupils, which the block never shows.
-    "aufstellung_starters_exceed_eleven",
     // The season finished since the page was read, whose line-ups the write refuses whole.
     "saison_past",
   ],

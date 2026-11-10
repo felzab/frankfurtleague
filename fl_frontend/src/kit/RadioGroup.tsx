@@ -5,7 +5,7 @@ import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/Radio
 import { textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
-import { choiceCard, fieldLabel, fieldRoot, messageLine, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
+import { choiceCard, fieldLabel, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 import { useEarlyEdit } from "./useEarlyEdit";
@@ -39,7 +39,7 @@ function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boo
   );
 }
 
-/** A listed `RadioGroup` while its record is read: its label's lines, each answer's circle and lines, its message line. */
+/** A listed `RadioGroup` while its record is read: its label's lines, and each answer's circle and lines. */
 export function RadioGroupPlaceholder({ label, choices }: { label: string; choices: readonly string[] }) {
   return (
     <div className={fieldRoot()}>
@@ -60,7 +60,6 @@ export function RadioGroupPlaceholder({ label, choices }: { label: string; choic
           </span>
         ))}
       </div>
-      <span className={messageLine()} />
     </div>
   );
 }

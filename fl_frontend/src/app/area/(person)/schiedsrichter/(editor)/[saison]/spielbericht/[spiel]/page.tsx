@@ -126,7 +126,7 @@ export default function SpielberichtPage({ params }: Props) {
               />
             ),
           },
-          [{ titled: "W4" }],
+          [{ titled: "paragraph" }],
         ],
       }}
       editor={readPage(params)}

@@ -47,7 +47,6 @@ function SpielortEditor({
             <TextField
               label={NAME}
               name="name"
-              width="W3"
               kind="text"
               isRequired
               value={editor.draft.name}
@@ -119,15 +118,11 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
               <TextField
                 label={NAME}
                 name="name"
-                width="W3"
                 kind="text"
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}
               />
-              <SectionAct
-                label={COPY.shared.withObject(COPY.page.spielplan, "create")}
-                run={act}
-              />
+              <SectionAct acts={[{ label: COPY.shared.withObject(COPY.page.spielplan, "create"), run: act }]} />
             </>
           ),
         },

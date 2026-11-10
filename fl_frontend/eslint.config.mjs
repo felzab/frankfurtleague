@@ -866,6 +866,36 @@ const DESIGN_BANS = [
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
     ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
+  // A form's footer is its container's: each container of fields places the one footer where its acts stand, so a page
+  // never draws a second footer, and every form's acts stand at the same end.
+  kitImport(
+    {
+      regex: kitModule("FormFooter"),
+      message: "A form's footer is its container's: hand the acts to the dialog, the box, the form or the section act that places it.",
+    },
+    PRODUCTION,
+    {
+      allow: [
+        "src/kit/AccountBox.tsx",
+        "src/kit/ConfirmDialog.tsx",
+        "src/kit/Dialog.tsx",
+        "src/kit/MailedPage.tsx",
+        "src/kit/OneShot.tsx",
+        "src/kit/QuestionForm.tsx",
+        "src/kit/Section.tsx",
+        "src/kit/SectionAct.tsx",
+        "src/kit/StepCard.tsx",
+      ],
+    },
+  ),
+  // The fields' rhythm is the containers' to draw: a page hands its fields to a box, a dialog or a form.
+  kitImport(
+    {
+      regex: kitModule("FieldStack"),
+      message: "Fields stand in their container's `FieldStack`: hand them to a `Section`, a `Dialog`, a `FieldGroup` or a form template.",
+    },
+    OUTSIDE_KIT,
+  ),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(
     syntax(

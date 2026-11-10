@@ -8,9 +8,9 @@ import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-compone
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { ActRow, DialogOverlay } from "./DialogOverlay";
+import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
-import { StatusLine } from "./FieldParts";
+import { FormFooter } from "./FormFooter";
 import { answering } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -124,11 +124,7 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
         </Heading>
         <p className="text-sm text-fg-muted">{words.consequence}</p>
         {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
-        <ActRow>
-          <StatusLine
-            status={refusal}
-            placement="row"
-          />
+        <FormFooter status={refusal}>
           <Button
             variant="secondary"
             label={COPY.shared.back}
@@ -152,7 +148,7 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
               })
             }
           />
-        </ActRow>
+        </FormFooter>
       </AriaDialog>
     </DialogOverlay>
   );

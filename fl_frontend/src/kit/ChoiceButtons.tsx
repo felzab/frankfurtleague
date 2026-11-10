@@ -205,7 +205,7 @@ export function GlyphChoicesPlaceholder({ count }: { count: number }) {
 
 /**
  * `ToggleBoxes` while its record is read: the label's line, each box at its own edge around a bar for its word, wrapping
- * as the boxes wrap, and the message line.
+ * as the boxes wrap.
  */
 export function ToggleBoxesPlaceholder({ count }: { count: number }) {
   return (
@@ -226,7 +226,6 @@ export function ToggleBoxesPlaceholder({ count }: { count: number }) {
           </span>
         ))}
       </span>
-      <span className={messageLine()} />
     </div>
   );
 }

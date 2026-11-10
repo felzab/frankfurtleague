@@ -6,6 +6,9 @@ import { ROUTES } from "@/core/routes";
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
+import { FieldStack } from "./FieldStack";
+import { boxStack } from "./fieldStyles";
+import { FormFooterPlaceholder } from "./FormFooter";
 import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
@@ -77,6 +80,10 @@ export type MailedState =
       replayField?: string;
       /** The fields stand in `Section` boxes, filling the column. */
       boxes?: boolean;
+      /** A sentence the press rests on, at the footer's start beside the acts (`OneShotForm`'s `note`). */
+      note?: ReactNode;
+      /** The id of the words describing the acts to a screen reader, such as `note`'s own. */
+      describedBy?: string;
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
@@ -139,6 +146,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           botCheck={props.botCheck}
           replayField={props.replayField}
           boxes={props.boxes}
+          note={props.note}
+          describedBy={props.describedBy}
           head={
             <>
               <ClassicTitle text={props.title} />
@@ -186,12 +195,14 @@ type QuestionWait = {
   sentenceAfter?: string;
   /** The placeholders of the answer's fields, where the question asks any. */
   fields?: ReactNode;
+  /** The placeholder of the footer's note, where the question carries one. */
+  note?: ReactNode;
   /** The fields' placeholders stand in `Section` boxes, laid out as the question's own boxes are. */
   boxes?: boolean;
 };
 
 /** The question while the read says what it asks: its title, its facts, its sentences, its fields and its acts. */
-function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, boxes = false }: QuestionWait) {
+function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, note, boxes = false }: QuestionWait) {
   return (
     <ClassicPage width="form">
       <Waiting layoutClass="flex flex-col gap-6">
@@ -220,12 +231,11 @@ function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fiel
           />
         )}
         {/* `OneShotForm`'s own wrapper, so the fields stand where the question's land. */}
-        {fields !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{fields}</div>}
-        <div className="grid gap-3 lg:justify-items-center">
-          <span className={buttonPlaceholder()}>{act}</span>
+        {fields !== undefined && (boxes ? <div className={boxStack()}>{fields}</div> : <FieldStack>{fields}</FieldStack>)}
+        <FormFooterPlaceholder note={note}>
           {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
-          <span className="min-h-5" />
-        </div>
+          <span className={buttonPlaceholder()}>{act}</span>
+        </FormFooterPlaceholder>
       </Waiting>
     </ClassicPage>
   );

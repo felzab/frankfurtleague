@@ -186,12 +186,6 @@ export const SERVER_COPY = catalogue({
     aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
       typeof max === "number" ? `Nachnominierte füllen nur die Lücke bis ${formatNumber(max)}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
-    /**
-     * A line-up starting more than the bound its refusal carries, the stored entries of erased pupils counted beside
-     * the ones sent: a sentence, since the screen holds no box for the whole list.
-     */
-    aufstellung_starters_exceed_eleven: ({ max }: FLRefusedField["ctx"]) =>
-      typeof max === "number" ? `Höchstens ${formatNumber(max)} in der Startelf.` : undefined,
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,

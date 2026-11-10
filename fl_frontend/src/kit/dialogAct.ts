@@ -13,9 +13,9 @@ import type { Fact } from "./Facts";
  */
 
 /**
- * The act ending the record a dialog edits, such as a squad row's „Austragen“: one row under the dialog's inputs, set
- * apart by a line, as a row of an editor's danger box stands, its name over its consequence and its button at the end,
- * which asks before it acts.
+ * The act ending the record a dialog edits, such as a squad row's „Austragen“: a part of its own after the dialog's
+ * inputs and above its footer, between two hairlines, as a row of an editor's danger box stands, its name over its
+ * consequence and its outlined button at the end, which asks before it acts.
  */
 export type DialogDanger = {
   name: Copy;

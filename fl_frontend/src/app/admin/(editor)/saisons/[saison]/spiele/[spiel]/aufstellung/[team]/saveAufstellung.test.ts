@@ -129,9 +129,9 @@ describe("the league's save of a line-up", () => {
     });
   });
 
-  // The harm: a refusal the block cannot foresee, its starters counted with entries it never shows, answered as an
-  // unexpected failure that names no reason.
-  it("says the starters' bound the write refuses, on the status line", async () => {
+  // The harm: the block counts erased pupils' kept entries, so only a page read before an erasure meets the starters'
+  // bound; answered as an unexpected failure, it names no way on, where a reload shows the true count.
+  it("answers the starters' bound as a page read before the line-up changed", async () => {
     refusal.write = new APIBadStatusError({
       message: "refused",
       url: "http://backend/api/v0/",
@@ -143,6 +143,6 @@ describe("the league's save of a line-up", () => {
     });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE, TWO] } });
 
-    expect(answer).toStrictEqual({ ok: false, errorCode: "aufstellung_starters_exceed_eleven", reason: "Höchstens 11 in der Startelf." });
+    expect(answer).toStrictEqual({ ok: false, errorCode: "aufstellung_starters_exceed_eleven", reason: COPY.shared.failure.stale });
   });
 });

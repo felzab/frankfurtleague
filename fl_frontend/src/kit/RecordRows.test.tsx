@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -78,7 +77,7 @@ function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; lo
                 label={label}
                 labelHidden
                 name={name}
-                width="C5"
+                holds={5}
                 kind="text"
                 isRequired
                 value={row.minute}
@@ -112,27 +111,12 @@ const minuteOf = (row: HTMLElement) => within(row).getByRole<HTMLInputElement>("
 /** A row's first control, its team's first segment. */
 const firstControl = (row: HTMLElement) => within(row).getAllByRole("radio")[0];
 
-const compiled = compiledGlobals();
-
-/** What the stylesheet sets `prop` to on a message line inside an element of `classes`. */
-async function onMessageLines(classes: readonly string[], prop: string): Promise<string[]> {
-  const values: string[] = [];
-  (await compiled).walkDecls(prop, (decl) => {
-    if (decl.parent?.type !== "rule") return;
-    const selectors = selectorsOf(decl.parent as Parameters<typeof selectorsOf>[0]).map((selector) => selector.replace(/\\(.)/g, "$1"));
-    if (selectors.some((selector) => selector.endsWith(" [data-kit-message]") && classes.some((name) => selector.startsWith(`.${name} `)))) {
-      values.push(decl.value);
-    }
-  });
-  return values;
-}
-
-// The harm: a refusal shown under another row, or a row growing as its message appears and moving every row under it.
+// The harm: a refusal shown under another row than the one refused.
 describe("a refused row", () => {
   it.each([
     ["a field's", "scorers.1.minute", (row: HTMLElement) => minuteOf(row).getAttribute("aria-invalid")],
     ["a choice's", "scorers.1.side", (row: HTMLElement) => within(row).getByRole("radiogroup", { name: TEAM }).getAttribute("data-invalid")],
-  ])("says %s refusal on its own row's line, out of the row's flow, and marks the control", async (_kind, box, marked) => {
+  ])("says %s refusal in its own row and marks the control", (_kind, box, marked) => {
     render(<Goals errors={{ [box]: REQUIRED }} />);
     const [first, second, third] = [rowAt(0), rowAt(1), rowAt(2)];
 
@@ -141,9 +125,6 @@ describe("a refused row", () => {
     expect(within(third).queryByText(REQUIRED)).toBeNull();
     expect(marked(second)).toBe("true");
     expect(marked(first)).toBeNull();
-
-    // No line a field draws takes room in its row, so none appearing, wrapping or going changes a row's height.
-    expect(await onMessageLines([...second.classList], "position")).toStrictEqual(["absolute"]);
   });
 });
 
