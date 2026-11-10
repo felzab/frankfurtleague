@@ -554,6 +554,22 @@ def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
 
 
+def build_confirmed_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """One team's pending rows a pupil confirmed, stating `registrierungen_saison_id_team_id_confirmed_queue`'s partial filter whole.
+
+    A stamp is a stored day, so `$type` matches exactly the confirmed rows; `$ne: null` would match them too and keep the
+    planner off the partial index.
+    """
+
+    return {**build_open_filter(saison_id=saison_id, team_id=team_id), "einwilligung.confirmed_at": {"$type": "string"}}
+
+
+def build_unconfirmed_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """One team's pending rows nobody confirmed, on `registrierungen_saison_id_team_id_queue`: null matches a missing stamp too."""
+
+    return {**build_open_filter(saison_id=saison_id, team_id=team_id), "einwilligung.confirmed_at": None}
+
+
 def build_own_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every pending registration of these addresses, on `registrierungen_email_status`."""
 
