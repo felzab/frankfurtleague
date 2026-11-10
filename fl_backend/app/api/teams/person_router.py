@@ -20,6 +20,7 @@ from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
+from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, FLSpielbestaetigungTeamState
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
@@ -280,7 +281,7 @@ async def _pull_team_spiele(
     )
     clubs = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
     vereine = await saison_teams_collection.find(
-        {"saison_id": saison_id, "team_id": {"$in": sorted(clubs, key=str)}}, {"_id": 0, "team_id": 1, "austritt.date": 1}, session=session
+        {"saison_id": saison_id, "team_id": {"$in": sorted(clubs, key=str)}}, JUDGED_VEREIN_FIELDS, session=session
     ).to_list(length=None)
 
     return spiele, vereine

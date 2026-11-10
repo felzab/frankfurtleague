@@ -63,8 +63,12 @@ async def pull_named_spiele(
     )
 
 
-# The clubs' season rows as an answer reads them: the exit the close judges, the name the act records, no seat holder at all.
-VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1, "name": 1}
+# What a row's state judges of the clubs' season rows its Ansetzung names: each club's exit, and no seat holder at all.
+# Every read judging a state projects it, so a field a judge comes to read is added once.
+JUDGED_VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
+
+# The clubs' season rows as an answer reads them: what the close judges, and the name the act records.
+VEREIN_FIELDS: Final[Mapping[str, int]] = {**JUDGED_VEREIN_FIELDS, "name": 1}
 
 
 async def pull_ansetzung_state(

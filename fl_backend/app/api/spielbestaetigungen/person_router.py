@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.spielbestaetigungen.crud import OWN_ROW_FIELDS, VEREIN_FIELDS, pull_ansetzung_state
+from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS, VEREIN_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungAppointment,
@@ -130,7 +130,7 @@ async def post_schiedsrichter_answer(
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
             spiel_projection=None,
-            verein_projection={"_id": 0, "team_id": 1, "austritt.date": 1},
+            verein_projection=JUDGED_VEREIN_FIELDS,
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
@@ -182,7 +182,7 @@ async def post_schiedsrichter_answer(
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
                 spiel_projection=None,
-                verein_projection={"_id": 0, "team_id": 1, "austritt.date": 1},
+                verein_projection=JUDGED_VEREIN_FIELDS,
                 session=None,
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.

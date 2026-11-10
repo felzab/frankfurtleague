@@ -6,7 +6,7 @@ from typing import Any, Final
 from app.api.bewerbungen.services import days_after, season_has_ended
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
 from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
@@ -535,9 +535,6 @@ OWN_ROW_VEREINE_AS: Final = "vereine"
 BERICHT_AS: Final = "spielbericht"
 SAISON_AS: Final = "saison"
 
-# What a row's state judges of the clubs' season rows its Ansetzung names: each club's exit.
-OWN_VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
-
 
 def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
     """Run on `spiele`: the season's fixtures booked to one of these referees, each with what the referee's list judges it by.
@@ -581,7 +578,7 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
                             "let": {"saison_id": "$saison_id", "team_ids": ["$ansetzung.team1_id", "$ansetzung.team2_id"]},
                             "pipeline": [
                                 {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$in": ["$team_id", "$$team_ids"]}]}}},
-                                {"$project": dict(OWN_VEREIN_FIELDS)},
+                                {"$project": dict(JUDGED_VEREIN_FIELDS)},
                             ],
                             "as": OWN_ROW_VEREINE_AS,
                         }
