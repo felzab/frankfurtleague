@@ -3076,8 +3076,8 @@ export const getSchiedsrichterGetSelfSaisonsUrl = () => {
 /**
  * Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
  *
- * A planned season is served as any other. Refuses an address holding no live, confirmed referee record
- * (`role_not_held`).
+ * A planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address
+ * holding no live, confirmed referee record (`role_not_held`).
  * @summary The seasons a signed-in referee has fixtures in
  */
 export const schiedsrichterGetSelfSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOwnSaisonsResponse> => {
@@ -3097,6 +3097,8 @@ export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
  * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
  * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
  * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
+ * Open work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days
+ * gone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.
  *
  * Refuses an address holding no live, confirmed referee record (`role_not_held`).
  * @summary A signed-in referee's fixtures of one season, one row a fixture

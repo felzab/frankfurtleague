@@ -1,5 +1,4 @@
 from datetime import datetime
-from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
@@ -16,21 +15,28 @@ from app.api.account.services import (
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
-from app.api.saisons.schemas import FLOwnSaisonsResponse
+from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfResponse, FLSchiedsrichterSpieleResponse
-from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
+from app.api.schiedsrichter.services import (
+    EINWILLIGUNG_FIELD,
+    build_self_referee_filter,
+    build_self_referee_pipeline,
+    build_self_saisons_pipeline,
+    build_self_spiele_pipeline,
+    compose_self_spiel,
+    order_self_spiele,
+)
 from app.core.clock import utc_stamp
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SchiedsrichterCollection,
+    SpieleReadCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import APIError
 from app.core.journal import Journal
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
@@ -150,30 +156,65 @@ async def patch_einwilligung(
     response_model=FLSchiedsrichterSpieleResponse,
     summary="A signed-in referee's fixtures of one season, one row a fixture",
 )
-async def get_self_spiele(saison_id: str, identifier: PersonIdentifier) -> FLSchiedsrichterSpieleResponse:
+async def get_self_spiele(
+    saison_id: str,
+    identifier: PersonIdentifier,
+    spiele_collection: SpieleReadCollection,
+    records: SubjectLookup,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLSchiedsrichterSpieleResponse:
     """
     Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
 
     Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
     their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
     today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
+    Open work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days
+    gone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.
 
     Refuses an address holding no live, confirmed referee record (`role_not_held`).
     """
 
-    # Session 8: the read goes from the referee's own records to the season's fixtures booking them, each joined to
-    # its newest confirmation row and its report.
-    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+    # A snapshot, so each fixture is judged against the records, rows and report of one moment; never a transaction,
+    # which a read writing nothing has no conflict to retry.
+    async with db.start_session(snapshot=True) as session:
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+        spiele = await aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_self_spiele_pipeline(
+                saison_id=saison_id, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter]
+            ),
+            session=session,
+        )
+
+    return FLSchiedsrichterSpieleResponse(
+        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, today=today) for spiel in spiele])
+    )
 
 
 @router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in referee has fixtures in")
-async def get_self_saisons(identifier: PersonIdentifier) -> FLOwnSaisonsResponse:
+async def get_self_saisons(
+    identifier: PersonIdentifier,
+    spiele_collection: SpieleReadCollection,
+    records: SubjectLookup,
+    db: DBClient,
+) -> FLOwnSaisonsResponse:
     """
     Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
 
-    A planned season is served as any other. Refuses an address holding no live, confirmed referee record
-    (`role_not_held`).
+    A planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address
+    holding no live, confirmed referee record (`role_not_held`).
     """
 
-    # Session 8: the read goes from the referee's own records to the seasons of the fixtures booking them.
-    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+    async with db.start_session(snapshot=True) as session:
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+        saisons = await aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_self_saisons_pipeline([record.schiedsrichter_id for record in subject.schiedsrichter]),
+            session=session,
+        )
+
+    return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons))

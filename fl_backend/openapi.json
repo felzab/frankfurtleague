@@ -25743,7 +25743,7 @@
     },
     "/api/v0/schiedsrichter/self/saisons": {
       "get": {
-        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.\n\nA planned season is served as any other. Refuses an address holding no live, confirmed referee record\n(`role_not_held`).",
+        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.\n\nA planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address\nholding no live, confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self_saisons",
         "responses": {
           "200": {
@@ -25810,7 +25810,7 @@
     },
     "/api/v0/schiedsrichter/self/spiele/{saison_id}": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
+        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.\nOpen work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days\ngone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {
