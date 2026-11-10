@@ -52,12 +52,12 @@ async def get_aufstellung_self(
     The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
 
     The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
-    saved, every pupil it names outside that squad, the document's `version` and the line-up's marks: whether one is
-    stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is null for a fixture
-    holding no day or no hour, which takes no line-up.
+    saved, every pupil it names outside that squad, the season's status, the document's `version` and the line-up's
+    marks: whether one is stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is
+    null for a fixture holding no day or no hour, which takes no line-up.
 
-    Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, and
-    `document_not_found` for a fixture that does not exist or does not field this club.
+    Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, a finished
+    season granting none, and `document_not_found` for a fixture that does not exist or does not field this club.
     """
 
     return await read_aufstellung_screen(
@@ -103,7 +103,8 @@ async def put_aufstellung_self(
     where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
     `aufstellung.saved`.
 
-    Refuses, in this order, each writing nothing: no seat on this club in the fixture's season (`role_not_held`); a
+    Refuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season
+    granting none (`role_not_held`); a
     fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
     (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
     the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live

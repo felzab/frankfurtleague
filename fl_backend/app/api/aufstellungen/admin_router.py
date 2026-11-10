@@ -46,7 +46,8 @@ async def get_aufstellung(
     """
     The line-up screen of one club for one fixture, as the club's own seat holders read it.
 
-    `document_not_found` for a fixture that does not exist or does not field this club.
+    With the season's status, so a finished season's line-up opens read-only. `document_not_found` for a fixture that
+    does not exist or does not field this club.
     """
 
     return await read_aufstellung_screen(
@@ -91,7 +92,8 @@ async def put_aufstellung(
     `aufstellung.saved`.
 
     Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
-    (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
+    (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
+    holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
     the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
     squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past
     the shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,
