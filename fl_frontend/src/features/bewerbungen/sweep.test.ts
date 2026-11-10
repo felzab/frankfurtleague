@@ -13,8 +13,8 @@ const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown 
 
 let apiAnswer: (call: { endpoint: string; method: string }) => unknown = () => ({});
 
-/** What the address changes' half did, its remainder `verbleibend`. */
-const adressen = (verbleibend = 0) => ({ removed: 0, effective: 0, discarded: 0, remaining: verbleibend });
+/** What the address changes' half did, its remainder `remaining`. */
+const adressen = (remaining = 0) => ({ removed: 0, effective: 0, discarded: 0, remaining });
 
 /** The address changes' half, answered here and held in `fl_frontend/src/features/address-change/sweep.test.ts`. */
 let addressChangeAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());

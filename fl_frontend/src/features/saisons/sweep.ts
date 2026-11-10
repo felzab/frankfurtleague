@@ -1,6 +1,6 @@
 import "server-only";
 
-import { sweepErasure } from "./loeschung";
+import { sweepErasure } from "./erasure";
 import { postErasureSweep } from "./mutations";
 
 /**

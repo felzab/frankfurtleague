@@ -10,7 +10,7 @@ import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types
 /**
  * Every pending change whose step lapsed, and every one whose waiting time ended, then every account's carry still
  * owed; run in the applications' job (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). A failure
- * rejects, for the heartbeat to name; the pass resolves to what it did, `verbleibend` the lapsed changes it could not end.
+ * rejects, for the heartbeat to name; the pass resolves to what it did, `remaining` the lapsed changes it could not end.
  */
 export async function sweepAddressChange(): Promise<Omit<FLAddressChangeSweepResponse, "after">> {
   let removed = 0;
@@ -24,7 +24,7 @@ export async function sweepAddressChange(): Promise<Omit<FLAddressChangeSweepRes
     discarded += antwort.discarded;
     effective += antwort.effective;
     // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
-    // (`fl_frontend/src/features/saisons/loeschung.ts :: sweepErasure`).
+    // (`fl_frontend/src/features/saisons/erasure.ts :: sweepErasure`).
     if (after !== null && antwort.after !== null && antwort.after <= after) {
       throw new ContractBreakError("The lapsed addresses answered a place not past the one they were sent.");
     }

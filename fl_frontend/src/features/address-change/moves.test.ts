@@ -27,7 +27,7 @@ vi.doMock("@/core/auth/accounts.ts", () => ({
 
 const { runAddressChangeMoves } = await import("./moves.ts");
 
-const umzug = (n: number) => ({ id: n.toString(16).padStart(24, "0"), old: `alt${String(n)}@schule.de`, new: `neu${String(n)}@schule.de` });
+const move = (n: number) => ({ id: n.toString(16).padStart(24, "0"), old: `alt${String(n)}@schule.de`, new: `neu${String(n)}@schule.de` });
 
 beforeEach(() => {
   carried.length = 0;
@@ -37,7 +37,7 @@ beforeEach(() => {
 /* Owed on the ended record and listed until reported: a carry never reported is listed, and carried, every pass. */
 describe("the owed carries", () => {
   it("carries every listed account, reports each page carried, and ends once the list is empty", async () => {
-    pages = [[umzug(1), umzug(2)], [umzug(3)]];
+    pages = [[move(1), move(2)], [move(3)]];
 
     await runAddressChangeMoves();
 
@@ -46,6 +46,6 @@ describe("the owed carries", () => {
       ["alt2@schule.de", "neu2@schule.de"],
       ["alt3@schule.de", "neu3@schule.de"],
     ]);
-    expect(reported).toStrictEqual([[umzug(1).id, umzug(2).id], [umzug(3).id]]);
+    expect(reported).toStrictEqual([[move(1).id, move(2).id], [move(3).id]]);
   });
 });

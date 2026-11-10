@@ -36,7 +36,7 @@ const WORDS = SERVER_COPY.mail.registrierung;
  * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that name;
  * a second spelling reaches the access line and the referer unredacted.
  */
-function spielerBestaetigungsLink(origin: string, token: string): string {
+function spielerConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
@@ -64,7 +64,7 @@ export function buildRegistrierungBestaetigungEmail({ team, saison_id: saisonId 
       [WORDS.confirmation.confirm, WORDS.confirmation.admission],
       [WORDS.confirmation.deadlineIn(DEADLINE_DAYS)],
     ],
-    button: { label: COPY.page.registrierungConfirmation, href: spielerBestaetigungsLink(site, token) },
+    button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
   };
 }
 
@@ -72,7 +72,7 @@ export function buildRegistrierungBestaetigungEmail({ team, saison_id: saisonId 
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
-const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reason"]> | "none", Paragraph>> = {
+const DECLINE_NEXT_STEPS: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reason"]> | "none", Paragraph>> = {
   other_person: [WORDS.absage.otherPerson, WORDS.absage.registerAgain],
   none: [WORDS.absage.askTeam],
 };
@@ -93,7 +93,7 @@ export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reaso
     origin: site,
     paragraphs: [
       [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
-      ABSAGE_WEITER[reason ?? "none"],
+      DECLINE_NEXT_STEPS[reason ?? "none"],
       [WORDS.absage.deletion(DECLINED_RETENTION_DAYS)],
     ],
     // The league's landing: no record is left to press on.

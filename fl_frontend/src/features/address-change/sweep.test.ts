@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
 
 /** One call's answer, `after` the place the next call starts after. */
-const antwort = (removed: number, verbleibend: number, after: string | null = null): FLAddressChangeSweepResponse => ({
+const antwort = (removed: number, remaining: number, after: string | null = null): FLAddressChangeSweepResponse => ({
   removed,
   discarded: 0,
   effective: 0,
-  remaining: verbleibend,
+  remaining,
   after,
 });
 
