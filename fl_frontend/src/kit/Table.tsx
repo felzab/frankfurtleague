@@ -79,8 +79,6 @@ export type TableRow = {
   chip?: ChipProps;
   /** Beside `chip`, where the last mail of a row that mails met trouble: the delivery's chip, as a seat's. */
   delivery?: ChipProps;
-  /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
-  line?: Words;
   /** Why the row's record was turned away, on a line of its own under the name, in the danger colour. */
   refusal?: Copy;
   /** The row's values, by column key; a missing value leaves its cell empty. */
@@ -102,25 +100,40 @@ export type TableRow = {
   place?: number | null;
 } & (
   | {
-      href?: Route;
-      /**
-       * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
-       * page back to a card: a client page's own, since a function cannot cross from the server.
-       */
-      onOpen?: () => void;
-      acts?: never;
+      /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
+      line?: Words;
+      phoneLine?: never;
     }
   | {
-      href?: never;
-      onOpen?: never;
+      line?: never;
       /**
-       * What can be done to a record that opens no page of its own: one or two kit buttons, each the trigger of its
-       * dialog, as a card's act row holds them: under the row's words on a phone, at the row's end from `lg`. A row the
-       * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
+       * The same line on a phone alone, standing for columns a phone leaves out, such as a player's position and Stufe:
+       * from `lg` those columns say it.
        */
-      acts?: ReactElement;
+      phoneLine?: Words;
     }
-);
+) &
+  (
+    | {
+        href?: Route;
+        /**
+         * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
+         * page back to a card: a client page's own, since a function cannot cross from the server.
+         */
+        onOpen?: () => void;
+        acts?: never;
+      }
+    | {
+        href?: never;
+        onOpen?: never;
+        /**
+         * What can be done to a record that opens no page of its own: one or two kit buttons, each the trigger of its
+         * dialog, as a card's act row holds them: under the row's words on a phone, at the row's end from `lg`. A row the
+         * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
+         */
+        acts?: ReactElement;
+      }
+  );
 
 export type TableProps = {
   /** The table's name. */
@@ -582,6 +595,14 @@ function NameCell({
         <span className={s.line()}>
           <CutText
             text={textOf(row.line)}
+            className={s.lineWords()}
+          />
+        </span>
+      )}
+      {row.phoneLine !== undefined && (
+        <span className={s.line({ class: "lg:hidden" })}>
+          <CutText
+            text={textOf(row.phoneLine)}
             className={s.lineWords()}
           />
         </span>
