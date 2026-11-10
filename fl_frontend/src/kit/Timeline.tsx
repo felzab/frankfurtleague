@@ -1,23 +1,26 @@
 import { textOf } from "@/core/copy";
 
+import { CardMark } from "./CardMark";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 /**
- * One checkpoint: its mark inside the point (a club's running count of its matches, a minute), its title and
- * detail beside the point, and what stands under them, such as a match card. A minute is read with the title,
- * since it says when a goal fell and nothing else does; a count is not, the ordered list telling a screen reader
- * each checkpoint's place already, so „1“ is never read out before „1. Spieltag“.
+ * One checkpoint: what its point holds (a club's running count of its matches, a minute), its title and detail
+ * beside the point, and what stands under them, such as a match card. A minute is read with the title, since it
+ * says when a goal fell and nothing else does; a count is not, the ordered list telling a screen reader each
+ * checkpoint's place already, so „1“ is never read out before „1. Spieltag“.
  */
 export type Checkpoint = {
   id: string;
-  mark: Words;
-  /** The mark counts the checkpoints, as a club's matches are numbered, rather than saying something of its own. */
+  point: Words;
+  /** The point counts the checkpoints, as a club's matches are numbered, rather than saying something of its own. */
   counts?: true;
+  /** A card's colour, the small card directly before the title, whose words name the colour. */
+  mark?: ComponentProps<typeof CardMark>;
   title: Copy;
   detail?: Words;
   children?: ReactNode;
@@ -30,8 +33,8 @@ export type Outcome = "won" | "drawn" | "lost" | "none";
 
 /**
  * The point and the line every line of checkpoints draws, the season's stages on the landing among them: a
- * point outlined in the brand green, or in a club's match in its outcome's colour, with its mark inside, and from it a dotted line in the control edge's
- * grey to the next. A mark longer than two figures, a minute of stoppage time, widens the point into a pill.
+ * point outlined in the brand green, or in a club's match in its outcome's colour, with its figure inside, and from it a dotted line in the control edge's
+ * grey to the next. A figure longer than two characters, a minute of stoppage time, widens the point into a pill.
  * Each block places the line, a `before:` box, by its own geometry.
  */
 export const checkpoint = tv({
@@ -41,7 +44,7 @@ export const checkpoint = tv({
     line: "before:absolute before:border-l-2 before:border-dotted before:border-border-control",
   },
   variants: {
-    // A club's match in the colours its S, U and N carry in the Tabelle (`RecordFigures`), ring and mark alike, so
+    // A club's match in the colours its S, U and N carry in the Tabelle (`RecordFigures`), ring and figure alike, so
     // a glance down the points reads the run of results; nothing scored keeps the control edge's grey.
     outcome: {
       won: { point: "border-success text-success" },
@@ -55,7 +58,7 @@ export const checkpoint = tv({
 const timeline = tv({
   extend: checkpoint,
   slots: {
-    // The marks' column is as wide as the widest mark, so every title of the line stands at one edge.
+    // The points' column is as wide as the widest point, so every title of the line stands at one edge.
     list: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-4",
     step: "group/checkpoint col-span-2 grid grid-cols-subgrid pb-6 last:pb-0",
     // Down from under the point, through the gap, to the next point; the last checkpoint draws none.
@@ -64,6 +67,10 @@ const timeline = tv({
     // As tall as the point, its line centred on the point's middle, the title's and the detail's words on one baseline.
     head: "flex min-h-6 flex-wrap content-center items-baseline gap-x-2",
     title: "text-sm font-semibold",
+    // A card's mark centred on the title's line. The words alone align on baselines, so the title's baseline is
+    // theirs rather than the mark's bottom edge, and the detail beside it stays on the words' line.
+    marked: "flex items-center gap-1.5",
+    words: "min-w-0 self-baseline",
     detail: "font-numeric text-xs text-fg-muted",
   },
 });
@@ -116,12 +123,15 @@ export function Timeline({ label, items }: { label: Copy; items: readonly Checkp
             <span
               aria-hidden={item.counts}
               className={slots.point({ outcome: item.outcome })}>
-              {textOf(item.mark)}
+              {textOf(item.point)}
             </span>
           </div>
           <div className={slots.body()}>
             <div className={slots.head()}>
-              <span className={slots.title()}>{item.title}</span>
+              <span className={slots.marked({ class: slots.title() })}>
+                {item.mark !== undefined && <CardMark {...item.mark} />}
+                <span className={slots.words()}>{item.title}</span>
+              </span>
               {item.detail !== undefined && <span className={slots.detail()}>{textOf(item.detail)}</span>}
             </div>
             {item.children}

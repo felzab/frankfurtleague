@@ -11,6 +11,7 @@ from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, mailbox_pattern, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink
+from app.api.saisons.services import entry_is_a_nominee
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -109,6 +110,16 @@ def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> WriteRef
         error_code=Code.REGISTRIERUNG_STUFE_NOT_ALLOWED,
         status=HTTPStatus.CONFLICT,
     )
+
+
+def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapping[str, Any] | None, submitted_at: str) -> bool:
+    """Whether admitting a registration enters a Nachnominierung, which the cap does not hold.
+
+    The person's stored mark of the season first, never lifted within it whatever the window has moved to since; else
+    the season's window, judged on the day the pupil submitted and never today.
+    """
+
+    return (kader_raw is not None and bool(kader_raw["is_nachnominiert"])) or entry_is_a_nominee(registrierung=registrierung, day=submitted_at)
 
 
 def kader_free(*, nominee: bool, squad_size: int, max_kader_size: int) -> bool:

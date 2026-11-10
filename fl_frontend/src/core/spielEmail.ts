@@ -34,7 +34,7 @@ export function spielConfirmationLink(origin: string, token: string): string {
 }
 
 /** The referee's own panel, the address `fl_frontend/src/features/roles/utils.ts` opens their Funktion on. */
-const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
+const SCHIEDSRICHTER_PANEL_PATH = ROUTES.areaSchiedsrichter.path();
 
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */
 const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2">): Copy =>
@@ -222,6 +222,7 @@ export function buildAufstellungReminderEmail(
       ],
     },
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
+    // Session 8: leads to the match's line-up page, `ROUTES.teamAufstellung`, once that row exists.
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
