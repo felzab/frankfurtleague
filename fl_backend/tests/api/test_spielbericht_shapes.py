@@ -103,7 +103,7 @@ class TestTheProposalsCountsAreItsEntries:
     def test_a_no_show_proposes_the_event_alone(self):
         assert proposed(payload([], sonderereignis="nichtantreten_team2")) == (None, None)
 
-        with pytest.raises(ValidationError, match="type=nichtantreten_with_tore,"):
+        with pytest.raises(ValidationError, match="type=nichtantreten_with_elfmeterschiessen,"):
             FLSpielberichtBerichtPayload.model_validate(
                 payload([], sonderereignis="nichtantreten_team2", elfmeterschiessen={"team1": 4, "team2": 3})
             )

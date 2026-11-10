@@ -5,7 +5,6 @@ from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
 from app.api.bewerbungen.services import days_after
-from app.api.identity.schemas import FLSubjectSeat
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAustrittNoticeData,
@@ -49,7 +48,7 @@ from app.shared.schemas.bounds import (
     SPIEL_REMINDER_DAYS,
     SPIEL_REQUEST_LEAD_TIME_DAYS,
 )
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
+from app.shared.schemas.literals import FLKontaktRolle, FLSpielSide
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
@@ -593,22 +592,6 @@ def find_foreign_row_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None,
         return None
 
     return foreign_row_refusal()
-
-
-def answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: Iterable[FLSubjectSeat]) -> FLKontaktRolle | None:
-    """The seat a signed-in person answers a team row from: their first in `KONTAKT_ROLLEN` order on the row's team in its season.
-
-    `None` for a row of no team, or of a team the seats do not sit on, which `foreign_row_refusal` answers alike.
-    """
-
-    raw = spielbestaetigung_raw or {}
-    party = raw.get("party") or {}
-    if party.get("kind") != "team":
-        return None
-
-    held = {seat.rolle for seat in seats if seat.team_id == party.get("team_id") and seat.saison_id == raw.get("saison_id")}
-
-    return next((rolle for rolle in KONTAKT_ROLLEN if rolle in held), None)
 
 
 def compose_schiedsrichter_answer_update(*, answer: FLSpielbestaetigungAnswerKind, reason: str | None, today: str) -> dict[str, Any]:

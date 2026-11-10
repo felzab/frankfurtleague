@@ -5898,14 +5898,15 @@ export interface FLTeamPanelRegistrierung {
 }
 
 /**
- * One seat as the people beside it see it: who holds it and whether they answered their link.
+ * One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.
  *
- * No address, telephone number or birthdate: only administrators see those.
+ * A Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,
+ * telephone number or birthdate: only administrators see those.
  */
 export interface FLTeamSeat {
   confirmed: boolean;
   name: string | null;
-  rolle: FLKontaktRolle;
+  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -6209,7 +6210,7 @@ export const Rule = {
   email_not_accepted: "email_not_accepted",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
   grant_wording_stale: "grant_wording_stale",
-  nichtantreten_with_tore: "nichtantreten_with_tore",
+  nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",

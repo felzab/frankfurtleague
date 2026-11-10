@@ -158,7 +158,7 @@ class FLSpielberichtBerichtPayload(BaseModel):
 
         if proposed.sonderereignis in SONDEREREIGNIS_NO_SHOW:
             if proposed.elfmeterschiessen is not None:
-                raise rule_refusal("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
+                raise rule_refusal("nichtantreten_with_elfmeterschiessen", "a no-show proposes no shoot-out")
             if self.scorers:
                 raise rule_refusal("nichtantreten_with_scorers", "a no-show credits no scorer")
             return self

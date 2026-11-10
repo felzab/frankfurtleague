@@ -267,10 +267,10 @@ class TestTheUebersicht:
             (registrierung["first_name"], registrierung["position"], registrierung["stufe"], registrierung["admissible"])
             for registrierung in served["registrierungen"]
         ] == [("Pia", None, None, False), ("Ole", "Abwehr", "Q2", True)]
-        assert [(entry["rolle"], entry["name"], entry["confirmed"]) for entry in served["seats"]] == [
-            ("trainer", "Theo Theo-Mustermann", True),
-            ("ansprechperson", "Anna Anna-Mustermann", False),
-            ("stellvertretung", None, False),
+        assert [(entry["rollen"], entry["name"], entry["confirmed"]) for entry in served["seats"]] == [
+            (["trainer"], "Theo Theo-Mustermann", True),
+            (["ansprechperson"], "Anna Anna-Mustermann", False),
+            (["stellvertretung"], None, False),
         ]
 
 

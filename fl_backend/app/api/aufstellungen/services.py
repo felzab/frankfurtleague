@@ -57,6 +57,12 @@ def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: 
     return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at, locks_at=locks_at)
 
 
+def kicked_off_by(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture's kick-off has come at `now`; never for one holding no day or no hour, which takes no line-up."""
+
+    return date is not None and time is not None and _at_kickoff_time(date, time, days_back=0) <= now
+
+
 def aufstellung_reminder_owed(*, date: str | None, time: str | None, now: datetime) -> bool:
     """Whether `now` lies in the window a team holding no line-up is owed its one reminder: from its mark up to the due mark.
 
