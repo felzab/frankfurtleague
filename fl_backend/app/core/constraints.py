@@ -229,6 +229,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("party.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
         "a referee's own rows, on their panel and at their erasure",
     ),
+    # Read on every render of a referee's pages, and by the referee's erasure and retirement, none stating a fixture the
+    # season-leading index could narrow by; the season second, for the list of one season's fixtures.
+    SupportIndex(
+        Collection.SPIELE,
+        "spiele_schiedsrichter_schiedsrichter_id_saison_id",
+        (("schiedsrichter.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        "a referee's own fixtures, on their pages and at their erasure",
+    ),
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
