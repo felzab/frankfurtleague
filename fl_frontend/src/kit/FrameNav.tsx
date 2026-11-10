@@ -462,7 +462,7 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
  */
 export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailGroup> }) {
   return (
-    <Placeholder layout="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-hidden px-3 py-2">
+    <Placeholder layoutClass="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-hidden px-3 py-2">
       {groups.map((group, index) => (
         <div
           key={group.heading ?? index}
@@ -470,7 +470,7 @@ export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailG
           {group.heading !== undefined && (
             <div className={railHeading}>
               <PlaceholderLine
-                text="text-xs"
+                textClass="text-xs"
                 words={group.heading}
               />
             </div>
@@ -485,7 +485,7 @@ export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailG
                 </span>
                 <span className={railFade()}>
                   <PlaceholderLine
-                    text="text-sm"
+                    textClass="text-sm"
                     words={entry.label}
                   />
                 </span>
@@ -565,16 +565,16 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
  */
 export function AccountRowPlaceholder() {
   return (
-    <Placeholder layout="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2">
+    <Placeholder layoutClass="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2">
       <span className={placeholderBar(avatar({ size: "rail" }))} />
       <span className={railFade({ class: "grid min-w-0 flex-1" })}>
         <PlaceholderLine
-          text="text-sm"
-          width="w-3/4"
+          textClass="text-sm"
+          widthClass="w-3/4"
         />
         <PlaceholderLine
-          text="text-xs"
-          width="w-1/2"
+          textClass="text-xs"
+          widthClass="w-1/2"
         />
       </span>
     </Placeholder>
@@ -711,7 +711,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
         // The bar's places stand drawn while the session is judged; the account's keeps its column, drawn as it waits.
         <Suspense
           fallback={
-            <Placeholder layout="h-full">
+            <Placeholder layoutClass="h-full">
               <PlacePlaceholder
                 label={COPY.template.account}
                 glyph={avatar({ size: "bar" })}
@@ -731,7 +731,7 @@ function PlacePlaceholder({ label, glyph }: { label: Copy; glyph: string }) {
     <span className={barPlace({ current: false })}>
       <span className={placeholderBar(glyph)} />
       <PlaceholderLine
-        text="text-xs"
+        textClass="text-xs"
         words={label}
       />
     </span>
@@ -749,7 +749,7 @@ export function BarPlacesPlaceholder() {
   const placed = menu.bar.flatMap((id) => entries.filter((entry) => entry.id === id));
   const more = entries.length > placed.length || menu.extra.length > 0;
   return (
-    <Placeholder layout="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+    <Placeholder layoutClass="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
       {placed.map((entry) => (
         <PlacePlaceholder
           key={entry.id}
@@ -863,10 +863,10 @@ export function BackControl({ href }: { href: Route }) {
  */
 export function BackPlaceholder() {
   return (
-    <Placeholder layout={back({ class: "gap-1" })}>
+    <Placeholder layoutClass={back({ class: "gap-1" })}>
       <span className={placeholderBar("size-4.5")} />
       <PlaceholderLine
-        text="text-sm"
+        textClass="text-sm"
         words={COPY.shared.back}
       />
     </Placeholder>

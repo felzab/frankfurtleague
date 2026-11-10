@@ -194,28 +194,28 @@ type QuestionWait = {
 function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, boxes = false }: QuestionWait) {
   return (
     <ClassicPage width="form">
-      <Waiting layout="flex flex-col gap-6">
+      <Waiting layoutClass="flex flex-col gap-6">
         <PlaceholderLine
-          text={classicTitle()}
-          width="w-2/3"
+          textClass={classicTitle()}
+          widthClass="w-2/3"
         />
         {facts > 0 && <FactsPlaceholder pairs={facts} />}
         {sentence === undefined ? (
           <PlaceholderLine
-            text="text-base"
-            width="w-full"
+            textClass="text-base"
+            widthClass="w-full"
           />
         ) : (
           sentence !== false && (
             <PlaceholderSentence
-              text="text-base"
+              textClass="text-base"
               words={sentence}
             />
           )
         )}
         {sentenceAfter !== undefined && (
           <PlaceholderSentence
-            text="text-base"
+            textClass="text-base"
             words={sentenceAfter}
           />
         )}

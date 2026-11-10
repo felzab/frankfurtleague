@@ -160,7 +160,7 @@ export function StatusPagePlaceholder({ title, next }: { title: Copy; next: Copy
         <div className={slots.root()}>
           <span className={placeholderBar(slots.mark())} />
           <PlaceholderSentence
-            text={`w-full ${classicTitle()}`}
+            textClass={`w-full ${classicTitle()}`}
             words={title}
           />
           <span className={buttonPlaceholder()}>{next}</span>

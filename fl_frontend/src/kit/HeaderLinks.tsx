@@ -63,9 +63,9 @@ function PlacedLinks({ season, links, signIn, path }: HeaderLinksProps & { path:
           // The entry's place held meanwhile at its own width, so the links beside it never move when it lands.
           <Suspense
             fallback={
-              <Placeholder layout={frameLink({ tone: "bandMuted" })}>
+              <Placeholder layoutClass={frameLink({ tone: "bandMuted" })}>
                 <PlaceholderLine
-                  text="text-sm"
+                  textClass="text-sm"
                   words={SAISON_WORDS}
                 />
               </Placeholder>
@@ -112,9 +112,9 @@ function PlacedLinks({ season, links, signIn, path }: HeaderLinksProps & { path:
               {season !== undefined && (
                 <Suspense
                   fallback={
-                    <Placeholder layout={menuEntry({ size: "phone" })}>
+                    <Placeholder layoutClass={menuEntry({ size: "phone" })}>
                       <PlaceholderLine
-                        text="text-base"
+                        textClass="text-base"
                         words={SAISON_WORDS}
                       />
                     </Placeholder>

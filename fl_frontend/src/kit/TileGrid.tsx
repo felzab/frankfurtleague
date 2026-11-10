@@ -95,12 +95,12 @@ export function SchoolTilesPlaceholder({ count }: { count: number }) {
             <span className={placeholderBar("h-6 w-10")} />
             <span className="grid min-w-0 flex-1">
               <PlaceholderLine
-                text="text-sm"
-                width="w-3/4"
+                textClass="text-sm"
+                widthClass="w-3/4"
               />
               <PlaceholderLine
-                text="text-xs"
-                width="w-1/3"
+                textClass="text-xs"
+                widthClass="w-1/3"
               />
             </span>
           </span>

@@ -145,32 +145,32 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
     <ClassicPage width="signin">
       <div className={slots.column()}>
         {title === null ? (
-          <Waiting layout="flex flex-col gap-4">
+          <Waiting layoutClass="flex flex-col gap-4">
             <div className={slots.head()}>
               <PlaceholderLine
-                text={classicTitle()}
+                textClass={classicTitle()}
                 words={COPY.signIn.passkey.offer.title}
               />
               <span className="grid w-full justify-items-center">
                 <PlaceholderLine
-                  text={slots.sentence()}
-                  width="w-72"
+                  textClass={slots.sentence()}
+                  widthClass="w-72"
                 />
                 <PlaceholderLine
-                  text={slots.sentence()}
-                  width="w-40"
+                  textClass={slots.sentence()}
+                  widthClass="w-40"
                 />
               </span>
               <PlaceholderLine
-                text={slots.sentence()}
-                width="w-48"
+                textClass={slots.sentence()}
+                widthClass="w-48"
               />
             </div>
             <div className={slots.acts()}>
               <span className={buttonPlaceholder("w-full")} />
               <span className={buttonLook({ look: "quiet" })}>
                 <PlaceholderLine
-                  text=""
+                  textClass=""
                   words={COPY.signIn.passkey.later}
                 />
               </span>
@@ -179,7 +179,7 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
         ) : (
           <>
             <ClassicTitle text={title} />
-            <Waiting layout="flex flex-col gap-4">
+            <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
                 <FieldPlaceholder
                   width="column"
@@ -192,8 +192,8 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
               <div className={slots.divider()}>
                 <span className={slots.rule()} />
                 <PlaceholderLine
-                  text="text-xs"
-                  width="w-6"
+                  textClass="text-xs"
+                  widthClass="w-6"
                 />
                 <span className={slots.rule()} />
               </div>

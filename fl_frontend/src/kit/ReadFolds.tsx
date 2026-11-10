@@ -21,7 +21,9 @@ export type FoldedCard = {
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
 
-const folds = (count: number) => (count > 1 ? "grid content-start items-start gap-3 lg:grid-cols-2" : "grid");
+/** Two cards to a row from `lg`, where there are several. */
+const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 lg:grid-cols-2";
+const folds = (count: number) => (count > 1 ? SPLIT_FOLDS_CLASSES : "grid");
 
 /** One card under another at every width, as the list template sets its cards. */
 const COLUMN_CLASSES = "grid gap-6";
@@ -53,8 +55,8 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
             <span className={s.title()}>
               <span className={placeholderBar("size-4")} />
               <PlaceholderLine
-                text="text-base"
-                width="w-32"
+                textClass="text-base"
+                widthClass="w-32"
               />
             </span>
             <FoldCountPlaceholder className={s.count()} />

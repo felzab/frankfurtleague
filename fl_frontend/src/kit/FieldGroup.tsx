@@ -49,8 +49,8 @@ export function FieldGroupPlaceholder({ children }: { children: ReactNode }) {
     <div className={root()}>
       <span className={head()}>
         <PlaceholderLine
-          text="text-base font-semibold"
-          width="w-1/3"
+          textClass="text-base font-semibold"
+          widthClass="w-1/3"
         />
       </span>
       {children}

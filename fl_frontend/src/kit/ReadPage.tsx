@@ -260,11 +260,11 @@ export function ReadPage({ scope, wait, width, ...named }: { scope: "saison" | "
         <RailPage
           scope={scope}
           title={named.title ?? null}>
-          <Waiting layout={column({ width })}>
+          <Waiting layoutClass={column({ width })}>
             {wait.lead === true && (
               <PlaceholderLine
-                text="text-sm"
-                width="w-2/3"
+                textClass="text-sm"
+                widthClass="w-2/3"
               />
             )}
             {wait.spiel === true && <SpielHeadPlaceholder />}

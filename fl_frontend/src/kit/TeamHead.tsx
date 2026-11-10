@@ -36,8 +36,8 @@ export function TeamHeadPlaceholder() {
     <div className={s.root()}>
       <span className={placeholderBar("h-6 w-10")} />
       <PlaceholderLine
-        text={s.name()}
-        width="w-28"
+        textClass={s.name()}
+        widthClass="w-28"
       />
     </div>
   );

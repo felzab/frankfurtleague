@@ -44,7 +44,7 @@ export function RadioGroupPlaceholder({ label, choices }: { label: string; choic
   return (
     <div className={fieldRoot()}>
       <PlaceholderSentence
-        text={fieldLabel()}
+        textClass={fieldLabel()}
         words={label}
       />
       <div className={radioList({ layout: "list" })}>
@@ -54,7 +54,7 @@ export function RadioGroupPlaceholder({ label, choices }: { label: string; choic
             className={toggleRow({ in: "list" })}>
             <span className={placeholderBar(toggleBox({ shape: "round", class: "border-transparent" }))} />
             <PlaceholderSentence
-              text=""
+              textClass=""
               words={choice}
             />
           </span>

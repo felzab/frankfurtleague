@@ -27,19 +27,19 @@ const section = tv({
 export function LandingSectionPlaceholder({ more, children }: { more?: Copy; children: ReactNode }) {
   const slots = section();
   return (
-    <Placeholder layout={slots.root()}>
+    <Placeholder layoutClass={slots.root()}>
       <div className={slots.head({ class: "w-full" })}>
         <PlaceholderLine
-          text={slots.eyebrow()}
-          width="w-24"
+          textClass={slots.eyebrow()}
+          widthClass="w-24"
         />
         <PlaceholderLine
-          text={slots.title()}
-          width="w-64 max-w-full"
+          textClass={slots.title()}
+          widthClass="w-64 max-w-full"
         />
         {more !== undefined && (
           <PlaceholderLine
-            text=""
+            textClass=""
             words={more}
           />
         )}

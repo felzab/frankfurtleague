@@ -393,20 +393,20 @@ function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; start
             className={s.row()}>
             <td className={s.name()}>
               <PlaceholderLine
-                text=""
-                width="w-1/2"
+                textClass=""
+                widthClass="w-1/2"
               />
             </td>
             <td className={lineup(NUMMER).cell()}>
               <PlaceholderLine
-                text=""
-                width="mx-auto w-4"
+                textClass=""
+                widthClass="mx-auto w-4"
               />
             </td>
             <td className={lineup(POSITION).cell()}>
               <PlaceholderLine
-                text=""
-                width="w-20"
+                textClass=""
+                widthClass="w-20"
               />
             </td>
             {starts !== undefined && (
@@ -449,8 +449,8 @@ export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; p
           {picked === 0 ? (
             <div className={s.empty()}>
               <PlaceholderLine
-                text=""
-                width="w-1/2"
+                textClass=""
+                widthClass="w-1/2"
               />
             </div>
           ) : (

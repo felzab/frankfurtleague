@@ -18,7 +18,7 @@ export function SwitchPlaceholder({ label }: { label: string }) {
         {/* The track's own box alone: either state's fill and edge would stand over the bar's. */}
         <span className={placeholderBar(switchTrack.base)} />
         <PlaceholderSentence
-          text=""
+          textClass=""
           words={label}
         />
       </span>

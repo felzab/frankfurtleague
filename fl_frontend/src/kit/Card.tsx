@@ -89,8 +89,8 @@ export function CardPlaceholder({
   const name =
     title === undefined ? (
       <PlaceholderLine
-        text={s.title()}
-        width="w-1/3"
+        textClass={s.title()}
+        widthClass="w-1/3"
       />
     ) : (
       <span className={s.title()}>{textOf(title)}</span>
@@ -111,8 +111,8 @@ export function CardPlaceholder({
         )}
         {line && (
           <PlaceholderLine
-            text={s.line()}
-            width="w-1/4"
+            textClass={s.line()}
+            widthClass="w-1/4"
           />
         )}
       </div>
@@ -134,12 +134,12 @@ export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: Reado
       className={s.root()}>
       <span className={s.words()}>
         <PlaceholderLine
-          text="text-sm"
-          width="w-1/2"
+          textClass="text-sm"
+          widthClass="w-1/2"
         />
         <PlaceholderLine
-          text={s.line()}
-          width="w-1/3"
+          textClass={s.line()}
+          widthClass="w-1/3"
         />
       </span>
       {acts !== undefined && (

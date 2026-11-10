@@ -101,17 +101,17 @@ function MatchTilesPlaceholder() {
             key={item.label}
             className={slots.tile({ class: cardSurface() })}>
             <PlaceholderLine
-              text={slots.label()}
+              textClass={slots.label()}
               words={item.label}
             />
             <PlaceholderSentence
-              text={slots.value()}
+              textClass={slots.value()}
               words={item.value}
               lines={words ? 2 : 1}
             />
             {"line" in item && (
               <PlaceholderLine
-                text={slots.line()}
+                textClass={slots.line()}
                 words={item.line}
               />
             )}
@@ -137,17 +137,17 @@ export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["
             key={index}
             className={slots.tile({ class: cardSurface() })}>
             <PlaceholderLine
-              text={slots.label()}
-              width="w-2/3"
+              textClass={slots.label()}
+              widthClass="w-2/3"
             />
             <PlaceholderLine
-              text={slots.value()}
-              width="w-1/2"
+              textClass={slots.value()}
+              widthClass="w-1/2"
             />
             {line && (
               <PlaceholderLine
-                text={slots.line()}
-                width="w-1/3"
+                textClass={slots.line()}
+                widthClass="w-1/3"
               />
             )}
           </div>

@@ -106,7 +106,7 @@ export function LandingPage({
           </div>
           <PageWait
             fallback={
-              <Waiting layout={slots.acts()}>
+              <Waiting layoutClass={slots.acts()}>
                 <span className={buttonPlaceholder()}>{COPY.page.spielplan}</span>
                 {/* The resting word: an open application window's lands in the read. */}
                 <span className={buttonPlaceholder()}>{COPY.page.about}</span>

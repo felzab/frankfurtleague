@@ -857,8 +857,8 @@ export function TablePlaceholder({
                 <span className={nameLine({ shape: "wraps", acts: acts !== undefined })}>
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
-                    text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
-                    width="w-1/2"
+                    textClass={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
+                    widthClass="w-1/2"
                   />
                 </span>
               </td>
@@ -871,8 +871,8 @@ export function TablePlaceholder({
                     style={acts === undefined ? undefined : phoneTrack(columns, column)}>
                     {stack && <span className={s.label()}>{column.label}</span>}
                     <PlaceholderLine
-                      text=""
-                      width={column.figures === true ? "mx-auto w-4" : "w-20"}
+                      textClass=""
+                      widthClass={column.figures === true ? "mx-auto w-4" : "w-20"}
                     />
                   </td>
                 );

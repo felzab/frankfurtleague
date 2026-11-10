@@ -292,10 +292,10 @@ export function RailPage({
         <RailToggle />
         {title === null ? (
           // The title's line at the title's own height, so the content under it on a phone stands where it will.
-          <Placeholder layout="min-w-0 flex-1">
+          <Placeholder layoutClass="min-w-0 flex-1">
             <PlaceholderLine
-              text={heading()}
-              width="w-48 max-w-full"
+              textClass={heading()}
+              widthClass="w-48 max-w-full"
             />
           </Placeholder>
         ) : (

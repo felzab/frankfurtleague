@@ -342,8 +342,8 @@ export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; line
               key={row}
               className={slots.row()}>
               <PlaceholderLine
-                text={slots.label()}
-                width="w-12"
+                textClass={slots.label()}
+                widthClass="w-12"
               />
               {Array.from({ length: lines }, (_, line) => (
                 <span

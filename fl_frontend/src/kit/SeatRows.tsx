@@ -99,13 +99,13 @@ export function SeatRowsPlaceholder({ bare = false, readOnly = false }: { bare?:
           <span className={s.words()}>
             <span className={words.head()}>
               <PlaceholderLine
-                text={words.name()}
-                width="w-24"
+                textClass={words.name()}
+                widthClass="w-24"
               />
               <span className={placeholderBar("h-5 w-16")} />
             </span>
             <PlaceholderSentence
-              text={words.line()}
+              textClass={words.line()}
               words={COPY.admin.seatLine(["trainer"], readOnly ? null : EMAIL_WORDS, null)}
             />
           </span>

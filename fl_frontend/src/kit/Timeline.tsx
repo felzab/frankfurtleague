@@ -93,8 +93,8 @@ export function TimelinePlaceholder({ count, matches = false }: { count: number;
           <div className={slots.body()}>
             <div className={slots.head()}>
               <PlaceholderLine
-                text={slots.title()}
-                width="w-28"
+                textClass={slots.title()}
+                widthClass="w-28"
               />
             </div>
             {matches && <SpielListPlaceholder count={1} />}
