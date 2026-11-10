@@ -5,6 +5,8 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { spieltagLabel } from "@/features/spieltage/utils";
 
+import { isNoShow } from "./result";
+
 import type { Copy } from "@/core/copy";
 import type { Pair } from "@/core/format";
 import type {
@@ -125,9 +127,7 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   const { sonderereignis } = spiel;
   if (sonderereignis === null) return {};
   const label = sonderereignisOf(sonderereignis, spiel);
-  if (sonderereignis !== "nichtantreten_team1" && sonderereignis !== "nichtantreten_team2") {
-    return { chip: { tone: "danger", label }, muted: true };
-  }
+  if (!isNoShow(sonderereignis)) return { chip: { tone: "danger", label }, muted: true };
   return {
     chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtAngetretenChip, spoken: label },
     muted: true,

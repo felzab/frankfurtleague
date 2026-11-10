@@ -14,9 +14,9 @@ import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
 import { FLCardColour } from "@/core/generated/client/types";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
-import { counted, isNoShow, NO_SONDEREREIGNIS, UNKNOWN_SCORER } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, UNKNOWN_SCORER } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
@@ -100,10 +100,7 @@ export function BerichtEditor({
   const outcome = (): ScoreOutcome | null => {
     if (shootOut && (draft.shootOut1 === "" || draft.shootOut2 === "")) return null;
     const added = shootOut ? { team1: Number(draft.shootOut1), team2: Number(draft.shootOut2) } : null;
-    const score = SPIEL.score(goals, added);
-    const [one, other] = [goals.team1 + (added?.team1 ?? 0), goals.team2 + (added?.team2 ?? 0)];
-    if (one === other) return { text: SPIEL.drawn(score), tone: "draw" };
-    return { text: SPIEL.wins(one > other ? sides.team1.name : sides.team2.name, score), tone: "win" };
+    return scoreOutcome(goals, added, [sides.team1.name, sides.team2.name]);
   };
 
   const choices = [

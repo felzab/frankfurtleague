@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
 import { SpielberichtePutSpielberichtBerichtBody, SpielberichtePutSpielberichtBerichtParams } from "@/core/generated/zod/inputs";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut } from "@/features/spiele/result";
 
 import { Cards, Goals } from "./berichtRules";
 import { counted, NO_SONDEREREIGNIS, UNKNOWN_SCORER, valuesOf } from "./berichtValues";

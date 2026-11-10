@@ -1,3 +1,5 @@
+import { creditedSide } from "@/features/spiele/result";
+
 import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } from "@/core/generated/client/types";
 
 /** The Sonderereignis' first entry, nothing beyond the match being played: a select's choice is a string. */
@@ -57,19 +59,11 @@ export function valuesOf({ bericht, kader, sides_changed: changed }: Read): Beri
   };
 }
 
-/**
- * Each side's goals as the write counts them from the goals entered: an own goal is scored by its row's side and
- * counts for the other one, and a row whose side is not chosen counts for neither.
- */
+/** Each side's goals as the write counts them from the goals entered: a row whose side is not chosen counts for neither. */
 export function counted(scorers: ReadonlyArray<{ side: FLSpielSide | null; eigentor: boolean }>): { team1: number; team2: number } {
   const score = { team1: 0, team2: 0 };
   for (const { side, eigentor } of scorers) {
-    if (side === null) continue;
-    score[eigentor ? (side === "team1" ? "team2" : "team1") : side] += 1;
+    if (side !== null) score[creditedSide({ side, eigentor })] += 1;
   }
   return score;
 }
-
-/** Whether the Sonderereignis is a no-show, whose goals the league composes and which takes no goal of its own. */
-export const isNoShow = (sonderereignis: string | null): boolean =>
-  sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";

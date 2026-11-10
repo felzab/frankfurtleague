@@ -12,6 +12,7 @@ import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { creditedSide } from "@/features/spiele/result";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -230,7 +231,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
       };
     }
     const { tor } = event;
-    score[tor.eigentor ? (tor.side === "team1" ? "team2" : "team1") : tor.side] += 1;
+    score[creditedSide(tor)] += 1;
     return {
       id: `t${String(index)}`,
       point: { record: tor.minute },
