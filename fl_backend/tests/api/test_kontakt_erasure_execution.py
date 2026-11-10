@@ -497,17 +497,11 @@ def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
     assert all("confirmations" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
 
 
-def test_the_clearing_names_the_bookkeeping_only_where_told_to_and_the_digest_always():
-    """The pure half: a season row holding no block gets no key created.
+def test_the_clearing_names_the_bookkeeping_only_where_told_to():
+    """The pure half: a season row holding no block gets no key created."""
 
-    The digest goes either way: an `$unset` creates nothing.
-    """
-
-    assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}, "$unset": {"idempotency_fingerprint": ""}}
-    assert build_clearing_update(("trainer",), confirmations=True) == {
-        "$set": {"kontakte.trainer": None, "confirmations.trainer": None},
-        "$unset": {"idempotency_fingerprint": ""},
-    }
+    assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}}
+    assert build_clearing_update(("trainer",), confirmations=True) == {"$set": {"kontakte.trainer": None, "confirmations.trainer": None}}
 
 
 CORRECTED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817301")

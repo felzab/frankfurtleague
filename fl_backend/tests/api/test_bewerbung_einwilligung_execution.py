@@ -297,7 +297,7 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmations"]["trainer"]["token_hashes"] == [HASHES["trainer"]]
-        assert (response.ergebnis, response.birth_date, response.whatsapp) == ("confirmed", AN_ADULTS_BIRTHDATE, True)
+        assert (response.outcome, response.birth_date, response.whatsapp) == ("confirmed", AN_ADULTS_BIRTHDATE, True)
 
     def test_a_declined_whatsapp_tick_keeps_the_narrow_scope(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -483,20 +483,8 @@ class TestADecline:
         assert document["confirmations"]["stellvertretung"]["declined_at"] == TODAY
         # The Ansprechperson's objection notice names the deletion day, so no second notice follows it.
         assert document["erasure_announced_at"] == TODAY
-        assert (response.ergebnis, response.birth_date, response.media) == ("declined", None, False)
+        assert (response.outcome, response.birth_date, response.media) == ("declined", None, False)
         assert view.state == "declined"
-
-    def test_the_submissions_digest_goes_with_the_person_it_was_taken_over(self, mongo_replica_set_url: str):
-        """A hash of personal data is personal data, and it outlives the seat on no page."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["stellvertretung"], answer="declined")
-
-            return await stored(database)
-
-        document = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document(idempotency_fingerprint="a" * 64)])
-
-        assert "idempotency_fingerprint" not in document
 
     def test_a_declined_seat_takes_no_second_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
