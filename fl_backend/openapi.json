@@ -14542,73 +14542,6 @@
         "title": "FLSpielbestaetigungSchiedsrichterAnswerResponse",
         "type": "object"
       },
-      "FLSpielbestaetigungSelf": {
-        "description": "One of the signed-in referee's rows, as their panel lists it.",
-        "properties": {
-          "ansetzung": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungViewAnsetzung"
-          },
-          "entered": {
-            "title": "Entered",
-            "type": "boolean"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "past": {
-            "title": "Past",
-            "type": "boolean"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "state": {
-            "enum": [
-              "valid",
-              "agreed",
-              "declined",
-              "expired",
-              "invalid",
-              "cancelled"
-            ],
-            "title": "State",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "spiel_id",
-          "schiedsrichter_id",
-          "ansetzung",
-          "state",
-          "reason",
-          "entered",
-          "past"
-        ],
-        "title": "FLSpielbestaetigungSelf",
-        "type": "object"
-      },
       "FLSpielbestaetigungSweepResponse": {
         "description": "One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang.",
         "properties": {
@@ -14699,7 +14632,7 @@
         "type": "string"
       },
       "FLSpielbestaetigungViewAnsetzung": {
-        "description": "The clubs, the day, the hour and the ground a page or a message states.\n\nThe fixture as it stands, or on a row whose fixture moved since, the Ansetzung the row asked about.",
+        "description": "The clubs, the day, the hour and the ground a page or a message states, the fixture's as it stands.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -14781,22 +14714,6 @@
           "complete"
         ],
         "title": "FLSpielbestaetigungenListResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungenSelfResponse": {
-        "properties": {
-          "spielbestaetigungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSelf"
-            },
-            "title": "Spielbestaetigungen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spielbestaetigungen"
-        ],
-        "title": "FLSpielbestaetigungenSelfResponse",
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
@@ -26431,73 +26348,6 @@
           }
         ],
         "summary": "A season's fixture confirmations, or one fixture's",
-        "tags": [
-          "spielbestaetigungen"
-        ]
-      }
-    },
-    "/api/v0/spielbestaetigungen/self": {
-      "get": {
-        "description": "Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.\n\nOne row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh\nrequest alone.\n\nOpen, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the\nAnsetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline\nreason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is\nserved: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open\nahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an\nadministrator entered on the row.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
-        "operationId": "spielbestaetigungen_get_self",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungenSelfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A signed-in referee's own fixture assignments",
         "tags": [
           "spielbestaetigungen"
         ]

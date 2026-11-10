@@ -270,6 +270,17 @@ def team_state_of(
             return None
 
 
+def schiedsrichter_state_of(
+    *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str
+) -> FLSpielbestaetigungSchiedsrichterState:
+    """What a referee's own list shows of their row about the fixture as it stands: `state_of`'s state, which no proposal reaches."""
+
+    state = state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=None)
+    assert state != "vorschlag" and state != "discarded"
+
+    return state
+
+
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str) -> WriteRefusal | None:
     """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
@@ -408,7 +419,7 @@ def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: An
 
 
 def view_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetzung:
-    """The fixture as it stands, for a row about that very Ansetzung: every value is the fixture's, none filled in from a row.
+    """The fixture's Ansetzung as it stands, as a page or a mail states it.
 
     Its names are the join's (`app/api/spielbestaetigungen/crud.py :: pull_named_spiele`): the stored fixture holds none.
     """
@@ -438,38 +449,6 @@ def vereinsnamen_of(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state
         return str(side["name"]) if isinstance(side, Mapping) else str(names.get(snapshot[snapshot_key]) or "")
 
     return side_name("team1", "team1_id"), side_name("team2", "team2_id")
-
-
-def clubs_without_a_season_row(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState) -> list[Any]:
-    """The row's clubs no season row names: one replaced since, whose row went to the incoming club with its name."""
-
-    snapshot = spielbestaetigung_raw["ansetzung"]
-    seated = {row.get("team_id") for row in ansetzung_state.vereine}
-
-    return [team_id for team_id in (snapshot["team1_id"], snapshot["team2_id"]) if team_id not in seated]
-
-
-def view_snapshot_of(
-    *,
-    spielbestaetigung_raw: Mapping[str, Any],
-    ansetzung_state: AnsetzungState,
-    # A club replaced since, by the name its `teams` document holds.
-    vereinsnamen: Mapping[Any, str],
-    spielort: FLSpielortFieldPublic | None,
-) -> FLSpielbestaetigungViewAnsetzung:
-    """The Ansetzung a row whose digest moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
-
-    snapshot = spielbestaetigung_raw["ansetzung"]
-    # Empty only for a club no document names at all, a dangling id a replacement exists to repair.
-    names = {**vereinsnamen, **{row.get("team_id"): str(row.get("name") or "") for row in ansetzung_state.vereine}}
-
-    return FLSpielbestaetigungViewAnsetzung(
-        team1_name=names.get(snapshot["team1_id"], ""),
-        team2_name=names.get(snapshot["team2_id"], ""),
-        date=snapshot["date"],
-        time=snapshot["time"],
-        spielort=spielort,
-    )
 
 
 def compose_answer_update(
@@ -588,7 +567,7 @@ def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Ma
     return WriteRefusal(error_code=Code.ANSETZUNG_NOT_ADOPTABLE, status=HTTPStatus.CONFLICT)
 
 
-# --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
+# --- A PARTY'S OWN ANSWER, a referee's or a club's seat holder's, signed in rather than by a link.
 
 
 # The close a referee's own decline writes in its transaction: outside `REASONS_INVALID`, so the row reads as
@@ -642,57 +621,6 @@ def compose_schiedsrichter_answer_update(*, answer: FLSpielbestaetigungAnswerKin
         set_fields.update(compose_closing_update(reason=REASON_OWN_DECLINE, today=today)["$set"])
 
     return {"$set": set_fields}
-
-
-def build_own_rows_filter(*, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
-    """These referees' rows in these seasons, open, answered or closed, walked through the referee-leading index.
-
-    The season-leading one would walk every fixture's rows of the season.
-    """
-
-    return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
-
-
-def build_current_rows_pipeline(
-    *, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any], projection: Mapping[str, int]
-) -> list[dict[str, Any]]:
-    """Each fixture's newest row alone, by `_id`, which the pass mints in order.
-
-    Chosen inside the read, so a cap on it counts the fixtures the panel shows, never a fixture's history.
-    """
-
-    return [
-        {"$match": build_own_rows_filter(saison_ids=saison_ids, schiedsrichter_ids=schiedsrichter_ids)},
-        {"$project": dict(projection)},
-        {"$sort": {"_id": -1}},
-        {"$group": {"_id": "$spiel_id", "row": {"$first": "$$ROOT"}}},
-        {"$replaceWith": "$row"},
-    ]
-
-
-def schiedsrichter_state_of(
-    *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str
-) -> FLSpielbestaetigungSchiedsrichterState:
-    """What the panel shows of a referee's own row: the link's state, which no proposal reaches here."""
-
-    state = state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=None)
-    assert state != "vorschlag" and state != "discarded"
-
-    return state
-
-
-def entered_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
-    """Whether an administrator recorded this row's answer, which `compose_enter_update` stores as `by: {kind: "admin"}`."""
-
-    return bool(((spielbestaetigung_raw.get("answer") or {}).get("by") or {}).get("kind") == "admin")
-
-
-def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
-    """The reason on the referee's own decline alone: an administrator's entry on their row is the league's record, not theirs to read."""
-
-    answer = spielbestaetigung_raw.get("answer") or {}
-
-    return answer.get("reason") if (answer.get("by") or {}).get("kind") == "schiedsrichter" else None
 
 
 # --- The pass: what its mint and its reminder write.

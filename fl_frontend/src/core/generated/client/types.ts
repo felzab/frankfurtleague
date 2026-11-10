@@ -5260,49 +5260,6 @@ export interface FLSpielbestaetigungSchiedsrichterAnswerResponse {
   state: FLSpielbestaetigungAnswerKind;
 }
 
-export type FLSpielbestaetigungSelfState = (typeof FLSpielbestaetigungSelfState)[keyof typeof FLSpielbestaetigungSelfState];
-
-export const FLSpielbestaetigungSelfState = {
-  valid: "valid",
-  agreed: "agreed",
-  declined: "declined",
-  expired: "expired",
-  invalid: "invalid",
-  cancelled: "cancelled",
-} as const;
-
-/**
- * The clubs, the day, the hour and the ground a page or a message states.
- *
- * The fixture as it stands, or on a row whose fixture moved since, the Ansetzung the row asked about.
- */
-export interface FLSpielbestaetigungViewAnsetzung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  spielort: FLSpielortFieldPublic | null;
-  team1_name: string;
-  team2_name: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
-/**
- * One of the signed-in referee's rows, as their panel lists it.
- */
-export interface FLSpielbestaetigungSelf {
-  ansetzung: FLSpielbestaetigungViewAnsetzung;
-  entered: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  past: boolean;
-  reason: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  state: FLSpielbestaetigungSelfState;
-}
-
 /**
  * One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang.
  */
@@ -5342,15 +5299,24 @@ export const FLSpielbestaetigungTeamState = {
 } as const;
 
 /**
+ * The clubs, the day, the hour and the ground a page or a message states, the fixture's as it stands.
+ */
+export interface FLSpielbestaetigungViewAnsetzung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  date: string;
+  spielort: FLSpielortFieldPublic | null;
+  team1_name: string;
+  team2_name: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  time: string;
+}
+
+/**
  * The rows newest first, closed ones included.
  */
 export interface FLSpielbestaetigungenListResponse {
   complete: boolean;
   spielbestaetigungen: FLSpielbestaetigung[];
-}
-
-export interface FLSpielbestaetigungenSelfResponse {
-  spielbestaetigungen: FLSpielbestaetigungSelf[];
 }
 
 /**

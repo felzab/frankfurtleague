@@ -153,7 +153,6 @@ import type {
   FLSpielberichtSchiedsrichterResponse,
   FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungenListResponse,
-  FLSpielbestaetigungenSelfResponse,
   FLSpielbestaetigungEnterPayload,
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
@@ -3406,35 +3405,6 @@ export const spielbestaetigungenGetSpielbestaetigungen = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielbestaetigungenListResponse> => {
   return adminKeyTransport<FLSpielbestaetigungenListResponse>(getSpielbestaetigungenGetSpielbestaetigungenUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielbestaetigungenGetSelfUrl = () => {
-  return `/api/v0/spielbestaetigungen/self`;
-};
-
-/**
- * Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
- *
- * One row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh
- * request alone.
- *
- * Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
- * Ansetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline
- * reason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is
- * served: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open
- * ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
- * administrator entered on the row.
- *
- * Refuses an address holding no live, confirmed referee record (`role_not_held`).
- * @summary A signed-in referee's own fixture assignments
- */
-export const spielbestaetigungenGetSelf = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungenSelfResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungenSelfResponse>(getSpielbestaetigungenGetSelfUrl(), {
     ...options,
     method: "GET",
   });
