@@ -8,6 +8,7 @@ import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
 import { textOf } from "@/core/copy";
 
+import { CutText } from "./CutText";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
@@ -119,15 +120,14 @@ export function Segmented({
             value={choice.id}
             data-kit-focus="ring"
             className={choiceButton({ kind: "segmented" })}>
-            {choice.mark === undefined ? (
-              textOf(choice.label)
-            ) : (
-              // 6 px apart, the mark centred on the word's line.
-              <span className="inline-flex items-center gap-1.5">
-                {choice.mark}
-                {textOf(choice.label)}
-              </span>
-            )}
+            {/* 6 px apart, the mark centred on the word's line; the words cut where the frame is held narrower. */}
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              {choice.mark}
+              <CutText
+                text={textOf(choice.label)}
+                className="min-w-0 truncate"
+              />
+            </span>
           </Radio>
         ))}
       </div>

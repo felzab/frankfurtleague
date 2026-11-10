@@ -393,15 +393,18 @@ export const entryMark = tv({
  * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame, and the
  * toggle boxes of a small multi-select, each box standing alone; both transparent inside their edges. A choice the
  * write or the send's check refused (its field's root `data-invalid`) takes the red edge a refused field's frame takes:
- * the segments' frame, and each box not chosen, a chosen one keeping the mark that says it is chosen.
+ * the segments' frame, and each box not chosen, a chosen one keeping the mark that says it is chosen. The boxes wrap,
+ * each standing alone; the segments never do, since a segment wrapped stands outside its frame's one line, over what
+ * follows, so a grid's track holding the frame takes its whole width as its least. A box narrower than its words, a
+ * phone's dialog naming two clubs, holds the frame at its own width and cuts each segment's words with „…“.
  */
 export const choiceGroup = tv({
-  base: "flex flex-wrap",
+  base: "flex",
   variants: {
     kind: {
       segmented:
-        "inline-flex h-8 self-start rounded-lg border border-border-control bg-transparent p-0.5 group-data-invalid:border-danger pointer-coarse:h-10",
-      boxes: "gap-2 group-data-invalid:*:not-data-selected:border-danger",
+        "inline-flex h-8 max-w-full self-start rounded-lg border border-border-control bg-transparent p-0.5 group-data-invalid:border-danger pointer-coarse:h-10",
+      boxes: "flex-wrap gap-2 group-data-invalid:*:not-data-selected:border-danger",
     },
   },
 });
