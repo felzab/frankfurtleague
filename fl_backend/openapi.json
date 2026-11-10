@@ -2575,8 +2575,13 @@
         "type": "object"
       },
       "FLAufstellungSpiel": {
-        "description": "The fixture a line-up is for, as its screen states it.",
+        "description": "The fixture a line-up is for, as its screen states it, with the matchday the screen's lead names it by.",
         "properties": {
+          "count_spieltage_in_phase": {
+            "minimum": 1.0,
+            "title": "Count Spieltage In Phase",
+            "type": "integer"
+          },
           "date": {
             "anyOf": [
               {
@@ -2589,14 +2594,26 @@
             ],
             "title": "Date"
           },
+          "for_third_place": {
+            "title": "For Third Place",
+            "type": "boolean"
+          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "saison_phase": {
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
             "type": "string"
+          },
+          "spieltag_position": {
+            "minimum": 1.0,
+            "title": "Spieltag Position",
+            "type": "integer"
           },
           "team1": {
             "anyOf": [
@@ -2634,6 +2651,10 @@
         "required": [
           "spiel_id",
           "saison_id",
+          "saison_phase",
+          "spieltag_position",
+          "count_spieltage_in_phase",
+          "for_third_place",
           "date",
           "time",
           "team1",
@@ -2718,6 +2739,31 @@
           "is_nachnominiert"
         ],
         "title": "FLAufstellungSpieler",
+        "type": "object"
+      },
+      "FLAufstellungStartersMax": {
+        "const": 11,
+        "type": "integer"
+      },
+      "FLAufstellungSummary": {
+        "description": "A stored line-up as the match editor states it per side: how many pupils it names, and how many of them start.",
+        "properties": {
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "starters": {
+            "minimum": 0.0,
+            "title": "Starters",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "starters"
+        ],
+        "title": "FLAufstellungSummary",
         "type": "object"
       },
       "FLAufstellungenPublic": {
@@ -11805,6 +11851,37 @@
         "title": "FLSpielAdvancement",
         "type": "object"
       },
+      "FLSpielEditorAufstellungen": {
+        "description": "Each side's line-up as the editor's line states it, the club the fixture fields there now; null where it has stored none.",
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielEditorAufstellungen",
+        "type": "object"
+      },
       "FLSpielEditorBericht": {
         "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the report document's, the one an adoption names (`adopts_bericht`), `sides` the clubs the report is\nabout, and `named` each pupil a goal names, by the names their record holds.",
         "properties": {
@@ -14721,6 +14798,9 @@
       "FLSpieleAdminSingleResponse": {
         "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.\n\n`saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's\nmatch read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
         "properties": {
+          "aufstellungen": {
+            "$ref": "#/components/schemas/FLSpielEditorAufstellungen"
+          },
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
@@ -14780,7 +14860,8 @@
           "schiedsrichter",
           "teams",
           "spielbericht",
-          "spielbestaetigungen"
+          "spielbestaetigungen",
+          "aufstellungen"
         ],
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
@@ -27275,7 +27356,7 @@
     },
     "/api/v0/spiele/{spiel_id}/admin": {
       "get": {
-        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on\nanother fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a\ngroup fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it\nreads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.\n`document_not_found` for an id no fixture holds.",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on\nanother fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a\ngroup fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it\nreads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per\nside how many pupils the stored line-up of the club fielded there names and how many of them start, null where that\nclub has stored none. `document_not_found` for an id no fixture holds.",
         "operationId": "spiele_get_spiel_admin",
         "parameters": [
           {
