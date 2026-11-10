@@ -13,19 +13,26 @@ from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     AufstellungenCollection,
     BewerbungenCollection,
+    BewerbungenReadCollection,
     DBClient,
     GrantsCollection,
+    GrantsReadCollection,
     OutboxCollection,
     RegistrierungenCollection,
+    RegistrierungenReadCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SchiedsrichterCollection,
+    SchiedsrichterReadCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
+    SpielerReadCollection,
     get_germany_now,
 )
 from app.core.journal import Journal
@@ -138,13 +145,13 @@ async def post_account_erasure(
 )
 async def get_account_erasure_view(
     identifier: PersonIdentifier,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spieler_collection: SpielerCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    spieler_collection: SpielerReadCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
+    grants_collection: GrantsReadCollection,
     db: DBClient,
 ) -> FLAccountErasureViewResponse:
     """

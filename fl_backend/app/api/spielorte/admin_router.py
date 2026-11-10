@@ -30,7 +30,7 @@ from app.core.crud import (
     refuse,
     set_inactive_since,
 )
-from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
+from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, SpielorteReadCollection, get_german_date_str
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -50,7 +50,7 @@ router = APIRouter(
 
 @router.get("", response_model=FLSpielorteListResponse, summary="List Spielorte")
 async def get_spielorte(
-    spielorte_collection: SpielorteCollection,
+    spielorte_collection: SpielorteReadCollection,
     filters: FLSpielorteFilterParams = Depends(),
 ) -> FLSpielorteListResponse:
     """An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
@@ -76,7 +76,7 @@ async def get_spielorte(
 
 
 @router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
-async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
+async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteReadCollection) -> FLSpielorteSingleResponse:
     """The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
 
     Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
