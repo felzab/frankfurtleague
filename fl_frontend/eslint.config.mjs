@@ -477,8 +477,16 @@ const CLASS_LIST_SELECTORS = [
   { kind: SelectorKind.Callee, name: CLASS_LIST_CALLEES, match: [{ type: MatcherType.String }] },
   { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP },
 ];
-/** A recipe call's key, read in any call, since a recipe is any function a `tv` call returned. */
-const RECIPE_CLASS = { kind: SelectorKind.Callee, name: "^.+$", match: [{ type: MatcherType.ObjectValue, path: RECIPE_CLASS_KEY }] };
+/**
+ * A recipe call's key, read in any call, since a recipe is any function a `tv` call returned, but an assertion's matcher
+ * (`toEqual`, `toMatchObject`), whose object is a value expected, never a recipe's options: the plugin reads a value under
+ * a computed key, `{ [name]: "settled" }`, as standing under every path, the recipe's key included.
+ */
+const RECIPE_CLASS = {
+  kind: SelectorKind.Callee,
+  name: "^(?!to[A-Z]).+$",
+  match: [{ type: MatcherType.ObjectValue, path: RECIPE_CLASS_KEY }],
+};
 
 /** An upper-case constant read as a value, never a key or a member's name, that is not named for a class list. */
 const UNSUFFIXED_CONSTANT =
@@ -1404,13 +1412,6 @@ const eslintConfig = defineConfig([
         },
       ],
     },
-  },
-  // A test hands an assertion objects under computed keys, `toEqual({ [name]: "settled" })`, and the plugin reads a
-  // value whose path it cannot name as standing under every path, the recipe's key included, so a test's calls are
-  // read for no recipe's class: a test writes no recipe call.
-  {
-    files: TEST_FILES,
-    settings: { "better-tailwindcss": { selectors: CLASS_LIST_SELECTORS } },
   },
 
   // Syntax, import and class bans rather than test sweeps: a comment naming a spelling is no literal, so
