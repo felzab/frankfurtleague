@@ -31,6 +31,7 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.registrierungen.services import (
     admits_a_nominee,
+    build_admission_erasure_filter,
     compose_ablehnung_update,
     compose_kader_fields,
     compose_person,
@@ -223,7 +224,9 @@ async def admit(
     The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
     the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
     row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
-    deleted in the same transaction, so a second press meets no row.
+    deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
+    its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
+    about any of them.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
     (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
@@ -325,7 +328,9 @@ async def admit(
             )
 
         await delete_many_from_db(
-            collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
+            collection=registrierungen_collection,
+            db_filter=build_admission_erasure_filter(registrierung_id=registrierung_id, saison_id=saison_id, address=address),
+            session=session,
         )
         # The seat check just found this junction row, so it stands.
         junction_raw = await pull_one_from_db(
