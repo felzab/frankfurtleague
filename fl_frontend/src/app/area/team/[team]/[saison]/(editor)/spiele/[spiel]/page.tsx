@@ -60,13 +60,20 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /**
  * The line under the title: the matchday, as the Spiele list names it, and when the match is played; and where nothing
  * is stored, the day the line-up is due, or since when it is overdue. Due and overdue refuse nothing: they are words
- * alone.
+ * alone. From the lock, that the league alone changes it, stored or not.
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
   const words = COPY.area.team.aufstellung;
   const due = marks === null || marks.stored ? null : dayIn(new Date(marks.due_at));
-  const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
+  const owed =
+    marks?.phase === "locked"
+      ? words.lockedLine
+      : due === null
+        ? null
+        : marks?.phase === "overdue"
+          ? words.overdueSince(due)
+          : words.dueBy(due);
   return SERVER_COPY.area.line([matchdayOf(spiel, spiel), when, owed]);
 }
 
@@ -88,6 +95,7 @@ async function readEditor(params: Props["params"]) {
     return (
       <LockedLineup
         title={title}
+        lead={leadOf(found)}
         read={found}
       />
     );
