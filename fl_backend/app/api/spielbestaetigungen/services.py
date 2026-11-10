@@ -44,6 +44,7 @@ from app.core.collections import Collection
 from app.core.exceptions import Twins, WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
+    AUFSTELLUNG_REMINDER_DAYS,
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
     SPIEL_REQUEST_LEAD_TIME_DAYS,
@@ -642,7 +643,7 @@ def last_request_day(*, today: str) -> str:
 
 
 def build_aufstellung_reminder_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """The season's fixtures whose kick-off the line-up reminder's window can hold: from today to two days on.
+    """The season's fixtures whose kick-off the line-up reminder's window can hold: from today to `AUFSTELLUNG_REMINDER_DAYS` on.
 
     Each with a time, both sides and no decision; `app/api/aufstellungen/services.py :: aufstellung_reminder_owed`
     decides, this narrows the read.
@@ -650,7 +651,7 @@ def build_aufstellung_reminder_filter(*, saison_id: str, today: str) -> dict[str
 
     return {
         "saison_id": saison_id,
-        "date": {"$gte": today, "$lte": days_after(day=today, days=2)},
+        "date": {"$gte": today, "$lte": days_after(day=today, days=AUFSTELLUNG_REMINDER_DAYS)},
         "time": {"$ne": None},
         "team1": {"$ne": None},
         "team2": {"$ne": None},
