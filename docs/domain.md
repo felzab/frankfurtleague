@@ -131,9 +131,10 @@ retired row. `retire_blocked`, `spielort_still_booked` and `schiedsrichter_still
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
 sets away and writes nothing back, and what it is for is [the rules
 below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person and every one of
-their squad rows, repoints every scorer and card entry naming them in a match report, and every line-up entry,
-at the erased sentinel (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
-`fl_backend/app/api/aufstellungen/crud.py :: repoint_pupil_aufstellungen_in_session`) and removes their values in
+their squad rows, repoints every scorer and card entry naming them in a match report, and every entry on a line-up
+locked before its match, at the erased sentinel, removes their entries from the line-ups not yet locked
+(`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
+`fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`) and removes their values in
 the action log, as one transaction over all five, and asks no retirement first — any one of the five alone would
 leave the erasure defeated while reporting success, a report entry, a line-up entry or a log row holding what was erased being
 exactly the record the erasure exists to remove.
