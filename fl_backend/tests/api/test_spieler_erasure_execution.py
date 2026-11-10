@@ -23,6 +23,7 @@ from tests.documents import (
     saison_document,
     saison_spieler_document,
     saison_team_document,
+    spiel_document,
     spielbericht_document,
     spieler_document,
 )
@@ -296,7 +297,7 @@ class TestTheirReportEntriesNameTheSentinel:
         }
 
     def test_no_line_up_names_them_and_every_other_entry_and_line_up_stands(self, mongo_replica_set_url: str):
-        """A line-up is the club's record of whom it fielded, so its entry stays and names nobody: a repoint reaching every entry fails."""
+        """A kicked-off match's line-up records whom the club fielded, so its entry stays and names nobody: a repoint of every entry fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             document = person_row(ERASED_FIRST_NAME)
@@ -304,7 +305,11 @@ class TestTheirReportEntriesNameTheSentinel:
             await database[Collection.SPIELER].insert_many([document, other])
             spieler_id, other_id = document["_id"], other["_id"]
 
-            spiel = {"_id": ObjectId(), "saison_id": SAISON_ID}
+            # Kicked off before `NOW`.
+            spiel = spiel_document(
+                spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=ObjectId(), date="2026-03-28", time="10:00:00"
+            )
+            await database[Collection.SPIELE].insert_one(spiel)
             theirs = aufstellung_document(spiel, ObjectId(), starters=[other_id, spieler_id], bench=[])
             elsewhere = aufstellung_document(spiel, ObjectId(), starters=[other_id], bench=[])
             await database[Collection.AUFSTELLUNGEN].insert_many([theirs, elsewhere])

@@ -651,6 +651,7 @@ async def erase_everything(
                 spielberichte_collection=spielberichte_collection,
                 aufstellungen_collection=aufstellungen_collection,
                 spieler_id=row["_id"],
+                now=now,
                 session=session,
             )
             spieler += erased.spieler

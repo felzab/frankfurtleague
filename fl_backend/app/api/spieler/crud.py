@@ -1,10 +1,11 @@
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aufstellungen.crud import repoint_pupil_aufstellungen_in_session
+from app.api.aufstellungen.crud import erase_pupil_from_aufstellungen_in_session
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import repoint_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
@@ -160,10 +161,11 @@ async def erase_person_in_session(
     spielberichte_collection: AsyncCollection,
     aufstellungen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
+    now: datetime,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonErased:
-    """Repoint the person's report and line-up entries at the sentinel, and remove the person and their squad rows.
+    """Repoint their report and kicked-off line-up entries at the sentinel, drop those on line-ups ahead, remove them and their squad rows.
 
     Whether they may be erased is the caller's to judge; the sentinel must stand already
     (`ensure_ghost_spieler`).
@@ -176,7 +178,9 @@ async def erase_person_in_session(
     # Before the removal, as the erasure reaches every reference to a person before the person: an
     # entry left naming the id names a row nothing holds.
     await repoint_pupil_entries_in_session(spielberichte_collection=spielberichte_collection, spieler_id=spieler_id, session=session)
-    await repoint_pupil_aufstellungen_in_session(aufstellungen_collection=aufstellungen_collection, spieler_id=spieler_id, session=session)
+    await erase_pupil_from_aufstellungen_in_session(
+        aufstellungen_collection=aufstellungen_collection, spieler_id=spieler_id, now=now, session=session
+    )
 
     # The squad rows first: the public read starts from them and drops a row whose person its `$lookup` cannot
     # find, so a row left behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
