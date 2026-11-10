@@ -206,8 +206,8 @@ class FLAufstellungReminderData(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     appointment: FLSpielMailAppointment
-    # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_HOURS` before the kick-off:
-    # carried, so the mail states it and no builder counts the hours a second time.
+    # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_DAYS` before the kick-off:
+    # carried, so the mail states it and no builder counts the days a second time.
     due_at: AwareDatetime
 
 

@@ -15,7 +15,7 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 AUFSTELLUNG_ENTRIES_MAX = 60
 
 # Where a line-up stands against its fixture's kick-off, by the clock alone: `open` before the due mark, `overdue` from
-# it to the lock, `locked` from the lock, for the team alone (`app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_HOURS`,
+# it to the lock, `locked` from the lock, for the team alone (`app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_DAYS`,
 # `AUFSTELLUNG_LOCK_HOURS`). Whether one is stored is a second fact beside it: a page combines the two.
 type FLAufstellungPhase = Literal["open", "overdue", "locked"]
 

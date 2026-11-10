@@ -216,14 +216,16 @@ SPIELBERICHT_ENTRIES_MAX: Final = 60
 
 # A line-up's three marks, each counted back from its fixture's kick-off, here and nowhere else: from the first a team
 # holding none is owed its one reminder, from the second a missing line-up reads overdue, and from the third the team's
-# line-up is locked and the administration alone writes it.
-AUFSTELLUNG_REMINDER_HOURS: Final = 48
-AUFSTELLUNG_DUE_HOURS: Final = 24
+# line-up is locked and the administration alone writes it. The first two are days back at the kick-off's clock time in
+# Berlin, so a team reads the same hour every week of the year; the lock is real hours.
+AUFSTELLUNG_REMINDER_DAYS: Final = 2
+AUFSTELLUNG_DUE_DAYS: Final = 1
 AUFSTELLUNG_LOCK_HOURS: Final = 1
 
 # Each mark inside the one before it: a lock ahead of the due mark would close a line-up before it is owed, and a
-# reminder inside the due mark would remind of one already overdue.
-if not AUFSTELLUNG_LOCK_HOURS < AUFSTELLUNG_DUE_HOURS < AUFSTELLUNG_REMINDER_HOURS:
+# reminder inside the due mark would remind of one already overdue. A day back across the autumn clock change is 25
+# real hours and across the spring one 23, so the lock stays inside the shorter.
+if not (AUFSTELLUNG_LOCK_HOURS < 24 * AUFSTELLUNG_DUE_DAYS - 1 and AUFSTELLUNG_DUE_DAYS < AUFSTELLUNG_REMINDER_DAYS):
     raise RuntimeError("A line-up's marks nest: the lock inside the due mark, the due mark inside the reminder's.")
 
 # How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it. Published as
