@@ -135,7 +135,8 @@ def find_not_in_kader_refusal(
 ) -> WriteRefusal | None:
     """`spieler_not_in_kader`: a pupil newly named is in the club's live squad of the season.
 
-    On each entry it refuses, by its path, so the screen marks the row it names.
+    On each entry it refuses, by its path into the payload's `spieler`, so the screen marks the row it names rather
+    than reloading over the club's other picks.
     """
 
     live = {row["spieler_id"] for row in kader if row["inactive_since"] is None}
@@ -159,7 +160,13 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
     if named_nominees <= max(0, AUFSTELLUNG_STARTERS_MAX - regular):
         return None
 
-    return WriteRefusal(error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE, status=HTTPStatus.CONFLICT)
+    # The bound on the list, so the screen words the eleven from the server rather than a copied figure.
+    return WriteRefusal(
+        error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
+        status=HTTPStatus.CONFLICT,
+        fields=(("spieler",),),
+        bounds={"max": AUFSTELLUNG_STARTERS_MAX},
+    )
 
 
 def find_starters_refusal(entries: Sequence[FLAufstellungEntry]) -> WriteRefusal | None:

@@ -273,7 +273,11 @@ def kader_is_open(context: BerichtContext, *, today: str) -> bool:
 
 
 def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> WriteRefusal | None:
-    """`spieler_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season."""
+    """`spieler_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season.
+
+    Naming no entry, unlike the line-up's: the referee's form takes it as a page gone stale, whose reload serves the
+    squads as they stand.
+    """
 
     for side in SIDES:
         kader = {row["spieler_id"] for row in live_kader(context, side)}
