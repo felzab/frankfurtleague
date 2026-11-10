@@ -3267,6 +3267,7 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
+  deletion_days: number;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;

@@ -9322,6 +9322,10 @@
       "FLRegistrierungAbsageData": {
         "description": "A team's decline, to a pupil whose address was confirmed.",
         "properties": {
+          "deletion_days": {
+            "title": "Deletion Days",
+            "type": "integer"
+          },
           "kind": {
             "const": "registrierung_absage",
             "title": "Kind",
@@ -9352,7 +9356,8 @@
           "kind",
           "team",
           "saison_id",
-          "reason"
+          "reason",
+          "deletion_days"
         ],
         "title": "FLRegistrierungAbsageData",
         "type": "object"
