@@ -364,3 +364,101 @@ describe("the kit's dialog", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+const SAVE = COPY.shared.verb.save;
+const END = COPY.shared.verb.deregister;
+
+/** A small record's dialog: its one field and its save, and under the field the act that ends the record. */
+function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<ActionAnswer>; end: () => Promise<ActionAnswer> }) {
+  return (
+    <Dialog
+      title={NAME}
+      act={{ verb: "save" }}
+      action={save}
+      danger={{
+        name: COPY.shared.withObject(NAME, "deregister"),
+        consequence: COPY.admin.spielort.retireConsequence,
+        confirm: { verb: "deregister", subject: NAME, consequence: COPY.admin.spielort.retireConsequence, tone: "danger", onConfirm: end },
+      }}
+      trigger={
+        <Button
+          variant="secondary"
+          label={COPY.shared.verb.edit}
+        />
+      }>
+      <TextField
+        label={INPUT}
+        name="created"
+        width="W3"
+        kind="text"
+      />
+    </Dialog>
+  );
+}
+
+/** Opens the record's dialog and, from its danger row, the question. */
+async function askToEnd() {
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.edit }));
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: END }));
+  return screen.findByRole("alertdialog");
+}
+
+describe("a dialog's danger row", () => {
+  // The harm: the record saved and ended at once, each write on the version the other moves past.
+  it("closes its act while the dialog's own runs, and the dialog's own while its question stands", async () => {
+    const saved = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => saved.resolve(DONE));
+    render(
+      <RecordDialog
+        save={() => saved.promise}
+        end={async () => DONE}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.edit }));
+    const dialog = screen.getByRole("dialog");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: END }).hasAttribute("disabled")).toBe(true));
+
+    await act(async () => saved.resolve({ ok: false, reason: COPY.shared.failure.stale }));
+    await userEvent.click(within(dialog).getByRole("button", { name: END }));
+    await screen.findByRole("alertdialog");
+    // The question is a modal over the dialog: React Aria takes everything under it out of reach, the save with it.
+    expect(screen.queryByRole("button", { name: SAVE })).toBeNull();
+  });
+
+  // The harm: a refused „Austragen“ closing its question, or the dialog under it, its reason shown nowhere.
+  it("keeps a refused act's reason in its question, the dialog standing under it", async () => {
+    const reason = COPY.shared.failure.stale;
+    render(
+      <RecordDialog
+        save={async () => DONE}
+        end={async () => ({ ok: false, reason })}
+      />,
+    );
+    const question = await askToEnd();
+    await userEvent.click(within(question).getByRole("button", { name: END }));
+
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
+    expect(screen.getByRole("dialog", { hidden: true })).toBeTruthy();
+  });
+
+  // The harm: the dialog standing open over a record that is gone, or the keyboard's place lost on `body` as the
+  // question's own return address, the row's button, leaves with the dialog.
+  it("closes the question and the dialog on a done act, the focus back on what opened the dialog", async () => {
+    const end = vi.fn(async (): Promise<ActionAnswer> => DONE);
+    render(
+      <RecordDialog
+        save={async () => DONE}
+        end={end}
+      />,
+    );
+    const question = await askToEnd();
+    await userEvent.click(within(question).getByRole("button", { name: END }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { hidden: true })).toBeNull());
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(end).toHaveBeenCalledOnce();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: COPY.shared.verb.edit })));
+  });
+});

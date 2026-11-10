@@ -119,10 +119,14 @@ export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
  * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
  * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will. `note`
  * is the words of the line a section's closed state stands under its title, set unseen, where the section can carry
- * one. An editor's danger box takes `danger` in their place, one flat row each.
+ * one. An editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge
+ * `list`, the list's own placeholder.
  */
 export function SectionPlaceholder(
-  props: { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never } | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never },
+  props:
+    | { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never; list?: never }
+    | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never; list?: never }
+    | { list: ReactElement; rows?: never; note?: never; danger?: never },
 ) {
   const slots = boxHead({ ruled: true });
   return (
@@ -139,7 +143,9 @@ export function SectionPlaceholder(
           />
         )}
       </div>
-      {props.danger === undefined ? (
+      {props.list !== undefined ? (
+        <div className="grid">{props.list}</div>
+      ) : props.danger === undefined ? (
         <div className={slots.content({ class: "gap-2" })}>
           {props.rows.map((row, index) => (
             <RowPlaceholder
@@ -185,6 +191,7 @@ export function Section({
   help,
   note,
   danger,
+  list,
   children,
 }: {
   title: Copy;
@@ -194,9 +201,14 @@ export function Section({
   note?: Copy;
   /** An editor's irreversible and retiring acts, one row each, filling the box's width: `EditorPage`'s danger rows. */
   danger?: ReactNode;
+  /**
+   * A list whose own hairlines reach the box's edges, such as a list of records (`RecordRows`): it fills the box's
+   * width under the rule and brings its own insets, where `children` stand in the box's padding.
+   */
+  list?: ReactNode;
   children?: ReactNode;
 }) {
-  const slots = boxHead({ ruled: children !== undefined || danger !== undefined });
+  const slots = boxHead({ ruled: children !== undefined || danger !== undefined || list !== undefined });
   return (
     <section className={cardSurface({ class: danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
@@ -225,6 +237,7 @@ export function Section({
       {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
           apart, each field's message line, always there, holding the rest of the space between two fields. */}
       {children !== undefined && <div className={slots.content({ class: "gap-2" })}>{children}</div>}
+      {list !== undefined && <div className="grid">{list}</div>}
       {danger !== undefined && <div className="grid">{danger}</div>}
     </section>
   );

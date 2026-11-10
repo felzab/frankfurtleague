@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { Card, CardPlaceholder } from "./Card";
-import { ActRow } from "./Dialog";
+import { ActRow } from "./DialogOverlay";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { statusLine } from "./fieldStyles";

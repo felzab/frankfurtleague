@@ -9,7 +9,7 @@ import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
 import { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft, setRequestActor } from "./requestScope";
 
-import type { Code } from "./generated/client/types";
+import type { Code, FLRefusedField } from "./generated/client/types";
 import type { RequestActor } from "./requestScope";
 import type { SubjectSession } from "./subject";
 
@@ -87,14 +87,14 @@ vi.mock("./logging", () => ({
 
 const Venue = z.object({ name: z.string().min(1).max(10), postcode: z.string().regex(/^\d{5}$/) });
 
-/** The backend's failure body at `statusCode` with `code`. */
-const failure = (statusCode: number, code: Code | undefined) =>
+/** The backend's failure body at `statusCode` with `code`, naming `refusedFields`. */
+const failure = (statusCode: number, code: Code | undefined, refusedFields: readonly FLRefusedField[] = []) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend/api/v0/spielorte",
     statusCode,
     serverErrorCode: code,
-    refusedFields: [],
+    refusedFields,
     endpoint: "/spielorte",
     method: "POST",
     readOnly: false,
@@ -366,6 +366,57 @@ describe("the site's cache", () => {
 
     expect(state.steps).toStrictEqual(["admin guard", "sent POST"]);
     expect(behind).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+  });
+});
+
+// The harm: a row's refusal shown on another row, on the list's one line where nobody finds the row, or nowhere.
+describe("a list of records", () => {
+  const { field } = COPY.shared;
+  const Report = z.object({ changes: z.object({ scorers: z.array(z.object({ minute: z.string().regex(/^\d{1,3}$/) })).max(3) }) });
+  const scorers = (...minutes: string[]) => ({ changes: { scorers: minutes.map((minute) => ({ minute })) } });
+
+  /** A save of the report's rows, which the backend refuses for the third row's minute. */
+  const save = (paths: { [path: string]: "changes.scorers" | "changes.scorers.*.minute" }) =>
+    action({
+      lane: "admin",
+      name: "saveBericht",
+      input: Report,
+      ownWords: ["ergebnis_missing_tore"],
+      paths,
+      examples: { "changes.scorers.*.minute": field.exampleDigits },
+      run: async () => {
+        const refused: FLRefusedField = { in: "body", kind: "ergebnis_missing_tore", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
+        await sends("PUT", undefined, failure(422, "payload_refused", [refused]));
+        return { ok: true, value: undefined };
+      },
+    });
+
+  it("answers the form's own check on each row's box and on the list's, the example named for every row", async () => {
+    expect(await save({})(scorers("x", "12", "", "9x"))).toStrictEqual({ ok: false, fieldErrors: { "changes.scorers": field.max(3) } });
+    expect(await save({})(scorers("x", "", "9x"))).toStrictEqual({
+      ok: false,
+      fieldErrors: {
+        "changes.scorers.0.minute": field.format(field.exampleDigits),
+        "changes.scorers.1.minute": field.required,
+        "changes.scorers.2.minute": field.format(field.exampleDigits),
+      },
+    });
+  });
+
+  it("places the backend's refusal of a row's field on that row's box", async () => {
+    expect(await save({ "bericht.scorers.*.minute": "changes.scorers.*.minute" })(scorers("12", "45", "90"))).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      fieldErrors: { "changes.scorers.2.minute": field.required },
+    });
+  });
+
+  it("answers a row's refusal as a stale page where only its list is declared, never on the list's box", async () => {
+    expect(await save({ "bericht.scorers": "changes.scorers" })(scorers("12", "45", "90"))).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      reason: COPY.shared.failure.stale,
+    });
   });
 });
 

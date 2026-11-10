@@ -37,6 +37,7 @@ export type FreeText = { arrow: Copy; maxLength?: number };
  */
 export function ComboBox({
   label,
+  labelHidden = false,
   description,
   consequence,
   options,
@@ -50,6 +51,8 @@ export function ComboBox({
   onChange,
 }: {
   label: Copy;
+  /** Whether the label names the field to a screen reader alone, the place around it naming it on the screen. */
+  labelHidden?: boolean;
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
@@ -74,6 +77,7 @@ export function ComboBox({
     <AriaComboBox
       ref={root}
       className={fieldRoot()}
+      aria-label={labelHidden ? label : undefined}
       name={name}
       // The form receives the chosen record's id, not the text typed to find it, unless the text is the answer.
       formValue="key"
@@ -88,10 +92,12 @@ export function ComboBox({
       onInputChange={setText}
       isRequired={isRequired}
       isDisabled={useDisabled(isDisabled)}>
-      <FieldLabel
-        label={label}
-        isRequired={isRequired}
-      />
+      {!labelHidden && (
+        <FieldLabel
+          label={label}
+          isRequired={isRequired}
+        />
+      )}
       <Group
         data-kit-focus="field"
         className={fieldFrame({ width: "W3", inset: "start", layout: "group" })}>
