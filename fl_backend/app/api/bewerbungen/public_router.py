@@ -86,6 +86,7 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_mailboxes_in_db,
     patch_one_in_db,
+    patch_past_the_version_in_db,
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
@@ -520,7 +521,9 @@ async def post_einwilligung(
             refuse(find_alter_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
             refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
-            await patch_one_in_db(
+            # The person's own press, judged on the read above: an administrator's save read before it still lands, and
+            # „Sitz bearbeiten“ keeps a kept seat's record from its own in-session read.
+            await patch_past_the_version_in_db(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 update=compose_confirmation_update(
@@ -536,8 +539,6 @@ async def post_einwilligung(
                     takes_the_notice_back=False,
                 ),
                 session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
             )
 
             return FLSaisonTeamEinwilligungAnswerResponse(
@@ -608,7 +609,8 @@ async def post_einwilligung(
             refuse(find_alter_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
             refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
-            updated_raw = await patch_one_in_db(
+            # The season row's way past the count, for its reason: a decision read before the press still lands.
+            await patch_past_the_version_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": bewerbung_raw["_id"]},
                 update=compose_confirmation_update(
@@ -623,8 +625,6 @@ async def post_einwilligung(
                     takes_the_notice_back=leaving_moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats),
                 ),
                 session=session,
-                expected_version=None,
-                return_document=ReturnDocument.AFTER,
             )
 
             return FLBewerbungEinwilligungAnswerResponse(

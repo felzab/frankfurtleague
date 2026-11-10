@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_withdrawal
@@ -16,7 +15,7 @@ from app.api.identity.services import own_seats
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, refuse
+from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.journal import Journal
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
@@ -83,13 +82,9 @@ async def patch_einwilligung(
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if update is not None:
-            await patch_one_in_db(
-                collection=bewerbungen_collection,
-                db_filter={"_id": bewerbung["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
+            # The person's own press, judged on the read above: an administrator's decision read before it still lands.
+            await patch_past_the_version_in_db(
+                collection=bewerbungen_collection, db_filter={"_id": bewerbung["_id"]}, update=update, session=session
             )
         if moved := withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen):
             journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=rollen)
