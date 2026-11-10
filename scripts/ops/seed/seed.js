@@ -17,6 +17,11 @@
 //   referees, every one with the address both referee payloads require, one retired and one unanswered;
 // - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the
 //   Übersicht for „Übernehmen“ and „Verwerfen“;
+// - the signed-in areas: a seat whose club holds a stored line-up, a locked one, an agreed date and several
+//   registrations, and Birke's Trainer holding a declined date and an expired one beside a club with no
+//   registration; referees with a booking to answer, one agreed, a report owed and one adopted; a captain and a
+//   Co-Kapitän; a pupil with a finished season beside the running one; and a person granted no page, one
+//   unconfirmed and one waiting on the club;
 // - an owner and administrators in effect, an addition and a handover waiting, since a wait cannot be slept through;
 // - a ban, a running change of a person's address and of a holder's, and a log row of each who;
 // - a retired club, and clubs still in the league the planned season has not entered.
@@ -633,12 +638,12 @@ running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
  * day, the club's other seats empty. Group A's clubs alone, which no Austritt journey's notice reaches
  * (`fl_frontend/playwright.config.ts`'s `departing`).
  */
-function journeySeat(clubName, firstName, lastName) {
+function journeySeat(clubName, firstName, lastName, ansprechperson = vacantSeat()) {
   Object.assign(
     running.saisonTeams.find((row) => row.name === clubName),
     rowSeats(`${clubName.toLowerCase()}-2027`, -30, {
       trainer: confirmedSeat(firstName, lastName),
-      ansprechperson: vacantSeat(),
+      ansprechperson,
       stellvertretung: vacantSeat(),
     }),
   );
@@ -649,7 +654,9 @@ function journeySeat(clubName, firstName, lastName) {
 journeySeat("Ahorn", "Achim", "Aust");
 journeySeat("Ulme", "Uta", "Uhlig");
 // The registration journey's (`registering`): the seat that admits the pupil registering through the club's link.
-journeySeat("Kastanie", "Katja", "Kraus");
+// Kastanie's Ansprechperson is no journey's: the person a drive of the team's pages signs in as, the club holding a
+// stored line-up, a locked one, an agreed date and several registrations.
+journeySeat("Kastanie", "Katja", "Kraus", confirmedSeat("Konrad", "Kuhn"));
 journeySeat("Eiche", "Edgar", "Eckert");
 
 // The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
@@ -747,6 +754,21 @@ const JOURNEY_REQUESTS = [
   request(ULME_KASTANIE, schiedsrichterOf(ULME_KASTANIE), -12),
 ];
 
+/** An agreement given `answeredOn` days from today, as `:: compose_answer_update` and `:: compose_schiedsrichter_answer_update` write one. */
+const agreed = (answeredOn, by) => ({ kind: "agreed", at: day(answeredOn), by, vorschlag: null, reason: null });
+
+// Each a state a person's own page shows, no journey's: Kastanie's agreement on match 10, which is why the first pass
+// asks it nothing; Birke's request about today's match 7, unanswered past its deadline a week ago; and two referees'
+// bookings, Carla Conrad's on match 11 still to answer and Anna Ahrens's on today's match 6 agreed.
+const TODAYS_SEVENTH = running.spiele.find((row) => row.spiel_nr === 7);
+const TODAYS_SIXTH = running.spiele.find((row) => row.spiel_nr === 6);
+const STATED_REQUESTS = [
+  { ...request(ULME_KASTANIE, teamParty("Kastanie"), -12), answer: agreed(-5, { kind: "kontakt", rolle: "ansprechperson" }) },
+  request(TODAYS_SEVENTH, teamParty("Birke"), -20),
+  request(PROPOSED, schiedsrichterOf(PROPOSED), -14),
+  { ...request(TODAYS_SIXTH, schiedsrichterOf(TODAYS_SIXTH), -20), answer: agreed(-15, { kind: "schiedsrichter" }) },
+];
+
 // The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
 const GHOST_SPIELER = {
   _id: ObjectId("000000000000000000000001"),
@@ -779,14 +801,14 @@ function pupil(firstName, lastName, consentedOn = CONSENTED) {
 
 const PUPILS = { mia: pupil("Mia", "Ahornberg"), jonas: pupil("Jonas", "Ahornberg"), lena: pupil("Lena", "Kastner") };
 
-function squadRow(person, clubName, nummer, { position = "Angriff", nominee = false, retiredOn = null } = {}) {
+function squadRow(person, clubName, nummer, { saison = "2027", position = "Angriff", nominee = false, retiredOn = null, rolle = null } = {}) {
   return {
     _id: ObjectId(),
     spieler_id: person._id,
-    saison_id: "2027",
+    saison_id: saison,
     team_id: club[clubName]._id,
     is_nachnominiert: nominee,
-    rolle: null,
+    rolle,
     stufe: "Q2",
     position,
     nummer,
@@ -853,9 +875,12 @@ const KASTANIE_SQUAD = [
   ["Mats", "Kordes"],
 ].map(([firstName, lastName]) => pupil(firstName, lastName));
 
+// Mia captains Ahorn and Jonas is its Co-Kapitän, each mark standing on the squad and on match 1's line-up; Mia played for
+// Ahorn in the finished season too, a pupil's own page holding a past season beside the running one.
 const SQUADS = [
-  squadRow(PUPILS.mia, "Ahorn", "9"),
-  squadRow(PUPILS.jonas, "Ahorn", "4"),
+  squadRow(PUPILS.mia, "Ahorn", "9", { saison: "2026" }),
+  squadRow(PUPILS.mia, "Ahorn", "9", { rolle: "kapitaen" }),
+  squadRow(PUPILS.jonas, "Ahorn", "4", { rolle: "co_kapitaen" }),
   ...AHORN_SQUAD.map((person, index) => squadRow(person, "Ahorn", String(10 + index), { position: POSITIONS[index % POSITIONS.length] })),
   squadRow(NOMINEE, "Ahorn", "30", { nominee: true }),
   squadRow(RETIRED_NOMINEE, "Ahorn", "31", { nominee: true, retiredOn: -5 }),
@@ -1351,7 +1376,9 @@ for (const [name, documents] of Object.entries(UNEDITED)) {
 
 // The confirmations are no form's edit either, and their first carries the count the adoption's anchor advances.
 const proposals = db.getCollection("spielbestaetigungen").insertMany(
-  [...PROPOSALS, ASKED_REFEREE, ...JOURNEY_REQUESTS].map((document, index) => (index === 0 ? { ...document, bounded_writes: 1 } : document)),
+  [...PROPOSALS, ASKED_REFEREE, ...JOURNEY_REQUESTS, ...STATED_REQUESTS].map((document, index) =>
+    index === 0 ? { ...document, bounded_writes: 1 } : document,
+  ),
   { ordered: true },
 ).insertedIds;
 print(`seeded spielbestaetigungen: ${Object.keys(proposals).length} document(s)`);
