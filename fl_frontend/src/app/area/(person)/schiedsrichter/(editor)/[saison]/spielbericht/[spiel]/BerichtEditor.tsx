@@ -106,10 +106,11 @@ export function BerichtEditor({
     return { text: SPIEL.wins(one > other ? sides.team1.name : sides.team2.name, score), tone: "win" };
   };
 
-  const choices = [
-    { id: "team1", label: sides.team1.plaque ?? sides.team1.name },
-    { id: "team2", label: sides.team2.plaque ?? sides.team2.name },
-  ];
+  // A side drawn as its club's Kürzel is heard by the club's name.
+  const choices = (["team1", "team2"] as const).map((id) => {
+    const { plaque, name } = sides[id];
+    return plaque === null ? { id, label: name } : { id, label: plaque, spoken: name };
+  });
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: SPIEL.none },
     { id: "nichtantreten_team1", label: WORDS.nichtAngetreten(sides.team1.name) },
