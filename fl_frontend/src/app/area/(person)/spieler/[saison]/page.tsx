@@ -6,6 +6,7 @@ import { ReadPage } from "@/kit/ReadPage";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
+import { isPublicSaison } from "@/features/saisons/queries";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getSpielerSaisonSelf } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
@@ -44,17 +45,18 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 const factOf = (value: string | null) => (value === null ? COPY.shared.noValue : { record: value });
 
 /**
- * Where the pupil plays in the season shown: their club, a link to its page, with the squad row's chip after it, and
- * their Nummer, Position and Stufe.
+ * Where the pupil plays in the season shown: their club, a link to its page where the public may read the season, with
+ * the squad row's chip after it, and their Nummer, Position and Stufe.
  */
-function tilesOf(saison: string, kader: FLSpielerSelfKaderRow): readonly [StatTile, StatTile, StatTile, StatTile] {
+function tilesOf(saison: string, kader: FLSpielerSelfKaderRow, isPublic: boolean): readonly [StatTile, StatTile, StatTile, StatTile] {
   const chip = rowChip(kader);
   return [
     {
       label: COPY.shared.facts.team,
       value: { record: kader.team_name },
       words: true,
-      href: ROUTES.team.path(saison, kader.team_id),
+      // A planned season's club page answers not found to everyone, its own pupils included.
+      ...(isPublic ? { href: ROUTES.team.path(saison, kader.team_id) } : {}),
       ...(chip === undefined ? {} : { chip }),
     },
     { label: WORDS.nummer, value: factOf(kader.nummer) },
@@ -70,9 +72,10 @@ async function readSaison(params: Props["params"]): Promise<ReadContent> {
   if (read === null) notFound();
   const { kader, spiele } = read;
   const deregistered = kader.inactive_since !== null;
+  const isPublic = await isPublicSaison(saison);
   return {
     groups: [
-      { kind: "tiles", tiles: { layout: "four", items: tilesOf(saison, kader) } },
+      { kind: "tiles", tiles: { layout: "four", items: tilesOf(saison, kader, isPublic) } },
       {
         title: COPY.page.spiele,
         kind: "spiele",
