@@ -5945,7 +5945,7 @@ export interface FLTeamPanelAufstellung {
 }
 
 /**
- * One pending registration as the Übersicht names it: who waits, since when, and whether the team may admit them yet.
+ * One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet.
  */
 export interface FLTeamPanelRegistrierung {
   admissible: boolean;
@@ -5953,8 +5953,10 @@ export interface FLTeamPanelRegistrierung {
   first_name: string;
   /** @minLength 1 */
   last_name: string;
+  position: FLSpielerPosition | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
+  stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
 }
