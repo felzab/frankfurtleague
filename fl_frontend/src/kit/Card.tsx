@@ -164,13 +164,9 @@ export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: Reado
  * One choice of a chooser: its title, a record's own name such as a club's or the catalogue's for a place that is
  * no record's, the line under it where the choice has one to name, and where it leads.
  */
-type CardLinkProps = { href: Route; title: Words; line?: Words };
+export type CardLinkProps = { href: Route; title: Words; line?: Words };
 
-/**
- * One choice of the chooser: the whole card one link, its title and its line, the chevron at its right.
- * @awaitsPage the role chooser's page
- * @awaitsProduction the role chooser's page
- */
+/** One choice of the chooser: the whole card one link, its title and its line, the chevron at its right. */
 export function CardLink({ href, title, line }: CardLinkProps) {
   return (
     <section className={card().root()}>
