@@ -17,8 +17,6 @@ import type { PersonKind } from "./queries";
  * The signed-in person a page at `path` under `/area` is drawn for, or a redirect to sign in carrying `path` back, as
  * the proxy's turn-away does. A page's alone, thrown inside its read: a frame reads `getSubjectSession` and draws no
  * account for `null`, since a redirect thrown in a frame unmounts it whole.
- * @awaitsPage the role chooser's page
- * @awaitsProduction the role chooser's page
  */
 export async function requireSubjectSession(path: string): Promise<SubjectSession> {
   const subject = await getSubjectSession();
