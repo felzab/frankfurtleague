@@ -211,10 +211,11 @@ export function counterpart({
 
 /**
  * The entries with their addresses, a season's page in the season the page works in and a team's with the team the
- * address names; one with no address is left out. With no season at all a season's page leads to `withoutSaison`, an
- * address that is not its own (`own`). A team the person does not hold keeps its pages in the menu, each at the team
- * and season the address spells and each answering with the same refusal, so the menu there is the one every team's
- * address shows.
+ * address names; one with no address is left out. With no season at all a season's page leads to `withoutSaison`,
+ * which is its own address (`own`) only where no other entry leads there: a frame of one season page has its place
+ * there, and several led to one address are the place of none. A team the person does not hold keeps its pages in the
+ * menu, each at the team and season the address spells and each answering with the same refusal, so the menu there is
+ * the one every team's address shows.
  */
 function useEntries(groups: ReadonlyArray<RailGroup>) {
   const frame = useContext(SaisonContext);
@@ -229,13 +230,15 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
     }
     return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
+  const led = groups.flatMap((group) => group.entries.map(hrefOf));
   return groups
     .map((group) => ({
       heading: group.heading,
       entries: group.entries.flatMap((entry) => {
         const href = hrefOf(entry);
-        const own = entry.saison === undefined || saison !== null;
-        return href === undefined ? [] : [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
+        if (href === undefined) return [];
+        const own = entry.saison === undefined || saison !== null || led.filter((each) => each === href).length === 1;
+        return [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
       }),
     }))
     .filter((group) => group.entries.length > 0);

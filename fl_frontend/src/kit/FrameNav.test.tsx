@@ -63,6 +63,23 @@ describe("the entry marked as the current page", () => {
     expect(lit()).toEqual([ROUTES.adminSaisons.title, ROUTES.adminSaisons.title]);
   });
 
+  it("is the one season page of a frame holding no season, at the address it leads to meanwhile", async () => {
+    const page = ROUTES.schiedsrichterOverview;
+    address.path = ROUTES.areaSchiedsrichter.path();
+    address.saison = undefined;
+    await act(async () =>
+      render(
+        <Suspense fallback={null}>
+          <SaisonScope value={{ saisons: Promise.resolve(null), home: "schiedsrichterOverview", withoutSaison: address.path, pages: [] }}>
+            <RailEntries groups={[{ entries: [{ id: "overview", label: page.title, saison: "schiedsrichterOverview", icon: "overview" }] }]} />
+          </SaisonScope>
+        </Suspense>,
+      ),
+    );
+
+    expect(lit()).toEqual([page.title]);
+  });
+
   it("is a season's page by its season's address", async () => {
     await renderMenus(ROUTES.adminTeams.path("2027"), { entries: [{ id: "2027", span: "" }], standard: "2027" });
 
