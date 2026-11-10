@@ -40,7 +40,7 @@ from app.api.saisons.services import (
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht, team_id_of
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, unplayed_filter
-from app.api.spiele.services import build_spiele_pipeline
+from app.api.spiele.services import build_named_spiele_pipeline, build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline
 from app.api.spieltage.schemas import FLKoRundeResponse, FLSpielplanResponse, FLSpielplanSpieltag
@@ -112,19 +112,21 @@ def _opening_spiel_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
         # A null sorts ahead of every time, so an untimed fixture would otherwise hide the opening day's Anpfiff.
         {"$set": {"untimed": {"$ne": [{"$type": "$time"}, "string"]}}},
         {"$sort": {"date": 1, "untimed": 1, "time": 1}},
-        # Ahead of the lookup, so it joins the one match served rather than every dated one.
+        # Ahead of the lookups, so they join the one match served rather than every dated one.
         {"$limit": 1},
         SPIELTAG_POSITION_LOOKUP,
-        {
-            "$project": {
+        # The stored fixture names no side: each is named as every fixture read names it, its one match already chosen.
+        *build_named_spiele_pipeline(
+            {},
+            projection={
                 "_id": 0,
                 "date": 1,
                 "time": 1,
                 "spieltag_position": {"$first": f"${SPIELTAG_ROWS_AS}.position"},
                 "team1": 1,
                 "team2": 1,
-            }
-        },
+            },
+        ),
     ]
 
 
