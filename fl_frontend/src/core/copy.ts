@@ -452,6 +452,8 @@ export const COPY = catalogue({
     box: "Deine Angaben",
     /** Under the address: the confirmation link goes there, and one address signs one person in. */
     ownAddress: "Deine eigene Adresse",
+    /** The number box's label, the shirt's own word, which a pupil reads where the squad's lists say „Nummer“. */
+    nummer: "Trikotnummer",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, as `bewerbung.notice`. */
     notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter ", after: "." },
   },

@@ -81,7 +81,7 @@ export function RegistrierungFields({
           maxLength={maxLength.email}
         />
         <TextField
-          label={SQUAD.nummer}
+          label={WORDS.nummer}
           name="nummer"
           width="C2"
           kind="digits"
