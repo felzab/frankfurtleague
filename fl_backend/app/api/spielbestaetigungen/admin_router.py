@@ -49,6 +49,7 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -77,7 +78,7 @@ FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Quer
     summary="A season's fixture confirmations, or one fixture's",
 )
 async def get_spielbestaetigungen(
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     filters: FLSpielbestaetigungenFilters,
 ) -> FLSpielbestaetigungenListResponse:
     """

@@ -129,7 +129,7 @@ async def pull_vorschlag_open(
 
 
 async def pull_admin_rows(
-    *, spielbestaetigungen_collection: AsyncCollection, db_filter: Mapping[str, Any], limit: int
+    *, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any], limit: int
 ) -> tuple[list[Mapping[str, Any]], bool]:
     """Every row still holding its question, whole, and the newest `limit` of the rest; and whether none was left out.
 
@@ -171,8 +171,8 @@ OWN_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, 
 
 async def pull_own_states(
     *,
-    spiele_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
+    saison_teams_collection: ReadCollection,
     spielbestaetigungen_raw: Sequence[Mapping[str, Any]],
     session: AsyncClientSession,
 ) -> dict[Any, AnsetzungState]:
@@ -212,7 +212,7 @@ async def pull_own_states(
 
 
 async def pull_spielorte_public(
-    *, spielorte_collection: AsyncCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
+    *, spielorte_collection: ReadCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
 ) -> dict[Any, FLSpielortFieldPublic]:
     """The grounds a moved row's Ansetzung names, as the link's view serves one; a ground no row holds is absent."""
 

@@ -76,6 +76,7 @@ from app.core.dependencies import (
     DBClient,
     OutboxCollection,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielbestaetigungenCollection,
@@ -244,7 +245,7 @@ class _Minted:
 
 
 @router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the confirmation pass visits")
-async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSweepSaisonsResponse:
+async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """
     Answer every `active` season's id, oldest first.
 
