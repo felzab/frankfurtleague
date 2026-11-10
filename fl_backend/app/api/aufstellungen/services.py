@@ -20,6 +20,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import AUFSTELLUNG_DUE_DAYS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_DAYS, AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.literals import FLSpielSide
 
@@ -99,13 +100,26 @@ def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
         refuse(find_locked_refusal(marks))
 
 
+def is_erased(entry: Mapping[str, Any]) -> bool:
+    """Whether a stored entry names a pupil erased after the match kicked off, whom no save names and every save keeps."""
+
+    return entry["spieler_id"] == GHOST_SPIELER_ID
+
+
+def erased_entries(saved: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    """The stored line-up's entries naming an erased pupil, in their stored order: several may stand, all naming the sentinel."""
+
+    return [] if saved is None else [entry for entry in saved["spieler"] if is_erased(entry)]
+
+
 def newly_named(entries: Sequence[FLAufstellungEntry], saved: Mapping[str, Any] | None) -> set[ObjectId]:
     """The pupils this save names that the stored line-up did not, the only ones judged against the squad.
 
-    So a line-up keeps a pupil ausgetragen or erased since it named them.
+    So a line-up keeps a pupil ausgetragen since it named them. The sentinel is never stored as named, so a save naming
+    it names a pupil outside the squad.
     """
 
-    stored = set() if saved is None else {entry["spieler_id"] for entry in saved["spieler"]}
+    stored = set() if saved is None else {entry["spieler_id"] for entry in saved["spieler"] if not is_erased(entry)}
 
     return {entry.spieler_id for entry in entries} - stored
 
@@ -142,11 +156,34 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
     return WriteRefusal(error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE, status=HTTPStatus.CONFLICT)
 
 
-def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], kader: Sequence[Mapping[str, Any]]) -> None:
-    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction and again outside it."""
+def find_starters_refusal(entries: Sequence[FLAufstellungEntry]) -> WriteRefusal | None:
+    """`aufstellung_starters_exceed_eleven`: the line-up as written, its erased pupils' kept entries included, starts eleven at most.
+
+    The payload's own rule (`starters_exceed_eleven`) sees the entries it sends alone.
+    """
+
+    if sum(entry.starts for entry in entries) <= AUFSTELLUNG_STARTERS_MAX:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.AUFSTELLUNG_STARTERS_EXCEED_ELEVEN,
+        status=HTTPStatus.CONFLICT,
+        fields=(("spieler",),),
+        bounds={"max": AUFSTELLUNG_STARTERS_MAX},
+    )
+
+
+def judge_the_names(
+    *, entries: Sequence[FLAufstellungEntry], kept: Sequence[FLAufstellungEntry], new: set[ObjectId], kader: Sequence[Mapping[str, Any]]
+) -> None:
+    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction and again outside it.
+
+    `entries` are the payload's, and `kept` the stored entries naming an erased pupil, which the save writes after them.
+    """
 
     refuse(find_not_in_kader_refusal(entries=entries, new=new, kader=kader))
-    refuse(find_nominee_refusal(entries=entries, kader=kader))
+    refuse(find_starters_refusal([*entries, *kept]))
+    refuse(find_nominee_refusal(entries=[*entries, *kept], kader=kader))
 
 
 # --- The squad a line-up picks from.

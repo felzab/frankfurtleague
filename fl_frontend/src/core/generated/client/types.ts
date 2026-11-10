@@ -56,6 +56,7 @@ export const Code = {
   aufstellung_locked: "aufstellung_locked",
   aufstellung_spiel_undated: "aufstellung_spiel_undated",
   aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
+  aufstellung_starters_exceed_eleven: "aufstellung_starters_exceed_eleven",
   bewerbung_already_decided: "bewerbung_already_decided",
   bewerbung_subject_unresolved: "bewerbung_subject_unresolved",
   bewerbung_schule_unusable: "bewerbung_schule_unusable",
@@ -1057,6 +1058,16 @@ export interface FLAufstellungEntryPublic {
   type: FLSpielberichtSpielerType;
 }
 
+/**
+ * An entry of the stored line-up naming a pupil erased after the match kicked off, which the club fielded and nobody names.
+ *
+ * Read-only and counted: no save names it, and every save keeps it as stored, since it is the record of whom the club
+ * fielded.
+ */
+export interface FLAufstellungErased {
+  starts: boolean;
+}
+
 export type FLAufstellungPhase = (typeof FLAufstellungPhase)[keyof typeof FLAufstellungPhase];
 
 export const FLAufstellungPhase = {
@@ -1124,7 +1135,7 @@ export interface FLAufstellungReminderData {
 /**
  * A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.
  *
- * Both names null where an erasure took the record, whose entries name the sentinel.
+ * Both names null where no record holds the pupil.
  */
 export interface FLAufstellungSpieler {
   first_name: string | null;
@@ -1188,6 +1199,7 @@ export interface FLAufstellungSpiel {
  * opens read-only, which the save refuses (`saison_past`).
  */
 export interface FLAufstellungResponse {
+  erased: FLAufstellungErased[];
   kader: FLAufstellungSpieler[];
   marks: FLAufstellungMarks | null;
   named: FLAufstellungSpieler[];
