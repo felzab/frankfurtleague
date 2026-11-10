@@ -174,6 +174,47 @@ describe("a row removed by its own act", () => {
   });
 });
 
+// The harm: every row's act carries the same label, so a screen reader's user hears „Entfernen“ on every row with nothing
+// saying whose, and an act done at once goes to the wrong record.
+describe("a row's acts", () => {
+  it("are described by their table row's name, and a dialog opened from one is not", async () => {
+    render(
+      <Listing
+        leaves="row"
+        addresses={["pia@example.org", "ben@example.org"]}
+      />,
+    );
+
+    for (const address of ["pia@example.org", "ben@example.org"]) {
+      expect(screen.getByRole("button", { name: VERB, description: address })).toBeTruthy();
+    }
+    await userEvent.click(screen.getByRole("button", { name: VERB, description: "ben@example.org" }));
+    expect(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }).getAttribute("aria-describedby")).toBeNull();
+  });
+
+  it("are described by their card row's name", () => {
+    render(
+      <>
+        {["Pia", "Ben"].map((name) => (
+          <CardActRow
+            key={name}
+            href="/"
+            name={{ record: name }}
+            acts={
+              <Button
+                variant="secondary"
+                label={VERB}
+              />
+            }
+          />
+        ))}
+      </>,
+    );
+
+    for (const name of ["Pia", "Ben"]) expect(screen.getByRole("button", { name: VERB, description: name })).toBeTruthy();
+  });
+});
+
 const SQUAD = ["pia@example.org", "ben@example.org", "tom@example.org"];
 
 /**
