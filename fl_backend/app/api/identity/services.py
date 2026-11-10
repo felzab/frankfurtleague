@@ -27,7 +27,7 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLSaisonStatus
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLKontaktRolle, FLSaisonStatus
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
@@ -419,13 +419,21 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     return saison_status in ("active", "future")
 
 
+def rollen_on(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> list[FLKontaktRolle]:
+    """The slots these seats hold on this team in this season, in `KONTAKT_ROLLEN` order: the one way to ask it."""
+
+    held = {seat.rolle for seat in seats if seat.team_id == team_id and seat.saison_id == saison_id}
+
+    return [rolle for rolle in KONTAKT_ROLLEN if rolle in held]
+
+
 def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> bool:
     """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
 
-    Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does, so no slot is read here.
+    Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does.
     """
 
-    return any(seat.team_id == team_id and seat.saison_id == saison_id for seat in seats)
+    return bool(rollen_on(seats, team_id=team_id, saison_id=saison_id))
 
 
 # A retired referee's record takes withdrawals alone: the consent PATCH grants by this, and the read's `givable` is the same predicate.

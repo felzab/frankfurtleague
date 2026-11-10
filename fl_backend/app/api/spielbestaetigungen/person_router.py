@@ -1,4 +1,5 @@
-from typing import Annotated
+from collections.abc import Iterable, Mapping
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -7,6 +8,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
+from app.api.identity.schemas import FLSubjectSeat
+from app.api.identity.services import rollen_on
 from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS, VEREIN_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
@@ -20,7 +23,6 @@ from app.api.spielbestaetigungen.services import (
     TEAM_ANSWER_FIELDS,
     AnsetzungState,
     ansetzung_left_refusal,
-    answering_seat,
     build_answerable_filter,
     compose_answer_update,
     compose_schiedsrichter_answer_update,
@@ -55,6 +57,7 @@ from app.core.security import PersonIdentifier, get_person_identifier, verify_ac
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.literals import FLKontaktRolle
 
 # The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason: a
 # referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
@@ -62,6 +65,20 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
+
+
+def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: Iterable[FLSubjectSeat]) -> FLKontaktRolle | None:
+    """The seat a signed-in person answers a team row from: their first in `KONTAKT_ROLLEN` order on the row's team in its season.
+
+    `None` for a row of no team, or of a team the seats do not sit on, which `foreign_row_refusal` answers alike.
+    """
+
+    if spielbestaetigung_raw is None or spielbestaetigung_raw["party"]["kind"] != "team":
+        return None
+
+    held = rollen_on(seats, team_id=spielbestaetigung_raw["party"]["team_id"], saison_id=spielbestaetigung_raw["saison_id"])
+
+    return held[0] if held else None
 
 
 @router.post(
@@ -244,7 +261,7 @@ async def post_team_answer(
         subject = await roles_of(identifier, records, session=session)
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, projection=TEAM_ANSWER_FIELDS, session=session)
-        seat = answering_seat(spielbestaetigung_raw=row, seats=subject.seats)
+        seat = _answering_seat(spielbestaetigung_raw=row, seats=subject.seats)
         refuse(None if seat is not None else foreign_row_refusal())
         assert row is not None and seat is not None
 

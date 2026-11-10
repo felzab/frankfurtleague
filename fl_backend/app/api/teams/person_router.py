@@ -16,7 +16,7 @@ from app.api.aufstellungen.schemas import FLAufstellungMarks
 from app.api.aufstellungen.services import aufstellung_marks
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, seat_is_confirmed
+from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, rollen_on, seat_is_confirmed
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
@@ -396,11 +396,7 @@ async def get_team_overview(
         shorthand=row["shorthand"],
         full_name=club["full_name"],
         trikot_farbe=row.get("trikot_farbe"),
-        rollen=[
-            rolle
-            for rolle in KONTAKT_ROLLEN
-            if any(seat.rolle == rolle for seat in subject.seats if seat.team_id == team_id and seat.saison_id == saison_id)
-        ],
+        rollen=rollen_on(subject.seats, team_id=team_id, saison_id=saison_id),
         termine=termine,
         aufstellungen=aufstellungen,
         registrierungen=[
