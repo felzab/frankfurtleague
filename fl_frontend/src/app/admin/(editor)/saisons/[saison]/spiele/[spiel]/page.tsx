@@ -254,7 +254,7 @@ const openRowOf = (rows: readonly FLSpielbestaetigung[], party: (row: FLSpielbes
  * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
  * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined, declined: Copy): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
   const open = { tone: "warn", label: COPY.template.open } as const;
@@ -268,7 +268,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
     vorschlag === null
       ? day
       : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
-  return { ...shown, chip: { tone: "danger", label: declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
+  return { ...shown, chip: { tone: "danger", label: WORDS.declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
 /** Each party's answer about the fixture as it stands: both clubs, then the referee where one is booked. */
@@ -283,7 +283,6 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             { record: team.name },
             team.shorthand,
             openRowOf(rows, (row) => row.party.kind === "team" && row.party.team_id === team.team_id),
-            WORDS.declined,
           ),
         ];
   const booked = spiel.schiedsrichter;
@@ -296,7 +295,6 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             booked.name === null ? COPY.shared.notProvided : { record: booked.name },
             null,
             openRowOf(rows, (row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
-            WORDS.cancelled,
           ),
         ];
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
