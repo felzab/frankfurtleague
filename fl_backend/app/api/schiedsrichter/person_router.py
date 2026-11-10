@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -27,7 +26,7 @@ from app.api.schiedsrichter.services import (
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SchiedsrichterCollection,
@@ -114,13 +113,10 @@ async def patch_einwilligung(
 
         update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
         if update is not None:
-            await patch_one_in_db(
-                collection=schiedsrichter_collection,
-                db_filter={"_id": row["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
+            # Past the record's `version`: the consent is no field the editor saves, and the read above, in this
+            # transaction, is what a second press is judged on.
+            await patch_past_the_version_in_db(
+                collection=schiedsrichter_collection, db_filter={"_id": row["_id"]}, update=update, session=session
             )
         choices = withdrawal_line(blocks=[saved], chosen=chosen)
         if choices is not None:
