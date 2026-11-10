@@ -219,7 +219,7 @@ function ActDialog({
               slot="title"
               level={2}
               className="text-xl font-semibold">
-              {title}
+              {textOf(title)}
             </Heading>
             {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
             <div className="grid justify-items-start gap-4">

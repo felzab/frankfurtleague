@@ -29,7 +29,8 @@ export type DialogDanger = {
 
 /** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
 export type DialogAct = {
-  title: Copy;
+  /** What the dialog is about: the act in the catalogue's words, or the record a small record's dialog edits, by its name. */
+  title: Words;
   /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
   act: { verb: Verb; object?: Copy };
   /** The server action doing the act, reading the form's fields by their `name`s. */
