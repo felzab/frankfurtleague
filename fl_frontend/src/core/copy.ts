@@ -21,6 +21,7 @@ import type {
   FLCardColour,
   FLKontaktRolle,
   FLSchulform,
+  FLSonderereignis,
   FLSpielerRolle,
   FLSpielerStufe,
 } from "./generated/client/types";
@@ -861,6 +862,8 @@ export const COPY = catalogue({
         goal: "Tor",
         /** The label over a goal's or a card's row, counting the rows from 1: „Tor 3“, „Karte 1“. */
         numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
+        /** The status card of a match called off or struck out, which takes no report. */
+        befell: { ausgefallen: "Spiel ausgefallen", annulliert: "Spiel annulliert" } satisfies Partial<Record<FLSonderereignis, string>>,
         /** Under the goals' title where a side fields another club than the report names, whose pupils left their rows. */
         sidesChanged: "Im Spiel stehen inzwischen andere Teams.",
       },

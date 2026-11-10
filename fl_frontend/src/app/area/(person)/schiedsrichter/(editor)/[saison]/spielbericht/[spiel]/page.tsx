@@ -180,7 +180,7 @@ async function readPage(params: Props["params"]) {
   if (!found.completed) {
     // The write's own refusals a page can foresee from the fixture it serves, stated before any press meets them.
     if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") {
-      return card(title, "danger", COPY.admin.spiel[spiel.sonderereignis], saison);
+      return card(title, "danger", WORDS.befell[spiel.sonderereignis], saison);
     }
     const day = dayOf(spiel.date);
     if (day === null) return card(title, "info", COPY.spielplan.when(null, null), saison);
