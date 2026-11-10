@@ -415,10 +415,11 @@ export interface FLKontakt {
 }
 
 /**
- * One referee record on the account page: the stored data its box shows and the consent the page moves.
+ * One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   birth_date: string | null;
+  default_payment: number;
   einwilligung: FLAccountEinwilligung;
   evidence_state: FLEinwilligungState;
   givable: boolean;
@@ -4684,8 +4685,6 @@ export interface FLSchiedsrichterReactivateResponse {
 
 /**
  * The referee's own page's read: the record and its fee.
- *
- * The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
  */
 export interface FLSchiedsrichterSelf {
   birth_date: string | null;
@@ -5948,7 +5947,7 @@ export interface FLTeamPanelAufstellung {
 }
 
 /**
- * One pending registration as the Übersicht names it: who waits, since when, and whether the team may admit them yet.
+ * One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet.
  */
 export interface FLTeamPanelRegistrierung {
   admissible: boolean;
@@ -5956,8 +5955,10 @@ export interface FLTeamPanelRegistrierung {
   first_name: string;
   /** @minLength 1 */
   last_name: string;
+  position: FLSpielerPosition | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
+  stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   submitted_at: string;
 }
