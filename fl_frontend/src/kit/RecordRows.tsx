@@ -322,6 +322,8 @@ export function RecordRows<Row extends EditorRow>({
  * The list while its record is read: `rows` rows, each its label's line over as many lines of fields as a row takes
  * on a phone, two, or three where it has a cell below, and over one from desktop up; then the foot's add control by
  * its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
+ * @awaitsPage the referee's Spielbericht page
+ * @awaitsProduction the referee's Spielbericht page
  */
 export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; lines: 2 | 3; add: Copy }) {
   const slots = recordRows({ beside: false });
