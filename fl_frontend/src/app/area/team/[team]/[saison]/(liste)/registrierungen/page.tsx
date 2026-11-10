@@ -95,11 +95,15 @@ const EMPTY = {
   line: { ...WORDS.linkFromLeague, link: { href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } } },
 } as const;
 
-/** The page's one read, after the seat it is drawn for, handed to its template running, as the Kader hands its own. */
+/**
+ * The page's one read, after the seat it is drawn for, handed to its template running, as the Kader hands its own: the
+ * table, and the line the administration's list stands over a list its read's cap cut short.
+ */
 async function readRegistrierungen(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const { team_id, saison_id, registrierungen } = await readAsSeatHolder(() => registrierungenOf(seat));
+  const { team_id, saison_id, registrierungen, complete } = await readAsSeatHolder(() => registrierungenOf(seat));
   return {
+    cut: complete ? null : COPY.admin.registrierung.cut,
     drawn: (
       <RegistrierungTable
         head={HEAD}
@@ -115,15 +119,17 @@ async function readRegistrierungen(params: Props["params"]) {
  * each row opening its dialog, where it is admitted or declined.
  */
 export default function RegistrierungenPage({ params }: Props) {
+  const read = readRegistrierungen(params);
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamRegistrierungen" } }}
+      notice={read.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
         head: HEAD,
         wait: 3,
-        content: readRegistrierungen(params),
+        content: read.then(({ drawn }) => ({ drawn })),
       }}
     />
   );
