@@ -202,68 +202,16 @@
   --fl-type-4xl: clamp(2.5rem, 1.9rem + 3vw, 4rem);
   --fl-type-4xl--leading: 1.02;
 
-  /* Page-width archetypes. Pick one rather than spelling a cap inline: a page and
-     the toolbar above it have to resolve to the SAME number. NOT `prose` —
-     Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
-  --container-page: 1400px; /* dashboard + admin content */
-  --container-toolbar: 1200px; /* sticky tab and search bars */
-  --container-meta: 1100px;
-
-  --navbar-height: 54px;
-  /* max-h-* resolves from --height-*, not from a --max-height-* namespace. */
-  --height-modal: 90dvh;
-  --width-sidemenu: 310px;
-  --width-sidemenu-collapsed: 72px;
-
-  /* THE MOTION SCALE. Everything the app animates picks from these. Spell a themed
-     value with PARENTHESES: `duration-[--motion-base]` compiles to an invalid value
-     that falls back to 0s — an instant transition with a green build. */
+  /* The old controls' one duration. Spell a themed value with PARENTHESES: `duration-[--motion-fast]`
+     compiles to an invalid value that falls back to 0s — an instant transition with a green build. */
   --motion-fast: 150ms;
-  --motion-base: 200ms;
-  /* Tuned against the card cascade's settling profile, not counted off the code. The counted answer
-     was 200ms and read wrong on the screen. Change it against the cascade. */
-  --motion-slow: 300ms;
-  /* The cascade's own curve, shared rather than duplicated. Emphasized-decelerate:
-     90% of the travel in the first 37%, so the eye reads the arrival early while
-     the fade still runs long enough to be smooth. */
-  --motion-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
-  /* Bit-for-bit Tailwind's own default, named so the default is a decision. A
-     two-way state change takes it; anything arriving or leaving takes the enter curve. */
+  /* Bit-for-bit Tailwind's own default, named so the default is a decision. */
   --motion-ease-state: var(--ease-in-out);
-
-  /* Tailwind's own bounce travels 2.5px on a 10px dot — invisible for the moment the loader is up. */
-  --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
-
-  /* THE ADMIN PLACEHOLDER'S MINIMUM: once on screen it stays until 500ms, so a load
-     landing just after it appeared cannot flash it away. No delay in front — this
-     router unmounts the old page at once, so one would paint a blank field. */
-  /* The value is 1 through the delay with no active phase to interpolate across, so a reader
-     gets whole or absent, never a partial. */
-  --animate-admin-placeholder-hold: admin-placeholder-hold 0s linear 500ms backwards;
-
-  @keyframes loader-dot {
-    0%,
-    100% {
-      transform: translateY(0);
-      opacity: 0.55;
-    }
-    50% {
-      transform: translateY(-7px);
-      opacity: 1;
-    }
-  }
 }
 
 /* PROJECT RULE, applied at the call sites: every scroll container reserves its gutter with
    `scrollbar-gutter-stable`, so a scrollbar appearing can never resize the content box. For the
    viewport that container is <html>, never <body>. */
-
-/* THE ONE EXCEPTION. `AppShell` is `h-dvh` with its own scroll container inside,
-   so the viewport cannot scroll there and the reservation is ~15px of dead rail.
-   Keyed on the shell's marker, so the public routes keep theirs. */
-html:has([data-app-shell]) {
-  scrollbar-gutter: auto;
-}
 
 /* Session 8: these utilities go with the old pages, with the fluid sizes they read. */
 /* THE app's type scale, and the only way to spell it: `fluid-sm`, never
@@ -314,29 +262,10 @@ html:has([data-app-shell]) {
   line-height: var(--fl-type-4xl--leading);
 }
 
-/* `hint` explains a control. NEVER name a muted-text recipe `text-*` — tailwind-merge reads that
-   prefix as a colour and drops the whole recipe when one is combined with it, where the
-   spelled-out form loses only the colour. */
-@utility muted-hint {
-  @apply fluid-sm font-medium text-foreground-muted;
-}
-
-/* Not `text-*` either: tailwind-merge's colour prefix, as above. */
+/* NEVER name a muted-text recipe `text-*` — tailwind-merge reads that prefix as a colour and drops the
+   whole recipe when one is combined with it, where the spelled-out form loses only the colour. */
 @utility muted-meta {
   @apply fluid-xs font-medium text-foreground-muted;
-}
-
-/* A rail card's badge cluster. */
-@utility rail-marker {
-  /* Decorative, so the fold button behind it takes the click. */
-  @apply pointer-events-none flex flex-row items-center gap-x-1;
-}
-
-/* Only for a NARROW, CENTRED scroll container. On the 72px collapsed sidemenu
-   rail, a ~15px reservation on one edge alone put the icons ~7px left of the
-   rail's true centre. */
-@utility scrollbar-gutter-stable-both {
-  scrollbar-gutter: stable both-edges;
 }
 
 /* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
@@ -346,45 +275,6 @@ html:has([data-app-shell]) {
    frame outside it alone: a classic page's footer, which absorbs what the content adds. */
 @utility overflow-anchor-none {
   overflow-anchor: none;
-}
-
-/* Reserving a scrollbar's space is the opposite concern, spelled at the call site with
-   `scrollbar-gutter-stable`. */
-@utility scrollbar-hide {
-  &::-webkit-scrollbar {
-    display: none;
-  }
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* `scrollbar-width: thin` draws a track and buttons too, so a bare line needs the WebKit
-   pseudo-elements — and Chromium disables those unless the standard properties compute to
-   `auto`, hence forcing them back first. */
-@utility scrollbar-line {
-  scrollbar-width: auto;
-  scrollbar-color: auto;
-  &::-webkit-scrollbar {
-    width: 3px;
-    height: 3px;
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 9999px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-button {
-    display: none;
-    width: 0;
-    height: 0;
-  }
-  @supports not selector(::-webkit-scrollbar) {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) transparent;
-  }
 }
 
 /* An over-long PLACEHOLDER ends in an ellipsis, declared once because the
@@ -404,16 +294,6 @@ input:focus:placeholder-shown::placeholder {
   /* A UA may treat `text-overflow: ellipsis` as `clip` while a field is focused (CSS
      Overflow 3 §5.1), hard-cutting an over-long placeholder. */
   mask-image: linear-gradient(to right, #000 85%, transparent);
-}
-
-/* Session 8: this override of HeroUI's search field goes with that component, by this session at the latest. */
-/* AN EMPTY SEARCH FIELD GIVES ITS WHOLE WIDTH TO THE PLACEHOLDER. HeroUI only
-   fades its clear control out, leaving 48px of a 122px chrome budget in flow.
-   `display` is what reclaims it; `visibility` would leave the gap standing. */
-/* Nothing is stranded: `useSearchField` excludes the control from the tab order and moves focus to
-   the input on press, so focus has already left before the value empties. */
-[data-slot="search-field"][data-empty="true"] [data-slot="search-field-clear-button"] {
-  display: none;
 }
 
 /* iOS Safari zooms the page into any focused control under 16px. The cure is the
@@ -632,19 +512,6 @@ input:focus:placeholder-shown::placeholder {
 [data-slot="select-trigger"][data-focus-visible="true"]:not([aria-expanded="true"]):not(:has([aria-expanded="true"])) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-
-/* Required asterisks belong to a form that CREATES something: on an edit every
-   value is present, so a column of stars marks nothing. An OPT-IN, because the
-   page-owned editors are plain `<Form>`s an opt-out would keep missing. */
-form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
-  content: none;
-}
-
-/* Red is what a refused field looks like, and a column of stars in it reads as a form that has
-   already refused. Unlayered, so it outranks HeroUI's `after:text-danger`, which is more specific. */
-form[data-required-marks="on"] [data-required="true"] > .label::after {
-  color: var(--fg-muted);
 }
 
 /* A field's hint stays beside its error, as ruled on 2026-09-25, where HeroUI's field styles hide a
@@ -974,27 +841,6 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
     .calendar-year-picker__year-cell[aria-selected="true"]:is(:hover, [data-hovered="true"]) {
       @apply bg-brand-solid-hover;
     }
-  }
-}
-
-@property --admin-placeholder-hold {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-/* Registered for the initial value alone: unregistered, `opacity: var(--admin-region-held)` over a
-   region declaring none is invalid at computed-value time and `opacity` reverts to its own initial
-   `1`, covering the page for good, while the box beside it releases. */
-@property --admin-region-held {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-@keyframes admin-placeholder-hold {
-  from {
-    --admin-placeholder-hold: 1;
   }
 }
 
