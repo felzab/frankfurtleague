@@ -135,20 +135,37 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   };
 }
 
-/**
- * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
- * over the page. The third-place match says so before its date, the one line every form of the row shows.
- */
-export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
-  const when = whenOf(spiel);
+/** A match's row with `when` as its date line, the whole of it a link to the match. */
+function rowOf(spiel: Listed, when: Copy): SpielRowProps & { id: string } {
   return {
     id: spiel.id,
     href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
-    when: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
+    when,
     ...sidesOf(spiel),
     ...resultOf(spiel),
     ...befellOf(spiel),
   };
+}
+
+/**
+ * A match as a row or a card of a match list, which opens as the pop-up over the page. The third-place match says
+ * so before its date, the one line every form of the row shows: such a list sets no head of its own over the match,
+ * and a matchday's tab holds the final beside it.
+ */
+export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
+  const when = whenOf(spiel);
+  return rowOf(spiel, spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when);
+}
+
+/**
+ * A match under its own matchday's head, as a list giving every match one shows it. The head names the third-place
+ * match, so its row's date line names the day alone.
+ */
+export function headedMatchOf(spiel: Listed & Pick<FLSpielJoined, "saison_phase"> & Matchday): {
+  head: Copy;
+  spiel: SpielRowProps & { id: string };
+} {
+  return { head: matchdayOf(spiel, spiel), spiel: rowOf(spiel, whenOf(spiel)) };
 }
 
 /** Where a group side stands, a link to its row of the Tabelle; a knockout side's round, a link to the match's card in the tree. */

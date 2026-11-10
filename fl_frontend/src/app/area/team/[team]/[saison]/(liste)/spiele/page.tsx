@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { matchdayOf, matchRowOf, whenOf } from "@/features/spiele/blocks";
+import { headedMatchOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -47,15 +47,13 @@ async function readSpiele(params: Props["params"]) {
   const { spiele } = await readAsSeatHolder(() => getTeamSpiele(seat.team_id, seat.saison_id));
   return {
     groups: spiele.map((spiel) => {
-      const row = matchRowOf(spiel);
+      const { head, spiel: row } = headedMatchOf(spiel);
       const chip = row.chip ?? openOn(spiel);
       return {
-        head: matchdayOf(spiel, spiel),
+        head,
         spiel: {
           ...row,
           href: ROUTES.teamAufstellung.path(seat.team_id, seat.saison_id, spiel.id),
-          // The head names the matchday, the third-place match included, so the date line names the day alone.
-          when: whenOf(spiel),
           ...(chip === undefined ? {} : { chip }),
         },
       };
