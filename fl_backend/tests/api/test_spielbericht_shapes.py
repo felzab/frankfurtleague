@@ -27,7 +27,7 @@ TEAM1 = ObjectId("650000000000000000000201")
 TEAM2 = ObjectId("650000000000000000000202")
 SCHIEDSRICHTER = ObjectId("650000000000000000000203")
 LIVE1 = ObjectId("650000000000000000000211")
-AUSGETRAGEN1 = ObjectId("650000000000000000000212")
+DEREGISTERED_1 = ObjectId("650000000000000000000212")
 LIVE2 = ObjectId("650000000000000000000221")
 SPIEL_ID = ObjectId("650000000000000000000209")
 
@@ -72,7 +72,7 @@ def context(*, saison_status: str = "active", **spiel_fields: Any) -> BerichtCon
         kader=[
             {"spieler_id": LIVE1, "team_id": TEAM1, "first_name": "Lina", "last_name": "Krause", "nummer": "7", "inactive_since": None},
             {
-                "spieler_id": AUSGETRAGEN1,
+                "spieler_id": DEREGISTERED_1,
                 "team_id": TEAM1,
                 "first_name": "Ole",
                 "last_name": "Brettschneider",
