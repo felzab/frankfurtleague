@@ -4,7 +4,7 @@ import { getSignInLanding } from "@/core/auth/landing";
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
-import { soleTeamOf, targetsOf } from "@/features/roles/utils";
+import { landingTargetOf, targetsOf } from "@/features/roles/utils";
 
 import type { NextRequest } from "next/server";
 
@@ -20,7 +20,8 @@ export async function GET(request: NextRequest): Promise<never> {
 
   // `/area`'s own landing rule over the person the landing read, so the sign-in lands where `/area` would send it
   // without a second redirect; a backend that did not answer is `/area`'s to say, which renders its outage panel.
-  const landing = destination === area ? (asked ?? (subject === null ? null : soleTeamOf(targetsOf(rolesOf(subject).roles))) ?? area) : null;
+  const landing =
+    destination === area ? (asked ?? (subject === null ? null : landingTargetOf(targetsOf(rolesOf(subject).roles))) ?? area) : null;
 
   // Outside any `try`, as Next documents for a Route Handler: `redirect` throws to lead on.
   redirect(landing ?? withReturnAddress(destination, asked));
