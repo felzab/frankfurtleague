@@ -3824,9 +3824,11 @@ export const TeamsReplaceSaisonTeamBody = zod
  * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
  * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
  * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
- * the league adopts or discards it (`declined`); an agreed date is not listed. The coming fixtures holding a day and
- * an hour for which the team has stored no line-up, each with its marks. The registrations awaiting the team's
- * decision, newest first. And the team's three seats, each with its holder's name and whether that person confirmed it.
+ * the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
+ * fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
+ * still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
+ * each with the pupil's own position and Stufe. And the team's three seats, each with its holder's name and whether
+ * that person confirmed it.
  *
  * No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
  * signed-in person holds no seat on this team in this season.
@@ -3844,8 +3846,8 @@ export const TeamsGetTeamOverviewParams = zod.object({
  *
  * Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
  * state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
- * the clock puts it in, and the instants it is due and locks at. `aufstellung` is null for a fixture holding no day or
- * no hour.
+ * the clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about
+ * the fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.
  *
  * Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
  * @summary A team's fixtures in one season, with what is open on each

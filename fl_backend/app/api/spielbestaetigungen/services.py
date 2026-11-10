@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungClosedReason,
     FLSpielbestaetigungSchiedsrichterState,
     FLSpielbestaetigungState,
+    FLSpielbestaetigungTeamState,
     FLSpielbestaetigungViewAnsetzung,
 )
 from app.api.spiele.schemas import (
@@ -248,6 +249,25 @@ def ansetzung_left_refusal() -> WriteRefusal:
         error_code=Code.ANSETZUNG_CHANGED,
         status=HTTPStatus.GONE,
     )
+
+
+def team_state_of(
+    *,
+    spielbestaetigung_raw: Mapping[str, Any],
+    ansetzung_state: AnsetzungState,
+    today: str,
+    vorschlag_open: FLSpielbestaetigungAppointment | None,
+) -> FLSpielbestaetigungTeamState | None:
+    """What a team's own pages show of its unclosed row about the fixture as it stands: `zustand_of`'s state, or `None`.
+
+    `None` where the row asks the team nothing: about an Ansetzung left, a fixture called off, or a date the league kept.
+    """
+
+    match zustand_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today, vorschlag_open=vorschlag_open):
+        case "valid" | "vorschlag" | "expired" | "agreed" | "declined" as state:
+            return state
+        case _:
+            return None
 
 
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str) -> WriteRefusal | None:
