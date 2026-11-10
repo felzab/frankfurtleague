@@ -18,6 +18,7 @@ import type {
   FLAction,
   FLActionLogPageSize,
   FLAddressChangeWaitsOn,
+  FLCardColour,
   FLKontaktRolle,
   FLSchulform,
   FLSpielerRolle,
@@ -68,6 +69,10 @@ const VERB = {
   submit: "Abschicken",
   confirm: "Bestätigen",
   accept: "Annehmen",
+  /** A team's own admission of a registered pupil, the glossary's `aufnehmen`, where `accept` is the league's of a school. */
+  admit: "Aufnehmen",
+  /** A club's or a referee's agreement to a fixture's date, the glossary's `Zusage`, whose other answer is `decline`. */
+  agree: "Zusagen",
   decline: "Ablehnen",
   oppose: "Widersprechen",
   adopt: "Übernehmen",
@@ -78,6 +83,8 @@ const VERB = {
   rename: "Umbenennen",
   set: "Setzen",
   enter: "Eintragen",
+  /** A squad's player taken into a match's line-up. */
+  lineUp: "Aufstellen",
   edit: "Bearbeiten",
   swap: "Tauschen",
   replace: "Ersetzen",
@@ -112,6 +119,8 @@ const SPIEL_FACT = { date: "Datum", time: "Uhrzeit" } as const;
 const DATE_OPEN = "Termin offen";
 // The mark beside a score a shoot-out decided.
 const AFTER_ELFMETERSCHIESSEN = "n. E.";
+// A party's agreement to a fixture's date: its chip, and the toast as the agreed row leaves its list.
+const ZUGESAGT = "Zugesagt";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
 // Two clubs named by their place in a pair: a fixture's two sides, and the group swap's two clubs.
 const TEAM_PAIR = { team1: "Team 1", team2: "Team 2" } as const;
@@ -134,6 +143,8 @@ const RETIREMENT = "Stilllegung";
 const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
+// A line-up's starters of the most that may start, alone in the save bar and after the count of everyone it names.
+const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} von ${formatNumber(max)}`;
 // The owner tier's one word: its chip, its acts and every sentence naming it, the server's among them, read this line.
 const OWNER_TIER = "Leitung";
 // The plurals a page's title and the action log's count of a pass say alike.
@@ -177,6 +188,7 @@ export const COPY = catalogue({
     /** The units a field's figure is counted in, set after the field. */
     unit: {
       euro: "€",
+      minute: "Min.",
     },
 
     /** A field's one message line: what is expected, never the field's name. */
@@ -225,7 +237,7 @@ export const COPY = catalogue({
     retired: "Stillgelegt",
 
     /**
-     * The five toast titles; a toast carries no body. `linkSent` labels the referee editor's fact for the day the last
+     * The toast titles; a toast carries no body. `linkSent` labels the referee editor's fact for the day the last
      * link went too, the same words for the same event.
      */
     toast: {
@@ -235,6 +247,9 @@ export const COPY = catalogue({
       signedOut: "Abgemeldet",
       /** Every other device's session ended, this one's kept. */
       othersSignedOut: "Alle abgemeldet",
+      /** A row leaving its list with its act done: a fixture's date agreed, in its chip's word, and a registration admitted. */
+      agreed: ZUGESAGT,
+      admitted: "Aufgenommen",
       failure: UNEXPECTED,
     },
 
@@ -314,6 +329,11 @@ export const COPY = catalogue({
     austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDate(day)}`,
     startelf: "Startelf",
     bank: "Bank",
+    /**
+     * The boxed mark after the name of a squad's Kapitän and its Co-Kapitän, on every squad and line-up; its
+     * accessible name is the role's own, `admin.spieler.rolleOption`.
+     */
+    rolleMark: { kapitaen: "C", co_kapitaen: "Co" } satisfies Record<FLSpielerRolle, string>,
     /** A club's goals, a match's and a season's: a column head, a tile, a field's message. */
     tore: "Tore",
     /** A record's name: a box's label, a list's column head. */
@@ -428,9 +448,14 @@ export const COPY = catalogue({
     notice: { before: "Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", after: "." },
   },
 
-  // Redesign: goes with `RegistrierungFormPanel.tsx`.
-  /** The old registration panel's paragraph once a registration is in: `days` is how long the link stands. */
+  /** The public registration form's own words; its squad fields read the labels `admin.spieler` gives them. */
   registrierung: {
+    /** Under the address: the confirmation link goes there, and one address signs one person in. */
+    ownAddress: "Deine eigene Adresse",
+    /** The one sentence above the submit, in the two parts around the privacy notice's title, as `bewerbung.notice`. */
+    notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter ", after: "." },
+    // Redesign: goes with `RegistrierungFormPanel.tsx`.
+    /** The old registration panel's paragraph once a registration is in: `days` is how long the link stands. */
     received: (days: number) =>
       `Bestätige deine Registrierung über den Link in der E-Mail. Erst dann kann dein Team dich in den Kader aufnehmen. Bestätigst du nicht innerhalb von ${formatNumber(days)} Tagen, löschen wir die Registrierung wieder. Keine Mail bekommen? Prüfe die Adresse und registriere dich einfach erneut.`,
   },
@@ -741,6 +766,102 @@ export const COPY = catalogue({
         team === null ? `Registrierung für die ${saison}` : `Registrierung für ${teamSeason(team, saison)}`,
       /** One label's records, where an address holds several under it. */
       several: (records: readonly Words[]) => formatList(records.map(textOf)),
+    },
+  },
+
+  /**
+   * The areas of a team's contact seats, a pupil and a referee, under `/area`: the words a client component there may
+   * read. What the administration names alike stands in `admin`, and what only a server page reads in `SERVER_COPY.area`.
+   */
+  area: {
+    /** What a fixture's date still waits on from a club or a referee: the noun of the chip „Antwort fehlt“. */
+    answer: "Antwort",
+
+    /** A team's pages, which any of its contact seats reads. */
+    team: {
+      /** The account row's second line in a team's frame: the club's Kürzel and the seats the person holds there. */
+      accountLine: (shorthand: Words, rollen: readonly FLKontaktRolle[]) => `${textOf(shorthand)} · ${rollenText(rollen)}`,
+      /**
+       * A declined date: the decline dialog's one sentence, a proposal moving nothing until the league saves a date,
+       * and the last part of the declined row's line while it stands on the Übersicht without acts.
+       */
+      declineConsequence: "Über den Termin entscheidet die Liga.",
+      leagueDecides: "Die Liga entscheidet",
+
+      /** A match's line-up: the Übersicht's box, a Spiele card's chip, the line-up's own page and the match editor's link to it. */
+      aufstellung: {
+        /** The Übersicht's box of the coming matches whose line-up is missing. */
+        plural: "Aufstellungen",
+        /** One club's line-up by the club's name, „Aufstellung Ahorn“: the match editor's link to it. */
+        ofTeam: (team: Words) => `Aufstellung ${textOf(team)}`,
+        /** That link's line where no line-up stands, under a name that already says what is missing. */
+        missing: "Fehlt",
+        /** How many of a line-up's players start, of the most that may: the save bar's own line beside its count of changes. */
+        startelfCount,
+        /** The same after how many players the line-up names, „14 aufgestellt · Startelf 11 von 11“: that link's line where one stands. */
+        counts: (picked: number, starting: number, max: number) => `${formatNumber(picked)} aufgestellt · ${startelfCount(starting, max)}`,
+        /** The lower list's title: the squad's players the line-up does not name. */
+        rest: "Nicht aufgestellt",
+        /**
+         * Why „Aufstellen“ is locked: on a nominee's row once the line-up names eleven of the squad's own players, a
+         * nominee filling a shortage alone, and on every row of a fixture holding no date or no time.
+         */
+        nomineeLocked: "Nur, wenn weniger als 11 aufgestellt sind",
+        needsSlot: "Erst mit Datum und Uhrzeit",
+        /** A missing line-up's line, by the day it is due: until then, and from then on. */
+        dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
+        overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
+        /** An overdue line-up's chip: after its own page's title, and on a Spiele card, where the chip names what is overdue. */
+        overdue: "Überfällig",
+        overdueOnCard: "Aufstellung überfällig",
+        /** Once the team's seats can change nothing more before the match: the page's chip, and its one line. */
+        locked: "Gesperrt",
+        lockedLine: "Änderungen trägt jetzt die Liga ein.",
+      },
+
+      /** The team's Registrierungen: its list, the admission and the decline. */
+      registrierung: {
+        /**
+         * The page's one standing line above the list, filled or empty, in the two parts around the league's address,
+         * which the page sets as its link: only the league mints and mails a team's link.
+         */
+        linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter ", after: "." },
+        /** Muted in the line under a row's name: the registration's address is a stored person's. */
+        returning: "War schon in der Liga",
+        /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
+        kaderFull: "Kader voll",
+        awaitsConfirmation: "Erst, wenn die Person bestätigt hat",
+        /** The decline's one sentence, under its question. */
+        declineConsequence: "Die Person kommt nicht in den Kader.",
+        /**
+         * The admission of a registration whose address is a stored person's under other details: the line under the
+         * dialog's title names that person, and the two choices say whose registration it is. A contact seat is served
+         * no address, so the line names the person alone.
+         */
+        earlierEntry: (name: Words) => `Ein früherer Eintrag nennt ${textOf(name)}.`,
+        admitAs: (name: Words) => `Als ${textOf(name)} aufnehmen`,
+        otherPerson: "Andere Person, ablehnen",
+      },
+    },
+
+    /** A referee's pages: the Übersicht's rows and the match report. */
+    schiedsrichter: {
+      /** What a referee answers, the object of „Einteilung ablehnen“. */
+      einteilung: "Einteilung",
+
+      /** The match report's form; a goal's and a result's words are the match editor's and the match page's. */
+      spielbericht: {
+        /** The player list's first entry on a goal, for a scorer nobody can name. */
+        unknown: "Unbekannt",
+        /** Inside `shared.field.format` under a minute off its pattern: the played minute, and stoppage time after a plus. */
+        minuteExample: "90+3",
+        cards: "Karten",
+        /** One card: the name of a row's colour segments, and the object of „Karte eintragen“. */
+        card: "Karte",
+        colour: { gelb: "Gelb", gelb_rot: "Gelb-Rot", rot: "Rot" } satisfies Record<FLCardColour, string>,
+        /** The section for what no field holds, and its text area's label. */
+        remarks: "Bemerkungen",
+      },
     },
   },
 
@@ -1056,7 +1177,7 @@ export const COPY = catalogue({
       minute: "Minute",
       /** What a declining club proposed, after its answer's date on the party's line. */
       proposed: (when: Copy) => `Vorschlag ${when}`,
-      zugesagt: "Zugesagt",
+      zugesagt: ZUGESAGT,
       /** A club's decline, and a referee's, as the glossary's `Absage` names the second. */
       declined: "Abgelehnt",
       cancelled: "Abgesagt",
