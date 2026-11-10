@@ -52,7 +52,7 @@ async function termine(...rows: readonly FLTeamPanelTermin[]): Promise<ReadonlyA
     full_name: "Ahorn-Gymnasium",
     trikot_farbe: null,
     rollen: ["ansprechperson"],
-    termine: rows,
+    termine: [...rows],
     aufstellungen: [],
     registrierungen: [],
     seats: [],
