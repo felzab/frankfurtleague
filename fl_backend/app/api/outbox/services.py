@@ -204,6 +204,14 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
     }
 
 
+# What a settled row keeps once the address it went to is replaced (`app/api/address_change/crud.py :: _carry_the_mail`):
+# its key, kind, state and dates, so a pass or a replay deciding by the key owes nothing again, and nothing naming the
+# mailbox it went to, what that mailbox reported, or the record and seat a delivery is read by.
+TOMBSTONE_UPDATE: Final[Mapping[str, Any]] = {
+    "$set": {"to": None, "reference": None, "link": None, "club": None, "message_id": None, "delivery_reason": None, "delivery": None}
+}
+
+
 def retry_update(*, now: datetime) -> Mapping[str, Any]:
     """A failed send handed back: no claim holds it, and no drain takes it before the wait has passed."""
 

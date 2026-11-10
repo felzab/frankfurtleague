@@ -32,7 +32,9 @@ from app.api.grants.schemas import FLPostGrantPayload
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
-from app.api.outbox.system_router import post_handout
+from app.api.outbox.schemas import FLBanData, FLOutboxEventPayload, FLOutboxReference
+from app.api.outbox.services import OwedMail, row_of
+from app.api.outbox.system_router import post_event, post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
@@ -1621,6 +1623,44 @@ class TestWhatTheEffectLeavesTheErasure:
             return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
 
         assert on_a_person(mongo_replica_set_url, body)["email"] == NEW_EMAIL
+
+    def test_a_sent_mail_keeps_its_key_alone_and_an_owed_one_follows_the_person(self, mongo_replica_set_url: str):
+        """A pass deciding by a key whether a mail was owed (the line-up reminder's) would owe a deleted row's mail again.
+
+        The tombstone names neither the replaced mailbox nor what it reported, nor the seat a delivery is read by.
+        """
+
+        reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=ObjectId(), seat="trainer")
+        data = FLBanData(kind="ban", ban_reason="Erfunden", barred_until_saison_id="2127")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            sent = row_of(OwedMail(key="reminder/sent", to=EMAIL, data=data, reference=reference), now=NOW, secret=None, valid_until=None)
+            sent |= {"state": "sent", "message_id": "provider-1", "delivery": {"state": "delivered", "reason": None, "at": NOW}}
+            owed = row_of(OwedMail(key="reminder/owed", to=EMAIL, data=data, reference=reference), now=NOW, secret=None, valid_until=None)
+            await database[Collection.OUTBOX].insert_many([sent, owed])
+            await confirmed_and_moved(database, client)
+            # The replaced mailbox's complaint arriving late, which would follow the delivery the row held.
+            late = await post_event(
+                event_data=FLOutboxEventPayload(id=sent["_id"], state="complaint", reason=None, at=NOW),
+                outbox_collection=database[Collection.OUTBOX],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                db_client=client,
+            )
+            return late.applied, {key: await database[Collection.OUTBOX].find_one({"key": key}) for key in ("reminder/sent", "reminder/owed")}
+
+        applied, rows = on_a_person(mongo_replica_set_url, body)
+
+        assert applied is False
+        tombstone, owed = rows["reminder/sent"], rows["reminder/owed"]
+        assert tombstone is not None and owed is not None
+        assert (tombstone["state"], tombstone["to"], tombstone["reference"], tombstone["message_id"], tombstone["delivery"]) == (
+            "sent",
+            None,
+            None,
+            None,
+            None,
+        )
+        assert owed["to"] == NEW_EMAIL
 
     def test_an_earlier_effect_s_owed_carry_follows_the_person(self, mongo_replica_set_url: str):
         """Its account goes where the person is now, and an erasure of the new address finds the record."""

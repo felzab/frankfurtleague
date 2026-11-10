@@ -1173,7 +1173,8 @@ export const IdentityGetSubjectBody = zod
  * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
  * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
  * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
+ * one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
+ * its send, which keeps its key alone, rather than a refusal the provider
  * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
  * its address, in the same transaction.
  * @summary Record one delivery event on its mail's row

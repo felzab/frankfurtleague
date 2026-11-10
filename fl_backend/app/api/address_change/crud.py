@@ -48,7 +48,7 @@ from app.api.outbox.schemas import (
     FLOutboxReference,
     FLOutboxStatus,
 )
-from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
+from app.api.outbox.services import SIGN_IN_KINDS, TOMBSTONE_UPDATE, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_is_confirmed
 from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spieler.crud import another_pupil_holds
@@ -673,11 +673,15 @@ async def move_the_address_in_session(
 
 
 async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str, *, session: AsyncClientSession) -> None:
-    """The person's mail follows them: what is owed the replaced address goes to the new one, and what was sent there goes.
+    """The person's mail follows them: what is owed the replaced address goes to the new one, and what was sent there keeps its key alone.
 
-    A sent mail's delivery state describes the replaced mailbox, which on the lost-mailbox way may be a stranger's. The
-    sign-in library's mails stay where they were owed, each tied to the sign-in it was asked from. Matched on the
-    sign-in fold, a recipient being stored as its mail was owed; then written by id.
+    A sent mail's recipient and delivery state describe the replaced mailbox, which on the lost-mailbox way may be a
+    stranger's, so they go, and with them the record and seat it is about, so no editor reads that mailbox's delivery as
+    the seat's. The row stands as a tombstone of its key: a pass deciding by its key whether a mail was owed (the line-up
+    reminder's) or a replayed write would otherwise owe it a second time, to the new address. The tombstone goes a
+    retention after its final state, as the row would have. The sign-in library's mails stay where they were owed, each
+    tied to the sign-in it was asked from. Matched on the sign-in fold, a recipient being stored as its mail was owed;
+    then written by id.
     """
 
     rows = await aggregate_many_from_db(
@@ -689,7 +693,7 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
     if open := [row["_id"] for row in held if row["state"] == "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": open}}, update={"$set": {"to": new}}, session=session)
     if sent := [row["_id"] for row in held if row["state"] != "open"]:
-        await delete_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, session=session)
+        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, update=TOMBSTONE_UPDATE, session=session)
 
 
 def _seat_move(slots: Sequence[str], new_address: str) -> dict[str, Any]:

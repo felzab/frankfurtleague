@@ -501,7 +501,9 @@ class FLOutboxRow(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     key: str
     kind: FLOutboxKind
-    to: str
+    # Null on a settled row whose address was replaced since, kept for its key alone
+    # (`app/api/outbox/services.py :: TOMBSTONE_UPDATE`).
+    to: str | None
     # Both removed by the row's final state, after which only its delivery is read.
     data: FLOutboxData | None = Field(default=None)
     # Ciphertext the backend cannot read, under the frontend's key.
