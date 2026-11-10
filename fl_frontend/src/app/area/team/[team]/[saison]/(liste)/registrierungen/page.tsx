@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { ListPage } from "@/kit/ListPage";
 
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
@@ -9,11 +11,11 @@ import { getOpenRegistrierungen } from "@/features/registrierungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { kaderName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { runPersonRead } from "@/shared/utils/personRead";
 
 import { RegistrierungTable } from "./RegistrierungTable";
 
 import type { FLOpenRegistrierung } from "@/core/generated/client/types";
+import type { TeamSeat } from "@/features/roles/resolvers";
 import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata, Route } from "next";
 import type { Admission, Decided } from "./RegistrierungDialog";
@@ -26,8 +28,11 @@ const WORDS = COPY.area.team.registrierung;
 /** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamRegistrierungen.path(team, saison);
 
+/** The page's one read, memoised for the render, so the tab's title and the page share it. */
+const registrierungenOf = cache((seat: TeamSeat) => getOpenRegistrierungen(seat.team_id, seat.saison_id));
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamRegistrierungen, address(await params)));
+  return teamMetadata(params, address, registrierungenOf, async () => pageMetadata(parent, ROUTES.teamRegistrierungen, address(await params)));
 }
 
 /**
@@ -93,9 +98,7 @@ const EMPTY = {
 /** The page's one read, after the seat it is drawn for, handed to its template running, as the Kader hands its own. */
 async function readRegistrierungen(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const { team_id, saison_id, registrierungen } = await readAsSeatHolder(() =>
-    runPersonRead(() => getOpenRegistrierungen(seat.team_id, seat.saison_id)),
-  );
+  const { team_id, saison_id, registrierungen } = await readAsSeatHolder(() => registrierungenOf(seat));
   return {
     drawn: (
       <RegistrierungTable

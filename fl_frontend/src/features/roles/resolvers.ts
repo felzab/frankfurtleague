@@ -68,21 +68,31 @@ async function teamSeatsAt<Segments extends { team: string; saison: string }>(
 const FORBIDDEN_METADATA: Metadata = { ...NOT_FOUND_METADATA, title: SERVER_COPY.area.forbidden };
 
 /**
- * A team page's metadata: `metadataOf` the seats the person holds at its address, and where they hold none the
- * „Kein Zugang“ card's title, so the tab says what the card says. It answers that miss rather than throwing it, since
- * a `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as `metadataFor`
- * does.
+ * A team page's metadata off the page's own read, `read` for the seat the person holds at its address, memoised by the
+ * page so the tab and the card share it: `metadataOf` what it found; the not-found title where it found nothing; and
+ * the „Kein Zugang“ card's title where the person holds no seat there, or the backend finds the seat gone after the
+ * session's check, so the tab says what the card says (`readAsSeatHolder`). It answers each miss rather than throwing
+ * it, since a `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as
+ * `metadataFor` does.
  */
-export async function teamMetadata<Segments extends { team: string; saison: string }>(
+export async function teamMetadata<Segments extends { team: string; saison: string }, Read>(
   params: Promise<Segments>,
   address: TeamAddress<Segments>,
-  metadataOf: (seats: TeamSeats) => Promise<Metadata> | Metadata,
+  read: (seat: TeamSeat) => Promise<Read | null>,
+  metadataOf: (found: Read) => Promise<Metadata> | Metadata,
 ): Promise<Metadata> {
-  // Wrapped, so a seatless address reaches the forbidden title here rather than `metadataFor`'s not-found one.
-  return metadataFor(
-    teamSeatsAt(params, address).then((seats) => ({ seats })),
-    ({ seats }) => (seats === null ? FORBIDDEN_METADATA : metadataOf(seats)),
-  );
+  // Wrapped, so a forbidden address reaches the forbidden title here rather than `metadataFor`'s not-found one.
+  const outcome = teamSeatsAt(params, address).then(async (seats) => {
+    if (seats === null) return { forbidden: true } as const;
+    try {
+      const found = await read(seats[0]);
+      return found === null ? null : { found };
+    } catch (error) {
+      if (isRoleGone(error)) return { forbidden: true } as const;
+      throw error;
+    }
+  });
+  return metadataFor(outcome, (known) => ("forbidden" in known ? FORBIDDEN_METADATA : metadataOf(known.found)));
 }
 
 /** Ends a team page's read on the card for a team the person holds no seat on. */

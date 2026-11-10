@@ -14,7 +14,6 @@ import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import { TeamAufstellung } from "./TeamAufstellung";
@@ -43,12 +42,14 @@ async function lineupAt(params: Props["params"], team: string, saison: string): 
 }
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, ([seat]) =>
-    metadataFor(lineupAt(params, seat.team_id, seat.saison_id), async ({ spiel }) =>
+  return teamMetadata(
+    params,
+    address,
+    (seat) => lineupAt(params, seat.team_id, seat.saison_id),
+    async ({ spiel }) =>
       pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
         title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
       }),
-    ),
   );
 }
 
