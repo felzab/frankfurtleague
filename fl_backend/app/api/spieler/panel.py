@@ -22,8 +22,6 @@ class FLSpielerSaisonSelfResponse(BaseAPIResponse):
     """A pupil's own season: where they play, and their club's fixtures."""
 
     saison_id: str
-    # Every season the pupil holds a squad row in, newest first, which the page's season button offers.
-    saison_ids: list[str]
     # Their squad row of this season, a deregistered one included; null where they hold none.
     kader: FLSpielerSelfKaderRow | None
     # Empty where they hold no squad row of this season.

@@ -381,11 +381,11 @@ describe("a list of records", () => {
       lane: "admin",
       name: "saveBericht",
       input: Report,
-      ownWords: ["ergebnis_missing_tore"],
+      ownWords: ["date_not_in_calendar"],
       paths,
       examples: { "changes.scorers.*.minute": field.exampleDigits },
       run: async () => {
-        const refused: FLRefusedField = { in: "body", kind: "ergebnis_missing_tore", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
+        const refused: FLRefusedField = { in: "body", kind: "date_not_in_calendar", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
         await sends("PUT", undefined, failure(422, "payload_refused", [refused]));
         return { ok: true, value: undefined };
       },
@@ -407,7 +407,7 @@ describe("a list of records", () => {
     expect(await save({ "bericht.scorers.*.minute": "changes.scorers.*.minute" })(scorers("12", "45", "90"))).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { "changes.scorers.2.minute": field.required },
+      fieldErrors: { "changes.scorers.2.minute": field.format(field.exampleDate) },
     });
   });
 

@@ -397,7 +397,7 @@ class FLSaisonsAdminListResponse(BaseAPIResponse):
 
 
 class FLSaisonFrameEntry(BaseReadModel):
-    """One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's."""
+    """One season as a frame's season button lists it: its id and its span."""
 
     id: str = Field(validation_alias="_id", serialization_alias="id")
     start_date: CustomDateString
@@ -416,6 +416,16 @@ class FLSaisonFrameResponse(BaseAPIResponse):
 
     saisons: list[FLSaisonFrameEntry]
     active_saison_id: str | None
+
+
+class FLOwnSaisonsResponse(BaseAPIResponse):
+    """The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.
+
+    A season the public frame withholds, a planned one, is served as any other: the person's row in it is what the
+    frame leads to.
+    """
+
+    saisons: list[FLSaisonFrameEntry]
 
 
 class FLSaisonsSingleResponse(BaseAPIResponse):

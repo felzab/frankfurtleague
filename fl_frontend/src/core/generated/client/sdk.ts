@@ -88,6 +88,7 @@ import type {
   FLOutboxResultPayload,
   FLOutboxResultResponse,
   FLOutboxSignInPayload,
+  FLOwnSaisonsResponse,
   FLPatchKaderRowPayload,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
@@ -3068,6 +3069,24 @@ export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKey
   });
 };
 
+export const getSchiedsrichterGetSelfSaisonsUrl = () => {
+  return `/api/v0/schiedsrichter/self/saisons`;
+};
+
+/**
+ * Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
+ *
+ * A planned season is served as any other. Refuses an address holding no live, confirmed referee record
+ * (`role_not_held`).
+ * @summary The seasons a signed-in referee has fixtures in
+ */
+export const schiedsrichterGetSelfSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOwnSaisonsResponse> => {
+  return adminKeyTransport<FLOwnSaisonsResponse>(getSchiedsrichterGetSelfSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
   return `/api/v0/schiedsrichter/self/spiele/${encodeURIComponent(String(saisonId))}`;
 };
@@ -3077,8 +3096,7 @@ export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
  *
  * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
  * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
- * today, and when its report was first sent. Beside them the seasons in which a fixture is booked to them, newest
- * first. Nobody's address is served, and no reason an administrator entered.
+ * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
  *
  * Refuses an address holding no live, confirmed referee record (`role_not_held`).
  * @summary A signed-in referee's fixtures of one season, one row a fixture
@@ -4033,6 +4051,23 @@ export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTranspo
   });
 };
 
+export const getSpielerGetSelfSaisonsUrl = () => {
+  return `/api/v0/spieler/self/saisons`;
+};
+
+/**
+ * Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.
+ *
+ * A planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).
+ * @summary The seasons a signed-in pupil holds a squad row in
+ */
+export const spielerGetSelfSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOwnSaisonsResponse> => {
+  return adminKeyTransport<FLOwnSaisonsResponse>(getSpielerGetSelfSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSpielerGetSelfSaisonUrl = (saisonId: string) => {
   return `/api/v0/spieler/self/${encodeURIComponent(String(saisonId))}`;
 };
@@ -4040,8 +4075,8 @@ export const getSpielerGetSelfSaisonUrl = (saisonId: string) => {
 /**
  * What the signed-in pupil's own page shows of one season, in one read.
  *
- * The seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the
- * season under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with
+ * Their squad row of this season with the name its club plays the season under, null where they hold none; and
+ * that club's fixtures in the order the draw numbered them, each with
  * whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
  * none is stored (null).
  *

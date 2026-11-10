@@ -16,6 +16,7 @@ from app.api.account.services import (
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
+from app.api.saisons.schemas import FLOwnSaisonsResponse
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfResponse, FLSchiedsrichterSpieleResponse
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
 from app.core.clock import utc_stamp
@@ -155,12 +156,24 @@ async def get_self_spiele(saison_id: str, identifier: PersonIdentifier) -> FLSch
 
     Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
     their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
-    today, and when its report was first sent. Beside them the seasons in which a fixture is booked to them, newest
-    first. Nobody's address is served, and no reason an administrator entered.
+    today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
 
     Refuses an address holding no live, confirmed referee record (`role_not_held`).
     """
 
     # Session 8: the read goes from the referee's own records to the season's fixtures booking them, each joined to
     # its newest confirmation row and its report.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+
+
+@router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in referee has fixtures in")
+async def get_self_saisons(identifier: PersonIdentifier) -> FLOwnSaisonsResponse:
+    """
+    Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
+
+    A planned season is served as any other. Refuses an address holding no live, confirmed referee record
+    (`role_not_held`).
+    """
+
+    # Session 8: the read goes from the referee's own records to the seasons of the fixtures booking them.
     raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)

@@ -8002,6 +8002,23 @@
         "title": "FLOverviewVorschlagRow",
         "type": "object"
       },
+      "FLOwnSaisonsResponse": {
+        "description": "The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.\n\nA season the public frame withholds, a planned one, is served as any other: the person's row in it is what the\nframe leads to.",
+        "properties": {
+          "saisons": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonFrameEntry"
+            },
+            "title": "Saisons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saisons"
+        ],
+        "title": "FLOwnSaisonsResponse",
+        "type": "object"
+      },
       "FLOwnerWaitDays": {
         "const": 7,
         "type": "integer"
@@ -10437,7 +10454,7 @@
         "type": "object"
       },
       "FLSaisonFrameEntry": {
-        "description": "One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's.",
+        "description": "One season as a frame's season button lists it: its id and its span.",
         "properties": {
           "end_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11602,18 +11619,11 @@
         "type": "object"
       },
       "FLSchiedsrichterSpieleResponse": {
-        "description": "A referee's fixtures of one season, open work first, and the seasons they have fixtures in.",
+        "description": "A referee's fixtures of one season, open work first.",
         "properties": {
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "saison_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Saison Ids",
-            "type": "array"
           },
           "spiele": {
             "items": {
@@ -11625,7 +11635,6 @@
         },
         "required": [
           "saison_id",
-          "saison_ids",
           "spiele"
         ],
         "title": "FLSchiedsrichterSpieleResponse",
@@ -15425,13 +15434,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "saison_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Saison Ids",
-            "type": "array"
-          },
           "spiele": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerSaisonSelfSpiel"
@@ -15442,7 +15444,6 @@
         },
         "required": [
           "saison_id",
-          "saison_ids",
           "kader",
           "spiele"
         ],
@@ -25730,9 +25731,76 @@
         ]
       }
     },
+    "/api/v0/schiedsrichter/self/saisons": {
+      "get": {
+        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.\n\nA planned season is served as any other. Refuses an address holding no live, confirmed referee record\n(`role_not_held`).",
+        "operationId": "schiedsrichter_get_self_saisons",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLOwnSaisonsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "The seasons a signed-in referee has fixtures in",
+        "tags": [
+          "schiedsrichter"
+        ]
+      }
+    },
     "/api/v0/schiedsrichter/self/spiele/{saison_id}": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Beside them the seasons in which a fixture is booked to them, newest\nfirst. Nobody's address is served, and no reason an administrator entered.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
+        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {
@@ -28184,9 +28252,76 @@
         ]
       }
     },
+    "/api/v0/spieler/self/saisons": {
+      "get": {
+        "description": "Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.\n\nA planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).",
+        "operationId": "spieler_get_self_saisons",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLOwnSaisonsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "The seasons a signed-in pupil holds a squad row in",
+        "tags": [
+          "spieler"
+        ]
+      }
+    },
     "/api/v0/spieler/self/{saison_id}": {
       "get": {
-        "description": "What the signed-in pupil's own page shows of one season, in one read.\n\nThe seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the\nseason under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with\nwhether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or\nnone is stored (null).\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
+        "description": "What the signed-in pupil's own page shows of one season, in one read.\n\nTheir squad row of this season with the name its club plays the season under, null where they hold none; and\nthat club's fixtures in the order the draw numbered them, each with\nwhether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or\nnone is stored (null).\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
         "operationId": "spieler_get_self_saison",
         "parameters": [
           {

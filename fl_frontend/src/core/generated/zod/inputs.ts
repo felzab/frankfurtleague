@@ -2090,8 +2090,7 @@ export const SchiedsrichterGetConfirmationViewBody = zod
  *
  * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
  * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
- * today, and when its report was first sent. Beside them the seasons in which a fixture is booked to them, newest
- * first. Nobody's address is served, and no reason an administrator entered.
+ * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
  *
  * Refuses an address holding no live, confirmed referee record (`role_not_held`).
  * @summary A signed-in referee's fixtures of one season, one row a fixture
@@ -2955,8 +2954,8 @@ export const SpielerGetSpielerAdminQueryParams = zod.object({
 /**
  * What the signed-in pupil's own page shows of one season, in one read.
  *
- * The seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the
- * season under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with
+ * Their squad row of this season with the name its club plays the season under, null where they hold none; and
+ * that club's fixtures in the order the draw numbered them, each with
  * whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
  * none is stored (null).
  *
