@@ -48,7 +48,6 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
           bar={
             <Placeholder layoutClass={editorBarLook().bar()}>
               <span className={editorBarLook().row()}>
-                <span className="min-w-0 flex-1" />
                 <span className={buttonPlaceholder()}>{COPY.shared.verb.save}</span>
               </span>
             </Placeholder>
