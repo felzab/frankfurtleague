@@ -16,6 +16,7 @@ import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { Tooltip } from "./Tooltip";
 
 import type { Copy } from "@/core/copy";
+import type { ReactNode } from "react";
 import type { Choice } from "./FieldParts";
 import type { IconName } from "./Icon";
 
@@ -71,8 +72,14 @@ function GroupMessage({ id, description, errorMessage }: { id: string; descripti
   );
 }
 
-/** One segment: its words, or its glyph alone with its name in the tooltip. */
-function Segment({ choice }: { choice: Choice | GlyphChoice }) {
+/**
+ * An answer whose word a small mark stands before, such as a card's colour before „Gelb“: the mark shows what the word
+ * says, so it is drawn for the eye alone and the word stays the answer's name.
+ */
+type MarkedChoice = Choice & { mark?: ReactNode };
+
+/** One segment: its words, a mark before them where its answer has one, or its glyph alone with its name in the tooltip. */
+function Segment({ choice }: { choice: MarkedChoice | GlyphChoice }) {
   if ("glyph" in choice) {
     return (
       <Tooltip label={choice.label}>
@@ -94,7 +101,15 @@ function Segment({ choice }: { choice: Choice | GlyphChoice }) {
       id={choice.id}
       data-kit-focus="ring"
       className={choiceButton({ kind: "segmented" })}>
-      {textOf(choice.label)}
+      {choice.mark === undefined ? (
+        textOf(choice.label)
+      ) : (
+        // 6 px apart, the mark centred on the word's line.
+        <span className="inline-flex items-center gap-1.5">
+          {choice.mark}
+          {textOf(choice.label)}
+        </span>
+      )}
     </ToggleButton>
   );
 }
@@ -121,7 +136,7 @@ export function Segmented({
   onChange,
   placement = "field",
 }: Omit<Shared, "choices"> & {
-  choices: readonly Choice[] | readonly GlyphChoice[];
+  choices: readonly MarkedChoice[] | readonly GlyphChoice[];
   value?: string | null;
   defaultValue?: string;
   onChange?: (id: string) => void;
