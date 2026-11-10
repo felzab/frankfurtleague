@@ -44,8 +44,8 @@ from app.core.config import API_VERSION
 from app.core.crud import (
     anchor_in_db,
     delete_many_from_db,
-    patch_many_in_db,
     patch_one_in_db,
+    patch_past_the_version_in_db,
     pull_many_from_db,
     pull_one_from_db,
 )
@@ -284,19 +284,19 @@ async def sweep_saison(
         written = batch.took([row for row in rows if row["_id"] in closing or row["_id"] in mailing])
         refuse_a_stalled_page(read=len(rows), moved=len(written), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
 
+        # Past the version, the stamps and the chases' both: mail bookkeeping no form saves, so a decision read before the
+        # pass still lands.
         for row, _ in taken:
-            await patch_one_in_db(
+            await patch_past_the_version_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
                 session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
             )
         # One write a seat, however many rows, a write a row being a page's worth of commands.
         for seat in KONTAKT_ROLLEN:
             if ids := [row_id for row_id, seats in closing.items() if seat in seats]:
-                await patch_many_in_db(
+                await patch_past_the_version_in_db(
                     collection=bewerbungen_collection,
                     db_filter={"_id": {"$in": ids}},
                     update=compose_chase_update(seats=[seat], closed_at=today),

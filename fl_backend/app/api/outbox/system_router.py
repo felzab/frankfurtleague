@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, status
 from pydantic import TypeAdapter, ValidationError
-from pymongo import ASCENDING, ReturnDocument
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -36,7 +36,7 @@ from app.api.outbox.services import (
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
+from app.core.crud import patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
 from app.core.logging import fl_logger
 from app.core.security import verify_access_system
@@ -319,13 +319,12 @@ async def _reopen_chases(
         return
 
     if seats := reopened_chases(bewerbung_raw=row, to=mail["to"]):
-        await patch_one_in_db(
+        # Past the version: the chase's stamp is mail bookkeeping no form saves, so a decision read before it still lands.
+        await patch_past_the_version_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": row["_id"]},
             update=compose_chase_update(seats=seats, closed_at=None),
-            expected_version=None,
             session=session,
-            return_document=ReturnDocument.BEFORE,
         )
 
 
