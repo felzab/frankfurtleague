@@ -46,7 +46,6 @@ export type TeamSeat = Extract<Role, { kind: "kontakt" }>;
 
 /**
  * Every seat a person holds at one team page's address, at least one.
- * @awaitsPage the team's pages
  */
 export type TeamSeats = readonly [TeamSeat, ...TeamSeat[]];
 
@@ -57,8 +56,6 @@ type TeamAddress<Segments> = (segments: Segments) => string;
  * The seats the signed-in person holds on exactly the team and season a team page's address names, `null` where they
  * hold none there; no session is sent to sign in, `address` carried back. For a page's metadata, which answers a
  * miss rather than throwing it (`fl_frontend/src/shared/utils/notFoundMetadata.ts :: metadataFor`).
- * @awaitsPage the team's pages
- * @awaitsProduction the team's pages
  */
 export async function teamSeatsAt<Segments extends { team: string; saison: string }>(
   params: Promise<Segments>,
@@ -84,8 +81,6 @@ function refuseWithoutSeat(): never {
  * The seats a team page is drawn for, which every team page's read asks first: the layout stands above the team and
  * the season of the address and is handed neither, and Next runs a page whatever its frame draws. A person holding
  * no seat there ends on the frame's „Kein Zugang“ card.
- * @awaitsPage the team's pages
- * @awaitsProduction the team's pages
  */
 export async function requireTeamSeats<Segments extends { team: string; saison: string }>(
   params: Promise<Segments>,
@@ -97,8 +92,6 @@ export async function requireTeamSeats<Segments extends { team: string; saison: 
 /**
  * A team page's read of the backend, ending on the same card where the backend finds the seat gone after the page's
  * own check; every other failure reaches the frame's error card.
- * @awaitsPage the team's pages
- * @awaitsProduction the team's pages
  */
 export async function readAsSeatHolder<Read>(read: () => Promise<Read>): Promise<Read> {
   try {
