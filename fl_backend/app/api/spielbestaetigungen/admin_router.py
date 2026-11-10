@@ -116,7 +116,7 @@ async def enter_spielbestaetigung(
     today: str = Depends(get_german_date_str),
 ) -> None:
     """
-    Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.
+    Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
 
     The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
     nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
@@ -300,7 +300,7 @@ async def adopt_spielbestaetigung(
     `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
     (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
     as that save resolves it. The
-    row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+    row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
     next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
     about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
     """

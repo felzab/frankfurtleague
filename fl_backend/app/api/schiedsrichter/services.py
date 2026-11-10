@@ -182,7 +182,7 @@ def erase_at_from(*, deadline: str) -> datetime:
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
-    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
+    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today."""
 
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today)}
 

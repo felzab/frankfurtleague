@@ -218,7 +218,7 @@ async def write_the_contact_block(
     """Store a block over `stored`, read in this session, owing each person it newly seats their link; each link owed.
 
     Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
-    entry, unconfirmed, and a seat handed on loses its links on the team's open match confirmations.
+    entry, unconfirmed.
     """
 
     kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
@@ -764,7 +764,7 @@ async def put_kontakt_seat(
     The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
     `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
     in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
-    last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+    last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
     stay correctable, and such a link takes the person's Widerspruch alone.
 
     Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read

@@ -3527,7 +3527,7 @@ export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigun
  * `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
  * (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
  * as that save resolves it. The
- * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+ * row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
  * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
  * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
  * @summary Adopt a club's proposed date
@@ -3676,7 +3676,7 @@ export const getSpielbestaetigungenEnterSpielbestaetigungUrl = (spielbestaetigun
 };
 
 /**
- * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.
+ * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
  *
  * The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
  * nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
@@ -4804,7 +4804,7 @@ export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat
  * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
  * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
  * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
- * last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+ * last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
  * stay correctable, and such a link takes the person's Widerspruch alone.
  *
  * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
