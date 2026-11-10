@@ -2326,6 +2326,8 @@ export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegE
 export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielberichtePutSpielberichtBerichtBodyBerichtScorersMax = 60;
 
+export const spielberichtePutSpielberichtBerichtBodyVersionOneMin = 0;
+
 export const SpielberichtePutSpielberichtBerichtBody = zod
   .object({
     bericht: zod.object({
@@ -2377,7 +2379,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax),
     }),
-    version: zod.union([zod.int(), zod.null()]),
+    version: zod.union([zod.int().min(spielberichtePutSpielberichtBerichtBodyVersionOneMin), zod.null()]),
   })
   .describe("The whole `bericht` block, written wholesale by the referee's PUT.");
 

@@ -10,6 +10,7 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomTimeString,
+    CustomVersion,
     FLUtcInstant,
     parse_empty_string_to_none,
 )
@@ -190,7 +191,7 @@ class FLSpielberichtPayload(BaseModel):
     bericht: FLSpielberichtBerichtPayload
     # The document's `version` the form was served, null where it showed no report: required with no default, since an
     # omitted one would check nothing (`app/core/crud.py :: find_stale_first_save_refusal`).
-    version: int | None
+    version: CustomVersion | None
 
 
 # --- The READ of the referee's form: the fixture, both live squads to pick from, and the stored block.
