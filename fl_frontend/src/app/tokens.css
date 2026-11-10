@@ -3,10 +3,7 @@
    value, so `bg-bg` follows the theme. */
 @layer base {
   :root {
-    /* The page. The body paints `--bg-base` from `schemes/2027.css`, which the old pages read, so a change
-       here writes that value too, in each theme.
-       Session 8: the scheme file goes with the old pages, and this second write with it.
-       A card stands a step brighter than the page in both themes, as the dark card does on its black page: the
+    /* The page. A card stands a step brighter than the page in both themes, as the dark card does on its black page: the
        light page is a grey, its cards white. The grey is as dark as a status chip's tint on it allows while its
        word keeps 4.5:1, since a chip stands on the page after a page's title and in a card's head. */
     --bg: #eaeaea;
@@ -128,9 +125,16 @@
     animation-duration: var(--motion-out);
   }
 
-  /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page in
-     the root's beneath them all. A frame's band, its phone bar, an editor's bar and a rail page's title strip, which the
-     page scrolls under, would sit in the root's picture, and a fading part would show what scrolled under them over them:
+  /* The root takes no picture. The browser's own sheet names it `root`, which pictures everything outside the named
+     parts as one and cross-fades it whenever a navigation changes anything there, the rail's mark or a title; unnamed,
+     the page under the parts stays the live page, and such a change is immediate. */
+  :root {
+    view-transition-name: none;
+  }
+
+  /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page live
+     beneath them all. A frame's band, its phone bar, an editor's bar and a rail page's title strip, which the
+     page scrolls under, would stay in the page beneath, and a fading part would show what scrolled under them over them:
      each carries a `view-transition-name` of its own, `band`, `bar` or `strip`, so it is pictured apart. The groups paint in
      the order their names were captured, and a name only in the new state is captured after every name of the old
      one, so a part React's streamed reveal brings in would paint over them; `z-index` is what lifts the three over any
@@ -289,9 +293,9 @@
   );
 }
 
-/* No namespace is reset to `initial` while HeroUI's stylesheets `@apply` Tailwind's default scale, so
-   the steps below are the only ones the kit may use, and the defaults stay for those stylesheets.
-   Session 8: once those stylesheets go, each namespace below is reset to `initial`. */
+/* The steps below are the only ones the kit may use. Tailwind's defaults stand beside them, so the lint
+   holds a class to these (`fl_frontend/eslint.config.mjs`).
+   Session 8: each namespace below is reset to `initial`. */
 @theme {
   /* Below the reading sizes, for a phone's compact table alone: its column heads and the „+N“ over a figure. */
   --text-2xs: 0.625rem;

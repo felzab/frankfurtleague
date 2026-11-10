@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import NextLink from "next/link";
 
 import {
   Menu as AriaMenu,
@@ -26,7 +27,7 @@ import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { IconName } from "./Icon";
 
 /**
@@ -34,9 +35,14 @@ import type { IconName } from "./Icon";
  * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
  * where one name alone does not say which, as a team's season and seats under its name.
  */
-export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean; label: Words; detail?: Words } & {
-  /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
-  routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
+export type MenuLink = {
+  href: Route;
+  icon?: IconName;
+  isCurrent?: boolean;
+  label: Words;
+  detail?: Words;
+  /** For a step the browser's Back should skip, such as a season switch: the address takes the current history entry's place. */
+  replace?: boolean;
 };
 
 /** One entry of a menu: a link, an action, or a second list of links. */
@@ -166,8 +172,21 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   return (
     <MenuItem
       id={link.href}
+      // The address tells React Aria the entry is a link; Next's link draws its anchor, so the entry navigates
+      // on the client and prefetches as the kit's other links do, where React Aria's own anchor loads a document.
       href={link.href}
-      routerOptions={link.routerOptions}
+      render={(props) =>
+        "href" in props ? (
+          <NextLink
+            {...props}
+            href={link.href}
+            replace={link.replace}
+          />
+        ) : (
+          // The other half of `render`'s type, an entry without an address, which this one never is.
+          <div {...props} />
+        )
+      }
       textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
       data-kit-focus="option"
       // A two-line entry grows past the one line's height.
