@@ -545,6 +545,17 @@ def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     return {"email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})}}
 
 
+def build_admission_erasure_filter(*, registrierung_id: Any, saison_id: str, address: str) -> Mapping[str, Any]:
+    """The admitted registration and every other pending one of its address in its season, whichever team each was for.
+
+    Once the person plays, each of the others is refused as already in a squad, a season holding one squad row per
+    person, and the decline left as its only press would mail the pupil just admitted. Keyed on the fold the admission
+    resolves the person by, never on the mailbox's plus-tagged forms: each of those resolves to another person.
+    """
+
+    return {"saison_id": saison_id, "$or": [{"_id": registrierung_id}, dict(build_own_registrierung_filter(address))]}
+
+
 def find_unconfirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """`registrierung_unconfirmed`: the pupil has not answered their own link, so nobody may admit them yet.
 
