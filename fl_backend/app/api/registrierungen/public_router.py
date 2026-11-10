@@ -38,11 +38,11 @@ from app.api.registrierungen.services import (
     find_team_junction_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
-    kader_free,
     saison_takes_registrierungen,
     state_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
+from app.api.spieler.crud import find_full_squad_refusal
 from app.api.spieler.services import build_live_squad_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
@@ -178,7 +178,8 @@ async def post_invitation_view(
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=kader_free(nominee=nominee, squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0)),
+        kader_free=find_full_squad_refusal(squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0), nominee=nominee)
+        is None,
         nachnominierung=nominee,
     )
 
@@ -261,11 +262,12 @@ async def post_registrierung(
         )
         refuse(
             find_kader_refusal(
-                free=kader_free(
-                    nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today),
+                free=find_full_squad_refusal(
                     squad_size=squad_size,
                     max_kader_size=int(rules.get("max_kader_size") or 0),
+                    nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today),
                 )
+                is None
             )
         )
 

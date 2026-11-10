@@ -78,8 +78,8 @@ async def refuse_a_full_squad(
 def find_full_squad_refusal(*, squad_size: int, max_kader_size: int, nominee: bool) -> WriteRefusal | None:
     """`kader_full` where a squad holding `squad_size` capped rows takes no further entry, or `None`.
 
-    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises and a read serving whether an entry
-    would meet that refusal answers by.
+    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
+    asking whether a squad takes an entry answers by.
     """
 
     if nominee:

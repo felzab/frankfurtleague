@@ -122,14 +122,11 @@ def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapp
     return (kader_raw is not None and bool(kader_raw["is_nachnominiert"])) or entry_is_a_nominee(registrierung=registrierung, day=submitted_at)
 
 
-def kader_free(*, nominee: bool, squad_size: int, max_kader_size: int) -> bool:
-    """Whether a squad takes this entry: a nominee stands outside the cap, so only an ordinary entry is held to it."""
-
-    return nominee or squad_size < max_kader_size
-
-
 def find_kader_refusal(*, free: bool) -> WriteRefusal | None:
-    """`registrierung_kader_full`: the squad already stands at the season's cap, the answer `kader_free` gives."""
+    """`registrierung_kader_full`: the squad has no room for this entry, the answer the link's `kader_free` gives.
+
+    `free` is `app/api/spieler/crud.py :: find_full_squad_refusal`'s verdict, the cap's one copy.
+    """
 
     if free:
         return None
