@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.schiedsrichter.schemas import (
@@ -29,7 +28,7 @@ from app.api.schiedsrichter.services import (
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, refuse
+from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SchiedsrichterCollection,
@@ -154,7 +153,9 @@ async def post_confirmation(
         refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
         refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
-        await patch_one_in_db(
+        # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
+        # read before it still lands.
+        await patch_past_the_version_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": raw["_id"]},
             update=compose_confirmation_update(
@@ -166,12 +167,10 @@ async def post_confirmation(
                 at=utc_stamp(germany_now),
             ),
             session=session,
-            expected_version=None,
-            return_document=ReturnDocument.BEFORE,
         )
 
-        # Read off the document the filter found rather than the update's echo: the echo carries the
-        # whole row, and this answer is bounded to what the page renders.
+        # The press's own answer rather than the stored row, which carries the whole referee: this answer is bounded to
+        # what the page renders.
         return FLSchiedsrichterConfirmationResponse(
             scope=answer_data.scope,
             media=answer_data.media,
@@ -220,13 +219,9 @@ async def post_decline(
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
 
-        await patch_one_in_db(
-            collection=schiedsrichter_collection,
-            db_filter={"_id": raw["_id"]},
-            update=compose_decline_update(today=today),
-            session=session,
-            expected_version=None,
-            return_document=ReturnDocument.BEFORE,
+        # The confirmation's way past the count, for its reason: the objection's day is no field the editor saves.
+        await patch_past_the_version_in_db(
+            collection=schiedsrichter_collection, db_filter={"_id": raw["_id"]}, update=compose_decline_update(today=today), session=session
         )
         journal.note("objection", [f"{Collection.SCHIEDSRICHTER}/{raw['_id']}"])
 
