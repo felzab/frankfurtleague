@@ -108,11 +108,14 @@ async def pull_whole_from_db(
     return documents
 
 
-# Every document of an `EDITED_COLLECTIONS` member carries this count of its writes: 0 when created, raised by every
-# update through the two patch helpers below, and never by an anchor, which changes nothing a reader sees. A save
-# passes the count its form was read at as `expected_version`, and matches only while the count stands there:
-# MongoDB's documented pattern, "include the expected current value in the update filter" (the manual's
-# write-operations atomicity page), Mongoose's `optimisticConcurrency`.
+# Every document of an `EDITED_COLLECTIONS` member carries this count: 0 when created, and raised by every update
+# through the two patch helpers below. A save passes the count its form was read at as `expected_version`, and matches
+# only while the count stands there: MongoDB's documented pattern, "include the expected current value in the update
+# filter" (the manual's write-operations atomicity page), Mongoose's `optimisticConcurrency`.
+#
+# The count is scoped by field, as that option is with `exclude`: it counts the writes to what a form shows and saves.
+# A write to a field no form saves goes through `patch_past_the_version_in_db` and leaves the count standing, so it
+# refuses no save of a form read before it.
 VERSION_FIELD: Final = "version"
 
 
@@ -257,6 +260,30 @@ async def is_held_elsewhere(
     return await collection.find_one(db_filter, projection={"_id": 1}, session=session) is not None
 
 
+async def patch_past_the_version_in_db(
+    *,
+    collection: AsyncCollection,
+    db_filter: Mapping[str, Any],
+    update: Mapping[str, Any],
+    # REQUIRED: the write's own transaction, in which its caller read what it judged, so two such writes to one
+    # document conflict and the later is judged again.
+    session: AsyncClientSession,
+) -> int:
+    """Write fields no form saves onto the documents the filter names, each one's `version` left standing, and answer how many it matched.
+
+    The one way past the count, for three kinds of write: an anchor, which changes nothing a reader sees; a link's
+    hash, minted when its mail is handed out; and a person's own press on their own block, a consent moved or a seat
+    confirmed. A press names the state it moves in `db_filter`, or judges it on a read inside `session`, so a second
+    press finds it moved: the count is not what holds a press.
+
+    Never for a field a form saves: a save read before such a write would then put the old value back unrefused. A
+    job or a fan-out changing what a form shows goes through `patch_one_in_db` or `patch_many_in_db`, which raise the
+    count.
+    """
+
+    return (await collection.update_many(filter=db_filter, update=update, session=session)).matched_count
+
+
 async def anchor_in_db(
     *,
     collection: AsyncCollection,
@@ -270,7 +297,7 @@ async def anchor_in_db(
     """
 
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
-    await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
+    await patch_past_the_version_in_db(collection=collection, db_filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
 
 
 async def anchor_mailboxes_in_db(
@@ -291,22 +318,6 @@ async def anchor_mailboxes_in_db(
         [UpdateOne({"_id": anchor_id}, {"$inc": {ANCHOR_FIELD: 1}, "$set": {"anchored_at": at}}, upsert=True) for anchor_id in ids],
         session=session,
     )
-
-
-async def stamp_in_db(
-    *,
-    collection: AsyncCollection,
-    db_filter: Mapping[str, Any],
-    update: Mapping[str, Any],
-    session: AsyncClientSession,
-) -> bool:
-    """Write a link's hash onto the one document the filter names, answering whether one matched.
-
-    Past the version, as an anchor is: a hash changes nothing a reader sees, and raising the version would refuse the
-    next save of an editor read before it.
-    """
-
-    return (await collection.update_one(filter=db_filter, update=update, session=session)).matched_count > 0
 
 
 async def post_one_to_db(
