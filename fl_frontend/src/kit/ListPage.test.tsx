@@ -198,11 +198,13 @@ describe("open work beside its record's seats", () => {
   const ACTS = [COPY.shared.verb.adopt, COPY.shared.verb.discard] as const;
   const TITLES = [COPY.page.spiele, COPY.page.registrierungen, COPY.team.kontakte] as const;
   const SPIEL = "Ahorn vs. Eiche";
+  const TEAM = "Ahornschule Frankfurt";
 
   const drawn = () =>
     drawnCards(
-      { rows: 2, cards: [{ title: TITLES[0], acts: ACTS }, { title: TITLES[1] }], seats: TITLES[2] },
+      { team: true, rows: 2, cards: [{ title: TITLES[0], acts: ACTS }, { title: TITLES[1] }], seats: TITLES[2] },
       {
+        team: { plaque: { record: "AHO" }, name: { record: TEAM } },
         cards: [
           {
             id: "spiele",
@@ -247,9 +249,10 @@ describe("open work beside its record's seats", () => {
   /** A seats' card's rows: the card's body holds the list alone. */
   const seatsOf = (card: Element | undefined) => [...(card?.lastElementChild?.firstElementChild?.children ?? [])];
 
-  // The harm: a card the wait leaves out lands under the others' placeholders and pushes the page down, and an act's bar
-  // on a seat that carries none lands a phone's row a line shorter; either moves the page under a finger on „Zusagen“.
-  it("waits as one skeleton of every card it lands with, the seats' among them", async () => {
+  // The harm: a box the wait leaves out, the head or a card, lands among the others' placeholders and pushes the page
+  // down, and an act's bar on a seat that carries none lands a phone's row a line shorter; either moves the page under a
+  // finger on „Zusagen“.
+  it("waits as one skeleton of every box it lands with, the team's head and the seats' card among them", async () => {
     const { waiting, landed } = await drawn();
 
     const skeletons = [...waiting.querySelectorAll("[aria-busy]")];
@@ -257,6 +260,12 @@ describe("open work beside its record's seats", () => {
     const [skeleton] = skeletons as [Element];
     expect(cardsOf(skeleton).map((card) => card.firstElementChild?.textContent)).toStrictEqual(TITLES);
     expect(cardsOf(landed).map((card) => card.querySelector("h2")?.textContent)).toStrictEqual(TITLES);
+
+    // The head is the one box over the cards' grid, waiting and landed, and names the team under the page's title.
+    const over = (page: Element) => page.querySelector(GRID)?.previousElementSibling;
+    expect([skeleton, landed].map((page) => page.querySelector(GRID)?.parentElement?.childElementCount)).toStrictEqual([2, 2]);
+    expect(over(skeleton)?.childElementCount).toBe(over(landed)?.childElementCount);
+    expect(over(landed)?.querySelector("h2")?.textContent).toBe(TEAM);
 
     expect(cardsOf(landed)[1]?.lastElementChild?.textContent).toBe(COPY.shared.empty.nothingOpen);
 

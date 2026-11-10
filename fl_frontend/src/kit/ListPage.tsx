@@ -26,6 +26,7 @@ import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
 import { Tabs, TabsPlaceholder } from "./Tabs";
+import { TeamHead, TeamHeadPlaceholder } from "./TeamHead";
 import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
@@ -72,6 +73,8 @@ type GroupsContent = {
  * over its records, every card drawn every day, one with nothing waiting saying so.
  */
 type CardsContent = {
+  /** The team whose own Übersicht this is, heading the cards: its plaque and its full name (`TeamHead`). */
+  team?: ComponentProps<typeof TeamHead>;
   cards: ReadonlyArray<{
     id: string;
     title: Copy;
@@ -147,10 +150,15 @@ type ListContent =
       kind: "cards";
       /**
        * Each card while it waits, in their order, its title, the acts its rows carry, which a phone sets on a line of
-       * their own, and `count` as the card states it, and how many rows each draws; and the seats' card's title, where
-       * the page shows the record's seats.
+       * their own, and `count` as the card states it, and how many rows each draws; the seats' card's title, where
+       * the page shows the record's seats; and `team` where a team's head opens the page.
        */
-      wait: { rows: number; cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy>; count?: false }>; seats?: Copy };
+      wait: {
+        rows: number;
+        cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy>; count?: false }>;
+        seats?: Copy;
+        team?: true;
+      };
       content: Promise<CardsContent>;
     }
   | {
@@ -214,27 +222,30 @@ function ListPlaceholder({ list }: { list: ListContent }) {
       ));
     case "cards":
       return (
-        <Cards boxes={list.wait.cards.length + (list.wait.seats === undefined ? 0 : 1)}>
-          {list.wait.cards.map(({ title, acts, count }) => (
-            <CardPlaceholder
-              key={title}
-              title={title}
-              count={count !== false}>
-              <CardRowsPlaceholder
-                rows={list.wait.rows}
-                {...(acts === undefined ? {} : { acts })}
-              />
-            </CardPlaceholder>
-          ))}
-          {list.wait.seats !== undefined && (
-            <CardPlaceholder title={list.wait.seats}>
-              <SeatRowsPlaceholder
-                bare
-                readOnly
-              />
-            </CardPlaceholder>
-          )}
-        </Cards>
+        <>
+          {list.wait.team === true && <TeamHeadPlaceholder />}
+          <Cards boxes={list.wait.cards.length + (list.wait.seats === undefined ? 0 : 1)}>
+            {list.wait.cards.map(({ title, acts, count }) => (
+              <CardPlaceholder
+                key={title}
+                title={title}
+                count={count !== false}>
+                <CardRowsPlaceholder
+                  rows={list.wait.rows}
+                  {...(acts === undefined ? {} : { acts })}
+                />
+              </CardPlaceholder>
+            ))}
+            {list.wait.seats !== undefined && (
+              <CardPlaceholder title={list.wait.seats}>
+                <SeatRowsPlaceholder
+                  bare
+                  readOnly
+                />
+              </CardPlaceholder>
+            )}
+          </Cards>
+        </>
       );
     case "spieltage":
       return (
@@ -491,43 +502,46 @@ async function ListBody({ list }: { list: ListContent }) {
       );
     }
     case "cards": {
-      const { cards, seats } = await list.content;
+      const { team, cards, seats } = await list.content;
       return (
-        <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
-          {cards.map((entry) =>
-            entry.rows.length === 0 && entry.empty !== undefined ? (
-              <EmptyBox
-                key={entry.id}
-                empty={entry.empty}
-              />
-            ) : (
-              <Card
-                key={entry.id}
-                title={entry.title}
-                {...(entry.count === false ? {} : { count: entry.rows.length })}>
-                {entry.rows.length === 0 ? (
-                  <EmptyState kind="clear" />
-                ) : (
-                  entry.rows.map(({ id, ...row }) => (
-                    <CardActRow
-                      key={id}
-                      {...row}
-                    />
-                  ))
-                )}
+        <>
+          {team !== undefined && <TeamHead {...team} />}
+          <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
+            {cards.map((entry) =>
+              entry.rows.length === 0 && entry.empty !== undefined ? (
+                <EmptyBox
+                  key={entry.id}
+                  empty={entry.empty}
+                />
+              ) : (
+                <Card
+                  key={entry.id}
+                  title={entry.title}
+                  {...(entry.count === false ? {} : { count: entry.rows.length })}>
+                  {entry.rows.length === 0 ? (
+                    <EmptyState kind="clear" />
+                  ) : (
+                    entry.rows.map(({ id, ...row }) => (
+                      <CardActRow
+                        key={id}
+                        {...row}
+                      />
+                    ))
+                  )}
+                </Card>
+              ),
+            )}
+            {seats !== undefined && (
+              <Card title={seats.title}>
+                <SeatRows
+                  label={seats.title}
+                  rows={seats.rows}
+                  bare
+                />
               </Card>
-            ),
-          )}
-          {seats !== undefined && (
-            <Card title={seats.title}>
-              <SeatRows
-                label={seats.title}
-                rows={seats.rows}
-                bare
-              />
-            </Card>
-          )}
-        </Cards>
+            )}
+          </Cards>
+        </>
       );
     }
     case "tree": {
@@ -563,8 +577,8 @@ async function ListBody({ list }: { list: ListContent }) {
  * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
  * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own closing with a card of its
- * seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
+ * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own under the team's head and
+ * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
  * filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
