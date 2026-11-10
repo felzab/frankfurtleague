@@ -16,7 +16,7 @@ from app.api.bewerbungen.services import build_own_bewerbung_filter
 from app.api.grants.services import OWNER, admin_tier_of, holds_an_owners_power
 from app.api.identity.schemas import FLAccountErasureView, FLErasureViewResponse, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
+from app.api.registrierungen.services import SUBMITTED, build_erasure_registrierung_filter, build_own_registrierung_filter
 from app.api.schiedsrichter.services import (
     build_self_referee_filter,
     build_unplayed_assignment_filter,
@@ -292,7 +292,7 @@ def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     The whole consent record rides along: whether its pupil confirmed it is part of the judgement.
     """
 
-    return [{"$match": build_eigene_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
+    return [{"$match": build_own_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
 
 
 def folded(stored: Any) -> str | None:
@@ -573,7 +573,7 @@ def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[
 
 def build_registrierung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_eigene_registrierung_filter(*identifiers)},
+        {"$match": build_own_registrierung_filter(*identifiers)},
         {"$project": {"status": 1, "email": 1, "einwilligung": 1}},
     ]
 

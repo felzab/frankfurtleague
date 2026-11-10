@@ -26,7 +26,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_LINK,
     build_bestaetigung_filter,
     build_open_link_filter,
-    compose_bestaetigung,
+    compose_confirmation,
     compose_confirmation_update,
     compose_registrierung,
     find_abweichender_fingerabdruck_refusal,
@@ -44,7 +44,7 @@ from app.api.registrierungen.services import (
     find_wahlen_refusal,
     kader_free,
     page_of,
-    saison_nimmt_registrierungen_an,
+    saison_takes_registrierungen,
     stored_birth_date,
     zustand_of,
 )
@@ -179,7 +179,7 @@ async def post_invitation_view(
         schule=str(team_raw["full_name"]),
         saison_id=saison_id,
         saison_status=saison_raw["status"],
-        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
+        running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
         allowed_stufen=list(rules.get("allowed_stufen") or []),
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
@@ -327,7 +327,7 @@ async def post_registrierung(
                     position=registrierung_data.position,
                     nummer=registrierung_data.nummer,
                     stufe=registrierung_data.stufe,
-                    confirmation=compose_bestaetigung(today=today, deadline=deadline, mailed=mailed),
+                    confirmation=compose_confirmation(today=today, deadline=deadline, mailed=mailed),
                     today=today,
                 ),
                 **({} if schluessel is None else {"idempotency_key": schluessel, "idempotency_fingerprint": fingerabdruck}),
@@ -499,7 +499,7 @@ async def post_confirmation(
         # The payload's own three rather than the updated document's: this answer is what the page
         # states back, and re-reading the row would widen it to everything a registration holds.
         return FLRegistrierungConfirmationResponse(
-            ergebnis="confirmed",
+            outcome="confirmed",
             birth_date=answer_data.birth_date,
             scope=answer_data.scope,
             media=answer_data.media,

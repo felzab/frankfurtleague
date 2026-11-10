@@ -6,7 +6,7 @@ import pytest
 from app.api.registrierungen.services import (
     PAGE_NEW,
     PAGE_RETURNING,
-    compose_bestaetigung,
+    compose_confirmation,
     compose_person,
     compose_person_update,
     link_is_over,
@@ -41,7 +41,7 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
         "email": "Quillhilde@Example.com",
         "birth_date": None,
         "einwilligung": None,
-        "confirmation": {**compose_bestaetigung(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
+        "confirmation": {**compose_confirmation(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
         **overrides,
     }
 

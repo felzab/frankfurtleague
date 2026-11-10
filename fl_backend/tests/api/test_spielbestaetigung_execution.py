@@ -218,7 +218,7 @@ async def press_answer(
     client: AsyncMongoClient,
     raw: str,
     *,
-    answer: str = "zugesagt",
+    answer: str = "agreed",
     vorschlag: tuple[str, str] | None = None,
     reason: str | None = None,
     today: str = TODAY,
@@ -320,7 +320,7 @@ class TestTheSeatTheAnswerRecords:
 
         assert answered.answered_by.model_dump() == {"kind": "kontakt", "rolle": "stellvertretung"}
         assert row["answer"] == {
-            "kind": "zugesagt",
+            "kind": "agreed",
             "at": TODAY,
             "by": {"kind": "kontakt", "rolle": "stellvertretung"},
             "vorschlag": None,
@@ -657,7 +657,7 @@ class TestTheAdministratorsZusage:
 
         stored, pressed = on_a_spiel(mongo_replica_set_url, body)
 
-        expected = {"kind": "zugesagt", "at": TODAY, "by": {"kind": "admin"}, "vorschlag": None, "reason": SETTLE_REASON}
+        expected = {"kind": "agreed", "at": TODAY, "by": {"kind": "admin"}, "vorschlag": None, "reason": SETTLE_REASON}
         assert stored == expected
         assert pressed == Code.ANSETZUNG_ANSWERED
 
@@ -948,14 +948,14 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
     ):
         # The other club and the referee agreed, so ROW1 alone decides; a referee's row owing its answer lists the fixture
         # as a club's does (`test_saison_overview.py :: TestEachKindLandsOnItsCard`).
-        agreed = {"answer": {**DECLINE, "kind": "zugesagt", "vorschlag": None}}
+        agreed = {"answer": {**DECLINE, "kind": "agreed", "vorschlag": None}}
         referee = documents.spielbestaetigung_document(
             spiel(),
             party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER},
             deadline="2027-04-30",
             asked_at=TODAY,
             kontakte=None,
-            answer={"kind": "zugesagt", "at": TODAY, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None},
+            answer={"kind": "agreed", "at": TODAY, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None},
         )
         rows = [{**confirmation(ROW1, TEAM1), **row1}, confirmation(ROW2, TEAM2, **agreed), referee]
 
@@ -1138,7 +1138,7 @@ async def einsatz_answer(
     client: AsyncMongoClient,
     row_id: ObjectId = REFEREE_ROW,
     *,
-    answer: str = "zugesagt",
+    answer: str = "agreed",
     reason: str | None = None,
     identifier: str = OTTO,
     today: str = TODAY,
@@ -1469,7 +1469,7 @@ class TestARefereeAnswersUntilTheDayNotTheDeadline:
 
             return open.state, answered.state, club
 
-        assert on_a_refereed_spiel(mongo_replica_set_url, body) == ("valid", "zugesagt", Code.ANSETZUNG_DEADLINE_PAST)
+        assert on_a_refereed_spiel(mongo_replica_set_url, body) == ("valid", "agreed", Code.ANSETZUNG_DEADLINE_PAST)
 
     def test_after_the_spiele_day_the_answer_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1478,7 +1478,7 @@ class TestARefereeAnswersUntilTheDayNotTheDeadline:
         assert on_a_refereed_spiel(mongo_replica_set_url, body) == Code.ANSETZUNG_DEADLINE_PAST
 
 
-ZUGESAGT = {"kind": "zugesagt", "at": TODAY, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None}
+ZUGESAGT = {"kind": "agreed", "at": TODAY, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None}
 
 
 class TestTheRefereesOwnRows:
@@ -1488,7 +1488,7 @@ class TestTheRefereesOwnRows:
         Another referee's row of the same fixture is not theirs at all.
         """
 
-        moved = {**referee_row()["ansetzung"], "date": EARLIER_DAY, "time": "17:00:00", "stand": "alt"}
+        moved = {**referee_row()["ansetzung"], "date": EARLIER_DAY, "time": "17:00:00", "digest": "alt"}
         earlier = referee_row(EARLIER_ROW, ansetzung=moved, closed={"at": TODAY, "reason": "ansetzung_changed"})
         utes = referee_row(ObjectId("6890a1b2c3d4e5f607d50063"), schiedsrichter_id=UTE)
 
@@ -1522,7 +1522,7 @@ class TestTheRefereesOwnRows:
 
         (entry,) = on_a_refereed_spiel(mongo_replica_set_url, body)
 
-        assert (entry.state, entry.reason, entry.entered) == ("zugesagt", None, True)
+        assert (entry.state, entry.reason, entry.entered) == ("agreed", None, True)
 
     def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

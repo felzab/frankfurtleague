@@ -1,7 +1,7 @@
 import { FLEinwilligungScope } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_AGE } from "@/features/bewerbungen/constants";
 
-import type { FLMedienMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
+import type { FLMediaMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
 
 /**
  * The pupil's confirmation deadline, mirrored from `fl_backend/app/shared/schemas/bounds.py`.
@@ -20,7 +20,7 @@ export const REGISTRIERUNG_MIN_ALTER = 16 satisfies FLRegistrierungMinAgeYears;
 // For the published notice as well, which states the media floor for pupils and referees alike;
 // checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS` as the floor above
 // is, and the pages take the served `medien_mindestalter` for the reason given above.
-export const MEDIEN_MIN_ALTER = 18 satisfies FLMedienMinAgeYears;
+export const MEDIEN_MIN_ALTER = 18 satisfies FLMediaMinAgeYears;
 
 /** The two publication scopes, both in one list: a control offering one answer and a blank reads as a default. */
 export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungScope[] = Object.values(FLEinwilligungScope);

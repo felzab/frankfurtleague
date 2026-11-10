@@ -13,7 +13,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_LIST_FIELDS,
     SUBMITTED,
     build_registrierungen_sort,
-    registrierung_ist_bestaetigt,
+    registrierung_is_confirmed,
     registrierung_was_left_unmailed,
 )
 from app.api.teams.crud import pull_saison_team_names
@@ -74,7 +74,7 @@ async def get_registrierungen_admin(
                     **row,
                     "id": row["_id"],
                     "team_name": team_names.get(row["team_id"]),
-                    "confirmed": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
+                    "confirmed": registrierung_is_confirmed(einwilligung=row.get("einwilligung")),
                     "unmailed": registrierung_was_left_unmailed(confirmation=row.get("confirmation")),
                 }
             )

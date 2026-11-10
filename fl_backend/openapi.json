@@ -2958,12 +2958,12 @@
             ],
             "title": "Birth Date"
           },
-          "ergebnis": {
-            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
-          },
           "media": {
             "title": "Media",
             "type": "boolean"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/FLEinwilligungOutcome"
           },
           "quelle": {
             "const": "bewerbung",
@@ -2978,7 +2978,7 @@
         },
         "required": [
           "quelle",
-          "ergebnis",
+          "outcome",
           "birth_date",
           "whatsapp",
           "media"
@@ -4749,13 +4749,6 @@
         "title": "FLEinwilligung",
         "type": "object"
       },
-      "FLEinwilligungErgebnis": {
-        "enum": [
-          "confirmed",
-          "declined"
-        ],
-        "type": "string"
-      },
       "FLEinwilligungEvidence": {
         "description": "The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.",
         "properties": {
@@ -4815,6 +4808,13 @@
         ],
         "title": "FLEinwilligungEvidenceSet",
         "type": "object"
+      },
+      "FLEinwilligungOutcome": {
+        "enum": [
+          "confirmed",
+          "declined"
+        ],
+        "type": "string"
       },
       "FLEinwilligungReceipt": {
         "description": "When a person set one consent choice, and under which wording.",
@@ -6695,13 +6695,13 @@
         "title": "FLLandingSide",
         "type": "object"
       },
+      "FLMediaMinAgeYears": {
+        "const": 18,
+        "type": "integer"
+      },
       "FLMediaTextVersion": {
         "const": "2026-11-medien-1",
         "type": "string"
-      },
-      "FLMedienMinAgeYears": {
-        "const": 18,
-        "type": "integer"
       },
       "FLNameKaderTextVersion": {
         "const": "2026-11-name-kader-1",
@@ -9267,11 +9267,6 @@
             ],
             "title": "Birth Date"
           },
-          "ergebnis": {
-            "const": "confirmed",
-            "title": "Ergebnis",
-            "type": "string"
-          },
           "media": {
             "anyOf": [
               {
@@ -9282,6 +9277,11 @@
               }
             ],
             "title": "Media"
+          },
+          "outcome": {
+            "const": "confirmed",
+            "title": "Outcome",
+            "type": "string"
           },
           "scope": {
             "anyOf": [
@@ -9295,7 +9295,7 @@
           }
         },
         "required": [
-          "ergebnis",
+          "outcome",
           "birth_date",
           "scope",
           "media"
@@ -10277,7 +10277,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10484,12 +10484,12 @@
             ],
             "title": "Birth Date"
           },
-          "ergebnis": {
-            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
-          },
           "media": {
             "title": "Media",
             "type": "boolean"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/FLEinwilligungOutcome"
           },
           "quelle": {
             "const": "saison",
@@ -10504,7 +10504,7 @@
         },
         "required": [
           "quelle",
-          "ergebnis",
+          "outcome",
           "birth_date",
           "whatsapp",
           "media"
@@ -14006,11 +14006,15 @@
         "type": "object"
       },
       "FLSpielbestaetigungAnsetzung": {
-        "description": "The Ansetzung a row answers about: every input of `stand`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `stand` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).",
+        "description": "The Ansetzung a row answers about: every input of `digest`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `digest` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Date",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
             "type": "string"
           },
           "spielort_id": {
@@ -14024,10 +14028,6 @@
               }
             ],
             "title": "Spielort Id"
-          },
-          "stand": {
-            "title": "Stand",
-            "type": "string"
           },
           "team1_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14051,7 +14051,7 @@
           "spielort_id",
           "team1_id",
           "team2_id",
-          "stand"
+          "digest"
         ],
         "title": "FLSpielbestaetigungAnsetzung",
         "type": "object"
@@ -14105,7 +14105,7 @@
       },
       "FLSpielbestaetigungAnswerKind": {
         "enum": [
-          "zugesagt",
+          "agreed",
           "declined"
         ],
         "type": "string"
@@ -14501,7 +14501,7 @@
           "state": {
             "enum": [
               "valid",
-              "zugesagt",
+              "agreed",
               "declined",
               "expired",
               "invalid",
@@ -14633,7 +14633,7 @@
             "enum": [
               "valid",
               "vorschlag",
-              "zugesagt",
+              "agreed",
               "declined",
               "discarded",
               "expired",

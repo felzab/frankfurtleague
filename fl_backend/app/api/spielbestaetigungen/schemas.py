@@ -21,7 +21,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielbestaetigungAnswerKind = Literal["zugesagt", "declined"]
+type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
 # Why a row stopped applying. `discarded` closes an open decline carrying a proposal alone: the decline stands
 # as the record, and what is discarded is the administrator's obligation to act on its proposal.
@@ -39,7 +39,7 @@ FLSpielbestaetigungClosedReason = Literal[
 
 # What a reopened link shows. `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture
 # was called off, whatever was answered; `discarded`: the league discarded this decline's proposal.
-FLSpielbestaetigungState = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "cancelled"]
+FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "discarded", "expired", "invalid", "cancelled"]
 
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
 # ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
@@ -53,10 +53,10 @@ CustomSpielbestaetigungReason = Annotated[
 
 
 class FLSpielbestaetigungAnsetzung(BaseModel):
-    """The Ansetzung a row answers about: every input of `stand`, stored beside it.
+    """The Ansetzung a row answers about: every input of `digest`, stored beside it.
 
     A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
-    rather than `stand` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).
+    rather than `digest` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).
     """
 
     date: CustomDateString
@@ -64,7 +64,7 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
     spielort_id: CustomObjectId | None
     team1_id: CustomObjectId
     team2_id: CustomObjectId
-    stand: str
+    digest: str
 
 
 class FLSpielbestaetigungSeat(BaseReadModel):
@@ -246,7 +246,7 @@ class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment):
 def _an_acceptance_gives_no_reason(reason: str | None, info: ValidationInfo) -> str | None:
     """`acceptance_with_reason` on the reason's box, which a club's and a referee's answer both carry."""
 
-    if info.data.get("answer") == "zugesagt" and reason is not None:
+    if info.data.get("answer") == "agreed" and reason is not None:
         raise rule_refusal("acceptance_with_reason", "an acceptance carries no reason")
 
     return reason
@@ -275,7 +275,7 @@ class FLSpielbestaetigungAnswerPayload(BaseModel):
         answer = info.data.get("answer")
         if answer == "declined" and vorschlag is None:
             raise rule_refusal("decline_without_proposal", "a decline proposes another date")
-        if answer == "zugesagt" and vorschlag is not None:
+        if answer == "agreed" and vorschlag is not None:
             raise rule_refusal("acceptance_with_proposal", "an acceptance carries no proposal")
 
         return vorschlag
@@ -301,7 +301,7 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
 # referee answers until the fixture's day, which the Einteilung states.
 
 # Never `vorschlag`, a referee proposing no date.
-FLSpielbestaetigungSchiedsrichterState = Literal["valid", "zugesagt", "declined", "expired", "invalid", "cancelled"]
+FLSpielbestaetigungSchiedsrichterState = Literal["valid", "agreed", "declined", "expired", "invalid", "cancelled"]
 
 
 class FLSpielbestaetigungSelf(BaseModel):

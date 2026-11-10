@@ -1541,7 +1541,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         open: zod.boolean(),
       })
       .describe(
-        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
       ),
     zod.null(),
   ]),
@@ -2326,7 +2326,7 @@ export const spielbestaetigungenPostSpielbestaetigungBodyVorschlagOneTimeRegExp 
 
 export const SpielbestaetigungenPostSpielbestaetigungBody = zod
   .object({
-    answer: zod.enum(["zugesagt", "declined"]),
+    answer: zod.enum(["agreed", "declined"]),
     reason: zod.union([
       zod
         .string()
@@ -2488,7 +2488,7 @@ export const spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneRegExp = ne
 
 export const SpielbestaetigungenPostSchiedsrichterAnswerBody = zod
   .object({
-    answer: zod.enum(["zugesagt", "declined"]),
+    answer: zod.enum(["agreed", "declined"]),
     reason: zod.union([
       zod
         .string()

@@ -1402,9 +1402,9 @@ export interface FLBewerbungAddressPayload {
 
 export type FLBewerbungConfirmationDeadlineDays = 14;
 
-export type FLEinwilligungErgebnis = (typeof FLEinwilligungErgebnis)[keyof typeof FLEinwilligungErgebnis];
+export type FLEinwilligungOutcome = (typeof FLEinwilligungOutcome)[keyof typeof FLEinwilligungOutcome];
 
-export const FLEinwilligungErgebnis = {
+export const FLEinwilligungOutcome = {
   confirmed: "confirmed",
   declined: "declined",
 } as const;
@@ -1414,8 +1414,8 @@ export const FLEinwilligungErgebnis = {
  */
 export interface FLBewerbungEinwilligungAnswerResponse {
   birth_date: string | null;
-  ergebnis: FLEinwilligungErgebnis;
   media: boolean;
+  outcome: FLEinwilligungOutcome;
   quelle: "bewerbung";
   whatsapp: boolean;
 }
@@ -2952,9 +2952,9 @@ export interface FLLandingResponse {
   saison: FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | null;
 }
 
-export type FLMediaTextVersion = "2026-11-medien-1";
+export type FLMediaMinAgeYears = 18;
 
-export type FLMedienMinAgeYears = 18;
+export type FLMediaTextVersion = "2026-11-medien-1";
 
 export type FLNameKaderTextVersion = "2026-11-name-kader-1";
 
@@ -3577,7 +3577,7 @@ export interface FLSaisonBewerbungPayload {
  * When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.
  *
  * No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
- * saison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee
+ * saison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee
  * (`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of
  * `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
  */
@@ -4115,8 +4115,8 @@ export interface FLRegistrierungConfirmationPayload {
  */
 export interface FLRegistrierungConfirmationResponse {
   birth_date: string | null;
-  ergebnis: "confirmed";
   media: boolean | null;
+  outcome: "confirmed";
   scope: FLEinwilligungScope | null;
 }
 
@@ -4423,8 +4423,8 @@ export interface FLSaisonTeamConfirmationsView {
  */
 export interface FLSaisonTeamEinwilligungAnswerResponse {
   birth_date: string | null;
-  ergebnis: FLEinwilligungErgebnis;
   media: boolean;
+  outcome: FLEinwilligungOutcome;
   quelle: "saison";
   whatsapp: boolean;
 }
@@ -5024,16 +5024,16 @@ export interface FLSpielberichteSelfResponse {
 }
 
 /**
- * The Ansetzung a row answers about: every input of `stand`, stored beside it.
+ * The Ansetzung a row answers about: every input of `digest`, stored beside it.
  *
  * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
- * rather than `stand` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).
+ * rather than `digest` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).
  */
 export interface FLSpielbestaetigungAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
+  digest: string;
   spielort_id: string | null;
-  stand: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team1_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5072,7 +5072,7 @@ export type FLSpielbestaetigungBy = FLSpielbestaetigungByKontakt | FLByAdmin | F
 export type FLSpielbestaetigungAnswerKind = (typeof FLSpielbestaetigungAnswerKind)[keyof typeof FLSpielbestaetigungAnswerKind];
 
 export const FLSpielbestaetigungAnswerKind = {
-  zugesagt: "zugesagt",
+  agreed: "agreed",
   declined: "declined",
 } as const;
 
@@ -5214,7 +5214,7 @@ export type FLSpielbestaetigungSelfState = (typeof FLSpielbestaetigungSelfState)
 
 export const FLSpielbestaetigungSelfState = {
   valid: "valid",
-  zugesagt: "zugesagt",
+  agreed: "agreed",
   declined: "declined",
   expired: "expired",
   invalid: "invalid",
@@ -5271,7 +5271,7 @@ export type FLSpielbestaetigungViewResponseState =
 export const FLSpielbestaetigungViewResponseState = {
   valid: "valid",
   vorschlag: "vorschlag",
-  zugesagt: "zugesagt",
+  agreed: "agreed",
   declined: "declined",
   discarded: "discarded",
   expired: "expired",

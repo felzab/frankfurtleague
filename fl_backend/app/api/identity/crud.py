@@ -64,7 +64,7 @@ from app.api.identity.services import (
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.outbox.services import ERASURE_SPARED_KINDS
 from app.api.registrierungen.crud import erase_registrierungen_in_session
-from app.api.registrierungen.services import build_eigene_registrierung_filter
+from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
@@ -858,7 +858,7 @@ async def erase_if_still_due(
     )
     registrierungen = await aggregate_many_from_db(
         collection=registrierungen_collection,
-        pipeline=[{"$match": build_eigene_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
+        pipeline=[{"$match": build_own_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
         session=session,
     )
     if not erasure_due(

@@ -704,7 +704,7 @@ class TestTheDeadline:
 
             return await answer(database, fresh.bestaetigung.token, today=AFTER_THE_DEADLINE)
 
-        assert on_a_league(mongo_replica_set_url, body).ergebnis == "confirmed"
+        assert on_a_league(mongo_replica_set_url, body).outcome == "confirmed"
 
 
 class TestARowsPeopleLeavingTakeTheirLinks:

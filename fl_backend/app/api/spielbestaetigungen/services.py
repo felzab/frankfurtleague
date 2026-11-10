@@ -78,7 +78,7 @@ def _digest(values: Mapping[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def ansetzung_stand_of(spiel: Mapping[str, Any]) -> str:
+def ansetzung_digest_of(spiel: Mapping[str, Any]) -> str:
     """The digest of a raw fixture's Ansetzung: `date`, `time`, `spielort.spielort_id`, `team1.team_id`, `team2.team_id`.
 
     The ground on purpose: a confirmation binds it too. A sixth input changes every stored row's meaning.
@@ -92,7 +92,7 @@ def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
 
     values = _ansetzung_values(spiel)
 
-    return {**values, "stand": _digest(values)}
+    return {**values, "digest": _digest(values)}
 
 
 def build_answerable_filter() -> dict[str, Any]:
@@ -247,7 +247,7 @@ def zustand_of(
         return "discarded"
 
     if isinstance(answer, Mapping):
-        return "zugesagt" if answer["kind"] == "zugesagt" else "declined"
+        return "agreed" if answer["kind"] == "agreed" else "declined"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return "expired"
@@ -419,7 +419,7 @@ def side_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielSide:
 
 
 def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState) -> bool:
-    return ansetzung_stand_of(ansetzung_state.spiel) != spielbestaetigung_raw["ansetzung"]["stand"]
+    return ansetzung_digest_of(ansetzung_state.spiel) != spielbestaetigung_raw["ansetzung"]["digest"]
 
 
 def view_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetzung:
@@ -472,7 +472,7 @@ def view_snapshot_of(
     vereinsnamen: Mapping[Any, str],
     spielort: FLSpielortFieldPublic | None,
 ) -> FLSpielbestaetigungViewAnsetzung:
-    """The Ansetzung a row whose stand moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
+    """The Ansetzung a row whose digest moved was about, whole: its clubs by their season names and `spielort`, its ground read now."""
 
     snapshot = spielbestaetigung_raw["ansetzung"]
     # Empty only for a club no document names at all, a dangling id a replacement exists to repair.
@@ -539,7 +539,7 @@ def find_enter_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefu
 def compose_enter_update(*, reason: str, today: str) -> dict[str, Any]:
     """A Zusage recorded for the party, naming nobody: no seat, so no seat holder's erasure ever reaches its reason."""
 
-    return {"$set": {"answer": {"kind": "zugesagt", "at": today, "by": {"kind": "admin"}, "vorschlag": None, "reason": reason}}}
+    return {"$set": {"answer": {"kind": "agreed", "at": today, "by": {"kind": "admin"}, "vorschlag": None, "reason": reason}}}
 
 
 def build_discardable_filter() -> dict[str, Any]:
@@ -589,7 +589,7 @@ def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: M
         and answer.get("kind") == "declined"
         and answer.get("vorschlag") is not None
         and spielbestaetigung_raw.get("closed") is None
-        and ansetzung_stand_of(spiel) == spielbestaetigung_raw["ansetzung"]["stand"]
+        and ansetzung_digest_of(spiel) == spielbestaetigung_raw["ansetzung"]["digest"]
     )
 
 
@@ -734,7 +734,7 @@ def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 
 # A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
-# needs a new stand, which only a move mints.
+# needs a new digest, which only a move mints.
 REASONS_ANSWERED_FOR_THE_STAND: Final = frozenset({"discarded"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
@@ -796,7 +796,7 @@ def reason_to_close(
     if party["kind"] == "schiedsrichter" and _referee_id(spiel) != party.get("schiedsrichter_id"):
         return "schiedsrichter_switched"
 
-    if ansetzung_stand_of(spiel) != ansetzung["stand"]:
+    if ansetzung_digest_of(spiel) != ansetzung["digest"]:
         return "ansetzung_changed"
 
     # Last, so a move to or from a past day is still announced. Kept open, a row whose

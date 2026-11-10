@@ -27,7 +27,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     AnsetzungState,
-    ansetzung_stand_of,
+    ansetzung_digest_of,
     asked_with_its_move,
     build_answerable_filter,
     build_closable_filter,
@@ -509,8 +509,8 @@ async def sweep_spielbestaetigungen(
             what=f"season {saison_id}'s window's held confirmations",
             session=session,
         )
-        held = {(row["spiel_id"], party_key(row["party"]), row["ansetzung"]["stand"]): row for row in read}
-        stande = {spiel["_id"]: ansetzung_stand_of(spiel) for spiel in spiele}
+        held = {(row["spiel_id"], party_key(row["party"]), row["ansetzung"]["digest"]): row for row in read}
+        digests = {spiel["_id"]: ansetzung_digest_of(spiel) for spiel in spiele}
         by_id = {spiel["_id"]: spiel for spiel in spiele}
 
         junctions = await _junctions(
@@ -529,7 +529,7 @@ async def sweep_spielbestaetigungen(
         waiting: set[Any] = set()
         for row in sorted(read, key=lambda row: row["_id"]):
             spiel = by_id[row["spiel_id"]]
-            if row.get("closed") is not None or row["ansetzung"]["stand"] == stande[spiel["_id"]]:
+            if row.get("closed") is not None or row["ansetzung"]["digest"] == digests[spiel["_id"]]:
                 continue
             if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, today=today):
                 moved.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
@@ -547,9 +547,9 @@ async def sweep_spielbestaetigungen(
             if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, today=today):
                 return plan
 
-            stand = stande[spiel["_id"]]
+            digest = digests[spiel["_id"]]
             for party in parties_of(spiel):
-                existing = held.get((spiel["_id"], party_key(party), stand))
+                existing = held.get((spiel["_id"], party_key(party), digest))
                 left = moved.get((spiel["_id"], party_key(party)), [])
                 plan.closed += len(left)
                 for row in left:

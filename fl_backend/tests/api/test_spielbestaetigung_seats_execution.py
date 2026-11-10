@@ -140,7 +140,7 @@ ROWS = {
         "answered",
         TEAM_OID,
         SPIELE[1],
-        answer={"kind": "zugesagt", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
+        answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
     "other": confirmation_row("other", OTHER_TEAM_OID, SPIELE[0]),
 }

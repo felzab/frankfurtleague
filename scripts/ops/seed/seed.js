@@ -545,7 +545,7 @@ function confirmedPerson(person, answeredOn) {
 
 /**
  * A seat's bookkeeping beside its slot. An application's link takes one reminder
- * (`fl_backend/app/api/bewerbungen/services.py :: compose_bestaetigung`); a season row's is chased by nothing, and its
+ * (`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation`); a season row's is chased by nothing, and its
  * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_confirmation`).
  */
 function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn = null } = {}) {
@@ -612,7 +612,7 @@ running.saisonTeams.find((row) => row.name === "Birke").kontakte = {
 };
 
 // The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
-// row whose `stand` is not its fixture's is about a slot the fixture left, which neither act takes.
+// row whose `digest` is not its fixture's is about a slot the fixture left, which neither act takes.
 function ansetzungOf(spiel) {
   const values = {
     date: spiel.date,
@@ -624,7 +624,7 @@ function ansetzungOf(spiel) {
   const canonical = Object.values(values)
     .map((value) => (typeof value === "string" ? value : value.toHexString()))
     .join("|");
-  return { ...values, stand: createHash("sha256").update(canonical, "utf8").digest("hex") };
+  return { ...values, digest: createHash("sha256").update(canonical, "utf8").digest("hex") };
 }
 
 // Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out

@@ -37,7 +37,7 @@ from app.shared.schemas.literals import FLConfirmationState
 SUBMITTED = "submitted"
 
 
-def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any) -> bool:
+def saison_takes_registrierungen(*, saison_status: Any, registrierung: Any) -> bool:
     """Whether this season takes a registration: the season the site is on, its link not paused.
 
     The window opens at the activation, so a `future` season takes none whatever its window says, and a `past` one is
@@ -53,11 +53,11 @@ def saison_nimmt_registrierungen_an(*, saison_status: Any, registrierung: Any) -
 def find_fenster_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefusal | None:
     """Why this season takes no registration today, or `None`.
 
-    ONE code for every way `saison_nimmt_registrierungen_an` says no: naming which would report a
+    ONE code for every way `saison_takes_registrierungen` says no: naming which would report a
     season's administrative state to an anonymous visitor.
     """
 
-    if saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung):
+    if saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung):
         return None
 
     return WriteRefusal(
@@ -180,7 +180,7 @@ def compose_registrierung(
 REGISTRIERUNG_LINK: Final = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
 
 
-def compose_bestaetigung(*, today: str, deadline: str, mailed: bool = True) -> dict[str, Any]:
+def compose_confirmation(*, today: str, deadline: str, mailed: bool = True) -> dict[str, Any]:
     """The confirmation bookkeeping the submission writes: owed today, nobody reminded, no link until the hand-out mints one.
 
     `deadline` is stored rather than derived from `sent_at` and the bound, so raising the bound
@@ -223,7 +223,7 @@ def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -
     )
 
 
-def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
+def registrierung_is_confirmed(*, einwilligung: Any) -> bool:
     """Whether the pupil answered their own link, which is what makes a row admissible.
 
     Off the consent record's own stamp, never the `confirmation` block beside it: that one says a
@@ -244,7 +244,7 @@ def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
 
 
-# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_ist_bestaetigt` judges,
+# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_is_confirmed` judges,
 # and the mail's, which `registrierung_was_left_unmailed` does.
 REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at", "confirmation.sent_at")
 
@@ -341,7 +341,7 @@ def zustand_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: s
     A pupil who answered on the last valid day is shown that they did.
     """
 
-    if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
+    if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
         return "confirmed"
 
     over = link_is_over(
@@ -382,7 +382,7 @@ def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool
 def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """Why this registration takes no second answer, or `None`. The single use: the stamp is what spends a link, never a nulled hash."""
 
-    if not registrierung_ist_bestaetigt(einwilligung=einwilligung):
+    if not registrierung_is_confirmed(einwilligung=einwilligung):
         return None
 
     return WriteRefusal(
@@ -601,7 +601,7 @@ def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bo
     if registrierung_raw.get("status") != SUBMITTED:
         return False
 
-    if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
+    if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
         return False
 
     bestaetigung = registrierung_raw.get("confirmation")
@@ -625,7 +625,7 @@ def bestaetigung_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today
     if registrierung_raw.get("status") != SUBMITTED:
         return False
 
-    if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
+    if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
         return False
 
     deadline = deadline_of(registrierung_raw.get("confirmation"))
@@ -670,7 +670,7 @@ def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
 
 
-def build_eigene_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
+def build_own_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every pending registration of these addresses, on `registrierungen_email_status`."""
 
     return {**build_erasure_registrierung_filter(*identifiers), "status": SUBMITTED}
@@ -689,7 +689,7 @@ def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     Asked at the write as well as marked on the read: the list and the press are two requests.
     """
 
-    if registrierung_ist_bestaetigt(einwilligung=einwilligung):
+    if registrierung_is_confirmed(einwilligung=einwilligung):
         return None
 
     return WriteRefusal(

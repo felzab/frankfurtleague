@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 
 from app.api.bewerbungen.services import saison_takes_bewerbungen
-from app.api.registrierungen.services import saison_nimmt_registrierungen_an
+from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.services import entry_is_a_nominee
 
 START, END = "2026-03-01", "2026-04-30"
@@ -57,7 +57,7 @@ class TestTheRegistrationWindow:
     WINDOW: dict[str, Any] = {"open": True, "end": END}
 
     def runs(self, *, registrierung: Any = WINDOW, saison_status: str = "active") -> bool:
-        return saison_nimmt_registrierungen_an(saison_status=saison_status, registrierung=registrierung)
+        return saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung)
 
     def test_a_season_not_yet_activated_takes_none(self):
         """The window opens at the activation: a link minted while the season is `future` opens nothing before it."""

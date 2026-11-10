@@ -49,7 +49,7 @@ from app.api.outbox.schemas import (
     FLOutboxStatus,
 )
 from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
-from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
+from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_is_confirmed
 from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spieler.crud import another_pupil_holds
@@ -205,7 +205,7 @@ async def a_confirmed_person_stands_at(
         or held.schiedsrichter
         or held.seats
         or held.bewerbung_seats
-        or any(registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")) for row in held.registrierungen)
+        or any(registrierung_is_confirmed(einwilligung=row.get("einwilligung")) for row in held.registrierungen)
     ):
         return True
 
@@ -715,7 +715,7 @@ def _registrierung_move(row: Mapping[str, Any], new_address: str) -> dict[str, A
     if not isinstance(row.get("confirmation"), Mapping):
         return update
 
-    if not registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")):
+    if not registrierung_is_confirmed(einwilligung=row.get("einwilligung")):
         # Every link dies and the reminder is owed again: it alone mints the next link, to the moved address.
         update["$set"] |= {"confirmation.token_hashes": [], "confirmation.reminded_at": None}
 

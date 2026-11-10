@@ -34,7 +34,7 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # models stay lax.
 
 
-class FLRegistrierungEntscheidung(BaseModel):
+class FLRegistrierungDecision(BaseModel):
     """When this registration was declined, and why."""
 
     made_at: CustomDateString
@@ -81,7 +81,7 @@ class _RegistrierungStored(BaseModel):
     einwilligung: FLRegistrierungEinwilligung | None
 
 
-class FLRegistrierungBestaetigungRecord(FLConfirmation):
+class FLRegistrierungConfirmationRecord(FLConfirmation):
     """One registration's bookkeeping as `registrierungen` stores it: the hash of every link it was mailed, each live."""
 
     # Null on a row past `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`, which was owed no mail.
@@ -92,8 +92,8 @@ class FLRegistrierungBestaetigungRecord(FLConfirmation):
 class FLRegistrierungRecord(_RegistrierungStored):
     """One registration as `registrierungen` stores it, with what no read serves."""
 
-    confirmation: FLRegistrierungBestaetigungRecord | None
-    decision: FLRegistrierungEntscheidung | None
+    confirmation: FLRegistrierungConfirmationRecord | None
+    decision: FLRegistrierungDecision | None
     # The submission's replay key and digest.
     idempotency_key: str | None = None
     idempotency_fingerprint: str | None = None
@@ -155,7 +155,7 @@ class FLRegistrierungAdminRow(BaseReadModel):
     # The name the club plays the season under; null for a club no longer standing in the season.
     team_name: str | None
     submitted_at: CustomDateString
-    # Composed by the read, off the consent record's own stamp (`registrierung_ist_bestaetigt`).
+    # Composed by the read, off the consent record's own stamp (`registrierung_is_confirmed`).
     confirmed: bool
     # Composed by the read, off the mail's own stamp (`registrierung_was_left_unmailed`).
     unmailed: bool
@@ -234,7 +234,7 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
 
     # One member: this page has no Widerspruch door. A pupil who does not want to be registered lets
     # the link expire, and the sweep takes the row.
-    ergebnis: Literal["confirmed"]
+    outcome: Literal["confirmed"]
     # Null where the press posted none, the stored date standing: an echo of it would serve it.
     birth_date: CustomOptionalDateString
     # Null on a returning pupil's press, which posted none.

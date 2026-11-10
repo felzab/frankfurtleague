@@ -107,13 +107,13 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Checked at each write rather than at the commit, so a handover demotes before it promotes
     # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
     UniqueIndex(Collection.GRANTS, "uniq_grant_owner", ("admin_tier",), "at most one owner", partial_filter={"admin_tier": "owner"}),
-    # What makes a pass run twice mint once, and a second decline need a new stand rather than a
+    # What makes a pass run twice mint once, and a second decline need a new digest rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
     # `uniq_invitation_live`'s reason.
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "uniq_spielbestaetigung_open",
-        ("spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
+        ("spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.digest"),
         "one open confirmation per party per Ansetzung",
         partial_filter={"answer": {"$type": "null"}, "closed": {"$type": "null"}},
     ),

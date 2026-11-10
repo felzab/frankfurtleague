@@ -15,7 +15,7 @@ from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, saison_status_lookup
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
+from app.api.registrierungen.services import build_own_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
@@ -418,7 +418,7 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
     """Every pending registration at the address, `is_own_registrierung` then keeping the confirmed ones as the gate does."""
 
     return [
-        {"$match": build_eigene_registrierung_filter(identifier)},
+        {"$match": build_own_registrierung_filter(identifier)},
         {
             "$project": {
                 field: 1

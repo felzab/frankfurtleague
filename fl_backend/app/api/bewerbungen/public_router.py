@@ -556,7 +556,7 @@ async def post_einwilligung(
             )
 
             return FLSaisonTeamEinwilligungAnswerResponse(
-                ergebnis="confirmed", birth_date=birth_date, whatsapp=answer_data.whatsapp, media=answer_data.media
+                outcome="confirmed", birth_date=birth_date, whatsapp=answer_data.whatsapp, media=answer_data.media
             )
 
         before = await patch_one_in_db(
@@ -586,7 +586,7 @@ async def post_einwilligung(
         )
         journal.note("objection", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], seats=seats)
 
-        return FLSaisonTeamEinwilligungAnswerResponse(ergebnis="declined", birth_date=None, whatsapp=False, media=False)
+        return FLSaisonTeamEinwilligungAnswerResponse(outcome="declined", birth_date=None, whatsapp=False, media=False)
 
     @journal.attempted
     async def answer_for_the_person(
@@ -655,7 +655,7 @@ async def post_einwilligung(
 
             return FLBewerbungEinwilligungAnswerResponse(
                 quelle="bewerbung",
-                ergebnis="confirmed",
+                outcome="confirmed",
                 birth_date=birth_date,
                 whatsapp=answer_data.whatsapp,
                 media=answer_data.media,
@@ -706,7 +706,7 @@ async def post_einwilligung(
 
         return FLBewerbungEinwilligungAnswerResponse(
             quelle="bewerbung",
-            ergebnis="declined",
+            outcome="declined",
             birth_date=None,
             whatsapp=False,
             media=False,

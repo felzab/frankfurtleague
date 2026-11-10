@@ -21,7 +21,7 @@ from bson import ObjectId
 
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.registrierungen.services import compose_confirmation, compose_confirmation_update, compose_registrierung
 from app.api.spielbestaetigungen.services import compose_ansetzung
 from app.core.clock import utc_stamp
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
@@ -206,7 +206,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
     """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
 
-    So its `stand` is the digest of its own values, which a hand-written one never is.
+    So its `digest` is that of its own values, which a hand-written one never is.
     """
 
     return {
@@ -398,7 +398,7 @@ def registrierung_document(
             position=position,
             nummer=nummer,
             stufe=stufe,
-            confirmation={**compose_bestaetigung(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
+            confirmation={**compose_confirmation(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
         "idempotency_key": str(registrierung_id),

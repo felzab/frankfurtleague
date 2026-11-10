@@ -237,8 +237,8 @@ REGISTRIERUNG_MIN_AGE_YEARS: Final[FLRegistrierungMinAgeYears] = 16
 # ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
 # judgement over every record carrying `media`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed.
-type FLMedienMinAgeYears = Literal[18]
-MEDIA_MIN_AGE_YEARS: Final[FLMedienMinAgeYears] = 18
+type FLMediaMinAgeYears = Literal[18]
+MEDIA_MIN_AGE_YEARS: Final[FLMediaMinAgeYears] = 18
 
 # Published as `ADDRESS_CHANGE_BOUNDS` are, for the same reason: the privacy notice and the consent pages state each
 # figure, and `fl_frontend/src/features/bewerbungen/constants.ts`, `registrierungen/constants.ts` and
@@ -249,7 +249,7 @@ CONSENT_BOUNDS: Final = (
     FLSignatoryMinAgeYears,
     FLSchiedsrichterConfirmationDeadlineDays,
     FLRegistrierungMinAgeYears,
-    FLMedienMinAgeYears,
+    FLMediaMinAgeYears,
 )
 
 # The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):

@@ -13,7 +13,7 @@ from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload
 from app.api.registrierungen.services import (
     PAGE_NEW,
     PAGE_RETURNING,
-    compose_bestaetigung,
+    compose_confirmation,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -111,7 +111,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "stufe": "Q1",
         "birth_date": None,
         "einwilligung": None,
-        "confirmation": {**compose_bestaetigung(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
+        "confirmation": {**compose_confirmation(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
         "decision": None,
         **overrides,
     }
@@ -271,7 +271,7 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmation"]["token_hashes"] == [TOKEN_HASH]
-        assert (response.ergebnis, response.birth_date, response.scope, response.media) == (
+        assert (response.outcome, response.birth_date, response.scope, response.media) == (
             "confirmed",
             AT_THE_FLOOR,
             "kader_public",
@@ -323,7 +323,7 @@ class TestWhatAConfirmationWrites:
 
         assert document["einwilligung"] == {"confirmed_at": TODAY}
         assert document["birth_date"] == A_RETURNING_PUPILS_BIRTHDATE
-        assert (response.ergebnis, response.birth_date, response.scope, response.media) == ("confirmed", None, None, None)
+        assert (response.outcome, response.birth_date, response.scope, response.media) == ("confirmed", None, None, None)
         assert person == held
 
     def test_a_stored_date_below_the_floor_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
@@ -423,7 +423,7 @@ class TestTheLinkIsSpentByTheStamp:
 
     def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
         expired = registrierung_document(
-            confirmation={**compose_bestaetigung(today="2026-03-20", deadline=YESTERDAY), "token_hashes": [TOKEN_HASH]}
+            confirmation={**compose_confirmation(today="2026-03-20", deadline=YESTERDAY), "token_hashes": [TOKEN_HASH]}
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

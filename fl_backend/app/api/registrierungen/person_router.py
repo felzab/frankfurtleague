@@ -41,7 +41,7 @@ from app.api.registrierungen.services import (
     find_unbestaetigt_refusal,
     nummern_im_kader,
     person_weicht_ab,
-    registrierung_ist_bestaetigt,
+    registrierung_is_confirmed,
     traegt_wahlen,
 )
 from app.api.saisons.services import entry_is_a_nominee
@@ -121,7 +121,7 @@ async def get_open_registrierungen(
             session=session,
         )
         served = read[: params.limit]
-        bestaetigte = [row for row in served if registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))]
+        bestaetigte = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
 
         persons = await persons_at(
             spieler_collection=spieler_collection,
@@ -135,7 +135,7 @@ async def get_open_registrierungen(
         )
 
         def as_served(row: Mapping[str, Any]) -> FLOpenRegistrierung:
-            aufnehmbar = registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))
+            aufnehmbar = registrierung_is_confirmed(einwilligung=row.get("einwilligung"))
             person = by_address.get(sign_in_identifier(str(row["email"]))) if aufnehmbar else None
 
             return FLOpenRegistrierung.model_validate(
@@ -401,7 +401,7 @@ async def decline(
             session=session,
         )
 
-        if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
+        if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
             await enqueue_mails(
                 outbox_collection=outbox_collection,
                 session=session,

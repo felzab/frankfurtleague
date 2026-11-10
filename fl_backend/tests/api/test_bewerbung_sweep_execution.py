@@ -1879,7 +1879,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 "party": {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
                 "kontakte": None,
                 "answer": {
-                    "kind": "zugesagt",
+                    "kind": "agreed",
                     "at": f"{saison_id}-04-03",
                     "by": {"kind": "admin"},
                     "vorschlag": None,

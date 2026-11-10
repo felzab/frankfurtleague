@@ -330,7 +330,7 @@ class TestWhatAConfirmationWrites:
 
         response, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        assert response.ergebnis == "confirmed"
+        assert response.outcome == "confirmed"
         for seat in ("trainer", "ansprechperson"):
             assert document["kontakte"][seat]["birth_date"] == AN_ADULTS_BIRTHDATE
             assert document["kontakte"][seat]["einwilligung"]["confirmed_at"] == TODAY
