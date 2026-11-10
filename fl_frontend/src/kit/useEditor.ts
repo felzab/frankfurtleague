@@ -22,23 +22,31 @@ export type EditorRow = Readonly<Record<string, string | number | boolean | null
 export type EditorValue = string | number | boolean | null | ReadonlyArray<string> | ReadonlyArray<EditorRow>;
 
 /**
+ * A record's version as its read serves it: a number, or, for an editor of a record its first save creates, such as a
+ * fixture's line-up or its Spielbericht, `number | null`, `null` saying the page read no stored record.
+ */
+type EditorVersion = number | null;
+
+/**
  * A record as an editable read serves it: its id, its stored `version`, which every write to it raises, and
  * the values the editor's fields start from.
  */
-export type EditorRecord<Values extends Record<string, EditorValue>> = {
+export type EditorRecord<Values extends Record<string, EditorValue>, Version extends EditorVersion = number> = {
   id: string;
-  version: number;
+  version: Version;
   values: Values;
 };
 
 /**
  * What a save sends: the record, the version the draft was made on, and only the fields that differ from
- * it. The server refuses the save as stale once the stored record's version is another. A save the server held
- * back for its question is sent again, once the person confirms, with the question's `confirm` token.
+ * it. The server refuses the save as stale once the stored record's version is another, and a save sent on `null`
+ * once any record is stored. A save the server held back for its question is sent again, once the person confirms,
+ * with the question's `confirm` token.
  */
-export type EditorSave<Values extends Record<string, EditorValue>> = {
+export type EditorSave<Values extends Record<string, EditorValue>, Version extends EditorVersion = number> = {
   id: string;
-  version: number;
+  /** The read's version, or the number this editor's own save stored since. */
+  version: Version | number;
   changes: Partial<Values>;
   confirm?: string;
 };
@@ -74,17 +82,17 @@ function changesOf<Values extends Record<string, EditorValue>>(stored: Values, e
   ) as Partial<Values>;
 }
 
-type Held<Values extends Record<string, EditorValue>> = {
+type Held<Values extends Record<string, EditorValue>, Version extends EditorVersion> = {
   /** The record the edits belong to: another id starts a fresh draft. */
   id: string;
   /** The record's version the draft was made on, which a save sends. */
-  base: number;
+  base: Version | number;
   edits: Partial<Values>;
   /**
    * This editor's own save went through and the page has not yet served what it stored: the version the save
    * was sent on, the one it answered as stored, and the changes it sent.
    */
-  settling: { from: number; stored: number; changes: Partial<Values> } | null;
+  settling: { from: Version | number; stored: number; changes: Partial<Values> } | null;
   /** Counts the edits, so a refusal is shown only until the person edits again. */
   editCount: number;
   sentEditCount: number;
@@ -92,7 +100,9 @@ type Held<Values extends Record<string, EditorValue>> = {
   blockedEditCount: number;
 };
 
-const fresh = <Values extends Record<string, EditorValue>>(record: EditorRecord<Values>): Held<Values> => ({
+const fresh = <Values extends Record<string, EditorValue>, Version extends EditorVersion>(
+  record: EditorRecord<Values, Version>,
+): Held<Values, Version> => ({
   id: record.id,
   base: record.version,
   edits: {},
@@ -131,9 +141,9 @@ function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Val
  * reload or a closed tab. A „Gespeichert“ shown is cleared once the page is left, the documented reset; an
  * unsaved draft stays with the page Next keeps.
  */
-export function useEditor<Values extends Record<string, EditorValue>>(
-  record: EditorRecord<Values>,
-  save: (change: EditorSave<Values>) => Promise<ActionAnswer<number>>,
+export function useEditor<Values extends Record<string, EditorValue>, Version extends EditorVersion = number>(
+  record: EditorRecord<Values, Version>,
+  save: (change: EditorSave<Values, Version>) => Promise<ActionAnswer<number>>,
   /**
    * `countOf` is what the status line and the way back count as the draft's changes where one field holds many things,
    * such as a line-up's players. Whether the draft is clean stays the fields' to say: it is asked only while a field
@@ -141,7 +151,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
    */
   options?: { countOf?: (stored: Values, draft: Values) => number },
 ) {
-  const [held, setHeld] = useState<Held<Values>>(() => fresh(record));
+  const [held, setHeld] = useState<Held<Values, Version>>(() => fresh(record));
 
   // A new record, or a new read of this one, is taken while rendering, React's pattern for state that
   // follows a prop, so no render ever shows a draft on the wrong record.
@@ -168,7 +178,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   const count = fields === 0 ? 0 : Math.max(1, options?.countOf?.(record.values, draft) ?? fields);
 
   const form = useFormAction(
-    async (sent: EditorSave<Values>): Promise<ActionAnswer> => {
+    async (sent: EditorSave<Values, Version>): Promise<ActionAnswer> => {
       const answer = await save(sent);
       if (!answer.ok) return answer;
       const settled = { from: sent.version, stored: answer.value, changes: sent.changes };
@@ -214,7 +224,7 @@ export function useEditor<Values extends Record<string, EditorValue>>(
       setHeld((state) => ({ ...state, edits: { ...state.edits, [key]: value }, editCount: state.editCount + 1 })),
     /** The fields that differ from the stored record, with their draft values. */
     changes,
-    /** How many fields differ from the stored record. */
+    /** How many changes the draft holds: the fields differing from the stored record, or what `countOf` counts. */
     count,
     status,
     /** The server's message for each field it refused, by the field's `name`. */

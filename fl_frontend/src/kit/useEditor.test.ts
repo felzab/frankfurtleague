@@ -98,6 +98,23 @@ describe("an editor's draft", () => {
     // The draft rests on version 2, so the server can refuse the save as stale.
     expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 2, changes: { name: "SC Riedberg" } });
   });
+
+  // The harm: a second save still sent on `null`, which the write matches only while nothing is stored, so the
+  // person's next change after the first save is refused as stale.
+  it("saves a record not yet stored on `null`, and again on the version its first save stored", async () => {
+    const save = vi.fn(async (_change: EditorSave<Spielort, number | null>): Promise<ActionAnswer<number>> => ({ ok: true, value: 1 }));
+    const absent: EditorRecord<Spielort, number | null> = { ...STORED, version: null };
+    const { result } = renderHook(() => useEditor(absent, save));
+
+    act(() => result.current.set("postcode", "60439"));
+    await press(result.current.submit);
+    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: null, changes: { postcode: "60439" } });
+
+    // Before the page serves the record the save made.
+    act(() => result.current.set("name", "SC Riedberg"));
+    await press(result.current.submit);
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ version: 1 }));
+  });
 });
 
 // The harm: a list whose rows a control builds anew on every edit reads as changed for good, so the frame's way back
