@@ -246,10 +246,7 @@ class FLSchiedsrichterSelfPerson(BaseReadModel):
 
 
 class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
-    """The referee's own page's read: the record and its fee.
-
-    The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
-    """
+    """The referee's own page's read: the record and its fee."""
 
     default_payment: int
 
