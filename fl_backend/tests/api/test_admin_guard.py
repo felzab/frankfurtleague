@@ -249,7 +249,6 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/account/{registrierung_id}/einwilligung", "patch"),
         ("/api/v0/identity/account/erasure", "post"),
         ("/api/v0/identity/account/erasure/view", "get"),
-        ("/api/v0/spielbestaetigungen/self", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer", "post"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team", "post"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),

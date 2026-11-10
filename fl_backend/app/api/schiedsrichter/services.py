@@ -6,8 +6,8 @@ from typing import Any, Final
 from app.api.bewerbungen.services import days_after, season_has_ended
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS, OWN_VEREIN_FIELDS
-from app.api.spielbestaetigungen.services import AnsetzungState, entered_of, own_reason_of, schiedsrichter_state_of
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
+from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
 from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core import clock
@@ -535,14 +535,16 @@ OWN_ROW_VEREINE_AS: Final = "vereine"
 BERICHT_AS: Final = "spielbericht"
 SAISON_AS: Final = "saison"
 
+# What a row's state judges of the clubs' season rows its Ansetzung names: each club's exit.
+OWN_VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
+
 
 def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
     """Run on `spiele`: the season's fixtures booked to one of these referees, each with what the referee's list judges it by.
 
     Each fixture through the name join with the fields a confirmation row is judged against
     (`app/api/spielbestaetigungen/crud.py :: JUDGED_SPIEL_FIELDS`); the newest row asking the booked referee about it,
-    with both clubs' season rows its Ansetzung names, as `app/api/spielbestaetigungen/crud.py :: pull_own_states` pairs
-    them; when its report was first sent; and its season's status.
+    with both clubs' season rows its Ansetzung names; when its report was first sent; and its season's status.
     """
 
     return [
@@ -569,7 +571,7 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
                             }
                         }
                     },
-                    # The newest by `_id`, which the pass mints in order (`build_current_rows_pipeline`).
+                    # The newest by `_id`, which the pass mints in order.
                     {"$sort": {"_id": -1}},
                     {"$limit": 1},
                     {"$project": dict(OWN_ROW_FIELDS)},
@@ -607,6 +609,23 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
             }
         },
     ]
+
+
+def entered_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
+    """Whether an administrator recorded this row's answer.
+
+    `app/api/spielbestaetigungen/services.py :: compose_enter_update` stores theirs as `by: {kind: "admin"}`.
+    """
+
+    return bool(((spielbestaetigung_raw.get("answer") or {}).get("by") or {}).get("kind") == "admin")
+
+
+def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
+    """The reason on the referee's own decline alone: an administrator's entry on their row is the league's record, not theirs to read."""
+
+    answer = spielbestaetigung_raw.get("answer") or {}
+
+    return answer.get("reason") if (answer.get("by") or {}).get("kind") == "schiedsrichter" else None
 
 
 def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrichterSpiel:

@@ -153,7 +153,6 @@ import type {
   FLSpielberichtSchiedsrichterResponse,
   FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungenListResponse,
-  FLSpielbestaetigungenSelfResponse,
   FLSpielbestaetigungEnterPayload,
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
@@ -3411,35 +3410,6 @@ export const spielbestaetigungenGetSpielbestaetigungen = async (
   });
 };
 
-export const getSpielbestaetigungenGetSelfUrl = () => {
-  return `/api/v0/spielbestaetigungen/self`;
-};
-
-/**
- * Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
- *
- * One row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh
- * request alone.
- *
- * Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
- * Ansetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline
- * reason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is
- * served: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open
- * ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
- * administrator entered on the row.
- *
- * Refuses an address holding no live, confirmed referee record (`role_not_held`).
- * @summary A signed-in referee's own fixture assignments
- */
-export const spielbestaetigungenGetSelf = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungenSelfResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungenSelfResponse>(getSpielbestaetigungenGetSelfUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
   return `/api/v0/spielbestaetigungen/sweep`;
 };
@@ -3508,8 +3478,9 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * reminded of nothing.
  *
  * The line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose
- * kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_HOURS` and `:: AUFSTELLUNG_DUE_HOURS`
- * ahead and for which the club stores no line-up, neither the fixture decided or called off nor the club out by its
+ * kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_DAYS` and `:: AUFSTELLUNG_DUE_DAYS`
+ * ahead, each counted back at the kick-off's clock time, and for which the club stores no line-up, neither the
+ * fixture decided or called off nor the club out by its
  * day; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py
  * :: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no
  * reminder of it went. Each states the moment the line-up is due and is given up at it.

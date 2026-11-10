@@ -1,5 +1,4 @@
-from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -8,21 +7,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.spielbestaetigungen.crud import (
-    OWN_ROW_FIELDS,
-    VEREIN_FIELDS,
-    pull_ansetzung_state,
-    pull_own_states,
-    pull_spielorte_public,
-)
+from app.api.spielbestaetigungen.crud import OWN_ROW_FIELDS, VEREIN_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungByKontakt,
-    FLSpielbestaetigungenSelfResponse,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
     FLSpielbestaetigungSchiedsrichterAnswerResponse,
-    FLSpielbestaetigungSelf,
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
@@ -31,11 +22,8 @@ from app.api.spielbestaetigungen.services import (
     ansetzung_left_refusal,
     answering_seat,
     build_answerable_filter,
-    build_current_rows_pipeline,
-    clubs_without_a_season_row,
     compose_answer_update,
     compose_schiedsrichter_answer_update,
-    entered_of,
     find_foreign_row_refusal,
     find_spent_link_refusal,
     find_vorschlag_past_refusal,
@@ -43,32 +31,21 @@ from app.api.spielbestaetigungen.services import (
     first_press_refusal,
     foreign_row_refusal,
     judged_as_a_proposal,
-    own_reason_of,
     proposal_payload,
-    schiedsrichter_state_of,
-    stand_moved,
-    view_ansetzung_of,
-    view_snapshot_of,
 )
 from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_spieltag_span
 from app.api.spiele.schemas import FLSpiel
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
-from app.api.teams.crud import pull_team_names
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
-    SaisonsReadCollection,
     SaisonTeamsCollection,
-    SaisonTeamsReadCollection,
     SpielbestaetigungenCollection,
-    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpieleReadCollection,
-    SpielorteReadCollection,
     SpieltageReadCollection,
-    TeamsReadCollection,
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
@@ -79,118 +56,12 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomRouteObjectId
 
-# A person's own router beside the link's and the pass's, binding its own actor at router level:
-# every write is recorded under the referee's Funktion.
+# The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason: a
+# referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
-
-
-@router.get("/self", response_model=FLSpielbestaetigungenSelfResponse, summary="A signed-in referee's own fixture assignments")
-async def get_self(
-    identifier: PersonIdentifier,
-    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
-    spiele_collection: SpieleReadCollection,
-    saison_teams_collection: SaisonTeamsReadCollection,
-    saisons_collection: SaisonsReadCollection,
-    spielorte_collection: SpielorteReadCollection,
-    teams_collection: TeamsReadCollection,
-    records: SubjectLookup,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLSpielbestaetigungenSelfResponse:
-    """
-    Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
-
-    One row per fixture in an `active` season: a fixture moved, reinstated or booked to them again answers its fresh
-    request alone.
-
-    Open, answered and closed rows alike, each with the fixture as it stands -- or, where the fixture moved since, the
-    Ansetzung the row asked about -- its state, `cancelled` once the fixture is called off, the referee's own decline
-    reason, whether the league recorded the answer for them, naming nobody, and whether its day is past. No deadline is
-    served: a referee answers until the fixture's day. Ordered with the days still to come first, rows still open
-    ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
-    administrator entered on the row.
-
-    Refuses an address holding no live, confirmed referee record (`role_not_held`).
-    """
-
-    # A snapshot, so every row is judged against the fixture and clubs of its own moment; never a transaction, which a
-    # read writing nothing has no conflict to retry.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
-
-        # The seasons the pass mints in, as `app/api/spielbestaetigungen/system_router.py :: get_sweep_saisons` lists them.
-        saisons = await pull_many_from_db(
-            collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
-        )
-        rows = await aggregate_many_from_db(
-            collection=spielbestaetigungen_collection,
-            pipeline=[
-                *build_current_rows_pipeline(
-                    saison_ids=[str(saison["_id"]) for saison in saisons],
-                    schiedsrichter_ids=[entry.schiedsrichter_id for entry in subject.schiedsrichter],
-                    projection=OWN_ROW_FIELDS,
-                ),
-                {"$limit": LIST_LIMIT_MAX + 1},
-            ],
-            session=session,
-        )
-        # Raised rather than cut: a capped list would read as a referee booked onto fewer fixtures.
-        if len(rows) > LIST_LIMIT_MAX:
-            raise ValueError("a referee's fixtures in the active seasons outrun one read")
-
-        ansetzung_states = await pull_own_states(
-            spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection, spielbestaetigungen_raw=rows, session=session
-        )
-        moved = [row for row in rows if stand_moved(spielbestaetigung_raw=row, ansetzung_state=ansetzung_states[row["_id"]])]
-        moved_ids = {row["_id"] for row in moved}
-        spielorte = await pull_spielorte_public(
-            spielorte_collection=spielorte_collection, spielort_ids=[row["ansetzung"]["spielort_id"] for row in moved], session=session
-        )
-        vereinsnamen = await pull_team_names(
-            teams_collection=teams_collection,
-            team_ids=[
-                team_id
-                for row in moved
-                for team_id in clubs_without_a_season_row(spielbestaetigung_raw=row, ansetzung_state=ansetzung_states[row["_id"]])
-            ],
-            session=session,
-        )
-
-    def entry_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
-        ansetzung_state = ansetzung_states[row["_id"]]
-        ansetzung = (
-            view_snapshot_of(
-                spielbestaetigung_raw=row,
-                ansetzung_state=ansetzung_state,
-                vereinsnamen=vereinsnamen,
-                spielort=spielorte.get(row["ansetzung"]["spielort_id"]),
-            )
-            if row["_id"] in moved_ids
-            else view_ansetzung_of(ansetzung_state.spiel)
-        )
-
-        return FLSpielbestaetigungSelf.model_validate(
-            {
-                "_id": row["_id"],
-                "spiel_id": row["spiel_id"],
-                "schiedsrichter_id": row["party"]["schiedsrichter_id"],
-                "ansetzung": ansetzung,
-                "state": schiedsrichter_state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today),
-                "reason": own_reason_of(row),
-                "entered": entered_of(row),
-                "past": ansetzung.date < today,
-            }
-        )
-
-    entries = list(map(entry_of, rows))
-    upcoming = sorted((e for e in entries if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.date, str(e.id)))
-    past = sorted((e for e in entries if e.past), key=lambda e: (e.ansetzung.date, str(e.id)), reverse=True)
-
-    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*upcoming, *past])
 
 
 @router.post(
@@ -237,7 +108,7 @@ async def post_schiedsrichter_answer(
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
-        # The seasons the panel lists: a row of a season ended since is no booking left to answer, its slot the archive's.
+        # The active seasons alone: a row of a season ended since is no booking left to answer, its slot the archive's.
         saisons = await pull_many_from_db(
             collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
         )

@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Final
 
@@ -16,7 +16,6 @@ from app.api.spielbestaetigungen.services import (
     build_referee_rows_filter,
     build_season_reasons_filter,
 )
-from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     aggregate_many_from_db,
@@ -154,7 +153,8 @@ async def pull_admin_rows(
 
 # --- A REFEREE'S OWN ROWS.
 
-# No seat's hashes and no deadline: a referee answers signed in, until the fixture's day.
+# What a referee's answer and their own list read of a row (`app/api/schiedsrichter/services.py ::
+# build_self_spiele_pipeline`): no deadline, a referee answering signed in until the fixture's day.
 OWN_ROW_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
@@ -165,67 +165,6 @@ OWN_ROW_FIELDS: Mapping[str, int] = {
     "answer.reason": 1,
     "closed": 1,
 }
-
-OWN_VEREIN_FIELDS: Mapping[str, int] = {"_id": 0, "saison_id": 1, "team_id": 1, "name": 1, "austritt.date": 1}
-
-
-async def pull_own_states(
-    *,
-    spiele_collection: ReadCollection,
-    saison_teams_collection: ReadCollection,
-    spielbestaetigungen_raw: Sequence[Mapping[str, Any]],
-    session: AsyncClientSession,
-) -> dict[Any, AnsetzungState]:
-    """Each row's fixture and clubs' season rows, two reads for the whole list, keyed by the row's id."""
-
-    if not spielbestaetigungen_raw:
-        return {}
-
-    spiele = await pull_named_spiele(
-        spiele_collection=spiele_collection,
-        db_filter={"_id": {"$in": list({row["spiel_id"] for row in spielbestaetigungen_raw})}},
-        projection=JUDGED_SPIEL_FIELDS,
-        session=session,
-    )
-    vereine = await saison_teams_collection.find(
-        {
-            "saison_id": {"$in": list({row["saison_id"] for row in spielbestaetigungen_raw})},
-            "team_id": {"$in": list({row["ansetzung"][key] for row in spielbestaetigungen_raw for key in ("team1_id", "team2_id")})},
-        },
-        OWN_VEREIN_FIELDS,
-        session=session,
-    ).to_list(length=None)
-    by_id = {spiel["_id"]: spiel for spiel in spiele}
-
-    return {
-        row["_id"]: AnsetzungState(
-            # An undraw removes a fixture with its rows in one transaction, and this read shares their snapshot.
-            spiel=by_id[row["spiel_id"]],
-            vereine=[
-                verein
-                for verein in vereine
-                if verein["saison_id"] == row["saison_id"] and verein["team_id"] in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])
-            ],
-        )
-        for row in spielbestaetigungen_raw
-    }
-
-
-async def pull_spielorte_public(
-    *, spielorte_collection: ReadCollection, spielort_ids: Iterable[Any], session: AsyncClientSession
-) -> dict[Any, FLSpielortFieldPublic]:
-    """The grounds a moved row's Ansetzung names, as the link's view serves one; a ground no row holds is absent."""
-
-    wanted = list({spielort_id for spielort_id in spielort_ids if spielort_id is not None})
-    if not wanted:
-        return {}
-
-    orte = await spielorte_collection.find({"_id": {"$in": wanted}}, {"name": 1, "maps_link": 1}, session=session).to_list(length=None)
-
-    return {
-        spielort["_id"]: FLSpielortFieldPublic(spielort_id=spielort["_id"], name=spielort["name"], maps_link=spielort["maps_link"])
-        for spielort in orte
-    }
 
 
 # --- The season's end: what its parties' answers leave on its fixtures.

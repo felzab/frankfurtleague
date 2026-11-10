@@ -326,8 +326,9 @@ async def sweep_spielbestaetigungen(
     reminded of nothing.
 
     The line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose
-    kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_HOURS` and `:: AUFSTELLUNG_DUE_HOURS`
-    ahead and for which the club stores no line-up, neither the fixture decided or called off nor the club out by its
+    kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_DAYS` and `:: AUFSTELLUNG_DUE_DAYS`
+    ahead, each counted back at the kick-off's clock time, and for which the club stores no line-up, neither the
+    fixture decided or called off nor the club out by its
     day; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py
     :: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no
     reminder of it went. Each states the moment the line-up is due and is given up at it.

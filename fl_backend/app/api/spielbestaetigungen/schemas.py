@@ -174,10 +174,7 @@ class FLSpielbestaetigungEnterPayload(BaseModel):
 
 
 class FLSpielbestaetigungViewAnsetzung(BaseModel):
-    """The clubs, the day, the hour and the ground a page or a message states.
-
-    The fixture as it stands, or on a row whose fixture moved since, the Ansetzung the row asked about.
-    """
+    """The clubs, the day, the hour and the ground a page or a message states, the fixture's as it stands."""
 
     team1_name: str
     team2_name: str
@@ -246,33 +243,12 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
     vorschlag: FLSpielbestaetigungAppointment | None
 
 
-# --- A REFEREE'S OWN ROWS, read and answered signed in on the person lane. No deadline is served: a
-# referee answers until the fixture's day, which the Einteilung states.
+# --- A REFEREE'S OWN ROWS, answered signed in on the person lane. No deadline binds them: a referee answers until the
+# fixture's day, which the Einteilung states.
 
-# Never `vorschlag`, a referee proposing no date.
+# A referee's row as their own list reads it (`app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSpiel`). Never
+# `vorschlag`, a referee proposing no date.
 FLSpielbestaetigungSchiedsrichterState = Literal["valid", "agreed", "declined", "expired", "invalid", "cancelled"]
-
-
-class FLSpielbestaetigungSelf(BaseModel):
-    """One of the signed-in referee's rows, as their panel lists it."""
-
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    spiel_id: CustomObjectId
-    # Which of the address's referee records the row names.
-    schiedsrichter_id: CustomObjectId
-    ansetzung: FLSpielbestaetigungViewAnsetzung
-    state: FLSpielbestaetigungSchiedsrichterState
-    # The referee's own decline reason, null on every other row.
-    reason: CustomNonEmptyString | None
-    # Whether the league recorded the answer for them, so the panel never shows it as their own; it names nobody.
-    entered: bool
-    # Whether the Ansetzung's day lies before today in Europe/Berlin, which the panel lists apart: judged here, so a
-    # page rendered around midnight agrees with the order the read answered.
-    past: bool
-
-
-class FLSpielbestaetigungenSelfResponse(BaseAPIResponse):
-    spielbestaetigungen: list[FLSpielbestaetigungSelf]
 
 
 class FLSpielbestaetigungSchiedsrichterAnswerPayload(BaseModel):
