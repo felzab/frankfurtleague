@@ -110,4 +110,23 @@ describe("the league's save of a line-up", () => {
       fieldErrors: { [`changes.picked.${THREE}`]: COPY.admin.spieler.deregistered },
     });
   });
+
+  // The harm: a refusal the block cannot foresee, its starters counted with entries it never shows, answered as an
+  // unexpected failure that names no reason.
+  it("says the starters' bound the write refuses, on the status line", async () => {
+    refusal.write = new APIBadStatusError({
+      message: "refused",
+      url: "http://backend/api/v0/",
+      statusCode: 409,
+      serverErrorCode: "aufstellung_starters_exceed_eleven",
+      refusedFields: [{ kind: "aufstellung_starters_exceed_eleven", path: ["spieler"], ctx: { max: 11 }, in: "body" }],
+      endpoint: "/",
+      method: "PUT",
+      readOnly: false,
+      traceId: "0",
+    });
+    const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE, TWO] } });
+
+    expect(answer).toStrictEqual({ ok: false, errorCode: "aufstellung_starters_exceed_eleven", reason: "Höchstens 11 in der Startelf." });
+  });
 });

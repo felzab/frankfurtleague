@@ -44,6 +44,8 @@ export const saveAufstellung = action({
     "aufstellung_locked",
     "aufstellung_spiel_undated",
     "aufstellung_nominee_without_shortage",
+    // More starters than the bound, counted with the stored entries of erased pupils, which the block never shows.
+    "aufstellung_starters_exceed_eleven",
   ],
   run: async ({ team_id, id, version, changes }): Promise<ActionAnswer<number>> => {
     const stored = await getAufstellungSelf(id, team_id);
