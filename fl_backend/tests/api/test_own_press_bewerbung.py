@@ -11,12 +11,14 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import accept_bewerbung
 from app.api.bewerbungen.person_router import patch_einwilligung
-from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
+from app.api.bewerbungen.public_router import post_einwilligung
+from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload, FLBewerbungEinwilligungAnswerPayload
 from app.core.collections import Collection
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
@@ -43,14 +45,18 @@ TRAINER_SEAT = documents.kontaktperson_document("Wraxlington", confirmed_at="202
 SERVED_VERSION = 0
 
 
-def bewerbung_document() -> dict[str, Any]:
+def bewerbung_document(*, ansprechperson_confirmed_at: str | None) -> dict[str, Any]:
+    """Each seat's link minted today, the Ansprechperson's seat confirmed or still open."""
+
     kontakte = documents.kontakte_document(
         trainer=TRAINER_SEAT,
-        ansprechperson=documents.kontaktperson_document("Quillhilde", confirmed_at="2026-02-10"),
+        ansprechperson=documents.kontaktperson_document("Quillhilde", confirmed_at=ansprechperson_confirmed_at),
         stellvertretung=documents.kontaktperson_document("Bramblewick", confirmed_at="2026-02-10"),
     )
 
-    return documents.bewerbung_document(BEWERBUNG_OID, SAISON_ID, "submitted", kontakte=kontakte, submitted_at="2026-02-01", team_id=TEAM_OID)
+    return documents.bewerbung_document(
+        BEWERBUNG_OID, SAISON_ID, "submitted", kontakte=kontakte, submitted_at="2026-02-01", sent_at=TODAY, team_id=TEAM_OID
+    )
 
 
 async def withdraw_media(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -71,17 +77,42 @@ async def withdraw_media(database: AsyncDatabase, client: AsyncMongoClient) -> N
     )
 
 
+async def confirm_the_last_seat(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """The Ansprechperson's own confirmation through the link their seat was mailed, `bewerbung_document`'s token."""
+
+    await post_einwilligung(
+        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
+            {
+                "answer": "given",
+                "token": f"{BEWERBUNG_OID}-ansprechperson",
+                "birth_date": "1984-05-09",
+                "whatsapp": False,
+                "media": False,
+                "text_versions": dict(documents.SEAT_TEXT_VERSIONS),
+            }
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
+        db=client,
+        today=TODAY,
+        germany_now=MAIL_NOW,
+    )
+
+
 Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
 
 
-def pressed_then_accepted(url: str, press: Press) -> tuple[dict[str, Any], dict[str, Any]]:
+def pressed_then_accepted(url: str, press: Press, *, ansprechperson_confirmed_at: str | None) -> tuple[dict[str, Any], dict[str, Any]]:
     """The application and the season row its acceptance entered, the acceptance sent on the version served before the press."""
 
     async def _run() -> tuple[dict[str, Any], dict[str, Any]]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "future"))
             await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Adler", "ADX"))
-            await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document())
+            await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(ansprechperson_confirmed_at=ansprechperson_confirmed_at))
             await press(database, client)
             await accept_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
@@ -108,10 +139,19 @@ def pressed_then_accepted(url: str, press: Press) -> tuple[dict[str, Any], dict[
 
 class TestTheAcceptanceLandsOverThePress:
     def test_a_withdrawn_media_consent_stands_on_the_application_and_on_the_season_row(self, mongo_replica_set_url: str):
-        bewerbung, row = pressed_then_accepted(mongo_replica_set_url, withdraw_media)
+        bewerbung, row = pressed_then_accepted(mongo_replica_set_url, withdraw_media, ansprechperson_confirmed_at="2026-02-10")
 
         assert bewerbung["status"] == "accepted"
         assert (bewerbung["kontakte"]["trainer"]["einwilligung"]["media"], row["kontakte"]["trainer"]["einwilligung"]["media"]) == (
             False,
             False,
         )
+
+    def test_the_last_seats_confirmation_stands_and_lets_the_acceptance_in(self, mongo_replica_set_url: str):
+        """The page was read while the seat was open; the acceptance judges the seat as the confirmation left it."""
+
+        bewerbung, row = pressed_then_accepted(mongo_replica_set_url, confirm_the_last_seat, ansprechperson_confirmed_at=None)
+
+        assert bewerbung["status"] == "accepted"
+        seat = row["kontakte"]["ansprechperson"]
+        assert (seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("1984-05-09", TODAY)
