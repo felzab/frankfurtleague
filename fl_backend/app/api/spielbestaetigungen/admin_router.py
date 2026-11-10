@@ -34,7 +34,7 @@ from app.api.spielbestaetigungen.services import (
     notice_data_of,
     proposal_payload,
     spiel_mail_appointment_of,
-    team_notices,
+    team_mails,
     vereinsnamen_of,
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
@@ -248,7 +248,7 @@ async def discard_spielbestaetigung(
             data = notice_data_of(
                 reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             )
-            mails = team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
+            mails = team_mails(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
             if mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
                 await anchor_the_mailboxes_told(

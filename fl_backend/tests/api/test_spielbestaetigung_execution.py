@@ -1,9 +1,8 @@
 """
-API · a club's fixture confirmation link, opened and answered against the shipped indexes
+API · a fixture's confirmation, answered by a club's seat holder signed in and by its referee, against the shipped indexes
 
-The view answers every state a link can reach, and the answer writes the row alone: the seat that
-pressed, the proposal judged as the administrator's save of that date is judged, and nothing of the
-fixture.
+The club's answer writes the row alone: the seat that pressed, the proposal judged as the administrator's save of that
+date is judged, and nothing of the fixture.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -26,7 +25,6 @@ from app.api.spielbestaetigungen.admin_router import (
     get_spielbestaetigungen,
 )
 from app.api.spielbestaetigungen.person_router import get_self, post_schiedsrichter_answer, post_team_answer
-from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungenFilterParams,
@@ -35,7 +33,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
     FLSpielbestaetigungSchiedsrichterAnswerResponse,
     FLSpielbestaetigungTeamAnswerPayload,
-    FLSpielbestaetigungViewResponse,
 )
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
@@ -47,9 +44,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
@@ -96,10 +91,6 @@ def address(team_id: ObjectId, seat: str) -> str:
     return f"{PEOPLE[team_id][seat][0].lower()}@example.com"
 
 
-def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
-    return f"{NAMES[team_id][0].lower()}-{seat}-{nth}"
-
-
 # Each club's own row, which a seat of it answers.
 ROW_OF = {TEAM1: ROW1, TEAM2: ROW2}
 
@@ -144,10 +135,8 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
     return documents.saison_team_document(SAISON_ID, team_id, name, shorthand, kontakte=kontakte)
 
 
-def confirmation(row_id: ObjectId, team_id: ObjectId, *, hashes: Mapping[str, list[str]] | None = None, **fields: Any) -> dict[str, Any]:
-    """An open, mailed row about `spiel()`'s Ansetzung, each seat holding its own one link unless `hashes` says otherwise."""
-
-    held = hashes if hashes is not None else {seat: [hash_token(token(team_id, seat))] for seat in KONTAKT_ROLLEN}
+def confirmation(row_id: ObjectId, team_id: ObjectId, **fields: Any) -> dict[str, Any]:
+    """An open, asked row about `spiel()`'s Ansetzung."""
 
     return documents.spielbestaetigung_document(
         spiel(),
@@ -155,7 +144,6 @@ def confirmation(row_id: ObjectId, team_id: ObjectId, *, hashes: Mapping[str, li
         _id=row_id,
         deadline=DEADLINE,
         asked_at=TODAY,
-        kontakte={seat: {"token_hashes": held[seat], "email": address(team_id, seat)} if seat in held else None for seat in KONTAKT_ROLLEN},
         **fields,
     )
 
@@ -202,26 +190,6 @@ def either(database: AsyncDatabase, collection: Collection, stand_in: Any) -> An
     """The collection, or the wrapper a case reaches it through."""
 
     return database[collection] if stand_in is None else stand_in
-
-
-async def read_view(
-    database: AsyncDatabase,
-    raw: str,
-    *,
-    today: str = TODAY,
-    spielbestaetigungen: Any = None,
-    spiele: Any = None,
-    saison_teams: Any = None,
-) -> FLSpielbestaetigungViewResponse:
-    return await get_spielbestaetigung_view(
-        view_data=FLTokenPayload(token=raw),
-        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        spiele_collection=either(database, Collection.SPIELE, spiele),
-        saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
-        spielorte_collection=database[Collection.SPIELORTE],
-        teams_collection=database[Collection.TEAMS],
-        today=today,
-    )
 
 
 async def press_answer(
@@ -275,43 +243,6 @@ async def row_now(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any
     return stored
 
 
-class TestWhatALinkOpens:
-    def test_an_open_link_states_the_spiel_its_side_and_its_deadline(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await read_view(database, token(TEAM2, "ansprechperson"))
-
-        view = on_a_spiel(mongo_replica_set_url, body)
-
-        assert view.model_dump(mode="json") == {
-            "state": "valid",
-            "side": "team2",
-            "ansetzung": {
-                "team1_name": "Adler",
-                "team2_name": "Biber",
-                "date": DATE,
-                "time": TIME,
-                # The public ground: what this fixture pays for it stays off a link a stranger may hold.
-                "spielort": {"spielort_id": str(SPIELORT), "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt"},
-            },
-            "deadline": DEADLINE,
-            "vorschlag": None,
-            "answered_by": None,
-        }
-
-    def test_a_link_whose_spiel_was_called_off_says_so_whatever_its_club_answered(self, mongo_replica_set_url: str):
-        """Ahead of the agreement, which would otherwise send the club to the ground, and before the pass closes the row."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await press_answer(database, client, holder(TEAM1, "trainer"))
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "ausgefallen"}})
-
-            return await read_view(database, token(TEAM1, "trainer")), await read_view(database, token(TEAM2, "trainer"))
-
-        agreed, unanswered = on_a_spiel(mongo_replica_set_url, body)
-
-        assert (agreed.state, agreed.answered_by, unanswered.state) == ("cancelled", None, "cancelled")
-
-
 class WritesRecorded:
     """The confirmations a write reaches, every filter the write was sent with kept."""
 
@@ -328,7 +259,7 @@ class WritesRecorded:
 
 
 class TestTheSeatTheAnswerRecords:
-    def test_the_stellvertretung_answers_and_the_trainers_link_then_finds_it_answered(self, mongo_replica_set_url: str):
+    def test_the_stellvertretung_answers_and_the_trainers_press_then_finds_it_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answered = await press_answer(database, client, holder(TEAM1, "stellvertretung"))
             second = await outcome_of(press_answer(database, client, holder(TEAM1, "trainer")))
@@ -576,24 +507,6 @@ class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
         assert row["answer"] is None
 
 
-class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
-    def test_the_other_link_opens_as_asked_once_the_decline_is_closed(self, mongo_replica_set_url: str):
-        """Closed `discarded`, which keeps the decline's proposal stored: a read blind to the close serves a discarded date."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ablehnen(database, client, holder(TEAM1, "trainer"), ("2027-05-15", "17:00:00"))
-            standing = await read_view(database, token(TEAM2, "trainer"))
-            await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": ROW1}, {"$set": {"closed": {"at": TODAY, "reason": "discarded"}}})
-
-            return standing, await read_view(database, token(TEAM2, "trainer"))
-
-        standing, discarded = on_a_spiel(mongo_replica_set_url, body)
-
-        # The premise: while the decline stood, the other club's link opened on its proposal.
-        assert (standing.state, standing.vorschlag is not None) == ("vorschlag", True)
-        assert (discarded.state, discarded.vorschlag) == ("valid", None)
-
-
 # --- The ADMINISTRATOR's read, settle and discard, and the queue the confirmations put a fixture in.
 
 SETTLE_REASON = "Telefonisch mit dem Trainer abgestimmt"
@@ -632,7 +545,7 @@ async def lesen(
 
 
 class TestTheAdministratorsZusage:
-    def test_it_names_nobody_and_a_seats_link_pressed_after_it_finds_the_row_answered(self, mongo_replica_set_url: str):
+    def test_it_names_nobody_and_a_seats_press_after_it_finds_the_row_answered(self, mongo_replica_set_url: str):
         """Key for key: a role or a holder on it would let a person's erasure reach the league's reason."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -696,18 +609,6 @@ class TestTheDiscard:
         assert sorted((mail["to"], mail["kind"], mail["reference"]["seat"]) for mail in owed) == sorted(
             (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
         )
-
-    def test_the_clubs_link_then_reads_the_leagues_decision(self, mongo_replica_set_url: str):
-        """Read as its decline alone, the link would still say the league is to decide, and the club might stay away."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await ablehnen(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
-            declined = await read_view(database, token(TEAM1, "stellvertretung"))
-            await verwerfen(database, client, ROW1)
-
-            return declined.state, (await read_view(database, token(TEAM1, "stellvertretung"))).state
-
-        assert on_a_spiel(mongo_replica_set_url, body) == ("declined", "discarded")
 
     @pytest.mark.parametrize("agreed", [pytest.param(False, id="open"), pytest.param(True, id="agreed")])
     def test_a_row_no_open_decline_with_a_proposal_is_refused_and_closes_nothing(self, mongo_replica_set_url: str, agreed: bool):
@@ -890,8 +791,8 @@ class TestWhatTheAdministratorsReadServes:
         """
 
         closed = {"closed": {"at": TODAY, "reason": "ansetzung_changed"}}
-        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2, hashes={}), "deadline": "2027-04-30"}
-        rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, hashes={}, **closed) for index in range(1, 4))]
+        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2027-04-30"}
+        rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, **closed) for index in range(1, 4))]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> FLSpielbestaetigungenListResponse:
             return await lesen(database, limit=2)
@@ -940,7 +841,6 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
             party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER},
             deadline="2027-04-30",
             asked_at=TODAY,
-            kontakte=None,
             answer={"kind": "agreed", "at": TODAY, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None},
         )
         rows = [{**confirmation(ROW1, TEAM1), **row1}, confirmation(ROW2, TEAM2, **agreed), referee]
@@ -1092,7 +992,6 @@ def referee_row(row_id: ObjectId = REFEREE_ROW, *, schiedsrichter_id: ObjectId =
         _id=row_id,
         deadline=DEADLINE,
         asked_at=TODAY,
-        kontakte=None,
         **fields,
     )
 
@@ -1243,7 +1142,6 @@ class TestARefereesOwnRowsAreReachedThroughTheirIndex:
             documents.spielbestaetigung_document(
                 spiel(ObjectId(), spiel_nr=100 + position),
                 party={"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-                kontakte=None,
             )
             for position in range(OTHER_REFEREES_ROWS)
         ]

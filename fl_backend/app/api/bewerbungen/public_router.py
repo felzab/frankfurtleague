@@ -76,8 +76,7 @@ from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import remove_the_seats_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
-from app.api.teams.crud import void_moved_seats
+from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.services import kontakt_row_of
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
@@ -553,17 +552,6 @@ async def post_einwilligung(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
-        # The emptied seats' links on the team's confirmations, answered and closed ones too, go with them.
-        stored_kontakte = before.get("kontakte")
-        voids = [
-            seat_void_of(
-                saison_id=before["saison_id"],
-                team_id=before["team_id"],
-                stored_kontakte=stored_kontakte,
-                kontakte=kontakte_without(stored_kontakte, seats),
-            )
-        ]
-        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
         # As an erasure takes them: every reason typed from the emptied seats on the team's confirmations.
         await remove_the_seats_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,

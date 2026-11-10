@@ -414,7 +414,6 @@ export const COPY = catalogue({
     addressChangeConfirmation: "Änderung der E-Mail-Adresse",
     /** A contact person's and a referee's confirmation of their own entry. */
     entryConfirmation: "Eintrag bestätigen",
-    spielbestaetigung: "Spieltermin bestätigen",
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",
     registrierung: "Registrierung",

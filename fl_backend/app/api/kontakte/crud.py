@@ -14,10 +14,7 @@ from app.api.kontakte.services import (
 from app.api.spielbestaetigungen.services import (
     HeldSeats,
     build_seat_reasons_filter,
-    kontakte_without,
-    seat_void_of,
 )
-from app.api.teams.crud import void_moved_seats
 from app.core.crud import patch_many_in_db, patch_one_in_db
 from app.shared.folding import sign_in_identifier
 
@@ -108,20 +105,8 @@ async def erase_kontaktperson_in_session(
     cleared_slots = await clear_seats(saison_teams_collection, saison_team_rows, {identifier}, session)
     cleared_slots += await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
 
-    # Off the rows read in this transaction, as `clear_seats` judged them, once for the whole erasure: the void then costs it
-    # the same however many rows the person sat in.
+    # Off the rows read in this transaction, as `clear_seats` judged them, once for the whole erasure.
     held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
-    if held:
-        voids = [
-            seat_void_of(
-                saison_id=row["saison_id"],
-                team_id=row["team_id"],
-                stored_kontakte=row.get("kontakte"),
-                kontakte=kontakte_without(row.get("kontakte"), slots),
-            )
-            for row, slots in held
-        ]
-        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
     # The seats they hold now: a reason typed from a seat they have left goes with its season's end.
     await remove_the_seats_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,

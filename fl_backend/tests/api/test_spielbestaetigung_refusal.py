@@ -5,11 +5,11 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import VEREIN_FIELDS, VIEW_SPIEL_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, VEREIN_FIELDS
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
+    FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
@@ -110,7 +110,7 @@ class TestADecidedSpielTakesNoAnswer:
         ],
     )
     def test_the_answer_is_refused(self, situation: dict[str, Any]):
-        """Let through, a link tells its holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
+        """Let through, a press tells its seat holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
 
         refusal = find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), today=TODAY)
 
@@ -148,7 +148,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
     So a decided fixture would show `valid`, with nothing failing.
     """
 
-    def test_the_view_reads_nothing_its_projections_leave_out(self):
+    def test_a_rows_state_reads_nothing_its_projections_leave_out(self):
         spiel_seen: set[str] = set()
         vereine_seen: set[str] = set()
         # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
@@ -162,7 +162,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
         # The premise: `decision_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
-        assert [path for path in sorted(spiel_seen) if not loaded_by(VIEW_SPIEL_FIELDS, path)] == []
+        assert [path for path in sorted(spiel_seen) if not loaded_by(JUDGED_SPIEL_FIELDS, path)] == []
         assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
 
     def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
@@ -203,17 +203,17 @@ PROPOSED = {"date": DATE, "time": "18:00:00"}
     ("model", "body", "refused"),
     [
         (
-            FLSpielbestaetigungAnswerPayload,
+            FLSpielbestaetigungTeamAnswerPayload,
             {"answer": "declined", "vorschlag": None, "reason": None},
             ("vorschlag", "decline_without_proposal"),
         ),
         (
-            FLSpielbestaetigungAnswerPayload,
+            FLSpielbestaetigungTeamAnswerPayload,
             {"answer": "agreed", "vorschlag": PROPOSED, "reason": None},
             ("vorschlag", "acceptance_with_proposal"),
         ),
         (
-            FLSpielbestaetigungAnswerPayload,
+            FLSpielbestaetigungTeamAnswerPayload,
             {"answer": "agreed", "vorschlag": None, "reason": "Halle"},
             ("reason", "acceptance_with_reason"),
         ),
@@ -242,8 +242,7 @@ def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseMo
     At the body root, or as a bare `ValueError`, the page can place the refusal on no box and words no reason.
     """
 
-    token = {"token": "a-link"} if model is FLSpielbestaetigungAnswerPayload else {}
     with pytest.raises(ValidationError) as failure:
-        model.model_validate({**token, **body})
+        model.model_validate(body)
 
     assert [(error["loc"], error["type"]) for error in failure.value.errors()] == [((refused[0],), refused[1])]

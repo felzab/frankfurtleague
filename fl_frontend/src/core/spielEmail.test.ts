@@ -1,27 +1,15 @@
-import { assertRedactedAtTheEdge } from "@/test-support/edgeRedaction.ts";
 import { describe, expect, it } from "vitest";
 
-const { spielConfirmationLink } = await import("./spielEmail.ts");
 const { mailFor } = await import("./mailKinds.ts");
+const { ROUTES } = await import("./routes.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-describe("the fixture confirmation's link", () => {
-  /* The link stands on the serving origin as the close does, so a configured
-     trailing slash or path reaches neither, and a value that is no URL composes no message at all. */
-  it("stands on the origin `mailOrigin` makes of the configured value", () => {
-    expect(spielConfirmationLink(`${ORIGIN}/irgendwo/`, "t")).toBe(`${ORIGIN}/confirm/spiel?token=t`);
-    expect(() => spielConfirmationLink("/confirm", "t")).toThrow(/absolute origin/);
-  });
-
-  it("names a parameter the edge's own redaction map replaces", () => {
-    assertRedactedAtTheEdge(spielConfirmationLink(ORIGIN, "example-one"));
-  });
-
-  /* The token exists only in the hand-out's answer, so a request rendered from its row's facts alone would ask a club to
-     confirm through a button leading nowhere, with nothing failing. */
-  it("is the button of the request the hand-out renders, its own token on the serving origin", () => {
+describe("the fixture request", () => {
+  /* The request carries no link: the club answers on its own Übersicht, signed in. Built from a token the hand-out no
+     longer mints, it would throw at the drain and no club would hear of its fixture, with nothing else failing. */
+  it("leads to the team's Übersicht on the serving origin, whether or not the hand-out carries a token", () => {
     const data = {
       kind: "spiel_request",
       team: "Goethe-Gymnasium",
@@ -32,10 +20,9 @@ describe("the fixture confirmation's link", () => {
       moved_from: null,
     } as const;
 
-    const mail = mailFor("spiel_request", data, { token: "example-one", secret: null, origin: ORIGIN });
+    const mail = mailFor("spiel_request", data, { token: null, secret: null, origin: `${ORIGIN}/` });
 
-    expect(mail?.button).toStrictEqual({ label: "Spieltermin bestätigen", href: spielConfirmationLink(ORIGIN, "example-one") });
-    expect(() => mailFor("spiel_request", data, { token: null, secret: null, origin: ORIGIN })).toThrow(/handed out without one/);
+    expect(mail?.button?.href).toBe(`${ORIGIN}${ROUTES.teamOverview.path(data.team_id, data.saison_id)}`);
   });
 });
 

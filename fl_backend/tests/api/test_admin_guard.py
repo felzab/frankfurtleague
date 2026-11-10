@@ -164,9 +164,8 @@ ADMIN_READS = [
     # `verify_access_base` hands it to every visitor, past the initial `READ-PUPIL-001` keeps for them.
     ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
     # A team's pending registrations name the person each address resolves to, a pupil's record the
-    # base tier never serves; the seat lines name three people who agreed to administrators alone.
+    # base tier never serves.
     ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
     # A person's own records: a birthdate and a consent record, and on a referee's the contact
     # details (`READ-CONTACT-001`), each served to that person alone.
     ("/api/v0/spieler/self", "get"),
@@ -236,7 +235,6 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
         ("/api/v0/registrierungen/{registrierung_id}/admit", "post"),
         ("/api/v0/registrierungen/{registrierung_id}/decline", "post"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview", "get"),
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele", "get"),
         ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "get"),

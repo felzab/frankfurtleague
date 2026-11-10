@@ -14,11 +14,11 @@ from app.api.account.services import (
     find_own_entry_refusal,
     withdrawal_line,
 )
-from app.api.identity.crud import refuse_without_a_seat, roles_of
+from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import holds_a_seat, own_seats, seat_is_confirmed
 from app.api.teams.panel import FLTeamOverviewResponse, FLTeamSpieleResponse
-from app.api.teams.schemas import FLTeamSeat, FLTeamSeatsResponse
+from app.api.teams.schemas import FLTeamSeat
 from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -58,39 +58,6 @@ def _as_seat(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
             "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
         }
     )
-
-
-# `/self/seats`, its own segment: the admin router serves this team and season under its own paths,
-# and one path in both routers would be answered by whichever was mounted first.
-@router.get("/{team_id:objectid}/saisons/{saison_id}/self/seats", response_model=FLTeamSeatsResponse, summary="A team's seats in one season")
-async def get_team_seats(
-    team_id: CustomRouteObjectId,
-    saison_id: str,
-    identifier: PersonIdentifier,
-    saison_teams_collection: SaisonTeamsCollection,
-    records: SubjectLookup,
-    db: DBClient,
-) -> FLTeamSeatsResponse:
-    """
-    The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
-
-    Always three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or
-    confirmation date is served, whoever asks.
-    """
-
-    # A snapshot rather than a transaction, for `get_open_registrierungen`'s reason.
-    async with db.start_session(snapshot=True) as session:
-        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
-
-        # The seat just judged lives on this row, read in the same snapshot, so it stands and no 404 is owed.
-        row = await saison_teams_collection.find_one(
-            {"saison_id": saison_id, "team_id": team_id},
-            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")],
-            session=session,
-        )
-        kontakte = (row or {}).get("kontakte") or {}
-
-    return FLTeamSeatsResponse(team_id=team_id, saison_id=saison_id, seats=[_as_seat(kontakte, slot) for slot in KONTAKT_ROLLEN])
 
 
 @router.patch(
@@ -183,6 +150,8 @@ async def patch_einwilligung(
             await session.with_transaction(write)
 
 
+# `/self/...`, its own segment: the admin router serves this team and season under its own paths, and one path in both
+# routers would be answered by whichever was mounted first.
 @router.get(
     "/{team_id:objectid}/saisons/{saison_id}/self/overview",
     response_model=FLTeamOverviewResponse,

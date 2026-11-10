@@ -2399,8 +2399,8 @@ export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
  * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
  * as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
  * each opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::
- * owe_the_austritt_notices_in_session`). A club is told at every address its season row's seats hold now, a referee at
- * the address their record holds; a party nobody is left to tell is told nothing.
+ * owe_the_austritt_notices_in_session`). A club is told at every address of its confirmed seats as they stand now, a
+ * referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
  * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
  * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -2408,22 +2408,20 @@ export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
  * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
  * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
  * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
- * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
- * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
- * occupied seat holding no link -- its holder replaced or newly seated -- is owed one too. A
+ * A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
+ * link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
+ * seat is asked once it holds one, while its row is open and in time. A referee row is owed its Einteilung. A
  * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
  * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
  * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
- * its answer about the new slot standing or no seat of its reachable, is owed the move's notice instead. A fixture
+ * its answer about the new slot standing or no confirmed seat of its reachable, is owed the move's notice instead. A fixture
  * holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
  * its notice first.
  *
- * The one reminder owes a fresh link per person on each team row never reminded whose deadline lies the reminder's
- * days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`), minted beside the links already mailed so every
- * one of them answers until the deadline, and stamps the day. It passes over each seat
- * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
- * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
- * other seats are reminded beside it.
+ * The one reminder goes to every address of the club's confirmed seats as they stand now, on each open team row never
+ * reminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and
+ * whose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is
+ * reminded of nothing.
  *
  * Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
  * and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
@@ -3831,20 +3829,6 @@ export const teamsGetTeamOverviewPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}
 
 export const TeamsGetTeamOverviewParams = zod.object({
   team_id: zod.string().regex(teamsGetTeamOverviewPathTeamIdRegExp),
-  saison_id: zod.string(),
-});
-
-/**
- * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
- *
- * Always three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or
- * confirmation date is served, whoever asks.
- * @summary A team's seats in one season
- */
-export const teamsGetTeamSeatsPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const TeamsGetTeamSeatsParams = zod.object({
-  team_id: zod.string().regex(teamsGetTeamSeatsPathTeamIdRegExp),
   saison_id: zod.string(),
 });
 

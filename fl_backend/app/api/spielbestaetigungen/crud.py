@@ -8,14 +8,12 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
-    ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
     AnsetzungState,
     austritt_notices_of,
     build_austritt_spiele_filter,
     build_holding_filter,
     build_referee_rows_filter,
-    build_season_entries_filter,
     build_season_reasons_filter,
 )
 from app.api.spiele.schemas import FLSpielortFieldPublic
@@ -31,22 +29,18 @@ from app.core.crud import (
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN
 
-# --- The LINK's view and answer.
+# --- The fixture a row is judged against.
 
-# What the VIEW reads off the fixture through the name join: the Ansetzung's inputs, what the page states of it, and
-# what `reason_to_close` decides on. Never the referee, the rent or the note.
-VIEW_SPIEL_FIELDS: Mapping[str, int] = {
-    "_id": 0,
+# What the pass and a party's pages read off a fixture through the name join: its id, the Ansetzung's inputs, what a
+# page or a mail states of it, what `reason_to_close` decides on, and the booked referee's id, which it compares a
+# referee's row against. Never the rent or the note.
+JUDGED_SPIEL_FIELDS: Mapping[str, int] = {
+    "_id": 1,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
     **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_link"), 1),
-    **dict.fromkeys(("ergebnis", "sonderereignis"), 1),
+    **dict.fromkeys(("ergebnis", "sonderereignis", "schiedsrichter.schiedsrichter_id"), 1),
 }
-
-# What the pass and a referee's own rows read off a fixture: the view's fields, its id, and the booked referee's id,
-# which `reason_to_close` compares a referee's row against.
-JUDGED_SPIEL_FIELDS: Mapping[str, int] = {**VIEW_SPIEL_FIELDS, "_id": 1, "schiedsrichter.schiedsrichter_id": 1}
 
 
 async def pull_named_spiele(
@@ -70,7 +64,7 @@ async def pull_named_spiele(
     )
 
 
-# The clubs' season rows as a link reads them: the exit the close judges, the name the view states, no seat holder at all.
+# The clubs' season rows as an answer reads them: the exit the close judges, the name the act records, no seat holder at all.
 VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1, "name": 1}
 
 
@@ -142,7 +136,7 @@ async def pull_admin_rows(
     A cut across all rows would drop the oldest open ones, the overdue, first.
     """
 
-    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_FIELDS).to_list(length=None)
+    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}).to_list(length=None)
     # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
     # its closed image wins below.
     rest = await pull_many_from_db(
@@ -152,7 +146,6 @@ async def pull_admin_rows(
         limit=limit + 1,
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
-        projection=ADMIN_FIELDS,
     )
     rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
 
@@ -235,7 +228,7 @@ async def pull_spielorte_public(
     }
 
 
-# --- The season's end: what a contact's seats leave on its fixtures.
+# --- The season's end: what its parties' answers leave on its fixtures.
 
 
 async def strip_the_seasons_confirmations(
@@ -245,20 +238,12 @@ async def strip_the_seasons_confirmations(
     # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
-    """At the season's end, every link entry and reason left on the season's rows, answering how many writes that took.
+    """At the season's end, every reason left on the season's rows, answering how many rows that took.
 
     A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
-    record. A row losing both an entry and a reason counts twice: the two filters match different rows, a null `answer`
-    refusing the one update they would share.
+    record.
     """
 
-    # Every seat, whoever held it: what a block's void left standing, a hand edit's or a restore's, goes too.
-    entries = await patch_many_in_db(
-        collection=spielbestaetigungen_collection,
-        db_filter=build_season_entries_filter(saison_id),
-        update={"$set": {f"kontakte.{seat}": None for seat in KONTAKT_ROLLEN}},
-        session=session,
-    )
     reasons = await patch_many_in_db(
         collection=spielbestaetigungen_collection,
         db_filter=build_season_reasons_filter(saison_id),
@@ -266,7 +251,7 @@ async def strip_the_seasons_confirmations(
         session=session,
     )
 
-    stripped = entries.modified_count + reasons.modified_count
+    stripped = reasons.modified_count
     if stripped:
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -307,22 +292,7 @@ async def erase_referee_confirmations_in_session(
     return removed.deleted_count
 
 
-# --- The PASS's mint.
-
-
-async def anchor_the_seats_minted(
-    *,
-    saison_teams_collection: AsyncCollection,
-    saison_team_ids: Sequence[Any],
-    # REQUIRED: committed on its own, the anchor conflicts with no seat write.
-    session: AsyncClientSession,
-) -> None:
-    """Write the season rows a mint read its links' holders off.
-
-    A seat write voids the links its own snapshot holds, never one a mint writes beside it.
-    """
-
-    await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)
+# --- What a write owing mails read their recipients off.
 
 
 async def anchor_the_mailboxes_told(
@@ -332,9 +302,9 @@ async def anchor_the_mailboxes_told(
     # REQUIRED: committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a write read its notices' mailboxes off.
+    """Write the season rows a write read its mails' mailboxes off: a request's, a reminder's or a notice's.
 
-    An erasure or a Widerspruch empties the seat on that row and writes nothing the notices' write writes.
+    An erasure or a Widerspruch empties the seat on that row and writes nothing the mails' write writes.
     """
 
     await anchor_in_db(collection=saison_teams_collection, db_filter={"_id": {"$in": list(saison_team_ids)}}, session=session)

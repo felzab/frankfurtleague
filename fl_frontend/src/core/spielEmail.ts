@@ -20,18 +20,10 @@ import type {
   FLSpielRequestData,
   FLSpielVorschlagDiscardedData,
 } from "./generated/client/types";
-import type { MailLink, MailOrigin } from "./mailKinds";
+import type { MailOrigin } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.spiel;
 const FACT = COPY.spielplan.fact;
-
-/**
- * The one place this link is spelled. `token` is the name `nginx/shared/http.conf :: $credential_free_uri`
- * redacts, and the origin goes through `mailOrigin` here, so the link and the message's close stand on one host.
- */
-export function spielConfirmationLink(origin: string, token: string): string {
-  return `${mailOrigin(origin)}${ROUTES.spielbestaetigung.path()}?token=${encodeURIComponent(token)}`;
-}
 
 /** The referee's own panel, the address `fl_frontend/src/features/roles/utils.ts` opens their Funktion on. */
 const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
@@ -73,7 +65,7 @@ function slotBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppoin
   return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: spielort ?? COPY.shared.notProvided }] };
 }
 
-/** The deadline and the first-press rule: any seat of the club answers, so a reader told nothing takes a spent link for a dead one. */
+/** The deadline and the first-answer rule: any seat of the club answers, so a reader told nothing takes a date already answered for one lost. */
 const answerParagraph = (deadline: string): Paragraph => [
   around(WORDS.answerUntil.before, formatDateLong(dayOf(deadline)), WORDS.answerUntil.after),
   WORDS.firstAnswerCounts,
@@ -81,12 +73,14 @@ const answerParagraph = (deadline: string): Paragraph => [
 
 /**
  * A club's request to confirm a fixture, the reminder of it, or the request about the slot a move went to, which is then
- * the one mail telling the club of the move: to one mailbox of one of its teams.
+ * the one mail telling the club of the move: to one mailbox of one of its teams. No token: the reader answers on the
+ * team's own pages, signed in.
  */
 export function buildSpielRequestEmail(
-  { kind, team, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
-  { origin, token }: MailLink,
+  { kind, team, team_id: teamId, saison_id: saison, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
+  { origin }: MailOrigin,
 ): Mail {
+  const site = mailOrigin(origin);
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it.
@@ -100,13 +94,11 @@ export function buildSpielRequestEmail(
   return {
     kind: "notice",
     subjectLine,
-    // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
-    // could send the two versions to different hosts.
-    origin: mailOrigin(origin),
+    origin: site,
     paragraphs: [lead],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
-    button: { label: COPY.page.spielbestaetigung, href: spielConfirmationLink(origin, token) },
+    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
 
