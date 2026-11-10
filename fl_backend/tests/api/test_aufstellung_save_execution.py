@@ -147,6 +147,7 @@ async def seat_saves(
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         spieler_collection=database[Collection.SPIELER],
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         records=record_collections(database),
         db=client,
         now=now,

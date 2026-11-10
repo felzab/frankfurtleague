@@ -45,7 +45,15 @@ from app.api.spielberichte.services import SIDES, team_id_of
 from app.api.spiele.services import build_spiele_pipeline, spiel_label
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, find_stale_first_save_refusal, pull_many_from_db, refuse
+from app.core.crud import (
+    GERMAN_COLLATION,
+    VERSION_FIELD,
+    aggregate_many_from_db,
+    anchor_in_db,
+    find_stale_first_save_refusal,
+    pull_many_from_db,
+    refuse,
+)
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
@@ -72,6 +80,13 @@ class SeatHolder:
 
     identifier: str
     records: RecordCollections
+
+
+@dataclass(frozen=True, kw_only=True)
+class SeatSaver(SeatHolder):
+    """A seat holder saving: with the season rows the seats sit on, one of which the save anchors."""
+
+    saison_teams: AsyncCollection
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -251,7 +266,7 @@ async def read_aufstellung_screen(
 
 async def save_aufstellung_screen(
     *,
-    seat: SeatHolder | None,
+    seat: SeatSaver | None,
     spiel_id: ObjectId,
     team_id: ObjectId,
     payload: FLAufstellungPayload,
@@ -299,10 +314,15 @@ async def save_aufstellung_screen(
             label=spiel_label(spiel["saison_id"], spiel["spiel_nr"]),
             session=session,
         )
+        if seat is not None:
+            # The season row the seat was judged off: a seat ended under this save then conflicts with it, as the
+            # team's answer to a fixture does, so no line-up is saved from a seat its holder has left. After the line-up's
+            # own write, as the season's anchor is.
+            await anchor_in_db(collection=seat.saison_teams, db_filter={"saison_id": spiel["saison_id"], "team_id": team_id}, session=session)
         people = await _pull_people(spieler_collection=reads.spieler, state=state, saved=written, session=session)
 
-        # Nothing judged is written here, so a seat ending, a season closed, a fixture re-dated or re-fielded or a pupil
-        # ausgetragen conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
+        # Nothing else judged is written here, so a season closed, a fixture re-dated or re-fielded or a pupil ausgetragen
+        # conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
         async with db.start_session(snapshot=True) as outside:
             current = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=outside)
         _judge_the_fixture(current, locks=seat is not None, now=now)

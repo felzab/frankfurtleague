@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Response
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
-from app.api.aufstellungen.screen import AufstellungReads, SeatHolder, read_aufstellung_screen, save_aufstellung_screen
+from app.api.aufstellungen.screen import AufstellungReads, SeatHolder, SeatSaver, read_aufstellung_screen, save_aufstellung_screen
 from app.api.identity.lookup import SubjectLookup
 from app.core.config import API_VERSION
 from app.core.dependencies import (
@@ -14,6 +14,7 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerReadCollection,
+    SaisonTeamsCollection,
     SnapshotSession,
     SpielerCollection,
     SpieleReadCollection,
@@ -92,6 +93,7 @@ async def put_aufstellung_self(
     saison_spieler_collection: SaisonSpielerReadCollection,
     spieler_collection: SpielerCollection,
     aufstellungen_collection: AufstellungenCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -117,7 +119,7 @@ async def put_aufstellung_self(
     """
 
     answer, created = await save_aufstellung_screen(
-        seat=SeatHolder(identifier=identifier, records=records),
+        seat=SeatSaver(identifier=identifier, records=records, saison_teams=saison_teams_collection),
         spiel_id=spiel_id,
         team_id=team_id,
         payload=aufstellung_data,
