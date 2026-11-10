@@ -826,6 +826,8 @@ export const COPY = catalogue({
         linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter ", after: "." },
         /** Muted in the line under a row's name: the registration's address is a stored person's. */
         returning: "War schon in der Liga",
+        /** That line where it holds more than one note, „War schon in der Liga · Nummer doppelt“. */
+        notes: (notes: readonly Copy[]) => notes.join(" · "),
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
         kaderFull: "Kader voll",
         awaitsConfirmation: "Erst, wenn die Person bestätigt hat",
