@@ -90,6 +90,10 @@ export function lineupValue(picked: Iterable<string>, starters: Iterable<string>
   return { picked: named, starters: inOrder(starters).filter((id) => named.includes(id)) };
 }
 
+/** How many start: the starters `value` names and the erased entries that started, as the write counts them. */
+export const lineupStarters = (value: LineupValue, erased: ReadonlyArray<ErasedEntry>) =>
+  value.starters.length + erased.filter((entry) => entry.starts).length;
+
 const placeOf = (value: LineupValue, id: string) => (!value.picked.includes(id) ? "rest" : value.starters.includes(id) ? "starts" : "bench");
 
 /**
@@ -147,12 +151,23 @@ export type LineupWords = {
   startersFull: Copy;
   /** Why a nominee cannot be named, and on a named nominee's row once the regular pupils leave no gap for them. */
   nomineeLocked: Copy;
+  /** The name of an entry whose pupil was erased after the match kicked off: the placeholder a record keeps for a person gone. */
+  anonymous: Words;
 };
+
+/** An entry of the stored line-up whose pupil was erased after the match kicked off: whether they started, and no person. */
+export type ErasedEntry = { starts: boolean };
 
 type LineupProps = {
   /** The squad, and every pupil `value` names: a named one the squad no longer holds carries `gone`. */
   players: ReadonlyArray<LineupPlayer>;
   value: LineupValue;
+  /**
+   * The stored entries naming an erased pupil, in their stored order: the club fielded them, so each stands in the
+   * picked list read-only and counts as a regular pupil named and, where it started, a starter, as the write counts it;
+   * no press reaches one and `value` never holds one, since every save keeps them as stored.
+   */
+  erased: ReadonlyArray<ErasedEntry>;
   onChange: (value: LineupValue) => void;
   /** How many start at the most, which is also how many regular pupils leave no place for a nominee. */
   startersMax: number;
@@ -246,10 +261,11 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
  * nominee out: the nominees then named carry the same words on their rows, and the person chooses whom to take out.
  *
  * The value is the caller's, two of `useEditor`'s array values (`LineupValue`), so the editor's unsaved state, its
- * reset and its save hold a line-up as they hold any field. A row that leaves hands the focus to the row after it,
+ * reset and its save hold a line-up as they hold any field; an entry whose pupil was erased stands outside it, read-only
+ * under `words.anonymous`, its tick saying whether it started (`erased`). A row that leaves hands the focus to the row after it,
  * else the one before, else its card (`RowActs`).
  */
-export function Lineup({ players, value, onChange, startersMax, words, locked, refusals = {} }: LineupProps) {
+export function Lineup({ players, value, erased, onChange, startersMax, words, locked, refusals = {} }: LineupProps) {
   const id = useId();
   // The row whose tick was pressed with the starters complete; it says so while that still holds.
   const [pressed, setPressed] = useState<string | null>(null);
@@ -259,9 +275,10 @@ export function Lineup({ players, value, onChange, startersMax, words, locked, r
   const rest = ordered.filter((player) => !value.picked.includes(player.id) && player.gone === undefined);
   const hasSquad = players.some((player) => player.gone === undefined);
 
-  const isFull = value.starters.length >= startersMax;
+  const isFull = lineupStarters(value, erased) >= startersMax;
   const nominees = picked.filter((player) => player.nominee === true).length;
-  const gap = Math.max(0, startersMax - (picked.length - nominees));
+  // An erased pupil holds no squad row, so nothing says they were nominated late: the write counts them regular.
+  const gap = Math.max(0, startersMax - (picked.length + erased.length - nominees));
 
   const change = (named: Iterable<string>, starters: Iterable<string>) => {
     setPressed(null);
@@ -291,10 +308,10 @@ export function Lineup({ players, value, onChange, startersMax, words, locked, r
         className={s.card()}>
         <div className={s.band()}>
           <h2 className={s.title()}>{words.picked}</h2>
-          <span className={s.count()}>{picked.length}</span>
+          <span className={s.count()}>{picked.length + erased.length}</span>
         </div>
         <div className={s.box()}>
-          {picked.length === 0 ? (
+          {picked.length + erased.length === 0 ? (
             <p className={s.empty()}>{words.none}</p>
           ) : (
             <table
@@ -354,6 +371,31 @@ export function Lineup({ players, value, onChange, startersMax, words, locked, r
                           />
                         </RowActs>
                       </td>
+                    </tr>
+                  );
+                })}
+                {/* After the numbered pupils, as a pupil without a number stands, in their stored order: no person
+                    stands behind one, so its place names it, and no act reaches it. */}
+                {erased.map((entry, place) => {
+                  const nameId = `${id}-erased-${String(place)}`;
+                  return (
+                    <tr
+                      key={nameId}
+                      className={lineup({ muted: true }).row()}>
+                      <NameCell
+                        player={{ id: nameId, name: words.anonymous, nummer: null }}
+                        nameId={nameId}
+                      />
+                      <FactCells player={{ id: nameId, name: words.anonymous, nummer: null }} />
+                      <td className={lineup(TICK).cell()}>
+                        <Tick
+                          aria-labelledby={`${startsId} ${nameId}`}
+                          isSelected={entry.starts}
+                          isDisabled
+                          onChange={() => undefined}
+                        />
+                      </td>
+                      <td className={s.end()} />
                     </tr>
                   );
                 })}

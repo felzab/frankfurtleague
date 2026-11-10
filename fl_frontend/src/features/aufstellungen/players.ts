@@ -24,6 +24,7 @@ export const LINEUP_WORDS: LineupWords = {
   noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
   startersFull: COPY.shared.field.max(STARTERS_MAX),
   nomineeLocked: COPY.area.team.aufstellung.nomineeLocked,
+  anonymous: SERVER_COPY.season.spiel.anonymous,
 };
 
 /** A pupil as the club's own people read them, or „anonym“ where an erasure took the record. */

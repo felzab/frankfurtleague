@@ -12,7 +12,7 @@ import { Lineup, lineupMoves, LineupPlaceholder, lineupValue } from "./Lineup";
 import { useEditor } from "./useEditor";
 
 import type { Copy } from "@/core/copy";
-import type { LineupPlayer, LineupValue, LineupWords } from "./Lineup";
+import type { ErasedEntry, LineupPlayer, LineupValue, LineupWords } from "./Lineup";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/area/team/aho/2027/spiele/spiel-1",
@@ -34,6 +34,7 @@ const WORDS: LineupWords = {
   noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
   startersFull: COPY.shared.field.max(MAX),
   nomineeLocked: COPY.template.draftUnsaved,
+  anonymous: COPY.shared.noValue,
 };
 
 const nameOf = (nummer: number) => `Spieler ${String(nummer)}`;
@@ -62,18 +63,21 @@ function Held({
   seen,
   locked,
   refusals,
+  erased = [],
 }: {
   players: LineupPlayer[];
   start?: LineupValue;
   seen?: (value: LineupValue) => void;
   locked?: Copy;
   refusals?: Record<string, Copy>;
+  erased?: ReadonlyArray<ErasedEntry>;
 }) {
   const [value, setValue] = useState(start);
   return (
     <Lineup
       players={players}
       value={value}
+      erased={erased}
       onChange={(next) => {
         setValue(next);
         seen?.(next);
@@ -256,6 +260,36 @@ describe("a line-up's states", () => {
   });
 });
 
+// The harm: an erased pupil's kept start left out of the count, so the page lets a twelfth start and the write refuses
+// it; or an erased entry sent back, which the write refuses as a pupil outside the squad.
+describe("a line-up keeping erased pupils' entries", () => {
+  it("draws them read-only, counts them as named, starting and regular, and never sends them", async () => {
+    const seen = vi.fn();
+    render(
+      <Held
+        players={[...squad(11), nominee(20)]}
+        start={lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))}
+        erased={[{ starts: true }]}
+        seen={seen}
+      />,
+    );
+    const picked = within(screen.getByRole("table", { name: WORDS.picked }));
+    const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.noValue}` });
+
+    expect(kept).toHaveProperty("checked", true);
+    expect(kept).toHaveProperty("disabled", true);
+    expect(picked.getAllByRole("button", { name: WORDS.remove })).toHaveLength(10);
+    expect(screen.getByRole("heading", { name: WORDS.picked }).nextElementSibling?.textContent).toBe("11");
+
+    // Ten named and the kept start make eleven: an eleventh named regular leaves a nominee no gap, and no twelfth starts.
+    await pick(11);
+    expect(screen.getByRole("button", { name: WORDS.pick, description: new RegExp(nameOf(20)) }).getAttribute("aria-disabled")).toBe("true");
+    await userEvent.click(tickOf(11));
+    expect(tickOf(11).checked).toBe(false);
+    expect(seen.mock.calls.at(-1)?.[0]).toStrictEqual(lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
+  });
+});
+
 /** The block as its page places it: bare in the editor's column, its counts on the bar, its moves the editor's count. */
 function Page({ players, stored }: { players: LineupPlayer[]; stored: LineupValue }) {
   const editor = useEditor<LineupValue>({ id: "spiel-1", version: 1, values: stored }, async () => ({ ok: true, value: 2 }), {
@@ -273,6 +307,7 @@ function Page({ players, stored }: { players: LineupPlayer[]; stored: LineupValu
             <Lineup
               players={players}
               value={editor.draft}
+              erased={[]}
               onChange={(next) => {
                 editor.set("picked", next.picked);
                 editor.set("starters", next.starters);
