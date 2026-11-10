@@ -214,7 +214,6 @@ export function buildAufstellungReminderEmail(
       ],
     },
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
-    // Session 8: leads to the match's line-up page, `ROUTES.teamAufstellung`, once that row exists.
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
