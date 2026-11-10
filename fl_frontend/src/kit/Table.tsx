@@ -3,6 +3,7 @@ import { useId } from "react";
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
+import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
@@ -508,6 +509,8 @@ const nameLine = tv({
     // A phone's act row sets the line across the row, the name cut with „…“ where the line is too short for it and its
     // chip, which stays beside it, as on every list: the name stays whole to a screen reader and on the record's page.
     acts: { true: "max-lg:col-span-full max-lg:px-3 max-lg:pt-3" },
+    // An address wraps instead (`AddressWords`), its chip beside its first line.
+    address: { true: "items-start" },
   },
 });
 
@@ -525,7 +528,8 @@ const nameWords = tv({
 
 /**
  * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then a player's mark and
- * the chip, which keep their size and their line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
+ * the chip, which keep their size and their line; a prose table's name wraps instead, and so does an address, the chip
+ * beside its first line (`AddressWords`). A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link; the link's stretched box still covers it, so a press on it opens the row's record, which on a phone,
  * where a club's plaque may stand alone, the link names by the club's full name.
  */
@@ -553,14 +557,15 @@ function NameCell({
   const { plaque } = row;
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
-  const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : name;
+  const address = isAddress(name);
+  const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : address ? <AddressWords address={name} /> : name;
   const opens = row.onOpen === undefined ? words : <RowPress onPress={row.onOpen}>{words}</RowPress>;
   const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";
   return (
     <td
       role="cell"
       className={s.name()}>
-      <span className={nameLine({ shape, lonePlaque, acts: acts !== undefined })}>
+      <span className={nameLine({ shape, lonePlaque, acts: acts !== undefined, address })}>
         {plaque !== undefined && (
           <TeamPlaque
             plaque={plaque}
@@ -570,7 +575,11 @@ function NameCell({
         <CutText
           id={nameId}
           text={name}
-          className={nameWords({ cut: prose ? "never" : "always", lonePlaque, class: s.whole() })}>
+          className={nameWords({
+            cut: prose || address ? "never" : "always",
+            lonePlaque,
+            class: address ? addressWords({ class: s.whole() }) : s.whole(),
+          })}>
           {row.href === undefined ? (
             opens
           ) : (
