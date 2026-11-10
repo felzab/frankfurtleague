@@ -66,9 +66,6 @@ async def write_aufstellung(
 
     if saved is None:
         await post_one_to_db(collection=aufstellungen_collection, document={"saison_id": saison_id, **key, "spieler": entries}, session=session)
-        # After the insert, as a report's first write anchors it: a draw's removal writes the season too, so the two
-        # conflict and no line-up is left on a fixture the removal took.
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         written = await pull_one_from_db(collection=aufstellungen_collection, db_filter=key, session=session)
     else:
         # `AFTER`: the screen's next save sends the count this write left.
@@ -80,6 +77,10 @@ async def write_aufstellung(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+    # After the line-up's own write, on every save: a draw's removal writes the season, so no line-up is left on a
+    # fixture the removal took, and so does the activation ending it, which no save then outlives. The save's judgement
+    # of the season's status, asked again outside the transaction, leaves a gap before the commit this closes.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
     await record_act(
         collection=aufstellungen_collection,
