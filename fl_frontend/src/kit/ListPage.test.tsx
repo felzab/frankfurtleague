@@ -359,6 +359,37 @@ describe("a page of one card holding a list", () => {
     // Its text alone: the card's title before it would say the card still stands.
     expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
   });
+
+  // The harm: a referee booked to a season's twenty games finds one by scrolling, where the administration's lists of
+  // that length are searched. `ListTable.test.tsx` holds what the search narrows.
+  it("draws the toolbar's search field where the page names one, before and after the rows arrive", async () => {
+    const page = (content: Cards["content"]) => (
+      <ListPage
+        head={{ scope: "area", title: { route: "teamKader" } }}
+        list={{
+          kind: "cards",
+          search: { label: COPY.admin.spieler.search },
+          wait: { rows: 2, cards: [{ title: TITLE, count: false }] },
+          content,
+        }}
+      />
+    );
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+    const landed = document.createElement("div");
+    const { prelude } = await prerender(
+      page(
+        Promise.resolve({
+          cards: [{ id: "spiele", title: TITLE, count: false, rows: [{ id: "1", href: "/", name: { record: "Ahorn vs. Eiche" } }] }],
+        }),
+      ),
+      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+    );
+    landed.innerHTML = await new Response(prelude).text();
+
+    expect([waiting, landed].map((drawn) => drawn.querySelectorAll('input[type="search"]').length)).toStrictEqual([1, 1]);
+    expect(landed.textContent).toContain("Ahorn vs. Eiche");
+  });
 });
 
 describe("a table a client page draws", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Lineup, lineupMoves, lineupValue } from "@/kit/Lineup";
+import { Lineup, lineupMoves, lineupStarters, lineupValue } from "@/kit/Lineup";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
@@ -11,7 +11,7 @@ import { REFUSED_ROW } from "../../payload";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungEntry } from "@/core/generated/client/types";
-import type { LineupPlayer, LineupValue, LineupWords } from "@/kit/Lineup";
+import type { ErasedEntry, LineupPlayer, LineupValue, LineupWords } from "@/kit/Lineup";
 import type { EditorSave } from "@/kit/useEditor";
 
 /** What a line-up's save is handed: the fixture, the version the editor was read at, and the half of the line-up it changed. */
@@ -19,8 +19,11 @@ type AufstellungSave = EditorSave<LineupValue, number | null>;
 
 /** What the line-up's editor is handed, at whichever address it stands. */
 export type AufstellungEditing = {
-  /** The line-up as read: the fixture's id, the stored `version`, `null` where none is stored, and its entries. */
-  aufstellung: { id: string; version: number | null; spieler: ReadonlyArray<FLAufstellungEntry> };
+  /**
+   * The line-up as read: the fixture's id, the stored `version`, `null` where none is stored, its entries naming a pupil,
+   * and those whose pupil was erased since, which no save sends and every save keeps.
+   */
+  aufstellung: { id: string; version: number | null; spieler: ReadonlyArray<FLAufstellungEntry>; erased: ReadonlyArray<ErasedEntry> };
   players: ReadonlyArray<LineupPlayer>;
   words: LineupWords;
   /** Why nobody can be named as the fixture stands, such as its having no day or hour yet. */
@@ -56,11 +59,12 @@ export function useAufstellungEditor({ aufstellung, players, words, locked, save
   return {
     editor,
     // The starters alone: beside the count of moves it fits a phone's bar, where the longer line pushes the count out.
-    barText: COPY.area.team.aufstellung.startelfCount(draft.starters.length, STARTERS_MAX),
+    barText: COPY.area.team.aufstellung.startelfCount(lineupStarters(draft, aufstellung.erased), STARTERS_MAX),
     block: (
       <Lineup
         players={players}
         value={draft}
+        erased={aufstellung.erased}
         onChange={(next) => {
           set("picked", next.picked);
           set("starters", next.starters);

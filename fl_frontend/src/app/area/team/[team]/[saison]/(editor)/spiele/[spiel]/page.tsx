@@ -92,7 +92,7 @@ async function readEditor(params: Props["params"]) {
       title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}
-      aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
+      aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler, erased: found.erased }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
       {...(locked === undefined ? {} : { locked })}

@@ -49,9 +49,10 @@ const tiles = tv({
     // standing side by side share those rows and set their values on one baseline, a figure's and a venue's
     // words alike, and stand one height.
     tile: "row-span-3 grid grid-rows-subgrid items-baseline gap-y-0.5 px-4 py-3",
-    // One line inside its tile, set without the capitals' tracking so „Schiedsrichter“, the longest label,
-    // fits a tile; past that it is cut with „…“ rather than running over the tile's edge.
-    label: "min-w-0 truncate text-xs font-medium text-fg-muted uppercase",
+    // One line inside its tile, set without the capitals' tracking so „Schiedsrichter“, the longest label, takes the
+    // least room; never cut, since a label is what its value is read by: its whole width counts towards its column's
+    // least width, as a figure's does.
+    label: "text-xs font-medium whitespace-nowrap text-fg-muted uppercase",
     // A figure never breaks inside itself and is never cut, so no figure shows short of a digit.
     value: "font-numeric text-xl font-semibold whitespace-nowrap",
     line: "text-xs text-fg-muted",

@@ -82,7 +82,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "stufe": "Q1",
         "birth_date": None,
         "einwilligung": None,
-        "confirmation": {**compose_confirmation(today="2026-03-26", deadline=TOMORROW), "token_hashes": [TOKEN_HASH]},
+        "confirmation": {**compose_confirmation(today="2026-03-26", deadline=TOMORROW, mailed=True), "token_hashes": [TOKEN_HASH]},
         "decision": None,
         **overrides,
     }
@@ -281,7 +281,7 @@ class TestTheLinkIsSpentByTheStamp:
 
     def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
         expired = registrierung_document(
-            confirmation={**compose_confirmation(today="2026-03-20", deadline=YESTERDAY), "token_hashes": [TOKEN_HASH]}
+            confirmation={**compose_confirmation(today="2026-03-20", deadline=YESTERDAY, mailed=True), "token_hashes": [TOKEN_HASH]}
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

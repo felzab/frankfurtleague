@@ -8,6 +8,7 @@ from app.api.bewerbungen.services import days_after
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAustrittNoticeData,
+    FLOutboxClub,
     FLOutboxData,
     FLOutboxReference,
     FLSpielEinteilungLiftedData,
@@ -746,7 +747,7 @@ def _day_passed(*, ansetzung: Mapping[str, Any], today: str) -> bool:
 
 
 # What `reason_to_end` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
-CLOSE_FIELDS: Final = ["spiel_id", "party", "ansetzung", "asked_at", "closed"]
+CLOSE_FIELDS: Final = ["saison_id", "spiel_id", "party", "ansetzung", "asked_at", "closed"]
 
 
 def reason_to_end(
@@ -1045,6 +1046,7 @@ def team_mails(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data:
             to=recipient.email,
             data=data,
             reference=reference_of(spielbestaetigung_id=row_id, seat=recipient.rolle),
+            club=FLOutboxClub(saison_id=spielbestaetigung_raw["saison_id"], team_id=spielbestaetigung_raw["party"]["team_id"]),
         )
         for recipient in confirmed_recipients(kontakte=kontakte)
     ]
@@ -1097,7 +1099,13 @@ def austritt_notices_of(
         opponent = vereine[opponent_id]
         data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, spiele=listed)
         mails = [
-            OwedMail(key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{recipient.rolle}", to=recipient.email, data=data, reference=reference)
+            OwedMail(
+                key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{recipient.rolle}",
+                to=recipient.email,
+                data=data,
+                reference=reference,
+                club=FLOutboxClub(saison_id=saison_id, team_id=opponent_id),
+            )
             for recipient in confirmed_recipients(kontakte=opponent.get("kontakte"))
         ]
         if mails:

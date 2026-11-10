@@ -61,6 +61,7 @@ from app.core.dependencies import (
     DBClient,
     GrantsCollection,
     GrantsReadCollection,
+    MailboxAnchorsCollection,
     OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
@@ -227,6 +228,7 @@ async def post_address_change_answer(
     registrierungen_collection: RegistrierungenCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
+    mailbox_anchors_collection: MailboxAnchorsCollection,
     action_log_collection: ActionLogCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
@@ -322,6 +324,7 @@ async def post_address_change_answer(
                 grants_collection=grants_collection,
                 outbox_collection=outbox_collection,
                 action_log_collection=action_log_collection,
+                mailbox_anchors_collection=mailbox_anchors_collection,
                 now=germany_now,
                 session=session,
             )

@@ -12,9 +12,7 @@ from app.api.spiele.services import (
     find_clash_refusal,
     find_spiel_date_refusal,
 )
-from app.api.spieler.services import (
-    find_squad_capacity_refusal,
-)
+from app.api.spieler.services import SquadRoom, find_full_squad_refusal
 from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.api.spieltage.services import (
     find_spieltag_span_refusal,
@@ -209,7 +207,7 @@ class TestASquadCap:
     def test_a_squad_over_the_cap_is_refused(self):
         """Reachable without a bug: narrowing a season's rules leaves the squads already entered under the old bound."""
 
-        refusal = find_squad_capacity_refusal(squad_size=25, max_kader_size=18)
+        refusal = find_full_squad_refusal(room=SquadRoom(size=25, cap=18), nominee=False)
 
         assert refusal is not None
         assert refusal.error_code == Code.KADER_FULL

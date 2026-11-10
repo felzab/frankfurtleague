@@ -1,5 +1,3 @@
-import { RoleMark } from "@/kit/RoleMark";
-
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
@@ -24,6 +22,7 @@ export const LINEUP_WORDS: LineupWords = {
   noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
   startersFull: COPY.shared.field.max(STARTERS_MAX),
   nomineeLocked: COPY.area.team.aufstellung.nomineeLocked(STARTERS_MAX),
+  anonymous: SERVER_COPY.season.spiel.anonymous,
 };
 
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
@@ -39,7 +38,7 @@ function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
     name: spielerName(spieler),
     nummer: shirtNumber(spieler.nummer),
     ...(spieler.position === null ? {} : { position: { record: spieler.position } }),
-    ...(mark === undefined ? {} : { mark: <RoleMark {...mark} /> }),
+    ...(mark === undefined ? {} : { mark }),
     ...(chip === undefined ? {} : { chip }),
     ...(spieler.is_nachnominiert ? { nominee: true } : {}),
     // A pupil the stored line-up names whom the squad no longer holds: deregistered or erased since.

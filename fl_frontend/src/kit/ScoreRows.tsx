@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { smallCaps } from "./cardStyles";
@@ -24,9 +24,9 @@ export type ScoreOutcome = { text: Copy; tone: "win" | "draw" };
 
 /** One column of figures, a field per side, home first. */
 type ScoreColumn = {
-  /** Names the column's fields, and heads it unless `head` does. */
+  /** Names the column's fields, and heads a shoot-out's column unless `head` does. */
   label: Copy;
-  /** The column's head, where the label is too long to stand over a two-digit field. */
+  /** A shoot-out's column's head, where the label is too long to stand over a two-digit field. */
   head?: Copy;
   /** The two fields' names, as the form posts them. */
   names: readonly [string, string];
@@ -43,8 +43,8 @@ type CountedColumn = { label: Copy; head?: never; counted: readonly [number, num
 
 const scoreRows = tv({
   slots: {
-    // 8 px more above it than between two fields, as a sub-group sets itself off.
-    root: "mt-2 grid w-full gap-x-3",
+    // The section's own spacing above it, as every field of the box has.
+    root: "grid w-full gap-x-3",
     // A line of its own over the column's start, from the head to the last row's fields, rather than a border on each
     // cell: the last row's message line stands under the fields, and the rule ends with them.
     rule: "col-start-3 row-span-3 row-start-1 mb-6 w-px bg-border",
@@ -81,7 +81,6 @@ const scoreRows = tv({
     // „Pflichtfeld“; the two lines of one row overlap only where both hold a message past the rule.
     column: {
       tore: {
-        head: "col-start-2",
         field: "[&_[data-kit-message]]:col-span-2 [&_[data-kit-message]]:col-start-1 [&_input]:col-start-2",
       },
       shootOut: {
@@ -99,9 +98,10 @@ const SIDES = [0, 1] as const;
 
 /**
  * A match's score as rows: a side per row, its plaque and its name at the far left and its figures at the far right,
- * under their columns' heads, as `FieldRows` sets a label and its input. The shoot-out's column opens at the row's end
- * on a level knockout score, moving the goals' column inward, the hairline parting the two from the head to the last
- * row, so a shoot-out's figure is never read as a goal.
+ * as `FieldRows` sets a label and its input, straight under the section's title with no head of their own, the goals'
+ * fields named by their hidden label. The shoot-out's column opens at the row's end on a level knockout score under its
+ * head, moving the goals' column inward, the hairline parting the two from the head to the last row, so a shoot-out's
+ * figure is never read as a goal.
  *
  * Each field keeps its own message line for its value's error. The one line under the rows says what the score as a
  * whole sets off, such as level knockout goals leaving the bracket waiting, else what the figures decide, „… gewinnt
@@ -135,10 +135,10 @@ export function ScoreRows({
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
-  const columnHead = (column: "tore" | "shootOut", shown: ScoreColumn | CountedColumn) => (
+  const columnHead = (column: "shootOut", shown: ScoreColumn) => (
     <span className={slots.head({ column })}>
       {shown.head ?? shown.label}
-      <RequiredMark isRequired={"counted" in shown ? false : shown.isRequired} />
+      <RequiredMark isRequired={shown.isRequired} />
     </span>
   );
   const counted = (side: 0 | 1, { label, counted: figures }: CountedColumn) => (
@@ -175,10 +175,9 @@ export function ScoreRows({
           className={slots.rule()}
         />
       )}
-      <div className={slots.row({ place: "head" })}>
-        {columnHead("tore", tore)}
-        {shootOut !== null && columnHead("shootOut", shootOut)}
-      </div>
+      {/* The goals' column stands unheaded, its fields named by their hidden label; a shoot-out's opens with its head,
+          so its figure is never read as a goal. */}
+      {shootOut !== null && <div className={slots.row({ place: "head" })}>{columnHead("shootOut", shootOut)}</div>}
       {SIDES.map((side) => (
         <div
           key={side}
@@ -213,12 +212,6 @@ export function ScoreRowsPlaceholder() {
   const slots = scoreRows({ columns: 1 });
   return (
     <div className={slots.root()}>
-      <div className={slots.row({ place: "head" })}>
-        <PlaceholderLine
-          textClass={slots.head({ column: "tore" })}
-          words={COPY.shared.tore}
-        />
-      </div>
       {SIDES.map((side) => (
         <div
           key={side}

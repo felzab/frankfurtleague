@@ -20,8 +20,11 @@ import type { Plaque } from "./TeamPlaque";
 export type SpielSide = { name: Words; plaque: Plaque };
 
 export type SpielRowProps = {
-  /** The match's own page, which opens as the pop-up over the list. */
-  href: Route;
+  /**
+   * The match's own page, which opens as the pop-up over the list; absent where the match has no page to open yet, such
+   * as one of a season not yet public, whose row then opens nothing, as the kit's other rows do that lead nowhere.
+   */
+  href?: Route;
   /** When it is played, as the catalogue words it. */
   when: Copy;
   team1: SpielSide;
@@ -39,13 +42,15 @@ export type SpielRowProps = {
 };
 
 /**
- * The one-line row's grid and the card's lines. The when column holds the date with the chip under it, so the sides
- * stand under each other in every row, chip or none. A card's date line is a chip's height, chip or none, so every
- * card stands as tall as every other and as its wait, which cannot know whether a list holds a chip.
+ * The one-line row's grid and the card's lines. The when column holds the date with the chip beside it, „Sa., 21.11.2026 ·
+ * 16:00 [Antwort fehlt]“, as the owner ruled for every list's match row on a wide screen: at least a date's width, and as
+ * wide as a date and its chip where the row holds one, the sides taking what is left. A card's date line is a chip's
+ * height, chip or none, so every card stands as tall as every other and as its wait, which cannot know whether a list
+ * holds a chip.
  */
 const forms = tv({
   slots: {
-    line: "grid min-h-14 grid-cols-[9.5rem_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
+    line: "grid min-h-14 grid-cols-[minmax(9.5rem,max-content)_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
     card: "grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1.25rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
   },
 });
@@ -162,13 +167,13 @@ const scoreCell = tv({
 });
 
 /**
- * When the match is played: wrapping in the one-line row's two lines, and cut with „…“ on the card's one date line
- * and above a chip, which keeps its size and leaves the words one line of the row.
+ * When the match is played: on the one-line row's line with its chip beside it, and cut with „…“ on the card's one
+ * date line.
  */
 const whenWords = tv({ base: "min-w-0 font-numeric text-fg-muted", variants: { cut: { true: "max-w-full truncate" } } });
 
 /**
- * A match in a list, the whole row a link to it. In a wide list one line, 56 px: when with the row's chip under
+ * A match in a list, the whole row a link to it, or opening nothing where it has no `href`. In a wide list one line, 56 px: when with the row's chip beside
  * it, the first side, the score with „n. E.“ centred under it, the second side, the chevron. In a
  * narrow one a card of two lines under the date line, whose right end holds the chip and „n. E.“, each side with
  * its goals at the right, and no chevron; every row the same height with or without a shoot-out or a chip.
@@ -179,89 +184,102 @@ function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefe
   const form = forms();
   const event = { muted, absent };
 
-  return (
-    <div className={stacked()}>
-      <Link
-        href={href}
-        placement="card"
-        prefetch={prefetch}>
-        <span className={form.line()}>
-          <span className="col-start-1 row-span-2 row-start-1 flex min-w-0 flex-col items-start gap-1">
-            <span className={whenWords({ cut: chip !== undefined })}>{when}</span>
-            {chip !== undefined && <Chip {...chip} />}
-          </span>
-          <span className="col-start-2 row-span-2 row-start-1">
-            <Side
-              side={team1}
-              score={score}
-              part="team1"
-              mirrored
-              {...event}
-            />
-          </span>
-          <span className={scoreCell({ shootOut: shootOut !== null })}>
-            <Goals
-              score={score}
-              part="team1"
-            />
-            <GoalSeparator score={score} />
-            <Goals
-              score={score}
-              part="team2"
-            />
-          </span>
-          {/* Placed under the score, and read straight after it. */}
-          {shootOut !== null && <span className="col-start-3 row-start-2 text-center text-xs text-fg-muted">{shootOut}</span>}
-          <span className="col-start-4 row-span-2 row-start-1 flex min-w-0 items-center gap-2">
-            <Side
-              side={team2}
-              score={score}
-              part="team2"
-              {...event}
-            />
-          </span>
-          {/* A row in a list says it leads on; the phone's form stands as a card of its own and says nothing. */}
+  const body = (
+    <>
+      <span className={form.line()}>
+        <span className="col-start-1 row-span-2 row-start-1 flex items-center gap-2 whitespace-nowrap">
+          <span className={whenWords()}>{when}</span>
+          {chip !== undefined && <Chip {...chip} />}
+        </span>
+        <span className="col-start-2 row-span-2 row-start-1">
+          <Side
+            side={team1}
+            score={score}
+            part="team1"
+            mirrored
+            {...event}
+          />
+        </span>
+        <span className={scoreCell({ shootOut: shootOut !== null })}>
+          <Goals
+            score={score}
+            part="team1"
+          />
+          <GoalSeparator score={score} />
+          <Goals
+            score={score}
+            part="team2"
+          />
+        </span>
+        {/* Placed under the score, and read straight after it. */}
+        {shootOut !== null && <span className="col-start-3 row-start-2 text-center text-xs text-fg-muted">{shootOut}</span>}
+        <span className="col-start-4 row-span-2 row-start-1 flex min-w-0 items-center gap-2">
+          <Side
+            side={team2}
+            score={score}
+            part="team2"
+            {...event}
+          />
+        </span>
+        {/* A row in a list says it leads on; the phone's form stands as a card of its own and says nothing. */}
+        {href !== undefined && (
           <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
             <RowEnd />
           </span>
+        )}
+      </span>
+      <span className={form.card()}>
+        <span className={whenWords({ cut: true, class: "text-xs" })}>{when}</span>
+        {/* „n. E.“ last, so it stays over the goals it qualifies. */}
+        <span className="flex items-center justify-end gap-2 text-xs text-fg-muted">
+          {chip !== undefined && <Chip {...chip} />}
+          {shootOut}
         </span>
-        <span className={form.card()}>
-          <span className={whenWords({ cut: true, class: "text-xs" })}>{when}</span>
-          {/* „n. E.“ last, so it stays over the goals it qualifies. */}
-          <span className="flex items-center justify-end gap-2 text-xs text-fg-muted">
-            {chip !== undefined && <Chip {...chip} />}
-            {shootOut}
-          </span>
-          <span className="flex min-w-0 items-center gap-2">
-            <Side
-              side={team1}
-              score={score}
-              part="team1"
-              {...event}
-            />
-          </span>
-          <span className="min-w-7 text-end">
-            <Goals
-              score={score}
-              part="team1"
-            />
-          </span>
-          <span className="flex min-w-0 items-center gap-2">
-            <Side
-              side={team2}
-              score={score}
-              part="team2"
-              {...event}
-            />
-          </span>
-          <span className="min-w-7 text-end">
-            <Goals
-              score={score}
-              part="team2"
-            />
-          </span>
+        <span className="flex min-w-0 items-center gap-2">
+          <Side
+            side={team1}
+            score={score}
+            part="team1"
+            {...event}
+          />
         </span>
-      </Link>
+        <span className="min-w-7 text-end">
+          <Goals
+            score={score}
+            part="team1"
+          />
+        </span>
+        <span className="flex min-w-0 items-center gap-2">
+          <Side
+            side={team2}
+            score={score}
+            part="team2"
+            {...event}
+          />
+        </span>
+        <span className="min-w-7 text-end">
+          <Goals
+            score={score}
+            part="team2"
+          />
+        </span>
+      </span>
+    </>
+  );
+
+  return (
+    <div className={stacked()}>
+      {href === undefined ? (
+        // The same row in a box that leads nowhere: no hover, no focus, no chevron.
+        <div className="text-fg">{body}</div>
+      ) : (
+        <Link
+          href={href}
+          placement="card"
+          prefetch={prefetch}>
+          {body}
+        </Link>
+      )}
     </div>
   );
 }
@@ -286,7 +304,7 @@ function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
  * picks between as it picks the row's: the one line, when, the sides about the score and the chevron; or the card,
  * the date line over each side with its goals at the right.
  */
-function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
+function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; linked: boolean }) {
   const form = forms();
   return (
     <div className={layout === "rows" ? stacked() : ""}>
@@ -303,9 +321,11 @@ function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
         <span className="col-start-4 row-span-2 row-start-1">
           <SidePlaceholder />
         </span>
-        <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
-          <RowEnd />
-        </span>
+        {linked && (
+          <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
+            <RowEnd />
+          </span>
+        )}
       </span>
       <span className={form.card()}>
         <span className={placeholderBar("h-3 w-32")} />
@@ -322,8 +342,19 @@ function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
 /**
  * Matches while they are read, in the box or the boxes `SpielList` sets them in: `count` rows one under another, or
  * cards two a row from `lg` where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body.
+ * `linked` is `false` for rows that will open nothing, which end in no chevron.
  */
-export function SpielListPlaceholder({ count, layout = "rows", bare = false }: { count: number; layout?: "rows" | "cards"; bare?: boolean }) {
+export function SpielListPlaceholder({
+  count,
+  layout = "rows",
+  bare = false,
+  linked = true,
+}: {
+  count: number;
+  layout?: "rows" | "cards";
+  bare?: boolean;
+  linked?: boolean;
+}) {
   const rows = Array.from({ length: count }, (_, index) => index);
   if (layout === "cards") {
     return (
@@ -332,7 +363,10 @@ export function SpielListPlaceholder({ count, layout = "rows", bare = false }: {
           <div
             key={index}
             className={cardSurface({ class: "@container overflow-hidden" })}>
-            <SpielRowPlaceholder layout="cards" />
+            <SpielRowPlaceholder
+              layout="cards"
+              linked={linked}
+            />
           </div>
         ))}
       </div>
@@ -344,6 +378,7 @@ export function SpielListPlaceholder({ count, layout = "rows", bare = false }: {
         <SpielRowPlaceholder
           key={index}
           layout="rows"
+          linked={linked}
         />
       ))}
     </div>

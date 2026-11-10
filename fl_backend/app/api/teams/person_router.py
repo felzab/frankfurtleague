@@ -359,9 +359,11 @@ async def get_team_overview(
             team_id=team_id,
             session=session,
         )
-        registrierungen = await pull_open_registrierungen(
-            registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
-        )
+        registrierungen = (
+            await pull_open_registrierungen(
+                registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
+            )
+        ).rows
 
     termine: list[FLTeamPanelTermin] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []

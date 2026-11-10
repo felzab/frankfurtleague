@@ -14,6 +14,7 @@ from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAufstellungReminderData,
+    FLOutboxClub,
     FLOutboxData,
     FLOutboxReference,
     FLSpielEinteilungData,
@@ -829,6 +830,7 @@ async def sweep_spielbestaetigungen(
                     reference=FLOutboxReference(collection=Collection.SAISON_TEAMS, id=junction["_id"], seat=None),
                     # Given up at the due mark: sent later, it would ask for the line-up by a moment gone by.
                     valid_until=marks.due_at,
+                    club=FLOutboxClub(saison_id=saison_id, team_id=club),
                 )
                 for recipient in confirmed_recipients(kontakte=junction.get("kontakte"))
             ]

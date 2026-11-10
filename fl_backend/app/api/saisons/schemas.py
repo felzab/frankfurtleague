@@ -26,7 +26,7 @@ from app.core.codes import Code, Rule
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import KADER_SIZE_MAX, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -73,7 +73,7 @@ class FLSaisonRules(BaseModel):
     tiebreak_order: Literal["tordifferenz", "direkter_vergleich"]
 
     # A ceiling on one team's squad for one season, enforced at the squad write rather than here.
-    max_kader_size: int = Field(gt=0)
+    max_kader_size: int = Field(gt=0, le=KADER_SIZE_MAX)
 
     forfeit_ergebnis: FLSaisonForfeitErgebnis
 
@@ -303,7 +303,7 @@ FIRST_SAISON_RULES: Final = FLSaisonRules(
     number_of_gruppen=2,
     teams_per_gruppe=5,
     tiebreak_order="tordifferenz",
-    max_kader_size=50,
+    max_kader_size=KADER_SIZE_MAX,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=list(get_args(FLSpielerStufe.__value__)),
 )

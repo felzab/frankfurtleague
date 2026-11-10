@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { appToast, ToastRegion } from "./Toast";
+import { appToast, toastAnswer, ToastRegion } from "./Toast";
 
 const TITLE = COPY.shared.toast.failure;
 
@@ -89,5 +89,22 @@ describe("the toast region", () => {
 
     expect(read.size).toBeGreaterThan(0);
     expect([...read].filter((name) => !onRoot.has(name))).toStrictEqual([]);
+  });
+});
+
+// The harm: an act that partly happened told as done or as refused, the person left to think it did all or nothing.
+describe("an act's answer as its toast", () => {
+  it.each([
+    ["done", { ok: true, value: undefined }, COPY.shared.toast.agreed, "text-success"],
+    ["partly done", { ok: true, value: undefined, note: COPY.shared.toast.copied, warn: true }, COPY.shared.toast.copied, "text-warn"],
+    ["partly refused", { ok: false, reason: COPY.shared.failure.stale, warn: true }, COPY.shared.failure.stale, "text-warn"],
+    ["refused", { ok: false, reason: COPY.shared.failure.stale }, COPY.shared.failure.stale, "text-danger"],
+  ] as const)("says %s in its own tone", (_case, answer, title, hue) => {
+    render(<ToastRegion frame="rail" />);
+
+    act(() => toastAnswer(answer, COPY.shared.toast.agreed));
+
+    const toast = screen.getByText(title).closest<HTMLElement>("[data-kit-focus='ring']");
+    expect(toast?.querySelector(`.${hue}`)).toBeTruthy();
   });
 });

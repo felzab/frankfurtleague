@@ -7,7 +7,7 @@ import { ComboBox } from "@/kit/ComboBox";
 import { EditorPage } from "@/kit/EditorPage";
 import { RecordRows } from "@/kit/RecordRows";
 import { ScoreRows } from "@/kit/ScoreRows";
-import { Section } from "@/kit/Section";
+import { Section, SectionRule } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
@@ -79,8 +79,8 @@ export function BerichtEditor({
   /** Each side's pupils to pick from, its squad's and any a stored row names beside them, each by number and name. */
   squads: Readonly<Record<FLSpielSide, readonly Option[]>>;
   minute: MinuteRule;
-  /** Whether a row's minute and each list's player are required, read from the write's rules on the server. */
-  required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean };
+  /** Whether a row's minute, its side, each list's player and a card's colour are required, read from the write's rules on the server. */
+  required: { minute: boolean; goalPlayer: boolean; cardPlayer: boolean; side: boolean; cardColour: boolean };
   /** An own goal's toggle, the server catalogue's word for it. */
   eigentor: Copy;
   remarksMax: number;
@@ -105,10 +105,11 @@ export function BerichtEditor({
     return scoreOutcome(goals, added, [sides.team1.name, sides.team2.name]);
   };
 
-  const choices = [
-    { id: "team1", label: sides.team1.plaque ?? sides.team1.name },
-    { id: "team2", label: sides.team2.plaque ?? sides.team2.name },
-  ];
+  // A side drawn as its club's Kürzel is heard by the club's name.
+  const choices = (["team1", "team2"] as const).map((id) => {
+    const { plaque, name } = sides[id];
+    return plaque === null ? { id, label: name } : { id, label: plaque, spoken: name };
+  });
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: SPIEL.none },
     { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team1.name) },
@@ -125,6 +126,7 @@ export function BerichtEditor({
       <Segmented
         label={label}
         labelHidden
+        isRequired={required.side}
         choices={choices}
         value={row.side}
         errorMessage={error}
@@ -206,6 +208,7 @@ export function BerichtEditor({
                   {...(shootOut && !shootOutTyped ? { consequence: SPIEL.shootOutMissing } : {})}
                 />
               )}
+              {!noShow && <SectionRule />}
               <Select
                 label={SPIEL.sonderereignis}
                 name="sonderereignis"
@@ -287,6 +290,7 @@ export function BerichtEditor({
                         <Segmented
                           label={label}
                           labelHidden
+                          isRequired={required.cardColour}
                           choices={COLOURS}
                           value={row.colour}
                           errorMessage={error}

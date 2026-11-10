@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
+import { PressAct } from "@/kit/PressAct";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
@@ -12,7 +13,7 @@ import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { AgreeAct } from "./AgreeAct";
+import { agreeTermin } from "./answerTermin";
 import { DeclineDialog } from "./DeclineDialog";
 
 import type { Copy, Words } from "@/core/copy";
@@ -90,7 +91,14 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
         line: line([when, proposal ?? venueOf(ansetzung), due]),
         acts: (
           <>
-            <AgreeAct id={row.spielbestaetigung_id} />
+            {/* At once, as the administration's at-once acts are: „Zugesagt“ as the agreed row leaves the box. */}
+            <PressAct
+              variant="primary"
+              label={COPY.shared.verb.agree}
+              act={agreeTermin}
+              payload={{ id: row.spielbestaetigung_id }}
+              done={COPY.shared.toast.agreed}
+            />
             <DeclineDialog
               id={row.spielbestaetigung_id}
               spiel={base.name}

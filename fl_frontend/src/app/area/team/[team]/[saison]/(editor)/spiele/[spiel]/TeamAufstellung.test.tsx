@@ -49,6 +49,8 @@ function renderEditor() {
           { spieler_id: "p2", starts: true },
           { spieler_id: "p3", starts: false },
         ],
+        // A pupil erased after the match kicked off, who started.
+        erased: [{ starts: true }],
       }}
       players={[player(1), player(2), player(3), player(4)]}
       words={LINEUP_WORDS}
@@ -61,14 +63,14 @@ const bar = () => screen.getByRole("region", { name: COPY.shared.verb.save });
 
 describe("the line-up's editor at the team's address", () => {
   // The harm: a bar counting the named pupils, or the stored starters rather than the ticks, so a team reads eleven
-  // starting where it ticked ten.
-  it("counts the starters the ticks hold on its bar, beside the pupils moved", async () => {
+  // starting where it ticked ten; or leaving out an erased pupil's kept start, which the write counts.
+  it("counts the starters the ticks and the erased entries hold on its bar, beside the pupils moved", async () => {
     renderEditor();
     const line = () => bar().querySelector("p")?.textContent;
-    expect(line()).toBe(COPY.area.team.aufstellung.startelfCount(2, 11));
+    expect(line()).toBe(COPY.area.team.aufstellung.startelfCount(3, 11));
 
     await userEvent.click(tickOf(3));
-    expect(line()).toBe(`${COPY.area.team.aufstellung.startelfCount(3, 11)}${COPY.template.changesPending(1)}`);
+    expect(line()).toBe(`${COPY.area.team.aufstellung.startelfCount(4, 11)}${COPY.template.changesPending(1)}`);
   });
 
   // The harm: a save sent for another club or match, which a person holding seats on two clubs could write unawares.

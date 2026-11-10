@@ -30,13 +30,12 @@ import type { Copy, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
-import type { EditorSection } from "@/kit/EditorPage";
+import type { EditorPart, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { ComponentProps } from "react";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
 
@@ -219,7 +218,7 @@ export function SpielEditor({
             ),
           },
         ];
-  const framed = (rest: readonly [EditorSection, ...EditorSection[]]): ComponentProps<typeof EditorPage<SpielValues>>["sections"] =>
+  const framed = (rest: readonly [EditorSection, ...EditorSection[]]): readonly [EditorPart, ...EditorPart[]] =>
     begegnung === null ? [...rest, ...lineups] : [begegnung, ...rest, ...lineups];
 
   return (

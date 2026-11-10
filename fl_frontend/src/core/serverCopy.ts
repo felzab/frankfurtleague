@@ -79,6 +79,7 @@ const REFEREE_STORED =
 type RetentionBounds = {
   bewerbungDays: number;
   registrierungDays: number;
+  declinedDays: number;
   schiedsrichterDays: number;
   addressChangeLinkHours: number;
   code: { minutes: number; mailHours: 1; failureHours: number };
@@ -996,8 +997,9 @@ export const SERVER_COPY = catalogue({
       /**
        * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
        * parameter; the rest are the rulings' and the providers', several of which only the backend, a host script or a
-       * later session's build holds, so each is written out. A confirmation link's days stand for a declined item's
-       * too, the rulings giving both one wait.
+       * later session's build holds, so each is written out. A declined item's days are `declinedDays`; where one
+       * figure stands for an unconfirmed and a declined item, the confirmation link's days stand for both, which
+       * `fl_backend/app/shared/schemas/bounds.py` holds equal at import.
        */
       retention: {
         heading: "Speicherdauer",
@@ -1009,7 +1011,7 @@ export const SERVER_COPY = catalogue({
             name: "Bewerbung",
             content: "Schule, Team, Kontaktpersonen",
             period: (bound: RetentionBounds) =>
-              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.bewerbungDays)} Tage; sonst bis zum Ende der Saison danach`,
+              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.declinedDays)} Tage; sonst bis zum Ende der Saison danach`,
           },
           {
             name: "Kontaktpersonen",
