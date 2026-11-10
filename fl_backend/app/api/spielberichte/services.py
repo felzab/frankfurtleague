@@ -188,8 +188,8 @@ def newly_named(
 def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
     """`bericht_not_officiated`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
 
-    gebucht = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
-    if gebucht is not None and gebucht in set(schiedsrichter_ids):
+    booked = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
+    if booked is not None and booked in set(schiedsrichter_ids):
         return None
 
     return WriteRefusal(
@@ -362,7 +362,7 @@ def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any
 def compose_view(
     context: BerichtContext, *, kader_open: bool, named: Sequence[FLSpielberichtSpieler], document: Mapping[str, Any] | None
 ) -> dict[str, Any]:
-    """What the referee's form and the administrator's panel both read: the fixture, the live squads, and the stored block.
+    """What the referee's form reads: the fixture, the live squads, and the stored block.
 
     The squads empty unless `kader_open`: the referee picks from them only while the fixture takes a report.
     """
@@ -372,7 +372,7 @@ def compose_view(
 
     def team(side: FLSpielSide) -> dict[str, Any] | None:
         team_field = spiel.get(side)
-        return None if team_field is None else {"team_id": team_field["team_id"], "name": team_field["name"]}
+        return None if team_field is None else {key: team_field[key] for key in ("team_id", "name", "shorthand")}
 
     return {
         "spiel": {

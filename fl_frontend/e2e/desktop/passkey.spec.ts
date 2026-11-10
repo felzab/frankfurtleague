@@ -6,7 +6,7 @@
 import { expect } from "@playwright/test";
 
 import { test } from "../support/journey";
-import { enrolPasskey, expectAccountPageOf, signInWithCode } from "../support/signIn";
+import { ADMINISTRATION_LANDING, enrolPasskey, expectAccountPageOf, signInWithCode } from "../support/signIn";
 
 test("an administrator sets up a passkey after the mailed code, and signs in again with it alone", async ({ page, context, administrator }) => {
   await signInWithCode(page, administrator);
@@ -19,7 +19,7 @@ test("an administrator sets up a passkey after the mailed code, and signs in aga
   await page.goto("/signin");
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
   // The Übersicht, where `enrolPasskey` lands the code-borne sign-in too.
-  await expect(page).toHaveURL((url) => url.pathname === "/area");
+  await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);
 
   await expectAccountPageOf(page, administrator);
 });

@@ -24,6 +24,7 @@ from app.api.spieltage.services import build_admin_spielplan, current_spieltag_i
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
+    AufstellungenReadCollection,
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -107,6 +108,7 @@ async def get_spiel_admin(
     spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
+    aufstellungen_collection: AufstellungenReadCollection,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -115,8 +117,9 @@ async def get_spiel_admin(
     they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
     another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
     group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
-    reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.
-    `document_not_found` for an id no fixture holds.
+    reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
+    side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
+    club has stored none. `document_not_found` for an id no fixture holds.
     """
 
     return await read_spiel_editor(
@@ -130,6 +133,7 @@ async def get_spiel_admin(
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         saison_teams_collection=saison_teams_collection,
+        aufstellungen_collection=aufstellungen_collection,
     )
 
 

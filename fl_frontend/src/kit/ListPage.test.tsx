@@ -12,10 +12,11 @@ import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { actLabel } from "./dialogAct";
 import { ListPage } from "./ListPage";
+import { ListTable } from "./ListTable";
 import { RailPage } from "./RailFrame";
 
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { ListRoleActs, SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
@@ -357,6 +358,92 @@ describe("a page of one card holding a list", () => {
 
     // Its text alone: the card's title before it would say the card still stands.
     expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(TITLE));
+  });
+});
+
+describe("a table a client page draws", () => {
+  const HEAD = { nameLabel: COPY.shared.name, columns: [] } as const;
+  const page = (content: Promise<{ drawn: ReactElement }>) => (
+    <ListPage
+      head={{ scope: "area", title: { route: "teamKader" } }}
+      list={{ kind: "table", search: { label: COPY.admin.spieler.search }, head: HEAD, wait: 3, content }}
+    />
+  );
+
+  // The harm: a page whose rows open its dialog draws its table itself, and a table standing outside the template's
+  // wait or its search scope lands without a placeholder or ignores what is typed into the toolbar's field.
+  it("waits in the template's placeholder and is searched by the toolbar's field", async () => {
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+    expect(waiting.querySelectorAll("[aria-busy] tbody tr")).toHaveLength(3);
+
+    const drawn = (
+      <ListTable
+        table={{
+          ...HEAD,
+          label: COPY.page.teamKader,
+          rows: ["Lea Bauer", "Finn Claus"].map((name) => ({ id: name, name: { record: name }, onOpen: vi.fn(), cells: {} })),
+          empty: { kind: "none", plural: COPY.page.teamKader, one: true },
+        }}
+      />
+    );
+    render(page(Promise.resolve({ drawn })));
+    expect(await screen.findByText("Finn Claus")).toBeTruthy();
+    await userEvent.type(screen.getByRole("searchbox"), "lea");
+
+    expect(screen.queryByText("Finn Claus")).toBe(null);
+    expect(screen.getByText("Lea Bauer")).toBeTruthy();
+  });
+});
+
+describe("one club's matches under their matchdays", () => {
+  type Groups = Extract<ComponentProps<typeof ListPage>["list"], { kind: "spielGroups" }>;
+  const HEADS = [COPY.shared.spieltag(1), COPY.shared.spieltag(2)] as const;
+
+  /** The page as a browser holds it while its read runs, and once the read has landed. */
+  async function drawn(wait: number, content: Awaited<Groups["content"]>) {
+    const page = (read: Groups["content"]) => (
+      <ListPage
+        head={{ scope: "area", title: { route: "teamSpiele" } }}
+        list={{ kind: "spielGroups", wait, content: read }}
+      />
+    );
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+    const { prelude } = await prerender(page(Promise.resolve(content)), { progressiveChunkSize: Number.MAX_SAFE_INTEGER });
+    const landed = document.createElement("div");
+    landed.innerHTML = await new Response(prelude).text();
+    return { waiting, landed };
+  }
+
+  const group = (index: 0 | 1) => ({
+    head: HEADS[index],
+    spiel: {
+      id: String(index),
+      href: "/" as const,
+      when: COPY.spielplan.when(null, null),
+      team1: { name: { record: "Ahorn" }, plaque: { record: "AHO" } },
+      team2: { name: { record: "Eiche" }, plaque: { record: "EIC" } },
+    },
+  });
+  const EMPTY = { kind: "none", plural: COPY.page.spiele } as const;
+
+  // The harm: a matchday set into the row's date line, or a head standing apart from its match, reads as the owner
+  // ruled against; and a wait of another count of boxes moves the page as the matches land.
+  it("sets each match in its own box under its matchday's head, and waits in as many boxes", async () => {
+    const { waiting, landed } = await drawn(2, { groups: [group(0), group(1)], empty: EMPTY });
+
+    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-3")?.children ?? [])];
+    expect(boxes(landed).map((box) => box.querySelector("h3")?.textContent)).toStrictEqual(HEADS);
+    expect(boxes(landed).map((box) => box.querySelectorAll("a").length)).toStrictEqual([1, 1]);
+    expect(boxes(waiting.querySelector("[aria-busy]") ?? waiting)).toHaveLength(2);
+  });
+
+  // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.
+  it("gives way to the list's own empty state", async () => {
+    const { landed } = await drawn(2, { groups: [], empty: EMPTY });
+
+    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(COPY.page.spiele));
   });
 });
 

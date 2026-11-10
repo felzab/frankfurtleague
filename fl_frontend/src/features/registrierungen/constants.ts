@@ -1,4 +1,4 @@
-import type { FLMediaMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
+import type { FLMediaMinAgeYears, FLRegistrierungConfirmationDeadlineDays, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
 
 // For the published notice, which states the floor with no answer to read it off; checked against
 // `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`, so the backend moving it
@@ -10,3 +10,7 @@ export const REGISTRIERUNG_MIN_ALTER = 16 satisfies FLRegistrierungMinAgeYears;
 // checked against `fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS` as the floor above
 // is, and the pages take the served `medien_mindestalter` for the reason given above.
 export const MEDIEN_MIN_ALTER = 18 satisfies FLMediaMinAgeYears;
+
+// For the published notice too, which states how long a registration waits for its confirmation; checked against
+// `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS` as the floors above are.
+export const REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS = 14 satisfies FLRegistrierungConfirmationDeadlineDays;

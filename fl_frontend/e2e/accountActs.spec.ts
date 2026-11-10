@@ -12,7 +12,7 @@ import { expect } from "@playwright/test";
 
 import { test as journey } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
-import { expectAccountPageOf, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
+import { declinePasskeyOffer, expectAccountPageOf, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
 import { standInForTurnstile } from "./support/turnstileStandIn";
 
 import type { Page } from "@playwright/test";
@@ -20,9 +20,7 @@ import type { Page } from "@playwright/test";
 /** A code-borne sign-in past the passkey offer, which this journey leaves for later. */
 async function signIn(page: Page, address: string): Promise<void> {
   await signInWithCode(page, address);
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === "/area");
+  await declinePasskeyOffer(page, PERSON_LANDING);
 }
 
 /**
@@ -109,9 +107,8 @@ test("a person changes their address: the address on file confirms first, then t
   await signInHere.click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
   await signInWithCodeHere(page, newAddress);
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === "/area");
+  // The referee row moved with the address, so the new one lands where the old one did.
+  await declinePasskeyOffer(page, PERSON_LANDING);
   await expectAccountPageOf(page, newAddress);
 });
 
@@ -133,9 +130,9 @@ test("the person deletes their account from the mailed link, signed out when it 
   await signInWithCodeHere(page, leaver);
   // The passkey offer's „Später“ goes on to the address the link asked for, as the code's landing does.
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey" && url.searchParams.has("return"));
-  await page.getByRole("button", { name: "Später" }).click();
+  await declinePasskeyOffer(page, "/erasure");
   // The token rides in the page's cookie, never in an address the sign-in or its bot check could read.
-  await expect(page).toHaveURL((url) => url.pathname === "/erasure" && url.search === "");
+  await expect(page).toHaveURL((url) => url.search === "");
 
   // The list of what goes names the account's address, as the value of its row.
   const erasure = page.getByRole("main");

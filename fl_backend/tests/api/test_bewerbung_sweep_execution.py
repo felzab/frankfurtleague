@@ -1431,7 +1431,6 @@ def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
         party={"kind": "team", "team_id": team_id},
         deadline="2026-04-11",
         asked_at=TODAY,
-        kontakte={seat: {"token_hashes": ["b" * 64], "delivery": None} for seat in KONTAKT_ROLLEN},
     )
 
 
@@ -1505,8 +1504,6 @@ class TestTheSeasonRowSeatClock:
         assert refusal == Code.LINK_INVALID
 
         assert confirmation["answer"]["reason"] is None
-        assert confirmation["kontakte"]["stellvertretung"] is None
-        assert confirmation["kontakte"]["trainer"] is not None
 
     def test_a_past_seasons_seat_goes_on_its_day_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
         """The mail's promise holds for a link minted shortly before a rollover: only a confirmed seat is the season's record."""
@@ -1585,8 +1582,8 @@ class TestARefusedReminderCostsThePassNothing:
 ROUND_TRIPS_A_ROW = 1
 
 # The worst call's commands beside its rows, and a past season's, whose own end leaves no reminder.
-SWEEP_OTHER_COMMANDS = 41
-SWEEP_PAST_LAPSED_OTHER_COMMANDS = 25
+SWEEP_OTHER_COMMANDS = 39
+SWEEP_PAST_LAPSED_OTHER_COMMANDS = 18
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -1598,8 +1595,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
         """Every clock takes a page, every conditional read is made: two applications name a club.
 
-        Two cleared clubs hold open confirmations, the void at its widest. One application no mail reaches closes the chase
-        of every seat.
+        Two cleared clubs hold open confirmations. One application no mail reaches closes the chase of every seat.
         """
 
         link = {"token_hash": "a" * 64, "sent_at": "2026-03-02", "deadline": "2026-03-16", "declined_at": None, "delivery": None}
@@ -1731,13 +1727,10 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         team1={"team_id": team_id},
         team2={"team_id": CLUB_OID},
     )
-    delivered = {"message_id": "msg-1", "state": "delivered", "reason": None, "at": f"{saison_id}-04-02T09:00:00+00:00"}
-
     return documents.spielbestaetigung_document(
         spiel,
         party={"kind": "team", "team_id": team_id},
         asked_at=f"{saison_id}-04-01",
-        kontakte={seat: {"token_hashes": ["b" * 64], "delivery": delivered} for seat in KONTAKT_ROLLEN},
         answer=documents.kontakt_answer_document("trainer", reason="Wir sind auf Klassenfahrt"),
         closed={"at": f"{saison_id}-04-19", "reason": "spiel_past"},
     )
@@ -1800,16 +1793,13 @@ class TestTheSeasonsEndStripsItsConfirmations:
 
         # The premise: the pass cleared the season's one block, which is what owes the strip.
         assert response.kontakt_blocks_emptied == 1
-        # Both rows' reasons and the replaced club's entries: the block's clearing took the club's own entries with its seats.
-        assert deletions == [("system", SAISON_ID, 3, None)]
+        # Both rows' reasons, the replaced club's among them.
+        assert deletions == [("system", SAISON_ID, 2, None)]
         kept = rows["own"]["answer"]
         stripped = {**kept, "reason": None}
         for name in ("own", "replaced"):
-            assert (stored[name]["answer"], stored[name]["kontakte"]) == (stripped, dict.fromkeys(KONTAKT_ROLLEN)), name
-        assert (stored["next season"]["answer"], stored["next season"]["kontakte"]) == (
-            rows["next season"]["answer"],
-            rows["next season"]["kontakte"],
-        )
+            assert stored[name]["answer"] == stripped, name
+        assert stored["next season"]["answer"] == rows["next season"]["answer"]
 
     def test_a_season_with_no_block_left_to_clear_is_stripped_all_the_same(self, mongo_replica_set_url: str):
         """The club entered no contacts, as a replacement's incoming side holds none: no pass clears a block of the season."""
@@ -1825,7 +1815,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
         response, stripped = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert (response.kontakt_blocks_emptied, response.failed) == (0, 0)
-        assert (stripped["answer"]["reason"], stripped["kontakte"]) == (None, dict.fromkeys(KONTAKT_ROLLEN))
+        assert stripped["answer"]["reason"] is None
 
     def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
@@ -1833,24 +1823,20 @@ class TestTheSeasonsEndStripsItsConfirmations:
         """A replaced club's row the installed validator refuses, which no block clearing writes: the strip alone meets it."""
 
         refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "deadline"}
-        opened = open_confirmation(CLUB_OID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([refused, opened])
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused)
             await refuse_writes_breaking(database, Collection.SPIELBESTAETIGUNGEN, {"required": ["deadline"]})
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
             return (
                 response,
                 await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
-                await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": opened["_id"]}),
             )
 
-        response, junction, confirmation = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
+        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
         assert (response.kontakt_blocks_emptied, response.failed, junction["kontakte"]) == (1, 1, None)
-        # The strip rolled back, so the block's own void alone took the cleared people's links: a strip that stands nulls them either way.
-        assert confirmation["kontakte"] == dict.fromkeys(KONTAKT_ROLLEN)
         assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
             ("ERROR", "Season", SAISON_ID, "confirmation strip")
         ]

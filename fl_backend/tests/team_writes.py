@@ -101,7 +101,6 @@ async def write_the_block(
             saison_id=saison_id,
             saison_teams_collection=rows,
             saisons_collection=database[Collection.SAISONS],
-            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             outbox_collection=database[Collection.OUTBOX],
             nonce=nonce,
             today=today,

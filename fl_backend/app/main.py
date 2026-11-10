@@ -67,7 +67,9 @@ from app.shared.schemas.bounds import (
     CONSENT_BOUNDS,
     GRANT_BOUNDS,
     FLActionLogPageSize,
+    FLAufstellungStartersMax,
     FLBanDurationSaisons,
+    FLDeclinedRetentionDays,
     FLTeamShorthandLength,
 )
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
@@ -144,16 +146,19 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 
 
 # Every alias a frontend constant is checked against: each consent's current label, which a grant sends, the
-# address change's and the consents' bounds, which the pages state, the Protokoll's page, which its button states, the
-# Kürzel's length, which a control caps a code
-# at, and the domain rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused
+# address change's and the consents' bounds, which the pages state, a declined row's days, which a decline mail states,
+# the Protokoll's page, which its button states, the line-up's starters, which its screen caps the ticks at, the
+# Kürzel's length, which a control caps a code at, and the domain rules' kinds, which the catalogue's rule phrases are
+# keyed by. No model names `Rule`: a refused
 # field's `kind` is one of Pydantic's own error types as often.
 MIRRORED_CONSTANTS: Final = (
     *CURRENT_TEXT_VERSIONS,
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
     *CONSENT_BOUNDS,
+    FLDeclinedRetentionDays,
     FLActionLogPageSize,
+    FLAufstellungStartersMax,
     FLBanDurationSaisons,
     FLTeamShorthandLength,
     Rule,

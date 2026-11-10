@@ -6,6 +6,7 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.aufstellungen.schemas import FLAufstellungPublic
 from app.api.saisons.public_router import get_spiel
 from app.api.spielberichte.services import compose_public_bericht
 from app.api.spieler.services import build_ghost_spieler
@@ -20,7 +21,9 @@ from .conftest import unwritten
 DATABASE_NAME = worker_database("fl_saisons_spiel_view_test")
 
 EARLIER, SAISON, LATER = "2025", "2026", "2027"
-HOME, AWAY = ObjectId("6890a1b2c3d4e5f607430001"), ObjectId("6890a1b2c3d4e5f607430002")
+# The home club's id above the away club's, and the replaced club's below both: a line-up read off in the order the
+# database holds them, by club, rather than picked by the club on each side, lands on the wrong side.
+HOME, AWAY, REPLACED = ObjectId("6890a1b2c3d4e5f607430002"), ObjectId("6890a1b2c3d4e5f607430001"), ObjectId("6890a1b2c3d4e5f607430000")
 NAMED, INTERNAL = ObjectId("6890a1b2c3d4e5f607430011"), ObjectId("6890a1b2c3d4e5f607430012")
 
 
@@ -96,10 +99,19 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     build_ghost_spieler(),
                 ]
             )
+            await database[Collection.AUFSTELLUNGEN].insert_many(
+                [
+                    # The club a knockout correction replaced on a side keeps its line-up, which no side joins.
+                    documents.aufstellung_document(spiel, REPLACED, starters=[NAMED]),
+                    documents.aufstellung_document(spiel, AWAY, starters=[GHOST_SPIELER_ID], bench=[INTERNAL]),
+                    documents.aufstellung_document(spiel, HOME, starters=[NAMED]),
+                ]
+            )
             await database[Collection.SAISON_SPIELER].insert_many(
                 [
-                    documents.saison_spieler_document(NAMED, SAISON, HOME, nummer="7", position="Angriff"),
-                    documents.saison_spieler_document(INTERNAL, SAISON, AWAY, nummer="4", position="Abwehr"),
+                    documents.saison_spieler_document(NAMED, SAISON, HOME, nummer="7", position="Angriff", rolle="kapitaen"),
+                    # A captaincy beside a withheld name would say who the nameless pupil is.
+                    documents.saison_spieler_document(INTERNAL, SAISON, AWAY, nummer="4", position="Abwehr", rolle="co_kapitaen"),
                     # The same pupil for the same club the seasons either side, under other numbers, so whichever row a join
                     # without the season term kept last, it would not be this season's.
                     documents.saison_spieler_document(NAMED, EARLIER, HOME, nummer="98", position="Abwehr"),
@@ -146,3 +158,17 @@ def test_each_entry_reads_as_a_name_as_anonymous_or_as_unknown(seeded_url: str):
         ("70", "anonymous", None, None, None),
     ]
     assert not {"Gerber", "Nadja", "Müller", "reason", "foulspiel"} & set(json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split())
+
+
+@pytest.mark.db
+def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: str):
+    """In the order the club entered it, the captaincy beside a published name alone; the replaced club's line-up never."""
+
+    aufstellungen = the_page(seeded_url).aufstellungen
+
+    def served(side: FLAufstellungPublic | None) -> list[tuple[Any, ...]]:
+        assert side is not None
+        return [(entry.type, entry.first_name, entry.last_name, entry.nummer, entry.rolle, entry.starts) for entry in side.spieler]
+
+    assert served(aufstellungen.team1) == [("named", "Maxim", "M.", "7", "kapitaen", True)]
+    assert served(aufstellungen.team2) == [("anonymous", None, None, None, None, True), ("anonymous", None, None, "4", None, False)]

@@ -11,6 +11,7 @@ from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, mailbox_pattern, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink
+from app.api.saisons.services import entry_is_a_nominee
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -48,7 +49,7 @@ def saison_takes_registrierungen(*, saison_status: Any, registrierung: Any) -> b
     return registrierung is not None and saison_status == "active" and bool(registrierung["open"])
 
 
-def find_fenster_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefusal | None:
+def find_window_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefusal | None:
     """Why this season takes no registration today, or `None`.
 
     ONE code for every way `saison_takes_registrierungen` says no: naming which would report a
@@ -111,14 +112,21 @@ def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> WriteRef
     )
 
 
-def kader_free(*, nominee: bool, squad_size: int, max_kader_size: int) -> bool:
-    """Whether a squad takes this entry: a nominee stands outside the cap, so only an ordinary entry is held to it."""
+def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapping[str, Any] | None, submitted_at: str) -> bool:
+    """Whether admitting a registration enters a Nachnominierung, which the cap does not hold.
 
-    return nominee or squad_size < max_kader_size
+    The person's stored mark of the season first, never lifted within it whatever the window has moved to since; else
+    the season's window, judged on the day the pupil submitted and never today.
+    """
+
+    return (kader_raw is not None and bool(kader_raw["is_nachnominiert"])) or entry_is_a_nominee(registrierung=registrierung, day=submitted_at)
 
 
 def find_kader_refusal(*, free: bool) -> WriteRefusal | None:
-    """`registrierung_kader_full`: the squad already stands at the season's cap, the answer `kader_free` gives."""
+    """`registrierung_kader_full`: the squad has no room for this entry, the answer the link's `kader_free` gives.
+
+    `free` is `app/api/spieler/crud.py :: find_full_squad_refusal`'s verdict, the cap's one copy.
+    """
 
     if free:
         return None
@@ -240,7 +248,7 @@ def build_registrierungen_sort() -> list[tuple[str, int]]:
 # confirm".
 
 
-def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:
+def build_confirmation_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every link the row was mailed.
 
     No status term: a link reopened on a decided registration shows its own state rather than
@@ -255,7 +263,7 @@ def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:
 
 # NEITHER hash is projected: the FILTER above matches on them, and a hash a handler never reads is a
 # credential carried through a base-tier request for nothing.
-BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
+CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
     "confirmation.deadline": 1,
     "status": 1,
     "saison_id": 1,
@@ -267,7 +275,7 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 }
 
 # The view's fields beside the id its write is keyed on: the press judges the link, the stamp and the club's row.
-BESTAETIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
+CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
     "confirmation.deadline": 1,
     "status": 1,
     "saison_id": 1,
@@ -295,7 +303,7 @@ def link_is_over(*, confirmation: Any, status: Any, departed: bool, today: str) 
     return not isinstance(deadline, str) or deadline < today
 
 
-def zustand_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str) -> FLConfirmationState:
+def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str) -> FLConfirmationState:
     """What a reopened link shows: a stamp over the deadline.
 
     A pupil who answered on the last valid day is shown that they did.
@@ -392,7 +400,7 @@ def person_name(raw: Mapping[str, Any]) -> tuple[str, ...] | None:
     return name if all(name) else None
 
 
-def find_medien_refusal(*, birth_date: str, media: bool, today: str) -> WriteRefusal | None:
+def find_media_refusal(*, birth_date: str, media: bool, today: str) -> WriteRefusal | None:
     """Why this pupil's media consent is refused, or `None`.
 
     Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
@@ -446,7 +454,7 @@ SWEEP_PAGE: Final = LIST_LIMIT_MAX
 
 # The consent stamp, at the path a null `einwilligung` and a null stamp both answer: null matches a
 # missing path too, so one term covers both stored shapes.
-_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.confirmed_at": None}
+_UNCONFIRMED: Final[Mapping[str, Any]] = {"einwilligung.confirmed_at": None}
 
 
 def build_undecided_filter(*, saison_id: str) -> Mapping[str, Any]:
@@ -462,11 +470,11 @@ def build_unconfirmed_filter(*, saison_id: str, today: str) -> Mapping[str, Any]
     and never due either, the predicate refusing exactly that row.
     """
 
-    return {"saison_id": saison_id, "status": SUBMITTED, **_UNBESTAETIGT, "confirmation.deadline": {"$lt": today}}
+    return {"saison_id": saison_id, "status": SUBMITTED, **_UNCONFIRMED, "confirmation.deadline": {"$lt": today}}
 
 
 def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every declined row whose days are behind it, as `decline_loeschung_is_due` judges it.
+    """Every declined row whose days are behind it, as `decline_erasure_is_due` judges it.
 
     In the query: a page of decisions still inside their days would fill the read ahead of a due
     one, and the stall refuses the pass.
@@ -475,7 +483,7 @@ def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-DECLINED_RETENTION_DAYS)}}
 
 
-def bestaetigung_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
+def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the deadline clock takes this registration, strictly past its `deadline`.
 
     STRICTLY, because the link still answers on the deadline's own day. No notice goes out either
@@ -493,7 +501,7 @@ def bestaetigung_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today
     return isinstance(deadline, str) and deadline < today
 
 
-def undecided_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this registration.
 
     Whatever the pupil answered and whether or not a message could reach them: no admission can be
@@ -503,22 +511,22 @@ def undecided_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], saison_s
     return registrierung_raw.get("status") == SUBMITTED and season_has_ended(saison_status=saison_status)
 
 
-def decline_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
+def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the decline clock takes this declined registration, counted from the day the decision was taken."""
 
     if registrierung_raw.get("status") != DECLINED:
         return False
 
-    entscheidung = registrierung_raw.get("decision")
-    getroffen_am = entscheidung.get("made_at") if isinstance(entscheidung, Mapping) else None
+    decision = registrierung_raw.get("decision")
+    made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
 
-    return isinstance(getroffen_am, str) and days_after(day=getroffen_am, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
 
 
 # --- The TEAM's decision: the pending read, the admission and the decline a seat holder makes.
 
 
-def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     """One team's pending rows, on the equality prefix `registrierungen_saison_id_team_id_queue` sorts after."""
 
     return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
@@ -537,7 +545,18 @@ def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     return {"email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})}}
 
 
-def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
+def build_admission_erasure_filter(*, registrierung_id: Any, saison_id: str, address: str) -> Mapping[str, Any]:
+    """The admitted registration and every other pending one of its address in its season, whichever team each was for.
+
+    Once the person plays, each of the others is refused as already in a squad, a season holding one squad row per
+    person, and the decline left as its only press would mail the pupil just admitted. Keyed on the fold the admission
+    resolves the person by, never on the mailbox's plus-tagged forms: each of those resolves to another person.
+    """
+
+    return {"saison_id": saison_id, "$or": [{"_id": registrierung_id}, dict(build_own_registrierung_filter(address))]}
+
+
+def find_unconfirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """`registrierung_unconfirmed`: the pupil has not answered their own link, so nobody may admit them yet.
 
     Asked at the write as well as marked on the read: the list and the press are two requests.
@@ -552,7 +571,7 @@ def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     )
 
 
-def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any]) -> bool:
+def person_deviates(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any]) -> bool:
     """Whether the person an address resolves to is named or born otherwise than the registration says."""
 
     # A blank name names nobody, so it confirms nobody either.
@@ -576,7 +595,7 @@ def find_person_refusal(
 
     if address_raw is not None:
         answered = spieler_id == address_raw["_id"] or (
-            spieler_id is None and not person_weicht_ab(registrierung_raw=registrierung_raw, spieler_raw=address_raw)
+            spieler_id is None and not person_deviates(registrierung_raw=registrierung_raw, spieler_raw=address_raw)
         )
     else:
         answered = spieler_id is None
@@ -590,7 +609,7 @@ def find_person_refusal(
     )
 
 
-def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_already_in_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
     """`registrierung_already_in_kader`: the person already plays in a squad this season, and a season holds one row per player.
 
     A RETIRED row is no refusal: the admission rewrites it, whichever team it was on.
@@ -605,7 +624,7 @@ def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> Write
     )
 
 
-def nummern_im_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
+def nummern_in_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
     """The shirt numbers the live squad wears, compared as stored strings: „07“ is not „7“."""
 
     return frozenset(nummer for row in rows if isinstance(nummer := row.get("nummer"), str))

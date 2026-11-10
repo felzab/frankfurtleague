@@ -161,11 +161,13 @@ export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: Reado
 }
 
 /**
- * One choice of the chooser: the whole card one link, its title and its line, the chevron at its right.
- * @awaitsPage the role chooser's page
- * @awaitsProduction the role chooser's page
+ * One choice of a chooser: its title, a record's own name such as a club's or the catalogue's for a place that is
+ * no record's, the line under it where the choice has one to name, and where it leads.
  */
-export function CardLink({ href, title, line }: { href: Route; title: Copy; line: Words }) {
+export type CardLinkProps = { href: Route; title: Words; line?: Words };
+
+/** One choice of the chooser: the whole card one link, its title and its line, the chevron at its right. */
+export function CardLink({ href, title, line }: CardLinkProps) {
   return (
     <section className={card().root()}>
       <Link
@@ -173,8 +175,8 @@ export function CardLink({ href, title, line }: { href: Route; title: Copy; line
         placement="card">
         <span className="flex items-stretch gap-x-3 px-4 py-3">
           <span className="grid min-w-0 flex-1 gap-1">
-            <span className="text-base font-semibold break-words">{title}</span>
-            <span className="text-sm text-fg-muted">{textOf(line)}</span>
+            <span className="text-base font-semibold break-words">{textOf(title)}</span>
+            {line !== undefined && <span className="text-sm text-fg-muted">{textOf(line)}</span>}
           </span>
           <RowEnd />
         </span>
@@ -210,7 +212,7 @@ export type CardActRowProps = {
   href: Route;
   name: Words;
   chip?: ChipProps;
-  line: Words;
+  line?: Words;
   /** The row's acts, such as „Übernehmen“ and „Verwerfen“; none where the open work is done in the record. */
   acts?: ReactElement;
 };
@@ -242,7 +244,7 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           </CutText>
           {chip !== undefined && <Chip {...chip} />}
         </span>
-        <span className={s.line()}>{textOf(line)}</span>
+        {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </span>
       {acts !== undefined && <RowActs className={s.acts()}>{acts}</RowActs>}
       <span className={s.end()}>

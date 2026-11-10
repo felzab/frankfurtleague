@@ -50,7 +50,7 @@ from tests.worker import worker_database
 # Module level: every case below reaches a real mongod, each write being one transaction.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_registrierung_aufnahme_test")
+DATABASE_NAME = worker_database("fl_registrierung_admission_test")
 WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
@@ -276,7 +276,7 @@ async def decline(
 ) -> Any:
     return await person_router.decline(
         registrierung_id=registrierung_id,
-        ablehnung_data=FLRegistrierungDeclinePayload(reason=reason),
+        decline_data=FLRegistrierungDeclinePayload(reason=reason),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -301,6 +301,7 @@ async def read(
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         db=client,
@@ -541,6 +542,38 @@ class TestTheSquadCap:
 
         assert outcome == Code.KADER_FULL
         assert (live, still_pending) == (3, 1)
+
+    @pytest.mark.parametrize(
+        ("squad", "window", "retired_nominee", "full"),
+        [
+            (2, None, False, False),
+            (3, None, False, True),
+            (3, {"open": True, "end": "2026-03-29"}, False, False),
+            (3, {"open": True, "end": SUBMITTED_AT}, True, False),
+        ],
+        ids=("room left", "at the cap", "a nominee by the window", "a nominee by their stored mark"),
+    )
+    def test_the_read_marks_a_row_full_exactly_where_its_admission_meets_the_cap(
+        self, mongo_replica_set_url: str, squad: int, window: Any, retired_nominee: bool, full: bool
+    ):
+        """The page locks „Aufnehmen“ on `kader_full`: a mark the admission's own verdict contradicts misleads the team."""
+
+        stored_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if retired_nominee:
+                await database[Collection.SPIELER].insert_one(a_stored_person(stored_id))
+                await database[Collection.SAISON_SPIELER].insert_one(
+                    documents.saison_spieler_document(stored_id, SAISON_ID, OTHER_TEAM_OID, is_nachnominiert=True, inactive_since="2026-03-01")
+                )
+            registrierung_id = await seed(database, registrierung_document())
+            (row,) = (await read(database, client)).registrierungen
+
+            return row.kader_full, await outcome_of(admit(database, client, registrierung_id))
+
+        marked, outcome = on_a_league(mongo_replica_set_url, body, squad=squad, registrierung=window)
+
+        assert (marked, outcome) == (full, Code.KADER_FULL if full else COMMITTED)
 
 
 class TestAnUnconfirmedRegistration:
@@ -847,6 +880,47 @@ class TestAPersonAlreadyInASquad:
 
         assert code == Code.REGISTRIERUNG_ALREADY_IN_KADER
         assert after == before
+
+
+class TestTheAddressesOtherPendingRows:
+    @pytest.mark.parametrize(
+        ("team_id", "confirmed"),
+        [(TEAM_OID, True), (TEAM_OID, False), (OTHER_TEAM_OID, True)],
+        ids=("confirmed on this team", "unconfirmed on this team", "confirmed on another team"),
+    )
+    def test_they_go_with_the_admission_and_nobody_is_mailed(self, mongo_replica_set_url: str, team_id: ObjectId, confirmed: bool):
+        """Left standing, each is refused as already in a squad, and declining a confirmed one mails the pupil just admitted.
+
+        A plus-tagged form of the address stays: it resolves to another person, whom an admission still takes.
+        """
+
+        seat = ANNA if team_id == TEAM_OID else OTTO
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            admitted = await seed(database, registrierung_document())
+            other = await seed(
+                database, registrierung_document(team_id=team_id, confirmed=confirmed, token="Zt5rYb8nK2wQ7xM4jL9cV6sD1fH3gP0aU5eI7oT2mXk")
+            )
+            tagged = await seed(
+                database,
+                registrierung_document(
+                    email="thessaly.okonkwo+zwei@beispielschule.de", first_name="Zweite", token="Qm3vB7xL1cR9sT4yN6wK2pD8fJ5hG0aZ3eU1iO7kXbc"
+                ),
+            )
+            await admit(database, client, admitted)
+            with pytest.raises(DocumentNotFoundError):
+                await decline(database, client, other, identifier=seat)
+
+            listed = (await read(database, client, identifier=seat, team_id=team_id)).registrierungen
+            stored = await database[Collection.REGISTRIERUNGEN].find({}, {"_id": 1}).to_list(length=None)
+
+            return tagged, [row.registrierung_id for row in listed], [row["_id"] for row in stored], await notes_owed(database)
+
+        tagged, listed, stored, owed = on_a_league(mongo_replica_set_url, body)
+
+        assert stored == [tagged]
+        assert listed == ([tagged] if team_id == TEAM_OID else [])
+        assert owed == []
 
 
 class TestOneAddressAdmittedTwiceAtOnce:

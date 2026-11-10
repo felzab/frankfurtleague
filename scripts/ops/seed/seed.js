@@ -630,7 +630,6 @@ function ansetzungOf(spiel) {
 // Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
 // (`:: last_request_day`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
 // Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
-// The link she pressed is the seed's fiction, so her seat holds no hash: the seed owes no mail.
 const PROPOSED = running.spiele.find((row) => row.spiel_nr === 11);
 const PROPOSALS = [
   {
@@ -642,7 +641,6 @@ const PROPOSALS = [
     deadline: day(0),
     asked_at: day(-14),
     reminded_at: null,
-    kontakte: { trainer: { token_hashes: [], email: TRAINERIN.email }, ansprechperson: null, stellvertretung: null },
     answer: {
       kind: "declined",
       at: day(-3),
@@ -667,7 +665,6 @@ const ASKED_REFEREE = {
   deadline: day(0),
   asked_at: day(-14),
   reminded_at: null,
-  kontakte: null,
   answer: null,
   closed: null,
 };

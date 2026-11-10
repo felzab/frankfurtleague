@@ -38,7 +38,7 @@ const GOALS: ReadonlyArray<Goal> = [
 const rowLabel = (number: number) => COPY.admin.spiel.number(number);
 
 /** The list in a form serving `errors`, as an editor's page holds it: the draft in state, the refusals by box. */
-function Goals({ errors }: { errors?: Readonly<Record<string, Copy>> }) {
+function Goals({ errors, locked }: { errors?: Readonly<Record<string, Copy>>; locked?: Copy }) {
   const [rows, setRows] = useState(GOALS);
   return (
     <HeldForm
@@ -53,6 +53,7 @@ function Goals({ errors }: { errors?: Readonly<Record<string, Copy>> }) {
         rowLabel={rowLabel}
         add={ADD}
         remove={REMOVE}
+        locked={locked}
         errors={errors}
         cells={{
           lead: {
@@ -182,5 +183,18 @@ describe("the add and the remove control", () => {
     for (const _ of GOALS) await userEvent.click(within(rowAt(0)).getByRole("button", { name: REMOVE }));
     expect(rowCount()).toBe(0);
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("group", { name: COPY.shared.tore })));
+  });
+});
+
+// The harm: a list the draft takes no row in, a no-show's goals, still taking one on a press, which the send then refuses.
+describe("a locked add control", () => {
+  it("adds no row on a press and says why, the rows standing with their remove controls", async () => {
+    const reason = COPY.shared.field.without(COPY.shared.tore);
+    render(<Goals locked={reason} />);
+    const add = screen.getByRole("button", { name: ADD, description: reason });
+
+    await userEvent.click(add);
+    expect(rowCount()).toBe(GOALS.length);
+    expect(add.getAttribute("aria-disabled")).toBe("true");
   });
 });

@@ -54,7 +54,9 @@ BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays]
 BEWERBUNG_REMINDER_DAYS: Final = 3
 
 # A declined application or registration goes as an unconfirmed one does: the privacy notice states one figure for both.
-DECLINED_RETENTION_DAYS: Final = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
+# Published as `ADDRESS_CHANGE_BOUNDS` are: the registration's decline mail states it, checked against this alias.
+type FLDeclinedRetentionDays = Literal[14]
+DECLINED_RETENTION_DAYS: Final[FLDeclinedRetentionDays] = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
 # one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
@@ -224,8 +226,10 @@ AUFSTELLUNG_LOCK_HOURS: Final = 1
 if not AUFSTELLUNG_LOCK_HOURS < AUFSTELLUNG_DUE_HOURS < AUFSTELLUNG_REMINDER_HOURS:
     raise RuntimeError("A line-up's marks nest: the lock inside the due mark, the due mark inside the reminder's.")
 
-# How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it.
-AUFSTELLUNG_STARTERS_MAX: Final = 11
+# How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it. Published as
+# `ADDRESS_CHANGE_BOUNDS` are: the line-up's screen caps its „Startelf“ ticks and disables a nominee's „Aufstellen“ at it.
+type FLAufstellungStartersMax = Literal[11]
+AUFSTELLUNG_STARTERS_MAX: Final[FLAufstellungStartersMax] = 11
 
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the

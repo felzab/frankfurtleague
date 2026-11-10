@@ -162,8 +162,6 @@ export const ROUTES = {
     title: COPY.page.entryConfirmation,
     crawl: "disallow",
   },
-  // Session 8: the fixture mail links the team's Übersicht.
-  spielbestaetigung: { path: () => "/confirm/spiel" as const, title: COPY.page.spielbestaetigung, crawl: "disallow" },
   registrierungConfirmation: {
     path: () => "/confirm/spieler" as const,
     title: COPY.page.registrierungConfirmation,
@@ -201,10 +199,15 @@ export const ROUTES = {
     crawl: "disallow",
   },
   areaSchiedsrichter: { path: () => "/area/schiedsrichter" as const, title: COPY.shared.overview, crawl: "disallow" },
-  // Session 8: its page is built.
   schiedsrichterOverview: {
     path: (saison: string) => `/area/schiedsrichter/${saison}` as const,
     title: COPY.shared.overview,
+    crawl: "disallow",
+  },
+  /** A fixture's report as its booked referee writes it, named by the two teams as the match's own page is. */
+  schiedsrichterSpielbericht: {
+    path: (saison: string, spiel: string) => `/area/schiedsrichter/${saison}/spielbericht/${spiel}` as const,
+    title: COPY.page.spiel,
     crawl: "disallow",
   },
 
@@ -213,10 +216,15 @@ export const ROUTES = {
     title: COPY.shared.overview,
     crawl: "disallow",
   },
-  // Session 8: its page is built.
   teamSpiele: {
     path: (team: string, saison: string) => `/area/team/${team}/${saison}/spiele` as const,
     title: COPY.page.spiele,
+    crawl: "disallow",
+  },
+  /** A match's line-up as its club's seats enter it, named by the match's two teams. */
+  teamAufstellung: {
+    path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
+    title: COPY.page.spiel,
     crawl: "disallow",
   },
   teamKader: {

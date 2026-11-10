@@ -130,7 +130,7 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
             <span
               title={sponsor.name.record}
               className={slots.content()}>
-              <span className="relative block h-16 rounded-md bg-white">
+              <span className="relative block h-16 rounded-md bg-bg-logo">
                 {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
                 <Image
                   src={sponsor.logo}

@@ -245,21 +245,6 @@ class FLSchiedsrichterSelfPerson(BaseReadModel):
     birth_date: CustomOptionalDateString = None
 
 
-class FLSchiedsrichterSelf(FLSchiedsrichterSelfPerson):
-    """The referee's own page's read: the record and its fee.
-
-    The fee is this read's alone: the account page shows it nowhere, so its entry extends the record without it.
-    """
-
-    default_payment: int
-
-
-class FLSchiedsrichterSelfResponse(BaseAPIResponse):
-    """Every confirmed referee record the signed-in address holds, the ghost never among them."""
-
-    schiedsrichter: list[FLSchiedsrichterSelf]
-
-
 class FLSchiedsrichterSpiel(BaseModel):
     """One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe."""
 

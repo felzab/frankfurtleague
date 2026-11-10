@@ -99,6 +99,49 @@ describe("a digits field", () => {
   });
 });
 
+describe("a minute field", () => {
+  // The write's own pattern for a played minute, as a match report's page hands it on from the contract.
+  const MINUTE = "^[0-9]{1,3}(\\+[0-9]{1,2})?$";
+  const EXAMPLE = COPY.area.schiedsrichter.spielbericht.minuteExample;
+
+  const sending = async (typed: string) => {
+    render(
+      <Form onSubmit={(event) => event.preventDefault()}>
+        <TextField
+          label={COPY.admin.spiel.minute}
+          name="minute"
+          kind="minute"
+          width="C5"
+          pattern={MINUTE}
+          example={EXAMPLE}
+          unit={COPY.shared.unit.minute}
+        />
+        <Button
+          variant="primary"
+          type="submit"
+          label={COPY.shared.verb.save}
+        />
+      </Form>,
+    );
+    await userEvent.type(screen.getByRole("textbox"), typed);
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+  };
+
+  // The harm: a goal in stoppage time cannot be entered, and the referee is told the minute is malformed.
+  it("takes stoppage time after a plus, on the phone pad that carries one", async () => {
+    await sending("90+3");
+    const field = screen.getByRole("textbox");
+    expect(field.getAttribute("inputmode")).toBe("tel");
+    expect(field.getAttribute("aria-invalid")).toBeNull();
+    expect(screen.queryByText(COPY.shared.field.format(EXAMPLE))).toBeNull();
+  });
+
+  it("reads „Format: …“ with the caller's example for anything off the pattern", async () => {
+    await sending("90+a");
+    expect(screen.getByText(COPY.shared.field.format(EXAMPLE))).toBeTruthy();
+  });
+});
+
 describe("a field's message line", () => {
   it("is always there, holding its place while it says nothing", () => {
     render(

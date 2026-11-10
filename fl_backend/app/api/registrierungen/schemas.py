@@ -181,6 +181,8 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
     minimum_age: int
+    # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
+    maximum_age: int = Field(gt=0)
     # The age the media answer is judged by, served for `minimum_age`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
     media_minimum_age: int = Field(gt=0)
@@ -266,6 +268,10 @@ class FLOpenRegistrierung(BaseModel):
     stufe: FLSpielerStufe | None
     # Whether the pupil answered their own link, which is what makes the row one the team may admit.
     admissible: bool
+    # Whether admitting this row now meets `kader_full`, by the verdict the admission refuses on: the squad stands at
+    # its cap and this entry is no Nachnominierung. Judged apart from `admissible`; an unconfirmed row resolves to
+    # nobody, so its window alone decides whether it enters as one.
+    kader_full: bool
     nummer_double: bool
     # Empty on an unconfirmed row: its address is unproven, and resolving it would show the team
     # whoever stands behind an address anybody typed into the form.

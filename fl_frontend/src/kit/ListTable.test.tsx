@@ -94,6 +94,22 @@ describe("a list's search", () => {
     expect(screen.queryByText(COPY.shared.empty.none(COPY.shared.saison))).toBe(null);
   });
 
+  // The harm: a team's squad, one record by its own noun, reads „Keine Kader für diese Suche.“ where nobody matched.
+  it("names the rows a search missed where the list names itself by one noun", async () => {
+    const empty = { kind: "none", plural: COPY.shared.kader, one: true, searchPlural: COPY.shared.spieler } as const;
+    const { unmount } = render(
+      <Searched>
+        <ListTable table={{ ...TABLE, empty }} />
+      </Searched>,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "Zidane");
+    expect(screen.getByText(COPY.shared.empty.search(COPY.shared.spieler))).toBeTruthy();
+    unmount();
+
+    render(<ListTable table={{ ...TABLE, rows: [], empty }} />);
+    expect(screen.getByText(COPY.shared.empty.noneOne(COPY.shared.kader))).toBeTruthy();
+  });
+
   // The field stands outside the boundary the rows wait in, so it takes text before there are rows to search.
   it("searches the rows that arrive after the text was typed", async () => {
     let arrive: (table: TableProps) => void = () => undefined;

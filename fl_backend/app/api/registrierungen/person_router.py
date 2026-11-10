@@ -15,10 +15,11 @@ from app.api.identity.services import is_own_registrierung
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungAbsageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (
+    kader_rows_of,
     nummern_rows,
     persons_at,
-    pull_offene_registrierung,
-    pull_offene_registrierungen,
+    pull_open_registrierung,
+    pull_open_registrierungen,
 )
 from app.api.registrierungen.schemas import (
     FLOpenRegistrierung,
@@ -29,20 +30,23 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungDeclineResponse,
 )
 from app.api.registrierungen.services import (
+    admits_a_nominee,
+    build_admission_erasure_filter,
     compose_ablehnung_update,
     compose_kader_fields,
     compose_person,
     compose_person_update,
+    find_already_in_kader_refusal,
     find_person_refusal,
-    find_schon_im_kader_refusal,
     find_stufe_refusal,
-    find_unbestaetigt_refusal,
-    nummern_im_kader,
-    person_weicht_ab,
+    find_unconfirmed_refusal,
+    nummern_in_kader,
+    person_deviates,
     registrierung_is_confirmed,
 )
-from app.api.saisons.services import entry_is_a_nominee
-from app.api.spieler.crud import refuse_a_full_squad
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.crud import find_full_squad_refusal, refuse_a_full_squad
+from app.api.spieler.services import build_live_squad_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -57,10 +61,14 @@ from app.core.dependencies import (
     DBClient,
     OutboxCollection,
     RegistrierungenCollection,
+    RegistrierungenReadCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     SpielerCollection,
+    SpielerReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -88,15 +96,17 @@ async def get_open_registrierungen(
     team_id: CustomRouteObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
-    registrierungen_collection: RegistrierungenCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    spieler_collection: SpielerCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    spieler_collection: SpielerReadCollection,
     records: SubjectLookup,
     db: DBClient,
 ) -> FLOpenRegistrierungenResponse:
     """
     Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
 
+    Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
     A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
     differs. An unconfirmed row names nobody: its address is unproven.
     No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
@@ -108,25 +118,51 @@ async def get_open_registrierungen(
     async with db.start_session(snapshot=True) as session:
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
-        served = await pull_offene_registrierungen(
+        served = await pull_open_registrierungen(
             registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
         )
-        bestaetigte = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
+        confirmed = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
 
         persons = await persons_at(
             spieler_collection=spieler_collection,
-            addresses=[sign_in_identifier(str(row["email"])) for row in bestaetigte],
+            addresses=[sign_in_identifier(str(row["email"])) for row in confirmed],
             session=session,
         )
         by_address = {person["email"]: person for person in persons}
 
-        worn = nummern_im_kader(
+        worn = nummern_in_kader(
             await nummern_rows(saison_spieler_collection=saison_spieler_collection, saison_id=saison_id, team_id=team_id, session=session)
         )
 
+        # What the admission judges the cap by, read as it reads them: the season's rules and window, the squad's count,
+        # and each resolved person's row of the season for a stored Nachnominierung mark.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
+        )
+        max_kader_size = FLSaisonRules.model_validate(saison_raw["rules"]).max_kader_size
+        # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
+        # a squad before it reaches the cap.
+        squad_size = await saison_spieler_collection.count_documents(
+            build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None), session=session
+        )
+        kader_by_person = {
+            kader["spieler_id"]: kader
+            for kader in await kader_rows_of(
+                saison_spieler_collection=saison_spieler_collection,
+                saison_id=saison_id,
+                spieler_ids=[person["_id"] for person in persons],
+                session=session,
+            )
+        }
+
         def as_served(row: Mapping[str, Any]) -> FLOpenRegistrierung:
-            aufnehmbar = registrierung_is_confirmed(einwilligung=row.get("einwilligung"))
-            person = by_address.get(sign_in_identifier(str(row["email"]))) if aufnehmbar else None
+            admissible = registrierung_is_confirmed(einwilligung=row.get("einwilligung"))
+            person = by_address.get(sign_in_identifier(str(row["email"]))) if admissible else None
+            nominee = admits_a_nominee(
+                kader_raw=None if person is None else kader_by_person.get(person["_id"]),
+                registrierung=saison_raw.get("registrierung"),
+                submitted_at=row["submitted_at"],
+            )
 
             return FLOpenRegistrierung.model_validate(
                 {
@@ -137,7 +173,8 @@ async def get_open_registrierungen(
                     "nummer": row.get("nummer"),
                     "position": row.get("position"),
                     "stufe": row.get("stufe"),
-                    "admissible": aufnehmbar,
+                    "admissible": admissible,
+                    "kader_full": find_full_squad_refusal(squad_size=squad_size, max_kader_size=max_kader_size, nominee=nominee) is not None,
                     "nummer_double": row.get("nummer") in worn,
                     "person": None
                     if person is None
@@ -145,7 +182,7 @@ async def get_open_registrierungen(
                         "spieler_id": person["_id"],
                         "first_name": person["first_name"],
                         "last_name": person.get("last_name"),
-                        "deviates_from": person_weicht_ab(registrierung_raw=row, spieler_raw=person),
+                        "deviates_from": person_deviates(registrierung_raw=row, spieler_raw=person),
                     },
                 }
             )
@@ -187,7 +224,9 @@ async def admit(
     The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
     the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
     row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
-    deleted in the same transaction, so a second press meets no row.
+    deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
+    its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
+    about any of them.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
     (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
@@ -200,21 +239,21 @@ async def admit(
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
         """Judge, then write the person, the squad row and the erasure. Everything judged is read in-session."""
 
-        registrierung_raw = await pull_offene_registrierung(
+        registrierung_raw = await pull_open_registrierung(
             registrierungen_collection=registrierungen_collection, registrierung_id=registrierung_id, session=session
         )
         saison_id = str(registrierung_raw["saison_id"])
         team_id = registrierung_raw["team_id"]
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
-        refuse(find_unbestaetigt_refusal(einwilligung=registrierung_raw.get("einwilligung")))
+        refuse(find_unconfirmed_refusal(einwilligung=registrierung_raw.get("einwilligung")))
 
         # The one read of the season: its rules for the level and the cap, its window for the Nachnominierung marker.
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
         )
-        erlaubte_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
-        refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=erlaubte_stufen))
+        allowed_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
+        refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=allowed_stufen))
 
         address = sign_in_identifier(str(registrierung_raw["email"]))
         resolved = await persons_at(spieler_collection=spieler_collection, addresses=[address], session=session)
@@ -228,11 +267,10 @@ async def admit(
             if person_raw is not None
             else None
         )
-        refuse(find_schon_im_kader_refusal(kader_raw=kader_raw))
+        refuse(find_already_in_kader_refusal(kader_raw=kader_raw))
 
-        # The stored mark first: it is never lifted within its season, whatever the window has moved to since.
-        nominee = (kader_raw is not None and kader_raw["is_nachnominiert"]) or entry_is_a_nominee(
-            registrierung=saison_raw.get("registrierung"), day=registrierung_raw["submitted_at"]
+        nominee = admits_a_nominee(
+            kader_raw=kader_raw, registrierung=saison_raw.get("registrierung"), submitted_at=registrierung_raw["submitted_at"]
         )
 
         await refuse_a_full_squad(
@@ -290,7 +328,9 @@ async def admit(
             )
 
         await delete_many_from_db(
-            collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
+            collection=registrierungen_collection,
+            db_filter=build_admission_erasure_filter(registrierung_id=registrierung_id, saison_id=saison_id, address=address),
+            session=session,
         )
         # The seat check just found this junction row, so it stands.
         junction_raw = await pull_one_from_db(
@@ -330,7 +370,7 @@ async def admit(
 )
 async def decline(
     registrierung_id: CustomRouteObjectId,
-    ablehnung_data: Annotated[FLRegistrierungDeclinePayload, Body()],
+    decline_data: Annotated[FLRegistrierungDeclinePayload, Body()],
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -353,7 +393,7 @@ async def decline(
     """
 
     async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungDeclineResponse:
-        registrierung_raw = await pull_offene_registrierung(
+        registrierung_raw = await pull_open_registrierung(
             registrierungen_collection=registrierungen_collection, registrierung_id=registrierung_id, session=session
         )
         saison_id = str(registrierung_raw["saison_id"])
@@ -366,7 +406,7 @@ async def decline(
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
             # read finds nothing pending (`TestTheDecline`), so no status term is reached.
             db_filter={"_id": registrierung_id},
-            update=compose_ablehnung_update(reason=ablehnung_data.reason, today=today),
+            update=compose_ablehnung_update(reason=decline_data.reason, today=today),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -398,7 +438,7 @@ async def decline(
                             kind="registrierung_absage",
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
-                            reason=ablehnung_data.reason,
+                            reason=decline_data.reason,
                         ),
                         reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )

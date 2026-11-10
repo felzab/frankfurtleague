@@ -1,11 +1,10 @@
 from typing import NamedTuple
 
-from pymongo.asynchronous.collection import AsyncCollection
-
 from app.api.saisons.crud import CURRENT_SAISON_FILTER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import base_tier_status_term
 from app.core.crud import pull_one_from_db
+from app.core.readonly import ReadCollection
 from app.shared.schemas.literals import FLSaisonStatus
 
 
@@ -17,7 +16,7 @@ class PublicSaison(NamedTuple):
     status: FLSaisonStatus
 
 
-async def resolve_public_saison(*, saisons_collection: AsyncCollection, saison_id: str | None) -> PublicSaison:
+async def resolve_public_saison(*, saisons_collection: ReadCollection, saison_id: str | None) -> PublicSaison:
     """The season named, else the `active` one; 404 where none is, and where the one named is withheld from this tier.
 
     One read: the withheld status is a term of the filter, so a season being drawn up misses exactly as an id naming

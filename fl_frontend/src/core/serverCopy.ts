@@ -79,6 +79,7 @@ const REFEREE_STORED =
  */
 type RetentionBounds = {
   bewerbungDays: number;
+  registrierungDays: number;
   schiedsrichterDays: number;
   addressChangeLinkHours: number;
   code: { minutes: number; mailHours: 1; failureHours: number };
@@ -174,6 +175,8 @@ export const SERVER_COPY = catalogue({
     registrierung_kader_full: KADER_FULL,
     /** An admission of a pupil a squad of the season holds already. */
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
+    /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
+    registrierung_stufe_not_allowed: "Diese Stufe ist in dieser Saison nicht zugelassen.",
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     /** A club's decline proposing the day and hour the fixture holds. */
@@ -927,10 +930,8 @@ export const SERVER_COPY = catalogue({
       },
       kader: {
         heading: "Im Kader",
-        // Session 8: the link's 14 days become a parameter read from `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that
-        // constant holds the 14 days every link confirming a registered person lives.
-        text: (minAge: number) =>
-          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von 14 Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+        text: (minAge: number, days: number) =>
+          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von ${formatNumber(days)} Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
@@ -1010,8 +1011,11 @@ export const SERVER_COPY = catalogue({
             period: (bound: RetentionBounds) =>
               `${formatNumber(bound.bewerbungDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach`,
           },
-          // Session 8: the 14 days become `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that constant holds them.
-          { name: "Registrierung", content: "Name, Adresse, Geburtsdatum", period: "14 Tage, wenn unbestätigt oder abgelehnt" },
+          {
+            name: "Registrierung",
+            content: "Name, Adresse, Geburtsdatum",
+            period: (bound: RetentionBounds) => `${formatNumber(bound.registrierungDays)} Tage, wenn unbestätigt oder abgelehnt`,
+          },
           {
             name: "Registrierungslinks",
             content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
@@ -1221,7 +1225,6 @@ export const SERVER_COPY = catalogue({
       `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
   },
 
-  // Session 8: its page reads these.
   /**
    * The fixed text of a pupil's confirmation page, `ROUTES.registrierungConfirmation`, built as `kontaktConfirmation`
    * is: the registration the pupil made, what is stored and until when, the deadline, what the birthdate is checked
@@ -1235,6 +1238,8 @@ export const SERVER_COPY = catalogue({
     ageCheck,
     deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
     more: MORE,
+    /** The first paragraph, its sentences in reading order. */
+    text: (...sentences: Copy[]) => sentences.join(" "),
     /** The done card's title; the link opened again titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Registrierung bestätigt",
   },

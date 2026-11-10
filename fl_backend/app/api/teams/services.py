@@ -1183,20 +1183,6 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]
     return owed
 
 
-def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
-    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody."""
-
-    stored_block = stored if isinstance(stored, Mapping) else {}
-    block = kontakte if isinstance(kontakte, Mapping) else {}
-
-    return tuple(
-        slot
-        for slot in KONTAKT_ROLLEN
-        if isinstance(held := stored_block.get(slot), Mapping)
-        and (not isinstance(seat := block.get(slot), Mapping) or _seat_held_by(held, seat=seat) is None)
-    )
-
-
 def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
     """The whole link block a write leaves: each link minted, and every other seat's as stored.
 
