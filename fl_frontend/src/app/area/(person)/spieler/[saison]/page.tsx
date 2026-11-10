@@ -5,7 +5,7 @@ import { ReadPage } from "@/kit/ReadPage";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getOwnSaisons } from "@/features/roles/queries";
-import { requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getSpielerSaisonSelf } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
@@ -65,7 +65,7 @@ function tilesOf(saison: string, kader: FLSpielerSelfKaderRow): readonly [StatTi
 async function readSaison(params: Props["params"]): Promise<ReadContent> {
   const saison = await ownSaison(params);
   if (saison === null) notFound();
-  const { kader, spiele } = await getSpielerSaisonSelf(saison);
+  const { kader, spiele } = await readAsRoleHolder("spieler", () => getSpielerSaisonSelf(saison));
   if (kader === null) notFound();
   const deregistered = kader.inactive_since !== null;
   return {

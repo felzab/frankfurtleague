@@ -14,7 +14,7 @@ import {
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getOwnSaisons } from "@/features/roles/queries";
-import { requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
 import { matchName } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -42,7 +42,7 @@ const spieleOf = cache(async (saison: string) => {
   // The frame's own read, memoised for the render.
   const saisons = await getOwnSaisons("schiedsrichter");
   if (saisons === null || !saisons.entries.some((entry) => entry.id === saison)) return null;
-  return getOwnSpiele(saison);
+  return readAsRoleHolder("schiedsrichter", () => getOwnSpiele(saison));
 });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {

@@ -106,6 +106,24 @@ export async function requireTeamSeats<Segments extends { team: string; saison: 
   return (await teamSeatsAt(params, address)) ?? refuseWithoutSeat();
 }
 
+/** Whether the backend refused a read because the person's Funktion went after the page's own check. */
+export const isRoleGone = (error: unknown): boolean => error instanceof APIBadStatusError && error.serverErrorCode === "role_not_held";
+
+/**
+ * A pupil's or a referee's page's read of the backend, sending the person on to the landing where the backend finds
+ * the Funktion gone after the page's own check, as `requireRole` sends a person holding none; every other failure
+ * reaches the frame's error card.
+ */
+export async function readAsRoleHolder<Read>(kind: PersonKind, read: () => Promise<Read>): Promise<Read> {
+  try {
+    return await read();
+  } catch (error) {
+    if (!isRoleGone(error)) throw error;
+    logRefused(`/area/${kind}`, "no_role");
+    redirect(ROUTES.area.path());
+  }
+}
+
 /**
  * A team page's read of the backend, ending on the same card where the backend finds the seat gone after the page's
  * own check; every other failure reaches the frame's error card.
@@ -114,7 +132,7 @@ export async function readAsSeatHolder<Read>(read: () => Promise<Read>): Promise
   try {
     return await read();
   } catch (error) {
-    if (error instanceof APIBadStatusError && error.serverErrorCode === "role_not_held") refuseWithoutSeat();
+    if (isRoleGone(error)) refuseWithoutSeat();
     throw error;
   }
 }

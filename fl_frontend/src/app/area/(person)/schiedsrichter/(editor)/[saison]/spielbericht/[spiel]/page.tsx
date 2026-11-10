@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
 import { RecordRowsPlaceholder } from "@/kit/RecordRows";
@@ -18,7 +18,7 @@ import {
 import { CustomObjectIdStringSchema } from "@/core/objectId";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { matchName, matchTitle } from "@/features/spiele/blocks";
 import { spielerName } from "@/features/spieler/constants";
@@ -55,20 +55,18 @@ const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielberic
 /**
  * What the address holds for the signed-in referee: the report's read, or `unbooked` for a fixture booked to another
  * referee, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
- * A referee whose record went between the frame's check and the read is sent on as the frame sends a person holding
- * no such Funktion. Memoised for the render, so the tab's title and the page share the one read.
+ * A referee whose record went between the frame's check and the read is sent on as every person place sends them.
+ * Memoised for the render, so the tab's title and the page share the one read.
  */
 const find = cache(async (saison: string, spiel: string): Promise<FLSpielberichtSchiedsrichterResponse | "unbooked" | null> => {
   await requireRole("schiedsrichter", address({ saison, spiel }));
   const id = CustomObjectIdStringSchema.safeParse(spiel);
   if (!id.success) return null;
   try {
-    const read = await getOwnSpielbericht(id.data);
+    const read = await readAsRoleHolder("schiedsrichter", () => getOwnSpielbericht(id.data));
     return read === null || read.spiel.saison_id !== saison ? null : read;
   } catch (error) {
-    if (!(error instanceof APIBadStatusError)) throw error;
-    if (error.serverErrorCode === "bericht_not_officiated") return "unbooked";
-    if (error.serverErrorCode === "role_not_held") redirect(ROUTES.area.path());
+    if (error instanceof APIBadStatusError && error.serverErrorCode === "bericht_not_officiated") return "unbooked";
     throw error;
   }
 });

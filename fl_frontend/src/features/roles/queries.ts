@@ -6,6 +6,7 @@ import { dayOf, formatPeriod } from "@/core/format";
 import { schiedsrichterGetSelfSaisons, spielerGetSelfSaisons } from "@/core/generated/client/sdk";
 import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
+import { isRoleGone } from "@/features/roles/resolvers";
 import { getSaisonFrame } from "@/features/saisons/queries";
 import { runPersonRead } from "@/shared/utils/personRead";
 
@@ -26,15 +27,20 @@ const OWN_SAISONS = { spieler: spielerGetSelfSaisons, schiedsrichter: schiedsric
  *
  * The frame's own read, which a page of the place shares: its address without a season sends the reader on to
  * `standard`, and a season's page holds the season of its address to the list. A session turned away and a person
- * holding no such Funktion are answered `null` without a read: their page sends them on, and a read the backend
- * refuses would fail the frame around that redirect.
+ * holding no such Funktion are answered `null` without a read, and so is one whose Funktion the backend finds gone after
+ * that check: their page sends them on, and a read the backend refuses would fail the frame around that redirect.
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments rather than the caller.
 export const getOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> => {
   const subject = await getSubjectSession();
   if (subject === null || !rolesOf(subject).roles.some((role) => role.kind === kind)) return null;
 
-  const { saisons: own } = await runPersonRead(() => OWN_SAISONS[kind]());
+  const read = await runPersonRead(() => OWN_SAISONS[kind]()).catch((error: unknown) => {
+    if (isRoleGone(error)) return null;
+    throw error;
+  });
+  if (read === null) return null;
+  const { saisons: own } = read;
   const [newest] = own;
   if (newest === undefined) return null;
   // The public frame's read, cached for every visitor, names the season the site is on.

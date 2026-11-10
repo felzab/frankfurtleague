@@ -14,7 +14,10 @@ vi.mock("next/link", () => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/area/spieler/2027", useRouter: () => ({ replace: vi.fn() }) }));
-vi.mock("@/features/roles/resolvers", () => ({ requireRole: async () => ({}) }));
+vi.mock("@/features/roles/resolvers", () => ({
+  requireRole: async () => ({}),
+  readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
+}));
 vi.mock("@/features/roles/queries", () => ({
   getOwnSaisons: async () => ({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
 }));
