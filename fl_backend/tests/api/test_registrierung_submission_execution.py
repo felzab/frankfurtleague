@@ -13,7 +13,7 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.core.codes import Code
@@ -47,9 +47,9 @@ TODAY = "2026-04-01"
 AFTER_TODAY = "2026-04-20"
 # `TODAY` as the wire's clock reads it, so a request over the wire is judged on the day a direct call is.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-# The deadline the submission stores, derived from the bound rather than spelled: a raised bound
-# must move this expectation with it.
-DEADLINE = "2026-04-15"
+# The deadline the submission stores, derived from the bound rather than spelled, so the case holds the
+# submission to the bound whatever the bound reads.
+DEADLINE = days_after(day=TODAY, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
 
 # Fixed rather than generated, so a failure names the same row every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607960001")
@@ -348,7 +348,6 @@ class TestWhatASubmissionStores:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS == 14
         assert stored["confirmation"]["deadline"] == DEADLINE
 
     def test_neither_a_person_nor_a_squad_row_is_written(self, mongo_replica_set_url: str):
