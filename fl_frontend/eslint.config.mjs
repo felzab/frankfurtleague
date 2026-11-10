@@ -706,7 +706,7 @@ const PROPERTY_BANS = [
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
-      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
+      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush`." },
       SOURCE,
       { allow: ["src/core/goBackOrPush.ts"] },
     ),

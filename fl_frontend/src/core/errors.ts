@@ -78,8 +78,8 @@ export class APIBadStatusError extends Error {
   refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
-  // Redesign: these two fields, here and on `APINetworkError`, go with their last readers, the old write path's
-  // `shared/utils/actionError.ts` and `shared/utils/writeOutcome.ts`.
+  // Redesign: these two fields, here and on `APINetworkError`, are read by no production module; they go with the
+  // `method` and `readOnly` every construction hands in, in `core/api.ts`, `core/mail.ts` and the tests.
   method: string;
   readOnly: boolean;
 
