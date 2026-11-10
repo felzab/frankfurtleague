@@ -91,8 +91,8 @@ SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_s
 JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
 
 # `resolve_public_saison` is deliberately NOT called below, where every other base-tier season read
-# calls it: a season taking registrations is normally `future`, so that resolve would 404 the flow
-# this exists for. The INVITE authorises instead.
+# calls it: a link minted for a season that takes no registration today, a `future` one among them,
+# reads as closed rather than as a season nobody knows. The INVITE authorises instead.
 
 
 async def _club_departed(
