@@ -61,7 +61,7 @@ from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLSpielSide
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
 # The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason.
 router = APIRouter(
@@ -70,18 +70,29 @@ router = APIRouter(
 )
 
 
-def _as_seat(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
+def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktRolle, *, also: FLKontaktRolle | None) -> FLTeamSeat:
     person = kontakte.get(slot)
     if not isinstance(person, Mapping):
-        return FLTeamSeat.model_validate({"rolle": slot, "name": None, "confirmed": False})
+        return FLTeamSeat.model_validate({"rollen": [slot], "name": None, "confirmed": False})
 
     return FLTeamSeat.model_validate(
         {
-            "rolle": slot,
+            "rollen": [slot] if also is None else [slot, also],
             "name": " ".join(str(person.get(field) or "").strip() for field in ("first_name", "last_name")).strip() or None,
             "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
         }
     )
+
+
+def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
+    """One entry per person, in `KONTAKT_ROLLEN` order: a Trainer holding the seat `trainer_is_also` names is one entry naming both.
+
+    Only beside a Trainer who stands: an emptied Trainer's seat names nobody whose second seat it could be.
+    """
+
+    also: FLKontaktRolle | None = kontakte.get("trainer_is_also") if isinstance(kontakte.get("trainer"), Mapping) else None
+
+    return [_as_seat(kontakte, slot, also=also if slot == "trainer" else None) for slot in KONTAKT_ROLLEN if slot != also]
 
 
 @router.patch(
@@ -413,7 +424,7 @@ async def get_team_overview(
             )
             for registrierung in registrierungen
         ],
-        seats=[_as_seat(kontakte, slot) for slot in KONTAKT_ROLLEN],
+        seats=_seats_of(kontakte),
     )
 
 

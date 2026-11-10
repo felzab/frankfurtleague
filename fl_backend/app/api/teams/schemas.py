@@ -689,12 +689,14 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
 
 
 class FLTeamSeat(BaseModel):
-    """One seat as the people beside it see it: who holds it and whether they answered their link.
+    """One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.
 
-    No address, telephone number or birthdate: only administrators see those.
+    A Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,
+    telephone number or birthdate: only administrators see those.
     """
 
-    rolle: FLKontaktRolle
+    # The seats the entry's person holds: the Trainer's first, and the seat `trainer_is_also` names beside it.
+    rollen: list[FLKontaktRolle]
     # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
     # with two seats rather than one with a seat unfilled.
     name: str | None

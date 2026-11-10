@@ -17850,7 +17850,7 @@
         "type": "object"
       },
       "FLTeamSeat": {
-        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: only administrators see those.",
+        "description": "One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.\n\nA Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,\ntelephone number or birthdate: only administrators see those.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
@@ -17867,12 +17867,16 @@
             ],
             "title": "Name"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "title": "Rollen",
+            "type": "array"
           }
         },
         "required": [
-          "rolle",
+          "rollen",
           "name",
           "confirmed"
         ],
