@@ -1,6 +1,9 @@
 "use server";
 
+import { z } from "zod";
+
 import { action } from "@/core/action";
+import { registrierungenAdmit, registrierungenDecline } from "@/core/generated/client/sdk";
 import {
   RegistrierungenAdmitBody,
   RegistrierungenAdmitParams,
@@ -8,7 +11,6 @@ import {
   RegistrierungenDeclineParams,
   RegistrierungenGetOpenRegistrierungenParams,
 } from "@/core/generated/zod/inputs";
-import { postRegistrierungAdmit, postRegistrierungDecline } from "@/features/registrierungen/mutations";
 
 /**
  * Admits one registration into the team's squad, into the person `spieler_id` names, or a new one where it names
@@ -18,10 +20,14 @@ export const admitRegistrierung = action({
   lane: "person",
   claim: "seat",
   name: "admitRegistrierung",
-  input: RegistrierungenGetOpenRegistrierungenParams.extend(RegistrierungenAdmitParams.shape).extend(RegistrierungenAdmitBody.shape),
+  input: z.object({
+    ...RegistrierungenGetOpenRegistrierungenParams.shape,
+    ...RegistrierungenAdmitParams.shape,
+    ...RegistrierungenAdmitBody.shape,
+  }),
   ownWords: ["kader_full", "registrierung_already_in_kader", "registrierung_stufe_not_allowed"],
   run: async ({ registrierung_id, spieler_id }) => {
-    await postRegistrierungAdmit(registrierung_id, { spieler_id });
+    await registrierungenAdmit(registrierung_id, { spieler_id });
     return { ok: true, value: undefined };
   },
 });
@@ -31,9 +37,13 @@ export const declineRegistrierung = action({
   lane: "person",
   claim: "seat",
   name: "declineRegistrierung",
-  input: RegistrierungenGetOpenRegistrierungenParams.extend(RegistrierungenDeclineParams.shape).extend(RegistrierungenDeclineBody.shape),
+  input: z.object({
+    ...RegistrierungenGetOpenRegistrierungenParams.shape,
+    ...RegistrierungenDeclineParams.shape,
+    ...RegistrierungenDeclineBody.shape,
+  }),
   run: async ({ registrierung_id, reason }) => {
-    await postRegistrierungDecline(registrierung_id, { reason });
+    await registrierungenDecline(registrierung_id, { reason });
     return { ok: true, value: undefined };
   },
 });

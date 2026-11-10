@@ -1,9 +1,8 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { catalogue, COPY, textOf, waitWords } from "./copy";
+import { catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
 import { formatDate, formatDateLong, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
-import { rollenText } from "./teamVocabulary";
 
 import type { Copy, Wait, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -184,8 +183,15 @@ export const SERVER_COPY = catalogue({
     ansetzung_vorschlag_unchanged: "Das ist der angesetzte Termin.",
     /** A line-up's save by a seat once the lock has passed, one naming more nominees than the eleven lack, and one for a fixture holding no day or hour. */
     aufstellung_locked: "Die Aufstellung ist gesperrt.",
-    aufstellung_nominee_without_shortage: "Nachnominierte füllen nur die Lücke bis 11.",
+    aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
+      typeof max === "number" ? `Nachnominierte füllen nur die Lücke bis ${formatNumber(max)}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
+    /**
+     * A line-up starting more than the bound its refusal carries, the stored entries of erased pupils counted beside
+     * the ones sent: a sentence, since the screen holds no box for the whole list.
+     */
+    aufstellung_starters_exceed_eleven: ({ max }: FLRefusedField["ctx"]) =>
+      typeof max === "number" ? `Höchstens ${formatNumber(max)} in der Startelf.` : undefined,
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
@@ -1020,8 +1026,8 @@ export const SERVER_COPY = catalogue({
           },
           {
             name: "Registrierungslinks",
-            content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
-            period: "ohne Frist; die Adresse bis zur Löschung dieser Person",
+            content: "Team, Saison",
+            period: "ohne Frist",
           },
           { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
           {

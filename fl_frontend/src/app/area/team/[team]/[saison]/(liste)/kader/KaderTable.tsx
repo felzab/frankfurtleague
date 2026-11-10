@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ListTable } from "@/kit/ListTable";
 
 import { COPY, textOf } from "@/core/copy";
-import { kaderName } from "@/features/spieler/constants";
+import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
 import { rowChip } from "@/features/spieler/rowChip";
 
 import { KaderRowDialog } from "./KaderRowDialog";
@@ -13,39 +13,33 @@ import { KaderRowDialog } from "./KaderRowDialog";
 import type { FLKaderResponse, FLKaderRow } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
 
-const WORDS = COPY.admin.spieler;
-
-/** A shirt number's place in the list: its figure, a row wearing none after every row that wears one. */
-const shirtOrder = (row: FLKaderRow) => (row.nummer === null ? Number.POSITIVE_INFINITY : Number(row.nummer));
-
 /**
  * The squad in shirt-number order, rows wearing none last, each group in the read's own order: a live row opens its
  * dialog, its role's mark after the name, and an ausgetragen one stands muted with its chip and opens nothing, since
  * only the league brings it back.
  */
 function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): TableRow[] {
-  return kader
-    .toSorted((one, other) => shirtOrder(one) - shirtOrder(other))
-    .map((row) => {
-      const isLive = row.inactive_since === null;
-      const chip = rowChip(row);
-      const facts = [row.position, row.stufe === null ? null : textOf(COPY.admin.saison.stufe[row.stufe])].filter((fact) => fact !== null);
-      return {
-        id: row.spieler_id,
-        name: { record: kaderName(row) },
-        // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
-        ...(isLive && row.rolle !== null ? { mark: { letters: COPY.shared.rolleMark[row.rolle], label: WORDS.rolleOption[row.rolle] } } : {}),
-        ...(chip === undefined ? {} : { chip }),
-        ...(facts.length === 0 ? {} : { phoneLine: { record: facts.join(" · ") } }),
-        muted: !isLive,
-        ...(isLive ? { onOpen: () => open(row) } : {}),
-        cells: {
-          nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
-          position: row.position === null ? COPY.shared.noValue : { record: row.position },
-          stufe: row.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[row.stufe],
-        },
-      };
-    });
+  return kader.toSorted(byShirtNumber).map((row) => {
+    const isLive = row.inactive_since === null;
+    const chip = rowChip(row);
+    const mark = roleMarkOf(row.rolle);
+    const facts = [row.position, row.stufe === null ? null : textOf(COPY.admin.saison.stufe[row.stufe])].filter((fact) => fact !== null);
+    return {
+      id: row.spieler_id,
+      name: { record: kaderName(row) },
+      // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
+      ...(isLive && mark !== undefined ? { mark } : {}),
+      ...(chip === undefined ? {} : { chip }),
+      ...(facts.length === 0 ? {} : { phoneLine: { record: facts.join(" · ") } }),
+      muted: !isLive,
+      ...(isLive ? { onOpen: () => open(row) } : {}),
+      cells: {
+        nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
+        position: row.position === null ? COPY.shared.noValue : { record: row.position },
+        stufe: row.stufe === null ? COPY.shared.noValue : COPY.admin.saison.stufe[row.stufe],
+      },
+    };
+  });
 }
 
 /**

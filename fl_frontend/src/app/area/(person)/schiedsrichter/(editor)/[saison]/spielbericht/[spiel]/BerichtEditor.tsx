@@ -14,9 +14,9 @@ import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
 import { FLCardColour } from "@/core/generated/client/types";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
-import { counted, isNoShow, NO_SONDEREREIGNIS, UNKNOWN_SCORER } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
@@ -26,6 +26,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { RowCells } from "@/kit/RecordRows";
 import type { ScoreOutcome } from "@/kit/ScoreRows";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { Route } from "next";
 import type { BerichtValues, Card, Goal } from "./berichtValues";
 
 /** The cells of the fields a goal's row and a card's hold alike. */
@@ -43,6 +44,8 @@ type Side = { name: Words; plaque: RecordText | null };
 
 /** The minute's rule, the write's own pattern, which the server reads off the published contract. */
 type MinuteRule = { pattern: string };
+
+const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: WORDS.unknown };
 
 const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label: WORDS.colour[colour], mark: <CardMark colour={colour} /> }));
 
@@ -66,9 +69,10 @@ export function BerichtEditor({
   remarksMax,
   sidesChanged,
   closed,
+  spielPage,
 }: {
   title: PageTitle;
-  /** When the match was played, under the title. */
+  /** When and where the match was played, under the title. */
   lead: Copy;
   record: EditorRecord<BerichtValues, number | null>;
   save: (sent: EditorSave<BerichtValues, number | null>) => Promise<ActionAnswer<number>>;
@@ -86,6 +90,8 @@ export function BerichtEditor({
   sidesChanged: boolean;
   /** Why the report is read-only: its season has finished, and the write refuses it. */
   closed?: Copy;
+  /** The match's public page, where the public may read its season: the strip's way there. */
+  spielPage?: Route;
 }) {
   const editor = useEditor(record, save);
   const { draft, set } = editor;
@@ -100,10 +106,7 @@ export function BerichtEditor({
   const outcome = (): ScoreOutcome | null => {
     if (shootOut && (draft.shootOut1 === "" || draft.shootOut2 === "")) return null;
     const added = shootOut ? { team1: Number(draft.shootOut1), team2: Number(draft.shootOut2) } : null;
-    const score = SPIEL.score(goals, added);
-    const [one, other] = [goals.team1 + (added?.team1 ?? 0), goals.team2 + (added?.team2 ?? 0)];
-    if (one === other) return { text: SPIEL.drawn(score), tone: "draw" };
-    return { text: SPIEL.wins(one > other ? sides.team1.name : sides.team2.name, score), tone: "win" };
+    return scoreOutcome(goals, added, [sides.team1.name, sides.team2.name]);
   };
 
   // A side drawn as its club's Kürzel is heard by the club's name.
@@ -113,8 +116,8 @@ export function BerichtEditor({
   });
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: SPIEL.none },
-    { id: "nichtantreten_team1", label: WORDS.nichtAngetreten(sides.team1.name) },
-    { id: "nichtantreten_team2", label: WORDS.nichtAngetreten(sides.team2.name) },
+    { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team1.name) },
+    { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team2.name) },
     { id: "abgebrochen", label: SPIEL.abgebrochen },
   ];
 
@@ -154,8 +157,8 @@ export function BerichtEditor({
       />
     ),
   };
-  /** A row's player, from its side's squad; a goal's list opens on „Unbekannt“, a scorer nobody can name. */
-  const playerCell = (first: readonly Option[], isRequired: boolean): Cells["main"] => ({
+  /** A row's player, from its side's squad, the list opening on „Unbekannt“, a player nobody can name. */
+  const playerCell = (isRequired: boolean): Cells["main"] => ({
     field: "spieler_id",
     label: COPY.shared.spieler,
     control: ({ row, name, label, change }) => (
@@ -164,7 +167,7 @@ export function BerichtEditor({
         labelHidden
         name={name}
         isRequired={isRequired}
-        options={row.side === null ? [] : [...first, ...squads[row.side]]}
+        options={row.side === null ? [] : [UNKNOWN, ...squads[row.side]]}
         value={row.spieler_id}
         onChange={(spielerId) => change({ spieler_id: spielerId })}
       />
@@ -180,6 +183,7 @@ export function BerichtEditor({
       lead={lead}
       editor={editor}
       closed={closed}
+      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.end.toSpiel } })}
       sections={[
         {
           id: "ergebnis",
@@ -245,7 +249,7 @@ export function BerichtEditor({
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
-                    main: playerCell([{ id: UNKNOWN_SCORER, label: WORDS.unknown }], required.goalPlayer),
+                    main: playerCell(required.goalPlayer),
                     beside: {
                       field: "eigentor",
                       label: eigentor,
@@ -283,7 +287,7 @@ export function BerichtEditor({
                   cells={{
                     lead: sideCell,
                     figure: minuteCell,
-                    main: playerCell([], required.cardPlayer),
+                    main: playerCell(required.cardPlayer),
                     below: {
                       field: "colour",
                       label: cardNoun,

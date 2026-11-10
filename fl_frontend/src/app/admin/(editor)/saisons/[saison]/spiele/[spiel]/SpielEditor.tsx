@@ -20,10 +20,10 @@ import { TimeField } from "@/kit/TimeField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
 import { SpielortFields } from "../../../../../SpielortFields";
-import { adoptsBerichtOf, holdsProposal, isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
+import { adoptsBerichtOf, holdsProposal, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
@@ -36,6 +36,7 @@ import type { PageTitle } from "@/kit/RailFrame";
 import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { Route } from "next";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
 
@@ -85,6 +86,7 @@ export function SpielEditor({
   createSpielort,
   spielortRules,
   closed,
+  spielPage,
 }: {
   title: PageTitle;
   /** The line under the title: the match as it is stored, read on the server. */
@@ -116,6 +118,8 @@ export function SpielEditor({
   spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
+  /** The match's public page, where the public may read its season: the strip's way there. */
+  spielPage?: Route;
 }) {
   // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
   const [adopted, setAdopted] = useState(false);
@@ -164,10 +168,7 @@ export function SpielEditor({
     if (tore.includes("") || shootOutGoals?.includes("") === true) return null;
     const scored = { team1: Number(tore[0]), team2: Number(tore[1]) };
     const added = shootOutGoals === null ? null : { team1: Number(shootOutGoals[0]), team2: Number(shootOutGoals[1]) };
-    const score = WORDS.score(scored, added);
-    const [one, other] = [scored.team1 + (added?.team1 ?? 0), scored.team2 + (added?.team2 ?? 0)];
-    if (one === other) return { text: WORDS.drawn(score), tone: "draw" };
-    return { text: WORDS.wins(one > other ? sideNames[0] : sideNames[1], score), tone: "win" };
+    return scoreOutcome(scored, added, sideNames);
   };
 
   /** A side's club picker: the clubs of the season, the other side's own and any the write would not field disabled. */
@@ -230,6 +231,7 @@ export function SpielEditor({
       lead={preview}
       editor={editor}
       closed={closed}
+      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.end.toSpiel } })}
       sections={framed([
         {
           id: "ansetzung",

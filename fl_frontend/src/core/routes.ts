@@ -174,6 +174,11 @@ export const ROUTES = {
    */
   accountErased: { path: () => "/erasure/done" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   registrierung: { path: () => "/registrierung" as const, title: COPY.page.registrierung, crawl: "disallow" },
+  /**
+   * Where a registration lands, a page needing no link: the submit forgets the link's cookie, so its action leads here
+   * rather than rendering the link's page again, which would read the forgotten link as no longer valid.
+   */
+  registrierungDone: { path: () => "/registrierung/done" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   /**
    * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its four pages, which a

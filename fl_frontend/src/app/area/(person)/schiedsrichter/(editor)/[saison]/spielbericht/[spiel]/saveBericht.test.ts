@@ -3,8 +3,10 @@ import { person } from "@/test-support/subjectFixtures";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { APIBadStatusError } from "@/core/errors";
+import { SERVER_COPY } from "@/core/serverCopy";
 
-import { UNKNOWN_SCORER } from "./berichtValues";
+import { UNKNOWN_PLAYER } from "./berichtValues";
 
 import type { FLSpielberichtPayload, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
@@ -46,7 +48,7 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
 };
 
 /** What the report's read answers, and every write the save sends. */
-const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as { endpoint: string; body: unknown }[] }));
+const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as { endpoint: string; body: unknown }[], write: null as Error | null }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a save clears the site's cache is `core/action.test.ts`'s.
@@ -57,6 +59,7 @@ vi.mock("@/core/subject", () => ({ getSubjectSession: async () => person({}) }))
 const calls = doubleApiClient((call) => {
   if (call.method === "GET") return state.read;
   state.sent.push({ endpoint: call.endpoint, body: JSON.parse(call.body ?? "null") });
+  if (state.write !== null) throw state.write;
   return { ...(state.read as FLSpielberichtSchiedsrichterResponse), version: 4 };
 });
 
@@ -66,9 +69,32 @@ beforeEach(() => {
   calls.length = 0;
   state.read = READ;
   state.sent = [];
+  state.write = null;
 });
 
 const sentPayload = () => state.sent[0]?.body as FLSpielberichtPayload | undefined;
+
+// The harm: a refusal the form invites worded as a page out of date, whose reload throws away every row typed.
+describe("a shoot-out the form takes level", () => {
+  it("is refused in the rule's own sentence", async () => {
+    state.write = new APIBadStatusError({
+      message: "refused",
+      url: "http://backend/api/v0/",
+      statusCode: 422,
+      serverErrorCode: "payload_refused",
+      refusedFields: [{ kind: "elfmeterschiessen_without_winner", path: ["bericht", "ergebnis_vorschlag"], ctx: {}, in: "body" }],
+      endpoint: "/",
+      traceId: "0",
+    });
+    const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Elfmeter" } });
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      reason: SERVER_COPY.ruleLine.elfmeterschiessen_without_winner,
+    });
+  });
+});
 
 // The harm: a report written onto another match than the one the form showed, which nobody would notice there.
 describe("the report's save", () => {
@@ -96,7 +122,7 @@ describe("each row the save sends", () => {
         scorers: [
           { side: "team1", spieler_id: NOAH, minute: "45+1", eigentor: false },
           { side: "team2", spieler_id: LENA, minute: "58", eigentor: true },
-          { side: "team2", spieler_id: UNKNOWN_SCORER, minute: "77", eigentor: false },
+          { side: "team2", spieler_id: UNKNOWN_PLAYER, minute: "77", eigentor: false },
         ],
       },
     });
@@ -107,6 +133,16 @@ describe("each row the save sends", () => {
       { side: "team2", spieler_id: null, minute: "77", eigentor: false },
     ]);
     expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team2", spieler_id: LENA, minute: "40", colour: "gelb" }]);
+  });
+
+  it("sends a card's „Unbekannt“ as the null player, as a goal's", async () => {
+    await saveBericht({
+      id: SPIEL_ID,
+      version: 3,
+      changes: { cards: [{ side: "team1", spieler_id: UNKNOWN_PLAYER, minute: "63", colour: "rot" }] },
+    });
+
+    expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team1", spieler_id: null, minute: "63", colour: "rot" }]);
   });
 
   it("sends no row whose player is not chosen, saying so on that row's box", async () => {

@@ -209,8 +209,6 @@ describe("the line a failed call files", () => {
         message: "The backend failed the request.",
         url: "http://backend:8000/api/v0/bewerbungen/sweep/2627",
         endpoint: "/bewerbungen/sweep/{saison_id}",
-        method: "POST",
-        readOnly: false,
         statusCode: 500,
         serverErrorCode: "database_failed",
         traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
@@ -243,8 +241,6 @@ describe("the line a failed call files", () => {
       throw new APINetworkError({
         message: "The backend did not answer.",
         url: "http://backend:8000/api/v0/registrierungen/sweep/2627",
-        method: "POST",
-        readOnly: false,
         traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
         isTimeout: true,
       });

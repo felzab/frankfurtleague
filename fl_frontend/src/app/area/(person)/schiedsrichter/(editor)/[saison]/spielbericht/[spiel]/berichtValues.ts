@@ -1,13 +1,15 @@
+import { creditedSide } from "@/features/spiele/result";
+
 import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } from "@/core/generated/client/types";
 
 /** The Sonderereignis' first entry, nothing beyond the match being played: a select's choice is a string. */
 export const NO_SONDEREREIGNIS = "none";
 
 /**
- * The player list's first entry on a goal, a scorer nobody can name, which the write takes as a null player; a row's
- * `null` is a player not yet chosen, which the write refuses.
+ * The player list's first entry on a goal and a card, a player nobody can name, which the write takes as a null player;
+ * a row's `null` is a player not yet chosen, which the form refuses.
  */
-export const UNKNOWN_SCORER = "unknown";
+export const UNKNOWN_PLAYER = "unknown";
 
 /** One goal as its row holds it: a new row's side and player are `null` until chosen, so no goal is credited by default. */
 export type Goal = { side: FLSpielSide | null; spieler_id: string | null; minute: string; eigentor: boolean };
@@ -43,13 +45,13 @@ export function valuesOf({ bericht, kader, sides_changed: changed }: Read): Beri
     shootOut2: elfmeterschiessen === null ? "" : String(elfmeterschiessen.team2),
     scorers: bericht.scorers.map(({ side, spieler_id: spielerId, minute, eigentor }) => ({
       side,
-      spieler_id: spielerId === null ? UNKNOWN_SCORER : departed(side, spielerId) ? null : spielerId,
+      spieler_id: spielerId === null ? UNKNOWN_PLAYER : departed(side, spielerId) ? null : spielerId,
       minute,
       eigentor,
     })),
     cards: bericht.cards.map(({ side, spieler_id: spielerId, minute, colour }) => ({
       side,
-      spieler_id: spielerId === null ? UNKNOWN_SCORER : departed(side, spielerId) ? null : spielerId,
+      spieler_id: spielerId === null ? UNKNOWN_PLAYER : departed(side, spielerId) ? null : spielerId,
       minute,
       colour,
     })),
@@ -57,19 +59,11 @@ export function valuesOf({ bericht, kader, sides_changed: changed }: Read): Beri
   };
 }
 
-/**
- * Each side's goals as the write counts them from the goals entered: an own goal is scored by its row's side and
- * counts for the other one, and a row whose side is not chosen counts for neither.
- */
+/** Each side's goals as the write counts them from the goals entered: a row whose side is not chosen counts for neither. */
 export function counted(scorers: ReadonlyArray<{ side: FLSpielSide | null; eigentor: boolean }>): { team1: number; team2: number } {
   const score = { team1: 0, team2: 0 };
   for (const { side, eigentor } of scorers) {
-    if (side === null) continue;
-    score[eigentor ? (side === "team1" ? "team2" : "team1") : side] += 1;
+    if (side !== null) score[creditedSide({ side, eigentor })] += 1;
   }
   return score;
 }
-
-/** Whether the Sonderereignis is a no-show, whose goals the league composes and which takes no goal of its own. */
-export const isNoShow = (sonderereignis: string | null): boolean =>
-  sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";

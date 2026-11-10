@@ -4,11 +4,10 @@ import { redirect } from "next/navigation";
 
 import { getAccountSession } from "@/core/auth/guards";
 import { withReturnAddress } from "@/core/auth/returnAddress";
-import { COPY } from "@/core/copy";
 import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
-import { targetsOf } from "@/features/roles/utils";
+import { placeOf, placesOf } from "@/features/roles/utils";
 
 import type { JudgedSession } from "@/core/auth/guards";
 import type { Copy } from "@/core/copy";
@@ -17,30 +16,13 @@ import type { RoleTarget } from "@/features/roles/utils";
 import type { Account } from "@/kit/FrameNav";
 import type { Route } from "next";
 
-/** One place a person's Funktionen open on, as „Funktion wechseln“ lists it: a team by its name, the rest by their area. */
+/**
+ * One place a person's Funktionen open on, as „Funktion wechseln“ lists it; a team's carries the account row's second
+ * line on every page of its season, which a team's frame cannot name itself.
+ */
 function entryOf(target: RoleTarget): NonNullable<Account["roles"]>[number] {
-  const [first] = target.roles;
-  // An address built from the person's own records, which no literal can spell.
-  const href = target.href as Route;
-  switch (first.kind) {
-    case "kontakt": {
-      // Every seat at one address shares its team and season, so the first names both.
-      const rollen = target.roles.flatMap((role) => (role.kind === "kontakt" ? [role.rolle] : []));
-      return {
-        href,
-        label: { record: first.team_name },
-        detail: COPY.account.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
-        // The account row's second line on every page of this team's season, which a team's frame cannot name itself.
-        role: COPY.area.team.accountLine({ record: first.team_shorthand }, rollen),
-      };
-    }
-    case "spieler":
-      return { href, label: COPY.shared.spieler };
-    case "schiedsrichter":
-      return { href, label: COPY.shared.schiedsrichter };
-    case "administration":
-      return { href, label: COPY.admin.role };
-  }
+  const { href, name, seats, teamLine } = placeOf(target);
+  return { href, label: name, ...(seats === undefined ? {} : { detail: seats }), ...(teamLine === undefined ? {} : { role: teamLine }) };
 }
 
 /**
@@ -55,7 +37,7 @@ export async function readAccount(role?: Copy): Promise<Account | null> {
   return {
     role,
     address: { record: subject.email },
-    roles: targetsOf(rolesOf(subject).roles).map(entryOf),
+    roles: placesOf(subject).map(entryOf),
   };
 }
 

@@ -22,9 +22,6 @@ export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path()
 /** A link that opens nothing, as the page opens on it and as a press ends on it: one message for every cause. */
 export const LINK_INVALID: EndState = linkInvalid(TO_HOME);
 
-/** The outcome replacing the form, a replayed press alike: what the pupil does next. */
-export const SUBMITTED: EndState = { tone: "info", title: WORDS.submitted, next: TO_HOME };
-
 /**
  * What the team's link opens, or `null` for a link that opens no live invite, a club that left the season or a token the
  * backend will not parse, a dead link either way. Any other failure reaches the frame's error card, which logs it.

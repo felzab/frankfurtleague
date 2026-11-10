@@ -14,8 +14,8 @@ describe("the chip on a pupil's match card", () => {
   });
 
   it.each([
-    [true, COPY.shared.startelf],
-    [false, COPY.shared.bank],
+    [true, COPY.area.spieler.lineupPlace.starts],
+    [false, COPY.area.spieler.lineupPlace.bench],
   ])("names the pupil's place where the line-up names them (starts %s), over an unconfirmed date", (starts, label) => {
     expect(spielChipOf({ ...CONFIRMED, starts, ansetzung_confirmed: false }, false)?.label).toBe(label);
   });

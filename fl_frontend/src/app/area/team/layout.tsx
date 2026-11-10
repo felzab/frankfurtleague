@@ -25,8 +25,11 @@ const RAIL_GROUPS: RailGroup[] = [
   },
 ];
 
-/** The phone bar holds all four, the account taking the fifth place. */
-const BAR = ["overview", "spiele", "kader", "registrierungen"] as const;
+/**
+ * The phone bar's pages, before „Mehr“, as the administration's bar holds three: a bar label is one short word, never
+ * wrapped or cut, which „Registrierungen“ is not at a phone's width, so it stands under „Mehr“ by its own name.
+ */
+const BAR = ["overview", "spiele", "kader"] as const;
 
 type Teams = Extract<FrameSaisons, { teams: unknown }>["teams"];
 

@@ -85,8 +85,6 @@ describe("a club's save", () => {
       statusCode: 409,
       serverErrorCode: "trikot_farbe_taken",
       endpoint: "/",
-      method: "PATCH",
-      readOnly: false,
       traceId: "0",
       refusedFields: [{ path: ["trikot_farbe"], kind: "trikot_farbe_taken", ctx: {}, in: "body" }],
     });

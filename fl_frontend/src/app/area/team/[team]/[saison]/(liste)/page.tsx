@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
 
@@ -7,6 +9,7 @@ import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
+import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -23,6 +26,7 @@ import type {
   FLTeamPanelTermin,
   FLTeamSeat,
 } from "@/core/generated/client/types";
+import type { TeamSeat } from "@/features/roles/resolvers";
 import type { CardActRowProps } from "@/kit/Card";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -44,13 +48,12 @@ const TITLES = {
 /** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamOverview.path(team, saison);
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
-}
+/** The page's one read, memoised for the render, so the tab's title and the page share it. */
+const overviewOf = cache((seat: TeamSeat) => getTeamOverview(seat.team_id, seat.saison_id));
 
-/** A fixture by its two clubs, as the administration's rows name it. */
-const nameOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Copy =>
-  COPY.page.spiel({ record: ansetzung.team1_name }, { record: ansetzung.team2_name });
+export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+  return teamMetadata(params, address, overviewOf, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
+}
 
 /** A stored day and hour as a match row writes them. */
 const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));
@@ -73,7 +76,11 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
   const { ansetzung } = row;
   const when = whenOf(ansetzung);
   const deadline = dayOf(row.deadline);
-  const base = { id: row.spielbestaetigung_id, href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id), name: nameOf(ansetzung) };
+  const base = {
+    id: row.spielbestaetigung_id,
+    href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
+    name: matchName(ansetzung.team1_name, ansetzung.team2_name),
+  };
   switch (row.state) {
     case "valid":
     case "vorschlag": {
@@ -102,7 +109,11 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
       };
     }
     case "expired":
-      return { ...base, line: line([when, venueOf(ansetzung), WORDS.answerOverdue(deadline), TEAM.leagueDecides]) };
+      return {
+        ...base,
+        chip: { tone: "danger", label: TEAM.aufstellung.overdue },
+        line: line([when, venueOf(ansetzung), WORDS.answerOverdue(deadline), TEAM.leagueDecides]),
+      };
     case "declined":
       return {
         ...base,
@@ -123,7 +134,7 @@ function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: strin
   return {
     id: row.spiel_id,
     href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
-    name: nameOf(row.ansetzung),
+    name: matchName(row.ansetzung.team1_name, row.ansetzung.team2_name),
     ...(row.marks.phase === "locked" ? { chip: { tone: "neutral" as const, label: TEAM.aufstellung.locked } } : {}),
     line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? TEAM.aufstellung.dueBy(due) : TEAM.aufstellung.overdueSince(due)]),
   };
@@ -169,7 +180,7 @@ function seatRow(seat: FLTeamSeat) {
 async function readOverview(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const { team_id: team, saison_id: saison } = seat;
-  const read = await readAsSeatHolder(() => getTeamOverview(team, saison));
+  const read = await readAsSeatHolder(() => overviewOf(seat));
   // The league's calendar day, which the backend judges a deadline and a proposal's day by.
   const today = dayIn(now());
   return {

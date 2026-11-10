@@ -17,10 +17,14 @@ import type {
 export type ConsentLine = ReadonlyArray<string | { readonly href: Route; readonly label: string }>;
 
 /** A consent given by one switch: the switch's own sentence, its whole label, and the line under it. */
-type SwitchWording = { readonly label: string; readonly line: ConsentLine };
+export type SwitchWording = { readonly label: string; readonly line: ConsentLine };
 
 /** A consent given by picking one of the scopes `scope` stores: the question, each option by the value it writes, and the line. */
-type ScopeWording = { readonly question: string; readonly options: Readonly<Record<FLEinwilligungScope, string>>; readonly line: ConsentLine };
+export type ScopeWording = {
+  readonly question: string;
+  readonly options: Readonly<Record<FLEinwilligungScope, string>>;
+  readonly line: ConsentLine;
+};
 
 const PRIVACY_NOTICE = ROUTES.privacyNotice.path();
 

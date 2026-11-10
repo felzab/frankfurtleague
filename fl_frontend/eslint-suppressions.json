@@ -1,22 +1,2 @@
 {
-  "src/core/mail.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/passkeyLastUse.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/core/teamVocabulary.ts": {
-    "no-restricted-syntax": {
-      "count": 24
-    }
-  },
-  "src/features/teams/constants.ts": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  }
 }

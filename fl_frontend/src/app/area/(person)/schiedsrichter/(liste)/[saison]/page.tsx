@@ -13,12 +13,13 @@ import {
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { getOwnSaisons } from "@/features/roles/queries";
-import { requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder } from "@/features/roles/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
+import { matchName } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
+import { isOwnSaison } from "../../../ownSaison";
 import { EinteilungActs } from "./EinteilungActs";
 
 import type { Words } from "@/core/copy";
@@ -37,24 +38,14 @@ const TITLE = COPY.page.spiele;
  * read for the tab's title and the page alike. A person holding no referee record is sent on before anything is read.
  */
 const spieleOf = cache(async (saison: string) => {
-  await requireRole("schiedsrichter", ROUTES.schiedsrichterOverview.path(saison));
-  // The frame's own read, memoised for the render.
-  const saisons = await getOwnSaisons("schiedsrichter");
-  if (saisons === null || !saisons.entries.some((entry) => entry.id === saison)) return null;
-  return getOwnSpiele(saison);
+  if (!(await isOwnSaison("schiedsrichter", saison))) return null;
+  return readAsRoleHolder("schiedsrichter", () => getOwnSpiele(saison));
 });
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
   return metadataFor(spieleOf(saison), () => pageMetadata(parent, ROUTES.schiedsrichterOverview, ROUTES.schiedsrichterOverview.path(saison)));
 }
-
-/** A game by its two clubs, a side the draw has not settled yet as such. */
-const nameOf = ({ team1_name: team1, team2_name: team2 }: FLSchiedsrichterSpiel) =>
-  COPY.page.spiel(
-    team1 === null ? COPY.spielplan.quelle.open : { record: team1 },
-    team2 === null ? COPY.spielplan.quelle.open : { record: team2 },
-  );
 
 /** What a row says of where the game stands for the referee: its chip, and what its line adds after the slot and ground. */
 type Standing = { chip?: ChipProps; adds?: Words; open?: true };
@@ -73,7 +64,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.state === "valid" && !spiel.past) {
     return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, open: true };
   }
-  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.admin.actionLog.action["spielbericht.saved"] } };
+  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.area.schiedsrichter.reported } };
   if (spiel.reportable) return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(SPIEL.spielbericht) } };
   if (spiel.state === "agreed") {
     return { chip: { tone: "success", label: SPIEL.zugesagt }, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
@@ -101,7 +92,7 @@ function ReasonField() {
 /** One game's row: it opens the game's match report, and a booking still to answer carries the two answers. */
 function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string } {
   const { chip, adds, open } = standingOf(spiel);
-  const name = nameOf(spiel);
+  const name = matchName(spiel.team1_name, spiel.team2_name);
   const id = spiel.spielbestaetigung_id;
   return {
     id: spiel.spiel_id,
@@ -139,7 +130,7 @@ async function readSpiele(params: Props["params"]) {
         title: TITLE,
         rows: read.spiele.map((spiel) => rowOf(spiel, saison)),
         count: false as const,
-        empty: { kind: "none" as const, plural: TITLE },
+        empty: { kind: "none" as const, plural: TITLE, glyph: "spielplan" as const },
       },
     ],
   };

@@ -78,10 +78,6 @@ export class APIBadStatusError extends Error {
   refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
-  // Redesign: these two fields, here and on `APINetworkError`, are read by no production module; they go with the
-  // `method` and `readOnly` every construction hands in, in `core/api.ts`, `core/mail.ts` and the tests.
-  method: string;
-  readOnly: boolean;
 
   constructor({
     message,
@@ -90,11 +86,9 @@ export class APIBadStatusError extends Error {
     serverErrorCode,
     refusedFields = [],
     endpoint,
-    method,
-    readOnly,
     traceId,
     originalError,
-  }: SentRequest & {
+  }: {
     message: string;
     url: string;
     statusCode: number;
@@ -116,8 +110,6 @@ export class APIBadStatusError extends Error {
     this.refusedFields = refusedFields;
     this.url = url;
     this.endpoint = endpoint;
-    this.method = method;
-    this.readOnly = readOnly;
   }
 }
 
@@ -199,33 +191,26 @@ export class APINetworkError extends Error {
   traceId: string;
   url: string;
   isTimeout: boolean;
-  // Redesign: these two fields go with `APIBadStatusError`'s.
-  method: string;
-  readOnly: boolean;
 
   constructor({
     message,
     url,
-    method,
-    readOnly,
     traceId,
     isTimeout,
     originalError,
-  }: SentRequest & {
+  }: {
     message: string;
     url: string;
     traceId: string;
     isTimeout: boolean;
     originalError?: unknown;
   }) {
-    const errorCause = originalError ? { originalError, traceId, isTimeout, url, method } : { traceId, isTimeout, url, method };
+    const errorCause = originalError ? { originalError, traceId, isTimeout, url } : { traceId, isTimeout, url };
     super(message, { cause: errorCause });
 
     this.name = "APINetworkError";
     this.traceId = traceId;
     this.url = url;
-    this.method = method;
-    this.readOnly = readOnly;
     this.isTimeout = isTimeout;
   }
 }

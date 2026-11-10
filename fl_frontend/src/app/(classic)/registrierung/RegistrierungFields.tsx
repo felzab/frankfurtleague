@@ -8,22 +8,13 @@ import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
 import { COPY } from "@/core/copy";
-import { FLSpielerPosition } from "@/core/generated/client/types";
+import { positionOptions, stufeOptions } from "@/features/spieler/options";
 
 import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
-import type { Option } from "@/kit/OptionList";
 
 const WORDS = COPY.registrierung;
 const SQUAD = COPY.admin.spieler;
-
-/** Each select's first entry: an empty box, which the write reads as no answer. */
-const NOT_PROVIDED: Option = { id: "", label: COPY.shared.notProvided };
-
-const POSITIONS: Option[] = [
-  NOT_PROVIDED,
-  ...Object.values(FLSpielerPosition).map((position) => ({ id: position, label: { record: position } })),
-];
 
 /** What the write asks of the three typed boxes, read on the server so its schema never reaches the browser. */
 export type RegistrierungRules = {
@@ -90,7 +81,7 @@ export function RegistrierungFields({
           maxLength={maxLength.email}
         />
         <TextField
-          label={SQUAD.nummer}
+          label={WORDS.nummer}
           name="nummer"
           width="C2"
           kind="digits"
@@ -100,14 +91,14 @@ export function RegistrierungFields({
           name="position"
           width="fit"
           defaultValue=""
-          options={POSITIONS}
+          options={positionOptions()}
         />
         <Select
           label={SQUAD.stufe}
           name="stufe"
           width="fit"
           defaultValue=""
-          options={[NOT_PROVIDED, ...stufen.map((stufe) => ({ id: stufe, label: { record: stufe } }))]}
+          options={stufeOptions(stufen)}
         />
       </Section>
       <ConsentLine
