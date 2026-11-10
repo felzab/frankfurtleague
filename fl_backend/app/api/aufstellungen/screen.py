@@ -225,7 +225,7 @@ def _compose(
         kader=[FLAufstellungSpieler.model_validate(row) for row in live],
         named=[outside(entry["spieler_id"]) for entry in entries if entry["spieler_id"] not in live_ids],
         spieler=[FLAufstellungEntry.model_validate(entry) for entry in entries],
-        erased=[FLAufstellungErased(starts=entry["starts"]) for entry in erased_entries(saved)],
+        erased=[FLAufstellungErased(starts=entry["starts"]) for entry in erased_entries(saved, spiel=spiel, now=now)],
         version=None if saved is None else saved[VERSION_FIELD],
         marks=aufstellung_marks(date=spiel.get("date"), time=spiel.get("time"), stored=saved is not None, now=now),
     )
@@ -278,9 +278,9 @@ async def save_aufstellung_screen(
         _judge_the_fixture(state, locks=seat is not None, now=now)
         saved = await aufstellungen_collection.find_one({"spiel_id": spiel_id, "team_id": team_id}, session=session)
         refuse(find_stale_first_save_refusal(saved, version=payload.version))
-        # Written after the payload's entries as stored: no form names an erased pupil, and the record keeps whom the
+        # Written after the payload's entries as stored: no form names an erased pupil, and a locked line-up keeps whom the
         # club fielded.
-        kept = [FLAufstellungEntry.model_validate(entry) for entry in erased_entries(saved)]
+        kept = [FLAufstellungEntry.model_validate(entry) for entry in erased_entries(saved, spiel=spiel, now=now)]
         new = newly_named(entries, saved)
         judge_the_names(entries=entries, kept=kept, new=new, kader=state.kader)
 

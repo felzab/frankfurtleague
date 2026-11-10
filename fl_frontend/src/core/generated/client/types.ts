@@ -1059,10 +1059,10 @@ export interface FLAufstellungEntryPublic {
 }
 
 /**
- * An entry of the stored line-up naming a pupil erased after the match kicked off, which the club fielded and nobody names.
+ * An entry of the locked line-up naming a pupil erased since it locked, which the club fielded and nobody names.
  *
- * Read-only and counted: no save names it, and every save keeps it as stored, since it is the record of whom the club
- * fielded.
+ * Read-only and counted: no save names it, and every save keeps it as stored while the line-up stays locked, since it
+ * is the record of whom the club fielded. A fixture re-dated ahead of its lock serves none, and its next save drops them.
  */
 export interface FLAufstellungErased {
   starts: boolean;

@@ -785,8 +785,8 @@ export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: strin
  * (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage
  * (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
  * save, and every refusal but `version_stale` is asked again outside the transaction just before answering. The
- * stored entries of pupils erased since the match kicked off, which the screen serves as `erased`, are written back
- * after the payload's as they stand.
+ * stored entries of pupils erased from the locked line-up, which the screen serves as `erased`, are written back after
+ * the payload's as they stand while the line-up is locked, and dropped once the fixture is re-dated ahead of its lock.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellung = async (
@@ -864,8 +864,8 @@ export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: s
  * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
  * `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
  * refused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils
- * erased since the match kicked off, which the screen serves as `erased`, are written back after the payload's as
- * they stand.
+ * erased from the line-up once it locked, which a seat meets only on a fixture re-dated ahead of its lock since, are
+ * dropped by the save, and the screen serves none of them.
  * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
  * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
  * @summary Save one club's line-up for one fixture as its seat holder
@@ -1530,7 +1530,8 @@ export const getIdentityPostAccountErasureUrl = () => {
  * person's day.
  *
  * Removed: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals
- * and cards and its line-up entries moving to the one row that holds no person; the referee record,
+ * and cards and its entries on line-ups locked before their match moving to the one row that holds no person, and its
+ * entries on line-ups not yet locked going; the referee record,
  * every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
  * confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
  * address's pending change naming this one as its new address, every record it would move standing at its own; every
@@ -1567,7 +1568,8 @@ export const getIdentityGetAccountErasureViewUrl = () => {
  * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
  * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
  * booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
- * the goals, cards and line-up entries of their pupil record, which move onto the ghost; every reason they typed
+ * the goals, cards and locked line-ups' entries of their pupil record, which move onto the ghost, and its entries on
+ * line-ups not yet locked, which go; every reason they typed
  * answering a match confirmation, from any
  * seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
  * marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which

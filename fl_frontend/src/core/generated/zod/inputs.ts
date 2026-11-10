@@ -333,8 +333,8 @@ export const AufstellungenGetAufstellungParams = zod.object({
  * (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage
  * (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
  * save, and every refusal but `version_stale` is asked again outside the transaction just before answering. The
- * stored entries of pupils erased since the match kicked off, which the screen serves as `erased`, are written back
- * after the payload's as they stand.
+ * stored entries of pupils erased from the locked line-up, which the screen serves as `erased`, are written back after
+ * the payload's as they stand while the line-up is locked, and dropped once the fixture is re-dated ahead of its lock.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -404,8 +404,8 @@ export const AufstellungenGetAufstellungSelfParams = zod.object({
  * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
  * `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
  * refused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils
- * erased since the match kicked off, which the screen serves as `erased`, are written back after the payload's as
- * they stand.
+ * erased from the line-up once it locked, which a seat meets only on a fixture re-dated ahead of its lock since, are
+ * dropped by the save, and the screen serves none of them.
  * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
  * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
  * @summary Save one club's line-up for one fixture as its seat holder
