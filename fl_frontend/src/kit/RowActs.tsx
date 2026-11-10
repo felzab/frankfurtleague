@@ -43,7 +43,7 @@ export function useFocusHome(held: RefObject<HTMLElement | null>) {
       // Read here, while the row still has its neighbours: the frame after, it has none.
       const row = node?.closest(ROW);
       const neighbours = [row?.nextElementSibling, row?.previousElementSibling].map((other) => other?.querySelector<HTMLElement>(PRESSABLE));
-      const homes = [node?.closest<HTMLElement>(HOME), document.querySelector("h1")];
+      const around = node?.closest<HTMLElement>(HOME);
       const land = () => {
         // A row the answer kept, such as a booking turned „Zugesagt“ whose acts left with the answer: its own first link,
         // so the keys stay on the record and its new state is heard there, rather than on the next record's.
@@ -53,7 +53,8 @@ export function useFocusHome(held: RefObject<HTMLElement | null>) {
           neighbour.focus({ preventScroll: true });
           return;
         }
-        const home = homes.find((candidate) => candidate?.isConnected === true);
+        // The page's title as it stands by then: a one-shot form's end takes the whole page's place, its title included.
+        const home = [around, document.querySelector<HTMLElement>("h1")].find((candidate) => candidate?.isConnected === true);
         if (home !== undefined && home !== null) takeFocus(home);
       };
       const settle = () => {
