@@ -756,7 +756,9 @@ const GHOST_SPIELER = {
   birth_date: null,
 };
 
-// Each pupil's consent, publishing the name and no media, under the labels above `REFEREES`.
+// Each pupil's consent, publishing the name and no media, under the labels above `REFEREES`. Sixteen and a half, so
+// sixteen on the day of a confirmation two months back too, which refuses a younger pupil
+// (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`), and under the media's eighteen.
 function pupil(firstName, lastName, consentedOn = CONSENTED) {
   const evidence = (choice) => ({ at: `${consentedOn}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
@@ -764,7 +766,7 @@ function pupil(firstName, lastName, consentedOn = CONSENTED) {
     first_name: firstName,
     last_name: lastName,
     email: `${firstName}.${lastName}@schule.example`.toLowerCase(),
-    birth_date: day(-16 * 365),
+    birth_date: day(-(16 * 365 + 183)),
     einwilligung: {
       scope: "kader_public",
       date: consentedOn,
