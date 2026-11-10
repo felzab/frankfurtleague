@@ -20,10 +20,10 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungConfirmationViewResponse,
 )
 from app.api.registrierungen.services import (
-    BESTAETIGUNG_ANSICHT_FIELDS,
-    BESTAETIGUNG_ANSWER_FIELDS,
+    CONFIRMATION_ANSWER_FIELDS,
+    CONFIRMATION_VIEW_FIELDS,
     REGISTRIERUNG_LINK,
-    build_bestaetigung_filter,
+    build_confirmation_filter,
     build_open_link_filter,
     compose_confirmation,
     compose_confirmation_update,
@@ -31,18 +31,18 @@ from app.api.registrierungen.services import (
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
-    find_fenster_refusal,
     find_kader_refusal,
-    find_medien_refusal,
+    find_media_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
     find_team_junction_refusal,
     find_unknown_token_refusal,
-    kader_free,
+    find_window_refusal,
     saison_takes_registrierungen,
-    zustand_of,
+    state_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
+from app.api.spieler.crud import find_full_squad_refusal
 from app.api.spieler.services import build_live_squad_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
@@ -178,7 +178,8 @@ async def post_invitation_view(
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=kader_free(nominee=nominee, squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0)),
+        kader_free=find_full_squad_refusal(squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0), nominee=nominee)
+        is None,
         nachnominierung=nominee,
     )
 
@@ -222,7 +223,7 @@ async def post_registrierung(
     the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
     """
 
-    schluessel = None if idempotency_key is None else str(idempotency_key)
+    key = None if idempotency_key is None else str(idempotency_key)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostRegistrierungResponse:
         """The replay, or every refusal in the flow's order and then the one write, in one transaction."""
@@ -230,11 +231,7 @@ async def post_registrierung(
         # Before every judgement: a replay answers what the first request did, even where the invite
         # has been revoked or the window has closed since.
         # The id alone: the registration its first press stored, whose mail that press owed.
-        stored = (
-            None
-            if schluessel is None
-            else await registrierungen_collection.find_one(build_key_filter(key=schluessel), ["_id"], session=session)
-        )
+        stored = None if key is None else await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
         if stored is not None:
             return FLPostRegistrierungResponse(registrierung_id=stored["_id"])
 
@@ -254,7 +251,7 @@ async def post_registrierung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session
         )
         rules = saison_raw.get("rules") or {}
-        refuse(find_fenster_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")))
+        refuse(find_window_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")))
 
         refuse(find_team_junction_refusal(entered=junction_raw is not None))
 
@@ -265,11 +262,12 @@ async def post_registrierung(
         )
         refuse(
             find_kader_refusal(
-                free=kader_free(
-                    nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today),
+                free=find_full_squad_refusal(
                     squad_size=squad_size,
                     max_kader_size=int(rules.get("max_kader_size") or 0),
+                    nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today),
                 )
+                is None
             )
         )
 
@@ -306,7 +304,7 @@ async def post_registrierung(
                     confirmation=compose_confirmation(today=today, deadline=deadline, mailed=mailed),
                     today=today,
                 ),
-                **({} if schluessel is None else {"idempotency_key": schluessel}),
+                **({} if key is None else {"idempotency_key": key}),
             },
             session=session,
         )
@@ -367,9 +365,7 @@ async def get_confirmation_view(
     token_hash = hash_token(view_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await registrierungen_collection.find_one(
-        build_bestaetigung_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANSICHT_FIELDS)
-    )
+    raw = await registrierungen_collection.find_one(build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
     refuse(find_unknown_token_refusal(found=raw is not None))
     assert raw is not None
 
@@ -381,7 +377,7 @@ async def get_confirmation_view(
     departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
 
     return FLRegistrierungConfirmationViewResponse(
-        state=zustand_of(registrierung_raw=raw, departed=departed, today=today),
+        state=state_of(registrierung_raw=raw, departed=departed, today=today),
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
@@ -423,7 +419,7 @@ async def post_confirmation(
         """
 
         raw = await registrierungen_collection.find_one(
-            build_bestaetigung_filter(token_hash=token_hash), projection=dict(BESTAETIGUNG_ANSWER_FIELDS), session=session
+            build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
         )
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
@@ -432,7 +428,7 @@ async def post_confirmation(
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         refuse(find_alter_refusal(birth_date=answer_data.birth_date, today=today))
-        refuse(find_medien_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
+        refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,

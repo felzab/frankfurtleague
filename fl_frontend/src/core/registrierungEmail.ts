@@ -6,7 +6,12 @@ import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
-import type { FLRegistrierungAbsageData, FLRegistrierungConfirmationDeadlineDays, FLRegistrierungLinkData } from "./generated/client/types";
+import type {
+  FLDeclinedRetentionDays,
+  FLRegistrierungAbsageData,
+  FLRegistrierungConfirmationDeadlineDays,
+  FLRegistrierungLinkData,
+} from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
 /**
@@ -15,6 +20,12 @@ import type { MailLink, MailOrigin } from "./mailKinds";
  * slice's, since `core` may not import a feature.
  */
 const DEADLINE_DAYS = 14 satisfies FLRegistrierungConfirmationDeadlineDays;
+
+/**
+ * The days a declined registration stands before the sweep deletes it, checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS` as `DEADLINE_DAYS` is.
+ */
+const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
 
 const WORDS = SERVER_COPY.mail.registrierung;
 
@@ -73,10 +84,7 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reas
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail(
-  { team, saison_id: saisonId, reason, deletion_days: deletionDays }: FLRegistrierungAbsageData,
-  { origin }: MailOrigin,
-): Mail {
+export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reason }: FLRegistrierungAbsageData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -86,7 +94,7 @@ export function buildRegistrierungAbsageEmail(
     paragraphs: [
       [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
       ABSAGE_WEITER[reason ?? "none"],
-      [WORDS.absage.deletion(deletionDays)],
+      [WORDS.absage.deletion(DECLINED_RETENTION_DAYS)],
     ],
     // The league's landing: no record is left to press on.
     button: { label: COPY.shared.end.toHome, href: site },

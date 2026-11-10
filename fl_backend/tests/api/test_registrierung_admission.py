@@ -50,7 +50,7 @@ from tests.worker import worker_database
 # Module level: every case below reaches a real mongod, each write being one transaction.
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_registrierung_aufnahme_test")
+DATABASE_NAME = worker_database("fl_registrierung_admission_test")
 WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
@@ -276,7 +276,7 @@ async def decline(
 ) -> Any:
     return await person_router.decline(
         registrierung_id=registrierung_id,
-        ablehnung_data=FLRegistrierungDeclinePayload(reason=reason),
+        decline_data=FLRegistrierungDeclinePayload(reason=reason),
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],

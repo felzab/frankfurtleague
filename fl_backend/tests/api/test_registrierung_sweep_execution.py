@@ -64,7 +64,7 @@ def einwilligung(*, confirmed_at: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
     return {**stored, "confirmed_at": confirmed_at}
 
 
-def bestaetigung(registrierung_id: ObjectId, *, deadline: str = "2026-04-05", **overrides: Any) -> dict[str, Any]:
+def confirmation(registrierung_id: ObjectId, *, deadline: str = "2026-04-05", **overrides: Any) -> dict[str, Any]:
     return {
         "token_hashes": [hash_token(f"first-{registrierung_id}")],
         "sent_at": MAILED_ON_THE_MARK,
@@ -91,7 +91,7 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
         "stufe": "Q1",
         "birth_date": None,
         "einwilligung": None,
-        "confirmation": bestaetigung(registrierung_id),
+        "confirmation": confirmation(registrierung_id),
         "decision": None,
         **overrides,
     }
@@ -102,16 +102,16 @@ def the_corpus() -> list[dict[str, Any]]:
 
     return [
         registrierung(WAITING_OID),
-        registrierung(EXPIRED_OID, confirmation=bestaetigung(EXPIRED_OID, deadline=YESTERDAY)),
+        registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY)),
         # Its deadline is today, which the link still answers: the pair pins the clock's own boundary.
-        registrierung(INSIDE_OID, confirmation=bestaetigung(INSIDE_OID, deadline=TODAY)),
+        registrierung(INSIDE_OID, confirmation=confirmation(INSIDE_OID, deadline=TODAY)),
         registrierung(CONFIRMED_OID, birth_date="2008-05-09", einwilligung=einwilligung()),
         registrierung(
             DECLINED_OID,
             status="declined",
             decision={"made_at": "2026-02-15", "reason": "kein Platz"},
         ),
-        registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=bestaetigung(OTHER_SEASON_OID, deadline=YESTERDAY)),
+        registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=confirmation(OTHER_SEASON_OID, deadline=YESTERDAY)),
     ]
 
 
@@ -265,7 +265,7 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
         ("clock", "overrides", "status", "counted"),
         [
             pytest.param(
-                "deadline", {"confirmation": bestaetigung(EXPIRED_OID, deadline=YESTERDAY)}, "active", "erased_unconfirmed", id="deadline"
+                "deadline", {"confirmation": confirmation(EXPIRED_OID, deadline=YESTERDAY)}, "active", "erased_unconfirmed", id="deadline"
             ),
             pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
             pytest.param(
@@ -340,7 +340,7 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
     try:
         database = a_clean_database_sync(client, url, database_name)
         database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-        database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, confirmation=bestaetigung(EXPIRED_OID, deadline=YESTERDAY)))
+        database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY)))
 
         async def _called() -> int:
             async with app_client(url, app=_served(), now=NOW) as http:
@@ -357,7 +357,7 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
 class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
-    def test_the_loeschung_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
+    def test_the_erasure_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
         status, rows = through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)
 
         assert status == 200
