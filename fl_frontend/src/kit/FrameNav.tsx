@@ -37,15 +37,33 @@ import type { IconName } from "./Icon";
 import type { MenuEntry, MenuLink } from "./Menu";
 
 /** A page every season holds once, by its route in the table: a route whose address takes the season alone. */
-export type SaisonPage = {
+type SaisonPage = {
   [K in keyof typeof ROUTES]: Parameters<(typeof ROUTES)[K]["path"]> extends [string] ? K : never;
 }[keyof typeof ROUTES];
 
 /**
- * One page a frame's menu leads to: its name, its glyph in the rail and in the phone bar, and its address, or
- * the season's page it is, whose address the frame fills in with the season the page works in.
+ * A page a team holds once in each of its seasons, by its route in the table: a route whose address takes the team
+ * and then the season, and is the team's Übersicht or lies under it. The address is part of the test: a season's page
+ * of one record, such as a club's public page, takes two segments as well, the season first.
  */
-type RailEntry = { id: string; label: Copy; icon: IconName } & ({ href: Route; saison?: never } | { saison: SaisonPage; href?: never });
+type TeamPage = {
+  [K in keyof typeof ROUTES]: Parameters<(typeof ROUTES)[K]["path"]> extends [string, string]
+    ? ReturnType<(typeof ROUTES)[K]["path"]> extends ReturnType<typeof ROUTES.teamOverview.path>
+      ? K
+      : never
+    : never;
+}[keyof typeof ROUTES];
+
+/**
+ * One page a frame's menu leads to: its name, its glyph in the rail and in the phone bar, and its address, or
+ * the season's page it is, whose address the frame fills in with the season the page works in, or the page of a
+ * team's season it is, whose address the frame fills in with that season and the team the address names.
+ */
+type RailEntry = { id: string; label: Copy; icon: IconName } & (
+  | { href: Route; saison?: never; team?: never }
+  | { saison: SaisonPage; href?: never; team?: never }
+  | { team: TeamPage; href?: never; saison?: never }
+);
 
 /** Entries the rail sets together under one heading; the first group of an area may stand without one. */
 export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
@@ -61,18 +79,39 @@ export type Saisons = {
  * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read
  * settles; `null` where the person has no season yet.
  */
-export type FrameSaisons = {
+type SaisonFrame = {
   saisons: Promise<Saisons | null>;
   /** The season's first page, where a switch from a page with no counterpart in the other season lands. */
   home: SaisonPage;
   /** Where a season's page is reached while there is no season at all. */
   withoutSaison?: Route;
+  teams?: never;
 };
 
-const SaisonContext = createContext<(FrameSaisons & { pages: readonly SaisonPage[] }) | null>(null);
+/**
+ * A team frame's seasons, handed down unawaited as a season frame's are: every team the person holds, by its id as the
+ * address spells it, each with the seasons the person holds it in. The layout reads the person and the address alone
+ * names the team, so the frame takes the seasons of the team the address names; at the address of a team the person
+ * does not hold it has no season and lists no team page.
+ */
+type TeamFrame = {
+  teams: Promise<ReadonlyArray<Saisons & { team: string }>>;
+  /** The team's first page in a season, where a switch from a page with no counterpart in the other season lands. */
+  home: TeamPage;
+  saisons?: never;
+  withoutSaison?: never;
+};
+
+/** The seasons a frame's season button offers and its season pages take: the person's own, or those of each team they hold. */
+export type FrameSaisons = SaisonFrame | TeamFrame;
+
+/** A frame's seasons with the season pages its menu lists. */
+type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
+
+const SaisonContext = createContext<SaisonScopeValue | null>(null);
 
 /** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
-export function SaisonScope({ value, children }: { value: FrameSaisons & { pages: readonly SaisonPage[] }; children: ReactNode }) {
+export function SaisonScope({ value, children }: { value: SaisonScopeValue; children: ReactNode }) {
   return <SaisonContext value={value}>{children}</SaisonContext>;
 }
 
@@ -84,19 +123,54 @@ export function useHoldsSaison() {
 /** A route's dynamic segments as Next fills them in from the address. */
 type Params = ReturnType<typeof useParams>;
 
-/** The season the page works in: the one its address names where the frame holds it, else the frame's standard; `null` where there is none. */
-export function useFrameSaison() {
+/** A season page's address in a season, the team the address names filled in where the page is a team's. */
+type SaisonAddress = (saison: string) => Route;
+
+/** The season a page works in, with the seasons to switch between and the frame's season pages by their addresses. */
+type FrameSaison = {
+  entries: Saisons["entries"];
+  active: string;
+  /** The team the address names, in a team's frame. */
+  team?: string;
+  home: SaisonAddress;
+  pages: ReadonlyArray<SaisonAddress>;
+};
+
+/**
+ * The season the page works in: the one its address names where the frame holds it, else the frame's standard, in a
+ * team's frame among the seasons of the team the address names; `null` where there is none.
+ */
+export function useFrameSaison(): FrameSaison | null {
   const frame = useContext(SaisonContext);
-  const { saison } = useParams();
-  const saisons = frame === null ? null : use(frame.saisons);
-  if (frame === null || saisons === null) return null;
-  return { ...frame, ...saisons, active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard };
+  const { saison, team } = useParams();
+  if (frame === null) return null;
+
+  if (frame.teams !== undefined) {
+    const held = use(frame.teams).find((each) => each.team === team);
+    if (held === undefined) return null;
+    return {
+      entries: held.entries,
+      active: held.entries.find((entry) => entry.id === saison)?.id ?? held.standard,
+      team: held.team,
+      home: (to) => ROUTES[frame.home].path(held.team, to),
+      pages: frame.pages.map((page) => (to) => ROUTES[page].path(held.team, to)),
+    };
+  }
+
+  const saisons = use(frame.saisons);
+  if (saisons === null) return null;
+  return {
+    entries: saisons.entries,
+    active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard,
+    home: (to) => ROUTES[frame.home].path(to),
+    pages: frame.pages.map((page) => (to) => ROUTES[page].path(to)),
+  };
 }
 
 /**
- * The same page in season `to`: the address with its season swapped. A record's page, an address naming a
- * record past the season, has no counterpart there and lands on the list it lies under, the season page the
- * rail marks for it; a page whose address names no season lands on the season's first page.
+ * The same page in season `to`: the address with its season swapped, so a team's page stays its team's. A record's
+ * page, an address naming a record past the season, has no counterpart there and lands on the list it lies under,
+ * the season page the rail marks for it; a page whose address names no season lands on the season's first page.
  */
 export function counterpart({
   path,
@@ -108,17 +182,17 @@ export function counterpart({
   path: string;
   params: Params;
   to: string;
-  home: SaisonPage;
-  pages: readonly SaisonPage[];
+  home: SaisonAddress;
+  pages: ReadonlyArray<SaisonAddress>;
 }): Route {
   const from = params.saison;
   const segments = path.split("/");
   const at = typeof from === "string" ? segments.indexOf(from) : -1;
-  if (typeof from !== "string" || at === -1) return ROUTES[home].path(to);
+  if (typeof from !== "string" || at === -1) return home(to);
 
   const records = Object.entries(params).flatMap(([name, value]) => (name === "saison" || value === undefined ? [] : [value].flat()));
   if (segments.slice(at + 1).some((segment) => records.includes(segment))) {
-    const lists = pages.map((page) => ({ page, href: ROUTES[page].path(from) }));
+    const lists = pages.map((page) => ({ page, href: page(from) }));
     const list = lists.find(
       (each) =>
         each.href ===
@@ -127,7 +201,7 @@ export function counterpart({
           lists.map((one) => one.href),
         ),
     );
-    return ROUTES[list?.page ?? home].path(to);
+    return (list?.page ?? home)(to);
   }
 
   segments[at] = to;
@@ -136,14 +210,16 @@ export function counterpart({
 }
 
 /**
- * The entries with their addresses, a season's page in the season the page works in; one with no address is left out.
- * With no season at all a season's page leads to `withoutSaison`, an address that is not its own (`own`).
+ * The entries with their addresses, a season's page in the season the page works in and a team's with the team the
+ * address names; one with no address is left out. With no season at all a season's page leads to `withoutSaison`, an
+ * address that is not its own (`own`).
  */
 function useEntries(groups: ReadonlyArray<RailGroup>) {
   const frame = useContext(SaisonContext);
   const saison = useFrameSaison();
   const hrefOf = (entry: RailEntry): Route | undefined => {
-    if (entry.saison === undefined) return entry.href;
+    if (entry.href !== undefined) return entry.href;
+    if (entry.team !== undefined) return saison?.team === undefined ? undefined : ROUTES[entry.team].path(saison.team, saison.active);
     return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
   return groups
@@ -162,16 +238,31 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 export type Account = {
   /** The person's name; an administrator's grant stores none, so the row names the address instead. */
   name?: RecordText;
-  /** The role the area is for, the row's second line. */
+  /** The role the area is for, the row's second line on a page whose place gives none of its own. */
   role: Copy;
   /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
-   * Every Funktion the person holds, by the page each opens on, the one this area serves marked current; two or more
-   * open „Funktion wechseln“, one being no choice to offer.
+   * Every Funktion the person holds, by the page each opens on; two or more open „Funktion wechseln“, one being no
+   * choice to offer. The menu marks the one the page lies under, so a reader of the person marks none. A place's own
+   * `role` is the row's second line on every page under it, as a team's short code and the seats held there: the
+   * area's line cannot name the team, which the address alone knows.
    */
-  roles?: ReadonlyArray<MenuLink>;
+  roles?: ReadonlyArray<Omit<MenuLink, "isCurrent"> & { role?: Copy }>;
 };
+
+/**
+ * The place of the person's the page at `path` lies under, read from the address: a team's layout stands above the
+ * team and the season of its address, so it names neither.
+ */
+function placeAt(account: Account, path: string) {
+  const places = account.roles ?? [];
+  const href = currentOf(
+    path,
+    places.map((place) => place.href),
+  );
+  return places.find((place) => place.href === href);
+}
 
 /**
  * Ends the session and leaves the document whole, as Next's guide advises for a sign-out: a soft navigation
@@ -218,7 +309,7 @@ export function ThemeChoicePlaceholder() {
 
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
- * more Funktionen, its submenu marking the one this area serves; Konto and Abmelden; Impressum and Datenschutz; and at
+ * more Funktionen, its submenu marking the one the page lies under; Konto and Abmelden; Impressum and Datenschutz; and at
  * its foot the theme as one row, „Darstellung“ with the three glyphs. It heads with the person's whole address, under
  * their name where one is stored, for every role alike: the row is one line, which cuts a long address, so the menu is
  * where it is read in full. `accountPage` is the Konto page the menu opens: the phone's list of its pages, or on desktop
@@ -235,7 +326,8 @@ function AccountMenu({
   trigger: ReactElement;
   beside?: boolean;
 }) {
-  const roles = account.roles ?? [];
+  const here = placeAt(account, usePathname());
+  const roles = (account.roles ?? []).map((place) => ({ ...place, isCurrent: place.href === here?.href }));
   const switchRole: ReadonlyArray<ReadonlyArray<MenuEntry>> =
     roles.length < 2 ? [] : [[{ kind: "submenu", label: COPY.shared.switchRole, links: roles }]];
   return (
@@ -416,7 +508,8 @@ const avatar = tv({
 export type AccountRead = Promise<Account | null>;
 
 /**
- * The rail's foot when signed in: the avatar, the name and the role under it. The whole row is the one button opening
+ * The rail's foot when signed in: the avatar, the name and the role under it, the role of the place the page lies
+ * under where that place gives its own, else the area's. The whole row is the one button opening
  * the account menu, filled under the pointer as the season button over it is, so it carries no „…“ of its own, which
  * would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar alone stands centred, 8
  * px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu then opens beside the
@@ -424,9 +517,11 @@ export type AccountRead = Promise<Account | null>;
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
+  const path = usePathname();
   const account = use(read);
   if (account === null) return null;
   const { record: name } = account.name ?? account.address;
+  const role = placeAt(account, path)?.role ?? account.role;
   return (
     <AccountMenu
       account={account}
@@ -443,7 +538,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             <span className="truncate font-semibold text-fg">{name}</span>
-            <span className="truncate text-xs text-fg-muted">{account.role}</span>
+            <span className="truncate text-xs text-fg-muted">{role}</span>
           </span>
         </AriaButton>
       }
