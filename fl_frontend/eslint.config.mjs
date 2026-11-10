@@ -765,10 +765,6 @@ const PALETTE =
 const COLOURED =
   "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
-/** The old toaster's keyframes, which nothing new draws. */
-// Session 8: goes with the toaster, with the ban that reads it.
-const OLD_KEYFRAMES = "toast-timer";
-
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
   // row has nothing to be composed from.
@@ -1049,14 +1045,12 @@ const DESIGN_BANS = [
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
   classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
 
-  // Motion: the token pair inside the kit, and nothing new from the old keyframes.
+  // Motion: the token pair inside the kit.
   classBan(
     CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
     "Motion is the kit's, from the token pair under reduced motion.",
     OUTSIDE_KIT,
   ),
-  // Session 8: the old keyframes' ban goes with the toaster, the last to draw one.
-  classBan(String.raw`^.*(?:${OLD_KEYFRAMES}).*$`, "The old keyframes go with the toaster: nothing new uses them.", PRODUCTION),
 
   // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
   // The required mark is a glyph, not a word.

@@ -10,8 +10,6 @@ import { ThemeProvider } from "next-themes";
 // `RouterProvider`.
 import { I18nProvider, RouterProvider } from "@heroui/react/rac";
 
-import { AppToaster } from "./AppToaster";
-
 // React Aria's documented typing of a link's `routerOptions`: Next's own navigation options, and
 // `replace` for a step the browser's Back should skip, such as a season switch.
 declare module "react-aria-components" {
@@ -43,8 +41,6 @@ export function RootProviders({ children }: AppProvidersProps) {
           enableSystem={true}
           defaultTheme="system"
           disableTransitionOnChange>
-          {/* Redesign: goes with the last importer of `shared/utils/appToast`. */}
-          <AppToaster />
           {children}
         </ThemeProvider>
       </I18nProvider>

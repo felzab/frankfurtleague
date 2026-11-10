@@ -44,7 +44,6 @@
 /* Feedback */
 @import "@heroui/styles/components/skeleton.css" layer(components);
 @import "@heroui/styles/components/spinner.css" layer(components);
-@import "@heroui/styles/components/toast.css" layer(components);
 
 /* Forms */
 @import "@heroui/styles/components/input.css" layer(components);
@@ -260,12 +259,6 @@
 @utility fluid-4xl {
   font-size: var(--fl-type-4xl);
   line-height: var(--fl-type-4xl--leading);
-}
-
-/* NEVER name a muted-text recipe `text-*` — tailwind-merge reads that prefix as a colour and drops the
-   whole recipe when one is combined with it, where the spelled-out form loses only the colour. */
-@utility muted-meta {
-  @apply fluid-xs font-medium text-foreground-muted;
 }
 
 /* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
@@ -576,8 +569,7 @@ input:focus:placeholder-shown::placeholder {
   padding-block: 0;
 }
 
-/* No scale in the arrival language, vendored ones included; the toast's own
-   `--toast-scale` is `AppToaster`'s. Unlayered on `*`: inside a layer specificity loses, and
+/* No scale in the arrival language, vendored ones included. Unlayered on `*`: inside a layer specificity loses, and
    tw-animate-css declares both properties `inherits: false`, so they land on the animating element. */
 *,
 *::before,
@@ -635,9 +627,6 @@ input:focus:placeholder-shown::placeholder {
   .skeleton--shimmer::before {
     animation: none !important;
   }
-
-  /* `.toast__timer` is not stopped here: it is a timer readout, and a 3px bar shortening is no
-     slide or loop. */
 }
 
 @layer components {
@@ -647,63 +636,6 @@ input:focus:placeholder-shown::placeholder {
      declared after it, so source order settles it without `!`. */
   .skeleton--shimmer::after {
     background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-sweep) 50%, transparent 100%);
-  }
-
-  /* Redesign: the toast's rules go with the last importer of `shared/utils/appToast`, with `AppToaster`. */
-  /* THE TOAST, deliberately small: `AppToaster` supplies the children render
-     function, so everything with an element to hang a class on is ordinary TSX. */
-  /* Opaque, and deliberately NOT `backdrop-blur`: the timer bar changes every frame
-     for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
-     per frame and made a 3px bar drain in visible steps. */
-  .toast {
-    @apply rounded-xl border border-border bg-surface p-3.5 shadow-lg;
-    /* Never `overflow-hidden`: it clips HeroUI's `::after` hit area over the gap between expanded
-       toasts, and the stack collapses under a pointer crossing it. `AppToaster` clips the timer bar. */
-    @apply items-start gap-2 whitespace-normal;
-  }
-
-  /* Severity is the border and the timer bar, so on a settled toast the border carries it alone —
-     hence `/60` rather than a lighter tint. The bar's colour is `AppToaster`'s `toastCard`. */
-  .toast--accent {
-    @apply border-info/60;
-  }
-
-  .toast--success {
-    @apply border-success/60;
-  }
-
-  .toast--warning {
-    @apply border-warning/60;
-  }
-
-  .toast--danger {
-    @apply border-danger/60;
-  }
-
-  /* THE DISMISS CONTROL — a WCAG 2.2.1 fix. HeroUI restores its opacity and
-     pointer events only under `:hover`, and a touch screen has none, so a timed
-     message could only be waited out. */
-  /* Frontmost and not closing. HeroUI reveals a stacked toast's control under the pointer expanding
-     the stack, and hides a closing toast's by a rule this one would outrank by source order.
-     Vendored: `@heroui/styles` `toast.css`, both attributes included. */
-  .toast[data-frontmost="true"]:not([data-exiting="true"]) .toast__close-button {
-    @apply pointer-events-auto opacity-100;
-  }
-
-  /* `animation-duration` is set inline from the toast's own `timeout`. HeroUI pauses
-     that timer while the stack is hovered or focused, which the selectors below
-     follow, and while the page is hidden, which `AppToaster` follows. */
-  .toast__timer {
-    animation: toast-timer linear forwards;
-    /* Named on `transform` rather than left as `auto` because this element animates for its whole
-       life — the case the hint exists for. */
-    will-change: transform;
-  }
-
-  .toast-region:hover .toast__timer,
-  .toast-region:focus-within .toast__timer,
-  .toast:hover .toast__timer {
-    animation-play-state: paused;
   }
 }
 
@@ -841,16 +773,5 @@ input:focus:placeholder-shown::placeholder {
     .calendar-year-picker__year-cell[aria-selected="true"]:is(:hover, [data-hovered="true"]) {
       @apply bg-brand-solid-hover;
     }
-  }
-}
-
-/* The toast timer bar draining. `transform` rather than `width`, so it runs on the
-   compositor and cannot reflow the toast mid-message. */
-@keyframes toast-timer {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
   }
 }

@@ -241,10 +241,8 @@ export const COPY = catalogue({
      * link went too, the same words for the same event.
      */
     toast: {
-      // Redesign: `copied` and `signedOut` are read once copying and signing out each toast through the kit.
       copied: "Kopiert",
       linkSent: "Link gesendet",
-      signedOut: "Abgemeldet",
       /** Every other device's session ended, this one's kept. */
       othersSignedOut: "Alle abgemeldet",
       /** A row leaving its list with its act done: a fixture's date agreed, in its chip's word, and a registration admitted. */

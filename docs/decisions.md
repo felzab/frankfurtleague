@@ -43,8 +43,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **forms** — Confirm a clean save; raise the dialog on `info`
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
 - **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
-- **toast** — Add a new `.toast*` rule to a stylesheet rather than building the appearance in
-  `AppToaster`; call `toast` at a call site rather than `appToast`
 - **css** — Leave a vendored overlay's zoom in place; write the app's scale override inside a
   `@layer`
 - **motion** — Stop a loading indicator under reduced motion; freeze an ornament that rests visible
