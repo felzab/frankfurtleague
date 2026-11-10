@@ -22,6 +22,7 @@ import { RailPage } from "./RailFrame";
 import { RowActs } from "./RowActs";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
+import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
@@ -101,6 +102,9 @@ type TreeContent = {
   empty: EmptyStateProps;
 };
 
+/** One club's matches, each under its matchday's head, and why there are none. */
+type SpielGroupsContent = { groups: ReadonlyArray<ComponentProps<typeof SpielGroup>>; empty: EmptyStateProps };
+
 /** Matches the filters left, each with the words the search narrows them by, and why there are none. */
 type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>; empty: EmptyStateProps };
 
@@ -174,6 +178,12 @@ type ListContent =
       /** How many match cards its wait draws. */
       wait: number;
       content: Promise<SpieleContent>;
+    }
+  | {
+      kind: "spielGroups";
+      /** How many match cards its wait draws. */
+      wait: number;
+      content: Promise<SpielGroupsContent>;
     }
   | {
       kind: "tiles";
@@ -266,6 +276,18 @@ function ListPlaceholder({ list }: { list: ListContent }) {
           layout="cards"
         />
       );
+    case "spielGroups":
+      return (
+        <SpielCards>
+          {Array.from({ length: list.wait }, (_, index) => (
+            <div
+              key={index}
+              className={SPIEL_CARD_CLASSES}>
+              <SpielGroupPlaceholder />
+            </div>
+          ))}
+        </SpielCards>
+      );
     case "tiles":
       return <SchoolTilesPlaceholder count={list.wait} />;
   }
@@ -291,6 +313,16 @@ function EmptyBox({ empty }: { empty: EmptyStateProps }) {
       <EmptyState {...empty} />
     </div>
   );
+}
+
+/**
+ * A club's matches one under another at every width, each in its own box under its matchday's head: the box its own
+ * container, so its row takes the one line where the content is wide enough and the card a phone shows below it.
+ */
+const SPIEL_CARD_CLASSES = cardSurface({ class: "@container overflow-hidden" });
+
+function SpielCards({ children }: { children: ReactNode }) {
+  return <div className="grid gap-3">{children}</div>;
 }
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
@@ -557,6 +589,22 @@ async function ListBody({ list }: { list: ListContent }) {
         />
       );
     }
+    case "spielGroups": {
+      const { groups, empty } = await list.content;
+      return groups.length === 0 ? (
+        <EmptyBox empty={empty} />
+      ) : (
+        <SpielCards>
+          {groups.map((group) => (
+            <div
+              key={group.spiel.id}
+              className={SPIEL_CARD_CLASSES}>
+              <SpielGroup {...group} />
+            </div>
+          ))}
+        </SpielCards>
+      );
+    }
     case "tiles": {
       const { tiles, empty } = await list.content;
       return (
@@ -579,7 +627,8 @@ async function ListBody({ list }: { list: ListContent }) {
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
  * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own under the team's head and
  * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
- * filters left, which the search narrows, as the Spielsuche lists them; or the
+ * filters left, which the search narrows, as the Spielsuche lists them; or one club's matches, each in its own box
+ * under its matchday's head, as a team's Spiele lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *

@@ -360,6 +360,57 @@ describe("a page of one card holding a list", () => {
   });
 });
 
+describe("one club's matches under their matchdays", () => {
+  type Groups = Extract<ComponentProps<typeof ListPage>["list"], { kind: "spielGroups" }>;
+  const HEADS = [COPY.shared.spieltag(1), COPY.shared.spieltag(2)] as const;
+
+  /** The page as a browser holds it while its read runs, and once the read has landed. */
+  async function drawn(wait: number, content: Awaited<Groups["content"]>) {
+    const page = (read: Groups["content"]) => (
+      <ListPage
+        head={{ scope: "area", title: { route: "teamSpiele" } }}
+        list={{ kind: "spielGroups", wait, content: read }}
+      />
+    );
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+    const { prelude } = await prerender(page(Promise.resolve(content)), { progressiveChunkSize: Number.MAX_SAFE_INTEGER });
+    const landed = document.createElement("div");
+    landed.innerHTML = await new Response(prelude).text();
+    return { waiting, landed };
+  }
+
+  const group = (index: 0 | 1) => ({
+    head: HEADS[index],
+    spiel: {
+      id: String(index),
+      href: "/" as const,
+      when: COPY.spielplan.when(null, null),
+      team1: { name: { record: "Ahorn" }, plaque: { record: "AHO" } },
+      team2: { name: { record: "Eiche" }, plaque: { record: "EIC" } },
+    },
+  });
+  const EMPTY = { kind: "none", plural: COPY.page.spiele } as const;
+
+  // The harm: a matchday set into the row's date line, or a head standing apart from its match, reads as the owner
+  // ruled against; and a wait of another count of boxes moves the page as the matches land.
+  it("sets each match in its own box under its matchday's head, and waits in as many boxes", async () => {
+    const { waiting, landed } = await drawn(2, { groups: [group(0), group(1)], empty: EMPTY });
+
+    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-3")?.children ?? [])];
+    expect(boxes(landed).map((box) => box.querySelector("h3")?.textContent)).toStrictEqual(HEADS);
+    expect(boxes(landed).map((box) => box.querySelectorAll("a").length)).toStrictEqual([1, 1]);
+    expect(boxes(waiting.querySelector("[aria-busy]") ?? waiting)).toHaveLength(2);
+  });
+
+  // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.
+  it("gives way to the list's own empty state", async () => {
+    const { landed } = await drawn(2, { groups: [], empty: EMPTY });
+
+    expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(COPY.page.spiele));
+  });
+});
+
 describe("the list template's wait", () => {
   // Under `prefers-reduced-motion: reduce` the motion tokens are unset, and a declaration reading one is
   // invalid whole: were it the `animation` shorthand, the name would fall to `none` and the skeleton, at its
