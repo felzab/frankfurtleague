@@ -15,6 +15,7 @@ from app.api.identity.services import is_own_registrierung
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungAbsageData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (
+    kader_rows_of,
     nummern_rows,
     persons_at,
     pull_offene_registrierung,
@@ -29,6 +30,7 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungDeclineResponse,
 )
 from app.api.registrierungen.services import (
+    admits_a_nominee,
     compose_ablehnung_update,
     compose_kader_fields,
     compose_person,
@@ -41,8 +43,9 @@ from app.api.registrierungen.services import (
     person_weicht_ab,
     registrierung_is_confirmed,
 )
-from app.api.saisons.services import entry_is_a_nominee
-from app.api.spieler.crud import refuse_a_full_squad
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.crud import find_full_squad_refusal, refuse_a_full_squad
+from app.api.spieler.services import build_live_squad_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -59,6 +62,7 @@ from app.core.dependencies import (
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     SpielerCollection,
     get_german_date_str,
@@ -90,6 +94,7 @@ async def get_open_registrierungen(
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
+    saisons_collection: SaisonsReadCollection,
     spieler_collection: SpielerCollection,
     records: SubjectLookup,
     db: DBClient,
@@ -97,6 +102,7 @@ async def get_open_registrierungen(
     """
     Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
 
+    Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
     A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
     differs. An unconfirmed row names nobody: its address is unproven.
     No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
@@ -124,9 +130,35 @@ async def get_open_registrierungen(
             await nummern_rows(saison_spieler_collection=saison_spieler_collection, saison_id=saison_id, team_id=team_id, session=session)
         )
 
+        # What the admission judges the cap by, read as it reads them: the season's rules and window, the squad's count,
+        # and each resolved person's row of the season for a stored Nachnominierung mark.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
+        )
+        max_kader_size = FLSaisonRules.model_validate(saison_raw["rules"]).max_kader_size
+        # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
+        # a squad before it reaches the cap.
+        squad_size = await saison_spieler_collection.count_documents(
+            build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None), session=session
+        )
+        kader_by_person = {
+            kader["spieler_id"]: kader
+            for kader in await kader_rows_of(
+                saison_spieler_collection=saison_spieler_collection,
+                saison_id=saison_id,
+                spieler_ids=[person["_id"] for person in persons],
+                session=session,
+            )
+        }
+
         def as_served(row: Mapping[str, Any]) -> FLOpenRegistrierung:
             aufnehmbar = registrierung_is_confirmed(einwilligung=row.get("einwilligung"))
             person = by_address.get(sign_in_identifier(str(row["email"]))) if aufnehmbar else None
+            nominee = admits_a_nominee(
+                kader_raw=None if person is None else kader_by_person.get(person["_id"]),
+                registrierung=saison_raw.get("registrierung"),
+                submitted_at=row["submitted_at"],
+            )
 
             return FLOpenRegistrierung.model_validate(
                 {
@@ -138,6 +170,7 @@ async def get_open_registrierungen(
                     "position": row.get("position"),
                     "stufe": row.get("stufe"),
                     "admissible": aufnehmbar,
+                    "kader_full": find_full_squad_refusal(squad_size=squad_size, max_kader_size=max_kader_size, nominee=nominee) is not None,
                     "nummer_double": row.get("nummer") in worn,
                     "person": None
                     if person is None
@@ -230,9 +263,8 @@ async def admit(
         )
         refuse(find_schon_im_kader_refusal(kader_raw=kader_raw))
 
-        # The stored mark first: it is never lifted within its season, whatever the window has moved to since.
-        nominee = (kader_raw is not None and kader_raw["is_nachnominiert"]) or entry_is_a_nominee(
-            registrierung=saison_raw.get("registrierung"), day=registrierung_raw["submitted_at"]
+        nominee = admits_a_nominee(
+            kader_raw=kader_raw, registrierung=saison_raw.get("registrierung"), submitted_at=registrierung_raw["submitted_at"]
         )
 
         await refuse_a_full_squad(

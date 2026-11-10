@@ -3085,6 +3085,7 @@ export interface FLOpenRegistrierung {
   admissible: boolean;
   /** @minLength 1 */
   first_name: string;
+  kader_full: boolean;
   /** @minLength 1 */
   last_name: string;
   nummer: string | null;
