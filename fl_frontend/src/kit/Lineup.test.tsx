@@ -300,15 +300,16 @@ describe("a line-up in its editor", () => {
     const line = () => bar.querySelector("p")?.textContent;
     expect(line()).toBe(COPY.shared.field.max(2));
 
-    // Four named, one taken out, one no longer starting.
+    // Four named, the starter taken out, the other one starting.
     for (const nummer of [4, 1, 3, 2]) await pick(nummer);
-    await userEvent.click(crossOf(8));
-    await userEvent.click(tickOf(7));
+    await userEvent.click(crossOf(7));
+    await userEvent.click(tickOf(8));
     expect(line()).toBe(`${COPY.shared.field.max(5)}${COPY.template.changesPending(6)}`);
 
-    // Back in another order than they came.
-    await pick(8);
+    // Back, the stored pair now named in the other order than it was stored in.
+    await pick(7);
     await userEvent.click(tickOf(7));
+    await userEvent.click(tickOf(8));
     for (const nummer of [1, 2, 3, 4]) await userEvent.click(crossOf(nummer));
     expect(line()).toBe(COPY.shared.field.max(2));
   });
