@@ -60,7 +60,7 @@ async def get_registrierungen_admin(
             collection=registrierungen_collection,
             db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},
             limit=filters.limit + 1,
-            sort_by=build_registrierungen_sort(order="desc"),
+            sort_by=build_registrierungen_sort(),
             # An inclusion: no address, birthdate or token crosses the wire for a list showing none.
             projection=list(REGISTRIERUNG_LIST_FIELDS),
         ),

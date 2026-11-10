@@ -153,9 +153,7 @@ ERASURE_REASON_MAX_LENGTH: Final = 200
 type FLBanDurationSaisons = Literal[5]
 BAN_DURATION_SAISONS: Final[FLBanDurationSaisons] = 5
 
-# How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
-# days, which is the window a mistyped address is caught in: this link waits on an adult with no
-# second route in.
+# How long a referee has to confirm; a re-send restarts it.
 type FLSchiedsrichterConfirmationDeadlineDays = Literal[14]
 SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS: Final[FLSchiedsrichterConfirmationDeadlineDays] = 14
 
@@ -219,14 +217,10 @@ SPIELBERICHT_ENTRIES_MAX: Final = 60
 # other.
 SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
 
-# How long a pupil has to confirm their own registration. Seven rather than the application's
-# fourteen because it carries a second job: the window inside which a mistyped address is discovered
-# and the person registers again.
-REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final = 7
-
-# The age at which one registration link is due its single reminder, counted from the mint and set
-# well inside `REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`, so a pupil reminded still has days to answer.
-REGISTRIERUNG_REMINDER_DAYS: Final = 3
+# How long a pupil has to confirm their own registration; a row stores the deadline it was given, so raising this
+# moves no link already mailed. Published, since the confirmation mail states the figure.
+type FLRegistrierungConfirmationDeadlineDays = Literal[14]
+REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLRegistrierungConfirmationDeadlineDays] = 14
 
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
@@ -248,6 +242,7 @@ CONSENT_BOUNDS: Final = (
     FLBewerbungKontaktMinAgeYears,
     FLSignatoryMinAgeYears,
     FLSchiedsrichterConfirmationDeadlineDays,
+    FLRegistrierungConfirmationDeadlineDays,
     FLRegistrierungMinAgeYears,
     FLMediaMinAgeYears,
 )

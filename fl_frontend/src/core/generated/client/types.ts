@@ -70,7 +70,6 @@ export const Code = {
   bewerbung_kontakt_phone_taken: "bewerbung_kontakt_phone_taken",
   bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
   trikot_farbe_taken: "trikot_farbe_taken",
-  bewerbung_key_differing: "bewerbung_key_differing",
   booking_unknown_resource: "booking_unknown_resource",
   booking_unconfirmed_schiedsrichter: "booking_unconfirmed_schiedsrichter",
   spiel_double_booked: "spiel_double_booked",
@@ -114,13 +113,9 @@ export const Code = {
   registrierung_stufe_not_allowed: "registrierung_stufe_not_allowed",
   confirmation_exists: "confirmation_exists",
   registrierung_kader_full: "registrierung_kader_full",
-  registrierung_key_differing: "registrierung_key_differing",
   registrierung_unconfirmed: "registrierung_unconfirmed",
   registrierung_person_not_named: "registrierung_person_not_named",
   registrierung_already_in_kader: "registrierung_already_in_kader",
-  registrierung_already_admitted: "registrierung_already_admitted",
-  registrierung_choices_unsuitable: "registrierung_choices_unsuitable",
-  registrierung_person_missing: "registrierung_person_missing",
   replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
@@ -405,11 +400,11 @@ export interface FLAccountRegistrierungEinwilligung {
   evidence_state: FLEinwilligungState;
   first_name: string;
   last_name: string;
-  media: boolean | null;
+  media: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   saison_id: string;
-  scope: FLEinwilligungScope | null;
+  scope: FLEinwilligungScope;
   team_name: string | null;
 }
 
@@ -2993,10 +2988,9 @@ export interface FLOpenRegistrierung {
 }
 
 /**
- * One team's pending registrations for one season, and whether that is the whole of them.
+ * One team's pending registrations for one season, newest first.
  */
 export interface FLOpenRegistrierungenResponse {
-  complete: boolean;
   registrierungen: FLOpenRegistrierung[];
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3154,20 +3148,14 @@ export interface FLSpielVorschlagDiscardedData {
   kind: "spiel_vorschlag_discarded";
 }
 
-export type FLRegistrierungLinkDataKind = (typeof FLRegistrierungLinkDataKind)[keyof typeof FLRegistrierungLinkDataKind];
-
-export const FLRegistrierungLinkDataKind = {
-  registrierung_confirmation: "registrierung_confirmation",
-  registrierung_reminder: "registrierung_reminder",
-} as const;
-
 /**
- * A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.
+ * A pupil's confirmation link.
+ *
+ * The window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::
+ * FLRegistrierungConfirmationDeadlineDays`.
  */
 export interface FLRegistrierungLinkData {
-  /** @minimum 1 */
-  deadline_days: number;
-  kind: FLRegistrierungLinkDataKind;
+  kind: "registrierung_confirmation";
   saison_id: string;
   team: string;
 }
@@ -4094,14 +4082,17 @@ export interface FLRegistrierungAdmitPayload {
   spieler_id: string | null;
 }
 
+export type FLRegistrierungConfirmationDeadlineDays = 14;
+
 /**
- * One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.
+ * One pupil's own answer: their date of birth and the two consents.
  */
 export interface FLRegistrierungConfirmationPayload {
-  birth_date: string | null;
-  media: boolean | null;
-  scope: FLEinwilligungScope | null;
-  text_versions: FLSpielerTextVersions | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  birth_date: string;
+  media: boolean;
+  scope: FLEinwilligungScope;
+  text_versions: FLSpielerTextVersions;
   /**
    * @minLength 1
    * @maxLength 128
@@ -4114,28 +4105,23 @@ export interface FLRegistrierungConfirmationPayload {
  * What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time.
  */
 export interface FLRegistrierungConfirmationResponse {
-  birth_date: string | null;
-  media: boolean | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  birth_date: string;
+  media: boolean;
   outcome: "confirmed";
-  scope: FLEinwilligungScope | null;
+  scope: FLEinwilligungScope;
 }
-
-export type FLRegistrierungConfirmationViewResponsePage =
-  (typeof FLRegistrierungConfirmationViewResponsePage)[keyof typeof FLRegistrierungConfirmationViewResponsePage];
-
-export const FLRegistrierungConfirmationViewResponsePage = {
-  confirmation_spieler: "confirmation_spieler",
-  confirmation_spieler_returning: "confirmation_spieler_returning",
-} as const;
 
 /**
  * What one confirmation link opens, and no field past the ones declared here.
  */
 export interface FLRegistrierungConfirmationViewResponse {
+  answered_at: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
   /** @exclusiveMinimum 0 */
   media_minimum_age: number;
   minimum_age: number;
-  page: FLRegistrierungConfirmationViewResponsePage;
   saison_id: string;
   /** @minLength 1 */
   schule: string;
@@ -4164,14 +4150,13 @@ export interface FLRegistrierungDeclineResponse {
 export type FLRegistrierungMinAgeYears = 16;
 
 /**
- * One season's pass: the reminders owed and the erasures made, each committed.
+ * One season's pass: the erasures made, each committed.
  */
 export interface FLRegistrierungSweepResponse {
   erased_declined: number;
   erased_unconfirmed: number;
   erased_without_decision: number;
   failed: number;
-  reminded: number;
   saison_id: string;
 }
 
@@ -4469,7 +4454,6 @@ export interface FLSchiedsrichterConfirmation {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   declined_at: string | null;
-  reminded_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   sent_at: string;
 }
@@ -4642,13 +4626,6 @@ export interface FLSignInResponse {
 }
 
 export type FLSignatoryMinAgeYears = 18;
-
-export type FLSortOrder = (typeof FLSortOrder)[keyof typeof FLSortOrder];
-
-export const FLSortOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type FLSpielberichtVorschlagSonderereignis =
   (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
@@ -5108,25 +5085,6 @@ export interface FLSpielbestaetigungClosed {
 }
 
 /**
- * One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.
- *
- * The hashes are raw document keys the token filter alone reads; a model declaring them would serve
- * every live link's hash through the admin read.
- */
-export interface FLSpielbestaetigungSeat {
-  delivery: FLOutboxStatus | null;
-}
-
-/**
- * The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty or voided seat holds no link.
- */
-export interface FLSpielbestaetigungKontakte {
-  ansprechperson: FLSpielbestaetigungSeat | null;
-  stellvertretung: FLSpielbestaetigungSeat | null;
-  trainer: FLSpielbestaetigungSeat | null;
-}
-
-/**
  * One party's confirmation of one Ansetzung, as an administrator reads it.
  *
  * The close reaches an answered row too, so an agreement a move overtook records why it stopped
@@ -5141,45 +5099,11 @@ export interface FLSpielbestaetigung {
   deadline: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  kontakte: FLSpielbestaetigungKontakte | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
   reminded_at: string | null;
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
-}
-
-export interface FLSpielbestaetigungVorschlagPayload {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
-/**
- * One club's answer about one Ansetzung, from whichever of its seats pressed first.
- */
-export interface FLSpielbestaetigungAnswerPayload {
-  answer: FLSpielbestaetigungAnswerKind;
-  reason: string | null;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  token: string;
-  vorschlag: FLSpielbestaetigungVorschlagPayload | null;
-}
-
-/**
- * What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.
- *
- * So a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.
- */
-export interface FLSpielbestaetigungAnswerResponse {
-  answered_by: FLSpielbestaetigungBy;
-  state: FLSpielbestaetigungAnswerKind;
-  vorschlag: FLSpielbestaetigungAppointment | null;
 }
 
 /**
@@ -5263,33 +5187,6 @@ export interface FLSpielbestaetigungSweepResponse {
   mails: number;
   reminded: number;
   saison_id: string;
-}
-
-export type FLSpielbestaetigungViewResponseState =
-  (typeof FLSpielbestaetigungViewResponseState)[keyof typeof FLSpielbestaetigungViewResponseState];
-
-export const FLSpielbestaetigungViewResponseState = {
-  valid: "valid",
-  vorschlag: "vorschlag",
-  agreed: "agreed",
-  declined: "declined",
-  discarded: "discarded",
-  expired: "expired",
-  invalid: "invalid",
-  cancelled: "cancelled",
-} as const;
-
-/**
- * What one link's page renders, filled in every state; the frontend narrows a spent one to its `state`.
- */
-export interface FLSpielbestaetigungViewResponse {
-  ansetzung: FLSpielbestaetigungViewAnsetzung;
-  answered_by: FLSpielbestaetigungBy | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
-  side: FLSpielSide;
-  state: FLSpielbestaetigungViewResponseState;
-  vorschlag: FLSpielbestaetigungAppointment | null;
 }
 
 /**
@@ -6111,15 +6008,6 @@ export type BewerbungenGetBewerbungenAdminParams = {
 
 export type IdentitySweepErasureParams = {
   after?: string | null;
-};
-
-export type RegistrierungenGetOpenRegistrierungenParams = {
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  order?: FLSortOrder;
 };
 
 export type RegistrierungenGetRegistrierungenAdminParams = {

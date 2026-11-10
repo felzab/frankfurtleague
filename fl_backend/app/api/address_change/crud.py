@@ -716,8 +716,8 @@ def _registrierung_move(row: Mapping[str, Any], new_address: str) -> dict[str, A
         return update
 
     if not registrierung_is_confirmed(einwilligung=row.get("einwilligung")):
-        # Every link dies and the reminder is owed again: it alone mints the next link, to the moved address.
-        update["$set"] |= {"confirmation.token_hashes": [], "confirmation.reminded_at": None}
+        # Every link dies, each minted for the address the row has left.
+        update["$set"] |= {"confirmation.token_hashes": []}
 
     return update
 

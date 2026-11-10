@@ -164,8 +164,6 @@ export const SERVER_COPY = catalogue({
     grant_barred: ADDRESS_BARRED,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
-    /** A repeated press of the form's submit with changed details. */
-    bewerbung_key_differing: "Deine Bewerbung ist schon abgeschickt.",
     /** An application's club retired since the acceptance opened. */
     team_retired: "Das Team ist stillgelegt.",
     /** A reactivated squad row past the season's cap. */

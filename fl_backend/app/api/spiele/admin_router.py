@@ -26,7 +26,6 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
-    OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonsReadCollection,
@@ -109,7 +108,6 @@ async def get_spiel_admin(
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    outbox_collection: OutboxCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
 ) -> FLSpieleAdminSingleResponse:
     """
@@ -133,7 +131,6 @@ async def get_spiel_admin(
         spieler_collection=spieler_collection,
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
-        outbox_collection=outbox_collection,
         saison_teams_collection=saison_teams_collection,
     )
 

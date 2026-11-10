@@ -181,10 +181,9 @@ class FLBewerbungRecord(FLBewerbung):
     """One application as `bewerbungen` stores it: what no read serves beside what every read does."""
 
     confirmations: FLBewerbungConfirmationsRecord
-    # The retention sweep's announcement, and the submission's replay key and digest.
+    # The retention sweep's announcement, and the submission's replay key.
     erasure_announced_at: str | None = None
     idempotency_key: str | None = None
-    idempotency_fingerprint: str | None = None
 
 
 class FLMailboxAnchorRecord(Anchored):

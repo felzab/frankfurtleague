@@ -78,15 +78,6 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one registration per submission key",
         partial_filter={"idempotency_key": {"$type": "string"}},
     ),
-    # The same key after its registration was admitted, so a replay finds it here once the row above
-    # is gone. Filtered for the reason above: a squad row an administrator wrote carries none.
-    UniqueIndex(
-        Collection.SAISON_SPIELER,
-        "uniq_saison_spieler_idempotency_key",
-        ("idempotency_key",),
-        "one admitted registration per submission key",
-        partial_filter={"idempotency_key": {"$type": "string"}},
-    ),
     # One stored person per address, firing where two admissions for one new address race. Filtered
     # on `$type`, so persons holding no address are not one null key; an equality reader carries the
     # term or scans.
@@ -226,17 +217,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "spielbestaetigungen_saison_id_spiel_id",
         (("saison_id", ASCENDING), ("spiel_id", ASCENDING)),
         "a season's or one fixture's confirmations, which the pass, the admin read and the verdict filter on",
-    ),
-    # One per clause of the token filter's `$or`, for the registration's pair's reason; each multikey,
-    # a seat keeping every link it was mailed.
-    *(
-        SupportIndex(
-            Collection.SPIELBESTAETIGUNGEN,
-            f"spielbestaetigungen_kontakte_{seat}_token_hashes",
-            ((f"kontakte.{seat}.token_hashes", ASCENDING),),
-            "a fixture confirmation link's lookup, driven by strangers",
-        )
-        for seat in KONTAKT_ROLLEN
     ),
     # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
     # fixture the season-leading index could narrow by.

@@ -350,7 +350,7 @@ def is_own_schiedsrichter(row: Mapping[str, Any], identifier: str) -> bool:
 
 
 def is_own_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
-    """A pending registration its pupil confirmed, a returning pupil's carrying no choice among them: its stored data is served.
+    """A pending registration its pupil confirmed: its stored data is served.
 
     The status is judged here as well as selected on, for the caller reaching a row by its id.
     """

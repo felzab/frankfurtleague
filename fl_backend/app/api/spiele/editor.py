@@ -230,7 +230,6 @@ async def read_spiel_editor(
     spieler_collection: AsyncCollection,
     spielberichte_collection: ReadCollection,
     spielbestaetigungen_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
     saison_teams_collection: ReadCollection,
 ) -> FLSpieleAdminSingleResponse:
     """Everything the match editor shows, the fixture first: `document_not_found` for an id no fixture holds."""
@@ -280,7 +279,6 @@ async def read_spiel_editor(
         # The confirmations' own reader, so a row reaches the editor as their list serves it.
         get_spielbestaetigungen(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            outbox_collection=outbox_collection,
             filters=FLSpielbestaetigungenFilterParams(saison_id=spiel.saison_id, spiel_id=spiel_id, limit=LIST_LIMIT_MAX),
         ),
     )

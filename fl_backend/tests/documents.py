@@ -402,7 +402,6 @@ def registrierung_document(
             today=submitted_at,
         ),
         "idempotency_key": str(registrierung_id),
-        "idempotency_fingerprint": "f" * 64,
     }
     if confirmed is not None:
         document.update(compose_confirmation_update(**confirmed)["$set"])
@@ -542,17 +541,10 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
-    """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
+def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str, media: bool) -> dict[str, Any]:
+    """`registrierung_document`'s `confirmed` for a pupil's confirmation."""
 
-    return {
-        "birth_date": birth_date,
-        "scope": scope,
-        "media": media,
-        "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,
-        "today": today,
-        "at": at,
-    }
+    return {"birth_date": birth_date, "scope": scope, "media": media, "text_versions": SPIELER_TEXT_VERSIONS, "today": today, "at": at}
 
 
 def address_change_document(

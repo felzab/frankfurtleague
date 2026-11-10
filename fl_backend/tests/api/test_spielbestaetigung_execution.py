@@ -407,37 +407,6 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
         assert (spieltag["start"], spieltag["end"]) == SPAN
 
 
-class TestTheLinkLookupWalksAnIndex:
-    """Strangers drive both lookups and the answer's write, so none may scan the collection, on every clause of the seat `$or`."""
-
-    def test_the_view_the_answer_and_its_write_each_plan_an_index_scan_on_every_seat(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
-            plans = []
-            for call in (
-                lambda watched, _watching: read_view(watched, token(TEAM1, "trainer")),
-                lambda watched, watching: press_answer(watched, watching, token(TEAM1, "trainer")),
-            ):
-                _, sent = await plans_of_sent_reads(
-                    mongo_replica_set_url,
-                    database,
-                    call,
-                    # A find's `filter`, the write's `query`.
-                    lambda collection, command: (
-                        collection == Collection.SPIELBESTAETIGUNGEN and "$or" in (command.get("filter") or command.get("query") or {})
-                    ),
-                )
-                plans.append(sent)
-
-            return plans
-
-        [view], [answer, write] = on_a_spiel(mongo_replica_set_url, body)
-
-        # The premise: the view's lookup, the answer's, and its write, or the scans below would pass vacuously.
-        for _, plan in (view, answer, write):
-            assert "COLLSCAN" not in plan, plan
-            assert {f"IXSCAN {{ kontakte.{seat}.token_hashes: 1 }}" for seat in KONTAKT_ROLLEN} <= set(plan.split(", ")), plan
-
-
 class ConfirmationsRunningARivalBeforeTheWrite(InterleavedCollection):
     """The confirmations the answer writes, a rival run once after the answer's judgement and before its write."""
 
@@ -640,7 +609,6 @@ async def lesen(
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        outbox_collection=database[Collection.OUTBOX],
         filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 

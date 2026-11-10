@@ -23,7 +23,7 @@ import { buildGrantEmail } from "./grantEmail";
 import { buildInvitationEmail } from "./invitationEmail";
 import { buildKontaktConfirmationEmail } from "./kontaktEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
-import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
+import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail } from "./registrierungEmail";
 import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
 import {
   buildAustrittNoticeEmail,
@@ -103,7 +103,6 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   spiel_vorschlag_discarded: buildSpielVorschlagDiscardedEmail,
   austritt_notice: buildAustrittNoticeEmail,
   registrierung_confirmation: (data, handout) => buildRegistrierungBestaetigungEmail(data, minted(handout)),
-  registrierung_reminder: (data, handout) => buildRegistrierungErinnerungEmail(data, minted(handout)),
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
   invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),

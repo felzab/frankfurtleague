@@ -513,9 +513,9 @@ def compose_answer_update(
 # says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
 
-# Exactly what the season-wide read serves: every stored field but the hashes and the address a seat was owed at,
-# kept off the wire from the driver up.
-ADMIN_FIELDS: Mapping[str, int] = {f"kontakte.{seat}.{key}": 0 for seat in KONTAKT_ROLLEN for key in ("token_hashes", "email")}
+# Exactly what the season-wide read serves: every stored field but the seats a team row was asked at, kept off the wire
+# from the driver up.
+ADMIN_FIELDS: Mapping[str, int] = {"kontakte": 0}
 
 
 def enter_refusal() -> WriteRefusal:

@@ -156,13 +156,6 @@ class FLSaisonSpielerRow(BaseModel):
     version: int = 0
 
 
-class FLSaisonSpielerRecord(FLSaisonSpielerRow):
-    """A squad row as `saison_spieler` stores it: an admitted registration's submission key and digest, which no read serves."""
-
-    idempotency_key: str | None = None
-    idempotency_fingerprint: str | None = None
-
-
 class FLSpielerSingleResponse(BaseAPIResponse):
     """One player as the BASE TIER serves them -- an allow-list of what this surface needs.
 

@@ -109,7 +109,6 @@ class Code(StrEnum):
     BEWERBUNG_KONTAKT_PHONE_TAKEN = auto()
     BEWERBUNG_KONTAKT_REPEATED = auto()
     TRIKOT_FARBE_TAKEN = auto()
-    BEWERBUNG_KEY_DIFFERING = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()
@@ -188,13 +187,9 @@ class Code(StrEnum):
     REGISTRIERUNG_STUFE_NOT_ALLOWED = auto()
     CONFIRMATION_EXISTS = auto()
     REGISTRIERUNG_KADER_FULL = auto()
-    REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
     REGISTRIERUNG_ALREADY_IN_KADER = auto()
-    REGISTRIERUNG_ALREADY_ADMITTED = auto()
-    REGISTRIERUNG_CHOICES_UNSUITABLE = auto()
-    REGISTRIERUNG_PERSON_MISSING = auto()
     # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
     # fixtures follow it, so it carries codes of its own.
     REPLACE_SAISON_STARTED = auto()

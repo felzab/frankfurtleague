@@ -40,7 +40,6 @@ from app.api.spielberichte.admin_router import router as spielberichte_admin_rou
 from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
 from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
-from app.api.spielbestaetigungen.public_router import router as spielbestaetigungen_public_router
 from app.api.spielbestaetigungen.system_router import router as spielbestaetigungen_system_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.public_router import router as spiele_public_router
@@ -94,12 +93,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
     "ban_list": (ban_list_admin_router,),
     "spielberichte": (spielberichte_admin_router, spielberichte_person_router),
-    "spielbestaetigungen": (
-        spielbestaetigungen_public_router,
-        spielbestaetigungen_admin_router,
-        spielbestaetigungen_person_router,
-        spielbestaetigungen_system_router,
-    ),
+    "spielbestaetigungen": (spielbestaetigungen_admin_router, spielbestaetigungen_person_router, spielbestaetigungen_system_router),
     "spiele": (spiele_public_router, spiele_admin_router),
     "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
     "spielorte": (spielorte_admin_router,),

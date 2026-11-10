@@ -34,7 +34,7 @@ from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
 from app.api.outbox.system_router import post_handout
 from app.api.registrierungen.public_router import get_confirmation_view
-from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
+from app.api.registrierungen.services import compose_ablehnung_update
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -74,7 +74,6 @@ from .address_change_harness import (
     TODAY,
     TYPED,
     UNCONFIRMED_REG_LINK,
-    UNCONFIRMED_REG_OID,
     administrator_starts,
     answer,
     call,
@@ -1611,19 +1610,6 @@ class TestWhatTheEffectLeavesTheLoeschung:
         before, after = on_a_person(mongo_replica_set_url, body)
 
         assert (before.state, after) == ("valid", Code.LINK_INVALID)
-
-    def test_a_registration_whose_reminder_went_out_is_owed_one_at_the_new_address(self, mongo_replica_set_url: str):
-        """The reminder alone mints a moved registration a link, and it is owed once: spent, the row waits for its sweep."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.REGISTRIERUNGEN].update_one({"_id": UNCONFIRMED_REG_OID}, {"$set": {"confirmation.reminded_at": TODAY}})
-            await confirmed_and_moved(database, client)
-            return await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID)
-
-        moved = on_a_person(mongo_replica_set_url, body)
-
-        assert (moved["email"], moved["confirmation"]["reminded_at"]) == (NEW_EMAIL, None)
-        assert erinnerung_is_due(registrierung_raw=moved, today="2126-04-02")
 
     def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):
         """Left behind, it holds the pupil's name and data where an erasure of the new address never looks, until its month is out."""

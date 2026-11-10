@@ -1,15 +1,13 @@
 import { FLEinwilligungScope } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_AGE } from "@/features/bewerbungen/constants";
 
-import type { FLMediaMinAgeYears, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
+import type { FLMediaMinAgeYears, FLRegistrierungConfirmationDeadlineDays, FLRegistrierungMinAgeYears } from "@/core/generated/client/types";
 
 /**
- * The pupil's confirmation deadline, mirrored from `fl_backend/app/shared/schemas/bounds.py`.
- *
- * Shorter than the application's fourteen because it carries a second job: it is the window inside
- * which a mistyped address is discovered.
+ * The pupil's confirmation deadline, checked against `fl_backend/app/shared/schemas/bounds.py ::
+ * REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`, so the backend moving it fails the type check here.
  */
-export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 7;
+export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 14 satisfies FLRegistrierungConfirmationDeadlineDays;
 
 // For the published notice, which states the floor with no answer to read it off; checked against
 // `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`, so the backend moving it

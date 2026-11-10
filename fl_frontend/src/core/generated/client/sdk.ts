@@ -149,15 +149,12 @@ import type {
   FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
-  FLSpielbestaetigungAnswerPayload,
-  FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelfResponse,
   FLSpielbestaetigungEnterPayload,
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungViewResponse,
   FLSpieleAdminSingleResponse,
   FLSpielerAdminListResponse,
   FLSpielerSaisonAdminResponse,
@@ -187,7 +184,6 @@ import type {
   FLTokenPayload,
   FLUndrawSpielplanResponse,
   IdentitySweepErasureParams,
-  RegistrierungenGetOpenRegistrierungenParams,
   RegistrierungenGetRegistrierungenAdminParams,
   SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
@@ -299,8 +295,7 @@ export const getAccountGetEinwilligungenUrl = () => {
  *
  * The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
  * `bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;
- * `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a
- * returning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.
+ * `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.
  *
  * PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
  * `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
@@ -833,8 +828,8 @@ export const getBewerbungenPostBewerbungUrl = () => {
  * is answered.
  *
  * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * application it holds, stores none and owes nothing again. The same key over other details is refused
- * (`bewerbung_key_differing`).
+ * application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
+ * since its last press sends a new key.
  *
  * Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
  * Trainer also holds being that one person.
@@ -1818,9 +1813,9 @@ export const getRegistrierungenPostRegistrierungUrl = () => {
  * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds, stores none and owes no second mail. The same key over other details is refused
- * (`registrierung_key_differing`). A key whose registration the team has since admitted is refused too
- * (`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.
+ * registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
+ * since its last press sends a new key. The key goes with its registration, so one pressed again after the team
+ * admitted or declined the pupil, or after the row lapsed, is a new registration.
  *
  * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
  * the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
@@ -1894,7 +1889,7 @@ export const getRegistrierungenPostConfirmationUrl = () => {
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
  * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
- * `confirmation_exists`, `confirmation_age`, `media_age` and `registrierung_choices_unsuitable`.
+ * `confirmation_exists`, `confirmation_age` and `media_age`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -1926,11 +1921,10 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
 };
 
 /**
- * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
+ * What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
- * left the season reading expired, and `confirmation_spieler_returning` opens the returning
- * pupil's page; only a token no registration holds is refused (`link_invalid`).
+ * left the season reading expired; only a token no registration holds is refused (`link_invalid`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationView = async (
@@ -1993,16 +1987,8 @@ export const registrierungenPostInvitationView = async (
   });
 };
 
-export const getRegistrierungenGetOpenRegistrierungenUrl = (
-  teamId: string,
-  saisonId: string,
-  params?: RegistrierungenGetOpenRegistrierungenParams,
-) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0
-    ? `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}?${stringifiedParams}`
-    : `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
+export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2010,17 +1996,16 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (
  *
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
- * No address, telephone number, birthdate or consent record is served for anybody.
- * `complete` is false where more pending rows exist than `limit` serves.
+ * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
+ * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungen = async (
   teamId: string,
   saisonId: string,
-  params?: RegistrierungenGetOpenRegistrierungenParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLOpenRegistrierungenResponse> => {
-  return adminKeyTransport<FLOpenRegistrierungenResponse>(getRegistrierungenGetOpenRegistrierungenUrl(teamId, saisonId, params), {
+  return adminKeyTransport<FLOpenRegistrierungenResponse>(getRegistrierungenGetOpenRegistrierungenUrl(teamId, saisonId), {
     ...options,
     method: "GET",
   });
@@ -2057,23 +2042,20 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
 };
 
 /**
- * Run the four registration retention clocks over one season, as of today in Europe/Berlin.
+ * Run the three registration retention clocks over one season, as of today in Europe/Berlin.
  *
  * A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
- * below do not run for a `past` season, whose own end takes every row they read.
+ * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline
+ * clock does not run for a `past` season, whose own end takes every row it reads.
  *
  * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:
- * `reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that
- * inbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every
- * removal names this season alone and is made inside a transaction.
+ * named that day. Every removal names this season alone and is made inside a transaction.
  *
  * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
- * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
- * nobody behind it. `failed` sums the rows each of the four clocks passed over.
+ * its clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
+ * nobody behind it. `failed` sums the rows each of the three clocks passed over.
  *
- * 404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
+ * 404 where no season has the id. Idempotent: a run after every due row went writes nothing.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -2094,9 +2076,8 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
  *
  * The person survives the season, so the admission first looks for them: the stored person holding the
- * registration's address IS that person, and is updated with the registration's name and, where the new pupil's page
- * asked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page
- * leaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's
+ * registration's address IS that person, and is updated with the registration's name, its birthdate and its freshly
+ * confirmed consent record. Where that person's
  * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
  * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
  * this admission proves again.
@@ -2104,13 +2085,11 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
  * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted in the same transaction, so a second press meets no row. Its
- * submission key moves onto the squad row, so the submission replayed later stores nothing.
+ * deleted in the same transaction, so a second press meets no row.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
- * offer (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
- * person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
+ * offer (`registrierung_stufe_not_allowed`), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
  * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
  * written on any of them.
@@ -3263,10 +3242,9 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 /**
  * Every confirmation row of the season, or of its one fixture.
  *
- * Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
- * holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
- * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
- * has answers no rows rather than 404.
+ * Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
+ * served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
+ * document has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungen = async (
@@ -3276,53 +3254,6 @@ export const spielbestaetigungenGetSpielbestaetigungen = async (
   return adminKeyTransport<FLSpielbestaetigungenListResponse>(getSpielbestaetigungenGetSpielbestaetigungenUrl(params), {
     ...options,
     method: "GET",
-  });
-};
-
-export const getSpielbestaetigungenPostSpielbestaetigungUrl = () => {
-  return `/api/v0/spielbestaetigungen`;
-};
-
-/**
- * Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.
- *
- * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
- * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.
- *
- * Refuses, in this order: a token no seat holds (`link_invalid`); a row already answered, closed since or not
- * (`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club
- * (`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each
- * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a
- * proposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds
- * (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be
- * refused, judged on what it newly claims and in that save's order: on or after a club's exit
- * (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
- * other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the first is asked again outside
- * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
- * than letting it stand.
- * @summary Confirm a fixture's Ansetzung, or decline it proposing another date
- */
-export const spielbestaetigungenPostSpielbestaetigung = async (
-  fLSpielbestaetigungAnswerPayload: FLSpielbestaetigungAnswerPayload,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielbestaetigungAnswerResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return baseKeyTransport<FLSpielbestaetigungAnswerResponse>(getSpielbestaetigungenPostSpielbestaetigungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAnswerPayload),
   });
 };
 
@@ -3438,46 +3369,6 @@ export const spielbestaetigungenSweepSpielbestaetigungen = async (
   return systemKeyTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getSpielbestaetigungenGetSpielbestaetigungViewUrl = () => {
-  return `/api/v0/spielbestaetigungen/view`;
-};
-
-/**
- * Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).
- *
- * The state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the
- * Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
- * reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
- * (`link_invalid`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
- * decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it.
- * `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
- * Ansetzung, whose date and hour alone are served.
- * @summary What one fixture confirmation link opens
- */
-export const spielbestaetigungenGetSpielbestaetigungView = async (
-  fLTokenPayload: FLTokenPayload,
-  options?: Parameters<typeof baseKeyReadTransport>[1],
-): Promise<FLSpielbestaetigungViewResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return baseKeyReadTransport<FLSpielbestaetigungViewResponse>(getSpielbestaetigungenGetSpielbestaetigungViewUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLTokenPayload),
   });
 };
 

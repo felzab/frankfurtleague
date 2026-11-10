@@ -215,14 +215,16 @@ class FLAustrittNoticeData(BaseModel):
 
 
 class FLRegistrierungLinkData(BaseModel):
-    """A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it."""
+    """A pupil's confirmation link.
 
-    kind: Literal["registrierung_confirmation", "registrierung_reminder"]
+    The window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::
+    FLRegistrierungConfirmationDeadlineDays`.
+    """
+
+    kind: Literal["registrierung_confirmation"]
     # The junction row's name, else the club's: what the pupil registered for.
     team: str
     saison_id: str
-    # The window in days, never a date: the reminder states that the window has not moved.
-    deadline_days: int = Field(ge=1)
 
 
 class FLRegistrierungAbsageData(BaseModel):
@@ -379,7 +381,6 @@ FLOutboxKind = Literal[
     "spiel_vorschlag_discarded",
     "austritt_notice",
     "registrierung_confirmation",
-    "registrierung_reminder",
     "registrierung_absage",
     "invitation",
     "bewerbung_confirmation",

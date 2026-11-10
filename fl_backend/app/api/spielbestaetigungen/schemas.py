@@ -2,7 +2,6 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, ValidationInfo, field_validator
 
-from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPublic
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
@@ -19,7 +18,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielSide
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
@@ -67,25 +66,6 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
     digest: str
 
 
-class FLSpielbestaetigungSeat(BaseReadModel):
-    """One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.
-
-    The hashes are raw document keys the token filter alone reads; a model declaring them would serve
-    every live link's hash through the admin read.
-    """
-
-    # What became of the last mail owed to the seat, read off the Postausgang; null where none was, or on a write's answer.
-    delivery: FLOutboxStatus | None = None
-
-
-class FLSpielbestaetigungKontakte(BaseModel):
-    """The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty or voided seat holds no link."""
-
-    trainer: FLSpielbestaetigungSeat | None
-    ansprechperson: FLSpielbestaetigungSeat | None
-    stellvertretung: FLSpielbestaetigungSeat | None
-
-
 class FLSpielbestaetigungAppointment(BaseModel):
     """A date and time without a ground: a team's proposal, and the slot a moved fixture left."""
 
@@ -129,7 +109,7 @@ class FLSpielbestaetigungClosed(BaseModel):
 
 
 class _FLSpielbestaetigungFields(BaseModel):
-    """Every field a confirmation row stores and an administrator reads alike: all but its seats."""
+    """Every field a confirmation row stores and an administrator reads alike: all but the seats a team row was asked at."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -152,9 +132,6 @@ class FLSpielbestaetigung(_FLSpielbestaetigungFields):
     The close reaches an answered row too, so an agreement a move overtook records why it stopped
     applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
     """
-
-    # Null on a referee row, whose referee answers signed in rather than by a link.
-    kontakte: FLSpielbestaetigungKontakte | None
 
 
 class FLSpielbestaetigungSeatRecord(BaseModel):

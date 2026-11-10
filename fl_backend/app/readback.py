@@ -25,7 +25,7 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
 from app.api.spielberichte.schemas import FLSpielbericht
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungRecord
 from app.api.spiele.schemas import FLSpiel
-from app.api.spieler.schemas import FLSaisonSpielerRecord, FLSpielerRecord
+from app.api.spieler.schemas import FLSaisonSpielerRow, FLSpielerRecord
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltagRecord
 from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
@@ -37,7 +37,7 @@ from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SAISONS: FLSaisonRecord,
     Collection.SAISON_TEAMS: FLSaisonTeamRecord,
-    Collection.SAISON_SPIELER: FLSaisonSpielerRecord,
+    Collection.SAISON_SPIELER: FLSaisonSpielerRow,
     Collection.SPIELE: FLSpiel,
     Collection.SPIELTAGE: FLSpieltagRecord,
     Collection.TEAMS: FLTeamRecord,

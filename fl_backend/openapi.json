@@ -200,7 +200,6 @@
           "bewerbung_kontakt_phone_taken",
           "bewerbung_kontakt_repeated",
           "trikot_farbe_taken",
-          "bewerbung_key_differing",
           "booking_unknown_resource",
           "booking_unconfirmed_schiedsrichter",
           "spiel_double_booked",
@@ -244,13 +243,9 @@
           "registrierung_stufe_not_allowed",
           "confirmation_exists",
           "registrierung_kader_full",
-          "registrierung_key_differing",
           "registrierung_unconfirmed",
           "registrierung_person_not_named",
           "registrierung_already_in_kader",
-          "registrierung_already_admitted",
-          "registrierung_choices_unsuitable",
-          "registrierung_person_missing",
           "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
@@ -917,15 +912,8 @@
             "type": "string"
           },
           "media": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media"
+            "title": "Media",
+            "type": "boolean"
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -937,14 +925,7 @@
             "type": "string"
           },
           "scope": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungScope"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           },
           "team_name": {
             "anyOf": [
@@ -6800,12 +6781,8 @@
         "type": "object"
       },
       "FLOpenRegistrierungenResponse": {
-        "description": "One team's pending registrations for one season, and whether that is the whole of them.",
+        "description": "One team's pending registrations for one season, newest first.",
         "properties": {
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLOpenRegistrierung"
@@ -6826,8 +6803,7 @@
         "required": [
           "team_id",
           "saison_id",
-          "registrierungen",
-          "complete"
+          "registrierungen"
         ],
         "title": "FLOpenRegistrierungenResponse",
         "type": "object"
@@ -6958,7 +6934,6 @@
                 "passkey_erased": "#/components/schemas/FLPasskeyData",
                 "registrierung_absage": "#/components/schemas/FLRegistrierungAbsageData",
                 "registrierung_confirmation": "#/components/schemas/FLRegistrierungLinkData",
-                "registrierung_reminder": "#/components/schemas/FLRegistrierungLinkData",
                 "schiedsrichter_confirmation": "#/components/schemas/FLSchiedsrichterConfirmationData",
                 "sign_in_code": "#/components/schemas/FLSignInCodeData",
                 "spiel_cancelled": "#/components/schemas/FLSpielNoticeData",
@@ -9183,56 +9158,28 @@
         "title": "FLRegistrierungAdmitPayload",
         "type": "object"
       },
+      "FLRegistrierungConfirmationDeadlineDays": {
+        "const": 14,
+        "type": "integer"
+      },
       "FLRegistrierungConfirmationPayload": {
         "additionalProperties": false,
-        "description": "One pupil's own answer: their date of birth where the page asks it, and on the new pupil's page the two consents.",
+        "description": "One pupil's own answer: their date of birth and the two consents.",
         "properties": {
           "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              },
-              {
-                "pattern": "^\\s*$",
-                "type": "string"
-              }
-            ],
-            "title": "Birth Date"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Birth Date",
+            "type": "string"
           },
           "media": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media"
+            "title": "Media",
+            "type": "boolean"
           },
           "scope": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungScope"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           },
           "text_versions": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerTextVersions"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLSpielerTextVersions"
           },
           "token": {
             "maxLength": 128,
@@ -9256,27 +9203,13 @@
         "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time.",
         "properties": {
           "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Birth Date",
+            "type": "string"
           },
           "media": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media"
+            "title": "Media",
+            "type": "boolean"
           },
           "outcome": {
             "const": "confirmed",
@@ -9284,14 +9217,7 @@
             "type": "string"
           },
           "scope": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinwilligungScope"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLEinwilligungScope"
           }
         },
         "required": [
@@ -9306,6 +9232,23 @@
       "FLRegistrierungConfirmationViewResponse": {
         "description": "What one confirmation link opens, and no field past the ones declared here.",
         "properties": {
+          "answered_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answered At"
+          },
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "media_minimum_age": {
             "exclusiveMinimum": 0.0,
             "title": "Media Minimum Age",
@@ -9314,14 +9257,6 @@
           "minimum_age": {
             "title": "Minimum Age",
             "type": "integer"
-          },
-          "page": {
-            "enum": [
-              "confirmation_spieler",
-              "confirmation_spieler_returning"
-            ],
-            "title": "Page",
-            "type": "string"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -9346,9 +9281,10 @@
           "team",
           "schule",
           "saison_id",
-          "page",
           "minimum_age",
-          "media_minimum_age"
+          "media_minimum_age",
+          "deadline",
+          "answered_at"
         ],
         "title": "FLRegistrierungConfirmationViewResponse",
         "type": "object"
@@ -9398,18 +9334,10 @@
         "type": "object"
       },
       "FLRegistrierungLinkData": {
-        "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
+        "description": "A pupil's confirmation link.\n\nThe window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::\nFLRegistrierungConfirmationDeadlineDays`.",
         "properties": {
-          "deadline_days": {
-            "minimum": 1.0,
-            "title": "Deadline Days",
-            "type": "integer"
-          },
           "kind": {
-            "enum": [
-              "registrierung_confirmation",
-              "registrierung_reminder"
-            ],
+            "const": "registrierung_confirmation",
             "title": "Kind",
             "type": "string"
           },
@@ -9425,8 +9353,7 @@
         "required": [
           "kind",
           "team",
-          "saison_id",
-          "deadline_days"
+          "saison_id"
         ],
         "title": "FLRegistrierungLinkData",
         "type": "object"
@@ -9474,7 +9401,7 @@
         "type": "object"
       },
       "FLRegistrierungSweepResponse": {
-        "description": "One season's pass: the reminders owed and the erasures made, each committed.",
+        "description": "One season's pass: the erasures made, each committed.",
         "properties": {
           "erased_declined": {
             "title": "Erased Declined",
@@ -9492,10 +9419,6 @@
             "title": "Failed",
             "type": "integer"
           },
-          "reminded": {
-            "title": "Reminded",
-            "type": "integer"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -9503,7 +9426,6 @@
         },
         "required": [
           "saison_id",
-          "reminded",
           "erased_unconfirmed",
           "erased_without_decision",
           "erased_declined",
@@ -10848,18 +10770,6 @@
             ],
             "title": "Declined At"
           },
-          "reminded_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reminded At"
-          },
           "sent_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Sent At",
@@ -10868,7 +10778,6 @@
         },
         "required": [
           "sent_at",
-          "reminded_at",
           "deadline",
           "declined_at"
         ],
@@ -11349,13 +11258,6 @@
           "nichtantreten_team2",
           "abgebrochen",
           "annulliert"
-        ],
-        "type": "string"
-      },
-      "FLSortOrder": {
-        "enum": [
-          "asc",
-          "desc"
         ],
         "type": "string"
       },
@@ -13939,16 +13841,6 @@
             "title": "Id",
             "type": "string"
           },
-          "kontakte": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungKontakte"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "party": {
             "discriminator": {
               "mapping": {
@@ -13999,8 +13891,7 @@
           "asked_at",
           "reminded_at",
           "answer",
-          "closed",
-          "kontakte"
+          "closed"
         ],
         "title": "FLSpielbestaetigung",
         "type": "object"
@@ -14109,82 +14000,6 @@
           "declined"
         ],
         "type": "string"
-      },
-      "FLSpielbestaetigungAnswerPayload": {
-        "additionalProperties": false,
-        "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first.",
-        "properties": {
-          "answer": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "minLength": 1,
-                "pattern": "^[^\\x00\\v\\f\\u0085\\u2028\\u2029]*$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Token",
-            "type": "string"
-          },
-          "vorschlag": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVorschlagPayload"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "token",
-          "answer",
-          "vorschlag",
-          "reason"
-        ],
-        "title": "FLSpielbestaetigungAnswerPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungAnswerResponse": {
-        "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.",
-        "properties": {
-          "answered_by": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungBy"
-          },
-          "state": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
-          },
-          "vorschlag": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "state",
-          "answered_by",
-          "vorschlag"
-        ],
-        "title": "FLSpielbestaetigungAnswerResponse",
-        "type": "object"
       },
       "FLSpielbestaetigungAppointment": {
         "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left.",
@@ -14308,48 +14123,6 @@
         "title": "FLSpielbestaetigungEnterPayload",
         "type": "object"
       },
-      "FLSpielbestaetigungKontakte": {
-        "description": "The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty or voided seat holds no link.",
-        "properties": {
-          "ansprechperson": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungSeat"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stellvertretung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungSeat"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "trainer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungSeat"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "trainer",
-          "ansprechperson",
-          "stellvertretung"
-        ],
-        "title": "FLSpielbestaetigungKontakte",
-        "type": "object"
-      },
       "FLSpielbestaetigungPartySchiedsrichter": {
         "properties": {
           "kind": {
@@ -14435,26 +14208,6 @@
           "state"
         ],
         "title": "FLSpielbestaetigungSchiedsrichterAnswerResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSeat": {
-        "description": "One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.\n\nThe hashes are raw document keys the token filter alone reads; a model declaring them would serve\nevery live link's hash through the admin read.",
-        "properties": {
-          "delivery": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLOutboxStatus"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "delivery"
-        ],
-        "title": "FLSpielbestaetigungSeat",
         "type": "object"
       },
       "FLSpielbestaetigungSelf": {
@@ -14603,87 +14356,6 @@
           "spielort"
         ],
         "title": "FLSpielbestaetigungViewAnsetzung",
-        "type": "object"
-      },
-      "FLSpielbestaetigungViewResponse": {
-        "description": "What one link's page renders, filled in every state; the frontend narrows a spent one to its `state`.",
-        "properties": {
-          "ansetzung": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungViewAnsetzung"
-          },
-          "answered_by": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungBy"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "state": {
-            "enum": [
-              "valid",
-              "vorschlag",
-              "agreed",
-              "declined",
-              "discarded",
-              "expired",
-              "invalid",
-              "cancelled"
-            ],
-            "title": "State",
-            "type": "string"
-          },
-          "vorschlag": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "state",
-          "side",
-          "ansetzung",
-          "deadline",
-          "vorschlag",
-          "answered_by"
-        ],
-        "title": "FLSpielbestaetigungViewResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungVorschlagPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Date",
-            "type": "string"
-          },
-          "time": {
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "date",
-          "time"
-        ],
-        "title": "FLSpielbestaetigungVorschlagPayload",
         "type": "object"
       },
       "FLSpielbestaetigungenListResponse": {
@@ -17735,7 +17407,7 @@
     },
     "/api/v0/account/einwilligungen": {
       "get": {
-        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission; a\nreturning pupil's asked no choice, so it serves its stored data with both choices null and offers nothing to press.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is\nadmitted, `media_offered` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is\nadmitted, `media_offered` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
         "operationId": "account_get_einwilligungen",
         "responses": {
           "200": {
@@ -18941,7 +18613,7 @@
     },
     "/api/v0/bewerbungen": {
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`bewerbung_key_differing`).\n\nTwo people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the\nTrainer also holds being that one person.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the\npress: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same\neither way, so it tells a stranger nothing about the address.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again, whatever its body says: a form whose details changed\nsince its last press sends a new key.\n\nTwo people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the\nTrainer also holds being that one person.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the\npress: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same\neither way, so it tells a stranger nothing about the address.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -21385,7 +21057,7 @@
     },
     "/api/v0/registrierungen": {
       "post": {
-        "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nEverything the league decides -- the team, the season, `status`, `submitted_at` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The mail is owed in\nthe Postausgang in the same transaction, its link minted when it is handed out; no token is answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds, stores none and owes no second mail. The same key over other details is refused\n(`registrierung_key_differing`). A key whose registration the team has since admitted is refused too\n(`registrierung_already_admitted`) and stores nothing: the pupil is in the squad.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses\nthe press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nEverything the league decides -- the team, the season, `status`, `submitted_at` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The mail is owed in\nthe Postausgang in the same transaction, its link minted when it is handed out; no token is answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed\nsince its last press sends a new key. The key goes with its registration, so one pressed again after the team\nadmitted or declined the pupil, or after the row lapsed, is a new registration.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses\nthe press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.",
         "operationId": "registrierungen_post_registrierung",
         "parameters": [
           {
@@ -21563,7 +21235,7 @@
     },
     "/api/v0/registrierungen/confirmation": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,\n`confirmation_exists`, `confirmation_age`, `media_age` and `registrierung_choices_unsuitable`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,\n`confirmation_exists`, `confirmation_age` and `media_age`.",
         "operationId": "registrierungen_post_confirmation",
         "requestBody": {
           "content": {
@@ -21640,7 +21312,7 @@
     },
     "/api/v0/registrierungen/confirmation/view": {
       "post": {
-        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has\nleft the season reading expired, and `confirmation_spieler_returning` opens the returning\npupil's page; only a token no registration holds is refused (`link_invalid`).",
+        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has\nleft the season reading expired; only a token no registration holds is refused (`link_invalid`).",
         "operationId": "registrierungen_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -21796,7 +21468,7 @@
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody.\n`complete` is false where more pending rows exist than `limit` serves.",
+        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.",
         "operationId": "registrierungen_get_open_registrierungen",
         "parameters": [
           {
@@ -21816,27 +21488,6 @@
             "schema": {
               "title": "Saison Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/FLSortOrder",
-              "default": "desc"
             }
           }
         ],
@@ -21995,7 +21646,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age whose club still holds the season, earliest deadline first:\n`reminded_at` is stamped and the reminder owed in the Postausgang in one transaction, its link joining the one already in that\ninbox. One call reminds a bounded share of the registrations due; the rest stay due and the calls after it remind them. Every\nremoval names this season alone and is made inside a transaction.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
+        "description": "Run the three registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline\nclock does not run for a `past` season, whose own end takes every row it reads.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Every removal names this season alone and is made inside a transaction.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the three clocks passed over.\n\n404 where no season has the id. Idempotent: a run after every due row went writes nothing.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -22073,7 +21724,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/admit": {
       "post": {
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address\nthis admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on\nthe day the registration was submitted, never today's and never lifted from a retired row; this person's retired\nrow of this season is rewritten rather than a second one written, whichever team it was on. The registration is\ndeleted in the same transaction, so a second press meets no row. Its\nsubmission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not\noffer (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name, its birthdate and its freshly\nconfirmed consent record. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address\nthis admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on\nthe day the registration was submitted, never today's and never lifted from a retired row; this person's retired\nrow of this season is rewritten rather than a second one written, whichever team it was on. The registration is\ndeleted in the same transaction, so a second press meets no row.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not\noffer (`registrierung_stufe_not_allowed`), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
         "operationId": "registrierungen_admit",
         "parameters": [
           {
@@ -25184,7 +24835,7 @@
     },
     "/api/v0/spielbestaetigungen": {
       "get": {
-        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `complete` is false where it left the\noldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document\nhas answers no rows rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's address is served. Every row still holding its party's question is\nserved; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no\ndocument has answers no rows rather than 404.",
         "operationId": "spielbestaetigungen_get_spielbestaetigungen",
         "parameters": [
           {
@@ -25284,81 +24935,6 @@
           }
         ],
         "summary": "A season's fixture confirmations, or one fixture's",
-        "tags": [
-          "spielbestaetigungen"
-        ]
-      },
-      "post": {
-        "description": "Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on.\n\nRefuses, in this order: a token no seat holds (`link_invalid`); a row already answered, closed since or not\n(`ansetzung_answered`); one closed unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club\n(`ansetzung_decided`), then one whose date, time, ground or sides moved since the link (`ansetzung_changed`), each\nas the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_deadline_past`); a\nproposal dated before today (`ansetzung_vorschlag_past`); one naming the day and hour the fixture already holds\n(`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the administrator's own save of that date would be\nrefused, judged on what it newly claims and in that save's order: on or after a club's exit\n(`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's\nother fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the first is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
-        "operationId": "spielbestaetigungen_post_spielbestaetigung",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAnswerPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungAnswerResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "Confirm a fixture's Ansetzung, or decline it proposing another date",
         "tags": [
           "spielbestaetigungen"
         ]
@@ -25574,84 +25150,6 @@
         "tags": [
           "spielbestaetigungen"
         ]
-      }
-    },
-    "/api/v0/spielbestaetigungen/view": {
-      "post": {
-        "description": "Answer what the page renders for the fixture this token asks a club about, and nobody's name or address (`READ-ANSETZUNG-001`).\n\nThe state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the\nAnsetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that\nreads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds\n(`link_invalid`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,\ndecided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it.\n`vorschlag` is the state of an open link while the other club's decline proposes another date for the same\nAnsetzung, whose date and hour alone are served.",
-        "operationId": "spielbestaetigungen_get_spielbestaetigung_view",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLTokenPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungViewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "What one fixture confirmation link opens",
-        "tags": [
-          "spielbestaetigungen"
-        ],
-        "x-safe": true
       }
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {

@@ -156,7 +156,7 @@ const LINK_DAYS = 14;
  * the day `sentOn` days from today. No hash: the seed owes no mail, and the hand-out writes one only as it mints a link.
  */
 function confirmationBlock(sentOn) {
-  return { token_hashes: [], sent_at: day(sentOn), reminded_at: null, deadline: day(sentOn + LINK_DAYS) };
+  return { token_hashes: [], sent_at: day(sentOn), deadline: day(sentOn + LINK_DAYS) };
 }
 
 // Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its wording's
@@ -773,7 +773,7 @@ function invitation(clubName) {
 const INVITATIONS = { Ahorn: invitation("Ahorn"), Kastanie: invitation("Kastanie"), Weide: invitation("Weide") };
 
 // `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`.
-const REGISTRATION_LINK_DAYS = 7;
+const REGISTRATION_LINK_DAYS = 14;
 
 /**
  * One pupil's row through Kastanie's link (`fl_backend/app/api/registrierungen/services.py :: compose_registrierung`),
@@ -798,7 +798,6 @@ function registration(person, submittedOn, { confirmed = false, decision = null 
     confirmation: {
       token_hashes: [linkHash(`${person.first_name.toLowerCase()}-registration`)],
       sent_at: day(submittedOn),
-      reminded_at: null,
       deadline: day(submittedOn + REGISTRATION_LINK_DAYS),
     },
     decision,
