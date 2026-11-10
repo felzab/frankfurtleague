@@ -83,29 +83,42 @@ describe("each form's posted names meet its lane's keys", () => {
     expect([...names, "saison_id", "kind"].toSorted()).toStrictEqual(keysOf(enterTeam));
   });
 
+  // `media` renders once a birthdate stands; `act` and `token` are `kit/OneShot.tsx`'s carry.
   it("loses no box of the referee's confirmation", async () => {
-    const { ConfirmationFields } = await import("@/app/(classic)/confirm/schiedsrichter/ConfirmationFields");
+    const { ConfirmationFields } = await import("@/app/(classic)/confirm/ConfirmationFields");
     const { answerSchiedsrichter } = await import("@/app/(classic)/confirm/schiedsrichter/answerSchiedsrichter");
+    const { SCHIEDSRICHTER_WORDINGS } = await import("@/core/consentWordings");
     const names = namesIn(
       <ConfirmationFields
+        consent={{ name: "scope", wording: SCHIEDSRICHTER_WORDINGS.scope, isRequired: true }}
+        media={SCHIEDSRICHTER_WORDINGS.media}
         earliestBirth={"1900-01-01" as never}
         latestBirth={"2030-01-01" as never}
         mediaLatestBirth={"2030-01-01" as never}
-        required={{ birth_date: true, scope: true }}
+        isBirthDateRequired
       />,
     );
 
-    // `media` renders once a birthdate stands; `act` and `token` are `kit/OneShot.tsx`'s carry.
     expect([...new Set([...names, "media", "act", "token"])].toSorted()).toStrictEqual(keysOf(answerSchiedsrichter));
   });
 
+  // A consent box whose name meets no key parses as a refusal.
   it("loses no box of a contact person's confirmation", async () => {
+    const { ConfirmationFields } = await import("@/app/(classic)/confirm/ConfirmationFields");
     const { answerKontakt } = await import("@/app/(classic)/confirm/kontakt/answerKontakt");
-    const posted = spelledIn("app/(classic)/confirm/kontakt/ConfirmationFields.tsx");
+    const { SEAT_WORDINGS } = await import("@/core/consentWordings");
+    const names = namesIn(
+      <ConfirmationFields
+        consent={{ name: "whatsapp", wording: SEAT_WORDINGS.scope }}
+        media={SEAT_WORDINGS.media}
+        earliestBirth={"1900-01-01" as never}
+        latestBirth={"2030-01-01" as never}
+        mediaLatestBirth={"2030-01-01" as never}
+        isBirthDateRequired
+      />,
+    );
 
-    // Spelled rather than rendered: `media` renders only once a birthdate stands, and a consent box whose name meets no
-    // key parses as a refusal. `act` and `token` are `kit/OneShot.tsx`'s carry.
-    expect([...posted, "act", "token"].toSorted()).toStrictEqual(keysOf(answerKontakt));
+    expect([...new Set([...names, "media", "act", "token"])].toSorted()).toStrictEqual(keysOf(answerKontakt));
   });
 
   // The application's boxes post dotted names `applicationOf` reads by string, its own parse seeing a nested body, and an

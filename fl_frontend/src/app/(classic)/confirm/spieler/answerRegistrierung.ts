@@ -4,10 +4,10 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
-import { APIBadStatusError } from "@/core/errors";
 import { registrierungenPostConfirmation } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 
+import { refusedAs } from "../linkView";
 import { CONFIRMED, LINK_INVALID } from "./ends";
 
 import type { Code } from "@/core/generated/client/types";
@@ -25,8 +25,6 @@ const Answer = z.object({
 
 /** The refusals that say the link holds no more since the page opened: answered, lapsed or mistyped. */
 const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", "confirmation_exists"]);
-
-const spent = (error: unknown) => error instanceof APIBadStatusError && error.serverErrorCode !== undefined && SPENT.has(error.serverErrorCode);
 
 /**
  * A pupil's answer through their link: the birthdate, what of their name the site may show and the media consent,
@@ -47,7 +45,7 @@ export const answerRegistrierung = action({
       await registrierungenPostConfirmation({ token, birth_date: birthDate, scope, media, text_versions: SPIELER_TEXT_VERSIONS });
       return { ok: true, value: CONFIRMED };
     } catch (error) {
-      if (!spent(error)) throw error;
+      if (!refusedAs(error, SPENT)) throw error;
       return { ok: true, value: LINK_INVALID };
     }
   },
