@@ -29,7 +29,7 @@ import type {
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { TableProps } from "@/kit/Table";
+import type { TableProps, TableRow } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -148,6 +148,14 @@ function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "first_nam
   return { record: spieler.last_name === null ? spieler.first_name : `${spieler.first_name} ${spieler.last_name}` };
 }
 
+/** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
+function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
+  const name = personOf(entry);
+  return typeof name === "string" || entry.rolle === null
+    ? { name }
+    : { name, mark: { letters: COPY.shared.rolleMark[entry.rolle], label: COPY.admin.spieler.rolleOption[entry.rolle] } };
+}
+
 /** A line-up's pupils as one table: a row a pupil, with their number and position. */
 function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): TableProps {
   const { column, spiel } = SERVER_COPY.season;
@@ -160,7 +168,7 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): Tab
     ],
     rows: spieler.map((entry, index) => ({
       id: String(index),
-      name: personOf(entry),
+      ...rowNameOf(entry),
       cells: {
         ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
         ...(entry.position === null ? {} : { position: { record: entry.position } }),
