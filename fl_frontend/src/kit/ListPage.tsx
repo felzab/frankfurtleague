@@ -20,11 +20,13 @@ import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } fr
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { RowActs } from "./RowActs";
+import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
 import { Tabs, TabsPlaceholder } from "./Tabs";
+import { TeamHead, TeamHeadPlaceholder } from "./TeamHead";
 import { SchoolTilesPlaceholder } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
@@ -36,6 +38,7 @@ import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
 import type { ListMore, ListSearch } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
+import type { SeatRow } from "./SeatRows";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableBody, TableHead } from "./Table";
 import type { SchoolTile } from "./TileGrid";
@@ -70,7 +73,25 @@ type GroupsContent = {
  * over its records, every card drawn every day, one with nothing waiting saying so.
  */
 type CardsContent = {
-  cards: ReadonlyArray<{ id: string; title: Copy; rows: ReadonlyArray<CardActRowProps & { id: string }> }>;
+  /** The team whose own Übersicht this is, heading the cards: its plaque and its full name (`TeamHead`). */
+  team?: ComponentProps<typeof TeamHead>;
+  cards: ReadonlyArray<{
+    id: string;
+    title: Copy;
+    rows: ReadonlyArray<CardActRowProps & { id: string }>;
+    /** `false` on a card holding a list rather than open work, such as a referee's games: a count says how much is open. */
+    count?: false;
+    /**
+     * Such a list's own empty state, which stands in the card's place while the list holds nothing; a card of open work
+     * stays and says „Nichts offen.“
+     */
+    empty?: EmptyStateProps;
+  }>;
+  /**
+   * Who holds the seats of the record the work belongs to, such as a team's on its own Übersicht: the last card, which
+   * only shows them, so a seat carries no act.
+   */
+  seats?: { title: Copy; rows: ReadonlyArray<Omit<SeatRow, "acts">> };
 };
 
 /** The K.-o.-Baum, or why there is none yet. */
@@ -128,10 +149,16 @@ type ListContent =
   | {
       kind: "cards";
       /**
-       * Each card while it waits, in their order, its title and the acts its rows carry, which a phone sets on a line of
-       * their own, and how many rows each draws.
+       * Each card while it waits, in their order, its title, the acts its rows carry, which a phone sets on a line of
+       * their own, and `count` as the card states it, and how many rows each draws; the seats' card's title, where
+       * the page shows the record's seats; and `team` where a team's head opens the page.
        */
-      wait: { rows: number; cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }> };
+      wait: {
+        rows: number;
+        cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy>; count?: false }>;
+        seats?: Copy;
+        team?: true;
+      };
       content: Promise<CardsContent>;
     }
   | {
@@ -195,19 +222,30 @@ function ListPlaceholder({ list }: { list: ListContent }) {
       ));
     case "cards":
       return (
-        <CardGrid>
-          {list.wait.cards.map(({ title, acts }) => (
-            <CardPlaceholder
-              key={title}
-              title={title}
-              count>
-              <CardRowsPlaceholder
-                rows={list.wait.rows}
-                {...(acts === undefined ? {} : { acts })}
-              />
-            </CardPlaceholder>
-          ))}
-        </CardGrid>
+        <>
+          {list.wait.team === true && <TeamHeadPlaceholder />}
+          <Cards boxes={list.wait.cards.length + (list.wait.seats === undefined ? 0 : 1)}>
+            {list.wait.cards.map(({ title, acts, count }) => (
+              <CardPlaceholder
+                key={title}
+                title={title}
+                count={count !== false}>
+                <CardRowsPlaceholder
+                  rows={list.wait.rows}
+                  {...(acts === undefined ? {} : { acts })}
+                />
+              </CardPlaceholder>
+            ))}
+            {list.wait.seats !== undefined && (
+              <CardPlaceholder title={list.wait.seats}>
+                <SeatRowsPlaceholder
+                  bare
+                  readOnly
+                />
+              </CardPlaceholder>
+            )}
+          </Cards>
+        </>
       );
     case "spieltage":
       return (
@@ -236,6 +274,14 @@ function ListPlaceholder({ list }: { list: ListContent }) {
 /** What a list's boundary holds while its blocks are read, laid out as the blocks will be. */
 function ListWait({ children }: { children: ReactNode }) {
   return <Waiting layout="flex flex-col gap-6">{children}</Waiting>;
+}
+
+/**
+ * A page's cards: side by side in the grid, or a lone one at the content's width, beside which the grid's second column
+ * would stand empty. The wait and the page each count their own, so both stand alike.
+ */
+function Cards({ boxes, children }: { boxes: number; children: ReactNode }) {
+  return boxes === 1 ? children : <CardGrid>{children}</CardGrid>;
 }
 
 /** A list's empty state inside the list's box, as `Table` places its own. */
@@ -456,27 +502,46 @@ async function ListBody({ list }: { list: ListContent }) {
       );
     }
     case "cards": {
-      const { cards } = await list.content;
+      const { team, cards, seats } = await list.content;
       return (
-        <CardGrid>
-          {cards.map((entry) => (
-            <Card
-              key={entry.id}
-              title={entry.title}
-              count={entry.rows.length}>
-              {entry.rows.length === 0 ? (
-                <EmptyState kind="clear" />
+        <>
+          {team !== undefined && <TeamHead {...team} />}
+          <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
+            {cards.map((entry) =>
+              entry.rows.length === 0 && entry.empty !== undefined ? (
+                <EmptyBox
+                  key={entry.id}
+                  empty={entry.empty}
+                />
               ) : (
-                entry.rows.map(({ id, ...row }) => (
-                  <CardActRow
-                    key={id}
-                    {...row}
-                  />
-                ))
-              )}
-            </Card>
-          ))}
-        </CardGrid>
+                <Card
+                  key={entry.id}
+                  title={entry.title}
+                  {...(entry.count === false ? {} : { count: entry.rows.length })}>
+                  {entry.rows.length === 0 ? (
+                    <EmptyState kind="clear" />
+                  ) : (
+                    entry.rows.map(({ id, ...row }) => (
+                      <CardActRow
+                        key={id}
+                        {...row}
+                      />
+                    ))
+                  )}
+                </Card>
+              ),
+            )}
+            {seats !== undefined && (
+              <Card title={seats.title}>
+                <SeatRows
+                  label={seats.title}
+                  rows={seats.rows}
+                  bare
+                />
+              </Card>
+            )}
+          </Cards>
+        </>
       );
     }
     case "tree": {
@@ -512,7 +577,9 @@ async function ListBody({ list }: { list: ListContent }) {
  * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
  * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
+ * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own under the team's head and
+ * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
+ * filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
