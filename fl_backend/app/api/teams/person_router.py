@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Annotated, Any, Final, NamedTuple
 
 from fastapi import APIRouter, Body, Depends, status
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -43,7 +42,7 @@ from app.api.teams.services import build_team_spiele_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     RegistrierungenReadCollection,
@@ -157,13 +156,10 @@ async def patch_einwilligung(
             text_versions=by_choice(einwilligung_data.text_versions),
         )
         if update is not None:
-            await patch_one_in_db(
-                collection=saison_teams_collection,
-                db_filter={"_id": row["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
+            # Past the row's count: the team editor saves no consent, keeping each kept seat's record as its own read in
+            # session finds it, so an editor opened before this press saves around it rather than meeting a stale version.
+            await patch_past_the_version_in_db(
+                collection=saison_teams_collection, db_filter={"_id": row["_id"]}, update=update, session=session
             )
         choices = withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen)
         if choices is not None:
