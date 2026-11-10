@@ -3,6 +3,7 @@ import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
+import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
@@ -19,7 +20,8 @@ type PersonSaisons = Extract<FrameSaisons, { saisons: unknown }>;
 
 /**
  * One frame of a person's own pages: its menu, the area's line in the account row, and, for a place whose pages are
- * a season's, that place's first page and its address without a season.
+ * a season's, that place's first page and its address without a season, where „Übersicht“ leads while the person's
+ * records stand in no season.
  */
 type Frame = {
   groups: RailGroup[];
@@ -55,19 +57,36 @@ const FRAMES = {
 
 const BAR = ["overview"] as const;
 
+/** One season a person's own records stand in, as the seasons read of their place serves it, the newest first. */
+type OwnSaison = { id: string; start_date: string; end_date: string };
+
 /**
- * Session 8: a place's seasons are the ones the person's own read names, a pupil's squad rows and a referee's matches,
- * the newest first, and `null` where it names none. Until that read stands, the one season the site is on.
+ * Session 8: a pupil's and a referee's seasons are their place's own read, `GET /spieler/self/saisons` and
+ * `GET /schiedsrichter/self/saisons`: the seasons their squad rows and their fixtures stand in. Until the generated
+ * client holds the two, the one season the site is on.
  */
-async function readSeasons(): Promise<Saisons | null> {
-  // A session turned away is shown no season; its page sends it to sign in.
-  if ((await getSubjectSession()) === null) return null;
+async function readOwnSaisons(): Promise<OwnSaison[]> {
   const { saisons, active_saison_id: active } = await getSaisonFrame();
-  const running = saisons.find((saison) => saison.id === active);
-  if (running === undefined) return null;
+  return saisons.filter((saison) => saison.id === active);
+}
+
+/**
+ * The seasons a place's season button offers and the one its „Übersicht“ leads to: the season the site is on where
+ * the person's records stand in it, else their newest; `null` where they stand in none. A session turned away and a
+ * person holding no such Funktion are shown none, without a read: their page sends them on, and a read the backend
+ * refuses here would fail the frame around that redirect.
+ */
+async function readSeasons(kind: "spieler" | "schiedsrichter"): Promise<Saisons | null> {
+  const subject = await getSubjectSession();
+  if (subject === null || !rolesOf(subject).roles.some((role) => role.kind === kind)) return null;
+
+  const own = await readOwnSaisons();
+  const [newest] = own;
+  if (newest === undefined) return null;
+  const { active_saison_id: running } = await getSaisonFrame();
   return {
-    entries: [{ id: running.id, span: formatPeriod(dayOf(running.start_date), dayOf(running.end_date)) }],
-    standard: running.id,
+    entries: own.map((saison) => ({ id: saison.id, span: formatPeriod(dayOf(saison.start_date), dayOf(saison.end_date)) })),
+    standard: own.find((saison) => saison.id === running)?.id ?? newest.id,
   };
 }
 
@@ -89,7 +108,7 @@ export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; c
       <RailFrame
         groups={frame.groups}
         bar={BAR}
-        saison={frame.saison === undefined ? undefined : { saisons: readSeasons(), ...frame.saison }}
+        saison={place === "landing" ? undefined : { saisons: readSeasons(place), ...FRAMES[place].saison }}
         foot={{ kind: "account", account: readAccount(frame.role) }}
         columnInLayouts={frame.columnInLayouts}>
         {children}

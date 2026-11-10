@@ -1,17 +1,19 @@
 // @vitest-environment jsdom
 import { underNext } from "@/test-support/nextContexts";
-import { person, seat } from "@/test-support/subjectFixtures";
+import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import TeamLayout from "./layout";
 import TeamNotFound from "./not-found";
 
+import type { CalendarDay } from "@/core/format";
 import type { ReactNode } from "react";
 
 const AHORN = "6890a1b2c3d4e5f607250011";
@@ -22,9 +24,18 @@ const LINDE = "6890a1b2c3d4e5f607250013";
 // a season Ahorn is not held in.
 const SUBJECT = person({
   seats: [
-    seat({ team_id: WEIDE, team_name: "Weide", saison_id: "2028", saison_status: "future" }),
-    seat({ team_id: AHORN, team_name: "Ahorn", saison_id: "2026", saison_status: "active" }),
-    seat({ team_id: AHORN, team_name: "Ahorn", saison_id: "2027", saison_status: "future", rolle: "trainer" }),
+    seat({ team_id: WEIDE, team_name: "Weide", team_shorthand: "WEI", saison_id: "2028", saison_status: "future" }),
+    seat({ team_id: AHORN, team_name: "Ahorn", team_shorthand: "AHO", saison_id: "2026", saison_status: "active" }),
+    seat({
+      team_id: AHORN,
+      team_name: "Ahorn",
+      team_shorthand: "AHO",
+      saison_id: "2027",
+      saison_status: "future",
+      saison_start_date: "2026-09-01",
+      saison_end_date: "2027-07-31",
+      rolle: "trainer",
+    }),
   ],
 });
 
@@ -49,9 +60,10 @@ beforeEach(() => {
 });
 
 // The layout stands above the team and the season and is handed neither, so a frame that took the person's first
-// team, or every season they hold anywhere, still draws four links and a season button that all lead somewhere.
+// team, or every season they hold anywhere, still draws four links, a season button and an account row that all read
+// as some team's.
 describe("a team's frame for a person holding two teams", () => {
-  it("leads its four pages to the team and the season of the address, and offers that team's seasons alone", async () => {
+  it("leads its four pages to the team and the season of the address, offers that team's seasons alone and names it in the account row", async () => {
     await renderAt(ROUTES.teamKader.path, AHORN, "2026");
 
     expect(hrefsOf(ROUTES.teamOverview.title)).toEqual(new Set([ROUTES.teamOverview.path(AHORN, "2026")]));
@@ -59,8 +71,14 @@ describe("a team's frame for a person holding two teams", () => {
     expect(hrefsOf(ROUTES.teamKader.title)).toEqual(new Set([ROUTES.teamKader.path(AHORN, "2026")]));
     expect(hrefsOf(ROUTES.teamRegistrierungen.title)).toEqual(new Set([ROUTES.teamRegistrierungen.path(AHORN, "2026")]));
 
+    // Under the person's address: the Kürzel of the address's team and the seat held in the address's season.
+    expect(screen.getByText(SUBJECT.email).nextElementSibling?.textContent).toBe(
+      COPY.area.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
+    );
+
     const [button] = saisonButtons();
     if (button === undefined) throw new Error("the frame draws no season button");
+    expect(button.textContent).toContain(formatPeriod(SEAT.saison_start_date as CalendarDay, SEAT.saison_end_date as CalendarDay));
     await userEvent.click(button);
     expect(screen.getAllByRole("menuitemradio").map((entry) => entry.getAttribute("href"))).toEqual([
       ROUTES.teamKader.path(AHORN, "2027"),

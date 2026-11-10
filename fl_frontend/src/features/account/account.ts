@@ -26,11 +26,12 @@ function entryOf(target: RoleTarget): NonNullable<Account["roles"]>[number] {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
       const rollen = target.roles.flatMap((role) => (role.kind === "kontakt" ? [role.rolle] : []));
-      // Session 8: the place carries its own line for the account row, `COPY.area.team.accountLine` over the seat's Kürzel.
       return {
         href,
         label: { record: first.team_name },
         detail: COPY.account.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
+        // The account row's second line on every page of this team's season, which a team's frame cannot name itself.
+        role: COPY.area.team.accountLine({ record: first.team_shorthand }, rollen),
       };
     }
     case "spieler":

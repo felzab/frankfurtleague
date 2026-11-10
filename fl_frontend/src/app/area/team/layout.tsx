@@ -1,6 +1,7 @@
 import { RailFrame } from "@/kit/RailFrame";
 import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
+import { dayOf, formatPeriod } from "@/core/format";
 import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
@@ -47,12 +48,16 @@ async function readTeams(): Teams {
   }
 
   return [...byTeam].map(([team, held]) => {
-    const newest = held.reduce((best, seat) => (seat.saison_id.localeCompare(best.saison_id) > 0 ? seat : best));
-    const ids = [...new Set(held.map((seat) => seat.saison_id))].sort((one, other) => other.localeCompare(one));
+    const newerFirst = (one: TeamSeat, other: TeamSeat) => other.saison_id.localeCompare(one.saison_id);
+    // One seat a season: a person holding two seats on one row holds one season there.
+    const seasons = [...new Map(held.map((seat) => [seat.saison_id, seat])).values()].sort(newerFirst);
+    const newest = held.reduce((best, seat) => (newerFirst(best, seat) > 0 ? seat : best));
     return {
       team,
-      // Session 8: each season's span is its seat's own dates, written by `formatPeriod`.
-      entries: ids.map((id) => ({ id, span: "" })),
+      entries: seasons.map((seat) => ({
+        id: seat.saison_id,
+        span: formatPeriod(dayOf(seat.saison_start_date), dayOf(seat.saison_end_date)),
+      })),
       standard: (held.find((seat) => seat.saison_status === "active") ?? newest).saison_id,
     };
   });
