@@ -6,6 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.services import enqueue_mails
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     AnsetzungState,
@@ -104,6 +105,12 @@ async def pull_ansetzung_state(
 
 # --- The ADMINISTRATOR's read.
 
+# What the list serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
+# no administrator reads, an old seat's address among them, never leaves the database.
+ADMIN_ROW_FIELDS: Final[list[str]] = [
+    field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()
+]
+
 
 async def pull_admin_rows(
     *, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any], limit: int
@@ -113,7 +120,7 @@ async def pull_admin_rows(
     A cut across all rows would drop the oldest open ones, the overdue, first.
     """
 
-    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}).to_list(length=None)
+    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_ROW_FIELDS).to_list(length=None)
     # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
     # its closed image wins below.
     rest = await pull_many_from_db(
@@ -123,6 +130,7 @@ async def pull_admin_rows(
         limit=limit + 1,
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
+        projection=ADMIN_ROW_FIELDS,
     )
     rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
 
