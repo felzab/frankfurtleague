@@ -18,6 +18,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import (
     FLBanData,
+    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxEventPayload,
@@ -93,6 +94,7 @@ async def owe(
     reference: FLOutboxReference = REFERENCE,
     spec: FLOutboxLink = LINK,
     now: datetime = NOW,
+    club: FLOutboxClub | None = None,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
@@ -100,7 +102,7 @@ async def owe(
         await enqueue_mails(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
-            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
+            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None, club=club)],
             now=now,
         )
 
@@ -287,6 +289,40 @@ class TestTheDrain:
         # Bookkeeping, as an anchor is: an editor read before the drain still saves.
         assert record["version"] == 0
         assert (dropped, states) == ([], ["dropped", "dropped"])
+
+    @pytest.mark.parametrize(
+        ("seats", "handed"),
+        [
+            ({"trainer": None, "ansprechperson": {"email": NORA, "einwilligung": {"confirmed_at": "2126-04-01"}}}, True),
+            ({"trainer": {"email": NORA, "einwilligung": None}, "ansprechperson": None}, False),
+            ({"trainer": {"email": "nachfolge@beispielschule.de", "einwilligung": {"confirmed_at": "2126-04-01"}}}, False),
+            (None, False),
+        ],
+        ids=("a confirmed seat holding it", "an unconfirmed seat holding it", "a seat handed on", "no season row"),
+    )
+    def test_a_club_mail_goes_only_while_a_confirmed_seat_of_its_club_holds_its_address(
+        self, mongo_replica_set_url: str, seats: dict[str, Any] | None, handed: bool
+    ):
+        """A send that failed is retried for days, and its seat may change hands meanwhile: the mail carries no link to judge.
+
+        Another club's row holding the address confirmed sends nothing either: the seat is the mail's club's.
+        """
+
+        club = FLOutboxClub(saison_id="2126", team_id=ObjectId("6890a1b2c3d4e5f607f30003"))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmed = {"email": NORA, "einwilligung": {"confirmed_at": "2126-04-01"}}
+            await database[Collection.SAISON_TEAMS].insert_one({"saison_id": "2126", "team_id": ObjectId(), "kontakte": {"trainer": confirmed}})
+            if seats is not None:
+                await database[Collection.SAISON_TEAMS].insert_one({"saison_id": club.saison_id, "team_id": club.team_id, "kontakte": seats})
+            row_id = await owe(database, client, "club/1", data=BAN, club=club)
+            answer = await claimed(database, client)
+
+            return [mail.id for mail in answer.mails], row_id, (await stored(database, row_id))["state"]
+
+        mails, row_id, state = on_a_database(mongo_replica_set_url, body)
+
+        assert (mails, state) == (([row_id], "open") if handed else ([], "dropped"))
 
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
         """The second of the ban's two checkpoints, and every spelling of the address on the mail's row meets it."""

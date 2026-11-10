@@ -4,7 +4,7 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.teams.schemas import FLSaisonTeamKontakte, FLTrainerAlso, _KontaktpersonWritablePayload
+from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontakteRecord, FLTrainerAlso, _KontaktpersonWritablePayload
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
@@ -180,6 +180,7 @@ class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):
 class FLBewerbungRecord(FLBewerbung):
     """One application as `bewerbungen` stores it: what no read serves beside what every read does."""
 
+    kontakte: FLSaisonTeamKontakteRecord
     confirmations: FLBewerbungConfirmationsRecord
     # The retention sweep's announcement, and the submission's replay key.
     erasure_announced_at: str | None = None

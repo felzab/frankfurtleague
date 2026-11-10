@@ -17,10 +17,18 @@ import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsric
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
+import type { FLDeclinedRetentionDays } from "@/core/generated/client/types";
 import type { ProseBlock, ProseText } from "@/kit/Prose";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
+
+/**
+ * The days a declined application or registration stands before its sweep deletes it, checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS`: the backend moving it fails the type check here.
+ * The notice's own copy, no slice holding the bound both kinds share.
+ */
+const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
 
 /** The league's address as a link inside a sentence. */
 const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };
@@ -100,6 +108,7 @@ export default function PrivacyNoticePage() {
                 : row.period({
                     bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
                     registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+                    declinedDays: DECLINED_RETENTION_DAYS,
                     schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
                     addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
                     code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },

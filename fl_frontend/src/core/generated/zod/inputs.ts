@@ -1173,7 +1173,8 @@ export const IdentityGetSubjectBody = zod
  * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
  * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
  * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
+ * one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
+ * its send, which keeps its key alone, rather than a refusal the provider
  * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
  * its address, in the same transaction.
  * @summary Record one delivery event on its mail's row
@@ -1414,7 +1415,9 @@ export const RegistrierungenPostInvitationViewBody = zod
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
  * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
- * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.
+ * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
+ * any unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`
+ * is false where the cap cut some.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungenPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1482,10 +1485,10 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
  * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
  * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
- * about any of them.
+ * about any of them, and the admission's act counts them.
  *
- * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
- * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
+ * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
+ * the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
  * offer (`registrierung_stufe_not_allowed`), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
  * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
@@ -1514,8 +1517,8 @@ export const RegistrierungenAdmitBody = zod
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
- * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
- * (`role_not_held`).
+ * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
+ * one the team has declined already (404).
  * @summary Decline a registration
  */
 export const registrierungenDeclinePathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1612,6 +1615,7 @@ export const saisonsPatchSaisonBodyRulesForfeitErgebnisVerliererToreMin = 0;
 export const saisonsPatchSaisonBodyRulesLossPointsMin = 0;
 
 export const saisonsPatchSaisonBodyRulesMaxKaderSizeExclusiveMin = 0;
+export const saisonsPatchSaisonBodyRulesMaxKaderSizeMax = 50;
 
 export const saisonsPatchSaisonBodyRulesNumberOfGruppenExclusiveMin = 0;
 export const saisonsPatchSaisonBodyRulesNumberOfGruppenMax = 16;
@@ -1663,7 +1667,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
       ),
     loss_points: zod.int().min(saisonsPatchSaisonBodyRulesLossPointsMin),
-    max_kader_size: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKaderSizeExclusiveMin),
+    max_kader_size: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKaderSizeExclusiveMin).max(saisonsPatchSaisonBodyRulesMaxKaderSizeMax),
     number_of_gruppen: zod.int().gt(saisonsPatchSaisonBodyRulesNumberOfGruppenExclusiveMin).max(saisonsPatchSaisonBodyRulesNumberOfGruppenMax),
     qualifiers_per_gruppe: zod.int().gt(saisonsPatchSaisonBodyRulesQualifiersPerGruppeExclusiveMin),
     teams_per_gruppe: zod.int().min(saisonsPatchSaisonBodyRulesTeamsPerGruppeMin).max(saisonsPatchSaisonBodyRulesTeamsPerGruppeMax),

@@ -3129,6 +3129,7 @@ export interface FLOpenRegistrierung {
  * One team's pending registrations for one season, newest first.
  */
 export interface FLOpenRegistrierungenResponse {
+  complete: boolean;
   registrierungen: FLOpenRegistrierung[];
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3755,7 +3756,10 @@ export interface FLSaisonRules {
   forfeit_ergebnis: FLSaisonForfeitErgebnis;
   /** @minimum 0 */
   loss_points: number;
-  /** @exclusiveMinimum 0 */
+  /**
+   * @maximum 50
+   * @exclusiveMinimum 0
+   */
   max_kader_size: number;
   /**
    * @maximum 16

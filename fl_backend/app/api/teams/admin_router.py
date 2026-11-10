@@ -1268,6 +1268,7 @@ async def post_invitation_dispatch(
             session=session,
             mails=owed_invitation_mails(
                 invitation_id=mail_data.invitation_id,
+                team_id=team_id,
                 team_name=str(row["name"]),
                 saison_id=saison_id,
                 recipient=recipients,
