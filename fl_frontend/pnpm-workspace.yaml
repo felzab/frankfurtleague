@@ -29,9 +29,9 @@ verifyDepsBeforeRun: error
 # The scripts set variables in the POSIX `NAME=value command` form, which Windows' cmd.exe, pnpm's
 # default shell there, refuses. `node --run` bypasses this and runs them in that shell: use `pnpm run`.
 shellEmulator: true
-# An out-of-range peer fails a resolving `pnpm install`: HeroUI uses the app's copy of its peers,
-# which a HeroUI upgrade raising a range would outgrow unseen. `pnpm add` and `pnpm update` only
-# warn; `scripts/gate/verify.sh :: do_peers` refuses theirs.
+# An out-of-range peer fails a resolving `pnpm install`: a package uses the app's copy of its peers,
+# which an upgrade raising a range would outgrow unseen. `pnpm add` and `pnpm update` only warn;
+# `scripts/gate/verify.sh :: scope_frontend` refuses theirs.
 strictPeerDependencies: true
 # A release younger than a day is refused, the day `.github/dependabot.yml`'s cooldown waits. Strict
 # because pnpm 11's own default of the same age installs a younger release asked for by hand and

@@ -54,7 +54,7 @@ the code behind it.
 
 | Layer        | What                                                                                           |
 | ------------ | ---------------------------------------------------------------------------------------------- |
-| **Frontend** | Next.js (App Router, React Server Components), TypeScript, HeroUI, Tailwind CSS, Zod           |
+| **Frontend** | Next.js (App Router, React Server Components), TypeScript, React Aria, Tailwind CSS, Zod       |
 | **Backend**  | FastAPI, Pydantic, PyMongo's async client                                                      |
 | **Data**     | MongoDB: the league's database behind FastAPI, and a separate sign-in database                 |
 | **Sign-in**  | Better Auth, with passkeys or emailed codes; administrators need a passkey                     |

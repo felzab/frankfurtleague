@@ -9,8 +9,8 @@ if (typeof window !== "undefined") {
     languages: { configurable: true, value: ["de-DE"] },
   });
 
-  // jsdom lays nothing out and animates nothing, so it has none of these. HeroUI's `ScrollShadow` constructs an
-  // observer as a `Tabs` mounts.
+  // jsdom lays nothing out and animates nothing, so it has none of these. The kit's `ExpandableText` constructs an
+  // observer as it mounts.
   globalThis.ResizeObserver ??= class {
     observe(): void {}
     unobserve(): void {}
