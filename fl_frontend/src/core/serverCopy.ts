@@ -271,8 +271,9 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The mail shell's own lines, and the words of the account's, the fixtures', the referee's and the application's mails;
-   * every other mail's sentences are its template's until its area's session rewrites them.
+   * The mail shell's own lines, and the words of the account's, the fixtures', the line-up's, the referee's, the
+   * application's and the registration's mails; every other mail's sentences are its template's until its area's session
+   * rewrites them.
    */
   mail: {
     greeting: "Hallo,",
@@ -300,14 +301,15 @@ export const SERVER_COPY = catalogue({
      * they hold.
      */
     spiel: {
-      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDateLong(day)} bestätigen`,
+      /** The mail by the name the notices give it, „Anfrage“: a subject naming one answer would pass over the other. */
+      requestSubject: (day: CalendarDay) => `Anfrage: Spieltermin am ${formatDateLong(day)}`,
       reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDateLong(day)}`,
       /** Both answers named before the press, as the page offers both. */
-      confirmAsk: (team: Words) => `Bestätige den Termin für ${textOf(team)} oder schlag einen anderen vor.`,
+      confirmAsk: (team: Words) => `Sag den Termin für ${textOf(team)} zu oder schlag einen anderen vor.`,
       answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
       /** Around the deadline. */
       answerUntil: { before: "Antworte bis zum ", after: "." },
-      /** Any seat of the club answers and the first press binds, so a later reader meets a link already spent. */
+      /** Any seat of the club answers, and the first answer binds the club. */
       firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
 
       /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
@@ -342,7 +344,8 @@ export const SERVER_COPY = catalogue({
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
       bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDateLong(day)}`,
       booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
-      sayYesOrNo: "Sag zu oder ab.",
+      /** The decline in the word its button and its chip carry, „Ablehnen“ and „Abgelehnt“. */
+      sayYesOrNo: "Sag zu oder lehne ab.",
       /** A referee taken off a fixture, around the moment they were booked for. */
       unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDateLong(day)}`,
       unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
@@ -351,6 +354,18 @@ export const SERVER_COPY = catalogue({
       keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDateLong(day)}`,
       kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
+    },
+
+    /**
+     * The one reminder a team's confirmed seats get while a match's line-up is missing, on the fixture reminder's
+     * pattern: the match's block between its two sentences, and the button to the team's Übersicht
+     * (`COPY.shared.end.toOverview`).
+     */
+    aufstellung: {
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Aufstellung für den ${formatDateLong(day)}`,
+      missing: (team: Words) => `Die Aufstellung von ${textOf(team)} fehlt noch.`,
+      /** Around the moment the line-up is due. */
+      dueUntil: { before: "Trag sie bis zum ", after: " ein." },
     },
 
     /** An opponent's word that a club left the season. The lead follows the club's name, set semibold. */
@@ -563,6 +578,31 @@ export const SERVER_COPY = catalogue({
       admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
       valid: "Der Link gilt bis zum Ende der Registrierung.",
     },
+
+    /**
+     * A pupil's registration: its confirmation link, a first contact, whose lead and whose deadline by a day are the
+     * confirmation page's own sentences (`registrierungConfirmation`), and the team's decline, a notice.
+     */
+    registrierung: {
+      confirmation: {
+        subject: (team: string) => `Registrierung für ${team} bestätigen`,
+        confirm: "Bestätige deine Registrierung.",
+        admission: "Erst danach kann dein Team dich aufnehmen.",
+        /** The deadline where the mail's data counts days, the page's sentence taking a day. */
+        deadlineIn: (days: number) => `Bestätigst du nicht in ${formatNumber(days)} Tagen, löschen wir deine Registrierung.`,
+      },
+      absage: {
+        subject: (team: string) => `Registrierung für ${team} abgelehnt`,
+        /** The lead follows the team's name, set semibold. */
+        lead: { after: (saison: string) => ` hat deine Registrierung für die ${COPY.shared.saisonName(saison)} abgelehnt.` },
+        askTeam: "Fragen dazu beantwortet dein Team.",
+        /** In `askTeam`'s place where the team answered that the address is another person's. */
+        otherPerson: "Unter dieser Adresse steht schon eine andere Person.",
+        registerAgain: "Registriere dich mit deiner eigenen Adresse neu.",
+        /** The decline stands as the registration's deletion notice, as an application's does. */
+        deletion: (days: number) => `Die Registrierung löschen wir in ${formatNumber(days)} Tagen.`,
+      },
+    },
   },
 
   /**
@@ -732,6 +772,36 @@ export const SERVER_COPY = catalogue({
 
   /** The not-found page's title, in every frame. */
   notFound: "Seite nicht gefunden",
+
+  /**
+   * The areas under `/area` as a server page alone words them, beside `COPY.area`: the forbidden page, the landing of
+   * a person no entry admits to a page, a row's line, and the match report's page where no form stands.
+   */
+  area: {
+    /** The forbidden page's title, on another team's address. */
+    forbidden: "Kein Zugang",
+    /** Konto's callout for a signed-in person no entry admits to a page, by what stands in the way. */
+    noRole: {
+      none: "Du hast gerade keine Funktion.",
+      /** A contact person or a referee whose own link is unanswered. */
+      unconfirmed: "Dein Eintrag ist noch nicht bestätigt.",
+      /** A pupil whose confirmed registration waits on the team. */
+      notAdmitted: "Dein Team hat dich noch nicht aufgenommen.",
+    },
+    /** A row's one muted line: its parts in their order, a part the row lacks left out, as `COPY.admin.seatLine` joins a seat's. */
+    line: (parts: readonly (Words | null)[]) =>
+      parts
+        .filter((part) => part !== null)
+        .map(textOf)
+        .join(" · "),
+    /** The match report's status cards, each a title. */
+    schiedsrichter: {
+      /** Before the match's day, named by that day. */
+      spielberichtFrom: (day: CalendarDay) => `Spielbericht ab ${formatDateLong(day)}`,
+      /** A fixture another referee is booked onto. */
+      unbooked: "Nicht mehr eingeteilt",
+    },
+  },
 
   /** One word for where a season stands, before its start, running or decided: a season card's chip, a list's. */
   saisonState: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
@@ -1052,6 +1122,29 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
+   * The registration form's page, `ROUTES.registrierung`, beside the form's own words (`COPY.registrierung`): what a
+   * pupil reads before typing, and a status card's title for each state where no form stands.
+   */
+  registrierung: {
+    /** Shown to a nominee alone, whose squad entry stands outside the squad's cap. */
+    nominee: "Du wirst nachnominiert und spielst nur, wenn deinem Team sonst jemand fehlt.",
+    /**
+     * The Art. 21 DSGVO objection, read before anything is typed, in the one wording the first-contact mail closes on,
+     * in the two parts around the league's address, which the page sets as a link between them.
+     */
+    objection: OBJECTION_RIGHT,
+    end: {
+      /** The outcome replacing the form, a replayed press alike: the title is what the pupil does next. */
+      submitted: "Bestätige deine Registrierung per E-Mail",
+      /** A paused link, as `bewerbung.end.closed` words a paused window; an ended season reads `bewerbung.end.over`. */
+      closed: "Die Registrierung ist gerade geschlossen",
+      kaderFull: "Der Kader ist voll",
+      /** A team not in the season, or out of it. */
+      teamNotEntered: "Das Team spielt nicht mit",
+    },
+  },
+
+  /**
    * The fixed text of a contact person's confirmation page, `ROUTES.kontaktConfirmation`, titled
    * `COPY.page.entryConfirmation`: for whose application or team the person stands and as what, what is stored and until
    * when, what the birthdate is checked for, the deadline, what an objection does, and the privacy notice's link. The
@@ -1133,6 +1226,8 @@ export const SERVER_COPY = catalogue({
     ageCheck,
     deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
     more: MORE,
+    /** The done card's title; the link opened again titles it with the day (`COPY.shared.end.doneOn`). */
+    confirmed: "Registrierung bestätigt",
   },
 
   /**
