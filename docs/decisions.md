@@ -38,7 +38,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **spiele** — Guess a voided result rather than dry-running it
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
 - **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`
-- **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
+- **admin** — Give a shell page a second `h1`
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first
 - **forms** — Confirm a clean save; raise the dialog on `info`
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
@@ -93,6 +93,9 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **swap** — Refuse a swap for anything beyond its pair, a finished season, the season's start and its sides
   having taken place; record an exit before the season's start date, or move the start past one
 - **austritt** — Ask a passkey touch for an Austritt
+- **versions** — Give a part of a document a count of its own; guard a form's save by anything but the
+  `version` of the documents it saves; let a person's own press on their own block that moves no
+  field a form saves, or a job writing only bookkeeping no form saves, raise a record's `version`
 
 ## Operations
 
