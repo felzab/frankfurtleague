@@ -9,13 +9,7 @@ if (typeof window !== "undefined") {
     languages: { configurable: true, value: ["de-DE"] },
   });
 
-  // jsdom lays nothing out and animates nothing, so it has none of these. The kit's `ExpandableText` constructs an
-  // observer as it mounts.
-  globalThis.ResizeObserver ??= class {
-    observe(): void {}
-    unobserve(): void {}
-    disconnect(): void {}
-  };
+  // jsdom lays nothing out and animates nothing, so it has none of these.
   // react-aria's shared-element transition asks the tab indicator for its animations.
   Element.prototype.getAnimations ??= () => [];
   // An opened list scrolls its option into view.
