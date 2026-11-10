@@ -10,13 +10,14 @@ import {
   AccountRow,
   AccountRowPlaceholder,
   BackControl,
+  BackPlaceholder,
   BarPlaces,
   BarPlacesPlaceholder,
   EditorBack,
-  EditorBackPlaceholder,
   MenuScope,
   RailEntries,
   RailEntriesPlaceholder,
+  ReadBack,
   SaisonScope,
 } from "./FrameNav";
 import { Icon } from "./Icon";
@@ -39,6 +40,30 @@ import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 /** The rail's foot: the account signed in, which streams in, or „Konto“ leading to the sign-in where nobody is. */
 type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
+/**
+ * An area's own way back: its address, or a read of it handed down running, as the seasons and the account are, which
+ * answers `null` where the person has nowhere to go back to.
+ */
+type Back = Route | Promise<Route | null>;
+
+/**
+ * What stands at the start of the rail's head and of the phone's band: the logo, or an area's own way back in its
+ * place. A way back still being read waits as the control's own placeholder, and the logo stands where it answers none.
+ */
+function HeadStart({ back }: { back?: Back }) {
+  const logo = <Brand ground="band" />;
+  if (back === undefined) return logo;
+  if (typeof back === "string") return <BackControl href={back} />;
+  return (
+    <Suspense fallback={<BackPlaceholder />}>
+      <ReadBack
+        back={back}
+        none={logo}
+      />
+    </Suspense>
+  );
+}
+
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];
 
@@ -50,7 +75,7 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * holds the pages, „Mehr“ and the account.
  *
  * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
- * band, and no bottom bar.
+ * band, and no bottom bar. Where it is a read answering no address, the logo stands, and the area still has no bar.
  *
  * An area holding editors places the phone's band and bar itself, through `RailColumn` in the layout of each
  * of its route groups (`columnInLayouts`): an editor's band holds „‹ Zurück“ and no bottom bar follows, its own
@@ -74,7 +99,7 @@ export function RailFrame({
   /** The person's seasons, or those of each team they hold, for the season button and the entries that are a season's pages. */
   saison?: FrameSaisons;
   foot: RailFoot;
-  back?: Route;
+  back?: Back;
   /** Whether the area's layouts place the band and the bar, each with `RailColumn`, rather than the frame. */
   columnInLayouts?: boolean;
   children: ReactNode;
@@ -104,7 +129,7 @@ export function RailFrame({
             className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)]">
-              {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
+              <HeadStart back={back} />
             </div>
             {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
                 nothing in the rail moves when it lands. */}
@@ -161,7 +186,7 @@ export function RailFrame({
  * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
  * logo's place, and no bottom bar follows; an area's own `back` does the same for every page of the area.
  */
-export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
+export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Back; children: ReactNode }) {
   return (
     <>
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
@@ -169,13 +194,11 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
-          <Suspense fallback={<EditorBackPlaceholder />}>
+          <Suspense fallback={<BackPlaceholder />}>
             <EditorBack />
           </Suspense>
-        ) : back === undefined ? (
-          <Brand ground="band" />
         ) : (
-          <BackControl href={back} />
+          <HeadStart back={back} />
         )}
         <Suspense fallback={<SaisonButtonPlaceholder placement="band" />}>
           <SaisonButton placement="band" />

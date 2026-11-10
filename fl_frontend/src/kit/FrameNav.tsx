@@ -855,10 +855,10 @@ export function BackControl({ href }: { href: Route }) {
 }
 
 /**
- * „‹ Zurück“ in an editor's band while the list it leads to is read: its glyph and its words as the band's bars, in
- * the place and at the size the control takes.
+ * „‹ Zurück“ while the address it leads to is read, an editor's list or an area's own way back: its glyph and its
+ * words as the band's bars, in the place and at the size the control takes.
  */
-export function EditorBackPlaceholder() {
+export function BackPlaceholder() {
   return (
     <Placeholder layout={back({ class: "gap-1" })}>
       <span className={placeholderBar("size-4.5")} />
@@ -868,6 +868,15 @@ export function EditorBackPlaceholder() {
       />
     </Placeholder>
   );
+}
+
+/**
+ * An area's own way back once the read naming it has landed: „‹ Zurück“ to the address it answers, or `none`, the
+ * logo, where it answers no address, the person having nowhere to go back to.
+ */
+export function ReadBack({ back, none }: { back: Promise<Route | null>; none: ReactNode }) {
+  const href = use(back);
+  return href === null ? none : <BackControl href={href} />;
 }
 
 /**
