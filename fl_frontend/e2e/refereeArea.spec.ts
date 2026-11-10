@@ -26,20 +26,21 @@ function gameRow(page: Page, game: string): Locator {
 }
 
 /**
- * Picks a pupil from a row's player list, as a person opens it from the keyboard, and returns the pick's words, which the
- * field shows once chosen. `Unbekannt`, a goal's first entry, is no pupil.
- */
-/**
  * A radio pressed on its label, as a person presses it: React Aria clips the radio's own input to nothing, so a press
- * aimed at the input lands on the label over it and Playwright waits for the input to take it.
+ * aimed at the input lands on the label over it and Playwright waits for the input to take it. `has` is queried inside
+ * each label, so its locator starts at the page, never at `scope`.
  */
 async function pressRadio(scope: Locator, name: string): Promise<void> {
   await scope
     .locator("label")
-    .filter({ has: scope.getByRole("radio", { name, exact: true }) })
+    .filter({ has: scope.page().getByRole("radio", { name, exact: true }) })
     .click();
 }
 
+/**
+ * Picks a pupil from a row's player list, as a person opens it from the keyboard, and returns the pick's words, which the
+ * field shows once chosen. `Unbekannt`, a goal's first entry, is no pupil.
+ */
 async function pickPupil(page: Page, row: Locator): Promise<string> {
   await row.getByRole("combobox", { name: "Spieler" }).click();
   await page.keyboard.press("ArrowDown");
