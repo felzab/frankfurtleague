@@ -71,28 +71,26 @@ const recordRows = tv({
     // own width and the remove control.
     grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm lg:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] lg:gap-x-3 pointer-coarse:text-base",
     // A row brings the box's 16-px insets itself, so the hairline over it reaches the box's edges. Its label and its
-    // lines stand 8 px apart, 16 px under the hairline. Under the last line the row's message line is always there:
-    // 4 px under the fields, 16 px tall, 4 px over the next hairline, which the 24 px of padding hold, so a message
-    // appearing moves nothing. Each field's own line is laid there, out of the row's flow, so a field keeps its own
-    // check and its own description for a screen reader. It hangs from its top, so a message too long for one line
-    // runs on into the empty room over the next row rather than up over its own row's fields.
-    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 px-4 pt-4 pb-6 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-4 [&_[data-kit-message]]:top-full [&_[data-kit-message]]:-mt-4 [&_[data-kit-message]]:-translate-y-1 ${FIRST_MESSAGE_CLASSES}`,
+    // lines stand 8 px apart, 16 px inside the hairlines over and under it. A field's message stands under that field
+    // in its own cell, as under any field, and only while it has words, so the row grows by it as a refusal lands; the
+    // cells hang from their tops, so the controls of a row stay on one line while one of them says something.
+    row: `col-span-full grid grid-cols-subgrid items-start gap-y-2 p-4 ${stacked()} ${FIRST_MESSAGE_CLASSES}`,
     // The label counting the row, „Tor 1“, on the kit's label rung, the same at every width.
     label: smallCaps({ class: "col-span-full row-start-1" }),
     lead: "col-start-1 row-start-2",
     figure: "col-start-2 row-start-2",
     // A phone's second line, the main field and what stands beside it; from desktop up its two cells are the row's own.
-    second: `col-span-full row-start-3 grid items-center gap-x-2 lg:contents ${FIRST_MESSAGE_CLASSES}`,
+    second: `col-span-full row-start-3 grid items-start gap-x-2 lg:contents ${FIRST_MESSAGE_CLASSES}`,
     main: "lg:col-start-3 lg:row-start-2",
     beside: "lg:col-start-4 lg:row-start-2",
     below: "col-span-full row-start-4 lg:col-span-1 lg:col-start-4 lg:row-start-2",
     // The cross ends with the fields' edge: its button, as wide as a control is tall, reaches past the edge by the
     // room it keeps around its 16-px glyph, 8 px with a mouse and 12 px on a touch screen.
     remove: "col-start-3 row-start-2 -me-2 justify-self-end lg:col-start-5 pointer-coarse:-me-3",
-    // The add control in the box's padding, under the hairline that parts it from the last row. The list's own
-    // message line hangs in the padding under the control, so its refusal appearing moves nothing.
-    foot: `relative grid justify-items-start p-4 ${stacked()}`,
-    line: messageLine({ tone: "error", class: "absolute inset-x-4 bottom-0" }),
+    // The add control in the box's padding, under the hairline that parts it from the last row, and the list's own
+    // refusal 6 px under it while there is one, as a field's message stands under its field.
+    foot: `grid justify-items-start gap-1.5 p-4 ${stacked()}`,
+    line: messageLine({ tone: "error" }),
   },
   variants: {
     // The main field shares its line with what stands beside it, or takes the line whole.
@@ -202,10 +200,10 @@ function RecordRow<Row extends EditorRow>({
  * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.
  *
- * A row's refusal stands on the row's own line, under its fields and always there, and the refused field takes the
+ * A row's refusal stands under the refused field, the first one a row meets alone, and the refused field takes the
  * kit's invalid look. A kit field named as its cell names it takes the form's served refusal by that name and keeps its
  * own check at the send; a choice posting no form value takes `error` as its `errorMessage`. A field in a row carries
- * no description, since the row's one line is the refusal's. The list's own refusal, such as too many rows, stands
+ * no description, since the row's one message is the refusal's. The list's own refusal, such as too many rows, stands
  * under the add control.
  *
  * The add control appends `blank` and hands the keys to the new row's first control. A removed row hands them to the
@@ -313,13 +311,14 @@ export function RecordRows<Row extends EditorRow>({
               onChange([...rows, blank]);
             }}
           />
-          {/* Always there, so the list's refusal appearing moves nothing. */}
-          <div
-            id={lineId}
-            data-kit-message
-            className={slots.line()}>
-            {listError}
-          </div>
+          {listError !== undefined && (
+            <div
+              id={lineId}
+              data-kit-message
+              className={slots.line()}>
+              {listError}
+            </div>
+          )}
         </div>
       )}
     </div>

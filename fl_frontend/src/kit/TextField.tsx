@@ -1,8 +1,7 @@
 "use client";
 
-import { useContext, useId } from "react";
+import { useId } from "react";
 
-import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
 import { useIsSSR } from "react-aria/SSRProvider";
 
@@ -32,21 +31,11 @@ type Shared = {
    * section holding this one field, whose title the label is, or a score's column head. A required mark goes with it.
    */
   labelHidden?: boolean;
+  /** The line under the field when nothing is wrong: what to type, where the label alone does not say it. */
+  description?: Copy;
+  /** What changing this value sets off beyond the record, said in the warn colour in the message line. */
+  consequence?: Copy;
 };
-
-/**
- * The message line under the field: always there, so a message that fits it moves nothing; or, on the
- * sign-in's one-field view whose two acts stand right under the field, there only with the error, so the field
- * and its acts read as one block and move down together. A line that is not always there describes nothing.
- */
-type Line =
-  | {
-      line?: "always";
-      description?: Copy;
-      /** What changing this value sets off beyond the record, said in the warn colour in the message line. */
-      consequence?: Copy;
-    }
-  | { line: "withError"; description?: never; consequence?: never };
 
 /**
  * What a text or digits field asks of the person about themselves, as the HTML autofill token the browser
@@ -87,7 +76,7 @@ type Standard = { width: "standard"; holds?: never; unit?: never } & Kind;
 /** A paragraph: its box's whole width at four lines. */
 type Paragraph = { width: "full"; holds?: never; kind: "text"; autofill?: never; example?: never; unit?: never; pattern?: never };
 
-export type TextFieldProps = Shared & Line & (Short | Standard | Paragraph);
+export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
@@ -111,12 +100,6 @@ const KINDS = {
 /** The example a malformed value is shown, by kind; a URL names its own. */
 const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
 
-/** The line only once the field is invalid: it reads the field's validation, which the field provides to its children. */
-function LineWithError({ constraints }: { constraints: Constraints }) {
-  const validation = useContext(FieldErrorContext);
-  return validation?.isInvalid === true ? <MessageLine constraints={constraints} /> : null;
-}
-
 /**
  * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
  * what a person typed there, so `./useEarlyEdit.ts` has nothing to raise and a press would save nothing under
@@ -139,7 +122,7 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
 
 /**
  * Type text or a number: the label above, an asterisk after it on a required field, the field at the width of
- * what it holds, then its message line as `line` sets it. An error first shows once the value is
+ * what it holds, then its message line where it has something to say. An error first shows once the value is
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
@@ -224,15 +207,11 @@ export function TextField(props: TextFieldProps) {
           </span>
         </div>
       )}
-      {props.line === "withError" ? (
-        <LineWithError constraints={constraints} />
-      ) : (
-        <MessageLine
-          description={description}
-          consequence={consequence}
-          constraints={constraints}
-        />
-      )}
+      <MessageLine
+        description={description}
+        consequence={consequence}
+        constraints={constraints}
+      />
     </AriaTextField>
   );
 }

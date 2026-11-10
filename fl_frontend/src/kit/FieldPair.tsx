@@ -26,22 +26,19 @@ const reach = tv({
 type PlaceholderWidth = { width: "short"; holds: 2 | 5; unit?: Copy } | { width: "standard" | "full"; holds?: never; unit?: never };
 
 /**
- * A field while the record filling it is read: its label's line, its frame at its width's size, and the message line
- * under it, in the field's own column, so a box of placeholders stands as tall as its fields will. A field whose line
- * appears with its error alone, the sign-in's address, takes `line={false}`. Its label's bar adds nothing to the width
- * the field is laid out at, so a short field stands as wide as its value. `figures` says a five-character field holds
- * digits, whose `ch` is the numeric face's, as a two-character one's and a unit's always are. A short field's `unit` is
- * set unseen inside the bar, which is then as wide as the field with its unit. `description` is the line's words where
- * they run past a line, set unseen.
+ * A field while the record filling it is read: its label's line, its frame at its width's size, and, where the field
+ * carries a description, the description's words set unseen, so a box of placeholders stands as tall as its fields
+ * will. Its label's bar adds nothing to the width the field is laid out at, so a short field stands as wide as its
+ * value. `figures` says a five-character field holds digits, whose `ch` is the numeric face's, as a two-character
+ * one's and a unit's always are. A short field's `unit` is set unseen inside the bar, which is then as wide as the
+ * field with its unit.
  */
 export function FieldPlaceholder({
   figures = false,
-  line = true,
   description,
   ...at
 }: PlaceholderWidth & {
   figures?: boolean;
-  line?: boolean;
   description?: Copy;
 }) {
   const unit = fieldUnit({ holds: at.holds });
@@ -68,13 +65,11 @@ export function FieldPlaceholder({
           <span className={unit.unit({ class: "invisible" })}>{at.unit}</span>
         </span>
       )}
-      {description !== undefined ? (
+      {description !== undefined && (
         <PlaceholderSentence
           textClass={messageLine()}
           words={description}
         />
-      ) : (
-        line && <span className={messageLine()} />
       )}
     </div>
   );

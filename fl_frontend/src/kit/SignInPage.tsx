@@ -10,7 +10,6 @@ import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
-import { statusLine } from "./fieldStyles";
 import { HeldForm } from "./HeldForm";
 import { Link } from "./Link";
 import { PlaceholderLine, Waiting } from "./Skeleton";
@@ -27,7 +26,7 @@ type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: bo
 /** What every view says first: its heading, and the one line under its acts for what went wrong. */
 type Head = {
   title: Copy;
-  /** The view's failure, worded by the catalogue; `null` keeps the line empty, holding its place. */
+  /** The view's failure, worded by the catalogue; `null` leaves the line saying nothing and taking no room. */
   row: Copy | null;
 };
 
@@ -137,7 +136,6 @@ export function SignInPage(props: SignInView) {
  * title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on the
  * read too, the passkey's step, in the offer's shape, which everyone but an administrator meets: the title's line, the
  * sentence's two lines, the address's line, its button and „Später“ under it, each in its place in the step's blocks.
- * Under either the status line keeps its place.
  */
 export function SignInPlaceholder({ title }: { title: Copy | null }) {
   const slots = look();
@@ -181,10 +179,7 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             <ClassicTitle text={title} />
             <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
-                <FieldPlaceholder
-                  width="standard"
-                  line={false}
-                />
+                <FieldPlaceholder width="standard" />
                 {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
                 <span />
                 <span className={buttonPlaceholder("w-full")} />
@@ -203,7 +198,6 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             </Waiting>
           </>
         )}
-        <span className={statusLine({ placement: "column" })} />
       </div>
     </ClassicPage>
   );
@@ -334,8 +328,6 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
           width="standard"
           kind="email"
           autofill="username"
-          // The one field of the view, its two acts right under it: the line appears with the error alone.
-          line="withError"
           // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
           // its form in this line, as a malformed one meets the browser's.
           value={address.value}

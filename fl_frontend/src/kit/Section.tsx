@@ -7,7 +7,8 @@ import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
-import { fieldFrame, fieldRoot, messageLine, statusLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
+import { fieldFrame, fieldRoot, statusLine } from "./fieldStyles";
 import { HelpPopover } from "./HelpPopover";
 import { ScoreRowsPlaceholder } from "./ScoreRows";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
@@ -51,7 +52,8 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 export const boxHead = tv({
   slots: {
     head: "grid gap-1 p-4",
-    content: "grid justify-items-start p-4",
+    // The box's 16 px on every side, around the content's `FieldStack`.
+    content: "grid p-4",
   },
   variants: {
     ruled: { true: { head: "border-b border-border" } },
@@ -59,12 +61,12 @@ export const boxHead = tv({
 });
 
 /**
- * A hairline between two groups of a section's fields that one title holds, such as a match's score and its
- * Sonderereignis: across the box's whole width as the rule under the title, 16 px from the fields over and under it, the
- * box's own inset.
+ * A hairline between two parts of a section that one title holds, such as a match's score and its Sonderereignis:
+ * across the box's whole width as the rule under the title, the fields' 16 px from the parts over and under it, which
+ * is the box's own inset.
  */
 export function SectionRule() {
-  return <hr className="-mx-4 my-2 justify-self-stretch border-t border-border" />;
+  return <hr className="-mx-4 justify-self-stretch border-t border-border" />;
 }
 
 /**
@@ -100,8 +102,8 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
   if (row === "subhead")
     return (
       <PlaceholderLine
-        // The subgroup's space above its name, and under it the grid's 8-px gap in place of the name's own.
-        textClass={subgroup().name({ class: "mb-0 not-first:mt-2" })}
+        // The subgroup's space above its name, and under it the name's own 8 px, taken back out of the stack's 16.
+        textClass={subgroup().name({ class: "-mb-2 not-first:mt-2" })}
         widthClass="w-24"
       />
     );
@@ -109,16 +111,9 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
     return (
       <div className={fieldRoot()}>
         <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[row.titled]}`)} />
-        <span className={messageLine()} />
       </div>
     );
-  if ("act" in row)
-    return (
-      <>
-        <span className={buttonPlaceholder()}>{row.act}</span>
-        <span className={statusLine({ placement: "column" })} />
-      </>
-    );
+  if ("act" in row) return <span className={buttonPlaceholder()}>{row.act}</span>;
   return (
     <FieldRowsPlaceholder
       rows={row.rows}
@@ -135,7 +130,7 @@ export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
 
 /**
  * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
- * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will. `note`
+ * fields' placeholders row by row in the fields' own `FieldStack`, so the box stands as tall as the section will. `note`
  * is the words of the line a section's closed state stands under its title, set unseen, where the section can carry
  * one. An editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge
  * `list`, the list's own placeholder.
@@ -164,13 +159,15 @@ export function SectionPlaceholder(
       {props.list !== undefined ? (
         <div className="grid">{props.list}</div>
       ) : props.danger === undefined ? (
-        <div className={slots.content({ class: "gap-2" })}>
-          {props.rows.map((row, index) => (
-            <RowPlaceholder
-              key={index}
-              row={row}
-            />
-          ))}
+        <div className={slots.content()}>
+          <FieldStack>
+            {props.rows.map((row, index) => (
+              <RowPlaceholder
+                key={index}
+                row={row}
+              />
+            ))}
+          </FieldStack>
         </div>
       ) : (
         <div className="grid">
@@ -252,9 +249,11 @@ export function Section({
         </div>
         {note !== undefined && <p className="text-sm text-warn">{note}</p>}
       </div>
-      {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
-          apart, each field's message line, always there, holding the rest of the space between two fields. */}
-      {children !== undefined && <div className={slots.content({ class: "gap-2" })}>{children}</div>}
+      {children !== undefined && (
+        <div className={slots.content()}>
+          <FieldStack>{children}</FieldStack>
+        </div>
+      )}
       {list !== undefined && <div className="grid">{list}</div>}
       {danger !== undefined && <div className="grid">{danger}</div>}
     </section>

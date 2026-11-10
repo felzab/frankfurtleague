@@ -147,26 +147,14 @@ describe("a minute field", () => {
 });
 
 describe("a field's message line", () => {
-  it("is always there, holding its place while it says nothing", () => {
-    render(
-      <TextField
-        label={COPY.shared.startelf}
-        kind="text"
-        width="standard"
-      />,
-    );
-    const field = screen.getByRole("textbox");
-    expect(field.parentElement?.children).toHaveLength(3);
-  });
-
-  it("appears with the error alone where the field reserves no line, as the sign-in's address field does", async () => {
+  // The harm: an empty line reserved under every field, which the form rule's 16-px rhythm leaves no room for.
+  it("stands only once it has words, here the error a send finds, which describes the field", async () => {
     render(
       <Form onSubmit={(event) => event.preventDefault()}>
         <TextField
           label={COPY.signIn.address}
           kind="email"
           width="standard"
-          line="withError"
         />
         <Button
           variant="primary"

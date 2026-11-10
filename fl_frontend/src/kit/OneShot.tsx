@@ -7,6 +7,8 @@ import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { StatusLine } from "./FieldParts";
+import { FieldStack } from "./FieldStack";
+import { boxStack } from "./fieldStyles";
 import { HeldForm } from "./HeldForm";
 import { RowActs } from "./RowActs";
 import { StatusPage } from "./StatusPage";
@@ -175,7 +177,7 @@ export function OneShotForm({
           if (!isBusy) send(formData, "primary");
         }}
         className="grid gap-6">
-        {children !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{children}</div>}
+        {children !== undefined && (boxes ? <div className={boxStack()}>{children}</div> : <FieldStack>{children}</FieldStack>)}
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="grid">
           {check.widget}

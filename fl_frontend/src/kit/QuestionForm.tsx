@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, startTransition, useLayoutEffect, useState } from "react";
+import { startTransition, useLayoutEffect, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -10,7 +10,7 @@ import { cardSurface } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ActRow } from "./DialogOverlay";
 import { StatusLine } from "./FieldParts";
-import { statusLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
 import { HeldForm } from "./HeldForm";
 import { formColumn } from "./RailFrame";
 import { Waiting } from "./Skeleton";
@@ -110,7 +110,7 @@ export function QuestionForm<Input>({
           submit(formData);
         }}
         className={BOX_CLASSES}>
-        <Fragment key={emptied}>{children}</Fragment>
+        <FieldStack key={emptied}>{children}</FieldStack>
         <StatusActRow>
           <StatusLine
             status={status}
@@ -163,9 +163,8 @@ export function QuestionForm<Input>({
 export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; children: ReactNode }) {
   return (
     <Waiting layoutClass={BOX_CLASSES}>
-      {children}
+      <FieldStack>{children}</FieldStack>
       <StatusActRow>
-        <span className={statusLine({ placement: "row", tone: "none" })} />
         <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
       </StatusActRow>
     </Waiting>

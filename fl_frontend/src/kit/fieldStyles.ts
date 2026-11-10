@@ -17,10 +17,21 @@ import { tv } from "./tv";
  */
 
 /**
- * A field's label, its frame and its message line, one under another. It fills its column, so a box's grid
- * can place every child at its own width without a field narrowing to its label.
+ * A field's label, its frame and its message line, one under another, 6 px apart. It fills its column, so a box's
+ * grid can place every child at its own width without a field narrowing to its label.
  */
-export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1" });
+export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1.5" });
+
+/**
+ * The one rhythm of a form's fields, in every box, dialog and page: 16 px from one field to the next, each at its own
+ * width from one left edge (`fieldFrame`'s `width`). No line is reserved under a field, so the 16 px is the whole space
+ * between two fields whatever either says. `FieldStack` draws it, and every container of fields stands its fields in a
+ * `FieldStack`, so a form follows it by construction rather than by a gap each container writes.
+ */
+export const fieldStack = tv({ base: "grid w-full min-w-0 justify-items-start gap-4" });
+
+/** A form's boxes in its column, 24 px apart, as an editor's sections stand (`RailFrame.tsx :: formColumn`). */
+export const boxStack = tv({ base: "grid gap-6" });
 
 export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" });
 
@@ -28,13 +39,15 @@ export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" })
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
- * At least one line, always there, so a message that fits it moves nothing. A longer one wraps at its field's width
- * and takes a second line rather than being cut, since its end is what a person acts on. Its words add nothing to the
- * width a field is laid out at, so it never widens a field sized by its content, such as a pair's short side; a note
- * inside a list's entry sets its own width instead, the entry being sized by its words.
+ * The words under a field, standing only while it has some: a description, a consequence, or an error once the value
+ * is committed or the form sent, which moves what stands under it as any answer to a press does, since no empty line
+ * is reserved between two fields. A long one wraps at its field's width and takes a second line rather than being
+ * cut, since its end is what a person acts on. Its words add nothing to the width a field is laid out at, so it never
+ * widens a field sized by its content, such as a pair's short side; a note inside a list's entry sets its own width
+ * instead, the entry being sized by its words.
  */
 export const messageLine = tv({
-  base: "min-h-4 text-xs",
+  base: "text-xs",
   variants: {
     width: {
       field: "contain-inline-size",
@@ -50,18 +63,23 @@ export const messageLine = tv({
 });
 
 /**
- * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
- * nothing, and never cut, since a sentence's end is what says what happened. Beside the acts in a row it takes the
- * room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the whole width. A line
- * can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`, whose word still
- * counts whole in the width of a grid track around the line and pushes the acts out of their box.
+ * A form's status line, at its acts, never cut, since a sentence's end is what says what happened. Beside the acts in
+ * a row it takes the room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the
+ * whole width. A line can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`,
+ * whose word still counts whole in the width of a grid track around the line and pushes the acts out of their box.
+ * With nothing to say it takes no room (`quiet`), as a field's message line takes none, yet stays in the page, since it
+ * is the live region an outcome is announced from, which must stand before the outcome does.
  */
 export const statusLine = tv({
-  base: "min-h-5 text-sm wrap-anywhere",
+  base: "text-sm wrap-anywhere",
   variants: {
     placement: {
       row: "min-w-0 flex-1",
       column: "",
+    },
+    quiet: {
+      true: "sr-only",
+      false: "",
     },
     tone: {
       none: "",
@@ -212,7 +230,7 @@ export const calendarCell = tv({
  * A checkbox or a switch with its message line: the drawn box's column, then the label's, so the line under
  * the row starts where the label does, whatever the box's width.
  */
-export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
+export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1.5" });
 
 /**
  * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. The row is the control's press
@@ -260,9 +278,10 @@ export const toggleBox = tv({
 
 /**
  * A checkbox's or a switch's message line, in the label's column. A grid, so the line inside it is a block at
- * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box.
+ * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box. With
+ * nothing to say it takes no row, so no gap opens under the box.
  */
-export const toggleLine = tv({ base: "col-start-2 grid" });
+export const toggleLine = tv({ base: "col-start-2 grid empty:hidden" });
 
 /**
  * A radio group's answers: one under another, or, where each answer is described, side by side as cards,

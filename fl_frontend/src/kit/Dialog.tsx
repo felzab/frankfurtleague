@@ -15,6 +15,7 @@ import { actLabel } from "./dialogAct";
 import { ActRow, DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
+import { FieldStack } from "./FieldStack";
 import { statusLine } from "./fieldStyles";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -223,16 +224,14 @@ function ActDialog({
               {textOf(title)}
             </Heading>
             {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
-            <div className="grid justify-items-start gap-4">
-              {children}
-              {danger !== undefined && (
-                <DangerRow
-                  danger={danger}
-                  isClosed={isPending}
-                  onDone={close}
-                />
-              )}
-            </div>
+            <FieldStack>{children}</FieldStack>
+            {danger !== undefined && (
+              <DangerRow
+                danger={danger}
+                isClosed={isPending}
+                onDone={close}
+              />
+            )}
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
             {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
             <ActRow>

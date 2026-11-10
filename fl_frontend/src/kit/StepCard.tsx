@@ -10,7 +10,7 @@ import { Card, CardPlaceholder } from "./Card";
 import { ActRow } from "./DialogOverlay";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { StatusLine } from "./FieldParts";
-import { statusLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
 import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
 import { tv } from "./tv";
@@ -20,7 +20,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { TableProps } from "./Table";
 
-const stepCard = tv({ slots: { body: "grid gap-4", inputs: "grid justify-items-start gap-4" } });
+const stepCard = tv({ slots: { body: "grid gap-4" } });
 
 /**
  * One record of a run in its card, as the record's list row is one line: its name, where it stands in the run, the facts
@@ -47,7 +47,7 @@ export function StepCard({
   children: ReactNode;
 }) {
   const [isBlocked, setBlocked] = useState(false);
-  const { body, inputs } = stepCard();
+  const { body } = stepCard();
   return (
     <Card
       title={title}
@@ -59,7 +59,7 @@ export function StepCard({
         onInvalid={() => setBlocked(true)}
         onSend={onNext}>
         <Facts facts={facts} />
-        <div className={inputs()}>{children}</div>
+        <FieldStack>{children}</FieldStack>
         <ActRow>
           <StatusLine
             status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}
@@ -84,16 +84,15 @@ export function StepCard({
 
 /** A record's card while the run is read: its head, `facts` of its facts, its inputs' placeholders and its acts. */
 export function StepCardPlaceholder({ facts, children }: { facts: number; children: ReactNode }) {
-  const { body, inputs } = stepCard();
+  const { body } = stepCard();
   return (
     <CardPlaceholder
       line
       body="fields">
       <div className={body()}>
         <FactsPlaceholder pairs={facts} />
-        <div className={inputs()}>{children}</div>
+        <FieldStack>{children}</FieldStack>
         <ActRow>
-          <span className={statusLine({ placement: "row" })} />
           <span className={buttonPlaceholder()}>{COPY.shared.verb.skip}</span>
           <span className={buttonPlaceholder()}>{COPY.shared.verb.next}</span>
         </ActRow>

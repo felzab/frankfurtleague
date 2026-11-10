@@ -6,6 +6,8 @@ import { ROUTES } from "@/core/routes";
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
+import { FieldStack } from "./FieldStack";
+import { boxStack } from "./fieldStyles";
 import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
@@ -220,11 +222,10 @@ function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fiel
           />
         )}
         {/* `OneShotForm`'s own wrapper, so the fields stand where the question's land. */}
-        {fields !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{fields}</div>}
+        {fields !== undefined && (boxes ? <div className={boxStack()}>{fields}</div> : <FieldStack>{fields}</FieldStack>)}
         <div className="grid gap-3 lg:justify-items-center">
           <span className={buttonPlaceholder()}>{act}</span>
           {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
-          <span className="min-h-5" />
         </div>
       </Waiting>
     </ClassicPage>

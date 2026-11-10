@@ -1,6 +1,7 @@
 import { smallCaps } from "./cardStyles";
 import { FieldPlaceholder } from "./FieldPair";
-import { fieldButton, fieldFrame, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
+import { fieldButton, fieldFrame, fieldLabel, fieldRoot } from "./fieldStyles";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -10,8 +11,8 @@ import type { ReactNode } from "react";
 /**
  * A group of a box's fields under its name, set as the kit's subhead in small capitals, such as a season's points over
  * the win, the draw and the loss: 8 px more above it than between two fields, unless it opens the box, and 8 px under
- * its name. A fieldset and its legend, the platform's own group with a name, which a screen reader says before each
- * field's label.
+ * its name, so the name stands with the fields it names. A fieldset and its legend, the platform's own group with a
+ * name, which a screen reader says before each field's label.
  */
 export const subgroup = tv({
   slots: {
@@ -22,7 +23,7 @@ export const subgroup = tv({
 
 /**
  * A few of a box's fields under their name, each field at its own width, as a school's address stands inside the
- * application's first box, and `FieldRows`' rows under theirs: the fields 8 px apart. A dialog parts its fields with
+ * application's first box, and `FieldRows`' rows under theirs, in the fields' one rhythm. A dialog parts its fields with
  * `./FieldGroup.tsx` instead, whose hairline runs to the dialog's edges, which a box inside a page does not have.
  */
 export function FieldSubgroup({ name, children }: { name: Copy; children: ReactNode }) {
@@ -30,20 +31,19 @@ export function FieldSubgroup({ name, children }: { name: Copy; children: ReactN
   return (
     <fieldset className={group.root()}>
       <legend className={group.name()}>{name}</legend>
-      <div className="grid justify-items-start gap-2">{children}</div>
+      <FieldStack>{children}</FieldStack>
     </fieldset>
   );
 }
 
 const fieldRows = tv({
   slots: {
-    // 8 px apart, as the fields of a box are.
-    root: "grid w-full min-w-0 gap-2",
+    // Each row across the stack's whole width, its label at the far left and its control at the far right.
     // The row lays out its field's own parts, so a field needs no form of its own for it: the label fills the row's
-    // start, on one line and centred on the control beside it, and the control stands at the row's end at its width
-    // class. The message line, always there as every field's is, takes the row's whole width under them and ends under
-    // the control, so a message runs left past a short field's edge rather than being cut there.
-    row: "[&_[data-kit-message]]:col-span-full [&_[data-kit-message]]:text-end [&>*]:grid [&>*]:grid-cols-[minmax(0,1fr)_auto] [&>*]:gap-x-3 [&>*>:first-child]:self-center [&>*>:first-child]:truncate",
+    // start, on one line and centred on the control beside it, and the control stands at the row's end at its width.
+    // A message, while the field has one, takes the row's whole width under them and ends under the control, so it runs
+    // left past a short field's edge rather than being cut there.
+    row: "w-full [&_[data-kit-message]]:col-span-full [&_[data-kit-message]]:text-end [&>*]:grid [&>*]:grid-cols-[minmax(0,1fr)_auto] [&>*]:gap-x-3 [&>*]:gap-y-1.5 [&>*>:first-child]:self-center [&>*>:first-child]:truncate",
   },
 });
 
@@ -55,19 +55,15 @@ const fieldRows = tv({
  */
 export function FieldRows({ label, children }: { label?: Copy; children: readonly [ReactNode, ReactNode, ...ReactNode[]] }) {
   const slots = fieldRows();
-  const rows = (
-    <div className={slots.root()}>
-      {children.map((child, index) => (
-        <div
-          // The fields are fixed in number and order, so their place is their identity.
-          key={index}
-          className={slots.row()}>
-          {child}
-        </div>
-      ))}
+  const rows = children.map((child, index) => (
+    <div
+      // The fields are fixed in number and order, so their place is their identity.
+      key={index}
+      className={slots.row()}>
+      {child}
     </div>
-  );
-  return label === undefined ? rows : <FieldSubgroup name={label}>{rows}</FieldSubgroup>;
+  ));
+  return label === undefined ? <FieldStack>{rows}</FieldStack> : <FieldSubgroup name={label}>{rows}</FieldSubgroup>;
 }
 
 /**
@@ -98,7 +94,6 @@ export function FieldRowsPlaceholder({ rows, holds }: { rows: 2 | 3; holds: "cou
           <span className="w-[9ch]" />
           <span className={fieldButton()} />
         </span>
-        <span className={messageLine()} />
       </div>
     ),
   );
