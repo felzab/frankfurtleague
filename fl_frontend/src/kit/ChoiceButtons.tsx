@@ -118,6 +118,7 @@ export function Segmented({
           <Radio
             key={choice.id}
             value={choice.id}
+            aria-label={choice.spoken === undefined ? undefined : textOf(choice.spoken)}
             data-kit-focus="ring"
             className={choiceButton({ kind: "segmented" })}>
             {/* 6 px apart, the mark centred on the word's line; the words cut where the frame is held narrower. */}

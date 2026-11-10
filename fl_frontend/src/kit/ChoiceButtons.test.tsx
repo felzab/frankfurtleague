@@ -52,6 +52,22 @@ describe("a required short choice", () => {
     expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
   });
 
+  // The harm: a segment drawn as a club's Kürzel heard as two letters, the reader left to guess the club.
+  it("names a segment drawn as a short form by its spoken name", () => {
+    render(
+      <Segmented
+        label={LABEL}
+        choices={[
+          { id: "team1", label: { record: "EIC" }, spoken: { record: "Eiche" } },
+          { id: "team2", label: { record: "KAS" }, spoken: { record: "Kastanie" } },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toStrictEqual(["Eiche", "Kastanie"]);
+    expect(screen.getByText("EIC")).toBeTruthy();
+  });
+
   it("is heard as invalid, described by the served refusal", () => {
     render(
       <Segmented
