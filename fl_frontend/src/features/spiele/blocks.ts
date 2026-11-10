@@ -153,10 +153,10 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
 }
 
 /** A match's row with `when` as its date line, the whole of it a link to the match. */
-function rowOf(spiel: Listed, when: Copy): SpielRowProps & { id: string } {
+function rowOf(spiel: Listed, when: Copy, linked = true): SpielRowProps & { id: string } {
   return {
     id: spiel.id,
-    href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
+    ...(linked ? { href: ROUTES.spiel.path(spiel.saison_id, spiel.id) } : {}),
     when,
     ...sidesOf(spiel),
     ...resultOf(spiel),
@@ -176,13 +176,17 @@ export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
 
 /**
  * A match under its own matchday's head, as a list giving every match one shows it. The head names the third-place
- * match, so its row's date line names the day alone.
+ * match, so its row's date line names the day alone. `linked` false where the public may not read the season, whose
+ * match pages answer not found: the row then leads nowhere.
  */
-export function headedMatchOf(spiel: Listed & Pick<FLSpielJoined, "saison_phase"> & Matchday): {
+export function headedMatchOf(
+  spiel: Listed & Pick<FLSpielJoined, "saison_phase"> & Matchday,
+  linked = true,
+): {
   head: Copy;
   spiel: SpielRowProps & { id: string };
 } {
-  return { head: matchdayOf(spiel, spiel), spiel: rowOf(spiel, whenOf(spiel)) };
+  return { head: matchdayOf(spiel, spiel), spiel: rowOf(spiel, whenOf(spiel), linked) };
 }
 
 /** Where a group side stands, a link to its row of the Tabelle; a knockout side's round, a link to the match's card in the tree. */

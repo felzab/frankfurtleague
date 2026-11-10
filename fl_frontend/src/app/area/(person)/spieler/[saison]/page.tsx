@@ -81,7 +81,7 @@ async function readSaison(params: Props["params"]): Promise<ReadContent> {
         kind: "spiele",
         spiele: spiele.map((spiel) => {
           const chip = spielChipOf(spiel, deregistered);
-          const { head, spiel: row } = headedMatchOf(spiel);
+          const { head, spiel: row } = headedMatchOf(spiel, isPublic);
           return { head, spiel: { ...row, ...(chip === undefined ? {} : { chip }) } };
         }),
         empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
