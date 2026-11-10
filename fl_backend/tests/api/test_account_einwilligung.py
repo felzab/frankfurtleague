@@ -98,6 +98,7 @@ SPIEL = spiel_document(
     schiedsrichter={"schiedsrichter_id": REFEREE_OID, "payment": 20},
 )
 ADULT_BIRTHDATE = "2000-05-09"
+REFEREE_SCHULE = "Goethe-Gymnasium"
 SEVENTEEN_BIRTHDATE = "2008-10-04"
 
 
@@ -265,7 +266,8 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(REFEREE_OID, REFEREE_STORED, "Ortrud Zwiebelmayer"),
+            # A school of their own, which the account entry serves as stored.
+            _referee(REFEREE_OID, REFEREE_STORED, "Ortrud Zwiebelmayer", schule=REFEREE_SCHULE),
             _referee(YOUNG_OID, YOUNG, "Jonas Jungspund", birth_date=SEVENTEEN_BIRTHDATE),
             _referee(RETIRED_OID, RETIRED, "Rudolf Ruhestand", inactive_since="2026-07-01", einwilligung=_einwilligung(media=True)),
             _referee(UNCONFIRMED_OID, UNCONFIRMED, "Ottilie Wartezeit", birth_date=None, einwilligung=None),
@@ -541,9 +543,10 @@ class TestTheAccountPagesRead:
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["spieler"]["spieler_id"] == str(PUPIL_OID)
-        assert [(record["schiedsrichter_id"], record["name"]) for record in body["schiedsrichter"]] == [
-            (str(REFEREE_OID), "Ortrud Zwiebelmayer")
-        ]
+        assert [
+            (record["schiedsrichter_id"], record["name"], record["schule"], record["birth_date"], record["media_offered"])
+            for record in body["schiedsrichter"]
+        ] == [(str(REFEREE_OID), "Ortrud Zwiebelmayer", REFEREE_SCHULE, ADULT_BIRTHDATE, True)]
         assert [(seat["team_name"], seat["saison_id"], sorted(seat["rollen"]), seat["media"], seat["givable"]) for seat in body["seats"]] == [
             (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
