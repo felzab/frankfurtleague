@@ -34,11 +34,12 @@ export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ..
 /**
  * A part of an editor that draws its own boxes, such as a line-up's two lists (`Lineup`): placed bare in the sections'
  * column, where a section's box around it would stand as a box in a box. It says its own state on its own lines; a
- * closed editor's reason stands under the first section's title.
+ * closed editor's reason stands under the first section's title, or under the lead where no section has one.
  */
 type EditorBlock = { id: string; block: ReactElement };
 
-type EditorPart = EditorSection | EditorBlock;
+/** One part of an editor's column, in the order the person's task takes them: a titled section or a bare block. */
+export type EditorPart = EditorSection | EditorBlock;
 
 /**
  * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
@@ -114,7 +115,8 @@ function DangerRow({ act }: { act: DangerAct }) {
  * the page's own client code, which the template's server half, `EditorShell`, waits for.
  *
  * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
- * refuses: every field disabled, the reason under the first box's title, the chip „Abgeschlossen“ after the
+ * refuses: every field disabled, the reason under the first box's title, or under the lead in an editor of blocks
+ * alone, the chip „Abgeschlossen“ after the
  * title, and neither the danger box nor the bar, since there is nothing to save. A danger box whose acts are about more
  * than the closed record stays (`outlivesClosed`), as a club is retired from the league and not from a finished season.
  */
@@ -181,6 +183,9 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         }}
         className={formColumn()}>
         {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
+        {/* An editor of blocks alone has no section's title to stand its reason under: it stands over the blocks, in
+            the hue a section's note takes. */}
+        {closed !== undefined && titled === undefined && <p className="text-sm text-warn">{closed}</p>}
         <FormClosed value={closed !== undefined}>
           <DraftUnsaved value={editor.count > 0 ? COPY.template.draftUnsaved : undefined}>
             {sections.map((section) =>
