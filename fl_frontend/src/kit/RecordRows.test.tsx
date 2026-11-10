@@ -34,8 +34,8 @@ const GOALS: ReadonlyArray<Goal> = [
   { side: "team1", spieler_id: null, minute: "45+1" },
 ];
 
-/** A row's name by its place, as a page names its rows. */
-const rowName = (index: number) => COPY.admin.spiel.number(index + 1);
+/** The label over a row by its number, as a page counts its rows. */
+const rowLabel = (number: number) => COPY.admin.spiel.number(number);
 
 /** The list in a form serving `errors`, as an editor's page holds it: the draft in state, the refusals by box. */
 function Goals({ errors }: { errors?: Readonly<Record<string, Copy>> }) {
@@ -50,7 +50,7 @@ function Goals({ errors }: { errors?: Readonly<Record<string, Copy>> }) {
         rows={rows}
         onChange={setRows}
         blank={{ side: null, spieler_id: null, minute: "" }}
-        rowName={rowName}
+        rowLabel={rowLabel}
         add={ADD}
         remove={REMOVE}
         errors={errors}
@@ -72,7 +72,6 @@ function Goals({ errors }: { errors?: Readonly<Record<string, Copy>> }) {
           figure: {
             field: "minute",
             label: MINUTE,
-            isRequired: true,
             control: ({ row, name, label, change }) => (
               <TextField
                 label={label}
@@ -106,7 +105,7 @@ function Goals({ errors }: { errors?: Readonly<Record<string, Copy>> }) {
   );
 }
 
-const rowAt = (index: number) => screen.getByRole("group", { name: rowName(index) });
+const rowAt = (index: number) => screen.getByRole("group", { name: rowLabel(index + 1) });
 const rowCount = () => screen.queryAllByRole("button", { name: REMOVE }).length;
 const minuteOf = (row: HTMLElement) => within(row).getByRole<HTMLInputElement>("textbox", { name: MINUTE });
 /** A row's first control, its team's first segment. */
@@ -149,14 +148,14 @@ describe("a refused row", () => {
 
 // The harm: a phone's row draws no label, so a control its cell's label does not reach is named by nothing at all.
 describe("a row's controls", () => {
-  it("are each named by their cell's label, on their row's name", () => {
+  it("are each named by their cell's label, on the row its label names", () => {
     render(<Goals />);
     const row = within(rowAt(2));
 
     expect(row.getByRole("radiogroup", { name: TEAM })).toBeTruthy();
     expect(row.getByRole("textbox", { name: MINUTE })).toBeTruthy();
     expect(row.getByRole("combobox", { name: COPY.shared.spieler })).toBeTruthy();
-    expect(row.getByRole("button", { name: REMOVE, description: rowName(2) })).toBeTruthy();
+    expect(row.getByRole("button", { name: REMOVE, description: rowLabel(3) })).toBeTruthy();
   });
 });
 

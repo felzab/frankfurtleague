@@ -6,7 +6,6 @@ import { FocusScope, useFocusManager } from "react-aria/FocusScope";
 
 import { Button } from "./Button";
 import { smallCaps, stacked } from "./cardStyles";
-import { RequiredMark } from "./FieldParts";
 import { messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { useFocusHome } from "./RowActs";
@@ -17,7 +16,7 @@ import type { ReactNode } from "react";
 import type { EditorRow } from "./useEditor";
 
 /** What a row's cell hands its control. */
-export type RowControl<Row extends EditorRow> = {
+type RowControl<Row extends EditorRow> = {
   row: Row;
   /** The box's name, the list's, the row's index and the field, `scorers.2.minute`, by which a kit field takes its refusal. */
   name: string;
@@ -29,23 +28,24 @@ export type RowControl<Row extends EditorRow> = {
   change: (patch: Partial<Row>) => void;
 };
 
-/** One cell of every row: the field it edits, its column's head from desktop up, and its control, a kit field. */
-export type RowCell<Row extends EditorRow> = {
+/**
+ * One cell of every row: the field it edits, the name its control carries for a screen reader, and the control, a
+ * kit field with its label hidden. No label stands over a cell at any width: the row's own label counts the row, and
+ * each control shows what it holds.
+ */
+type RowCell<Row extends EditorRow> = {
   field: keyof Row & string;
   label: Copy;
-  /** The asterisk after the column's head; the control takes its own `isRequired`. */
-  isRequired?: boolean;
   control: (cell: RowControl<Row>) => ReactNode;
 };
 
 /**
  * A row's cells by their place. A phone's first line holds `lead`, a short choice heading the row, and `figure`, a
- * short field; its second `main`, the long field, and `beside`, a toggle at its end; `below` takes a third line, its
- * `mark` standing before its control, such as a card's colour beside the choice of it. From desktop up they stand on
- * one line in this order, `beside` or `below` last.
+ * short field; its second `main`, the long field, and `beside`, a toggle at its end; `below` takes a third line, as a
+ * card's colour does. From desktop up they stand on one line in this order, `beside` or `below` last.
  */
 export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowCell<Row>; main: RowCell<Row> } & (
-  { beside?: RowCell<Row>; below?: never } | { below: RowCell<Row> & { mark?: (row: Row) => ReactNode }; beside?: never }
+  { beside?: RowCell<Row>; below?: never } | { below: RowCell<Row>; beside?: never }
 );
 
 /**
@@ -55,41 +55,41 @@ export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowC
 const FIRST_MESSAGE = "[&>:has([data-kit-message]:not(:empty))~*_[data-kit-message]]:hidden";
 
 /*
- * The rows' whole look, in the one place a ruling changes it: the grid, the hairline between rows and every gap.
+ * The rows' whole look, in the one place a ruling changes it: the grid, the hairline between rows, the row's label and
+ * every gap, each 4, 8 or 16 px.
  */
 const recordRows = tv({
   slots: {
-    // The rows, then the add control over the list's own line: 8 px apart, as a box's fields are.
-    root: "grid w-full min-w-0 gap-2",
+    // Edge to edge in its box, which holds it unpadded (`Section`'s `rows`): the rows, then the foot.
+    root: "grid w-full min-w-0",
     // The columns every row shares, so a field stands at one x in every row. A phone's first line: the lead, the
     // figure, and the remove control at the row's end. From desktop up one line: the lead, the figure, the main field
     // up to a form field's cap, the trailing cell taking the room that is left, the remove control. The cap is
     // counted in the field's own letters, so the grid is set in the field's text.
     grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm lg:grid-cols-[auto_auto_minmax(0,var(--container-field))_1fr_auto] lg:gap-x-3 pointer-coarse:text-base",
-    // A column's head over its fields from desktop up, where a row is one line; a phone's two lines have no columns
-    // to head, and each control shows what it holds.
-    head: "col-span-full hidden grid-cols-subgrid pb-1 lg:grid",
-    headCell: smallCaps(),
-    // The rows are the grid's own items, apart from the head, so the first row is the first of its kind.
-    rows: "contents",
-    // A row's lines 8 px apart, the row's message line the last of them: 16 px tall, as a field's own line is, and
-    // always there, in the 24 px under the controls, which the 24 px above them equal, so the rows keep one rhythm and
-    // a message appearing moves nothing. Each field's own line is laid there, out of the row's flow, so a field keeps
-    // its own check and its own description for a screen reader. It hangs from its top, so a message too long for
-    // one line runs on into the empty room over the next row rather than up over its own row's fields.
-    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 py-6 first:pt-0 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-0 [&_[data-kit-message]]:top-full [&_[data-kit-message]]:-mt-4 ${FIRST_MESSAGE}`,
-    lead: "col-start-1 row-start-1",
-    figure: "col-start-2 row-start-1",
+    // A row brings the box's 16-px insets itself, so the hairline over it reaches the box's edges. Its label and its
+    // lines stand 8 px apart, 16 px under the hairline. Under the last line the row's message line is always there:
+    // 4 px under the fields, 16 px tall, 4 px over the next hairline, which the 24 px of padding hold, so a message
+    // appearing moves nothing. Each field's own line is laid there, out of the row's flow, so a field keeps its own
+    // check and its own description for a screen reader. It hangs from its top, so a message too long for one line
+    // runs on into the empty room over the next row rather than up over its own row's fields.
+    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 px-4 pt-4 pb-6 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-4 [&_[data-kit-message]]:top-full [&_[data-kit-message]]:-mt-4 [&_[data-kit-message]]:-translate-y-1 ${FIRST_MESSAGE}`,
+    // The label counting the row, „Tor 1“, on the kit's label rung, the same at every width.
+    label: smallCaps({ class: "col-span-full row-start-1" }),
+    lead: "col-start-1 row-start-2",
+    figure: "col-start-2 row-start-2",
     // A phone's second line, the main field and what stands beside it; from desktop up its two cells are the row's own.
-    second: `col-span-full row-start-2 grid items-center gap-x-2 lg:contents ${FIRST_MESSAGE}`,
-    main: "lg:col-start-3 lg:row-start-1",
-    beside: "lg:col-start-4 lg:row-start-1",
-    // The mark's slot, then the control, 8 px apart.
-    below: "col-span-full row-start-3 flex items-center gap-2 lg:col-span-1 lg:col-start-4 lg:row-start-1",
-    remove: "col-start-3 row-start-1 justify-self-end lg:col-start-5",
-    // The add control over the list's own message line, as a field's frame stands over its line.
-    foot: "flex flex-col items-start gap-1",
-    line: messageLine({ tone: "error", class: "self-stretch" }),
+    second: `col-span-full row-start-3 grid items-center gap-x-2 lg:contents ${FIRST_MESSAGE}`,
+    main: "lg:col-start-3 lg:row-start-2",
+    beside: "lg:col-start-4 lg:row-start-2",
+    below: "col-span-full row-start-4 lg:col-span-1 lg:col-start-4 lg:row-start-2",
+    // The cross ends with the fields' edge: its button, as wide as a control is tall, reaches past the edge by the
+    // room it keeps around its 16-px glyph, 8 px with a mouse and 12 px on a touch screen.
+    remove: "col-start-3 row-start-2 -me-2 justify-self-end lg:col-start-5 pointer-coarse:-me-3",
+    // The add control in the box's padding, under the hairline that parts it from the last row. The list's own
+    // message line hangs in the padding under the control, so its refusal appearing moves nothing.
+    foot: `relative grid justify-items-start p-4 ${stacked()}`,
+    line: messageLine({ tone: "error", class: "absolute inset-x-4 bottom-0" }),
   },
   variants: {
     // The main field shares its line with what stands beside it, or takes the line whole.
@@ -126,7 +126,7 @@ function RecordRow<Row extends EditorRow>({
   cells,
   row,
   box,
-  name,
+  label,
   errors,
   change,
   removal,
@@ -137,15 +137,15 @@ function RecordRow<Row extends EditorRow>({
   row: Row;
   /** The row's own path, `scorers.2`. */
   box: string;
-  /** The row's name for a screen reader, such as „Tor 3“. */
-  name: Copy;
+  /** The label counting the row, such as „Tor 3“. */
+  label: Copy;
   errors: Readonly<Record<string, Copy>> | undefined;
   change: (patch: Partial<Row>) => void;
-  /** The remove control's label and its act; absent in a form closed read-only. */
+  /** The remove control's name and its act; absent in a form closed read-only. */
   removal: { label: Copy; act: () => void } | undefined;
   takesFocus: boolean;
 }) {
-  const nameId = useId();
+  const labelId = useId();
   const element = useRef<HTMLDivElement>(null);
   // A removed row hands the keys to the row after it, or before it, or to the list.
   useFocusHome(element);
@@ -158,13 +158,13 @@ function RecordRow<Row extends EditorRow>({
       ref={element}
       data-kit-row
       role="group"
-      aria-labelledby={nameId}
+      aria-labelledby={labelId}
       className={slots.row()}>
-      <span
-        id={nameId}
-        hidden>
-        {name}
-      </span>
+      <div
+        id={labelId}
+        className={slots.label()}>
+        {label}
+      </div>
       <FocusScope>
         {takesFocus && <FirstControlFocus />}
         <div className={slots.lead()}>{control(cells.lead)}</div>
@@ -173,18 +173,13 @@ function RecordRow<Row extends EditorRow>({
           <div className={slots.main()}>{control(cells.main)}</div>
           {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
         </div>
-        {cells.below !== undefined && (
-          <div className={slots.below()}>
-            {cells.below.mark?.(row)}
-            {control(cells.below)}
-          </div>
-        )}
+        {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
         {removal !== undefined && (
           <div className={slots.remove()}>
             <Button
               icon="close"
               label={removal.label}
-              aria-describedby={nameId}
+              aria-describedby={labelId}
               onPress={removal.act}
             />
           </div>
@@ -195,9 +190,11 @@ function RecordRow<Row extends EditorRow>({
 }
 
 /**
- * A list of records as rows of fields, such as a Spielbericht's goals: each row its fields on two lines on a phone and
- * on one from desktop up, the remove control at its end, and the add control under the list. The value is the editor's
- * (`./useEditor.ts :: EditorRow`): `rows` its draft's list, `onChange` the whole list anew.
+ * A list of records as rows of fields, such as a Spielbericht's goals: each row under the label counting it, its
+ * fields on two or three lines on a phone and on one from desktop up, the remove control at its end, and the add
+ * control in the foot under the list. It stands edge to edge in its box (`./Section.tsx`'s `rows`), the hairline
+ * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
+ * draft's list, `onChange` the whole list anew.
  *
  * A row's refusal stands on the row's own line, under its fields and always there, and the refused field takes the
  * kit's invalid look. A kit field named as its cell names it takes the form's served refusal by that name and keeps its
@@ -216,7 +213,7 @@ export function RecordRows<Row extends EditorRow>({
   onChange,
   blank,
   cells,
-  rowName,
+  rowLabel,
   add,
   remove,
   errors,
@@ -230,8 +227,8 @@ export function RecordRows<Row extends EditorRow>({
   /** A new row as the add control makes it. */
   blank: Row;
   cells: RowCells<Row>;
-  /** A row's name for a screen reader by its place, such as „Tor 3“, which also describes its remove control. */
-  rowName: (index: number) => Copy;
+  /** The label over a row by its number, from 1, such as „Tor 3“: it names the row and describes its remove control. */
+  rowLabel: (number: number) => Copy;
   /** The add control's label, such as „Tor eintragen“. */
   add: Copy;
   /** The remove control's name, such as „Tor entfernen“. */
@@ -254,7 +251,6 @@ export function RecordRows<Row extends EditorRow>({
   }
 
   const listError = errors?.[name];
-  const head = [cells.lead, cells.figure, cells.main, cells.beside ?? cells.below].filter((cell) => cell !== undefined);
 
   return (
     <div
@@ -263,49 +259,37 @@ export function RecordRows<Row extends EditorRow>({
       aria-describedby={listError === undefined ? undefined : lineId}
       data-kit-focus="home"
       className={slots.root()}>
-      {/* An empty list is its add control alone: no head over nothing, and no gap above the control. */}
+      {/* An empty list is its foot alone, which then stands first and draws no hairline over itself. */}
       {rows.length > 0 && (
         <div className={slots.grid()}>
-          <div className={slots.head()}>
-            {head.map((cell) => (
-              <span
-                key={cell.field}
-                className={slots.headCell()}>
-                {cell.label}
-                <RequiredMark isRequired={cell.isRequired === true} />
-              </span>
-            ))}
-          </div>
-          <div className={slots.rows()}>
-            {rows.map((row, index) => (
-              <RecordRow
-                key={current.keys[index]}
-                slots={slots}
-                cells={cells}
-                row={row}
-                box={`${name}.${String(index)}`}
-                name={rowName(index)}
-                errors={errors}
-                change={(patch) => onChange(rows.map((other, at) => (at === index ? { ...other, ...patch } : other)))}
-                removal={
-                  isClosed
-                    ? undefined
-                    : {
-                        label: remove,
-                        act: () => {
-                          setHeld((state) => ({ ...state, keys: state.keys.filter((_, at) => at !== index) }));
-                          onChange(rows.filter((_, at) => at !== index));
-                        },
-                      }
-                }
-                takesFocus={current.keys[index] === current.added}
-              />
-            ))}
-          </div>
+          {rows.map((row, index) => (
+            <RecordRow
+              key={current.keys[index]}
+              slots={slots}
+              cells={cells}
+              row={row}
+              box={`${name}.${String(index)}`}
+              label={rowLabel(index + 1)}
+              errors={errors}
+              change={(patch) => onChange(rows.map((other, at) => (at === index ? { ...other, ...patch } : other)))}
+              removal={
+                isClosed
+                  ? undefined
+                  : {
+                      label: remove,
+                      act: () => {
+                        setHeld((state) => ({ ...state, keys: state.keys.filter((_, at) => at !== index) }));
+                        onChange(rows.filter((_, at) => at !== index));
+                      },
+                    }
+              }
+              takesFocus={current.keys[index] === current.added}
+            />
+          ))}
         </div>
       )}
-      <div className={slots.foot()}>
-        {!isClosed && (
+      {!isClosed && (
+        <div className={slots.foot()}>
           <Button
             variant="secondary"
             leadingIcon="create"
@@ -315,15 +299,15 @@ export function RecordRows<Row extends EditorRow>({
               onChange([...rows, blank]);
             }}
           />
-        )}
-        {/* Always there, so the list's refusal appearing moves nothing. */}
-        <div
-          id={lineId}
-          data-kit-message
-          className={slots.line()}>
-          {listError}
+          {/* Always there, so the list's refusal appearing moves nothing. */}
+          <div
+            id={lineId}
+            data-kit-message
+            className={slots.line()}>
+            {listError}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
