@@ -40,6 +40,9 @@ const EVERY_PROJECT = [
   "applicant.spec.ts",
   "austritt.spec.ts",
   "administration.spec.ts",
+  "teamArea.spec.ts",
+  "pupilArea.spec.ts",
+  "refereeArea.spec.ts",
 ];
 
 export default defineConfig<JourneyOptions>({
