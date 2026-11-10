@@ -74,8 +74,9 @@ describe("a line-up's save", () => {
   it("writes the line-up of the match and the club it names, whole, the starters it changed over the pupils as stored", async () => {
     const answer = await saveAufstellung({ team_id: TEAM, saison_id: "2027", id: SPIEL, version: 3, changes: { starters: [ONE] } });
 
-    const put = state.sent.filter((call) => call.method === "PUT");
-    expect(put).toStrictEqual([
+    expect(state.sent).toStrictEqual([
+      // The merge reads the line-up of the same match and club it writes, of the two clubs the person holds seats on.
+      { endpoint: `/aufstellungen/${SPIEL}/${TEAM}/self`, method: "GET", body: null },
       {
         endpoint: `/aufstellungen/${SPIEL}/${TEAM}/self`,
         method: "PUT",

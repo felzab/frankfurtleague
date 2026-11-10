@@ -792,9 +792,9 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
                 documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, birth_date="2010-01-01")
             )
         case "an-unconfirmed-pupil":
-            await database[Collection.SPIELER].insert_one(
-                documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, birth_date="2010-01-01", einwilligung=None)
-            )
+            # A hand edit no record model reads, laid over a pupil's own: a pupil's record is born confirmed.
+            pupil = documents.spieler_document(ObjectId(), "Vera", "Zwirnbach", email=NEW_EMAIL, birth_date="2010-01-01")
+            await database[Collection.SPIELER].insert_one({**pupil, "einwilligung": None})
         case "an-owed-carry":
             # Another person's change off it, ended, whose account still stands there until the frontend carries it.
             await database[Collection.ADDRESS_CHANGES].insert_one(

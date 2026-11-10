@@ -24,13 +24,14 @@ from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    EINWILLIGUNG,
+    SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
+    own_einwilligung_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -120,7 +121,11 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP}, **fields}
+        oid,
+        email=email,
+        name=name,
+        default_payment=20,
+        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
     )
 
 
@@ -339,7 +344,7 @@ def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
 
 
 def test_every_role_list_is_drawn_from_the_own_records():
-    """One row seating the mailbox confirmed and again unconfirmed in another spelling, and an unconfirmed referee row.
+    """One row seating the mailbox confirmed and again unconfirmed, and an unconfirmed referee row.
 
     Kills a Funktion list built from the rows the pre-filter matched rather than from the own records. Both judgements
     are pure over the rows the subject's reads hand them, so the rows are given as those reads leave them.
@@ -348,7 +353,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
     identifier = "ortrud.zwiebelmayer@schule.de"
     seat_rows: list[Mapping[str, Any]] = [
         {
-            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier.upper(), confirmed_at=None)),
+            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier, confirmed_at=None)),
             # As `app/api/saisons/services.py :: SAISON_LOOKUP` joins the row's season.
             "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }

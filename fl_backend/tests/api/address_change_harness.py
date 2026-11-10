@@ -81,8 +81,6 @@ CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
 
-A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "reason": "NoEmail", "at": "2126-03-21T10:00:00.000000+00:00"}
-
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
     seat = documents.kontaktperson_document("Lenore", confirmed_at="2126-03-21" if confirmed else None)
@@ -135,13 +133,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 einwilligung=documents.own_einwilligung_document(
                     text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02"
                 ),
-                confirmation={
-                    "token_hash": "c" * 64,
-                    "sent_at": "2126-03-01",
-                    "reminded_at": None,
-                    "deadline": "2126-03-15",
-                    "delivery": dict(A_BOUNCE),
-                },
+                confirmation={"token_hashes": ["c" * 64], "sent_at": "2126-03-01", "deadline": "2126-03-15", "declined_at": None},
             ),
             # Entered by an administrator under the same address and never confirmed: not this person's record yet.
             documents.schiedsrichter_document(UNCONFIRMED_REFEREE_OID, email=EMAIL, name="Lenore Q.", default_payment=20, einwilligung=None),
@@ -161,13 +153,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
             "_id": ROW_OID,
             "confirmations": {
                 "trainer": None,
-                "ansprechperson": {
-                    "token_hash": "a" * 64,
-                    "sent_at": "2126-03-20",
-                    "deadline": "2126-04-03",
-                    "declined_at": None,
-                    "delivery": dict(A_BOUNCE),
-                },
+                "ansprechperson": {"token_hashes": ["a" * 64], "sent_at": "2126-03-20", "deadline": "2126-04-03", "declined_at": None},
                 "stellvertretung": None,
             },
         }
@@ -176,11 +162,11 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
         spiel_id=SPIEL_OID,
         saison_id=SAISON_ID,
         spiel_nr=1,
-        spieltag_id=None,
+        spieltag_id=ObjectId(),
         date="2126-04-18",
         time="14:00:00",
-        team1={"team_id": TEAM_OID},
-        team2={"team_id": SECOND_TEAM_OID},
+        team1={"team_id": TEAM_OID, "tore": None},
+        team2={"team_id": SECOND_TEAM_OID, "tore": None},
     )
     await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
         documents.spielbestaetigung_document(

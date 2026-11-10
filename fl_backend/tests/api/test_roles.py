@@ -119,7 +119,7 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
 def _unconfirmed_spieler(spieler_id: ObjectId, email: str) -> dict[str, Any]:
     """A hand-edited state, a pupil's record being born confirmed: the read still has to answer it as nobody's."""
 
-    return spieler_document(spieler_id, "Anna", "Müller", email=email, einwilligung={**EINWILLIGUNG, "confirmed_at": None})
+    return {**spieler_document(spieler_id, "Anna", "Müller", email=email), "einwilligung": {**EINWILLIGUNG, "confirmed_at": None}}
 
 
 def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, **fields: Any) -> dict[str, Any]:

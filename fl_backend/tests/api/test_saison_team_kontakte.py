@@ -512,7 +512,7 @@ class TestWhatASeatsLinkReads:
         return with_link_state([team], today=self.TODAY, states=states)[0]["memberships"][0]["confirmations"]
 
     def link(self, deadline: str) -> dict[str, Any]:
-        return {"token_hashes": [], "sent_at": "2026-03-18", "reminded_at": None, "declined_at": None, "deadline": deadline}
+        return {"token_hashes": [], "sent_at": "2026-03-18", "declined_at": None, "deadline": deadline}
 
     def test_a_link_lapses_past_its_day_and_only_while_unanswered(self):
         """The deadline's own day still answers, and an answered seat has nothing left to collect."""

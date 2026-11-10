@@ -47,9 +47,10 @@ def _on(url: str, stored: list[tuple[str, str]], body: Any, **fields: Any) -> An
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
             for saison_id, status in stored:
-                # A row whose id is no year still carries real days, so the list reads it as it reads any season.
-                days = {} if saison_id.isdigit() else {"start_date": "2025-01-01", "end_date": "2025-06-30"}
-                await database[Collection.SAISONS].insert_one(documents.saison_document(saison_id, status, **days, **fields))
+                # A row whose id is no year is a hand edit no record model reads, laid over a season's own: it still carries
+                # real days, so the list reads it as it reads any season.
+                season = documents.saison_document(saison_id if saison_id.isdigit() else "2025", status, **fields)
+                await database[Collection.SAISONS].insert_one({**season, "_id": saison_id})
 
             return await body(database)
 

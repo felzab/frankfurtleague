@@ -24,11 +24,13 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
+from app.shared.einwilligung_evidence import TextVersions
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
     bewerbung_document,
     kontakte_document,
@@ -117,13 +119,17 @@ def _person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
-def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-09-02", **fields)
+def _einwilligung(text_versions: TextVersions = SPIELER_TEXT_VERSIONS) -> dict[str, Any]:
+    return own_einwilligung_document(text_versions=text_versions, confirmed_at="2026-09-02")
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "birth_date": "2000-05-09", **fields}
+        referee_id,
+        email=email,
+        name=name,
+        default_payment=20,
+        **{"einwilligung": _einwilligung(SCHIEDSRICHTER_TEXT_VERSIONS), "birth_date": "2000-05-09", **fields},
     )
 
 

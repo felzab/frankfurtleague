@@ -2,6 +2,7 @@ import asyncio
 import atexit
 from collections.abc import AsyncIterator, Coroutine, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
@@ -11,7 +12,7 @@ from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
 from pymongo.uri_parser import parse_uri
 
-from app.core.constraints import apply_constraints
+from app.core.constraints import TTL_INDEXES, apply_constraints
 
 # MongoDB's code for a document a `$jsonSchema` refused, which the driver names nowhere: a case forcing a
 # failure mid-transaction installs one. Asserted on rather than caught broadly, so an unrelated failure
@@ -105,6 +106,52 @@ _DRIFT_SYNC = (
     " left it ran EARLIER in this database and the test named here only inherited it. A body that installs a validator, or adds or"
     " drops an index, takes a database no other test shares -- this one is `build_test_config`'s, which every app under test reads."
 )
+
+
+_EXPIRED = (
+    "'{database}.{collection}' holds {count} row(s) whose `{key}`, the earliest {earliest}, lies past its retention on the real"
+    " clock: MongoDB's TTL monitor deletes such a row on its next pass, once a minute, under a case still reading it, which fails"
+    " one run in many. Write the case on a clock a century ahead, as `tests/outbox.py :: MAIL_NOW` does."
+)
+
+
+_EXPIRED_SYNC = " This fixture reads the database where it seeds, so the rows were left by the test that used it last, which ran EARLIER."
+
+
+def _expired_pipeline(key: str, seconds: int) -> list[Mapping[str, Any]]:
+    """A TTL index's rows its monitor may already delete, against the real clock: only a date expires, as a `$lt` on one reads."""
+
+    return [
+        {"$match": {key: {"$lt": datetime.now(UTC) - timedelta(seconds=seconds)}}},
+        {"$group": {"_id": None, "count": {"$sum": 1}, "earliest": {"$min": f"${key}"}}},
+    ]
+
+
+def _expired_message(name: str, collection: str, key: str, found: Sequence[Mapping[str, Any]]) -> str | None:
+    if not found:
+        return None
+
+    return _EXPIRED.format(database=name, collection=collection, count=found[0]["count"], key=key, earliest=found[0]["earliest"].isoformat())
+
+
+async def _expired_rows(database: AsyncDatabase) -> list[str]:
+    """Each shipped TTL index's expired rows, as `_EXPIRED` words them."""
+
+    async def expired(collection: str, key: str, seconds: int) -> str | None:
+        found = await (await database[collection].aggregate(_expired_pipeline(key, seconds))).to_list(length=None)
+        return _expired_message(database.name, collection, key, found)
+
+    return [message for message in await asyncio.gather(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
+
+
+def _expired_rows_sync(database: Database) -> list[str]:
+    found = (
+        _expired_message(
+            database.name, ttl.collection, ttl.key, list(database[ttl.collection].aggregate(_expired_pipeline(ttl.key, ttl.seconds)))
+        )
+        for ttl in TTL_INDEXES
+    )
+    return [message + _EXPIRED_SYNC for message in found if message]
 
 
 def _data(infos: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -239,7 +286,8 @@ async def a_clean_database(
     """The tier's client for this url, and a database emptied for this test on a schema built once.
 
     `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
-    it leaves is recorded nowhere, so the next caller rebuilds.
+    it leaves is recorded nowhere, so the next caller rebuilds. On the shipped schema, a body leaving a row its TTL index has
+    already expired is refused (`_expired_rows`).
     """
 
     # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
@@ -267,11 +315,17 @@ async def a_clean_database(
         _guard(_DRIFT, name, baseline, present, foreign)
         _BUILT[key] = (constraints, present)
 
+    # Every run rather than the one a monitor's pass happens to land in: a row the shipped retention has already expired
+    # stands here only until that pass, which is all that made a case written on a past clock flake.
+    if constraints and (expired := await _expired_rows(database)):
+        raise AssertionError("\n".join(expired))
+
 
 def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constraints: bool = True) -> Database:
     """`a_clean_database` for a fixture holding a pymongo client, which returns before its test body runs.
 
-    Its check therefore runs at the next seed and refuses with `_DRIFT_SYNC` rather than `_DRIFT`.
+    Its checks therefore run at the next seed and refuse with `_DRIFT_SYNC` rather than `_DRIFT`, and with `_EXPIRED_SYNC`'s
+    note beside `_EXPIRED`.
     """
 
     key = _key(url, name)
@@ -293,6 +347,8 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constrain
 
     present, foreign = _schema_sync(database)
     _guard(_DRIFT_SYNC, name, built[1], present, foreign)
+    if constraints and (expired := _expired_rows_sync(database)):
+        raise AssertionError("\n".join(expired))
     for collection in present:
         database[collection].delete_many({})
     _BUILT[key] = (constraints, present)

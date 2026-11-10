@@ -241,21 +241,21 @@ def test_another_clubs_seat_is_refused_the_club(mongo_replica_set_url: str):
     assert on_a_season(mongo_replica_set_url, body) == (Code.ROLE_NOT_HELD, [])
 
 
-def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_their_entry(mongo_replica_set_url: str):
-    """The ausgetragen pupil and the other club's are each marked by their entry's path; a pupil already named stays."""
+def test_a_save_judges_its_names_against_the_squad_and_the_stored_line_up(mongo_replica_set_url: str):
+    """The club's squad is read for the judgement, and so is the stored line-up, which keeps a pupil ausgetragen since.
+
+    What the judgement decides is `test_aufstellung_save_rules.py`'s, on the default tier.
+    """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-        refused = await refusal_of(seat_saves(database, client, _payload(OLE, WEG, FREMD)))
+        refused, _ = await refusal_of(seat_saves(database, client, _payload(OLE, WEG)))
         await database[Collection.AUFSTELLUNGEN].insert_one(
             documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[WEG])
         )
         kept, _ = await seat_saves(database, client, _payload(WEG, OLE, version=0))
         return refused, [row.first_name for row in kept.named]
 
-    assert on_a_season(mongo_replica_set_url, body) == (
-        (Code.SPIELER_NOT_IN_KADER, [("spieler", 1, "spieler_id"), ("spieler", 2, "spieler_id")]),
-        ["Weg"],
-    )
+    assert on_a_season(mongo_replica_set_url, body) == (Code.SPIELER_NOT_IN_KADER, ["Weg"])
 
 
 def test_the_seat_reads_the_screen_the_save_answered(mongo_replica_set_url: str):

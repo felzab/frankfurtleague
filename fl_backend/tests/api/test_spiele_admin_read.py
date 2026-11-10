@@ -114,7 +114,6 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
             confirmation={
                 "token_hashes": [],
                 "sent_at": "2026-03-01",
-                "reminded_at": None,
                 "deadline": "2026-03-15",
                 "declined_at": "2026-03-02",
             },

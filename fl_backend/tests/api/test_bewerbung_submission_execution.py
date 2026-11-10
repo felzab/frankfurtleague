@@ -42,9 +42,10 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_bewerbung_submission_test")
 
 SAISON_ID = "2026"
-TODAY = "2026-04-01"
-# Injected through `get_germany_now` for the cases driven over HTTP, so the day is not the wall clock.
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2126-04-01"
+# Injected through `get_germany_now` for the cases driven over HTTP, so the day is not the wall clock; a century ahead of
+# it, every seeded day with it: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Fixed rather than generated, so a failure names the same row every run.
 EXISTING_OID = ObjectId("6890a1b2c3d4e5f607940001")
@@ -58,7 +59,7 @@ RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
 ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 
 
-OPEN_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"open": True, "start": "2126-03-01", "end": "2126-04-30"}
 
 
 def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str, Any]:
@@ -129,7 +130,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
             await database[Collection.TEAMS].insert_many(
                 [
                     club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
-                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2026-03-01"),
+                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
                     club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
                 ]
             )
@@ -498,7 +499,7 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [
             pytest.param(None, id="no window recorded"),
-            pytest.param({"open": True, "start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"open": True, "start": "2126-05-01", "end": "2126-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):

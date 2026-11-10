@@ -34,11 +34,13 @@ SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607600003")
 SPIELER_OID = ObjectId("6890a1b2c3d4e5f607600004")
 
 SAISON_ID = "2026"
-TODAY = "2026-03-15"
+# A century ahead of the real clock, as `AT` is: the TTL monitor deletes a log row a year after its act, under a case reading
+# it back.
+TODAY = "2126-03-15"
 
 SEEDED_NAME = "Lessing"
 
-AT = datetime(2026, 3, 15, 18, 0, tzinfo=UTC)
+AT = datetime(2126, 3, 15, 18, 0, tzinfo=UTC)
 
 ERASED_ADDRESS = "former@example.invalid"
 OTHER_ADDRESS = "other@example.invalid"

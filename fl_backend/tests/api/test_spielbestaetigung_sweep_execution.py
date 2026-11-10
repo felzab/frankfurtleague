@@ -63,10 +63,12 @@ DATABASE_NAME = worker_database("fl_spielbestaetigung_sweep_test")
 
 SAISON_ID = "2026"
 PAST_SAISON_ID = "2025"
-TODAY = "2026-04-01"
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-YESTERDAY = "2026-03-31"
-NEXT_WEEK = "2026-04-08"
+# A century ahead of the real clock, every seeded day with it: the TTL monitor deletes a row whose delete date has passed,
+# under a case reading it back.
+TODAY = "2126-04-01"
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+YESTERDAY = "2126-03-31"
+NEXT_WEEK = "2126-04-08"
 
 # Fixed rather than generated, so a failure names the same row every run.
 ALPHA = ObjectId("6890a1b2c3d4e5f607750001")
@@ -97,7 +99,7 @@ SEATS = {
 
 
 # Before any pass of a case, so the pass mails each seat: an address nobody proved is mailed nothing.
-CONFIRMED_ON = "2026-03-01"
+CONFIRMED_ON = "2126-03-01"
 
 
 def seated(first_name: str) -> dict[str, Any]:
@@ -189,16 +191,16 @@ def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]], junctions
                 [
                     {
                         "_id": SPIELTAG,
-                        "start": "2026-03-01",
-                        "end": "2026-06-30",
+                        "start": "2126-03-01",
+                        "end": "2126-06-30",
                         "position": 1,
                         "saison_id": SAISON_ID,
                         "saison_phase": "gruppenphase",
                     },
                     {
                         "_id": PAST_SPIELTAG,
-                        "start": "2025-03-01",
-                        "end": "2025-06-30",
+                        "start": "2125-03-01",
+                        "end": "2125-06-30",
                         "position": 1,
                         "saison_id": PAST_SAISON_ID,
                         "saison_phase": "gruppenphase",
@@ -1052,7 +1054,7 @@ class TestAMoveNotAskedAtOnceIsToldAtOnce:
     """A club told nothing of a move until the new slot can be asked would turn up at the slot it was asked about."""
 
     def test_a_move_past_the_window_is_told_naming_both_slots_and_asked_once_the_window_reaches_it(self, mongo_replica_set_url: str):
-        moved_to = "2026-05-15"
+        moved_to = "2126-05-15"
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
@@ -1117,7 +1119,7 @@ class TestAReplacedClubsRowsClose:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             # A replacement runs only before the season's start, so it starts the day after `TODAY`.
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": "2026-04-02"}})
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": "2126-04-02"}})
             await replace_saison_team(
                 team_id=ALPHA,
                 saison_id=SAISON_ID,
@@ -1247,7 +1249,7 @@ def a_payload_person(first_name: str, last_name: str, phone: str) -> dict[str, A
         "last_name": last_name,
         "email": f"{first_name.lower()}@example.com",
         "phone": phone,
-        "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
+        "einwilligung": {"scope": "kontakt_data", "date": "2126-03-01"},
     }
 
 
@@ -1531,7 +1533,7 @@ class TestAnErasedContactIsNotToldTheirSpielMoved:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             # Past the window, so the close tells of the move rather than the mint's request.
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2026-05-15"}})
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2126-05-15"}})
 
             async def erase_the_trainer() -> None:
                 await erased(database, client, address(ALPHA, "trainer"), germany_now=NOW)
@@ -1607,6 +1609,33 @@ class TestTheLineupReminder:
         )
         assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
         assert later.aufstellungen == []
+
+    def test_a_fixture_a_clubs_austritt_decided_reminds_neither_club(self, mongo_replica_set_url: str):
+        """Alpha leaves before the day, so the match is not played: Beta would be asked for a line-up nobody fields against."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
+
+        out = junction(ALPHA, austritt={"type": "rueckzug", "reason": "Schulwechsel", "date": LINEUP_TODAY})
+        reminded = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW], junctions=[out, junction(BETA)])
+
+        assert reminded.aufstellungen == []
+
+    def test_a_reminder_still_owed_at_the_due_mark_is_never_sent(self, mongo_replica_set_url: str):
+        """A drain running behind would otherwise ask for the line-up by a moment already gone by."""
+
+        past_the_due_mark = datetime(2126, 4, 15, 18, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            answer = await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW)
+            owed = await database[Collection.OUTBOX].count_documents({"kind": "aufstellung_reminder"})
+            return owed, await handed_out(database, client, answer, now=past_the_due_mark)
+
+        owed, late = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])
+
+        # The premise: both clubs' every confirmed seat was owed one.
+        assert owed == 2 * len(KONTAKT_ROLLEN)
+        assert late.aufstellungen == []
 
 
 # --- A REFEREE TAKEN OFF a fixture after their Einteilung went out.

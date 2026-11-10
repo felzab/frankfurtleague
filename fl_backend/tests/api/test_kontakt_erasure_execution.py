@@ -328,10 +328,13 @@ def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
     """A junction row whose Trainer holds exactly this address, inserted straight past pydantic.
 
     Which is how an application reaches it in any case: `bewerbungen` has no create endpoint, so
-    `bsonType: "string"` is all a stored address is held to.
+    `bsonType: "string"` is all a stored address is held to. Laid over a row the builder answers, which refuses an
+    address outside its fold, as the read-back does.
     """
 
-    return a_junction_row(row_id, LATER_SAISON, a_block_holding({**person(UNREACHED_LAST_NAME, UNREACHED_PHONE), "email": email}))
+    row = a_junction_row(row_id, LATER_SAISON, a_block_holding(person(UNREACHED_LAST_NAME, UNREACHED_PHONE)))
+
+    return {**row, "kontakte": {**row["kontakte"], "trainer": {**row["kontakte"]["trainer"], "email": email}}}
 
 
 async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
