@@ -2477,10 +2477,10 @@
         "type": "object"
       },
       "FLAufstellungReminderData": {
-        "description": "A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered.",
+        "description": "A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered.",
         "properties": {
           "appointment": {
-            "$ref": "#/components/schemas/FLSpielMailAppointment"
+            "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
           "due_at": {
             "format": "date-time",
