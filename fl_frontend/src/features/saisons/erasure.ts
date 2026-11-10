@@ -9,7 +9,7 @@ import type { FLErasureSweepResponse } from "@/core/generated/client/types";
 type ErasureSum = Omit<FLErasureSweepResponse, "after">;
 
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
-export type ErasureSweep = (ErasureSum & { abgebrochen: false }) | (Omit<ErasureSum, "remaining"> & { abgebrochen: true; error: unknown });
+export type ErasureSweep = (ErasureSum & { cutShort: false }) | (Omit<ErasureSum, "remaining"> & { cutShort: true; error: unknown });
 
 // A loop and no request, so outside `mutations.ts`, whose every export is one request.
 /**
@@ -53,8 +53,8 @@ export async function sweepErasure(run: (after: string | null) => Promise<FLEras
     } while (after !== null);
   } catch (error) {
     const { remaining: _unknown, ...previous } = total;
-    return { ...previous, abgebrochen: true, error };
+    return { ...previous, cutShort: true, error };
   }
 
-  return { ...total, abgebrochen: false };
+  return { ...total, cutShort: false };
 }
