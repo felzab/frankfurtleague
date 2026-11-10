@@ -13464,7 +13464,7 @@
         "type": "object"
       },
       "FLSpielberichtSchiedsrichterResponse": {
-        "description": "The booked referee's form: the remarks included, and no `state`.",
+        "description": "The booked referee's form, the stored remarks included.",
         "properties": {
           "bericht": {
             "anyOf": [

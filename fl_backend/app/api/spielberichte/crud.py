@@ -52,9 +52,9 @@ from app.shared.schemas.literals import FLSpielSide
 
 async def pull_bericht_context(
     *,
-    spiele_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    saison_spieler_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
+    saisons_collection: ReadCollection,
+    saison_spieler_collection: ReadCollection,
     spiel_id: ObjectId,
     session: AsyncClientSession | None,
 ) -> BerichtContext:
@@ -63,7 +63,7 @@ async def pull_bericht_context(
     `document_not_found` for a fixture that does not exist.
     """
 
-    # Through the name join, which the form's heading and the panel's sides read.
+    # Through the name join, which the form's heading reads.
     found = await aggregate_many_from_db(
         collection=spiele_collection, pipeline=build_named_spiele_pipeline({"_id": spiel_id}, projection=SPIEL_FIELDS), session=session
     )
@@ -87,7 +87,7 @@ async def pull_bericht_context(
 
 async def pull_named(
     *,
-    spieler_collection: AsyncCollection,
+    spieler_collection: ReadCollection,
     context: BerichtContext,
     kader_open: bool,
     bericht: Mapping[str, Any] | None,

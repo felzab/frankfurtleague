@@ -176,8 +176,7 @@ class FLSpielberichtPayload(BaseModel):
     version: int | None
 
 
-# --- The READS. The referee's form and the administrator's panel read one shape: the fixture, both live
-# squads to pick from, and the stored block.
+# --- The READ of the referee's form: the fixture, both live squads to pick from, and the stored block.
 
 
 class FLSpielberichtTeam(BaseModel):
@@ -216,8 +215,9 @@ class FLSpielberichtKader(BaseModel):
     team2: list[FLSpielberichtSpieler]
 
 
-# Private, so the two reads below publish their own components and none for the base.
-class _SpielberichtView(BaseAPIResponse):
+class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
+    """The booked referee's form, the stored remarks included."""
+
     spiel: FLSpielberichtSpiel
     kader: FLSpielberichtKader
     # Every pupil the stored block names outside the squads served -- one ausgetragen since the match, or of a club a
@@ -229,11 +229,6 @@ class _SpielberichtView(BaseAPIResponse):
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
     # has raised it, the administrator's adoption among them.
     version: int | None
-
-
-class FLSpielberichtSchiedsrichterResponse(_SpielberichtView):
-    """The booked referee's form: the remarks included, and no `state`."""
-
     # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
     completed: bool
 

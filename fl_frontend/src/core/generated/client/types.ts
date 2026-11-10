@@ -5053,7 +5053,7 @@ export interface FLSpielberichtSpiel {
 }
 
 /**
- * The booked referee's form: the remarks included, and no `state`.
+ * The booked referee's form, the stored remarks included.
  */
 export interface FLSpielberichtSchiedsrichterResponse {
   bericht: FLSpielberichtBericht | null;
