@@ -11,7 +11,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.account.crud import may_always_give, press_einwilligung
 from app.api.account.services import (
     compose_person_move,
-    compose_spieler_self,
     find_own_entry_refusal,
     withdrawal_line,
 )
@@ -25,12 +24,10 @@ from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderRow,
     FLPatchKaderRowPayload,
-    FLSpielerSelfResponse,
 )
 from app.api.spieler.services import (
     build_kader_pipeline,
     build_self_pupil_filter,
-    build_self_pupil_pipeline,
     find_kader_stufe_refusal,
     mark_shared_nummern,
 )
@@ -324,25 +321,6 @@ spieler_router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
-
-
-@spieler_router.get("/self", response_model=FLSpielerSelfResponse, summary="A signed-in pupil's own record")
-async def get_self(identifier: PersonIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelfResponse:
-    """
-    Answer the signed-in address's own pupil record's stored data with every squad row it holds.
-
-    PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.
-    Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
-
-    Refuses an address holding no confirmed pupil record (`role_not_held`).
-    """
-
-    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_pupil_pipeline(identifier))
-    row = rows[0] if rows else None
-    refuse(find_own_entry_refusal(held=row is not None and is_own_spieler(row)))
-    assert row is not None
-
-    return FLSpielerSelfResponse.model_validate({"spieler": compose_spieler_self(row)})
 
 
 @spieler_router.patch(

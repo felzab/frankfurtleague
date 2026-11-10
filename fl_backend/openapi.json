@@ -15672,53 +15672,6 @@
         "const": "2026-11-name-kader-1",
         "type": "string"
       },
-      "FLSpielerSelf": {
-        "description": "The pupil's own page's read: the record and every squad row it holds.\n\nThe squad rows are this read's alone: the account page lists none, so its entry extends the record without them.",
-        "properties": {
-          "birth_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Birth Date",
-            "type": "string"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "kader": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielerSelfKaderRow"
-            },
-            "title": "Kader",
-            "type": "array"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "first_name",
-          "last_name",
-          "spieler_id",
-          "birth_date",
-          "kader"
-        ],
-        "title": "FLSpielerSelf",
-        "type": "object"
-      },
       "FLSpielerSelfKaderRow": {
         "description": "One squad row as its own pupil reads it, with the name the club played that season under.",
         "properties": {
@@ -15805,19 +15758,6 @@
           "inactive_since"
         ],
         "title": "FLSpielerSelfKaderRow",
-        "type": "object"
-      },
-      "FLSpielerSelfResponse": {
-        "description": "The signed-in address's own pupil record: one at most, `spieler.email` being unique.",
-        "properties": {
-          "spieler": {
-            "$ref": "#/components/schemas/FLSpielerSelf"
-          }
-        },
-        "required": [
-          "spieler"
-        ],
-        "title": "FLSpielerSelfResponse",
         "type": "object"
       },
       "FLSpielerSingleResponse": {
@@ -28180,73 +28120,6 @@
           }
         ],
         "summary": "One Saison's squad rows for its list",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/self": {
-      "get": {
-        "description": "Answer the signed-in address's own pupil record's stored data with every squad row it holds.\n\nPERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.\nIts consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
-        "operationId": "spieler_get_self",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSelfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A signed-in pupil's own record",
         "tags": [
           "spieler"
         ]

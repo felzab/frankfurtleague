@@ -202,18 +202,8 @@ def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One pupil row's stored data and its squad rows, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads them."""
-
-    return {**_compose_spieler_person(row), "kader": row["kader"]}
-
-
 def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it.
-
-    Its own rather than `app/api/spieler/services.py :: build_self_pupil_pipeline`, whose lookups join every squad row
-    the pupil holds for an entry serving none.
-    """
+    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it."""
 
     return [
         {"$match": build_self_pupil_filter(identifier)},

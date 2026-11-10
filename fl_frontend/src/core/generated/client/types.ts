@@ -5571,29 +5571,6 @@ export interface FLSpielerSaisonSelfResponse {
 }
 
 /**
- * The pupil's own page's read: the record and every squad row it holds.
- *
- * The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
- */
-export interface FLSpielerSelf {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  birth_date: string;
-  /** @minLength 1 */
-  first_name: string;
-  kader: FLSpielerSelfKaderRow[];
-  last_name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-}
-
-/**
- * The signed-in address's own pupil record: one at most, `spieler.email` being unique.
- */
-export interface FLSpielerSelfResponse {
-  spieler: FLSpielerSelf;
-}
-
-/**
  * One player as the BASE TIER serves them -- an allow-list of what this surface needs.
  *
  * Squad fields are season-scoped, and inventing a season would make the answer depend on a default

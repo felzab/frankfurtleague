@@ -37,9 +37,8 @@ DATABASE_NAME = worker_database("fl_spieler_self_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/spieler/self"
 PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
-# The account page's read, which serves the consent the self read leaves to it.
+# The account page's read, which serves the consent and the evidence a press echoes.
 ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -47,9 +46,8 @@ NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PAST_SAISON = "2025"
 ACTIVE_SAISON = "2026"
 
-# Stored folded, as every pupil row stores its address; asked in another spelling where a case says so.
+# Stored folded, as every pupil row stores its address.
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
-IDENTIFIER_SPELLED_OTHERWISE = "Ortrud.Zwiebelmayer@SCHULE.de"
 YOUNG = "jonas.jungspund@schule.de"
 BYSTANDER = "baldur.krautzberger@example.com"
 NOBODY = "niemand@schule.de"
@@ -195,7 +193,7 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
     return {row["_id"]: row async for row in database[Collection.SPIELER].find({}, {"einwilligung": 1})}
 
 
-def _read(email: str, *, path: str = PATH) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
+def _read(email: str, *, path: str) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
     async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
         return await http.get(path, headers=_person(email))
 
@@ -216,48 +214,10 @@ def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDataba
 
 
 @pytest.mark.db
-class TestTheOwnRecord:
-    def test_the_address_is_answered_its_own_record_and_no_other(self, mongo_replica_set_url: str):
-        response = served(mongo_replica_set_url, _read(IDENTIFIER))
-
-        assert response.status_code == 200, response.text
-        record = response.json()["spieler"]
-        assert (record["spieler_id"], record["first_name"], record["last_name"], record["birth_date"]) == (
-            str(PUPIL_OID),
-            "Ortrud",
-            "Zwiebelmayer",
-            ADULT_BIRTHDATE,
-        )
-        # Its stored data alone: neither the sign-in address nor the consent, which is the account page's.
-        assert not {"email", "einwilligung", "givable", "evidence_state"} & set(record)
-        entry = served(mongo_replica_set_url, _read(IDENTIFIER, path=ACCOUNT_PATH)).json()["spieler"]
-        assert entry["media_offered"] is True
-
-    def test_each_squad_row_carries_the_name_its_season_was_played_under(self, mongo_replica_set_url: str):
-        kader = served(mongo_replica_set_url, _read(IDENTIFIER)).json()["spieler"]["kader"]
-
-        assert [(row["saison_id"], row["team_name"], row["nummer"]) for row in kader] == [
-            (ACTIVE_SAISON, ROW_NAME_A_ACTIVE, "07"),
-            (PAST_SAISON, ROW_NAME_A_PAST, "7"),
-        ]
-        assert (kader[0]["rolle"], kader[0]["is_nachnominiert"], kader[0]["inactive_since"]) == ("kapitaen", True, None)
-        assert kader[1]["inactive_since"] == "2025-06-30"
-        # The other club's pupil, since the pupil above plays for the club sorting first, whose name a join reading the season alone also finds.
-        assert [row["team_name"] for row in served(mongo_replica_set_url, _read(BYSTANDER)).json()["spieler"]["kader"]] == [ROW_NAME_B]
-
-    def test_an_address_spelled_otherwise_reads_the_same_record(self, mongo_replica_set_url: str):
-        """One identifier and one person: the binder folds the token's address before anything matches it."""
-
-        assert served(mongo_replica_set_url, _read(IDENTIFIER_SPELLED_OTHERWISE)).json()["spieler"]["spieler_id"] == str(PUPIL_OID)
-
+class TestTheAccountEntry:
     @pytest.mark.parametrize(("email", "offered"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, offered: bool):
         assert served(mongo_replica_set_url, _read(email, path=ACCOUNT_PATH)).json()["spieler"]["media_offered"] is offered
-
-    def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str):
-        response = served(mongo_replica_set_url, _read(NOBODY))
-
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
 
 
 @pytest.mark.db
