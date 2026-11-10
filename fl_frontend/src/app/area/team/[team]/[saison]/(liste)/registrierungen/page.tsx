@@ -49,7 +49,7 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
     id: row.registrierung_id,
     name: { record: name },
     chip: row.admissible ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
-    ...(notes.length === 0 ? {} : { line: WORDS.notes(notes) }),
+    ...(notes.length === 0 ? {} : { line: SERVER_COPY.area.line(notes) }),
     cells: {
       nummer: row.nummer === null ? COPY.shared.noValue : { record: row.nummer },
       position: row.position === null ? COPY.shared.noValue : { record: row.position },

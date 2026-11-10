@@ -111,8 +111,8 @@ export function BerichtEditor({
   ];
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: SPIEL.none },
-    { id: "nichtantreten_team1", label: WORDS.nichtAngetreten(sides.team1.name) },
-    { id: "nichtantreten_team2", label: WORDS.nichtAngetreten(sides.team2.name) },
+    { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team1.name) },
+    { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team2.name) },
     { id: "abgebrochen", label: SPIEL.abgebrochen },
   ];
 

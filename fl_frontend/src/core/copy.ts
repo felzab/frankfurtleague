@@ -824,8 +824,6 @@ export const COPY = catalogue({
         linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter ", after: "." },
         /** Muted in the line under a row's name: the registration's address is a stored person's. */
         returning: "War schon in der Liga",
-        /** That line where it holds more than one note, „War schon in der Liga · Nummer doppelt“. */
-        notes: (notes: readonly Copy[]) => notes.join(" · "),
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
         kaderFull: "Kader voll",
         awaitsConfirmation: "Erst, wenn die Person bestätigt hat",
@@ -863,8 +861,6 @@ export const COPY = catalogue({
         goal: "Tor",
         /** The label over a goal's or a card's row, counting the rows from 1: „Tor 3“, „Karte 1“. */
         numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
-        /** A no-show's entry in the Sonderereignis, by the club that stayed away. */
-        nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
         /** Under the goals' title where a side fields another club than the report names, whose pupils left their rows. */
         sidesChanged: "Im Spiel stehen inzwischen andere Teams.",
       },
