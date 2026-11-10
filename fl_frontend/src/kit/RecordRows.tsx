@@ -75,8 +75,9 @@ const recordRows = tv({
     // A row's lines 8 px apart, the row's message line the last of them: 16 px tall, as a field's own line is, and
     // always there, in the 24 px under the controls, which the 24 px above them equal, so the rows keep one rhythm and
     // a message appearing moves nothing. Each field's own line is laid there, out of the row's flow, so a field keeps
-    // its own check and its own description for a screen reader.
-    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 py-6 first:pt-0 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-0 [&_[data-kit-message]]:bottom-0 ${FIRST_MESSAGE}`,
+    // its own check and its own description for a screen reader. It hangs from its top, so a message too long for
+    // one line runs on into the empty room over the next row rather than up over its own row's fields.
+    row: `relative col-span-full grid grid-cols-subgrid items-center gap-y-2 py-6 first:pt-0 ${stacked()} [&_[data-kit-message]]:absolute [&_[data-kit-message]]:inset-x-0 [&_[data-kit-message]]:top-full [&_[data-kit-message]]:-mt-4 ${FIRST_MESSAGE}`,
     lead: "col-start-1 row-start-1",
     figure: "col-start-2 row-start-1",
     // A phone's second line, the main field and what stands beside it; from desktop up its two cells are the row's own.
@@ -262,8 +263,9 @@ export function RecordRows<Row extends EditorRow>({
       aria-describedby={listError === undefined ? undefined : lineId}
       data-kit-focus="home"
       className={slots.root()}>
-      <div className={slots.grid()}>
-        {rows.length > 0 && (
+      {/* An empty list is its add control alone: no head over nothing, and no gap above the control. */}
+      {rows.length > 0 && (
+        <div className={slots.grid()}>
           <div className={slots.head()}>
             {head.map((cell) => (
               <span
@@ -274,34 +276,34 @@ export function RecordRows<Row extends EditorRow>({
               </span>
             ))}
           </div>
-        )}
-        <div className={slots.rows()}>
-          {rows.map((row, index) => (
-            <RecordRow
-              key={current.keys[index]}
-              slots={slots}
-              cells={cells}
-              row={row}
-              box={`${name}.${String(index)}`}
-              name={rowName(index)}
-              errors={errors}
-              change={(patch) => onChange(rows.map((other, at) => (at === index ? { ...other, ...patch } : other)))}
-              removal={
-                isClosed
-                  ? undefined
-                  : {
-                      label: remove,
-                      act: () => {
-                        setHeld((state) => ({ ...state, keys: state.keys.filter((_, at) => at !== index) }));
-                        onChange(rows.filter((_, at) => at !== index));
-                      },
-                    }
-              }
-              takesFocus={current.keys[index] === current.added}
-            />
-          ))}
+          <div className={slots.rows()}>
+            {rows.map((row, index) => (
+              <RecordRow
+                key={current.keys[index]}
+                slots={slots}
+                cells={cells}
+                row={row}
+                box={`${name}.${String(index)}`}
+                name={rowName(index)}
+                errors={errors}
+                change={(patch) => onChange(rows.map((other, at) => (at === index ? { ...other, ...patch } : other)))}
+                removal={
+                  isClosed
+                    ? undefined
+                    : {
+                        label: remove,
+                        act: () => {
+                          setHeld((state) => ({ ...state, keys: state.keys.filter((_, at) => at !== index) }));
+                          onChange(rows.filter((_, at) => at !== index));
+                        },
+                      }
+                }
+                takesFocus={current.keys[index] === current.added}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       <div className={slots.foot()}>
         {!isClosed && (
           <Button
