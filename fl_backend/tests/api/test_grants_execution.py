@@ -51,11 +51,13 @@ DATABASE_NAME = worker_database("fl_grants_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-TODAY = "2026-04-01"
+# A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2126-04-01"
+# Behind the real clock as well as the case's, since the mounted route judges a grant on the real one.
 IN_EFFECT = datetime(2026, 1, 1, tzinfo=UTC)
-# The German clock falls back an hour in the night of the 25th.
-BEFORE_THE_CLOCK_FALLS_BACK = datetime(2026, 10, 24, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# The German clock falls back an hour in the night of the 27th.
+BEFORE_THE_CLOCK_FALLS_BACK = datetime(2126, 10, 26, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # The grants every case starts from: the owner, and two administrators.
 OWNER_ID = ObjectId("6890a1b2c3d4e5f607910001")
@@ -315,7 +317,7 @@ class TestAnAddition:
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
         }
         # The date is the mail's one sentence on when it lands.
-        assert notices == [("granted", "started", NEU, sorted([*EVERY_HOLDER, NEU]), "2026-04-02T10:30:00Z")]
+        assert notices == [("granted", "started", NEU, sorted([*EVERY_HOLDER, NEU]), "2126-04-02T10:30:00Z")]
 
     def test_a_waiting_holder_is_told_of_nothing_but_their_own_row(self, mongo_replica_set_url: str):
         """The holder list is who is in effect: a row still waiting may yet be withdrawn, and hears only of itself."""
@@ -504,7 +506,7 @@ class TestAHandover:
         assert owner_from == stored(NOW + timedelta(days=OWNER_WAIT_DAYS))
         assert (held[OWNER], held[ANNA]) == ("owner", "administration")
         # The date is all a holder has to stop the handover by.
-        assert notices == [("handover", "started", ANNA, EVERY_HOLDER, "2026-04-08T10:30:00Z")]
+        assert notices == [("handover", "started", ANNA, EVERY_HOLDER, "2126-04-08T10:30:00Z")]
         assert acts == [("grant.handover_started", OWNER, ANNA)]
 
     def test_a_row_still_waiting_is_refused_so_an_addition_then_a_handover_waits_both(self, mongo_replica_set_url: str):

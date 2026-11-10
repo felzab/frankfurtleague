@@ -183,8 +183,10 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY, now: datetime = NOW) -> Any:
-    """One season's pass."""
+async def sweep(
+    database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY, now: datetime = MAIL_NOW
+) -> Any:
+    """One season's pass, its mails owed on `MAIL_NOW`, the one thing its clock dates."""
 
     return await sweep_saison(
         saison_id=saison_id,
@@ -1150,7 +1152,7 @@ class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
                     outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=TODAY,
-                    germany_now=NOW,
+                    germany_now=MAIL_NOW,
                 ),
                 timeout=DRAIN_BOUND_S,
             )

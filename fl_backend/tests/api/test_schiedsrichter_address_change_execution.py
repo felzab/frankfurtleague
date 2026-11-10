@@ -129,7 +129,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
 
 
 async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """An administrator's start through the address tool, so the new mailbox is owed its link at once."""
+    """An administrator's start through the address tool, so the new mailbox is owed its link at once, on the mails' clock."""
 
     return await post_address_change_admin(
         address_change_data=FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL}),
@@ -140,7 +140,7 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         operator="admin@frankfurtleague.de",
-        germany_now=NOW,
+        germany_now=MAIL_NOW,
     )
 
 

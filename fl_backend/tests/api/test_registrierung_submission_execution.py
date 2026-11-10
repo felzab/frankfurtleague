@@ -42,11 +42,13 @@ CONFIG = build_test_config()
 WIRE_CONFIG = CONFIG.model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
-TODAY = "2026-04-01"
+# A century ahead of the real clock, every seeded day with it: the TTL monitor deletes a row whose delete date has passed,
+# under a case reading it back.
+TODAY = "2126-04-01"
 # Every season's start unless a case says so: after `TODAY`, so an entry made today is an ordinary one.
-AFTER_TODAY = "2026-04-20"
+AFTER_TODAY = "2126-04-20"
 # `TODAY` as the wire's clock reads it, so a request over the wire is judged on the day a direct call is.
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The deadline the submission stores, derived from the bound rather than spelled, so the case holds the
 # submission to the bound whatever the bound reads.
 DEADLINE = days_after(day=TODAY, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
@@ -70,9 +72,9 @@ OTHER_TEAM_NAME = "Quillhilde"
 PUPIL_EMAIL = "thessaly@beispielschule.de"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
-OPEN_WINDOW: Mapping[str, Any] = {"open": True, "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"open": True, "end": "2126-04-30"}
 # Its `end` the day before `TODAY`, so an entry today is a nominee's.
-PAST_WINDOW: Mapping[str, Any] = {"open": True, "end": "2026-03-31"}
+PAST_WINDOW: Mapping[str, Any] = {"open": True, "end": "2126-03-31"}
 
 RULES: Mapping[str, Any] = documents.rules_document(
     number_of_gruppen=2,
@@ -96,7 +98,7 @@ def invitation_document(
         "saison_id": saison_id,
         "team_id": team_id,
         "token_hashes": [hash_token(token)],
-        "created_at": "2026-03-15",
+        "created_at": "2126-03-15",
         "revoked_at": revoked_at,
     }
 
@@ -161,7 +163,7 @@ def on_a_league(
                 [
                     invitation_document(INVITATION_OID, TEAM_OID, TOKEN),
                     invitation_document(OTHER_INVITATION_OID, OTHER_TEAM_OID, OTHER_TOKEN),
-                    invitation_document(REVOKED_INVITATION_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2026-03-20"),
+                    invitation_document(REVOKED_INVITATION_OID, TEAM_OID, REVOKED_TOKEN, revoked_at="2126-03-20"),
                 ]
             )
 
@@ -743,7 +745,7 @@ class TestWhatASubmissionIsRefused:
         """Counted as the squad editor counts: a player who left the squad is not holding a place."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await database[Collection.SAISON_SPIELER].update_one({}, {"$set": {"inactive_since": "2026-03-20"}})
+            await database[Collection.SAISON_SPIELER].update_one({}, {"$set": {"inactive_since": "2126-03-20"}})
             await register(database, client)
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})

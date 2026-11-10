@@ -26,8 +26,9 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_ban_list_test")
 
-TODAY = "2026-04-01"
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+TODAY = "2126-04-01"
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 ADMIN = "admin@frankfurtleague.de"
 
