@@ -13,7 +13,7 @@ import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
 import { creditedSide } from "@/features/spiele/result";
-import { spielerName } from "@/features/spieler/constants";
+import { roleMarkOf, spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -152,9 +152,8 @@ function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "first_nam
 /** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
 function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
   const name = personOf(entry);
-  return typeof name === "string" || entry.rolle === null
-    ? { name }
-    : { name, mark: { letters: COPY.shared.rolleMark[entry.rolle], label: COPY.admin.spieler.rolleOption[entry.rolle] } };
+  const mark = typeof name === "string" ? undefined : roleMarkOf(entry.rolle);
+  return mark === undefined ? { name } : { name, mark };
 }
 
 /** A line-up's pupils as one table: a row a pupil, with their number and position. */

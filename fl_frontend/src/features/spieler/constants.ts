@@ -1,7 +1,10 @@
+import { COPY } from "@/core/copy";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { Words } from "@/core/copy";
+import type { FLSpielerRolle } from "@/core/generated/client/types";
+import type { RoleMarkProps } from "@/kit/RoleMark";
 
 /**
  * **A form offers a SEASON's `rules.allowed_stufen`, not this.** This is the vocabulary, and the
@@ -20,6 +23,11 @@ export function orderStufen(allowed: readonly FLSpielerStufe[]): FLSpielerStufe[
  */
 export function kaderName({ first_name, last_name }: { first_name: string; last_name: string | null }): string {
   return last_name === null ? first_name : `${first_name} ${last_name}`;
+}
+
+/** The captain's or the Co-Kapitän's boxed mark after a pupil's name, where their squad row holds either role. */
+export function roleMarkOf(rolle: FLSpielerRolle | null): RoleMarkProps | undefined {
+  return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.admin.spieler.rolleOption[rolle] };
 }
 
 /**

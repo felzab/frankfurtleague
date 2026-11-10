@@ -2,14 +2,13 @@ import { RoleMark } from "@/kit/RoleMark";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { shirtNumber, spielerName } from "@/features/spieler/constants";
+import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
 
 import { STARTERS_MAX } from "./constants";
 
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { LineupPlayer, LineupWords } from "@/kit/Lineup";
-import type { RoleMarkProps } from "@/kit/RoleMark";
 
 /** Every word the line-up's block shows, on the team's page and the administrator's alike. */
 export const LINEUP_WORDS: LineupWords = {
@@ -27,18 +26,13 @@ export const LINEUP_WORDS: LineupWords = {
   nomineeLocked: COPY.area.team.aufstellung.nomineeLocked,
 };
 
-/** The captain's or the co-captain's mark after the name, where the squad row holds either role. */
-function markOf({ rolle }: Pick<FLAufstellungSpieler, "rolle">): RoleMarkProps | undefined {
-  return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.admin.spieler.rolleOption[rolle] };
-}
-
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
 function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
   return is_nachnominiert ? { tone: "info", label: COPY.admin.spieler.nominee } : undefined;
 }
 
 function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
-  const mark = markOf(spieler);
+  const mark = roleMarkOf(spieler.rolle);
   const chip = chipOf(spieler);
   return {
     id: spieler.spieler_id,

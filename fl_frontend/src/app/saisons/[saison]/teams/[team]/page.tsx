@@ -13,7 +13,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
-import { spielerName } from "@/features/spieler/constants";
+import { roleMarkOf, spielerName } from "@/features/spieler/constants";
 import { austrittChip, austrittState } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -77,9 +77,8 @@ export default function TeamPage({ params }: Props) {
  */
 function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
   const name = spielerName(spieler);
-  return spieler.first_name === null || spieler.rolle === null
-    ? { name }
-    : { name, mark: { letters: COPY.shared.rolleMark[spieler.rolle], label: COPY.admin.spieler.rolleOption[spieler.rolle] } };
+  const mark = spieler.first_name === null ? undefined : roleMarkOf(spieler.rolle);
+  return mark === undefined ? { name } : { name, mark };
 }
 
 /** A pupil's number and position, each left out while the record holds none. */
