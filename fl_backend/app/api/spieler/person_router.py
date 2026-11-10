@@ -49,12 +49,15 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
     SpielerCollection,
     SpielerReadCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.journal import Journal
+from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
@@ -112,7 +115,7 @@ def _live_row(*, team_id: CustomObjectId, saison_id: str, spieler_id: CustomObje
 
 
 async def _read_the_squad(
-    *, saison_spieler_collection: AsyncCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
+    *, saison_spieler_collection: ReadCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
 ) -> list[FLKaderRow]:
     """The whole squad, each row's shirt marker judged against every other: no single row carries what it is compared with."""
 
@@ -126,7 +129,7 @@ async def _read_the_squad(
     return [FLKaderRow.model_validate(row) for row in mark_shared_nummern(rows)]
 
 
-async def _allowed_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
+async def _allowed_stufen(*, saisons_collection: ReadCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
     # `find_one` rather than `pull_one_from_db`: every caller passed `refuse_without_a_seat` first on this
     # session, which read this season for the seat, and no season is ever deleted, so a miss is a broken
     # invariant rather than a 404.
@@ -140,7 +143,7 @@ async def _allowed_stufen(*, saisons_collection: AsyncCollection, saison_id: str
 
 async def _the_row_as_written(
     *,
-    saison_spieler_collection: AsyncCollection,
+    saison_spieler_collection: ReadCollection,
     team_id: CustomObjectId,
     saison_id: str,
     spieler_id: CustomObjectId,
@@ -159,8 +162,8 @@ async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
-    saison_spieler_collection: SaisonSpielerCollection,
-    saisons_collection: SaisonsCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    saisons_collection: SaisonsReadCollection,
     records: SubjectLookup,
     db: DBClient,
 ) -> FLKaderResponse:
