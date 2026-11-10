@@ -15,6 +15,7 @@ import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type * as Navigation from "next/navigation";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
@@ -29,12 +30,13 @@ const NAME = COPY.page.adminSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
-function CreateDialog({ create }: { create: (formData: FormData) => Promise<ActionAnswer> }) {
+function CreateDialog({ create, locked }: { create: (formData: FormData) => Promise<ActionAnswer>; locked?: Copy }) {
   return (
     <Dialog
       title={NAME}
       act={{ verb: "create", object: NAME }}
       action={create}
+      locked={locked}
       trigger={
         <Button
           variant="secondary"
@@ -237,6 +239,26 @@ async function leaveAndReturnWithOpen(Page: () => ReactElement) {
       ),
     );
 }
+
+// The harm: an act the record cannot take, such as an unconfirmed pupil's admission, sent anyway and refused, or closed
+// with nothing saying why.
+describe("a dialog's locked act", () => {
+  it("sends nothing on a press, and is described by its reason", async () => {
+    const create = vi.fn(async () => DONE);
+    const reason = COPY.shared.failure.stale;
+    render(
+      <CreateDialog
+        create={create}
+        locked={reason}
+      />,
+    );
+
+    await createThroughTheDialog();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create"), description: reason })).toBeTruthy();
+  });
+});
 
 describe("the kit's dialog", () => {
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {

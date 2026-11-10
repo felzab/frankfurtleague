@@ -1,15 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-
 import { Button } from "@/kit/Button";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
 import { FieldPair } from "@/kit/FieldPair";
+import { PressAct } from "@/kit/PressAct";
 import { TextField } from "@/kit/TextField";
-import { appToast } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
 
 import { COPY } from "@/core/copy";
 import { rollenText } from "@/core/teamVocabulary";
@@ -51,8 +47,6 @@ export function SeatActs<Key>({
   /** The boxes this record's seat holds beside the person's. */
   children?: ReactNode;
 }) {
-  const router = useRouter();
-  const [isSending, startSending] = useTransition();
   const unsaved = useLocked(undefined);
   const sendLocked = useLocked(link?.locked);
 
@@ -67,17 +61,13 @@ export function SeatActs<Key>({
   return (
     <>
       {link !== null && (
-        <Button
+        <PressAct
           icon="email"
           label={SEND}
-          isBusy={isSending}
+          act={link.send}
+          payload={link.seat}
+          done={COPY.shared.toast.linkSent}
           locked={sendLocked}
-          onPress={() =>
-            startSending(async () => {
-              const answer = await answering(link.send, router.refresh)(link.seat);
-              appToast(answer.ok ? "success" : "danger", answer.ok ? COPY.shared.toast.linkSent : (answer.reason ?? COPY.shared.toast.failure));
-            })
-          }
         />
       )}
       {unsaved !== undefined ? (

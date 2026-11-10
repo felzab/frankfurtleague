@@ -12,6 +12,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.services import compose_person_move
+from app.api.registrierungen import crud as registrierungen_crud
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
@@ -423,20 +424,23 @@ class TestWhatAnAdmissionWrites:
         moved = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
         assert moved == {Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.SAISONS, Collection.ACTION_LOG}
 
-    def test_a_second_admission_answers_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        """The anchor and the log included: a second press that took the season's `$inc` would be a write nobody sees."""
+    def test_a_second_admission_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """The anchor and the log included: a second press that took the season's `$inc` would be a write nobody sees.
+
+        The admitted row is gone, so its id answers as one no row ever held.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             await admit(database, client, registrierung_id)
             before = await snapshot(database)
-            with pytest.raises(DocumentNotFoundError):
-                await admit(database, client, registrierung_id)
+            code = await refused(admit(database, client, registrierung_id))
 
-            return before, await snapshot(database)
+            return code, before, await snapshot(database)
 
-        before, after = on_a_league(mongo_replica_set_url, body)
+        code, before, after = on_a_league(mongo_replica_set_url, body)
 
+        assert code == Code.ROLE_NOT_HELD
         assert after == before
 
 
@@ -908,16 +912,19 @@ class TestTheAddressesOtherPendingRows:
                 ),
             )
             await admit(database, client, admitted)
-            with pytest.raises(DocumentNotFoundError):
-                await decline(database, client, other, identifier=seat)
+            code = await refused(decline(database, client, other, identifier=seat))
 
             listed = (await read(database, client, identifier=seat, team_id=team_id)).registrierungen
             stored = await database[Collection.REGISTRIERUNGEN].find({}, {"_id": 1}).to_list(length=None)
+            counted = await database[Collection.ACTION_LOG].distinct("count", {"action": "registrierung.admitted"})
 
-            return tagged, [row.registrierung_id for row in listed], [row["_id"] for row in stored], await notes_owed(database)
+            return code, tagged, [row.registrierung_id for row in listed], [row["_id"] for row in stored], await notes_owed(database), counted
 
-        tagged, listed, stored, owed = on_a_league(mongo_replica_set_url, body)
+        code, tagged, listed, stored, owed, counted = on_a_league(mongo_replica_set_url, body)
 
+        assert code == Code.ROLE_NOT_HELD
+        # The admission's one act counts the other row it took, so a team asking after it finds why it went.
+        assert counted == [1]
         assert stored == [tagged]
         assert listed == ([tagged] if team_id == TEAM_OID else [])
         assert owed == []
@@ -970,6 +977,23 @@ class TestEverySeatActsAlike:
 
         assert listed == 2
         assert declined is not None and declined["status"] == "declined"
+
+    @pytest.mark.parametrize("operation", ["admit", "decline"])
+    def test_an_id_no_registration_holds_answers_as_another_teams_row(self, mongo_replica_set_url: str, operation: str):
+        """A seat holder learns nothing of which ids exist: the answer is the seat check's, never a 404."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed(database, registrierung_document())
+            before = await snapshot(database)
+            press = admit if operation == "admit" else decline
+            code = await refused(press(database, client, ObjectId(), identifier=ANNA))
+
+            return code, before, await snapshot(database)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == Code.ROLE_NOT_HELD
+        assert after == before
 
     @pytest.mark.parametrize("operation", ["read", "admit", "decline"])
     @pytest.mark.parametrize(
@@ -1091,6 +1115,41 @@ def keys_at_every_depth(value: Any) -> Iterator[str]:
     elif isinstance(value, list):
         for inner in value:
             yield from keys_at_every_depth(inner)
+
+
+class TestThePendingReadsCap:
+    def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+        """Anybody holding the link types an unconfirmed row per press, newer than every row a pupil confirmed before.
+
+        The cap at two, so three unconfirmed rows past one confirmed row stand for a flood past the real cap.
+        """
+
+        monkeypatch.setattr(registrierungen_crud, "OPEN_REGISTRIERUNGEN_CAP", 2)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmed = await seed(database, registrierung_document())
+            flood = [
+                await seed(database, registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}"))
+                for index in range(3)
+            ]
+            answered = await read(database, client)
+
+            return confirmed, flood, [row.registrierung_id for row in answered.registrierungen], answered.complete
+
+        confirmed, flood, served, complete = on_a_league(mongo_replica_set_url, body)
+
+        # The confirmed row kept, the room left taken by the newest unconfirmed one, the two newest first.
+        assert served == [flood[-1], confirmed]
+        assert complete is False
+
+    def test_a_list_inside_the_cap_is_complete(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed(database, registrierung_document())
+            await seed(database, registrierung_document(confirmed=False, email="zweite@beispielschule.de", first_name="Zweite"))
+
+            return (await read(database, client)).complete
+
+        assert on_a_league(mongo_replica_set_url, body) is True
 
 
 class TestThePendingReadServesNoAddress:

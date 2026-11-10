@@ -1529,13 +1529,14 @@ export const getIdentityPostAccountErasureUrl = () => {
  * pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the
  * person's day.
  *
- * Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
+ * Removed: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals
+ * and cards and its line-up entries moving to the one row that holds no person; the referee record,
  * every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
  * confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
  * address's pending change naming this one as its new address, every record it would move standing at its own; every
  * grant the address holds, every administrator being told it ended.
  * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
- * and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
+ * and its other seats standing.
  * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
  * standing. Every match report stands, its remarks and entries included, and names no referee. Every record the
  * person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
@@ -1566,8 +1567,8 @@ export const getIdentityGetAccountErasureViewUrl = () => {
  * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
  * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
  * booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
- * the links their contact seats were mailed on
- * their teams' match confirmations, which stop answering; every reason they typed answering a match confirmation, from any
+ * the goals, cards and line-up entries of their pupil record, which move onto the ghost; every reason they typed
+ * answering a match confirmation, from any
  * seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
  * marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which
  * every administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the
@@ -1823,7 +1824,8 @@ export const getOutboxPostEventUrl = () => {
  * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
  * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
  * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
+ * one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
+ * its send, which keeps its key alone, rather than a refusal the provider
  * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
  * its address, in the same transaction.
  * @summary Record one delivery event on its mail's row
@@ -1862,7 +1864,8 @@ export const getOutboxPostHandoutUrl = () => {
  * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
  * is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
  * hold every claim until its deadline. A mail to an address a ban holds is stopped as
- * `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
+ * `barred`, the ban's own notice alone excepted. A mail to a club's contact seats is stopped as `dropped` where no
+ * confirmed seat of that club's season row holds its address any more. A mail carrying a link has it minted here, its hash written to
  * the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
  * holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
  * answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every
@@ -2154,7 +2157,9 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, sais
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
  * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
- * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.
+ * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
+ * any unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`
+ * is false where the cap cut some.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungen = async (
@@ -2244,10 +2249,10 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
  * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
  * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
- * about any of them.
+ * about any of them, and the admission's act counts them.
  *
- * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
- * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
+ * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
+ * the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
  * offer (`registrierung_stufe_not_allowed`), a
  * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
  * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
@@ -2291,8 +2296,8 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
- * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
- * (`role_not_held`).
+ * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
+ * one the team has declined already (404).
  * @summary Decline a registration
  */
 export const registrierungenDecline = async (

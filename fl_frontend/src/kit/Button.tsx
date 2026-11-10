@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useContext, useId, useRef } from "react";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 import { ProgressBar } from "react-aria-components/ProgressBar";
@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
 import { Icon } from "./Icon";
+import { RowName } from "./RowActs";
 import { Tooltip } from "./Tooltip";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
@@ -43,7 +44,10 @@ type ButtonProps =
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
       icon?: never;
-      /** One repeated on every row of a list, such as a squad row's „Aufstellen“, is described by its row's name, as an icon is. */
+      /**
+       * One repeated on every row of a list, such as a squad row's „Aufstellen“, is described by its row's name, as an
+       * icon is; inside a row's acts (`RowActs`) the row's name is the default.
+       */
       "aria-describedby"?: string;
     })
   /**
@@ -137,6 +141,8 @@ function LockedReason({
 export function Button(props: ButtonProps) {
   const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot, locked, lockedEdge = "end" } = props;
   const reasonId = useId();
+  // A button among a row's acts is described by the row's name unless it names what describes it.
+  const rowName = useContext(RowName);
   const isLocked = locked !== undefined;
   // `aria-disabled` rather than `isDisabled`: a native `disabled` takes the focus and the hover the reason opens on. A
   // submit button is a plain one while locked, or the form's Enter and the press would send it.
@@ -148,7 +154,10 @@ export function Button(props: ButtonProps) {
     isPending: isBusy,
     "aria-disabled": isLocked || undefined,
   } as const;
-  const described = (own?: string) => (isLocked ? [own, reasonId].filter((id) => id !== undefined).join(" ") : own);
+  const described = (given?: string) => {
+    const own = given ?? rowName;
+    return isLocked ? [own, reasonId].filter((id) => id !== undefined).join(" ") : own;
+  };
 
   const draw = (press?: ReasonPress) =>
     props.icon !== undefined ? (

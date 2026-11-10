@@ -7,7 +7,7 @@ from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -460,6 +460,18 @@ class FLOutboxLink(BaseModel):
     replaced: bool
 
 
+class FLOutboxClub(BaseModel):
+    """The club whose contact seats a mail goes to, by its season row: handed out only while a seat there holds its address.
+
+    The seat must be confirmed, as `app/api/invitations/services.py :: confirmed_recipients` chose it, and may be any of
+    the club's: a person holding two seats is sent one mail, which leaving one of them keeps owed. A seat emptied, handed
+    on, re-addressed or objected to since the mail was owed drops it, as `FLOutboxLink.addresses` drops a link's mail.
+    """
+
+    saison_id: str
+    team_id: CustomObjectId
+
+
 class FLOutboxDelivery(BaseModel):
     state: FLOutboxDeliveryState
     reason: str | None
@@ -489,7 +501,9 @@ class FLOutboxRow(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     key: str
     kind: FLOutboxKind
-    to: str
+    # Null on a settled row whose address was replaced since, kept for its key alone
+    # (`app/api/outbox/services.py :: TOMBSTONE_UPDATE`). Folded, as the erasure finds a person's mail by the fold.
+    to: CustomStoredAddress | None
     # Both removed by the row's final state, after which only its delivery is read.
     data: FLOutboxData | None = Field(default=None)
     # Ciphertext the backend cannot read, under the frontend's key.
@@ -497,6 +511,8 @@ class FLOutboxRow(BaseModel):
     # Null on a sign-in mail, which no league record holds.
     reference: FLOutboxReference | None
     link: FLOutboxLink | None
+    # Null on every mail but one to a club's contact seats; defaulted, as a row owed before the field was written has none.
+    club: FLOutboxClub | None = Field(default=None)
     state: FLOutboxRowState
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
-from app.shared.folding import league_address
+from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneString
 
@@ -11,6 +11,20 @@ from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneSt
 # domain. The published schema states the ceiling and no `format`: this check is the one authority,
 # and a generated pattern would be a second rule beside it.
 CustomEmail = Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH), AfterValidator(league_address)]
+
+
+def _held_folded(address: str) -> str:
+    if address != sign_in_identifier(address):
+        raise ValueError("a stored address is held in its sign-in fold")
+
+    return address
+
+
+# Every stored address field's type on the record models `python -m app.readback` judges, and on no read a page takes:
+# every lookup of a person by address, an erasure's and an admission's among them, is an equality on the asker's
+# fold, so a row stored otherwise is missed in silence. The fold alone and never the address rule, whose tables move
+# without us.
+CustomStoredAddress = Annotated[str, StringConstraints(min_length=1), AfterValidator(_held_folded)]
 
 # A person's name, or one part of one: what the public application form takes, and every payload
 # held to refuse what that form refuses, a referee's whole name among them.

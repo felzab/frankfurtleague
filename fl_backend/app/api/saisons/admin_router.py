@@ -1381,6 +1381,7 @@ async def _mail_one_team(
             session=session,
             mails=owed_invitation_mails(
                 invitation_id=post_operation.inserted_id,
+                team_id=team["team_id"],
                 team_name=team["name"],
                 saison_id=saison_id,
                 recipient=plan.recipient,

@@ -12,7 +12,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     FLUtcInstant,
 )
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -29,8 +29,8 @@ class FLAddressChangeEnded(BaseModel):
 class FLAddressChangeMove(BaseModel):
     """The sign-in account an effect still owes to carry, from the replaced address to the new one, both folded."""
 
-    old: str
-    new: str
+    old: CustomStoredAddress
+    new: CustomStoredAddress
 
 
 class FLAddressChange(BaseModel):
@@ -38,8 +38,8 @@ class FLAddressChange(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Null once ended, as `email` is: a tombstone holds no address.
-    address: str | None
-    email: str | None
+    address: CustomStoredAddress | None
+    email: CustomStoredAddress | None
     way: FLAddressChangeWay
     sent_at: CustomDateString
     valid_until: datetime | None

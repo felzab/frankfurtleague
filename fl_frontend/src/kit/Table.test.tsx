@@ -84,14 +84,15 @@ describe("a row's name cell", () => {
     expect(screen.getByText(COPY.shared.bank).getAttribute("aria-hidden")).toBe("true");
   });
 
-  // The harm: on a phone a row with acts stands its chip on a line of its own under the name, or cuts its name for the
-  // chip, where no touch reaches a cut name's `title`. jsdom lays nothing out, so each case holds what the wrapping
-  // rests on: one line holding the name and then its chips, set to wrap, and a name cut from `lg` alone.
+  // The harm: on a phone a row with acts drops its chip to a line of its own or wraps a long name over several, where
+  // every other list cuts the name with „…“ and keeps the chip beside it. jsdom lays nothing out, so each case holds what
+  // the cut rests on: one line holding the name and then its chips in tracks of their own size, the name's track
+  // shrinking to nothing, and the name cut at every width.
   it.each([
     ["a short name and its chip", "anna@example.org", false],
     ["a long name and its chip", "gesperrte.person.mit.langer.adresse@example.com", false],
     ["a name and two chips", "anna@example.org", true],
-  ])("sets %s on one wrapping line of a row with acts, the name first and uncut on a phone", (_case, name, delivered) => {
+  ])("sets %s on one line of a row with acts, the name first and cut on a phone too", (_case, name, delivered) => {
     render(
       <Table
         {...props([
@@ -115,8 +116,10 @@ describe("a row's name cell", () => {
     const words = screen.getByText(name);
     const nameLine = words.parentElement;
     expect(nameLine?.textContent).toBe(`${name}${COPY.admin.expired}${delivered ? COPY.admin.delivery.undeliverable : ""}`);
-    expect(nameLine?.className.split(" ")).toContain("max-lg:flex-wrap");
-    expect(words.className.split(" ")).not.toContain("truncate");
+    expect(nameLine?.className.split(" ")).toContain("grid-cols-[minmax(0,max-content)]");
+    expect(nameLine?.className.split(" ")).not.toContain("max-lg:flex-wrap");
+    expect(words.className.split(" ")).toContain("truncate");
+    expect(words.className.split(" ")).not.toContain("max-lg:whitespace-normal");
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });
 

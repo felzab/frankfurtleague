@@ -21,7 +21,7 @@ from app.shared.schemas.custom import (
     FLUtcInstant,
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
-from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
+from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLEinwilligungScope, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -107,9 +107,16 @@ class FLSchiedsrichterConfirmationRecord(FLSchiedsrichterConfirmation):
     token_hashes: list[str]
 
 
+class FLSchiedsrichterKontaktRecord(FLKontakt):
+    """A referee's channel as stored: the address in the fold every lookup of the referee compares, which the read-back holds."""
+
+    email: CustomStoredAddress | None
+
+
 class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
+    kontakt: FLSchiedsrichterKontaktRecord
     confirmation: FLSchiedsrichterConfirmationRecord | None = None
     # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which the
     # hourly pass erases (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).

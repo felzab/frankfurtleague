@@ -17,9 +17,10 @@ import type { FormStatus } from "./useFormAction";
 
 /**
  * One answer of a fixed choice, a radio group's, a segmented control's or a toggle box's: the catalogue's word or phrase,
- * or a record's own, such as a club's name.
+ * or a record's own, such as a club's name. `spoken` is its name to a screen reader where `label` draws a short form,
+ * such as a club's Kürzel standing for its name, as a chip's `spoken` is.
  */
-export type Choice = { id: string; label: Words };
+export type Choice = { id: string; label: Words; spoken?: Words };
 
 /** What a field's message needs to name the rule its value broke. */
 export type Constraints = {

@@ -45,6 +45,9 @@ const REQUIRED = {
   minute: requires(Goal.shape.minute, ""),
   goalPlayer: requires(Goal.shape.spieler_id, null),
   cardPlayer: requires(Card.shape.spieler_id, null),
+  // One cell chooses a goal's side and a card's, held to the same rule.
+  side: requires(Goal.shape.side, null) && requires(Card.shape.side, null),
+  cardColour: requires(Card.shape.colour, null),
 };
 
 /** The page's own address, which a session sent to sign in comes back to. */
@@ -104,7 +107,7 @@ export default function SpielberichtPage({ params }: Props) {
       wait={{
         lead: true,
         sections: [
-          ["score", "field"],
+          ["score", "rule", "field"],
           {
             block: (
               <SectionPlaceholder

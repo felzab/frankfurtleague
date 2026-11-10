@@ -1,7 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, NamedTuple
+from typing import Annotated, Any, Final, NamedTuple
 
+from pydantic import TypeAdapter
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -10,6 +11,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import repoint_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
+    SquadRoom,
     build_ghost_spieler,
     build_live_rolle_filter,
     build_live_squad_filter,
@@ -60,19 +62,42 @@ async def refuse_a_full_squad(
         session=session,
     )
 
-    squad_size = await saison_spieler_collection.count_documents(
-        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id), session=session
+    room = await pull_squad_room(
+        saison_spieler_collection=saison_spieler_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        rules=rules,
+        excluding_spieler_id=spieler_id,
+        session=session,
     )
 
-    refuse(
-        find_full_squad_refusal(
-            squad_size=squad_size,
-            # Validated, not read raw: a season missing the key fails here rather than admitting a
-            # player against a bound nobody chose.
-            max_kader_size=FLSaisonRules.model_validate(rules).max_kader_size,
-            nominee=nominee,
-        )
+    refuse(find_full_squad_refusal(room=room, nominee=nominee))
+
+
+# The season's cap judged by its own field's rule and nothing else, so a read projecting the rules' other fields away
+# reads it too: a season missing the key, or holding one the rule refuses, fails here rather than admitting a player
+# against a bound nobody chose, or reading every squad as full.
+_KADER_SIZE: Final = TypeAdapter[int](Annotated[int, *FLSaisonRules.model_fields["max_kader_size"].metadata])
+
+
+async def pull_squad_room(
+    *,
+    saison_spieler_collection: ReadCollection,
+    saison_id: str,
+    team_id: CustomObjectId,
+    # The season's stored `rules`, whole or projected to `max_kader_size`.
+    rules: Mapping[str, Any],
+    # The writing player, whose own row takes no place from them; `None` where the count is asked for nobody.
+    excluding_spieler_id: CustomObjectId | None,
+    session: AsyncClientSession | None,
+) -> SquadRoom:
+    """How many capped rows the squad holds and the season's cap on them: the one read every judgement of the cap takes."""
+
+    size = await saison_spieler_collection.count_documents(
+        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=excluding_spieler_id), session=session
     )
+
+    return SquadRoom(size=size, cap=_KADER_SIZE.validate_python(rules.get("max_kader_size")))
 
 
 async def refuse_a_taken_rolle(

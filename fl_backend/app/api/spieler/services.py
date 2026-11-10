@@ -238,33 +238,28 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     return None
 
 
-def find_squad_capacity_refusal(*, squad_size: int, max_kader_size: int) -> WriteRefusal | None:
-    """Why this squad has no room for another player, or `None`.
+class SquadRoom(NamedTuple):
+    """One squad's capped rows and its season's `max_kader_size`, as `app/api/spieler/crud.py :: pull_squad_room` reads them."""
 
-    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
-    alone.
-    """
-
-    if squad_size >= max_kader_size:
-        return WriteRefusal(
-            error_code=Code.KADER_FULL,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    return None
+    size: int
+    cap: int
 
 
-def find_full_squad_refusal(*, squad_size: int, max_kader_size: int, nominee: bool) -> WriteRefusal | None:
-    """`kader_full` where a squad holding `squad_size` capped rows takes no further entry, or `None`.
+def find_full_squad_refusal(*, room: SquadRoom, nominee: bool) -> WriteRefusal | None:
+    """`kader_full` where the squad takes no further entry, or `None`.
 
     A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
-    asking whether a squad takes an entry answers by.
+    asking whether a squad takes an entry answers by. Its own function rather than a clause in `find_squad_refusal`,
+    which answers the club question alone.
     """
 
-    if nominee:
+    if nominee or room.size < room.cap:
         return None
 
-    return find_squad_capacity_refusal(squad_size=squad_size, max_kader_size=max_kader_size)
+    return WriteRefusal(
+        error_code=Code.KADER_FULL,
+        status=HTTPStatus.CONFLICT,
+    )
 
 
 def build_live_rolle_filter(

@@ -1,12 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-
 import { Button } from "@/kit/Button";
 import { Dialog } from "@/kit/Dialog";
-import { appToast } from "@/kit/Toast";
-import { answering } from "@/kit/useFormAction";
+import { PressAct } from "@/kit/PressAct";
 
 import { COPY } from "@/core/copy";
 
@@ -33,21 +29,14 @@ export function EinteilungActs({
   /** The reason's box, drawn on the server so the write's schema stays there. */
   children: ReactNode;
 }) {
-  const router = useRouter();
-  const [isAgreeing, startAgreeing] = useTransition();
-
   return (
     <>
-      <Button
+      <PressAct
         variant="primary"
         label={COPY.shared.verb.agree}
-        isBusy={isAgreeing}
-        onPress={() =>
-          startAgreeing(async () => {
-            const answer = await answering(agreeEinteilung, router.refresh)({ id });
-            appToast(answer.ok ? "success" : "danger", answer.ok ? COPY.shared.toast.agreed : (answer.reason ?? COPY.shared.toast.failure));
-          })
-        }
+        act={agreeEinteilung}
+        payload={{ id }}
+        done={COPY.shared.toast.agreed}
       />
       <Dialog
         title={TITLE}
