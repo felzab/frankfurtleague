@@ -1465,6 +1465,10 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/tokens.css"],
     language: "css/css",
+    // A theme's namespace reset, `--color-*: initial`, is Tailwind's syntax rather than CSS's: the parser takes it only
+    // when tolerant, the mode @eslint/css documents for syntax outside CSS. Not the Tailwind syntax it also documents,
+    // `tailwind-csstree`, which refuses a class's opacity under `@apply`. Tailwind's own compile still refuses a real error.
+    languageOptions: { tolerant: true },
     plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
     rules: { "tokens/contrast": "error" },
   },
