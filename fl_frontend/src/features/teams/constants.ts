@@ -38,12 +38,6 @@ export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType 
   return exit === null ? undefined : { tone: "danger", label: austrittState(exit) };
 }
 
-// A person's name, or one part of one, at every field the backend types with
-// `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName`.
-export const KONTAKT_NAME_MAX_LENGTH = 80;
-// The one refusal of that ceiling, for every form that holds a name to it.
-export const KONTAKT_NAME_TOO_LONG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
-
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
   return TRIKOT_FARBEN.find((option) => option.value === farbe)?.label ?? "";
 }

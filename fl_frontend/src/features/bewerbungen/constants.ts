@@ -13,13 +13,11 @@ import type {
 export const SHORTHAND_LENGTH = 3 satisfies FLTeamShorthandLength;
 
 /**
- * The span a contact person's birthdate has to fall in. The floor is checked against the bound
+ * The floor a contact person's birthdate has to clear, checked against the bound
  * `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_KONTAKT_MIN_AGE_YEARS` publishes, so the backend moving it
- * fails the type check here; the ceiling, mirrored from the same file, refuses a mistyped century rather than a real
- * age, and no other date in an application gains a bound.
+ * fails the type check here.
  */
 export const BEWERBUNG_MIN_AGE = 16 satisfies FLBewerbungKontaktMinAgeYears;
-export const BEWERBUNG_MAX_AGE = 120;
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, checked against
@@ -34,10 +32,3 @@ export const VERTRETUNG_MIN_AGE = 18 satisfies FLSignatoryMinAgeYears;
  * the type check here.
  */
 export const BEWERBUNG_CONFIRMATION_DEADLINE_DAYS = 14 satisfies FLBewerbungConfirmationDeadlineDays;
-
-/**
- * The raw token's ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound at the two
- * consent payloads because a link mangled longer than any mint answers a `payload_refused` naming the
- * token, which no control renders, so it tells a visitor nothing about their link.
- */
-export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;

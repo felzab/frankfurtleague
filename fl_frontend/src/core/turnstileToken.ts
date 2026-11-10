@@ -6,9 +6,6 @@ import { COPY } from "./copy";
 /** The field a form posting to a server action carries the bot check's token in. */
 export const TURNSTILE_FIELD = "cf-turnstile-response";
 
-/** The registration form's header for it: the body is the backend's payload, whose schema the token is no part of. */
-export const TURNSTILE_HEADER = "X-Turnstile-Response";
-
 /**
  * The refusal a judged token answers, whatever Cloudflare judged, so it says nothing about an address;
  * and the widget's answer to a press while it shows its own click.

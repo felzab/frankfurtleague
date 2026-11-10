@@ -1,42 +1,6 @@
-import {
-  spielbestaetigungenGetSpielbestaetigungView,
-  spielbestaetigungenGetSweepSaisons,
-  spielbestaetigungenPostSchiedsrichterAnswer,
-  spielbestaetigungenPostSpielbestaetigung,
-  spielbestaetigungenSweepSpielbestaetigungen,
-} from "@/core/generated/client/sdk";
+import { spielbestaetigungenGetSweepSaisons, spielbestaetigungenSweepSpielbestaetigungen } from "@/core/generated/client/sdk";
 
-import type {
-  FLSpielbestaetigungAnswerPayload,
-  FLSpielbestaetigungAnswerResponse,
-  FLSpielbestaetigungSchiedsrichterAnswerPayload,
-  FLSpielbestaetigungSchiedsrichterAnswerResponse,
-  FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungViewResponse,
-  FLSweepSaisonsResponse,
-  FLTokenPayload,
-} from "@/core/generated/client/types";
-
-/**
- * A POST that reads. The token is the credential, and a GET would put it in a query string the
- * backend's own route template does not redact.
- */
-export async function postSpielbestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSpielbestaetigungViewResponse> {
-  return spielbestaetigungenGetSpielbestaetigungView(payload);
-}
-
-/** One club's answer, at the base tier: the token authorises, and an over-declared tier succeeds silently. */
-export async function postSpielbestaetigung(payload: FLSpielbestaetigungAnswerPayload): Promise<FLSpielbestaetigungAnswerResponse> {
-  return spielbestaetigungenPostSpielbestaetigung(payload);
-}
-
-/** A referee's answer to a row of their own, on the person lane: the signed-in address is what the backend authorises. */
-export async function postSpielbestaetigungAnswer(
-  spielbestaetigungId: string,
-  payload: FLSpielbestaetigungSchiedsrichterAnswerPayload,
-): Promise<FLSpielbestaetigungSchiedsrichterAnswerResponse> {
-  return spielbestaetigungenPostSchiedsrichterAnswer(spielbestaetigungId, payload);
-}
+import type { FLSpielbestaetigungSweepResponse, FLSweepSaisonsResponse } from "@/core/generated/client/types";
 
 /**
  * The seasons the confirmation pass visits. Here rather than in a `queries.ts` because every read there is

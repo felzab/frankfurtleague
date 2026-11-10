@@ -61,8 +61,7 @@ vi.doMock("@/core/logging.ts", () => ({
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
 }));
 
-const { runAccountSweep } = await import("./sweep.ts");
-const { REFERENZEN_ADRESSEN_MAX } = await import("./constants.ts");
+const { REFERENZEN_ADRESSEN_MAX, runAccountSweep } = await import("./sweep.ts");
 
 /** The addresses one call asked about. */
 const askedIn = (call: ApiCall): string[] => (JSON.parse(call.body ?? "{}") as FLReferencesPayload).identifiers;

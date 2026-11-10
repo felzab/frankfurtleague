@@ -33,7 +33,6 @@ describe("the pages a mail opens", () => {
     "addressChangeConfirmation",
     "kontaktConfirmation",
     "schiedsrichterConfirmation",
-    "spielbestaetigung",
     "registrierungConfirmation",
     "accountErasure",
     "registrierung",
@@ -67,14 +66,6 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   kontakt: "kontakte",
 };
 
-/**
- * Trees the rule does not hold yet, each by its address prefix, each gone with the pages it names.
- */
-const UNHELD = [
-  // Redesign: goes with their last importers, session 8.
-  "/api/bestaetigung",
-];
-
 /** Every word the glossary's core entities and attributes head an entry with. */
 function glossaryWords(): Set<string> {
   const text = readFileSync(GLOSSARY, "utf8");
@@ -99,7 +90,7 @@ function addresses(): { where: string; segments: string[] }[] {
     where: path.relative(APP, file).split(path.sep).join("/"),
     segments: segmentsOf(file),
   }));
-  return [...rows, ...files].filter(({ segments }) => !UNHELD.some((prefix) => `/${segments.join("/")}`.startsWith(prefix)));
+  return [...rows, ...files];
 }
 
 describe("every address", () => {

@@ -259,7 +259,6 @@ CASES=(
   "LEAK|${BASE}/confirm/spieler?token=${TOK}"
   "LEAK|${BASE}/confirm/address?token=${TOK}"
   "LEAK|${BASE}/confirm/kontakt?token=${TOK}"
-  "LEAK|${BASE}/confirm/spiel?token=${TOK}"
   "LEAK|${BASE}/registrierung?token=${TOK}"
   "LEAK|${BASE}/erasure?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
@@ -723,7 +722,7 @@ spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-T
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # Each link page's block, whose own pair has room left here, so only its restated action pair refuses.
-LINK_ACTION_PATHS=( /confirm/spiel /registrierung /registrierung/ /erasure /erasure/ )
+LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /registrierung/ /erasure /erasure/ )
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
@@ -750,7 +749,7 @@ ACTION_REQUESTS=()
 LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
 [[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkpage burst this test can read."
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
-  action_request link-flood "${BASE}/confirm/spiel?token=${TOK}"
+  action_request link-flood "${BASE}/confirm/kontakt?token=${TOK}"
 done
 # The key spent: every link page, each block's own twin and the spellings nginx resolves before
 # choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
@@ -764,17 +763,17 @@ LINK_SPENT=(
   "/registrierung/?token=${TOK}"
   "/erasure?token=${TOK}"
   "/erasure/?token=${TOK}"
-  "//confirm/spiel?token=${TOK}"
-  "/confirm/./spiel?token=${TOK}"
-  "/%63onfirm/spiel?token=${TOK}"
+  "//confirm/kontakt?token=${TOK}"
+  "/confirm/./kontakt?token=${TOK}"
+  "/%63onfirm/kontakt?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
   spent_request "link-spent-${_i}" --path-as-is -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
-spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/spiel?token=${TOK}"
-spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/spiel?token=${TOK}"
+spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/kontakt?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/kontakt?token=${TOK}"
 
 # The code check's pair, read off its own block and flooded past with five more: the library's prefix
 # block meters the same path five times as loosely, so a check fallen back to it answers no 429 here.
