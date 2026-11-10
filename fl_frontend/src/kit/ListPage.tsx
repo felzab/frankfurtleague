@@ -20,6 +20,7 @@ import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } fr
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { RowActs } from "./RowActs";
+import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielListPlaceholder } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
@@ -36,6 +37,7 @@ import type { EmptyStateProps } from "./EmptyState";
 import type { Filter } from "./Filters";
 import type { ListMore, ListSearch } from "./ListTable";
 import type { RailPageHead } from "./RailFrame";
+import type { SeatRow } from "./SeatRows";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableBody, TableHead } from "./Table";
 import type { SchoolTile } from "./TileGrid";
@@ -71,6 +73,11 @@ type GroupsContent = {
  */
 type CardsContent = {
   cards: ReadonlyArray<{ id: string; title: Copy; rows: ReadonlyArray<CardActRowProps & { id: string }> }>;
+  /**
+   * Who holds the seats of the record the work belongs to, such as a team's on its own Übersicht: the last card, which
+   * only shows them, so a seat carries no act.
+   */
+  seats?: { title: Copy; rows: ReadonlyArray<Omit<SeatRow, "acts">> };
 };
 
 /** The K.-o.-Baum, or why there is none yet. */
@@ -129,9 +136,9 @@ type ListContent =
       kind: "cards";
       /**
        * Each card while it waits, in their order, its title and the acts its rows carry, which a phone sets on a line of
-       * their own, and how many rows each draws.
+       * their own, and how many rows each draws; and the seats' card's title, where the page shows the record's seats.
        */
-      wait: { rows: number; cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }> };
+      wait: { rows: number; cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy> }>; seats?: Copy };
       content: Promise<CardsContent>;
     }
   | {
@@ -207,6 +214,14 @@ function ListPlaceholder({ list }: { list: ListContent }) {
               />
             </CardPlaceholder>
           ))}
+          {list.wait.seats !== undefined && (
+            <CardPlaceholder title={list.wait.seats}>
+              <SeatRowsPlaceholder
+                bare
+                readOnly
+              />
+            </CardPlaceholder>
+          )}
         </CardGrid>
       );
     case "spieltage":
@@ -456,7 +471,7 @@ async function ListBody({ list }: { list: ListContent }) {
       );
     }
     case "cards": {
-      const { cards } = await list.content;
+      const { cards, seats } = await list.content;
       return (
         <CardGrid>
           {cards.map((entry) => (
@@ -476,6 +491,15 @@ async function ListBody({ list }: { list: ListContent }) {
               )}
             </Card>
           ))}
+          {seats !== undefined && (
+            <Card title={seats.title}>
+              <SeatRows
+                label={seats.title}
+                rows={seats.rows}
+                bare
+              />
+            </Card>
+          )}
         </CardGrid>
       );
     }
@@ -512,7 +536,8 @@ async function ListBody({ list }: { list: ListContent }) {
  * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
  * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
+ * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own closing with a card of its
+ * seats; or the K.-o.-Baum; or matches the filters left, which the search narrows, as the Spielsuche lists them; or the
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *

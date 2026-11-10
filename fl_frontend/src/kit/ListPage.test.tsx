@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
 import { actLabel } from "./dialogAct";
 import { ListPage } from "./ListPage";
@@ -164,6 +165,116 @@ describe("the toolbar's acts the read decides", () => {
 
     expect(page).toContain(name);
     expect(page.match(/\$RC\("/g)).toHaveLength(1);
+  });
+});
+
+describe("open work beside its record's seats", () => {
+  const ACTS = [COPY.shared.verb.adopt, COPY.shared.verb.discard] as const;
+  const TITLES = [COPY.page.spiele, COPY.page.registrierungen, COPY.team.kontakte] as const;
+  const SPIEL = "Ahorn vs. Eiche";
+
+  /** The page as a browser holds it while its one read runs, and once the read has landed. */
+  async function drawn() {
+    const page = (content: Extract<ComponentProps<typeof ListPage>["list"], { kind: "cards" }>["content"]) => (
+      <ListPage
+        head={{ scope: "saison", title: { route: "spielplan" } }}
+        list={{
+          kind: "cards",
+          wait: { rows: 2, cards: [{ title: TITLES[0], acts: ACTS }, { title: TITLES[1] }], seats: TITLES[2] },
+          content,
+        }}
+      />
+    );
+    const waiting = document.createElement("div");
+    waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
+
+    const { prelude } = await prerender(
+      page(
+        Promise.resolve({
+          cards: [
+            {
+              id: "spiele",
+              title: TITLES[0],
+              rows: [
+                {
+                  id: "1",
+                  href: "/",
+                  name: { record: SPIEL },
+                  line: COPY.page.spiele,
+                  acts: (
+                    <>
+                      <Button
+                        variant="primary"
+                        label={ACTS[0]}
+                      />
+                      <Button
+                        variant="secondary"
+                        label={ACTS[1]}
+                      />
+                    </>
+                  ),
+                },
+              ],
+            },
+            { id: "registrierungen", title: TITLES[1], rows: [] },
+          ],
+          seats: {
+            title: TITLES[2],
+            rows: (["ansprechperson", "trainer", "stellvertretung"] as const).map((seat) => ({
+              id: seat,
+              name: { record: "Lena Ahlers" },
+              chips: [],
+              line: COPY.admin.seatLine([seat], null, null),
+            })),
+          },
+        }),
+      ),
+      // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
+      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
+    );
+    const landed = document.createElement("div");
+    landed.innerHTML = await new Response(prelude).text();
+    return { waiting, landed };
+  }
+
+  /** The cards of a page, in the order their grid holds them. */
+  const cardsOf = (page: Element) => [...(page.querySelector("[class~='lg:grid-cols-2']")?.children ?? [])];
+  /** A seats' card's rows: the card's body holds the list alone. */
+  const seatsOf = (card: Element | undefined) => [...(card?.lastElementChild?.firstElementChild?.children ?? [])];
+
+  // The harm: a card the wait leaves out lands under the others' placeholders and pushes the page down, and an act's bar
+  // on a seat that carries none lands a phone's row a line shorter; either moves the page under a finger on „Zusagen“.
+  it("waits as one skeleton of every card it lands with, the seats' among them", async () => {
+    const { waiting, landed } = await drawn();
+
+    const skeletons = [...waiting.querySelectorAll("[aria-busy]")];
+    expect(skeletons).toHaveLength(1);
+    const [skeleton] = skeletons as [Element];
+    expect(cardsOf(skeleton).map((card) => card.firstElementChild?.textContent)).toStrictEqual(TITLES);
+    expect(cardsOf(landed).map((card) => card.querySelector("h2")?.textContent)).toStrictEqual(TITLES);
+
+    expect(cardsOf(landed)[1]?.lastElementChild?.textContent).toBe(COPY.shared.empty.nothingOpen);
+
+    const parts = (rows: Element[]) => rows.map((row) => row.childElementCount);
+    expect(parts(seatsOf(cardsOf(skeleton)[2]))).toStrictEqual(parts(seatsOf(cardsOf(landed)[2])));
+    expect(seatsOf(cardsOf(landed)[2])).toHaveLength(3);
+  });
+
+  // The harm: acts beside the words take the name's width on a phone, where a fixture's two clubs are cut to nothing.
+  it("sets a row's acts under its words on a phone, in the order the page gave them", async () => {
+    const { landed } = await drawn();
+    const [words, acts] = [...(landed.querySelector("[data-kit-row]")?.children ?? [])] as [Element, Element];
+
+    expect(words.textContent).toContain(SPIEL);
+    expect([...acts.querySelectorAll("button")].map((button) => button.textContent)).toStrictEqual(ACTS);
+
+    // Outside every media query, which is a phone's: the acts on the grid's second line, the words on its first.
+    const lineOf = async (part: Element) =>
+      (await declarationsFor([...part.classList]))
+        .filter(({ decl, media }) => decl.prop === "grid-row-start" && media.length === 0)
+        .map(({ decl }) => decl.value);
+    expect(await lineOf(acts)).toStrictEqual(["2"]);
+    expect(await lineOf(words)).toStrictEqual([]);
   });
 });
 
