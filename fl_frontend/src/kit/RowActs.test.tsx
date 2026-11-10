@@ -213,6 +213,38 @@ describe("a row's acts", () => {
 
     for (const name of ["Pia", "Ben"]) expect(screen.getByRole("button", { name: VERB, description: name })).toBeTruthy();
   });
+
+  // The harm: the answer keeps the row and only its acts leave, as a booking turns „Zugesagt“; the focus moving to the
+  // next record's link leaves the reader on another record, the row's new state unheard.
+  it("hand the focus to their own row's link where the answer keeps the row", async () => {
+    const page = (open: boolean) => (
+      <>
+        {["Pia", "Ben"].map((name) => (
+          <CardActRow
+            key={name}
+            href="/"
+            name={{ record: name }}
+            {...(open || name !== "Pia"
+              ? {
+                  acts: (
+                    <Button
+                      variant="secondary"
+                      label={VERB}
+                    />
+                  ),
+                }
+              : {})}
+          />
+        ))}
+      </>
+    );
+    const { rerender } = render(page(true));
+    screen.getByRole("button", { name: VERB, description: "Pia" }).focus();
+
+    rerender(page(false));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("link", { name: "Pia" })));
+  });
 });
 
 const SQUAD = ["pia@example.org", "ben@example.org", "tom@example.org"];

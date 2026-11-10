@@ -28,7 +28,8 @@ function takeFocus(home: HTMLElement) {
  * return address along, and React Aria's `FocusScope` documents a restore to the element that opened it and nothing for
  * one that is gone, which drops a keyboard's place on `body`. The APG's dialog pattern asks for the next logical place
  * instead: the row after it, or before it, so the place in a long list holds; else what stood around it; else the page's
- * title, where a card left with its last row. The frame after the commit, as React Aria's own restore runs, and only for
+ * title, where a card left with its last row. A row the act kept, which lost only its acts, keeps the focus on its own
+ * first link instead. The frame after the commit, as React Aria's own restore runs, and only for
  * focus lost to `body`: anywhere else it was moved on purpose. A node still connected was hidden with its page, not removed.
  *
  * A dialog holding the focus as the node leaves, such as a row's dialog whose act leaves the row opening nothing, hands it
@@ -44,7 +45,10 @@ export function useFocusHome(held: RefObject<HTMLElement | null>) {
       const neighbours = [row?.nextElementSibling, row?.previousElementSibling].map((other) => other?.querySelector<HTMLElement>(PRESSABLE));
       const homes = [node?.closest<HTMLElement>(HOME), document.querySelector("h1")];
       const land = () => {
-        const neighbour = neighbours.find((candidate) => candidate?.isConnected === true);
+        // A row the answer kept, such as a booking turned „Zugesagt“ whose acts left with the answer: its own first link,
+        // so the keys stay on the record and its new state is heard there, rather than on the next record's.
+        const own = row?.isConnected === true ? row.querySelector<HTMLElement>(PRESSABLE) : null;
+        const neighbour = own ?? neighbours.find((candidate) => candidate?.isConnected === true);
         if (neighbour !== undefined && neighbour !== null) {
           neighbour.focus({ preventScroll: true });
           return;
