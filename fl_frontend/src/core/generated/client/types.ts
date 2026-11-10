@@ -4685,27 +4685,6 @@ export interface FLSchiedsrichterReactivateResponse {
   confirmation: FLSchiedsrichterMint | null;
 }
 
-/**
- * The referee's own page's read: the record and its fee.
- */
-export interface FLSchiedsrichterSelf {
-  birth_date: string | null;
-  default_payment: number;
-  kontakt: FLKontakt;
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-  schule: string | null;
-}
-
-/**
- * Every confirmed referee record the signed-in address holds, the ghost never among them.
- */
-export interface FLSchiedsrichterSelfResponse {
-  schiedsrichter: FLSchiedsrichterSelf[];
-}
-
 export interface FLSchiedsrichterSingleResponse {
   confirmation_expired: boolean;
   delivery: FLOutboxStatus | null;
@@ -5064,33 +5043,6 @@ export interface FLSpielberichtPayload {
 }
 
 /**
- * One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands.
- */
-export interface FLSpielberichtPersonEarlierEntry {
-  date: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  submitted_at: string | null;
-  team1_name: string | null;
-  team2_name: string | null;
-  time: string | null;
-}
-
-/**
- * One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent.
- */
-export interface FLSpielberichtPersonEntry {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  submitted_at: string | null;
-  team1_name: string | null;
-  team2_name: string | null;
-  time: string | null;
-}
-
-/**
  * The fixture a report is about, as its form states it: no money, no booking, no result.
  */
 export interface FLSpielberichtSpiel {
@@ -5106,7 +5058,7 @@ export interface FLSpielberichtSpiel {
 }
 
 /**
- * The booked referee's form: the remarks included, and no `state`.
+ * The booked referee's form, the stored remarks included.
  */
 export interface FLSpielberichtSchiedsrichterResponse {
   bericht: FLSpielberichtBericht | null;
@@ -5133,14 +5085,6 @@ export interface FLSpielberichtStateEntry {
  */
 export interface FLSpielberichteSaisonResponse {
   spielberichte: FLSpielberichtStateEntry[];
-}
-
-/**
- * `spiele` of the running season, which the referee reports on; `earlier` of ended ones, each holding a report they only read.
- */
-export interface FLSpielberichteSelfResponse {
-  earlier: FLSpielberichtPersonEarlierEntry[];
-  spiele: FLSpielberichtPersonEntry[];
 }
 
 /**

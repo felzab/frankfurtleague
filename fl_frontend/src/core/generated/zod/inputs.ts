@@ -2092,6 +2092,8 @@ export const SchiedsrichterGetConfirmationViewBody = zod
  * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
  * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
  * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
+ * Open work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days
+ * gone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.
  *
  * Refuses an address holding no live, confirmed referee record (`role_not_held`).
  * @summary A signed-in referee's fixtures of one season, one row a fixture

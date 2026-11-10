@@ -11382,78 +11382,6 @@
         "const": "2026-11-name-spielplan-1",
         "type": "string"
       },
-      "FLSchiedsrichterSelf": {
-        "description": "The referee's own page's read: the record and its fee.",
-        "properties": {
-          "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
-          },
-          "default_payment": {
-            "title": "Default Payment",
-            "type": "integer"
-          },
-          "kontakt": {
-            "$ref": "#/components/schemas/FLKontakt"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          },
-          "schule": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Schule"
-          }
-        },
-        "required": [
-          "schiedsrichter_id",
-          "name",
-          "schule",
-          "kontakt",
-          "birth_date",
-          "default_payment"
-        ],
-        "title": "FLSchiedsrichterSelf",
-        "type": "object"
-      },
-      "FLSchiedsrichterSelfResponse": {
-        "description": "Every confirmed referee record the signed-in address holds, the ghost never among them.",
-        "properties": {
-          "schiedsrichter": {
-            "items": {
-              "$ref": "#/components/schemas/FLSchiedsrichterSelf"
-            },
-            "title": "Schiedsrichter",
-            "type": "array"
-          }
-        },
-        "required": [
-          "schiedsrichter"
-        ],
-        "title": "FLSchiedsrichterSelfResponse",
-        "type": "object"
-      },
       "FLSchiedsrichterSingleResponse": {
         "properties": {
           "confirmation_expired": {
@@ -13511,155 +13439,6 @@
         "title": "FLSpielberichtPayload",
         "type": "object"
       },
-      "FLSpielberichtPersonEarlierEntry": {
-        "description": "One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands.",
-        "properties": {
-          "date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "team1_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team1 Name"
-          },
-          "team2_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team2 Name"
-          },
-          "time": {
-            "anyOf": [
-              {
-                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Time"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "date",
-          "time",
-          "team1_name",
-          "team2_name",
-          "submitted_at"
-        ],
-        "title": "FLSpielberichtPersonEarlierEntry",
-        "type": "object"
-      },
-      "FLSpielberichtPersonEntry": {
-        "description": "One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent.",
-        "properties": {
-          "date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Date",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "submitted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted At"
-          },
-          "team1_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team1 Name"
-          },
-          "team2_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team2 Name"
-          },
-          "time": {
-            "anyOf": [
-              {
-                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Time"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "date",
-          "time",
-          "team1_name",
-          "team2_name",
-          "submitted_at"
-        ],
-        "title": "FLSpielberichtPersonEntry",
-        "type": "object"
-      },
       "FLSpielberichtPublic": {
         "description": "What the public may read of one match's report.\n\nThe scorers and the cards only while the referee's report reads `adopted` -- adopted, unchanged since, and\nmatching the result -- each by minute; null otherwise, which is \"not official yet\" where an empty list is \"nobody\nscored\".",
         "properties": {
@@ -13700,7 +13479,7 @@
         "type": "object"
       },
       "FLSpielberichtSchiedsrichterResponse": {
-        "description": "The booked referee's form: the remarks included, and no `state`.",
+        "description": "The booked referee's form, the stored remarks included.",
         "properties": {
           "bericht": {
             "anyOf": [
@@ -14235,31 +14014,6 @@
           "spielberichte"
         ],
         "title": "FLSpielberichteSaisonResponse",
-        "type": "object"
-      },
-      "FLSpielberichteSelfResponse": {
-        "description": "`spiele` of the running season, which the referee reports on; `earlier` of ended ones, each holding a report they only read.",
-        "properties": {
-          "earlier": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtPersonEarlierEntry"
-            },
-            "title": "Earlier",
-            "type": "array"
-          },
-          "spiele": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtPersonEntry"
-            },
-            "title": "Spiele",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spiele",
-          "earlier"
-        ],
-        "title": "FLSpielberichteSelfResponse",
         "type": "object"
       },
       "FLSpielbestaetigung": {
@@ -25651,76 +25405,9 @@
         "x-safe": true
       }
     },
-    "/api/v0/schiedsrichter/self": {
-      "get": {
-        "description": "Answer every confirmed referee record the signed-in address holds, with its stored contact details.\n\nPERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired\nrecord is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.\n\nRefuses an address holding no confirmed referee record (`role_not_held`).",
-        "operationId": "schiedsrichter_get_self",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterSelfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A signed-in referee's own records",
-        "tags": [
-          "schiedsrichter"
-        ]
-      }
-    },
     "/api/v0/schiedsrichter/self/saisons": {
       "get": {
-        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.\n\nA planned season is served as any other. Refuses an address holding no live, confirmed referee record\n(`role_not_held`).",
+        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.\n\nA planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address\nholding no live, confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self_saisons",
         "responses": {
           "200": {
@@ -25787,7 +25474,7 @@
     },
     "/api/v0/schiedsrichter/self/spiele/{saison_id}": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
+        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.\nOpen work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days\ngone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {
@@ -26404,73 +26091,6 @@
           }
         ],
         "summary": "Every report of a season and the state it reads in",
-        "tags": [
-          "spielberichte"
-        ]
-      }
-    },
-    "/api/v0/spielberichte/self": {
-      "get": {
-        "description": "The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.\n\nBooked to any confirmed, live referee record of the address, each with when its report was first sent, null where\nnone stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is\n`active`.\n\n`earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest\nfirst, one whose date was cleared after its report last with a null `date`: its page shows the report read-only.\nRefused `role_not_held` where the address holds no confirmed, live referee record.",
-        "operationId": "spielberichte_get_self",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichteSelfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "The fixtures a signed-in referee reports on",
         "tags": [
           "spielberichte"
         ]

@@ -362,7 +362,7 @@ def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any
 def compose_view(
     context: BerichtContext, *, kader_open: bool, named: Sequence[FLSpielberichtSpieler], document: Mapping[str, Any] | None
 ) -> dict[str, Any]:
-    """What the referee's form and the administrator's panel both read: the fixture, the live squads, and the stored block.
+    """What the referee's form reads: the fixture, the live squads, and the stored block.
 
     The squads empty unless `kader_open`: the referee picks from them only while the fixture takes a report.
     """
