@@ -1,6 +1,5 @@
 import { COPY } from "@/core/copy";
 import { FLSpielerStufe } from "@/core/generated/client/types";
-import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { Words } from "@/core/copy";
 import type { FLSpielerRolle } from "@/core/generated/client/types";
@@ -49,5 +48,5 @@ export function byShirtNumber(one: { nummer: string | null }, other: { nummer: s
  * read withholds a name the consent does not publish.
  */
 export function spielerName({ first_name, last_name }: { first_name: string | null; last_name: string | null }): Words {
-  return first_name === null ? SERVER_COPY.season.spiel.anonymous : { record: kaderName({ first_name, last_name }) };
+  return first_name === null ? COPY.shared.anonymous : { record: kaderName({ first_name, last_name }) };
 }

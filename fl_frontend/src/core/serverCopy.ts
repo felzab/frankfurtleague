@@ -883,8 +883,7 @@ export const SERVER_COPY = catalogue({
        * „Noch keine Tore und Karten.“
        */
       officialToreAndCards: "offiziellen Tore und Karten",
-      /** A pupil whose consent publishes no name, or one erased since. */
-      anonymous: "anonym",
+      anonymous: COPY.shared.anonymous,
       /** A goal nobody was named for. */
       unknown: "unbekannt",
       tor: "Tor",

@@ -313,6 +313,8 @@ export const COPY = catalogue({
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
     noValue: "–",
+    /** A pupil whose consent publishes no name, or one erased since; client components name a pupil too, so it stands here. */
+    anonymous: "anonym",
     /** Between a pairing's two sides where no score stands between them, as a fixture's pairing reads: a glyph, not a word. */
     versus: "–",
     overview: "Übersicht",
