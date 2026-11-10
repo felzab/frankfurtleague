@@ -1608,6 +1608,33 @@ class TestTheLineupReminder:
         assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
         assert later.aufstellungen == []
 
+    def test_a_fixture_a_clubs_austritt_decided_reminds_neither_club(self, mongo_replica_set_url: str):
+        """Alpha leaves before the day, so the match is not played: Beta would be asked for a line-up nobody fields against."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
+
+        out = junction(ALPHA, austritt={"type": "rueckzug", "reason": "Schulwechsel", "date": LINEUP_TODAY})
+        reminded = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW], junctions=[out, junction(BETA)])
+
+        assert reminded.aufstellungen == []
+
+    def test_a_reminder_still_owed_at_the_due_mark_is_never_sent(self, mongo_replica_set_url: str):
+        """A drain running behind would otherwise ask for the line-up by a moment already gone by."""
+
+        past_the_due_mark = datetime(2126, 4, 15, 18, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            answer = await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW)
+            owed = await database[Collection.OUTBOX].count_documents({"kind": "aufstellung_reminder"})
+            return owed, await handed_out(database, client, answer, now=past_the_due_mark)
+
+        owed, late = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])
+
+        # The premise: both clubs' every confirmed seat was owed one.
+        assert owed == 2 * len(KONTAKT_ROLLEN)
+        assert late.aufstellungen == []
+
 
 # --- A REFEREE TAKEN OFF a fixture after their Einteilung went out.
 
