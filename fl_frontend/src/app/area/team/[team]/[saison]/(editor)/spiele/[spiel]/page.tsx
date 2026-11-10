@@ -11,6 +11,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamSeatsAt } from "@/features/roles/resolvers";
+import { matchdayOf } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -57,15 +58,16 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /**
- * The line under the title: when the match is played, and where nothing is stored, the day the line-up is due, or since
- * when it is overdue. Due and overdue refuse nothing: they are words alone.
+ * The line under the title: the matchday, as the Spiele list names it, and when the match is played; and where nothing
+ * is stored, the day the line-up is due, or since when it is overdue. Due and overdue refuse nothing: they are words
+ * alone.
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
   const words = COPY.area.team.aufstellung;
   const due = marks === null || marks.stored ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
-  return SERVER_COPY.area.line([when, owed]);
+  return SERVER_COPY.area.line([matchdayOf(spiel, spiel), when, owed]);
 }
 
 /** The chip after the title while nothing is stored past the due mark. */
