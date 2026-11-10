@@ -34,7 +34,8 @@ type Shared = {
 /**
  * The label above the buttons, its asterisk after it where the write requires an answer, as a field's label carries
  * it. React Aria's button group takes no `Label`, so the group is named by this line's id. The mark says the rule
- * alone: a segmented choice is never empty, and a group of boxes left empty is answered by the write's refusal.
+ * alone: a segmented choice once made is never empty, and one never made, as a group of boxes left empty, is answered
+ * by the write's refusal.
  */
 function Head({ id, label, isRequired }: { id: string; label: Copy; isRequired: boolean }) {
   return (
@@ -104,11 +105,14 @@ function Segment({ choice }: { choice: Choice | GlyphChoice }) {
  * `inline`, the segments stand alone, named by the label for assistive technology, in a row the caller writes
  * such as the account menu's theme row. React Aria's `ToggleButtonGroup` in single selection, which never lets
  * the choice go empty; `null` chooses none while the answer is not known, as a theme is not before the page
- * hydrates.
+ * hydrates, or not yet given, as a new goal's side. It posts no form value, so the refusal of a choice left empty
+ * comes as `errorMessage`, as the boxes' does.
  */
 export function Segmented({
   label,
+  labelHidden = false,
   description,
+  errorMessage,
   choices,
   isDisabled = false,
   isRequired = false,
@@ -122,14 +126,20 @@ export function Segmented({
   defaultValue?: string;
   onChange?: (id: string) => void;
   placement?: "field" | "inline";
+  /** Whether the label names the field to a screen reader alone, the place around it naming it on the screen. */
+  labelHidden?: boolean;
+  /** The served refusal of the field, which its line shows and its frame's edge marks. */
+  errorMessage?: Copy;
 }) {
   const labelId = useId();
   const descriptionId = useId();
+  const isNamed = placement === "inline" || labelHidden;
   const group = (
     <ToggleButtonGroup
-      aria-label={placement === "inline" ? label : undefined}
-      aria-labelledby={placement === "inline" ? undefined : labelId}
-      aria-describedby={placement === "inline" || description === undefined ? undefined : descriptionId}
+      aria-label={isNamed ? label : undefined}
+      aria-labelledby={isNamed ? undefined : labelId}
+      aria-describedby={placement === "inline" || (description === undefined && errorMessage === undefined) ? undefined : descriptionId}
+      data-invalid={errorMessage === undefined ? undefined : true}
       selectionMode="single"
       disallowEmptySelection
       isDisabled={useDisabled(isDisabled)}
@@ -149,15 +159,18 @@ export function Segmented({
   if (placement === "inline") return group;
   return (
     <div className={fieldRoot()}>
-      <Head
-        id={labelId}
-        label={label}
-        isRequired={isRequired}
-      />
+      {!labelHidden && (
+        <Head
+          id={labelId}
+          label={label}
+          isRequired={isRequired}
+        />
+      )}
       {group}
       <GroupMessage
         id={descriptionId}
         description={description}
+        errorMessage={errorMessage}
       />
     </div>
   );
@@ -243,6 +256,7 @@ export function ToggleBoxes({
       <ToggleButtonGroup
         aria-labelledby={labelId}
         aria-describedby={description === undefined && errorMessage === undefined ? undefined : descriptionId}
+        data-invalid={errorMessage === undefined ? undefined : true}
         selectionMode="multiple"
         isDisabled={useDisabled(isDisabled)}
         selectedKeys={value}
