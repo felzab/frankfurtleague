@@ -29,8 +29,6 @@ export async function requireSubjectSession(path: string): Promise<SubjectSessio
 /**
  * The signed-in person a pupil's or a referee's page at `path` is drawn for. A person holding no such Funktion is
  * sent to the landing, never shown a refusal: the address exists, and the landing leads on to whatever they hold.
- * @awaitsPage the pupil's and the referee's pages
- * @awaitsProduction the pupil's and the referee's pages
  */
 export async function requireRole(kind: PersonKind, path: string): Promise<SubjectSession> {
   const subject = await requireSubjectSession(path);

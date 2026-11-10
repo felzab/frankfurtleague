@@ -266,6 +266,10 @@ class FLOpenRegistrierung(BaseModel):
     stufe: FLSpielerStufe | None
     # Whether the pupil answered their own link, which is what makes the row one the team may admit.
     admissible: bool
+    # Whether admitting this row now meets `kader_full`, by the verdict the admission refuses on: the squad stands at
+    # its cap and this entry is no Nachnominierung. Judged apart from `admissible`; an unconfirmed row resolves to
+    # nobody, so its window alone decides whether it enters as one.
+    kader_full: bool
     nummer_double: bool
     # Empty on an unconfirmed row: its address is unproven, and resolving it would show the team
     # whoever stands behind an address anybody typed into the form.
