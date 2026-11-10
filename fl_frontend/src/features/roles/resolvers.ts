@@ -29,8 +29,6 @@ export async function requireSubjectSession(path: string): Promise<SubjectSessio
 /**
  * The signed-in person a pupil's or a referee's page at `path` is drawn for. A person holding no such Funktion is
  * sent to the landing, never shown a refusal: the address exists, and the landing leads on to whatever they hold.
- * @awaitsPage the pupil's and the referee's pages
- * @awaitsProduction the pupil's and the referee's pages
  */
 export async function requireRole(kind: PersonKind, path: string): Promise<SubjectSession> {
   const subject = await requireSubjectSession(path);
@@ -44,9 +42,7 @@ export async function requireRole(kind: PersonKind, path: string): Promise<Subje
 /** One contact seat a person holds, the only Funktion a team's pages answer to. */
 export type TeamSeat = Extract<Role, { kind: "kontakt" }>;
 
-/**
- * Every seat a person holds at one team page's address, at least one.
- */
+/** Every seat a person holds at one team page's address, at least one. */
 export type TeamSeats = readonly [TeamSeat, ...TeamSeat[]];
 
 /** A team page's own address, built from its route's segments as its folders name them, `[team]/[saison]` first. */

@@ -94,6 +94,24 @@ async def nummern_rows(
     )
 
 
+async def kader_rows_of(
+    *, saison_spieler_collection: AsyncCollection, saison_id: str, spieler_ids: Sequence[Any], session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """These persons' rows of one season, whichever team holds each: one per person under `uniq_spieler_id_saison_id`."""
+
+    if not spieler_ids:
+        return []
+
+    return await aggregate_many_from_db(
+        collection=saison_spieler_collection,
+        pipeline=[
+            {"$match": {"saison_id": saison_id, "spieler_id": {"$in": list(spieler_ids)}}},
+            {"$project": {"spieler_id": 1, "is_nachnominiert": 1}},
+        ],
+        session=session,
+    )
+
+
 async def erase_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
