@@ -34,7 +34,7 @@ from app.api.spielbestaetigungen.services import (
     notice_data_of,
     proposal_payload,
     spiel_mail_appointment_of,
-    team_notices,
+    team_mails,
     vereinsnamen_of,
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
@@ -49,6 +49,7 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -77,7 +78,7 @@ FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Quer
     summary="A season's fixture confirmations, or one fixture's",
 )
 async def get_spielbestaetigungen(
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     filters: FLSpielbestaetigungenFilters,
 ) -> FLSpielbestaetigungenListResponse:
     """
@@ -92,13 +93,13 @@ async def get_spielbestaetigungen(
     if filters.spiel_id is not None:
         db_filter["spiel_id"] = filters.spiel_id
 
-    rows, vollstaendig = await pull_admin_rows(
+    rows, complete = await pull_admin_rows(
         spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
     )
 
     return FLSpielbestaetigungenListResponse(
         spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
-        complete=vollstaendig,
+        complete=complete,
     )
 
 
@@ -248,7 +249,7 @@ async def discard_spielbestaetigung(
             data = notice_data_of(
                 reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             )
-            mails = team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
+            mails = team_mails(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
             if mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
                 await anchor_the_mailboxes_told(

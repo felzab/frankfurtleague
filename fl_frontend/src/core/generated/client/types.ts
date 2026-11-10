@@ -3198,7 +3198,7 @@ export const FLSpielRequestDataKind = {
 } as const;
 
 /**
- * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
+ * A club's request to confirm a fixture, or the reminder of it, each leading to the club's own pages.
  */
 export interface FLSpielRequestData {
   ansetzung: FLSpielMailAnsetzung;
@@ -5139,7 +5139,7 @@ export const FLSpielbestaetigungByKontaktKind = {
 } as const;
 
 /**
- * The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.
+ * The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded.
  */
 export interface FLSpielbestaetigungByKontakt {
   kind: FLSpielbestaetigungByKontaktKind;
@@ -5270,7 +5270,7 @@ export const FLSpielbestaetigungSelfState = {
 /**
  * The clubs, the day, the hour and the ground a page or a message states.
  *
- * The fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about.
+ * The fixture as it stands, or on a row whose fixture moved since, the Ansetzung the row asked about.
  */
 export interface FLSpielbestaetigungViewAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -6129,16 +6129,6 @@ export interface FLTeamSaisonAdminResponse {
   team: FLTeamRecord;
   /** @minimum 0 */
   version: number;
-}
-
-/**
- * A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them.
- */
-export interface FLTeamSeatsResponse {
-  saison_id: string;
-  seats: FLTeamSeat[];
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
 }
 
 export type FLTeamShorthandLength = 3;

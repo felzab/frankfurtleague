@@ -92,7 +92,6 @@ async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *
         seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
         today=TODAY,

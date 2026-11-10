@@ -51,10 +51,8 @@ from app.api.outbox.schemas import (
 from app.api.outbox.services import SIGN_IN_KINDS, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_is_confirmed
 from app.api.schiedsrichter.services import build_self_referee_filter
-from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
-from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
@@ -546,7 +544,6 @@ async def move_the_address_in_session(
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
@@ -578,7 +575,6 @@ async def move_the_address_in_session(
             return_document=ReturnDocument.BEFORE,
         )
 
-    voids = []
     for row, slots in holdings.seats:
         await patch_one_in_db(
             collection=saison_teams_collection,
@@ -588,12 +584,6 @@ async def move_the_address_in_session(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
-        kontakte = row.get("kontakte") or {}
-        moved = {**kontakte, **{slot: {**kontakte[slot], "email": new_address} for slot in slots}}
-        voids.append(seat_void_of(saison_id=row["saison_id"], team_id=row["team_id"], stored_kontakte=kontakte, kontakte=moved))
-    # The match confirmations' links went to the replaced mailbox, so they die here and the hourly pass mints the
-    # moved seats fresh ones.
-    await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
 
     for row, slots in holdings.bewerbung_seats:
         await patch_one_in_db(

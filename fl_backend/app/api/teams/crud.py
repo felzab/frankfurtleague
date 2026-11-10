@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from pymongo import ReturnDocument
@@ -8,7 +8,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import find_already_entered_refusal
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLTabelle, FLTeamListAdapter
 from app.api.teams.services import (
@@ -336,29 +335,6 @@ async def pull_team_names_and_codes(*, teams_collection: ReadCollection, team_id
     teams = await _pull_team_fields(teams_collection=teams_collection, team_ids=team_ids, fields=["name", "shorthand"], session=None)
 
     return {team["_id"]: str(team.get("name") or "") for team in teams}, {team["_id"]: str(team.get("shorthand") or "") for team in teams}
-
-
-async def void_moved_seats(
-    *,
-    spielbestaetigungen_collection: AsyncCollection,
-    # One per season row the transaction wrote, from `app/api/spielbestaetigungen/services.py :: seat_void_of`.
-    voids: Sequence[SeatVoid | None],
-    # REQUIRED: the void commits with the seat writes or neither does, so the old holder's link dies at the write.
-    session: AsyncClientSession,
-) -> None:
-    """Null the links of every seat these writes emptied or handed on, on their teams' confirmations.
-
-    Once per transaction, after its seat writes: a call costs the same however many rows it covers.
-    """
-
-    for seats, pairs in group_seat_voids([void for void in voids if void is not None]):
-        await patch_many_in_db(
-            collection=spielbestaetigungen_collection,
-            db_filter=build_team_rows_filter(pairs),
-            # Spelled here, so the write traces read the seat entries it sets, none of them a unique key.
-            update={"$set": {f"kontakte.{seat}": None for seat in seats}},
-            session=session,
-        )
 
 
 async def pull_saison_team_names(*, saison_teams_collection: ReadCollection, saison_id: str) -> Mapping[CustomObjectId, str]:
