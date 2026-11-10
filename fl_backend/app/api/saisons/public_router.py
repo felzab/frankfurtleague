@@ -3,9 +3,8 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from fastapi import APIRouter, Depends
-from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aufstellungen.schemas import FLAufstellungenPublic
+from app.api.aufstellungen.services import compose_public_aufstellungen, public_aufstellungen_lookup
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_landing_windows
 from app.api.saisons.schemas import (
     FLBewerbungWindow,
@@ -57,13 +56,13 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
-    SaisonsCollection,
-    SaisonSpielerCollection,
-    SaisonTeamsCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
+    SaisonTeamsReadCollection,
     SpielberichteReadCollection,
-    SpieleCollection,
+    SpieleReadCollection,
     SpieltageReadCollection,
-    TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
@@ -80,7 +79,7 @@ router = APIRouter(
 
 
 @router.get("/frame", response_model=FLSaisonFrameResponse, summary="The season pages' frame")
-async def get_frame(saisons_collection: SaisonsCollection) -> FLSaisonFrameResponse:
+async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameResponse:
     """Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none."""
 
     saisons_raw = await pull_many_from_db(
@@ -133,7 +132,7 @@ async def _no_rows() -> list[Mapping[str, Any]]:
     return []
 
 
-async def _active_or_none(saisons_collection: AsyncCollection) -> Mapping[str, Any] | None:
+async def _active_or_none(saisons_collection: ReadCollection) -> Mapping[str, Any] | None:
     """The season the site is on, its id and `start_date`; the `active` one, which no tier withholds."""
 
     try:
@@ -175,7 +174,7 @@ _LISTED_CLUB: tuple[Mapping[str, Any], ...] = (
 
 
 async def _league_counts(
-    *, saisons_collection: AsyncCollection, spiele_collection: AsyncCollection, saison_teams_collection: AsyncCollection
+    *, saisons_collection: ReadCollection, spiele_collection: ReadCollection, saison_teams_collection: ReadCollection
 ) -> FLLandingCounts:
     """The league's figures over every season the public reads, three reads sent at once."""
 
@@ -208,9 +207,9 @@ async def _league_counts(
 
 async def _landing_saison(
     *,
-    saisons_collection: AsyncCollection,
-    spiele_collection: AsyncCollection,
-    teams_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
+    spiele_collection: ReadCollection,
+    teams_collection: ReadCollection,
     today: str,
 ) -> FLLandingBeforeStart | FLLandingRunning | FLLandingDecided | None:
     """The season the site is on in its state, null for a league that has none."""
@@ -290,10 +289,10 @@ async def _landing_saison(
 
 @router.get("/landing", response_model=FLLandingResponse, summary="The landing")
 async def get_landing(
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    teams_collection: TeamsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
@@ -328,7 +327,7 @@ async def get_landing(
 # Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in
 # declaration order, and the `objectid` convertor cannot help here, a season id being a four-character string.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
-async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
+async def get_saison(saison_id: str, saisons_collection: SaisonsReadCollection) -> FLSaisonsSingleResponse:
     """One season the public may read, by its id.
 
     404 where no season carries it or it is a `future` one.
@@ -348,9 +347,9 @@ _KNOCKOUT_TERM: Mapping[str, Any] = {"saison_phase": {"$ne": "gruppenphase"}}
 async def _spielplan_of(
     *,
     saison_id: str,
-    saisons_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
     spieltage_collection: ReadCollection,
-    spiele_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
     phase_term: Mapping[str, Any],
 ) -> tuple[PublicSaison, list[FLSpielplanSpieltag]]:
     """The season and its matchdays holding their matches, in one round trip.
@@ -372,9 +371,9 @@ async def _spielplan_of(
 @router.get("/{saison_id}/spielplan", response_model=FLSpielplanResponse, summary="One Saison's Spielplan")
 async def get_spielplan(
     saison_id: str,
-    saisons_collection: SaisonsCollection,
+    saisons_collection: SaisonsReadCollection,
     spieltage_collection: SpieltageReadCollection,
-    spiele_collection: SpieleCollection,
+    spiele_collection: SpieleReadCollection,
 ) -> FLSpielplanResponse:
     """Every matchday of one season with its matches, in playing order, and the matchday to open on.
 
@@ -395,9 +394,9 @@ async def get_spielplan(
 @router.get("/{saison_id}/ko_runde", response_model=FLKoRundeResponse, summary="One Saison's K.-o.-Runde")
 async def get_ko_runde(
     saison_id: str,
-    saisons_collection: SaisonsCollection,
+    saisons_collection: SaisonsReadCollection,
     spieltage_collection: SpieltageReadCollection,
-    spiele_collection: SpieleCollection,
+    spiele_collection: SpieleReadCollection,
 ) -> FLKoRundeResponse:
     """Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.
 
@@ -418,9 +417,9 @@ async def get_ko_runde(
 @router.get("/{saison_id}/tabelle", response_model=FLTabelleResponse, summary="One Saison's Tabelle")
 async def get_tabelle(
     saison_id: str,
-    saisons_collection: SaisonsCollection,
-    teams_collection: TeamsCollection,
-    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsReadCollection,
+    teams_collection: TeamsReadCollection,
+    spiele_collection: SpieleReadCollection,
 ) -> FLTabelleResponse:
     """Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.
 
@@ -437,7 +436,7 @@ async def get_tabelle(
     return FLTabelleResponse(gruppen=tabelle, qualifiers_per_gruppe=saison.rules.qualifiers_per_gruppe)
 
 
-async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
+async def _clubs_of(*, teams_collection: ReadCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
     """A season's clubs as the Teams page and the landing list them, a club that left the league in a `past` season alone."""
 
     teams_raw = await aggregate_many_from_db(
@@ -452,7 +451,7 @@ async def _clubs_of(*, teams_collection: AsyncCollection, saison_id: str) -> lis
 
 
 @router.get("/{saison_id}/teams", response_model=FLSaisonTeamsResponse, summary="One Saison's teams")
-async def get_teams(saison_id: str, saisons_collection: SaisonsCollection, teams_collection: TeamsCollection) -> FLSaisonTeamsResponse:
+async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, teams_collection: TeamsReadCollection) -> FLSaisonTeamsResponse:
     """The clubs of one season by name, each under the name and shorthand it plays that season under.
 
     404 for a season this tier may not read.
@@ -470,10 +469,10 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsCollection, teams
 async def get_team(
     saison_id: str,
     team_id: CustomRouteObjectId,
-    saisons_collection: SaisonsCollection,
-    teams_collection: TeamsCollection,
-    spiele_collection: SpieleCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
+    saisons_collection: SaisonsReadCollection,
+    teams_collection: TeamsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
 ) -> FLTeamPageResponse:
     """One club in one season: the club, its row of the Tabelle, its matches and its squad.
 
@@ -528,9 +527,9 @@ async def get_team(
 async def get_spiel(
     saison_id: str,
     spiel_id: CustomRouteObjectId,
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
 ) -> FLSpielPageResponse:
     """One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
@@ -543,7 +542,11 @@ async def get_spiel(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         aggregate_many_from_db(
             collection=spiele_collection,
-            pipeline=[*build_spiele_pipeline(db_filter={"_id": spiel_id, "saison_id": saison_id}), SPIELTAG_POSITION_LOOKUP],
+            pipeline=[
+                *build_spiele_pipeline(db_filter={"_id": spiel_id, "saison_id": saison_id}),
+                SPIELTAG_POSITION_LOOKUP,
+                public_aufstellungen_lookup(),
+            ],
             limit=1,
         ),
         aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_public_bericht_pipeline(spiel_id), limit=1),
@@ -570,7 +573,6 @@ async def get_spiel(
         spieltag_position=matchday["spieltag_position"],
         count_spieltage_in_phase=matchday["count_spieltage_in_phase"],
         standings=standings,
-        # Session 8: the fixture's read joins, per side, the stored line-up of the club the fixture fields there now.
-        aufstellungen=FLAufstellungenPublic(team1=None, team2=None),
+        aufstellungen=compose_public_aufstellungen(spiel_raw),
         bericht=compose_public_bericht(berichte_raw[0], spiel_raw) if berichte_raw else None,
     )

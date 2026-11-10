@@ -326,8 +326,9 @@ export const AufstellungenGetAufstellungParams = zod.object({
  * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
  * (`document_not_found`); a fixture holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold (`spieler_not_in_kader`); and a nominee past the shortage
- * (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save.
+ * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past
+ * the shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,
+ * and every refusal but `version_stale` is asked again outside the transaction just before answering.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -390,10 +391,12 @@ export const AufstellungenGetAufstellungSelfParams = zod.object({
  * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
  * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold (`spieler_not_in_kader`); and a nominee named beside eleven regular players, or
- * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`). A pupil named
- * twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are refused as the
- * payload's own rules. A line-up being due or overdue refuses nothing.
+ * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named
+ * beside eleven regular players, or more nominees than the regular players leave open of eleven
+ * (`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters
+ * (`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.
+ * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
+ * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
  * @summary Save one club's line-up for one fixture as its seat holder
  */
 export const aufstellungenPutAufstellungSelfPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2092,6 +2095,8 @@ export const SchiedsrichterGetConfirmationViewBody = zod
  * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
  * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
  * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
+ * Open work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days
+ * gone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.
  *
  * Refuses an address holding no live, confirmed referee record (`role_not_held`).
  * @summary A signed-in referee's fixtures of one season, one row a fixture
@@ -2830,8 +2835,9 @@ export const SpielePatchSpielBody = zod.object({
  * they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
  * another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
  * group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
- * reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.
- * `document_not_found` for an id no fixture holds.
+ * reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
+ * side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
+ * club has stored none. `document_not_found` for an id no fixture holds.
  * @summary One Spiel and all the match editor offers and shows beside it
  */
 export const spieleGetSpielAdminPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

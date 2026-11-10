@@ -1,7 +1,6 @@
-from collections.abc import Mapping
 from datetime import datetime
 from http import HTTPStatus
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -9,20 +8,15 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.saisons.crud import pull_governing_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
     pull_bericht_context,
-    pull_ended_saison_ids,
     pull_named,
     write_bericht,
 )
 from app.api.spielberichte.schemas import (
-    FLSpielberichteSelfResponse,
     FLSpielberichtPayload,
-    FLSpielberichtPersonEarlierEntry,
-    FLSpielberichtPersonEntry,
     FLSpielberichtSchiedsrichterResponse,
 )
 from app.api.spielberichte.services import (
@@ -34,18 +28,21 @@ from app.api.spielberichte.services import (
     kader_is_open,
     newly_named,
 )
-from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
-from app.api.spiele.services import build_named_spiele_pipeline, spiel_label
+from app.api.spiele.services import spiel_label
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, find_stale_first_save_refusal, pull_many_from_db, refuse
+from app.core.crud import find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
     SpielberichteCollection,
     SpielberichteReadCollection,
     SpieleCollection,
     SpielerCollection,
+    SpieleReadCollection,
+    SpielerReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -53,7 +50,6 @@ from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The referee's own router, binding the referee's Funktion at router level.
@@ -64,104 +60,6 @@ router = APIRouter(
 
 BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
 
-# What the referee's list shows of a fixture, in the order it lists them; the names through the join.
-PERSON_EINTRAG_FIELDS = {"date": 1, "time": 1, "team1.name": 1, "team2.name": 1}
-SPIELE_NEUESTE_ZUERST = [("date", -1), ("time", -1), ("_id", 1)]
-
-
-@router.get("/self", response_model=FLSpielberichteSelfResponse, summary="The fixtures a signed-in referee reports on")
-async def get_self(
-    identifier: PersonIdentifier,
-    spiele_collection: SpieleCollection,
-    saisons_collection: SaisonsCollection,
-    spielberichte_collection: SpielberichteReadCollection,
-    records: SubjectLookup,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLSpielberichteSelfResponse:
-    """
-    The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.
-
-    Booked to any confirmed, live referee record of the address, each with when its report was first sent, null where
-    none stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is
-    `active`.
-
-    `earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest
-    first, one whose date was cleared after its report last with a null `date`: its page shows the report read-only.
-    Refused `role_not_held` where the address holds no confirmed, live referee record.
-    """
-
-    # A snapshot, so the fixtures served are those of the records judged; never a transaction, which a read writing
-    # nothing has no conflict to retry in.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
-        gebucht = {"schiedsrichter.schiedsrichter_id": {"$in": [record.schiedsrichter_id for record in subject.schiedsrichter]}}
-
-        saison_id = await pull_governing_saison_id(saisons_collection, session=session)
-        laufende = (
-            []
-            if saison_id is None
-            else await aggregate_many_from_db(
-                collection=spiele_collection,
-                pipeline=build_named_spiele_pipeline(
-                    {
-                        "saison_id": saison_id,
-                        **gebucht,
-                        "date": {"$lte": today},
-                        "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-                    },
-                    projection=PERSON_EINTRAG_FIELDS,
-                    sort_by=SPIELE_NEUESTE_ZUERST,
-                    limit=LIST_LIMIT_DEFAULT,
-                ),
-                session=session,
-            )
-        )
-
-        beendete = await pull_ended_saison_ids(saisons_collection=saisons_collection, session=session)
-        fruehere = (
-            []
-            if not beendete
-            else await aggregate_many_from_db(
-                collection=spiele_collection,
-                # Undated too: a date cleared after the report leaves the report standing, and an ended season is never dated
-                # again. A descending sort puts null last.
-                pipeline=build_named_spiele_pipeline(
-                    {"saison_id": {"$in": beendete}, **gebucht},
-                    projection=PERSON_EINTRAG_FIELDS,
-                    sort_by=SPIELE_NEUESTE_ZUERST,
-                    limit=LIST_LIMIT_DEFAULT,
-                ),
-                session=session,
-            )
-        )
-
-        berichte = await pull_many_from_db(
-            collection=spielberichte_collection,
-            db_filter={"spiel_id": {"$in": [spiel["_id"] for spiel in (*laufende, *fruehere)]}},
-            projection=["spiel_id", "bericht.submitted_at"],
-            session=session,
-        )
-
-    submitted = {bericht["spiel_id"]: bericht["bericht"]["submitted_at"] for bericht in berichte}
-
-    def entry(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        return {
-            "spiel_id": spiel["_id"],
-            "date": spiel.get("date"),
-            "time": spiel.get("time"),
-            "team1_name": (spiel.get("team1") or {}).get("name"),
-            "team2_name": (spiel.get("team2") or {}).get("name"),
-            "submitted_at": submitted.get(spiel["_id"]),
-        }
-
-    return FLSpielberichteSelfResponse(
-        spiele=[FLSpielberichtPersonEntry.model_validate(entry(spiel)) for spiel in laufende],
-        # An ended season's fixture holding no report has nothing for its read-only page to show.
-        earlier=[FLSpielberichtPersonEarlierEntry.model_validate(entry(spiel)) for spiel in fruehere if spiel["_id"] in submitted],
-    )
-
 
 @router.get(
     BERICHT_PATH,
@@ -171,10 +69,10 @@ async def get_self(
 async def get_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
     identifier: PersonIdentifier,
-    spiele_collection: SpieleCollection,
-    saisons_collection: SaisonsCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    spieler_collection: SpielerCollection,
+    spiele_collection: SpieleReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    spieler_collection: SpielerReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
     db: DBClient,

@@ -3,11 +3,16 @@ from datetime import date, datetime, time, timedelta
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import days_after
-from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState
-from app.api.spiele.schemas import unplayed_filter
+from app.api.bewerbungen.services import days_after, season_has_ended
+from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
+from app.api.spielberichte.services import takes_a_bericht
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS, OWN_VEREIN_FIELDS
+from app.api.spielbestaetigungen.services import AnsetzungState, entered_of, own_reason_of, schiedsrichter_state_of
+from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
+from app.api.spiele.services import build_named_spiele_pipeline
 from app.core import clock
 from app.core.codes import Code
+from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
@@ -498,27 +503,167 @@ def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) 
     }
 
 
-# An INCLUSION, for `CONFIRMATION_VIEW_FIELDS`' reason: the link's hash stays off a person-tier read.
-# The fee is the referee's own data, which the confirmation page says they can always see.
-SELF_FIELDS: Mapping[str, int] = {
-    "name": 1,
-    "schule": 1,
-    "kontakt": 1,
-    "birth_date": 1,
-    "default_payment": 1,
-    "inactive_since": 1,
-    EINWILLIGUNG_FIELD: 1,
-}
-
-
-# The order a person's own pages list their referee rows in, which the account read ranks them by too.
+# The order the account read ranks a person's referee rows in.
 SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
 
 
-def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: is_own_schiedsrichter`.
+def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
+    """Run on `spiele`: the seasons of every fixture booked to one of these referees, as a season button lists them, the newest first."""
 
-    Unbounded: a capped list reads as a person holding fewer records.
+    return [
+        {"$match": {"schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}},
+        {"$group": {"_id": "$saison_id"}},
+        {
+            "$lookup": {
+                "from": Collection.SAISONS,
+                "localField": "_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"start_date": 1, "end_date": 1}}],
+                "as": "saison",
+            }
+        },
+        {"$unwind": "$saison"},
+        {"$replaceWith": "$saison"},
+        # As the public frame orders its seasons (`app/api/saisons/public_router.py :: get_frame`).
+        {"$sort": {"_id": -1}},
+    ]
+
+
+# Where `build_self_spiele_pipeline` puts what it joins onto each fixture.
+OWN_ROW_AS: Final = "spielbestaetigung"
+OWN_ROW_VEREINE_AS: Final = "vereine"
+BERICHT_AS: Final = "spielbericht"
+SAISON_AS: Final = "saison"
+
+
+def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
+    """Run on `spiele`: the season's fixtures booked to one of these referees, each with what the referee's list judges it by.
+
+    Each fixture through the name join with the fields a confirmation row is judged against
+    (`app/api/spielbestaetigungen/crud.py :: JUDGED_SPIEL_FIELDS`); the newest row asking the booked referee about it,
+    with both clubs' season rows its Ansetzung names, as `app/api/spielbestaetigungen/crud.py :: pull_own_states` pairs
+    them; when its report was first sent; and its season's status.
     """
 
-    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELF_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]
+    return [
+        *build_named_spiele_pipeline(
+            {"saison_id": saison_id, "schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}},
+            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1},
+        ),
+        {
+            "$lookup": {
+                "from": Collection.SPIELBESTAETIGUNGEN,
+                "let": {"saison_id": "$saison_id", "spiel_id": "$_id", "schiedsrichter_id": "$schiedsrichter.schiedsrichter_id"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$saison_id", "$$saison_id"]},
+                                    {"$eq": ["$spiel_id", "$$spiel_id"]},
+                                    {"$eq": ["$party.kind", "schiedsrichter"]},
+                                    # The booked record's rows alone: a row of the address's other record asked about
+                                    # a booking the fixture no longer holds.
+                                    {"$eq": ["$party.schiedsrichter_id", "$$schiedsrichter_id"]},
+                                ]
+                            }
+                        }
+                    },
+                    # The newest by `_id`, which the pass mints in order (`build_current_rows_pipeline`).
+                    {"$sort": {"_id": -1}},
+                    {"$limit": 1},
+                    {"$project": dict(OWN_ROW_FIELDS)},
+                    {
+                        "$lookup": {
+                            "from": Collection.SAISON_TEAMS,
+                            "let": {"saison_id": "$saison_id", "team_ids": ["$ansetzung.team1_id", "$ansetzung.team2_id"]},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$in": ["$team_id", "$$team_ids"]}]}}},
+                                {"$project": dict(OWN_VEREIN_FIELDS)},
+                            ],
+                            "as": OWN_ROW_VEREINE_AS,
+                        }
+                    },
+                ],
+                "as": OWN_ROW_AS,
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SPIELBERICHTE,
+                "localField": "_id",
+                "foreignField": "spiel_id",
+                "pipeline": [{"$project": {"_id": 0, "submitted_at": "$bericht.submitted_at"}}],
+                "as": BERICHT_AS,
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SAISONS,
+                "localField": "saison_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"_id": 0, "status": 1}}],
+                "as": SAISON_AS,
+            }
+        },
+    ]
+
+
+def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrichterSpiel:
+    """One fixture of `build_self_spiele_pipeline`'s as the referee's list shows it: as it stands, never as a row asked about it."""
+
+    row = next(iter(spiel[OWN_ROW_AS]), None)
+    bericht = next(iter(spiel[BERICHT_AS]), None)
+    saison = next(iter(spiel[SAISON_AS]), None)
+    spielort = spiel.get("spielort")
+
+    def team_name(side: str) -> str | None:
+        team = spiel.get(side)
+        return team.get("name") if isinstance(team, Mapping) else None
+
+    return FLSchiedsrichterSpiel(
+        spiel_id=spiel["_id"],
+        schiedsrichter_id=spiel["schiedsrichter"]["schiedsrichter_id"],
+        team1_name=team_name("team1"),
+        team2_name=team_name("team2"),
+        date=spiel.get("date"),
+        time=spiel.get("time"),
+        spielort=None
+        if not isinstance(spielort, Mapping)
+        else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_link=spielort["maps_link"]),
+        spielbestaetigung_id=None if row is None else row["_id"],
+        state=None
+        if row is None
+        else schiedsrichter_state_of(
+            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=row[OWN_ROW_VEREINE_AS]), today=today
+        ),
+        reason=None if row is None else own_reason_of(row),
+        entered=row is not None and entered_of(row),
+        past=spiel.get("date") is not None and spiel["date"] < today,
+        # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
+        reportable=takes_a_bericht(spiel, today=today) and not season_has_ended(saison_status=None if saison is None else saison.get("status")),
+        submitted_at=None if bericht is None else bericht.get("submitted_at"),
+    )
+
+
+def is_open_work(spiel: FLSchiedsrichterSpiel) -> bool:
+    """Whether the fixture waits on the referee: a booking to answer, or a report owed."""
+
+    return spiel.state == "valid" or (spiel.reportable and spiel.submitted_at is None)
+
+
+def _by_day(spiel: FLSchiedsrichterSpiel) -> tuple[bool, str, str, str]:
+    # An undated fixture after every dated one; the id last, so no two rows tie.
+    return spiel.date is None, spiel.date or "", spiel.time or "", str(spiel.spiel_id)
+
+
+def order_self_spiele(spiele: Sequence[FLSchiedsrichterSpiel]) -> list[FLSchiedsrichterSpiel]:
+    """Open work first, then the fixtures to come, each by its day; then the days gone by, the latest first."""
+
+    rest = [spiel for spiel in spiele if not is_open_work(spiel)]
+
+    return [
+        *sorted(filter(is_open_work, spiele), key=_by_day),
+        *sorted((spiel for spiel in rest if not spiel.past), key=_by_day),
+        *sorted((spiel for spiel in rest if spiel.past), key=_by_day, reverse=True),
+    ]

@@ -216,10 +216,15 @@ export const ROUTES = {
     title: COPY.shared.overview,
     crawl: "disallow",
   },
-  // Session 8: its page is built.
   teamSpiele: {
     path: (team: string, saison: string) => `/area/team/${team}/${saison}/spiele` as const,
     title: COPY.page.spiele,
+    crawl: "disallow",
+  },
+  /** A match's line-up as its club's seats enter it, named by the match's two teams. */
+  teamAufstellung: {
+    path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
+    title: COPY.page.spiel,
     crawl: "disallow",
   },
   teamKader: {

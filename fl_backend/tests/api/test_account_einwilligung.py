@@ -19,9 +19,12 @@ from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.services import compose_ablehnung_update
+from app.api.schiedsrichter.admin_router import patch_schiedsrichter
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPatchSchiedsrichterResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.recording import actor_var
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
@@ -55,8 +58,6 @@ from .conftest import AUSTRITT, config_for
 DATABASE_NAME = worker_database("fl_account_einwilligung_test")
 
 CONFIG = config_for(DATABASE_NAME)
-
-PATH = f"/api/v{API_VERSION}/schiedsrichter/self"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -112,9 +113,14 @@ def _einwilligung(*, text_versions: TextVersions = SCHIEDSRICHTER_TEXT_VERSIONS,
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it.
+    # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it. Its `version` as the create
+    # writes it, which the editor's save is checked against.
     return schiedsrichter_document(
-        referee_id, email=email, name=name, default_payment=20, **{"einwilligung": _einwilligung(), "birth_date": ADULT_BIRTHDATE, **fields}
+        referee_id,
+        email=email,
+        name=name,
+        default_payment=20,
+        **{"einwilligung": _einwilligung(), "birth_date": ADULT_BIRTHDATE, "version": 0, **fields},
     )
 
 
@@ -149,6 +155,32 @@ def _person(email: str) -> StampedHeaders:
 
 def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
     return f"/api/v{API_VERSION}/schiedsrichter/account/{schiedsrichter_id}/einwilligung"
+
+
+async def _editor_save(database: AsyncDatabase, *, version: int, default_payment: int) -> FLPatchSchiedsrichterResponse:
+    """The referee editor's save of the seeded referee on `version`, by the administrator `bind_actor` binds on its request."""
+
+    token = actor_var.set("admin@frankfurtleague.de")
+    try:
+        return await patch_schiedsrichter(
+            schiedsrichter_id=REFEREE_OID,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
+                {
+                    "name": "Ortrud Zwiebelmayer",
+                    "schule": None,
+                    "default_payment": default_payment,
+                    "kontakt": {"phone": "+49 69 5550202", "email": REFEREE_STORED},
+                    "version": version,
+                }
+            ),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=database.client,
+            today="2026-10-03",
+            now=NOW,
+        )
+    finally:
+        actor_var.reset(token)
 
 
 async def _served_stand(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
@@ -276,34 +308,15 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
 
 
 @pytest.mark.db
-class TestTheOwnRecords:
-    def test_the_address_is_answered_its_own_record_whatever_case_it_is_asked_in(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            own = await http.get(PATH, headers=_person(IDENTIFIER.upper()))
-            account = await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER.upper()))
-            return own, account
+def test_a_referees_entry_serves_their_fee_and_never_the_links_bookkeeping(mongo_replica_set_url: str):
+    async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
+        return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
 
-        response, account = served(mongo_replica_set_url, steps)
+    response = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
-        [record] = response.json()["schiedsrichter"]
-        assert (record["schiedsrichter_id"], record["name"], record["kontakt"]["email"]) == (
-            str(REFEREE_OID),
-            "Ortrud Zwiebelmayer",
-            REFEREE_STORED,
-        )
-        # The fee is the referee's own; the link's bookkeeping never is, nor the consent, which is the account page's.
-        assert (record["default_payment"], "confirmation" in record, "einwilligung" in record) == (20, False, False)
-        [entry] = account.json()["schiedsrichter"]
-        assert (entry["schiedsrichter_id"], entry["givable"], entry["media_offered"]) == (str(REFEREE_OID), True, True)
-
-    def test_a_record_awaiting_its_confirmation_is_refused(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(PATH, headers=_person(UNCONFIRMED))
-
-        response = served(mongo_replica_set_url, steps)
-
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
+    assert response.status_code == 200, response.text
+    [entry] = response.json()["schiedsrichter"]
+    assert (entry["schiedsrichter_id"], entry["default_payment"], "confirmation" in entry) == (str(REFEREE_OID), 20, False)
 
 
 @pytest.mark.db
@@ -370,6 +383,21 @@ class TestTheTwoChoices:
             "scope": CONFIRMED_RECEIPT["scope"],
             "media": {"at": AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
         }
+
+    def test_an_editor_opened_before_the_press_saves_and_the_press_stands(self, mongo_replica_set_url: str):
+        """The consent is no field the editor saves, so a press leaves the version the editor was served."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            opened = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_OID}, {"version": 1})
+            assert opened is not None
+            pressed = await http.patch(_referee_path(REFEREE_OID), json=_payload(scope="internal"), headers=_person(IDENTIFIER))
+            saved = await _editor_save(database, version=opened["version"], default_payment=25)
+            return pressed, saved, await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_OID})
+
+        pressed, saved, stored = served(mongo_replica_set_url, steps)
+
+        assert pressed.status_code == 204, pressed.text
+        assert (saved.version, stored["default_payment"], stored["einwilligung"]["scope"]) == (1, 25, "internal")
 
 
 @pytest.mark.db

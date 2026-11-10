@@ -504,16 +504,16 @@ class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
         return await self._collection.update_many(*args, **kwargs)
 
 
-class TestAPupilGeloeschtMidWriteConflictsWithTheAnchor:
-    def test_the_write_retries_and_is_refused_on_the_squad_the_loeschung_left(self, mongo_replica_set_url: str):
+class TestAPupilErasedMidWriteConflictsWithTheAnchor:
+    def test_the_write_retries_and_is_refused_on_the_squad_the_erasure_left(self, mongo_replica_set_url: str):
         """The erasure removes the squad row and the person after this write judged them: the anchor on the person conflicts."""
 
-        async def loeschen_lina(database: AsyncDatabase) -> None:
+        async def erase_lina(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_SPIELER].delete_one({"spieler_id": LINA})
             await database[Collection.SPIELER].delete_one({"_id": LINA})
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: loeschen_lina(database))
+            spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: erase_lina(database))
             berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: nothing(database))
             outcome = await outcome_of(put(database, client, bericht(), spieler_collection=spieler, spielberichte_collection=berichte))
             spieler.assert_landed_inside(serially=0)
@@ -561,7 +561,7 @@ class TestTheReads:
         assert form.bericht is not None
         assert sorted((spieler.spieler_id, spieler.last_name) for spieler in form.named) == [(LINA, "Krause"), (MIA, "Westphal")]
 
-    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_geloescht_one_by_nobody(self, mongo_replica_set_url: str):
+    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_erased_one_by_nobody(self, mongo_replica_set_url: str):
         """The two arms past the squad rows on the referee's form: no bare id shown, an erased pupil's entry still holding it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -650,7 +650,7 @@ class TestEachReportReadKeepsToTheSpieleSeason:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_the_season_before(database)
             # Last season's trainer of Adler, nobody this fixture's people hold.
-            geschrieben = await outcome_of(put(database, client, bericht(remarks="Frau Vogt sah von der Tribüne zu.")))
+            written = await outcome_of(put(database, client, bericht(remarks="Frau Vogt sah von der Tribüne zu.")))
             states = await get_spielberichte(
                 spielberichte_collection=database[Collection.SPIELBERICHTE],
                 saisons_collection=database[Collection.SAISONS],
@@ -660,11 +660,11 @@ class TestEachReportReadKeepsToTheSpieleSeason:
                 spielberichte_collection=database[Collection.SPIELBERICHTE], saison_id=SAISON_ID, session=None
             )
 
-            return geschrieben, [entry.spiel_id for entry in states.spielberichte], counted
+            return written, [entry.spiel_id for entry in states.spielberichte], counted
 
-        geschrieben, listed, counted = on_the_league(mongo_replica_set_url, body)
+        written, listed, counted = on_the_league(mongo_replica_set_url, body)
 
-        assert geschrieben == COMMITTED, "a name of another season's seat holder was refused in the remarks"
+        assert written == COMMITTED, "a name of another season's seat holder was refused in the remarks"
         assert (listed, counted) == ([SPIEL], 1), "the season before's report was read as this season's"
 
 
@@ -773,11 +773,11 @@ async def quarter_final_report(database: AsyncDatabase) -> dict[str, Any]:
 class TestAReportOutlivingItsSpieleClub:
     """A correction upstream fields Biber where the report credits Adler's goal: adopted, the 1:0 would be Biber's."""
 
-    def test_it_reads_teams_geaendert_until_the_referee_sends_it_again(self, mongo_replica_set_url: str):
+    def test_it_reads_sides_changed_until_the_referee_sends_it_again(self, mongo_replica_set_url: str):
         """Sent again unchanged, the write re-stamps the clubs: a save the clubs moved under is not one that writes nothing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def zustaende() -> Any:
+            async def states() -> Any:
                 season = await get_spielberichte(
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     saisons_collection=database[Collection.SAISONS],
@@ -786,10 +786,10 @@ class TestAReportOutlivingItsSpieleClub:
                 return [entry.state for entry in season.spielberichte if entry.spiel_id == VIERTELFINALE]
 
             await a_reported_quarter_final(database, client, None)
-            moved = await zustaende()
+            moved = await states()
             await put(database, client, bericht([tor("team1", None)], cards=[], version=0), spiel_id=VIERTELFINALE)
 
-            return moved, await zustaende(), await quarter_final_report(database)
+            return moved, await states(), await quarter_final_report(database)
 
         moved, sent_again, document = on_the_league(mongo_replica_set_url, body)
 

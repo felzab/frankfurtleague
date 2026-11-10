@@ -285,7 +285,7 @@ async def write_the_club(
 
 
 async def pull_tabelle(
-    *, teams_collection: AsyncCollection, spiele_collection: AsyncCollection, saison_id: str, rules: FLSaisonRules
+    *, teams_collection: ReadCollection, spiele_collection: ReadCollection, saison_id: str, rules: FLSaisonRules
 ) -> FLTabelle:
     """One season's standing over the group phase, every row placed; the clubs and the group fixtures read at once.
 

@@ -8,7 +8,7 @@ import { expect } from "@playwright/test";
 
 import { test } from "../support/journey";
 import { filedMessages, mailedLink } from "../support/mailSink";
-import { assertionsSigned, signInWithCode } from "../support/signIn";
+import { assertionsSigned, declinePasskeyOffer, PERSON_LANDING, signInWithCode } from "../support/signIn";
 
 /** The person the removal's journey alone signs in as (`scripts/ops/seed/seed.js`). */
 const REMOVER = "emil.ernst@example.com";
@@ -18,8 +18,7 @@ const HOLDER = "jana.jansen@example.com";
 
 test("a person's passkey on Sicherheit: set up, then removed, which ends this device's session", async ({ page, context }) => {
   await signInWithCode(page, REMOVER);
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  await page.getByRole("button", { name: "Später" }).click();
+  await declinePasskeyOffer(page, PERSON_LANDING);
 
   await context.credentials.install();
   await page.goto("/account/security");
@@ -44,8 +43,7 @@ test("a person's passkey on Sicherheit: set up, then removed, which ends this de
 
 test("a passkey holder's address change and deletion each run behind the touch", async ({ page, context }) => {
   await signInWithCode(page, HOLDER);
-  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
-  await page.getByRole("button", { name: "Später" }).click();
+  await declinePasskeyOffer(page, PERSON_LANDING);
 
   // A passkey, set up on the code's fresh session: the person holds none yet, so nothing is touched.
   await context.credentials.install();
