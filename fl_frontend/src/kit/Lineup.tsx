@@ -11,6 +11,7 @@ import { card, columnHead, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
+import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
@@ -18,6 +19,7 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
+import type { RoleMarkProps } from "./RoleMark";
 
 /**
  * The block's look, which `Lineup` and its placeholder draw from: two cards, each a table of one-line rows at every
@@ -107,8 +109,8 @@ export type LineupPlayer = {
   nummer: number | null;
   /** From `lg` alone: a phone's row is the name, the number and the row's controls. */
   position?: Words;
-  /** The captain's boxed mark, after the name: the page's own element. */
-  mark?: ReactElement;
+  /** The role the pupil holds in the squad, the boxed letter after the name, which the block draws as `Table` does. */
+  mark?: RoleMarkProps;
   chip?: ChipProps;
   /**
    * Registered after the season began: named only while fewer regular pupils than `startersMax` are, and no more of
@@ -186,7 +188,7 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
           text={textOf(player.name)}
           className={s.nameWords()}
         />
-        {player.mark}
+        {player.mark !== undefined && <RoleMark {...player.mark} />}
         {player.chip !== undefined && <Chip {...player.chip} />}
       </span>
       {line !== null && (
