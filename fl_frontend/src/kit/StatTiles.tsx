@@ -2,6 +2,7 @@ import { COPY, textOf } from "@/core/copy";
 import { formatDateWithWeekdayAndYear, formatOrdinal, formatTime } from "@/core/format";
 
 import { cardSurface } from "./cardStyles";
+import { Chip } from "./Chip";
 import { SPIELORT_WORDS } from "./Facts";
 import { Link } from "./Link";
 import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
@@ -9,12 +10,14 @@ import { RecordFigures } from "./Table";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
+import type { Route } from "next";
+import type { ChipProps } from "./Chip";
 import type { Counts } from "./Table";
 
 /**
  * One tile: what it counts over its value and a line under it where one is due. The value is a figure, such
  * as a place, a score or a date, or `words`, a short text such as a venue, set smaller; a value standing on
- * another site, such as a venue on a map, is a link to it.
+ * another site, such as a venue on a map, or on a page of this one, such as a club's, is a link to it.
  */
 export type StatTile = {
   label: Copy;
@@ -22,7 +25,9 @@ export type StatTile = {
   /** The line under the value: its own words, or a club's won, drawn and lost counts as the Tabelle draws them. */
   line?: Words | { counts: Counts };
   words?: true;
-  href?: `https://${string}`;
+  href?: `https://${string}` | Route;
+  /** The value's status, directly after it, as a squad row's „Nachnominiert“ after the club a pupil plays for. */
+  chip?: ChipProps;
 };
 
 /**
@@ -50,6 +55,7 @@ const tiles = tv({
     // A figure never breaks inside itself and is never cut, so no figure shows short of a digit.
     value: "font-numeric text-xl font-semibold whitespace-nowrap",
     line: "text-xs text-fg-muted",
+    chipped: "flex flex-wrap items-center gap-x-2 gap-y-1",
   },
   variants: {
     layout: {
@@ -151,6 +157,18 @@ export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["
   );
 }
 
+/** A tile's value: its words, or the link to where it stands, another site's or a page of this one. */
+function TileValue({ item }: { item: StatTile }) {
+  if (item.href === undefined) return textOf(item.value);
+  return (
+    <Link
+      href={item.href}
+      placement="standalone"
+      label={item.value}
+    />
+  );
+}
+
 /**
  * A record's figures at a glance, each in its own tile with its name over it: a club's standing, a match's
  * facts. A page states each fact once, in a tile or elsewhere, never both. A definition list, each tile a
@@ -168,14 +186,15 @@ export function StatTiles({ layout, items }: Layout) {
             className={slots.tile({ class: cardSurface() })}>
             <dt className={slots.label()}>{item.label}</dt>
             <dd className={slots.value()}>
-              {item.href === undefined ? (
-                textOf(item.value)
+              {item.chip === undefined ? (
+                <TileValue item={item} />
               ) : (
-                <Link
-                  href={item.href}
-                  placement="standalone"
-                  label={item.value}
-                />
+                // The chip on the value's line where both fit, else on the next, as a row's chip after a name: the
+                // value is never cut for it.
+                <span className={slots.chipped()}>
+                  <TileValue item={item} />
+                  <Chip {...item.chip} />
+                </span>
               )}
             </dd>
             {item.line !== undefined && (

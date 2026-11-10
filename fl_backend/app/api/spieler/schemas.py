@@ -336,18 +336,3 @@ class FLSpielerSelfPerson(_SpielerPerson):
 
     spieler_id: CustomObjectId
     birth_date: CustomDateString
-
-
-class FLSpielerSelf(FLSpielerSelfPerson):
-    """The pupil's own page's read: the record and every squad row it holds.
-
-    The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
-    """
-
-    kader: list[FLSpielerSelfKaderRow]
-
-
-class FLSpielerSelfResponse(BaseAPIResponse):
-    """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
-
-    spieler: FLSpielerSelf

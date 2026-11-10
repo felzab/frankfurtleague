@@ -1,8 +1,15 @@
 import { orMissing } from "@/core/errors";
-import { spielerGetSpielerAdmin, spielerGetSpielerSaison } from "@/core/generated/client/sdk";
+import { spielerGetSelfSaison, spielerGetSpielerAdmin, spielerGetSpielerSaison } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
+import { runPersonRead } from "@/shared/utils/personRead";
 
-import type { FLSpielerAdminListResponse, FLSpielerSaisonAdminResponse } from "@/core/generated/client/types";
+import type { FLSpielerAdminListResponse, FLSpielerSaisonAdminResponse, FLSpielerSaisonSelfResponse } from "@/core/generated/client/types";
+
+/** The signed-in pupil's own season, their squad row and their club's fixtures; the page has judged the season first. */
+// Never `"use cache"` here, which keys on the arguments rather than the caller.
+export async function getSpielerSaisonSelf(saisonId: string): Promise<FLSpielerSaisonSelfResponse> {
+  return runPersonRead(() => spielerGetSelfSaison(saisonId));
+}
 
 /** One season's squad rows for the Spieler list, every team's; `null` where no season holds the id. */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.

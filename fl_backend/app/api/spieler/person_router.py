@@ -1,6 +1,5 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, status
@@ -11,44 +10,54 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.account.crud import may_always_give, press_einwilligung
 from app.api.account.services import (
     compose_person_move,
-    compose_spieler_self,
     find_own_entry_refusal,
     withdrawal_line,
 )
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
-from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonRules
+from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter, FLSaisonRules
+from app.api.saisons.services import matchday_of
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.panel import FLSpielerSaisonSelfResponse
 from app.api.spieler.schemas import (
     FLKaderResponse,
     FLKaderRow,
     FLPatchKaderRowPayload,
-    FLSpielerSelfResponse,
 )
 from app.api.spieler.services import (
     build_kader_pipeline,
     build_self_pupil_filter,
-    build_self_pupil_pipeline,
+    build_self_saison_pipeline,
+    build_self_saisons_pipeline,
     find_kader_stufe_refusal,
     mark_shared_nummern,
 )
 from app.core.clock import utc_stamp
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
+from app.core.crud import (
+    GERMAN_COLLATION,
+    aggregate_many_from_db,
+    patch_one_in_db,
+    patch_past_the_version_in_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
+    SaisonsReadCollection,
     SpielerCollection,
+    SpielerReadCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exceptions import APIError
 from app.core.journal import Journal
+from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
@@ -106,7 +115,7 @@ def _live_row(*, team_id: CustomObjectId, saison_id: str, spieler_id: CustomObje
 
 
 async def _read_the_squad(
-    *, saison_spieler_collection: AsyncCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
+    *, saison_spieler_collection: ReadCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
 ) -> list[FLKaderRow]:
     """The whole squad, each row's shirt marker judged against every other: no single row carries what it is compared with."""
 
@@ -120,7 +129,7 @@ async def _read_the_squad(
     return [FLKaderRow.model_validate(row) for row in mark_shared_nummern(rows)]
 
 
-async def _allowed_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
+async def _allowed_stufen(*, saisons_collection: ReadCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
     # `find_one` rather than `pull_one_from_db`: every caller passed `refuse_without_a_seat` first on this
     # session, which read this season for the seat, and no season is ever deleted, so a miss is a broken
     # invariant rather than a 404.
@@ -134,7 +143,7 @@ async def _allowed_stufen(*, saisons_collection: AsyncCollection, saison_id: str
 
 async def _the_row_as_written(
     *,
-    saison_spieler_collection: AsyncCollection,
+    saison_spieler_collection: ReadCollection,
     team_id: CustomObjectId,
     saison_id: str,
     spieler_id: CustomObjectId,
@@ -153,8 +162,8 @@ async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
-    saison_spieler_collection: SaisonSpielerCollection,
-    saisons_collection: SaisonsCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    saisons_collection: SaisonsReadCollection,
     records: SubjectLookup,
     db: DBClient,
 ) -> FLKaderResponse:
@@ -326,23 +335,14 @@ spieler_router = APIRouter(
 )
 
 
-@spieler_router.get("/self", response_model=FLSpielerSelfResponse, summary="A signed-in pupil's own record")
-async def get_self(identifier: PersonIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelfResponse:
-    """
-    Answer the signed-in address's own pupil record's stored data with every squad row it holds.
+def _own_pupil_row(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+    """The address's one pupil row an own read answered, refused `role_not_held` where it holds no confirmed one."""
 
-    PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself.
-    Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
-
-    Refuses an address holding no confirmed pupil record (`role_not_held`).
-    """
-
-    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_pupil_pipeline(identifier))
     row = rows[0] if rows else None
     refuse(find_own_entry_refusal(held=row is not None and is_own_spieler(row)))
     assert row is not None
 
-    return FLSpielerSelfResponse.model_validate({"spieler": compose_spieler_self(row)})
+    return row
 
 
 @spieler_router.patch(
@@ -400,14 +400,9 @@ async def patch_einwilligung(
 
         update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
         if update is not None:
-            await patch_one_in_db(
-                collection=spieler_collection,
-                db_filter={"_id": row["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
-            )
+            # Past the count: no form saves the consent, so the Spieler editor's next save stands; this transaction's
+            # read above is what a second press is judged against.
+            await patch_past_the_version_in_db(collection=spieler_collection, db_filter={"_id": row["_id"]}, update=update, session=session)
         choices = withdrawal_line(blocks=[saved], chosen=chosen)
         if choices is not None:
             journal.note("withdrawal", [f"{Collection.SPIELER}/{row['_id']}"], choices=list(choices))
@@ -419,15 +414,16 @@ async def patch_einwilligung(
 
 # Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").
 @spieler_router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in pupil holds a squad row in")
-async def get_self_saisons(identifier: PersonIdentifier) -> FLOwnSaisonsResponse:
+async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: SpielerReadCollection) -> FLOwnSaisonsResponse:
     """
     Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.
 
     A planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).
     """
 
-    # Session 8: the read goes from the pupil's own record through their squad rows to those rows' seasons.
-    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+    row = _own_pupil_row(await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_saisons_pipeline(identifier)))
+
+    return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(row["saisons"]))
 
 
 @spieler_router.get(
@@ -435,7 +431,9 @@ async def get_self_saisons(identifier: PersonIdentifier) -> FLOwnSaisonsResponse
     response_model=FLSpielerSaisonSelfResponse,
     summary="A signed-in pupil's own season: their squad row and their team's fixtures",
 )
-async def get_self_saison(saison_id: str, identifier: PersonIdentifier) -> FLSpielerSaisonSelfResponse:
+async def get_self_saison(
+    saison_id: str, identifier: PersonIdentifier, spieler_collection: SpielerReadCollection
+) -> FLSpielerSaisonSelfResponse:
     """
     What the signed-in pupil's own page shows of one season, in one read.
 
@@ -447,6 +445,12 @@ async def get_self_saison(saison_id: str, identifier: PersonIdentifier) -> FLSpi
     Refuses an address holding no confirmed pupil record (`role_not_held`).
     """
 
-    # Session 8: the read goes from the pupil's own record through this season's squad row to its club's fixtures and
-    # the line-ups naming the pupil.
-    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+    row = _own_pupil_row(
+        await aggregate_many_from_db(
+            collection=spieler_collection, pipeline=build_self_saison_pipeline(identifier=identifier, saison_id=saison_id)
+        )
+    )
+    kader = row["kader"][0] if row["kader"] else None
+    spiele = [] if kader is None else [{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in kader["spiele"]]
+
+    return FLSpielerSaisonSelfResponse.model_validate({"saison_id": saison_id, "kader": kader, "spiele": spiele})

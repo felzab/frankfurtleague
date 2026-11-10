@@ -54,7 +54,9 @@ BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays]
 BEWERBUNG_REMINDER_DAYS: Final = 3
 
 # A declined application or registration goes as an unconfirmed one does: the privacy notice states one figure for both.
-DECLINED_RETENTION_DAYS: Final = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
+# Published as `ADDRESS_CHANGE_BOUNDS` are: the registration's decline mail states it, checked against this alias.
+type FLDeclinedRetentionDays = Literal[14]
+DECLINED_RETENTION_DAYS: Final[FLDeclinedRetentionDays] = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
 # one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
