@@ -23,6 +23,7 @@ from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
+    aufstellung_document,
     own_einwilligung_document,
     saison_document,
     saison_spieler_document,
@@ -58,8 +59,10 @@ NOBODY = "niemand@schule.de"
 EDITOR = "admin@frankfurtleague.de"
 
 # Fixed, so a failure names the same row every run.
-TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607840001")
-TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607840002")
+# The pupil's club A above B: a join over `uniq_aufstellung_spiel_id_team_id` meets a fixture's two line-ups B's first,
+# so a read taking the fixture's first line-up rather than its club's reads B's.
+TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607840002")
+TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607840001")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607840011")
 YOUNG_OID = ObjectId("6890a1b2c3d4e5f607840013")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
@@ -223,6 +226,113 @@ class TestTheAccountEntry:
     @pytest.mark.parametrize(("email", "offered"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, offered: bool):
         assert served(mongo_replica_set_url, _read(email, path=ACCOUNT_PATH)).json()["spieler"]["media_offered"] is offered
+
+
+SAISONS_PATH = f"/api/v{API_VERSION}/spieler/self/saisons"
+FUTURE_SAISON = "2027"
+# The two matchdays of the active season's group phase.
+SPIELTAG_1_OID = SPIEL["spieltag_id"]
+SPIELTAG_2_OID = ObjectId("6890a1b2c3d4e5f607840043")
+
+
+def _saison_path(saison_id: str) -> str:
+    return f"/api/v{API_VERSION}/spieler/self/{saison_id}"
+
+
+def _club_spiel(spiel_nr: int, team1: ObjectId, team2: ObjectId | None, *, spieltag_id: ObjectId = SPIELTAG_2_OID) -> dict[str, Any]:
+    return spiel_document(
+        spiel_id=ObjectId(f"6890a1b2c3d4e5f6078400{50 + spiel_nr}"),
+        saison_id=ACTIVE_SAISON,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        team1={"team_id": team1, "tore": None},
+        team2=None if team2 is None else {"team_id": team2, "tore": None},
+    )
+
+
+# Club A's fixtures beside the seeded first, each placing the pupil apart in A's line-up: benched, unnamed, none stored.
+BENCHED, UNNAMED, NONE_STORED = (
+    _club_spiel(2, TEAM_B_OID, TEAM_A_OID),
+    _club_spiel(3, TEAM_A_OID, TEAM_B_OID),
+    _club_spiel(4, TEAM_B_OID, TEAM_A_OID),
+)
+# Club B's alone, its other side still empty.
+NOT_THE_CLUBS = _club_spiel(5, TEAM_B_OID, None)
+
+
+async def _seed_the_season(database: AsyncDatabase) -> None:
+    """The matchdays and the fixtures the one-season read serves, with the line-ups it reads `starts` off."""
+
+    await database[Collection.SAISONS].insert_one(saison_document(FUTURE_SAISON, "future"))
+    await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(YOUNG_OID, FUTURE_SAISON, TEAM_B_OID))
+    await database[Collection.SPIELTAGE].insert_many(
+        [
+            {"_id": oid, "start": None, "end": None, "position": position, "saison_phase": "gruppenphase", "saison_id": ACTIVE_SAISON}
+            for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))
+        ]
+    )
+    await database[Collection.SPIELE].insert_many([BENCHED, UNNAMED, NONE_STORED, NOT_THE_CLUBS])
+    await database[Collection.AUFSTELLUNGEN].insert_many(
+        [
+            aufstellung_document(SPIEL, TEAM_A_OID, starters=[PUPIL_OID]),
+            aufstellung_document(BENCHED, TEAM_A_OID, bench=[PUPIL_OID]),
+            # The other club's line-up for the same fixture, starting the pupil, so a read keyed by the fixture alone shows.
+            aufstellung_document(BENCHED, TEAM_B_OID, starters=[PUPIL_OID]),
+            aufstellung_document(UNNAMED, TEAM_A_OID, starters=[BYSTANDER_OID]),
+        ]
+    )
+
+
+def _read_after_seeding(email: str, *, path: str) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+        await _seed_the_season(database)
+        return await http.get(path, headers=_person(email))
+
+    return steps
+
+
+@pytest.mark.db
+class TestTheOwnSeasons:
+    def test_the_seasons_are_those_a_row_stands_in_the_newest_first_a_future_one_among_them(self, mongo_replica_set_url: str):
+        def saisons(email: str) -> list[str]:
+            response = served(mongo_replica_set_url, _read_after_seeding(email, path=SAISONS_PATH))
+            assert response.status_code == 200, response.text
+            return [saison["id"] for saison in response.json()["saisons"]]
+
+        # The past season's row is deregistered, and still a season the pupil played.
+        assert saisons(IDENTIFIER) == [ACTIVE_SAISON, PAST_SAISON]
+        assert saisons(YOUNG) == [FUTURE_SAISON]
+
+    @pytest.mark.parametrize("path", [SAISONS_PATH, _saison_path(ACTIVE_SAISON)], ids=["saisons", "saison"])
+    def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str, path: str):
+        response = served(mongo_replica_set_url, _read(NOBODY, path=path))
+
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
+
+
+@pytest.mark.db
+class TestTheOwnSeason:
+    def test_the_row_and_the_clubs_fixtures_each_with_where_its_line_up_puts_the_pupil(self, mongo_replica_set_url: str):
+        response = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(ACTIVE_SAISON)))
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["kader"]["team_name"], body["kader"]["nummer"], body["kader"]["rolle"]) == (ROW_NAME_A_ACTIVE, "07", "kapitaen")
+        assert [
+            (spiel["spiel_nr"], spiel["spieltag_position"], spiel["count_spieltage_in_phase"], spiel["starts"]) for spiel in body["spiele"]
+        ] == [
+            (1, 1, 2, True),
+            (2, 2, 2, False),
+            (3, 2, 2, None),
+            (4, 2, 2, None),
+        ]
+
+    def test_a_past_row_reads_its_seasons_name_and_a_season_without_one_reads_nothing(self, mongo_replica_set_url: str):
+        past = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(PAST_SAISON))).json()
+        unheld = served(mongo_replica_set_url, _read_after_seeding(BYSTANDER, path=_saison_path(PAST_SAISON))).json()
+
+        assert (past["kader"]["team_name"], past["kader"]["inactive_since"]) == (ROW_NAME_A_PAST, "2025-06-30")
+        assert (unheld["kader"], unheld["spiele"]) == (None, [])
 
 
 @pytest.mark.db

@@ -3,6 +3,8 @@ from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
+from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP
+from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -394,3 +396,135 @@ def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
 
 # The order the account read ranks an address's pupil rows in.
 SELF_PUPIL_ORDER: Final[Mapping[str, int]] = {"_id": 1}
+
+
+def build_self_saisons_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row with every season it holds a squad row in, the newest first, each with its span.
+
+    The consent block is read for the confirmation the caller judges, and no other field of the person.
+    """
+
+    return [
+        {"$match": build_self_pupil_filter(identifier)},
+        {"$project": {"einwilligung": 1}},
+        {
+            "$lookup": {
+                "from": Collection.SAISON_SPIELER,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                "pipeline": [{"$project": {"_id": 0, "saison_id": 1}}],
+                "as": "kader",
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SAISONS,
+                "localField": "kader.saison_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"start_date": 1, "end_date": 1}}, {"$sort": {"_id": -1}}],
+                "as": "saisons",
+            }
+        },
+        {"$project": {"einwilligung": 1, "saisons": 1}},
+    ]
+
+
+_AUFSTELLUNG_AS = "aufstellung"
+
+
+def _own_spiele_lookup(saison_id: str) -> Mapping[str, Any]:
+    """Run on the pupil's squad row: its club's fixtures of the season in the draw's order, each with its matchday and the pupil's `starts`.
+
+    `starts` is read off the club's own line-up, the one keyed by the squad row's club: true or false where it names
+    the pupil, null where it does not or none is stored.
+    """
+
+    # Both sides spelled out, never `$in` over an array of the two: a fixture's empty side leaves its path missing, and
+    # the club's id equals no missing value.
+    fields_the_club = {"$or": [{"$eq": ["$team1.team_id", "$$own_team_id"]}, {"$eq": ["$team2.team_id", "$$own_team_id"]}]}
+    own_entry = {
+        "$first": {
+            "$filter": {
+                "input": {"$ifNull": [{"$first": f"${_AUFSTELLUNG_AS}.spieler"}, []]},
+                "cond": {"$eq": ["$$this.spieler_id", "$$own_spieler_id"]},
+            }
+        }
+    }
+
+    return {
+        "$lookup": {
+            "from": Collection.SPIELE,
+            # Prefixed, so none of the fixture read's own lookups shadows them.
+            "let": {"own_team_id": "$team_id", "own_spieler_id": "$spieler_id"},
+            "pipeline": [
+                *build_spiele_pipeline(db_filter={"saison_id": saison_id, "$expr": fields_the_club}, sort_by=[("spiel_nr", 1)]),
+                SPIELTAG_POSITION_LOOKUP,
+                {
+                    "$lookup": {
+                        "from": Collection.AUFSTELLUNGEN,
+                        "localField": "_id",
+                        "foreignField": "spiel_id",
+                        "pipeline": [{"$match": {"$expr": {"$eq": ["$team_id", "$$own_team_id"]}}}, {"$project": {"_id": 0, "spieler": 1}}],
+                        "as": _AUFSTELLUNG_AS,
+                    }
+                },
+                # `$ifNull`, so an entry not found serves null rather than leaving the field out.
+                {"$set": {"starts": {"$let": {"vars": {"entry": own_entry}, "in": {"$ifNull": ["$$entry.starts", None]}}}}},
+                # The club's whole line-up names its other pupils, so it never leaves the read.
+                {"$unset": _AUFSTELLUNG_AS},
+            ],
+            "as": "spiele",
+        }
+    }
+
+
+def build_self_saison_pipeline(*, identifier: str, saison_id: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row with its squad row of one season, the name its club played the season under, and that club's fixtures.
+
+    `kader` holds that one row or none, `uniq_spieler_id_saison_id` allowing no second; its fixtures ride on it, so a
+    pupil holding no row of the season reads none. The consent block is read for the confirmation the caller judges.
+    """
+
+    return [
+        {"$match": build_self_pupil_filter(identifier)},
+        {"$project": {"einwilligung": 1}},
+        {
+            "$lookup": {
+                "from": Collection.SAISON_SPIELER,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                "pipeline": [
+                    {"$match": {"saison_id": saison_id}},
+                    {
+                        "$lookup": {
+                            "from": Collection.SAISON_TEAMS,
+                            "let": {"team_id": "$team_id"},
+                            "pipeline": [
+                                {"$match": {"saison_id": saison_id, "$expr": {"$eq": ["$team_id", "$$team_id"]}}},
+                                {"$project": {"_id": 0, "name": 1}},
+                            ],
+                            "as": "saison_team",
+                        }
+                    },
+                    _own_spiele_lookup(saison_id),
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "team_id": 1,
+                            # The season row's name, never the club's current one.
+                            "team_name": {"$first": "$saison_team.name"},
+                            "saison_id": 1,
+                            "nummer": 1,
+                            "position": 1,
+                            "stufe": 1,
+                            "rolle": 1,
+                            "is_nachnominiert": 1,
+                            "inactive_since": 1,
+                            "spiele": 1,
+                        }
+                    },
+                ],
+                "as": "kader",
+            }
+        },
+    ]
