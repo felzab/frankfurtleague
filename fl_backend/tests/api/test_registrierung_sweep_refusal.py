@@ -72,7 +72,7 @@ class TestTheDeadlineClock:
 
         assert not confirmation_erasure_is_due(registrierung_raw=stored, today=TODAY)
 
-    def test_a_declined_registration_is_the_one_month_clocks(self):
+    def test_a_declined_registration_is_the_decline_clocks(self):
         stored = registrierung(status="declined", confirmation=confirmation(deadline=YESTERDAY))
 
         assert not confirmation_erasure_is_due(registrierung_raw=stored, today=TODAY)

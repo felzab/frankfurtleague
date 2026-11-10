@@ -19,6 +19,7 @@ from app.api.registrierungen.services import (
     build_registrierungen_sort,
 )
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
+from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -44,7 +45,7 @@ OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
 
 
 async def pull_open_registrierungen(
-    *, registrierungen_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession
+    *, registrierungen_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession
 ) -> list[Mapping[str, Any]]:
     """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most."""
 
@@ -68,7 +69,7 @@ async def pull_open_registrierungen(
 
 
 async def persons_at(
-    *, spieler_collection: AsyncCollection, addresses: Sequence[str], session: AsyncClientSession | None
+    *, spieler_collection: ReadCollection, addresses: Sequence[str], session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The stored persons these folded addresses resolve to, one per address under `uniq_spieler_email`."""
 
@@ -83,7 +84,7 @@ async def persons_at(
 
 
 async def nummern_rows(
-    *, saison_spieler_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
+    *, saison_spieler_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The live squad's shirt numbers, a nominee's among them: the cap's filter leaves those out, and a nominee wears one too."""
 
@@ -95,7 +96,7 @@ async def nummern_rows(
 
 
 async def kader_rows_of(
-    *, saison_spieler_collection: AsyncCollection, saison_id: str, spieler_ids: Sequence[Any], session: AsyncClientSession | None
+    *, saison_spieler_collection: ReadCollection, saison_id: str, spieler_ids: Sequence[Any], session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """These persons' rows of one season, whichever team holds each: one per person under `uniq_spieler_id_saison_id`."""
 
