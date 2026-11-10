@@ -2,20 +2,19 @@ import { ROUTES } from "@/core/routes";
 
 import type { Role } from "@/core/roles";
 
-/** A team's area, the team and the season being its whole address. */
-function teamHref(teamId: string, saisonId: string): string {
-  return `/area/team/${teamId}/${saisonId}`;
-}
-
-/** The address one Funktion opens on. */
+/**
+ * The address one Funktion opens on, which is also the address every page of that place lies under: the account menu
+ * marks a place by it (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`). A team's is its Übersicht in one season,
+ * a seat being a season's; a pupil's and a referee's carry no season, the person holding them across every one.
+ */
 function roleHref(role: Role): string {
   switch (role.kind) {
     case "kontakt":
-      return teamHref(role.team_id, role.saison_id);
+      return ROUTES.teamOverview.path(role.team_id, role.saison_id);
     case "spieler":
-      return "/area/spieler";
+      return ROUTES.areaSpieler.path();
     case "schiedsrichter":
-      return "/area/schiedsrichter";
+      return ROUTES.areaSchiedsrichter.path();
     case "administration":
       return ROUTES.admin.path();
   }
