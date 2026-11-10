@@ -119,4 +119,18 @@ describe("a row's name cell", () => {
     expect(words.className.split(" ")).not.toContain("truncate");
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });
+
+  // The harm: a phone row loses a player's position and Stufe, which only its desktop columns hold, or a desktop row
+  // says them twice, in the line and in the columns.
+  it("sets a phone's line under the name and leaves it out from `lg`, where the columns say it", () => {
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Lea Bauer" }, phoneLine: { record: "Abwehr · Q2" }, cells: {} }])}
+        columns={[{ key: "position", label: COPY.admin.spieler.position, hideOnPhone: true }]}
+      />,
+    );
+    const line = screen.getByText("Lea Bauer").parentElement?.nextElementSibling;
+    expect(line?.textContent).toBe("Abwehr · Q2");
+    expect(line?.className.split(" ")).toContain("lg:hidden");
+  });
 });
