@@ -36,7 +36,7 @@ export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ..
  * column, where a section's box around it would stand as a box in a box. It says its own state on its own lines; a
  * closed editor's reason stands under the first section's title.
  */
-export type EditorBlock = { id: string; block: ReactElement };
+type EditorBlock = { id: string; block: ReactElement };
 
 type EditorPart = EditorSection | EditorBlock;
 

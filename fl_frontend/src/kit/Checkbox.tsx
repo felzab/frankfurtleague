@@ -90,6 +90,7 @@ const tick = tv({
  * A yes or no standing alone in a column whose head says what it is, such as „Startelf“ in a line-up's table: the
  * drawn box with no words beside it. `aria-labelledby` names it for assistive technology by the ids of the column's
  * head and of its row's name, in that order (React Aria's Checkbox page, API, `CheckboxField`).
+ * @awaitsProduction the team's line-up page
  */
 export function Tick({
   isSelected,

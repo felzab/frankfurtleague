@@ -20,7 +20,7 @@ async function EditorBody({ editor }: { editor: Promise<ReactNode> }) {
 /**
  * What an editor is before its record is read: the Vorschau's line under the title where the editor has one, every
  * section it renders in their order, each its rows as the editor lays them out, with `note` where a state of the record
- * stands one under its title, a part drawing its own boxes (`EditorPage`'s `EditorBlock`) as `block`, that part's own
+ * stands one under its title, a part drawing its own boxes (`EditorPage`'s `{ id, block }`) as `block`, that part's own
  * placeholder set bare as the part is, and `danger`, the rows of its danger box, where it has one. The page states it
  * beside the editor it reads, each section in its taller state, since a rail page's wait must never stand shorter than
  * the page.
