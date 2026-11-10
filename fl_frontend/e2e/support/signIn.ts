@@ -62,9 +62,9 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
 }
 
 /**
- * Where a journey's own person lands once signed in: each is a confirmed referee no fixture books
- * (`scripts/ops/seed/seed.js :: journeyPerson`), so their one place is the referee's
- * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose address stays put for a referee in no season.
+ * Where a person `scripts/ops/seed/seed.js :: journeyPerson` built lands once signed in: a confirmed referee no fixture
+ * books, so their one place is the referee's (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose
+ * address stays put for a referee in no season.
  */
 export const PERSON_LANDING = "/area/schiedsrichter";
 
@@ -77,13 +77,14 @@ export const ADMINISTRATION_LANDING = "/admin/saisons/2027";
 
 /**
  * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the
- * landing's rule sends this person to. The press's navigation may pass through `/area` on its way there, and an
+ * landing's rule sends this person to, or a pattern of it where the pathname holds a record's id the seed mints anew on
+ * every run, as a team's Übersicht does. The press's navigation may pass through `/area` on its way there, and an
  * address asked for before it arrives aborts one of the two, so a journey goes on from here alone.
  */
-export async function declinePasskeyOffer(page: Page, landing: string): Promise<void> {
+export async function declinePasskeyOffer(page: Page, landing: string | RegExp): Promise<void> {
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === landing);
+  await expect(page).toHaveURL((url) => (typeof landing === "string" ? url.pathname === landing : landing.test(url.pathname)));
 }
 
 /**
