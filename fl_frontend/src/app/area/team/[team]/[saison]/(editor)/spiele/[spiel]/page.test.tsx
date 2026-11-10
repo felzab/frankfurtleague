@@ -31,6 +31,7 @@ doubleApiClient((): FLAufstellungResponse => ({
   kader: [],
   named: [],
   spieler: [],
+  erased: [],
   version: null,
   marks: state.marks,
 }));
