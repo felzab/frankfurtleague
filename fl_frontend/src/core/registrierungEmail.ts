@@ -73,7 +73,10 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reas
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reason }: FLRegistrierungAbsageData, { origin }: MailOrigin): Mail {
+export function buildRegistrierungAbsageEmail(
+  { team, saison_id: saisonId, reason, deletion_days: deletionDays }: FLRegistrierungAbsageData,
+  { origin }: MailOrigin,
+): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -83,7 +86,7 @@ export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reaso
     paragraphs: [
       [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
       ABSAGE_WEITER[reason ?? "none"],
-      ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],
+      [WORDS.absage.deletion(deletionDays)],
     ],
     // The league's landing: no record is left to press on.
     button: { label: COPY.shared.end.toHome, href: site },
