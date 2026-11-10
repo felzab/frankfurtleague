@@ -17,8 +17,6 @@ import type { PersonKind } from "./queries";
  * The signed-in person a page at `path` under `/area` is drawn for, or a redirect to sign in carrying `path` back, as
  * the proxy's turn-away does. A page's alone, thrown inside its read: a frame reads `getSubjectSession` and draws no
  * account for `null`, since a redirect thrown in a frame unmounts it whole.
- * @awaitsPage the role chooser's page
- * @awaitsProduction the role chooser's page
  */
 export async function requireSubjectSession(path: string): Promise<SubjectSession> {
   const subject = await getSubjectSession();
@@ -42,9 +40,7 @@ export async function requireRole(kind: PersonKind, path: string): Promise<Subje
 /** One contact seat a person holds, the only Funktion a team's pages answer to. */
 export type TeamSeat = Extract<Role, { kind: "kontakt" }>;
 
-/**
- * Every seat a person holds at one team page's address, at least one.
- */
+/** Every seat a person holds at one team page's address, at least one. */
 export type TeamSeats = readonly [TeamSeat, ...TeamSeat[]];
 
 /** A team page's own address, built from its route's segments as its folders name them, `[team]/[saison]` first. */
