@@ -53,8 +53,9 @@ BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays]
 # than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
 
-# A declined application or registration goes as an unconfirmed one does: the privacy notice states one figure for both.
-# Published as `ADDRESS_CHANGE_BOUNDS` are: the registration's decline mail states it, checked against this alias.
+# A declined application or registration goes as an unconfirmed one does, which the check beside
+# `REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS` holds. Published as `ADDRESS_CHANGE_BOUNDS` are: the registration's decline
+# mail and the privacy notice state it, each checked against this alias.
 type FLDeclinedRetentionDays = Literal[14]
 DECLINED_RETENTION_DAYS: Final[FLDeclinedRetentionDays] = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 
@@ -248,6 +249,12 @@ SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
 # moves no link already mailed. Published, since the confirmation mail states the figure.
 type FLRegistrierungConfirmationDeadlineDays = Literal[14]
 REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLRegistrierungConfirmationDeadlineDays] = 14
+
+# The privacy notice states one figure for an unconfirmed and a declined application's contacts, and one for an
+# unconfirmed and a declined registration, each confirmation window standing for its declined row's wait: a window moved
+# alone would leave the notice stating a wait the sweep no longer keeps.
+if not DECLINED_RETENTION_DAYS == BEWERBUNG_CONFIRMATION_DEADLINE_DAYS == REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS:
+    raise RuntimeError("A declined row goes as an unconfirmed one does: move both confirmation windows and the declined wait together.")
 
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
