@@ -7,7 +7,7 @@ import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
-import { dayOf, formatDate } from "@/core/format";
+import { dayOf, formatDate, formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
@@ -68,6 +68,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
       fact(COPY.shared.facts.school, row.schule),
       fact(COPY.signIn.address, row.kontakt.email),
       fact(COPY.shared.facts.phone, row.kontakt.phone),
+      fact(COPY.admin.payment, formatEuro(row.default_payment)),
     ],
     save: { kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id },
     scope: row.einwilligung.scope,
