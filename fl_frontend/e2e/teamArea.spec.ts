@@ -55,7 +55,10 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
 
   // „Zusagen“ acts at once: its toast, and the answered date leaves the box. A card row carries no role, so the row is
   // the kit's marked one holding the fixture's link.
-  await termine.locator("[data-kit-row]").filter({ has: fixtureLink }).getByRole("button", { name: "Zusagen" }).click();
+  const agree = termine.locator("[data-kit-row]").filter({ has: fixtureLink }).getByRole("button", { name: "Zusagen" });
+  // Every row's „Zusagen“ reads alike, so a screen reader hears whose it is from the row's name alone.
+  await expect(agree).toHaveAccessibleDescription(fixture);
+  await agree.click();
   await expect(toast(page, "Zugesagt")).toBeVisible();
   await expect(termine.getByRole("link", { name: fixture, exact: true })).toHaveCount(0);
 
