@@ -7,7 +7,7 @@ import { spieltagLabel } from "@/features/spieltage/utils";
 
 import { isNoShow } from "./result";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { Pair } from "@/core/format";
 import type {
   FLSonderereignis,
@@ -19,6 +19,7 @@ import type {
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
+import type { PageTitle } from "@/kit/RailFrame";
 import type { SpielHeadProps } from "@/kit/SpielHead";
 import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 import type { Outcome } from "@/kit/Timeline";
@@ -92,6 +93,22 @@ function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | nul
     ? { name: COPY.spielplan.quelle.open, plaque: { quelle: null } }
     : { name: words.long, plaque: { quelle: words.short } };
 }
+
+/**
+ * A side as a page names it where a read serves its club's name alone: the club, or „Noch offen“ while the draw has
+ * not settled it, the word a list's row gives a side with no source to name.
+ */
+export const sideName = (name: string | null): Words => (name === null ? COPY.spielplan.quelle.open : { record: name });
+
+/** A match by its two sides, as every page about one match is titled, its tab and a row leading to it alike. */
+export const matchName = (team1: string | null, team2: string | null): Copy => COPY.page.spiel(sideName(team1), sideName(team2));
+
+/** The strip's title of a page about one match, named as `matchName` names it. */
+export const matchTitle = (team1: string | null, team2: string | null): PageTitle => ({
+  route: "spiel",
+  team1: sideName(team1),
+  team2: sideName(team2),
+});
 
 /** The match's two sides, the first-listed side first. */
 export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {

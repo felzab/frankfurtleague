@@ -6,6 +6,7 @@ import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
+import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -47,10 +48,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamOverview, address(await params)));
 }
 
-/** A fixture by its two clubs, as the administration's rows name it. */
-const nameOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Copy =>
-  COPY.page.spiel({ record: ansetzung.team1_name }, { record: ansetzung.team2_name });
-
 /** A stored day and hour as a match row writes them. */
 const whenOf = ({ date, time }: FLSpielbestaetigungAppointment): Copy => COPY.spielplan.when(dayOf(date), timeOf(time));
 
@@ -72,7 +69,11 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
   const { ansetzung } = row;
   const when = whenOf(ansetzung);
   const deadline = dayOf(row.deadline);
-  const base = { id: row.spielbestaetigung_id, href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id), name: nameOf(ansetzung) };
+  const base = {
+    id: row.spielbestaetigung_id,
+    href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
+    name: matchName(ansetzung.team1_name, ansetzung.team2_name),
+  };
   switch (row.state) {
     case "valid":
     case "vorschlag": {
@@ -115,7 +116,7 @@ function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: strin
   return {
     id: row.spiel_id,
     href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
-    name: nameOf(row.ansetzung),
+    name: matchName(row.ansetzung.team1_name, row.ansetzung.team2_name),
     ...(row.marks.phase === "locked" ? { chip: { tone: "neutral" as const, label: TEAM.aufstellung.locked } } : {}),
     line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? TEAM.aufstellung.dueBy(due) : TEAM.aufstellung.overdueSince(due)]),
   };

@@ -20,6 +20,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { requireRole } from "@/features/roles/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
+import { matchName, matchTitle } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -28,7 +29,7 @@ import { Card, Goal } from "./berichtRules";
 import { valuesOf } from "./berichtValues";
 import { saveBericht } from "./saveBericht";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { FLSpielberichtSchiedsrichterResponse, FLSpielberichtSpieler, FLSpielSide } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
@@ -76,23 +77,14 @@ const findIn = async (params: Props["params"]) => {
   return find(saison, spiel);
 };
 
-/** A side by its club's name, and by its place while the knockout slot is open. */
-const nameOf = (read: FLSpielberichtSchiedsrichterResponse, side: FLSpielSide): Words => {
-  const team = read.spiel[side];
-  return team === null ? COPY.admin.spiel[side] : { record: team.name };
-};
-
 /** The match by its two teams, as its own page is titled. */
-const titleOf = (read: FLSpielberichtSchiedsrichterResponse): PageTitle => ({
-  route: "spiel",
-  team1: nameOf(read, "team1"),
-  team2: nameOf(read, "team2"),
-});
+const titleOf = ({ spiel }: FLSpielberichtSchiedsrichterResponse): PageTitle =>
+  matchTitle(spiel.team1?.name ?? null, spiel.team2?.name ?? null);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findIn(params), async (found) =>
     pageMetadata(parent, ROUTES.schiedsrichterSpielbericht, address(await params), {
-      title: found === "unbooked" ? COPY.admin.spiel.spielbericht : ROUTES.spiel.title(nameOf(found, "team1"), nameOf(found, "team2")),
+      title: found === "unbooked" ? COPY.admin.spiel.spielbericht : matchName(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null),
     }),
   );
 }
@@ -194,9 +186,10 @@ async function readPage(params: Props["params"]) {
     if (day > dayIn(now())) return card(title, "info", SERVER_COPY.area.schiedsrichter.spielberichtFrom(day), saison);
   }
 
+  // The form tells its two sides apart, so a side the knockout has not settled goes by its place, never „Noch offen“ twice.
   const sideOf = (side: FLSpielSide) => {
     const team = found.spiel[side];
-    return { name: nameOf(found, side), plaque: team === null ? null : { record: team.shorthand } };
+    return team === null ? { name: COPY.admin.spiel[side], plaque: null } : { name: { record: team.name }, plaque: { record: team.shorthand } };
   };
 
   return (

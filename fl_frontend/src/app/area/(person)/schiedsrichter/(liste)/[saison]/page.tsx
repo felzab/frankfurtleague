@@ -16,6 +16,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getOwnSaisons } from "@/features/roles/queries";
 import { requireRole } from "@/features/roles/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
+import { matchName } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -48,13 +49,6 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   const { saison } = await params;
   return metadataFor(spieleOf(saison), () => pageMetadata(parent, ROUTES.schiedsrichterOverview, ROUTES.schiedsrichterOverview.path(saison)));
 }
-
-/** A game by its two clubs, a side the draw has not settled yet as such. */
-const nameOf = ({ team1_name: team1, team2_name: team2 }: FLSchiedsrichterSpiel) =>
-  COPY.page.spiel(
-    team1 === null ? COPY.spielplan.quelle.open : { record: team1 },
-    team2 === null ? COPY.spielplan.quelle.open : { record: team2 },
-  );
 
 /** What a row says of where the game stands for the referee: its chip, and what its line adds after the slot and ground. */
 type Standing = { chip?: ChipProps; adds?: Words; open?: true };
@@ -101,7 +95,7 @@ function ReasonField() {
 /** One game's row: it opens the game's match report, and a booking still to answer carries the two answers. */
 function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string } {
   const { chip, adds, open } = standingOf(spiel);
-  const name = nameOf(spiel);
+  const name = matchName(spiel.team1_name, spiel.team2_name);
   const id = spiel.spielbestaetigung_id;
   return {
     id: spiel.spiel_id,

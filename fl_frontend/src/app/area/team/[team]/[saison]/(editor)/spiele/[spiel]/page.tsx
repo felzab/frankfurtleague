@@ -11,7 +11,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { matchdayOf } from "@/features/spiele/blocks";
+import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -19,10 +19,9 @@ import { objectIdParamOf } from "@/shared/utils/routeParams";
 import { LockedLineup } from "./lockedView";
 import { TeamAufstellung } from "./TeamAufstellung";
 
-import type { Copy, Words } from "@/core/copy";
-import type { FLAufstellungResponse, FLAufstellungSpiel } from "@/core/generated/client/types";
+import type { Copy } from "@/core/copy";
+import type { FLAufstellungResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
-import type { PageTitle } from "@/kit/RailFrame";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele/[spiel]">;
@@ -43,16 +42,11 @@ async function lineupAt(params: Props["params"], team: string, saison: string): 
   return found === null || found.spiel.saison_id !== saison ? null : found;
 }
 
-/** A side as the title names it: its club, or, while the draw has not settled it, that it is still open. */
-const sideOf = (team: FLAufstellungSpiel["team1"]): Words => (team === null ? COPY.spielplan.quelle.open : { record: team.name });
-
-const titleOf = ({ team1, team2 }: FLAufstellungSpiel): PageTitle => ({ route: "spiel", team1: sideOf(team1), team2: sideOf(team2) });
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return teamMetadata(params, address, ([seat]) =>
     metadataFor(lineupAt(params, seat.team_id, seat.saison_id), async ({ spiel }) =>
       pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
-        title: COPY.page.spiel(sideOf(spiel.team1), sideOf(spiel.team2)),
+        title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
       }),
     ),
   );
@@ -91,7 +85,7 @@ async function readEditor(params: Props["params"]) {
   const found = await readAsSeatHolder(() => lineupAt(params, seat.team_id, seat.saison_id));
   if (found === null) notFound();
 
-  const title = titleOf(found.spiel);
+  const title = matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null);
   if (found.marks?.phase === "locked") {
     return (
       <LockedLineup
