@@ -3085,6 +3085,7 @@ export interface FLOpenRegistrierung {
   admissible: boolean;
   /** @minLength 1 */
   first_name: string;
+  kader_full: boolean;
   /** @minLength 1 */
   last_name: string;
   nummer: string | null;
@@ -3266,6 +3267,7 @@ export interface FLRegistrierungLinkData {
  * A team's decline, to a pupil whose address was confirmed.
  */
 export interface FLRegistrierungAbsageData {
+  deletion_days: number;
   kind: "registrierung_absage";
   reason: "other_person" | null;
   saison_id: string;
