@@ -6209,7 +6209,7 @@ export const Rule = {
   email_not_accepted: "email_not_accepted",
   good_spieler_exceed_kader: "good_spieler_exceed_kader",
   grant_wording_stale: "grant_wording_stale",
-  nichtantreten_with_tore: "nichtantreten_with_tore",
+  nichtantreten_with_elfmeterschiessen: "nichtantreten_with_elfmeterschiessen",
   nichtantreten_with_scorers: "nichtantreten_with_scorers",
   registrierung_window_reaches_saison_start: "registrierung_window_reaches_saison_start",
   saison_ends_before_start: "saison_ends_before_start",
