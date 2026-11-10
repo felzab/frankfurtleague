@@ -2341,9 +2341,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 zod.null(),
               ]),
             })
-            .describe(
-              "One card: who was shown it, when, and its colour.\n\nA null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad\nstill takes cards.",
-            ),
+            .describe("One card as the referee's save sends it: a key the card does not declare is refused, never dropped."),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax),
       ergebnis_vorschlag: zod
@@ -2354,7 +2352,9 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 team1: zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min),
                 team2: zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min),
               })
-              .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+              .describe(
+                "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+              ),
             zod.null(),
           ]),
           sonderereignis: zod.union([zod.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]), zod.null()]),
@@ -2373,9 +2373,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 zod.null(),
               ]),
             })
-            .describe(
-              "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
-            ),
+            .describe("One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped."),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax),
     }),
@@ -2741,7 +2739,9 @@ export const SpielePatchSpielBody = zod.object({
         team1: zod.int().min(spielePatchSpielBodyElfmeterschiessenOneTeam1Min),
         team2: zod.int().min(spielePatchSpielBodyElfmeterschiessenOneTeam2Min),
       })
-      .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+      .describe(
+        "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+      ),
     zod.null(),
   ]),
   note: zod.union([zod.string().max(spielePatchSpielBodyNoteOneMax), zod.null()]),

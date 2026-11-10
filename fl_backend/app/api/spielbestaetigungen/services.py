@@ -32,6 +32,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY,
     FLPatchSpielDataPayload,
     FLSpiel,
+    FLSpielElfmeterschiessenPayload,
     FLSpielortFieldPayload,
     FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPayload,
@@ -388,7 +389,9 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment)
         team2=None if stored.team2 is None else FLSpielTeamFieldPayload(team_id=stored.team2.team_id, tore=stored.team2.tore),
         team1_quelle=stored.team1_quelle,
         team2_quelle=stored.team2_quelle,
-        elfmeterschiessen=stored.elfmeterschiessen,
+        elfmeterschiessen=None
+        if stored.elfmeterschiessen is None
+        else FLSpielElfmeterschiessenPayload(team1=stored.elfmeterschiessen.team1, team2=stored.elfmeterschiessen.team2),
         date=vorschlag.date,
         time=vorschlag.time,
         spielort=None

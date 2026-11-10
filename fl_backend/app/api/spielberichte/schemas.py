@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielortFieldPublic
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielElfmeterschiessenPayload, FLSpielortFieldPublic
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
@@ -75,6 +75,18 @@ class FLSpielberichtCard(BaseModel):
     colour: FLCardColour
 
 
+class FLSpielberichtScorerPayload(FLSpielberichtScorer):
+    """One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class FLSpielberichtCardPayload(FLSpielberichtCard):
+    """One card as the referee's save sends it: a key the card does not declare is refused, never dropped."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class FLSpielberichtSides(BaseModel):
     """The clubs the fixture fielded at the block's last write, null on a slot then open.
 
@@ -121,7 +133,7 @@ class FLSpielberichtVorschlagPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # Both required as KEYS and null where unused: an omitted key would read as a form that forgot it.
-    elfmeterschiessen: FLSpielElfmeterschiessen | None
+    elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
     sonderereignis: FLSpielberichtSonderereignis | None
 
 
@@ -129,8 +141,9 @@ class FLSpielberichtBerichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ergebnis_vorschlag: FLSpielberichtVorschlagPayload
-    scorers: Annotated[list[FLSpielberichtScorer], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
-    cards: Annotated[list[FLSpielberichtCard], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    # The payload's own item models: a model's `extra` reaches none nested in it, and the stored ones stay lenient.
+    scorers: Annotated[list[FLSpielberichtScorerPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    cards: Annotated[list[FLSpielberichtCardPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     remarks: Annotated[CustomSpielberichtRemarks | None, BeforeValidator(parse_empty_string_to_none)]
 
     def proposed(self) -> FLSpielberichtVorschlag:

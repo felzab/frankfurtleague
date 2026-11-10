@@ -3833,6 +3833,19 @@ export interface FLPatchSchiedsrichterResponse {
 }
 
 /**
+ * A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.
+ *
+ * Its own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the
+ * documents it reads.
+ */
+export interface FLSpielElfmeterschiessenPayload {
+  /** @minimum 0 */
+  team1: number;
+  /** @minimum 0 */
+  team2: number;
+}
+
+/**
  * The referee as the save sends it: who, and what this fixture pays them.
  */
 export interface FLSpielSchiedsrichterFieldPayload {
@@ -3878,7 +3891,7 @@ export interface FLSpielVoidedResult {
 
 export interface FLPatchSpielDataPayload {
   date: string | null;
-  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  elfmeterschiessen: FLSpielElfmeterschiessenPayload | null;
   note: string | null;
   schiedsrichter: FLSpielSchiedsrichterFieldPayload | null;
   sonderereignis: FLSonderereignis | null;
@@ -5044,6 +5057,17 @@ export interface FLSpielberichtBericht {
   submitted_at: string;
 }
 
+/**
+ * One card as the referee's save sends it: a key the card does not declare is refused, never dropped.
+ */
+export interface FLSpielberichtCardPayload {
+  colour: FLCardColour;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  side: FLSpielSide;
+  spieler_id: string | null;
+}
+
 export type FLSpielberichtVorschlagPayloadSonderereignis =
   (typeof FLSpielberichtVorschlagPayloadSonderereignis)[keyof typeof FLSpielberichtVorschlagPayloadSonderereignis] | null;
 
@@ -5057,17 +5081,28 @@ export const FLSpielberichtVorschlagPayloadSonderereignis = {
  * What the referee proposes beside the goals: a shoot-out, or the event the match ended in.
  */
 export interface FLSpielberichtVorschlagPayload {
-  elfmeterschiessen: FLSpielElfmeterschiessen | null;
+  elfmeterschiessen: FLSpielElfmeterschiessenPayload | null;
   sonderereignis: FLSpielberichtVorschlagPayloadSonderereignis;
+}
+
+/**
+ * One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped.
+ */
+export interface FLSpielberichtScorerPayload {
+  eigentor: boolean;
+  /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
+  minute: string;
+  side: FLSpielSide;
+  spieler_id: string | null;
 }
 
 export interface FLSpielberichtBerichtPayload {
   /** @maxItems 60 */
-  cards: FLSpielberichtCard[];
+  cards: FLSpielberichtCardPayload[];
   ergebnis_vorschlag: FLSpielberichtVorschlagPayload;
   remarks: string | null;
   /** @maxItems 60 */
-  scorers: FLSpielberichtScorer[];
+  scorers: FLSpielberichtScorerPayload[];
 }
 
 /**
