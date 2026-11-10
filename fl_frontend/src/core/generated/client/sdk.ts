@@ -143,14 +143,12 @@ import type {
   FLSchiedsrichterListResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterSpieleResponse,
   FLSchiedsrichterSweepResponse,
   FLSeatEinwilligungPayload,
   FLSignInResponse,
   FLSpielberichteSaisonResponse,
-  FLSpielberichteSelfResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
   FLSpielbestaetigungAnswerResponse,
@@ -3049,26 +3047,6 @@ export const schiedsrichterGetConfirmationView = async (
   });
 };
 
-export const getSchiedsrichterGetSelfUrl = () => {
-  return `/api/v0/schiedsrichter/self`;
-};
-
-/**
- * Answer every confirmed referee record the signed-in address holds, with its stored contact details.
- *
- * PERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired
- * record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
- *
- * Refuses an address holding no confirmed referee record (`role_not_held`).
- * @summary A signed-in referee's own records
- */
-export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelfResponse> => {
-  return adminKeyTransport<FLSchiedsrichterSelfResponse>(getSchiedsrichterGetSelfUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSchiedsrichterGetSelfSaisonsUrl = () => {
   return `/api/v0/schiedsrichter/self/saisons`;
 };
@@ -3312,29 +3290,6 @@ export const spielberichteGetSpielberichte = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielberichteSaisonResponse> => {
   return adminKeyTransport<FLSpielberichteSaisonResponse>(getSpielberichteGetSpielberichteUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielberichteGetSelfUrl = () => {
-  return `/api/v0/spielberichte/self`;
-};
-
-/**
- * The `active` season's fixtures booked to the signed-in referee whose day has come, newest first.
- *
- * Booked to any confirmed, live referee record of the address, each with when its report was first sent, null where
- * none stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is
- * `active`.
- *
- * `earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest
- * first, one whose date was cleared after its report last with a null `date`: its page shows the report read-only.
- * Refused `role_not_held` where the address holds no confirmed, live referee record.
- * @summary The fixtures a signed-in referee reports on
- */
-export const spielberichteGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichteSelfResponse> => {
-  return adminKeyTransport<FLSpielberichteSelfResponse>(getSpielberichteGetSelfUrl(), {
     ...options,
     method: "GET",
   });

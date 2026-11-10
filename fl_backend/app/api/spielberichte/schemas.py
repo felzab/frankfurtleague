@@ -238,30 +238,6 @@ class FLSpielberichtSchiedsrichterResponse(_SpielberichtView):
     completed: bool
 
 
-class FLSpielberichtPersonEntry(BaseModel):
-    """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
-
-    spiel_id: CustomObjectId
-    date: CustomDateString
-    time: CustomTimeString | None
-    team1_name: str | None
-    team2_name: str | None
-    submitted_at: FLUtcInstant | None
-
-
-class FLSpielberichtPersonEarlierEntry(FLSpielberichtPersonEntry):
-    """One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."""
-
-    date: CustomDateString | None
-
-
-class FLSpielberichteSelfResponse(BaseAPIResponse):
-    """`spiele` of the running season, which the referee reports on; `earlier` of ended ones, each holding a report they only read."""
-
-    spiele: list[FLSpielberichtPersonEntry]
-    earlier: list[FLSpielberichtPersonEarlierEntry]
-
-
 class FLSpielberichtStateEntry(BaseModel):
     """One fixture's report as the triage reads it: its state and what it proposes."""
 

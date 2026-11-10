@@ -56,8 +56,6 @@ DATABASE_NAME = worker_database("fl_account_einwilligung_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/schiedsrichter/self"
-
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # The folded form a signed-in person is bound under, which every record stores.
@@ -276,34 +274,15 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
 
 
 @pytest.mark.db
-class TestTheOwnRecords:
-    def test_the_address_is_answered_its_own_record_whatever_case_it_is_asked_in(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            own = await http.get(PATH, headers=_person(IDENTIFIER.upper()))
-            account = await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER.upper()))
-            return own, account
+def test_a_referees_entry_serves_their_fee_and_never_the_links_bookkeeping(mongo_replica_set_url: str):
+    async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
+        return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
 
-        response, account = served(mongo_replica_set_url, steps)
+    response = served(mongo_replica_set_url, steps)
 
-        assert response.status_code == 200, response.text
-        [record] = response.json()["schiedsrichter"]
-        assert (record["schiedsrichter_id"], record["name"], record["kontakt"]["email"]) == (
-            str(REFEREE_OID),
-            "Ortrud Zwiebelmayer",
-            REFEREE_STORED,
-        )
-        # The fee is the referee's own; the link's bookkeeping never is, nor the consent, which is the account page's.
-        assert (record["default_payment"], "confirmation" in record, "einwilligung" in record) == (20, False, False)
-        [entry] = account.json()["schiedsrichter"]
-        assert (entry["schiedsrichter_id"], entry["givable"], entry["media_offered"]) == (str(REFEREE_OID), True, True)
-
-    def test_a_record_awaiting_its_confirmation_is_refused(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-            return await http.get(PATH, headers=_person(UNCONFIRMED))
-
-        response = served(mongo_replica_set_url, steps)
-
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
+    assert response.status_code == 200, response.text
+    [entry] = response.json()["schiedsrichter"]
+    assert (entry["schiedsrichter_id"], entry["default_payment"], "confirmation" in entry) == (str(REFEREE_OID), 20, False)
 
 
 @pytest.mark.db

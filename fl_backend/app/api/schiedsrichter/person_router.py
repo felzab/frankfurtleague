@@ -8,7 +8,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.crud import press_einwilligung
 from app.api.account.services import (
     compose_person_move,
-    compose_schiedsrichter_self,
     find_own_entry_refusal,
     withdrawal_line,
 )
@@ -16,11 +15,10 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
 from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter
-from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfResponse, FLSchiedsrichterSpieleResponse
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSpieleResponse
 from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FIELD,
     build_self_referee_filter,
-    build_self_referee_pipeline,
     build_self_saisons_pipeline,
     build_self_spiele_pipeline,
     compose_self_spiel,
@@ -50,24 +48,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
-
-
-@router.get("/self", response_model=FLSchiedsrichterSelfResponse, summary="A signed-in referee's own records")
-async def get_self(identifier: PersonIdentifier, schiedsrichter_collection: SchiedsrichterCollection) -> FLSchiedsrichterSelfResponse:
-    """
-    Answer every confirmed referee record the signed-in address holds, with its stored contact details.
-
-    PERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired
-    record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
-
-    Refuses an address holding no confirmed referee record (`role_not_held`).
-    """
-
-    rows = await aggregate_many_from_db(collection=schiedsrichter_collection, pipeline=build_self_referee_pipeline(identifier))
-    eigene = [row for row in rows if is_own_schiedsrichter(row, identifier)]
-    refuse(find_own_entry_refusal(held=bool(eigene)))
-
-    return FLSchiedsrichterSelfResponse.model_validate({"schiedsrichter": [compose_schiedsrichter_self(row) for row in eigene]})
 
 
 @router.patch(

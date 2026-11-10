@@ -85,14 +85,6 @@ async def pull_bericht_context(
     return BerichtContext(spiel=spiel, kader=kader, saison_status=None if saison is None else saison.get("status"))
 
 
-async def pull_ended_saison_ids(*, saisons_collection: AsyncCollection, session: AsyncClientSession | None) -> list[str]:
-    """Every ended season, by the status `app/api/spielberichte/services.py :: is_concluded` reads, under `session`."""
-
-    saisons = await pull_many_from_db(collection=saisons_collection, db_filter={"status": "past"}, projection=["_id"], session=session)
-
-    return [str(saison["_id"]) for saison in saisons]
-
-
 async def pull_named(
     *,
     spieler_collection: AsyncCollection,

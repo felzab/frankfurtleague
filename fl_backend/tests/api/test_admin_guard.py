@@ -170,7 +170,6 @@ ADMIN_READS = [
     # A person's own records: a birthdate and a consent record, and on a referee's the contact
     # details (`READ-CONTACT-001`), each served to that person alone.
     ("/api/v0/spieler/self", "get"),
-    ("/api/v0/schiedsrichter/self", "get"),
     ("/api/v0/account/einwilligungen", "get"),
     # A report's remarks and card reasons, which only the booked referee reads; the squads beside them carry every
     # surname whole.
@@ -245,7 +244,6 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/spieler/self/saisons", "get"),
         ("/api/v0/spieler/self/{saison_id}", "get"),
         ("/api/v0/spieler/account/einwilligung", "patch"),
-        ("/api/v0/schiedsrichter/self", "get"),
         ("/api/v0/schiedsrichter/self/saisons", "get"),
         ("/api/v0/schiedsrichter/self/spiele/{saison_id}", "get"),
         ("/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung", "patch"),
@@ -258,7 +256,6 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/spielbestaetigungen/self", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer", "post"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team", "post"),
-        ("/api/v0/spielberichte/self", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
         ("/api/v0/account/address_change", "get"),

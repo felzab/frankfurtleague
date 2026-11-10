@@ -503,20 +503,7 @@ def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) 
     }
 
 
-# An INCLUSION, for `CONFIRMATION_VIEW_FIELDS`' reason: the link's hash stays off a person-tier read.
-# The fee is the referee's own data, which the confirmation page says they can always see.
-SELF_FIELDS: Mapping[str, int] = {
-    "name": 1,
-    "schule": 1,
-    "kontakt": 1,
-    "birth_date": 1,
-    "default_payment": 1,
-    "inactive_since": 1,
-    EINWILLIGUNG_FIELD: 1,
-}
-
-
-# The order a person's own pages list their referee rows in, which the account read ranks them by too.
+# The order the account read ranks a person's referee rows in.
 SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
 
 
@@ -680,12 +667,3 @@ def order_self_spiele(spiele: Sequence[FLSchiedsrichterSpiel]) -> list[FLSchieds
         *sorted((spiel for spiel in rest if not spiel.past), key=_by_day),
         *sorted((spiel for spiel in rest if spiel.past), key=_by_day, reverse=True),
     ]
-
-
-def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: is_own_schiedsrichter`.
-
-    Unbounded: a capped list reads as a person holding fewer records.
-    """
-
-    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELF_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]
