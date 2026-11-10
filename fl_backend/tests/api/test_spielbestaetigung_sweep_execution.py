@@ -1,7 +1,7 @@
 import dataclasses
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, cast
 from zoneinfo import ZoneInfo
 
@@ -291,6 +291,14 @@ class RefereeNotice:
     asked_again: bool | None = None
 
 
+@dataclasses.dataclass(frozen=True)
+class LineupReminder:
+    spiel_id: str
+    team: str
+    address: str
+    due_at: datetime
+
+
 @dataclasses.dataclass
 class Pass:
     """One pass's counted answer, and every mail owed since the last drain, handed out as the frontend's drain hands it."""
@@ -305,6 +313,7 @@ class Pass:
     spiel_cancelled: list[TeamNotice] = dataclasses.field(default_factory=list)
     schiedsrichter_spiel_cancelled: list[RefereeNotice] = dataclasses.field(default_factory=list)
     vorschlag_discarded: list[TeamNotice] = dataclasses.field(default_factory=list)
+    aufstellungen: list[LineupReminder] = dataclasses.field(default_factory=list)
 
     @property
     def closed(self) -> int:
@@ -316,7 +325,12 @@ class Pass:
 
 
 async def handed_out(
-    database: AsyncDatabase, client: AsyncMongoClient, answer: FLSpielbestaetigungSweepResponse, *, kontakt_links: int = 0
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    answer: FLSpielbestaetigungSweepResponse,
+    *,
+    kontakt_links: int = 0,
+    now: datetime = MAIL_NOW,
 ) -> Pass:
     """Drains the Postausgang and sorts what it handed out into the lists of `Pass`, each row's mails in the order owed.
 
@@ -324,7 +338,7 @@ async def handed_out(
     stated, so a pass owing one itself fails here rather than hiding among them.
     """
 
-    mails = await drained(database, client)
+    mails = await drained(database, client, now=now)
     stored = {row["_id"]: row for row in await database[Collection.OUTBOX].find({"_id": {"$in": [mail.id for mail in mails]}}).to_list()}
     row_ids = [stored[mail.id]["reference"]["id"] for mail in mails]
     confirmations = {row["_id"]: row for row in await database[Collection.SPIELBESTAETIGUNGEN].find({"_id": {"$in": row_ids}}).to_list()}
@@ -368,6 +382,11 @@ async def handed_out(
                 (pass_.anfragen if kind == "spiel_request" else pass_.reminders).append(grouped[key])
             grouped[key].recipients.append(Recipient(address=mail.to, rollen=seats))
             continue
+        if kind == "aufstellung_reminder":
+            pass_.aufstellungen.append(
+                LineupReminder(spiel_id=str(data["spiel_id"]), team=data["team"], address=mail.to, due_at=data["due_at"])
+            )
+            continue
         if kind == "spiel_einteilung":
             pass_.einteilungen.append(
                 Einteilung(spielbestaetigung_id=row_id, spiel_id=row.get("spiel_id"), address=mail.to, moved_from=data["moved_from"])
@@ -405,9 +424,18 @@ async def handed_out(
 
 
 async def a_pass(
-    database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, today: str = TODAY, **collections: Any
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    *,
+    saison_id: str = SAISON_ID,
+    today: str = TODAY,
+    now: datetime = MAIL_NOW,
+    **collections: Any,
 ) -> FLSpielbestaetigungSweepResponse:
-    """One pass as the endpoint runs it, the collections named handed through a stand-in, and nothing drained."""
+    """One pass as the endpoint runs it, the collections named handed through a stand-in, and nothing drained.
+
+    `now` is the instant the line-up's marks are counted from, `today` the day every other judgement reads.
+    """
 
     return await sweep_spielbestaetigungen(
         saison_id=saison_id,
@@ -417,9 +445,10 @@ async def a_pass(
         saisons_collection=database[Collection.SAISONS],
         schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
         outbox_collection=database[Collection.OUTBOX],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         today=today,
-        now=MAIL_NOW,
+        now=now,
     )
 
 
@@ -1415,7 +1444,7 @@ def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]
 ROUND_TRIPS_A_ROW = 1
 
 # The worst call's commands beside its rows.
-SWEEP_OTHER_COMMANDS = 27
+SWEEP_OTHER_COMMANDS = 35
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -1435,7 +1464,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         called_off = a_spiel(CALLED_OFF_SPIEL, 4, NEXT_WEEK)
         moved = a_spiel(SPIEL, 1, NEXT_WEEK)
         reminded = a_spiel(OTHER_SPIEL, 2, FORTNIGHT)
-        fresh = a_spiel(FRESH_SPIEL, 3, NEXT_WEEK)
+        # The day after the pass's, so its clubs, holding no line-up, are owed the line-up's reminder too.
+        fresh = a_spiel(FRESH_SPIEL, 3, days_after(day=REMINDER, days=1))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.SPIELE].insert_many([called_off, moved, reminded])
@@ -1448,7 +1478,14 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             await database[Collection.SPIELE].insert_one(fresh)
 
             return await commands_by_name(
-                mongo_replica_set_url, DATABASE_NAME, lambda database, client: a_pass(database, client, today=REMINDER)
+                mongo_replica_set_url,
+                DATABASE_NAME,
+                lambda database, client: a_pass(
+                    database,
+                    client,
+                    today=REMINDER,
+                    now=datetime.fromisoformat(f"{REMINDER}T12:30:00").replace(tzinfo=ZoneInfo("Europe/Berlin")),
+                ),
             )
 
         answer, names = on_a_league(mongo_replica_set_url, body, spiele=[])
@@ -1456,8 +1493,9 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         # The close's three rows and the mint's three, the reminded row, the unasked row's stamp.
         patched = answer.closed + answer.reminded + 1
         # Seven call-off notices; twelve requests and two Einteilungen for the two fixtures asked, the moved one's telling of
-        # the move; the unasked row's three requests and the reminded row's three reminders.
-        assert (answer.closed, answer.asked, answer.reminded, answer.mails) == (6, 7, 1, 7 + 14 + 3 + 3)
+        # the move; the unasked row's three requests and the reminded row's three reminders; the fresh fixture's two clubs'
+        # line-up reminders, three seats each.
+        assert (answer.closed, answer.asked, answer.reminded, answer.mails) == (6, 7, 1, 7 + 14 + 3 + 3 + 6)
         assert sum(names.values()) - ROUND_TRIPS_A_ROW * patched == SWEEP_OTHER_COMMANDS, names
 
 
@@ -1535,6 +1573,40 @@ class TestARowMintedOnAReminderDayIsRemindedOfNothingThatDay:
         assert sorted({str(row["deadline"]) for row in stored}) == sorted({days_after(day=TODAY, days=1), days_after(day=TODAY, days=3)})
         assert (len(minted.anfragen), minted.reminders) == (4, [])
         assert (later.anfragen, later.reminders) == ([], [])
+
+
+# --- The LINE-UP REMINDER: owed from 48 hours before kick-off up to the due mark, 24 hours before it.
+
+# Ahead of the real clock, as every drained case's is (`tests/outbox.py :: MAIL_NOW`): the drain claims nothing the
+# outbox's retention may already have erased.
+LINEUP_TODAY = "2126-04-15"
+LINEUP_NOW = datetime(2126, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Twenty-nine and a half hours out, inside the window; fifty-three and a half, before it; twenty-three and a half, past
+# the due mark.
+IN_THE_WINDOW = a_spiel(SPIEL, 1, "2126-04-16", time="18:00:00")
+BEFORE_THE_WINDOW = a_spiel(OTHER_SPIEL, 2, "2126-04-17", time="18:00:00", schiedsrichter=None)
+PAST_THE_DUE_MARK = a_spiel(FRESH_SPIEL, 3, "2126-04-16", time="12:00:00", schiedsrichter=None)
+
+
+class TestTheLineupReminder:
+    """Owed to a club holding no line-up, once: no line-up document exists to stamp, so the mail's keys are the record."""
+
+    def test_the_club_without_a_line_up_is_reminded_once_inside_the_window_alone(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(IN_THE_WINDOW, ALPHA, starters=[ObjectId()]))
+            first = await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
+            later = await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
+
+            return first, later
+
+        first, later = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW, BEFORE_THE_WINDOW, PAST_THE_DUE_MARK])
+
+        # Beta's every confirmed seat, Alpha having stored its line-up; due twenty-four hours before kick-off.
+        assert sorted((reminder.spiel_id, reminder.team, reminder.address) for reminder in first.aufstellungen) == sorted(
+            (str(SPIEL), "Beta", address(BETA, seat)) for seat in KONTAKT_ROLLEN
+        )
+        assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
+        assert later.aufstellungen == []
 
 
 # --- A REFEREE TAKEN OFF a fixture after their Einteilung went out.

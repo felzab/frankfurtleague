@@ -710,6 +710,36 @@ def last_request_day(*, today: str) -> str:
     return days_after(day=today, days=SPIEL_CONFIRMATION_DEADLINE_DAYS + SPIEL_REQUEST_LEAD_TIME_DAYS)
 
 
+# --- The LINE-UP REMINDER, owed by the same pass: no line-up document exists to stamp, so the mail's own keys hold it to one.
+
+
+def build_aufstellung_reminder_filter(*, saison_id: str, today: str) -> dict[str, Any]:
+    """The season's fixtures whose kick-off the line-up reminder's window can hold: from today to two days on.
+
+    Each with a time, both sides and no decision; `app/api/aufstellungen/services.py :: aufstellung_reminder_owed`
+    decides, this narrows the read.
+    """
+
+    return {
+        "saison_id": saison_id,
+        "date": {"$gte": today, "$lte": days_after(day=today, days=2)},
+        "time": {"$ne": None},
+        "team1": {"$ne": None},
+        "team2": {"$ne": None},
+        "ergebnis": None,
+        "sonderereignis": None,
+    }
+
+
+def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
+    """The key of a club's line-up reminder for a fixture to one seat's mailbox: any seat's stored is the club reminded.
+
+    The outbox keeps a row a retention after its last state, far past the window, so every later pass meets it.
+    """
+
+    return f"aufstellung/{spiel_id}/{team_id}/{seat}"
+
+
 def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read."""
 

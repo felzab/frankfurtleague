@@ -9,8 +9,17 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aufstellungen.services import aufstellung_marks, aufstellung_reminder_owed
 from app.api.bewerbungen.services import SWEEP_PAGE
-from app.api.outbox.schemas import FLOutboxData, FLSpielEinteilungData, FLSpielMailAppointment, FLSpielRequestData
+from app.api.invitations.services import confirmed_recipients
+from app.api.outbox.schemas import (
+    FLAufstellungReminderData,
+    FLOutboxData,
+    FLOutboxReference,
+    FLSpielEinteilungData,
+    FLSpielMailAppointment,
+    FLSpielRequestData,
+)
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielbestaetigungen.crud import (
     JUDGED_SPIEL_FIELDS,
@@ -27,7 +36,9 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     ansetzung_digest_of,
     asked_with_its_move,
+    aufstellung_reminder_key,
     build_answerable_filter,
+    build_aufstellung_reminder_filter,
     build_closable_filter,
     build_held_filter,
     build_holding_filter,
@@ -38,6 +49,7 @@ from app.api.spielbestaetigungen.services import (
     compose_closing_update,
     compose_reminder_update,
     compose_spielbestaetigung,
+    decision_of,
     moved_notice_of,
     notice_data_of,
     notice_owed,
@@ -56,9 +68,11 @@ from app.api.spielbestaetigungen.services import (
     vereinsnamen_of,
     view_ansetzung_of,
 )
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
+    AufstellungenReadCollection,
     DBClient,
     OutboxCollection,
     SaisonsCollection,
@@ -72,6 +86,7 @@ from app.core.dependencies import (
 from app.core.security import verify_access_system
 from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier, for `app/api/bewerbungen/system_router.py`'s reason: the timer holds no session.
@@ -262,6 +277,7 @@ async def sweep_spielbestaetigungen(
     saisons_collection: SaisonsCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
+    aufstellungen_collection: AufstellungenReadCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -307,6 +323,13 @@ async def sweep_spielbestaetigungen(
     reminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and
     whose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is
     reminded of nothing.
+
+    The line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose
+    kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_HOURS` and `:: AUFSTELLUNG_DUE_HOURS`
+    ahead and for which the club stores no line-up, neither the fixture decided or called off nor the club out by its
+    day; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py
+    :: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no
+    reminder of it went. Each states the moment the line-up is due and is given up at it.
 
     Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
     and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
@@ -711,6 +734,120 @@ async def sweep_spielbestaetigungen(
 
         return [len(mails) for _, mails in taken]
 
+    async def remind_aufstellungen(session: AsyncClientSession, batch: Batch) -> int:
+        """Owe each club its one line-up reminder for a fixture inside the window, answering the mails owed.
+
+        Read in-session, so a retry re-judges.
+        """
+
+        spiele = await batch.saw(
+            pull_named_spiele(
+                spiele_collection=spiele_collection,
+                db_filter=batch.within(build_aufstellung_reminder_filter(saison_id=saison_id, today=today)),
+                projection=JUDGED_SPIEL_FIELDS,
+                sort_by=[("date", ASCENDING), ("time", ASCENDING), ("_id", ASCENDING)],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
+        )
+        due = [spiel for spiel in spiele if aufstellung_reminder_owed(date=spiel.get("date"), time=spiel.get("time"), now=now)]
+        if not due:
+            return 0
+
+        stored = {
+            (row["spiel_id"], row["team_id"])
+            for row in await pull_many_from_db(
+                collection=aufstellungen_collection,
+                db_filter={"spiel_id": {"$in": [spiel["_id"] for spiel in due]}},
+                projection=["spiel_id", "team_id"],
+                limit=LIST_LIMIT_MAX,
+                session=session,
+            )
+        }
+        junctions = await _junctions(
+            saison_teams_collection=saison_teams_collection,
+            saison_id=saison_id,
+            team_ids=[spiel[side]["team_id"] for spiel in due for side in ("team1", "team2")],
+            session=session,
+        )
+        austritte = _austritte(junctions)
+
+        def clubs_owed(spiel: Mapping[str, Any]) -> list[Any]:
+            """The fixture's clubs holding no line-up for it, the fixture still theirs to play on its day."""
+
+            clubs = [spiel[side]["team_id"] for side in ("team1", "team2")]
+            if decision_of(spiel=spiel, austritte=[austritte[club] for club in clubs if club in austritte], tag=spiel["date"]) is not None:
+                return []
+
+            # A club no season row names was replaced and holds nobody to tell.
+            return [club for club in clubs if (spiel["_id"], club) not in stored and club in junctions]
+
+        owed = [(spiel, club) for spiel, clubs in batch.judged(due, clubs_owed) for club in clubs]
+        reminded = {
+            row["key"]
+            for row in await outbox_collection.find(
+                {
+                    "key": {
+                        "$in": [
+                            aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat)
+                            for spiel, club in owed
+                            for seat in KONTAKT_ROLLEN
+                        ]
+                    }
+                },
+                {"key": 1, "_id": 0},
+                session=session,
+            ).to_list(length=None)
+        }
+
+        mails: list[OwedMail] = []
+        told: dict[Any, set[Any]] = {}
+        for spiel, club in owed:
+            # Any seat's key stored is the club reminded, whoever holds its seats now.
+            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
+                continue
+            marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=now)
+            slot = spiel_mail_slot_of(spiel)
+            assert marks is not None and slot is not None
+            junction = junctions[club]
+            data = FLAufstellungReminderData(
+                kind="aufstellung_reminder",
+                team=junction["name"],
+                team_id=club,
+                saison_id=saison_id,
+                spiel_id=spiel["_id"],
+                appointment=slot,
+                due_at=marks.due_at,
+            )
+            owed_here = [
+                OwedMail(
+                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=recipient.rolle),
+                    to=recipient.email,
+                    data=data,
+                    reference=FLOutboxReference(collection=Collection.SAISON_TEAMS, id=junction["_id"], seat=None),
+                    # Given up at the due mark: sent later, it would ask for the line-up by a moment gone by.
+                    valid_until=marks.due_at,
+                )
+                for recipient in confirmed_recipients(kontakte=junction.get("kontakte"))
+            ]
+            if owed_here:
+                told.setdefault(spiel["_id"], set()).add(junction["_id"])
+                mails += owed_here
+
+        batch.took([spiel for spiel in due if spiel["_id"] in told])
+        refuse_a_stalled_page(read=len(spiele), moved=len(told) + len(batch.refused), page=SWEEP_PAGE, clock="aufstellung", saison_id=saison_id)
+
+        if mails:
+            # Ahead of the writes, as the mint anchors them: the seats the reminders' mailboxes were read off.
+            await anchor_the_mailboxes_told(
+                saison_teams_collection=saison_teams_collection,
+                saison_team_ids=sorted({row_id for row_ids in told.values() for row_id in row_ids}, key=str),
+                session=session,
+            )
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
+
+        return len(mails)
+
     failed = 0
 
     closed, passed = await run_isolated(
@@ -735,11 +872,17 @@ async def sweep_spielbestaetigungen(
     failed += len(passed)
     owing = [count for answered in reminded for count in answered]
 
+    # The page whole rather than a share: the step writes no row of its own, its mails owed in one insert however many.
+    lineups, passed = await run_isolated(
+        db=db, batch=Batch(), attempt=remind_aufstellungen, moved=lambda count: count, owes=False, what=WHAT, clock="aufstellung"
+    )
+    failed += len(passed)
+
     return FLSpielbestaetigungSweepResponse(
         saison_id=saison_id,
         closed=sum(answered.closed for answered in closed) + sum(answered.closed for answered in minted),
         asked=sum(answered.asked for answered in minted),
         reminded=len(owing),
-        mails=sum(answered.mails for answered in closed) + sum(answered.mails for answered in minted) + sum(owing),
+        mails=sum(answered.mails for answered in closed) + sum(answered.mails for answered in minted) + sum(owing) + sum(lineups),
         failed=failed,
     )
