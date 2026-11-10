@@ -92,7 +92,7 @@ type SaisonFrame = {
  * A team frame's seasons, handed down unawaited as a season frame's are: every team the person holds, by its id as the
  * address spells it, each with the seasons the person holds it in. The layout reads the person and the address alone
  * names the team, so the frame takes the seasons of the team the address names; at the address of a team the person
- * does not hold it has no season and lists no team page.
+ * does not hold it has no season to offer, and lists the team's pages at the team and season the address spells.
  */
 type TeamFrame = {
   teams: Promise<ReadonlyArray<Saisons & { team: string }>>;
@@ -212,14 +212,21 @@ export function counterpart({
 /**
  * The entries with their addresses, a season's page in the season the page works in and a team's with the team the
  * address names; one with no address is left out. With no season at all a season's page leads to `withoutSaison`, an
- * address that is not its own (`own`).
+ * address that is not its own (`own`). A team the person does not hold keeps its pages in the menu, each at the team
+ * and season the address spells and each answering with the same refusal, so the menu there is the one every team's
+ * address shows.
  */
 function useEntries(groups: ReadonlyArray<RailGroup>) {
   const frame = useContext(SaisonContext);
   const saison = useFrameSaison();
+  const { team, saison: named } = useParams();
   const hrefOf = (entry: RailEntry): Route | undefined => {
     if (entry.href !== undefined) return entry.href;
-    if (entry.team !== undefined) return saison?.team === undefined ? undefined : ROUTES[entry.team].path(saison.team, saison.active);
+    if (entry.team !== undefined) {
+      if (saison?.team !== undefined) return ROUTES[entry.team].path(saison.team, saison.active);
+      const spelled = frame?.teams !== undefined && typeof team === "string" && typeof named === "string";
+      return spelled ? ROUTES[entry.team].path(team, named) : undefined;
+    }
     return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
   return groups
@@ -238,8 +245,11 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
 export type Account = {
   /** The person's name; an administrator's grant stores none, so the row names the address instead. */
   name?: RecordText;
-  /** The role the area is for, the row's second line on a page whose place gives none of its own. */
-  role: Copy;
+  /**
+   * The role the area is for, the row's second line on a page whose place gives none of its own. An area that is no
+   * one role's gives none, and the row there is the name alone.
+   */
+  role?: Copy;
   /** The sign-in address: whole at the top of the menu, under the name where there is one; the row's own name where not. */
   address: RecordText;
   /**
@@ -509,11 +519,11 @@ export type AccountRead = Promise<Account | null>;
 
 /**
  * The rail's foot when signed in: the avatar, the name and the role under it, the role of the place the page lies
- * under where that place gives its own, else the area's. The whole row is the one button opening
- * the account menu, filled under the pointer as the season button over it is, so it carries no „…“ of its own, which
- * would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar alone stands centred, 8
- * px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu then opens beside the
- * row, at the rail's edge.
+ * under where that place gives its own, else the area's, and the name alone where neither gives one. The whole row is
+ * the one button opening the account menu, filled under the pointer as the season button over it is, so it carries no
+ * „…“ of its own, which would read as a second, smaller target, and the name keeps that room. Collapsed, the avatar
+ * alone stands centred, 8 px of the row's inset after the foot's 12, and the words fade, clipped by the row; the menu
+ * then opens beside the row, at the rail's edge.
  */
 export function AccountRow({ account: read }: { account: AccountRead }) {
   const collapsed = useRailCollapsed();
@@ -538,7 +548,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             <span className="truncate font-semibold text-fg">{name}</span>
-            <span className="truncate text-xs text-fg-muted">{role}</span>
+            {role !== undefined && <span className="truncate text-xs text-fg-muted">{role}</span>}
           </span>
         </AriaButton>
       }
