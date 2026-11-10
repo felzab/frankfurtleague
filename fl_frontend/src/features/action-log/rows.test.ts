@@ -32,6 +32,14 @@ describe("a row", () => {
     );
   });
 
+  /* The other pending registrations an admission deleted leave no act of their own, so its row is the log's one word of them. */
+  it("names how many other registrations an admission deleted, and none where it deleted none", () => {
+    expect(rowOf(entry({ by: "kontakt", action: "registrierung.admitted", count: 2 })).name).toBe(
+      "Registrierung angenommen · Weitere Registrierungen gelöscht: 2",
+    );
+    expect(rowOf(entry({ by: "kontakt", action: "registrierung.admitted", count: 0 })).name).toBe("Registrierung angenommen");
+  });
+
   /* The address a person's act never names: a contact person reads by role and team, and by role alone with no team. */
   it("names a contact person by role and team", () => {
     expect(rowOf(entry({ by: "kontakt", team: "Goethe-Gymnasium" })).cells.who).toBe("Kontaktperson · Goethe-Gymnasium");
