@@ -789,7 +789,8 @@ def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_
                 *(registration(position, confirmed=False) for position in range(CONFIRMED_BENEATH_A_FLOOD, ROWS_ENOUGH_TO_PREFER_AN_INDEX)),
             ]
         )
-        reads = _SentKaderReads(database[Collection.REGISTRIERUNGEN])
+        # Standing in for the collection, as `sent_by` hands its recorder on.
+        reads: Any = _SentKaderReads(database[Collection.REGISTRIERUNGEN])
         async with database.client.start_session() as session:
             opened = await pull_open_registrierungen(registrierungen_collection=reads, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
         (pipeline, _), *_ = reads.sent
