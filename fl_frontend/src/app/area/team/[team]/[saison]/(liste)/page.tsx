@@ -125,14 +125,21 @@ function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: strin
   };
 }
 
-/** A registration awaiting the team's decision, which its own page takes: confirmed by the pupil or not, and what they play. */
+/**
+ * A registration awaiting the team's decision, which its own page takes: confirmed by the pupil or not, and what they
+ * play, a line only where the pupil named a position or a Stufe.
+ */
 function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: string): Row {
+  const plays =
+    row.position === null && row.stufe === null
+      ? null
+      : line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe]]);
   return {
     id: row.registrierung_id,
     href: ROUTES.teamRegistrierungen.path(team, saison),
     name: { record: `${row.first_name} ${row.last_name}` },
     chip: row.admissible ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
-    line: line([row.position === null ? null : { record: row.position }, row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe]]),
+    ...(plays === null ? {} : { line: plays }),
   };
 }
 

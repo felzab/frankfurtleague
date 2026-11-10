@@ -212,7 +212,7 @@ export type CardActRowProps = {
   href: Route;
   name: Words;
   chip?: ChipProps;
-  line: Words;
+  line?: Words;
   /** The row's acts, such as „Übernehmen“ and „Verwerfen“; none where the open work is done in the record. */
   acts?: ReactElement;
 };
@@ -244,7 +244,7 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           </CutText>
           {chip !== undefined && <Chip {...chip} />}
         </span>
-        <span className={s.line()}>{textOf(line)}</span>
+        {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </span>
       {acts !== undefined && <RowActs className={s.acts()}>{acts}</RowActs>}
       <span className={s.end()}>
