@@ -65,6 +65,8 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
       facts={4}
       act={COPY.page.registrierungConfirmation}
       sentence={SENTENCE_WORDS}
+      // Any day's words are about as long, set unseen.
+      sentenceAfter={WORDS.deadline("2027-01-31")}
       fields={
         <>
           {/* The floor the page reads is any age's words about as long, set unseen. */}
