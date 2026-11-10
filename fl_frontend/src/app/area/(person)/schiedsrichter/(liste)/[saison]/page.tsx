@@ -13,13 +13,13 @@ import {
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { getOwnSaisons } from "@/features/roles/queries";
-import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder } from "@/features/roles/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
 import { matchName } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
+import { isOwnSaison } from "../../../ownSaison";
 import { EinteilungActs } from "./EinteilungActs";
 
 import type { Words } from "@/core/copy";
@@ -38,10 +38,7 @@ const TITLE = COPY.page.spiele;
  * read for the tab's title and the page alike. A person holding no referee record is sent on before anything is read.
  */
 const spieleOf = cache(async (saison: string) => {
-  await requireRole("schiedsrichter", ROUTES.schiedsrichterOverview.path(saison));
-  // The frame's own read, memoised for the render.
-  const saisons = await getOwnSaisons("schiedsrichter");
-  if (saisons === null || !saisons.entries.some((entry) => entry.id === saison)) return null;
+  if (!(await isOwnSaison("schiedsrichter", saison))) return null;
   return readAsRoleHolder("schiedsrichter", () => getOwnSpiele(saison));
 });
 

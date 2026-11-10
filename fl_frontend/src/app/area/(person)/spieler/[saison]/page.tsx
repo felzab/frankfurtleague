@@ -5,14 +5,14 @@ import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { getOwnSaisons } from "@/features/roles/queries";
-import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder } from "@/features/roles/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getSpielerSaisonSelf } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
+import { isOwnSaison } from "../../ownSaison";
 import { spielChipOf } from "./spielChip";
 
 import type { FLSpielerSelfKaderRow } from "@/core/generated/client/types";
@@ -30,9 +30,7 @@ const WORDS = COPY.admin.spieler;
  * theirs. A person holding no pupil's Funktion is sent on before anything is read.
  */
 const saisonOf = cache(async (saison: string) => {
-  await requireRole("spieler", ROUTES.spielerOverview.path(saison));
-  const saisons = await getOwnSaisons("spieler");
-  if (saisons?.entries.some((entry) => entry.id === saison) !== true) return null;
+  if (!(await isOwnSaison("spieler", saison))) return null;
   const { kader, spiele } = await readAsRoleHolder("spieler", () => getSpielerSaisonSelf(saison));
   return kader === null ? null : { kader, spiele };
 });
