@@ -93,7 +93,9 @@ class LineUpsRunningARivalBeforeTheirInsert(InterleavedCollection):
 def test_a_clubs_second_first_save_meets_the_first_on_the_unique_key(mongo_replica_set_url: str):
     """Two seats of one club open the empty screen and both save: the later one is told the page is stale, and one line-up stands.
 
-    Without `uniq_aufstellung_spiel_id_team_id` both insert, and the fixture's page reads whichever the join finds.
+    The later insert conflicts on `uniq_aufstellung_spiel_id_team_id`, and its retry reads the line-up now standing.
+    The key is not alone in holding it: with the key gone the season's anchor conflicts instead, and the retry answers
+    the same. What this case holds is the retry's judgement, without which the later save overwrites the earlier.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

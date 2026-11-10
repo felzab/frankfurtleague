@@ -136,7 +136,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `invitations`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.
-  - People and data: pupils from 16, with name, address, birthdate, shirt number, position, Stufe,
+  - People and data: pupils from 16, with name, address, birthdate, shirt number, position, Stufe
+    and, where a team's contact seat sets one, the role of Kapitän or Co-Kapitän,
     the publication scope and the media answer with their evidence; the registration link's entry,
     naming the administrator who minted it.
   - Recipients: administrators; the team's seats, who decide an admission; the booked referee, who
@@ -150,13 +151,13 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     learn of their entry, Art. 14(3), `fl_backend/app/shared/schemas/kontakt.py :: FLKontaktPayload`),
     telephone number, school, fee, birthdate, the consent record with its evidence and the link.
   - Recipients: administrators; the public, as section 4 says.
-- **Fixtures, their confirmations and their reports** (`spiele`, `spielbestaetigungen`,
-  `spielberichte`).
+- **Fixtures, their confirmations, their line-ups and their reports** (`spiele`,
+  `spielbestaetigungen`, `aufstellungen`, `spielberichte`).
   - Purpose and basis: scheduling, confirming and recording matches; Art. 6(1)(f).
   - People and data: a fixture's note (free text), its booked referee and their `payment`; each
     party's answer with its reason (free text) and, for a club, the seat that gave it and never its
-    holder (`fl_backend/app/api/spielbestaetigungen/services.py :: compose_answer_update`); a report's line-ups,
-    goals and cards by pupil, each card's reason and the remarks (free text).
+    holder (`fl_backend/app/api/spielbestaetigungen/services.py :: compose_answer_update`); each club's
+    line-up by pupil (`aufstellungen`); a report's goals and cards by pupil, and the remarks (free text).
   - Recipients: administrators; the booked referee; the public, as section 4 says.
 - **Clubs and seasons** (`teams`, `saison_teams`, `saisons`).
   - Purpose and basis: the league's public record; Art. 6(1)(f).
@@ -229,20 +230,22 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   at a join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`: the record present, its
   `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a nameless slot
   keeping its number and position, and carries no record id that would link its seasons. The gate
-  fails closed. The player editor shows the stored consent read-only and gates nothing
+  fails closed. A squad's Kapitän and Co-Kapitän carry a mark after their name on the public squad
+  and in a match's line-ups, and a nameless slot carries none: the mark is served only where the
+  name is, so it publishes nothing about a pupil whose name is withheld. The player editor shows the stored consent read-only and gates nothing
   (`fl_frontend/src/app/admin/(editor)/saisons/[saison]/spieler/[spieler]/SpielerEditor.tsx`).
 - **A referee's name stands on a fixture only on their own consent, and only once they agreed to
   the booking** (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, through the same
   predicate), and no fixture carries the referee's record id
   (`:: FLSpielSchiedsrichterFieldPublic`).
 - **A match's page publishes the clubs' line-ups and, on an adopted report, each goal's and card's
-  minute and pupil and each card's colour**, every pupil through the squad's rule above, never a
-  card's reason or the remarks
-  (`fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`). A report stores a pupil
-  by record id alone and the read joins the name from the pupil's row, so a name stands only while
-  that row exists: the season rule or an erasure leaves the slot naming nobody, a line-up's entries
-  keeping the id an erasure does not repoint
-  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`). Whether a card may stand beside a named pupil of 16 or 17 is open, and
+  minute and pupil and each card's colour**, every pupil through the squad's rule above, never the
+  remarks (`fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`). A report and a
+  line-up store a pupil by record id alone and the read joins the name from the pupil's row, so a
+  name stands only while that row exists: the season rule or an erasure leaves the slot naming
+  nobody, the erasure repointing both at the nameless sentinel
+  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
+  `fl_backend/app/api/aufstellungen/crud.py :: repoint_pupil_aufstellungen_in_session`). Whether a card may stand beside a named pupil of 16 or 17 is open, and
   the deploy shipping the read waits on the answer ([section 11](#11-open-and-owed-a-decision)).
 - **A photograph, a video or an interview needs its own consent, from 18**, published on this site
   and the league's Instagram account, and a withdrawal takes it down from both, which the notice
@@ -332,7 +335,7 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 | An accepted application                      | Once a season after the one it applied for has ended                                                                                                                                  | `:: acceptance_erasure_is_due`                                                                                                                                           |
 | A season row's contact seats                 | Cleared once the season after theirs has ended, their links with them                                                                                                                 | `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`                                                                                                        |
 | A season row's unconfirmed seat              | Emptied by the first hourly pass past its own 14 days, whatever the season's status, its link and any reason typed from it with it                                                    | `fl_backend/app/api/bewerbungen/services.py :: lapsed_seats`, `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`                                          |
-| Fixture answers and match reports            | The league's record; from that same clearing, reasons, link hashes, delivery records, remarks and card reasons are stripped                                                           | `fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`, `:: strip_the_reports`                                                                     |
+| Fixture answers and match reports            | The league's record; from that same clearing, reasons, link hashes, delivery records and remarks are stripped                                                                         | `fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`, `:: strip_the_reports`                                                                     |
 | An unconfirmed registration                  | The day after its stored deadline, 14 days from the link                                                                                                                              | `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/registrierungen/services.py :: bestaetigung_loeschung_is_due` |
 | A registration undecided at its season's end | Deleted then                                                                                                                                                                          | `fl_backend/app/api/registrierungen/services.py :: undecided_loeschung_is_due`                                                                                           |
 | A declined registration                      | 14 days after the decision                                                                                                                                                            | `:: decline_loeschung_is_due`                                                                                                                                            |

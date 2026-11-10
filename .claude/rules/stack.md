@@ -31,6 +31,7 @@ writing a line that depends on it.
 | **Resend**              | [docs/llms.txt](https://resend.com/docs/llms.txt)                                   | — (index only)                                                             |
 | **Better Auth**         | [docs/llms.txt](https://better-auth.com/docs/llms.txt)                              | — (index only)                                                             |
 | **MongoDB Node driver** | [node/current/llms.txt](https://www.mongodb.com/docs/drivers/node/current/llms.txt) | — (index only)                                                             |
+| **MongoDB manual**      | [docs/llms.txt](https://www.mongodb.com/docs/llms.txt)                              | — (each manual page answers as Markdown with `.md` appended to its address) |
 | **Docker**              | [llms.txt](https://docs.docker.com/llms.txt)                                        | [llms-full.txt](https://docs.docker.com/llms-full.txt)                     |
 | **GitHub**              | [llms.txt](https://docs.github.com/llms.txt)                                        | — (index only)                                                             |
 | **Prettier**            | [llms.txt](https://prettier.io/llms.txt)                                            | [llms-full.txt](https://prettier.io/llms-full.txt)                         |
