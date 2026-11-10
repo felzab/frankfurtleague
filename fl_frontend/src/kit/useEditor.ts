@@ -118,6 +118,12 @@ function lessSent<Values extends Record<string, EditorValue>>(edits: Partial<Val
 export function useEditor<Values extends Record<string, EditorValue>>(
   record: EditorRecord<Values>,
   save: (change: EditorSave<Values>) => Promise<ActionAnswer<number>>,
+  /**
+   * `countOf` is what the status line and the way back count as the draft's changes where one field holds many things,
+   * such as a line-up's players. Whether the draft is clean stays the fields' to say: it is asked only while a field
+   * differs, and counts one change at the least then.
+   */
+  options?: { countOf?: (stored: Values, draft: Values) => number },
 ) {
   const [held, setHeld] = useState<Held<Values>>(() => fresh(record));
 
@@ -141,8 +147,9 @@ export function useEditor<Values extends Record<string, EditorValue>>(
   if (current !== held) setHeld(current);
 
   const changes = changesOf(record.values, current.edits);
-  const count = Object.keys(changes).length;
   const draft = { ...record.values, ...current.edits };
+  const fields = Object.keys(changes).length;
+  const count = fields === 0 ? 0 : Math.max(1, options?.countOf?.(record.values, draft) ?? fields);
 
   const form = useFormAction(
     async (sent: EditorSave<Values>): Promise<ActionAnswer> => {
