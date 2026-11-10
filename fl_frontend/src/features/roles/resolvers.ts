@@ -7,10 +7,13 @@ import { APIBadStatusError } from "@/core/errors";
 import { logRefused } from "@/core/refused";
 import { isSeatAt, rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
+import { metadataFor, NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
 import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
+import type { Metadata } from "next";
 import type { PersonKind } from "./queries";
 
 /**
@@ -48,10 +51,9 @@ type TeamAddress<Segments> = (segments: Segments) => string;
 
 /**
  * The seats the signed-in person holds on exactly the team and season a team page's address names, `null` where they
- * hold none there; no session is sent to sign in, `address` carried back. For a page's metadata, which answers a
- * miss rather than throwing it (`fl_frontend/src/shared/utils/notFoundMetadata.ts :: metadataFor`).
+ * hold none there; no session is sent to sign in, `address` carried back.
  */
-export async function teamSeatsAt<Segments extends { team: string; saison: string }>(
+async function teamSeatsAt<Segments extends { team: string; saison: string }>(
   params: Promise<Segments>,
   address: TeamAddress<Segments>,
 ): Promise<TeamSeats | null> {
@@ -60,6 +62,27 @@ export async function teamSeatsAt<Segments extends { team: string; saison: strin
   // The predicate a person's write is judged by too: a seat on last season's row opens nothing in this one's.
   const [first, ...rest] = rolesOf(subject).roles.filter((role): role is TeamSeat => isSeatAt(role, segments.team, segments.saison));
   return first === undefined ? null : [first, ...rest];
+}
+
+/** A team page's tab where the person holds no seat at its address: the title of the card the page draws there. */
+const FORBIDDEN_METADATA: Metadata = { ...NOT_FOUND_METADATA, title: SERVER_COPY.area.forbidden };
+
+/**
+ * A team page's metadata: `metadataOf` the seats the person holds at its address, and where they hold none the
+ * „Kein Zugang“ card's title, so the tab says what the card says. It answers that miss rather than throwing it, since
+ * a `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as `metadataFor`
+ * does.
+ */
+export async function teamMetadata<Segments extends { team: string; saison: string }>(
+  params: Promise<Segments>,
+  address: TeamAddress<Segments>,
+  metadataOf: (seats: TeamSeats) => Promise<Metadata> | Metadata,
+): Promise<Metadata> {
+  // Wrapped, so a seatless address reaches the forbidden title here rather than `metadataFor`'s not-found one.
+  return metadataFor(
+    teamSeatsAt(params, address).then((seats) => ({ seats })),
+    ({ seats }) => (seats === null ? FORBIDDEN_METADATA : metadataOf(seats)),
+  );
 }
 
 /** Ends a team page's read on the card for a team the person holds no seat on. */

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { CardActRow } from "@/kit/Card";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +9,7 @@ import { COPY } from "@/core/copy";
 import { agreeTermin, declineTermin } from "./answerTermin";
 import TeamOverviewPage from "./page";
 
-import type { FLTeamOverviewResponse, FLTeamPanelTermin } from "@/core/generated/client/types";
+import type { FLTeamOverviewResponse, FLTeamPanelRegistrierung, FLTeamPanelTermin } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ReactElement } from "react";
 
@@ -21,7 +22,6 @@ vi.mock("@/features/teams/queries", () => ({ getTeamOverview: () => Promise.reso
 vi.mock("@/features/roles/resolvers", () => ({
   requireTeamSeats: () => Promise.resolve([{ team_id: "6af32ed4205642a3fd5ee7e1", saison_id: "2027" }]),
   readAsSeatHolder: <Read,>(read: () => Promise<Read>) => read(),
-  teamSeatsAt: () => Promise.resolve(null),
 }));
 vi.mock("@/core/clock", () => ({ now: () => new Date("2026-11-10T12:00:00+01:00") }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
@@ -42,8 +42,22 @@ const termin = (overrides: Partial<FLTeamPanelTermin>): FLTeamPanelTermin => ({
   ...overrides,
 });
 
-/** The Termine card's rows, as the page hands them to its template off the read. */
-async function termine(...rows: readonly FLTeamPanelTermin[]): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
+const registrierung = (overrides: Partial<FLTeamPanelRegistrierung>): FLTeamPanelRegistrierung => ({
+  registrierung_id: "000000000000000000000011",
+  first_name: "Ole",
+  last_name: "Sommer",
+  admissible: true,
+  position: null,
+  stufe: null,
+  submitted_at: "2026-11-02",
+  ...overrides,
+});
+
+/** One card's rows, as the page hands them to its template off a read holding `held` and nothing else open. */
+async function rowsOf(
+  card: string,
+  held: Partial<Pick<FLTeamOverviewResponse, "termine" | "registrierungen">>,
+): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
   state.read = {
     team_id: "6af32ed4205642a3fd5ee7e1",
     saison_id: "2027",
@@ -52,10 +66,11 @@ async function termine(...rows: readonly FLTeamPanelTermin[]): Promise<ReadonlyA
     full_name: "Ahorn-Gymnasium",
     trikot_farbe: null,
     rollen: ["ansprechperson"],
-    termine: [...rows],
+    termine: [],
     aufstellungen: [],
     registrierungen: [],
     seats: [],
+    ...held,
   } satisfies FLTeamOverviewResponse;
   const page = TeamOverviewPage({ params: Promise.resolve({ team: "6af32ed4205642a3fd5ee7e1", saison: "2027" }) } as Parameters<
     typeof TeamOverviewPage
@@ -63,8 +78,11 @@ async function termine(...rows: readonly FLTeamPanelTermin[]): Promise<ReadonlyA
     props: { list: { content: Promise<{ cards: ReadonlyArray<{ id: string; rows: ReadonlyArray<CardActRowProps & { id: string }> }> }> } };
   };
   const { cards } = await page.props.list.content;
-  return cards.find(({ id }) => id === "termine")?.rows ?? [];
+  return cards.find(({ id }) => id === card)?.rows ?? [];
 }
+
+/** The Termine card's rows. */
+const termine = (...rows: readonly FLTeamPanelTermin[]) => rowsOf("termine", { termine: [...rows] });
 
 // Every id on the page is a 24-digit hex string, the fixture's beside its confirmation row's: an answer posted with
 // the fixture's id, or with another row's, is refused or lands on another date, and no type tells them apart.
@@ -113,5 +131,27 @@ describe("a date the team cannot answer", () => {
     const rows = await termine(termin({ state: "expired" }), termin({ state: "declined" }), termin({ state: "agreed" }));
 
     expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
+  });
+});
+
+// Handed an empty line, a row still draws the line's slot under the name: a blank gap no type and no check sees.
+describe("a registration's row", () => {
+  it("draws a line only where the pupil named a position or a Stufe", async () => {
+    const [bare, named] = await rowsOf("registrierungen", {
+      registrierungen: [registrierung({}), registrierung({ registrierung_id: "000000000000000000000012", stufe: "Q2" })],
+    });
+    if (bare === undefined || named === undefined) throw new Error("the card holds fewer than two rows");
+    const { container } = render(
+      <>
+        <CardActRow {...bare} />
+        <CardActRow {...named} />
+      </>,
+    );
+
+    // The words under a row's name: the name's own line, then the muted line where there is one.
+    const words = [...container.querySelectorAll("[data-kit-row]")].map((row) =>
+      [...(row.firstElementChild?.children ?? [])].map(({ textContent }) => textContent),
+    );
+    expect(words).toStrictEqual([[`Ole Sommer${COPY.admin.confirmed}`], [`Ole Sommer${COPY.admin.confirmed}`, COPY.admin.saison.stufe.Q2]]);
   });
 });

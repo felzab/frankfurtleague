@@ -3,6 +3,7 @@ import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import SpielerOverviewPage from "./page";
 
@@ -47,7 +48,7 @@ const SPIEL: FLSpielerSaisonSelfSpiel = {
 };
 
 /** The page as it lands for a pupil whose squad row of 2027 was deregistered on `inactive_since`. */
-async function landed(inactive_since: string | null) {
+async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfSpiel = SPIEL) {
   own.read = {
     saison_id: "2027",
     kader: {
@@ -61,7 +62,7 @@ async function landed(inactive_since: string | null) {
       team_id: "64b000000000000000000003",
       team_name: "Ahorn",
     },
-    spiele: [SPIEL],
+    spiele: [spiel],
   };
   const { prelude } = await prerender(
     <SpielerOverviewPage
@@ -89,5 +90,11 @@ describe("a pupil's own season", () => {
     const page = await landed(null);
     expect(page).not.toContain(COPY.admin.spieler.deregistered);
     expect(page).toContain(COPY.shared.startelf);
+  });
+
+  // The match's head names it, and a date line naming it again reads as a second match.
+  it("names the third-place match once", async () => {
+    const page = await landed(null, { ...SPIEL, saison_phase: "finale", for_third_place: true });
+    expect(page.split(SERVER_COPY.season.thirdPlace)).toHaveLength(2);
   });
 });
