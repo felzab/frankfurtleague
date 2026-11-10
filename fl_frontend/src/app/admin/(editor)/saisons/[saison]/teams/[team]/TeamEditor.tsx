@@ -119,7 +119,6 @@ export function TeamEditor({
         <TextField
           label={COPY.shared.name}
           name="name"
-          width="standard"
           kind="text"
           isRequired={required.name}
           maxLength={max.name}
@@ -130,7 +129,6 @@ export function TeamEditor({
         <TextField
           label={COPY.team.shorthand}
           name="shorthand"
-          width="short"
           holds={5}
           kind="text"
           isRequired={required.shorthand}
@@ -142,7 +140,6 @@ export function TeamEditor({
         <TextField
           label={COPY.team.fullName}
           name="full_name"
-          width="standard"
           kind="text"
           isRequired={required.full_name}
           maxLength={max.full_name}
@@ -159,7 +156,6 @@ export function TeamEditor({
         <TextField
           label={COPY.team.website}
           name="website_url"
-          width="standard"
           kind="url"
           example={COPY.shared.field.exampleUrl}
           maxLength={max.website_url}
@@ -169,8 +165,7 @@ export function TeamEditor({
         <TextField
           label={WORDS.description}
           name="description"
-          width="full"
-          kind="text"
+          kind="paragraph"
           description={WORDS.descriptionNote}
           maxLength={descriptionMax}
           value={draft.description}
@@ -315,8 +310,7 @@ export function TeamEditor({
                 <TextField
                   label={COPY.admin.spiel.reason}
                   name="reason"
-                  width="full"
-                  kind="text"
+                  kind="paragraph"
                   isRequired={austrittRules.required.reason}
                   maxLength={austrittRules.reasonMax}
                   description={WORDS.austrittReasonDescription}

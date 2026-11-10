@@ -40,7 +40,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         {...box("schule.team_name")}
         label={bewerbung.teamName}
         description={bewerbung.teamNameDescription}
-        width="standard"
         kind="text"
         isRequired={required.teamName}
         maxLength={maxLength.teamName}
@@ -48,7 +47,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
       <TextField
         {...box("schule.full_name")}
         label={team.fullName}
-        width="standard"
         kind="text"
         isRequired={required.fullName}
         maxLength={maxLength.fullName}
@@ -71,7 +69,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
       <TextField
         {...box("schule.website_url")}
         label={team.website}
-        width="standard"
         kind="url"
         example={shared.field.exampleUrl}
         isRequired={required.website}
@@ -91,7 +88,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         {...path("first_name")}
         label={shared.firstName}
         description={COPY.account.entries.mediaFrom(floor)}
-        width="standard"
         kind="text"
         isRequired={required.firstName}
         maxLength={maxLength.firstName}
@@ -99,7 +95,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       <TextField
         {...path("last_name")}
         label={shared.lastName}
-        width="standard"
         kind="text"
         isRequired={required.lastName}
         maxLength={maxLength.lastName}
@@ -108,7 +103,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         {...path("email")}
         label={COPY.signIn.address}
         description={bewerbung.ownAddress}
-        width="standard"
         kind="email"
         isRequired={required.email}
         maxLength={maxLength.email}
@@ -116,7 +110,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       <TextField
         {...path("phone")}
         label={COPY.shared.facts.phone}
-        width="standard"
         kind="tel"
         isRequired={required.phone}
       />
@@ -194,7 +187,6 @@ export function BewerbungFields({
           {...box("stufengroesse")}
           label={team.stufengroesse}
           description={bewerbung.stufengroesseDescription}
-          width="short"
           holds={5}
           kind="digits"
           isRequired={required.stufengroesse}
@@ -240,7 +232,6 @@ export function BewerbungFields({
           {...box("trikot.existing_set")}
           label={team.trikotSet}
           description={bewerbung.trikotSetDescription}
-          width="standard"
           kind="text"
           isRequired={required.trikotSet}
           maxLength={maxLength.trikotSet}
@@ -257,7 +248,6 @@ export function BewerbungFields({
         <TextField
           {...box("kader.expected_size")}
           label={team.expectedKader}
-          width="short"
           holds={5}
           kind="digits"
           isRequired={required.expectedSize}
@@ -266,7 +256,6 @@ export function BewerbungFields({
           {...box("kader.good_spieler")}
           label={team.goodSpieler}
           description={bewerbung.goodSpielerDescription}
-          width="short"
           holds={5}
           kind="digits"
           isRequired={required.goodSpieler}

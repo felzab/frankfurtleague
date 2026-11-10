@@ -146,7 +146,6 @@ export function BerichtEditor({
         label={label}
         labelHidden
         name={name}
-        width="short"
         holds={5}
         kind="minute"
         pattern={minute.pattern}
@@ -317,8 +316,7 @@ export function BerichtEditor({
               label={WORDS.remarks}
               labelHidden
               name="remarks"
-              width="full"
-              kind="text"
+              kind="paragraph"
               description={COPY.admin.noNames}
               maxLength={remarksMax}
               value={draft.remarks}

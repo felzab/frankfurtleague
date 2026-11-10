@@ -49,36 +49,24 @@ export default function SpielortEditorPage({ params }: Props) {
       wait={{
         sections: [
           [
-            <FieldPlaceholder
-              key="name"
-              width="standard"
-            />,
+            <FieldPlaceholder key="name" />,
             <FieldPlaceholder
               key="mietpreis"
-              width="short"
               holds={5}
               unit={COPY.shared.unit.euro}
             />,
           ],
           [
-            <FieldPair
-              key="street"
-              short="second">
-              <FieldPlaceholder width="standard" />
-              <FieldPlaceholder
-                width="short"
-                holds={5}
-              />
+            <FieldPair key="street">
+              <FieldPlaceholder />
+              <FieldPlaceholder holds={5} />
             </FieldPair>,
-            <FieldPair
-              key="city"
-              short="first">
+            <FieldPair key="city">
               <FieldPlaceholder
-                width="short"
                 holds={5}
                 figures
               />
-              <FieldPlaceholder width="standard" />
+              <FieldPlaceholder />
             </FieldPair>,
             "field",
           ],

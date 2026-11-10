@@ -71,7 +71,7 @@ function SignInWait({ tier }: { tier: FLAdminTier | null }) {
           look="free"
           wraps={{ pair: 0, words: EMAIL_WORDS }}
         />
-        <FieldPlaceholder width="standard" />
+        <FieldPlaceholder />
         {tier !== null && <CalloutPlaceholder text={COPY.account.address.holderWait(HOLDER_WAIT[tier])} />}
       </AccountBoxPlaceholder>
       <AccountBoxPlaceholder

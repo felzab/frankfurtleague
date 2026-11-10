@@ -105,7 +105,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={COPY.shared.name}
                 name="name"
-                width="standard"
                 kind="text"
                 isRequired={required.name}
                 maxLength={max.name}
@@ -115,7 +114,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={FACTS.school}
                 name="schule"
-                width="standard"
                 kind="text"
                 isRequired={required.schule}
                 maxLength={max.schule}
@@ -126,7 +124,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={COPY.admin.payment}
                 name="default_payment"
-                width="short"
                 holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}
@@ -147,7 +144,6 @@ export function SchiedsrichterEditor({
                 <TextField
                   label={COPY.signIn.address}
                   name="email"
-                  width="standard"
                   kind="email"
                   autofill="off"
                   isDisabled
@@ -158,7 +154,6 @@ export function SchiedsrichterEditor({
                 <TextField
                   label={COPY.signIn.address}
                   name="email"
-                  width="standard"
                   kind="email"
                   autofill="off"
                   isRequired={required.email}
@@ -170,7 +165,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={FACTS.phone}
                 name="phone"
-                width="standard"
                 kind="tel"
                 isRequired={required.phone}
                 value={draft.phone}
@@ -192,8 +186,7 @@ export function SchiedsrichterEditor({
                     {/* An act of its box, as the season editor's are: the line under it says where the link went, or why not. */}
                     {sendLink !== undefined && (
                       <SectionAct
-                        label={COPY.shared.withObject(COPY.account.address.link, "send")}
-                        run={() => sendLink({ id: record.id })}
+                        acts={[{ label: COPY.shared.withObject(COPY.account.address.link, "send"), run: () => sendLink({ id: record.id }) }]}
                       />
                     )}
                   </>

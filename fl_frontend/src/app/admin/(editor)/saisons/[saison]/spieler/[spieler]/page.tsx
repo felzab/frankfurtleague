@@ -76,7 +76,7 @@ export default function SpielerEditorPage({ params }: Props) {
             "field",
             <FieldPlaceholder
               key="birth_date"
-              width="standard"
+              kind="date"
             />,
             <FactsPlaceholder
               key="address"
@@ -91,7 +91,6 @@ export default function SpielerEditorPage({ params }: Props) {
             />,
             <FieldPlaceholder
               key="nummer"
-              width="short"
               holds={2}
             />,
             "field",

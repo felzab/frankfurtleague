@@ -20,7 +20,6 @@ export function SchiedsrichterFields() {
       <TextField
         label={COPY.shared.name}
         name="name"
-        width="standard"
         kind="text"
         isRequired={required.name}
         maxLength={max.name}
@@ -28,7 +27,6 @@ export function SchiedsrichterFields() {
       <TextField
         label={FACTS.school}
         name="schule"
-        width="standard"
         kind="text"
         isRequired={required.schule}
         maxLength={max.schule}
@@ -36,7 +34,6 @@ export function SchiedsrichterFields() {
       <TextField
         label={COPY.admin.payment}
         name="default_payment"
-        width="short"
         holds={5}
         kind="digits"
         unit={COPY.shared.unit.euro}
@@ -46,7 +43,6 @@ export function SchiedsrichterFields() {
         <TextField
           label={COPY.signIn.address}
           name="email"
-          width="standard"
           kind="email"
           autofill="off"
           isRequired={required.email}
@@ -55,7 +51,6 @@ export function SchiedsrichterFields() {
         <TextField
           label={FACTS.phone}
           name="phone"
-          width="standard"
           kind="tel"
           isRequired={required.phone}
         />

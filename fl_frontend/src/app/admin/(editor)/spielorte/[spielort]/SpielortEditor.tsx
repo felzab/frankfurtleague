@@ -85,7 +85,6 @@ export function SpielortEditor({
               <TextField
                 label={COPY.shared.name}
                 name="name"
-                width="standard"
                 kind="text"
                 isRequired={required.name}
                 maxLength={nameMax}
@@ -95,7 +94,6 @@ export function SpielortEditor({
               <TextField
                 label={WORDS.mietpreis}
                 name="mietpreis"
-                width="short"
                 holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}

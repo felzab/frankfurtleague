@@ -81,7 +81,6 @@ export function SeatActs<Key>({
           <TextField
             label={COPY.shared.firstName}
             name="first_name"
-            width="standard"
             kind="text"
             isRequired={required.first_name}
             maxLength={max.first_name}
@@ -90,7 +89,6 @@ export function SeatActs<Key>({
           <TextField
             label={COPY.shared.lastName}
             name="last_name"
-            width="standard"
             kind="text"
             isRequired={required.last_name}
             maxLength={max.last_name}
@@ -99,7 +97,6 @@ export function SeatActs<Key>({
           <TextField
             label={COPY.signIn.address}
             name="email"
-            width="standard"
             kind="email"
             autofill="off"
             isRequired={required.email}
@@ -109,7 +106,6 @@ export function SeatActs<Key>({
           <TextField
             label={COPY.shared.facts.phone}
             name="phone"
-            width="standard"
             kind="tel"
             isRequired={required.phone}
             defaultValue={person?.phone}

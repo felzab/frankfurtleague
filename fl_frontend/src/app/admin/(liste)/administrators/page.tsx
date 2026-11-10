@@ -265,7 +265,6 @@ function addOf({ actor }: Access): ListCreate | null {
       <TextField
         label={ADDRESS}
         name="email"
-        width="standard"
         kind="email"
         autofill="off"
         isRequired={GRANT_RULES.required.email}

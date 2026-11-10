@@ -46,12 +46,7 @@ const TEAM = COPY.shared.facts.team;
 const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link }] };
 
 /** One of the editor's selects of a few short choices while it is read. */
-const SELECT = (
-  <FieldPlaceholder
-    key="select"
-    width="standard"
-  />
-);
+const SELECT = <FieldPlaceholder key="select" />;
 
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
@@ -117,7 +112,6 @@ export default function SaisonSettingsPage({ params }: Props) {
           [
             <FieldPlaceholder
               key="maxKader"
-              width="short"
               holds={2}
             />,
             <ToggleBoxesPlaceholder
@@ -133,10 +127,7 @@ export default function SaisonSettingsPage({ params }: Props) {
             />,
           ],
           [
-            <FieldPlaceholder
-              key="end"
-              width="standard"
-            />,
+            <FieldPlaceholder key="end" />,
             <CheckboxPlaceholder
               key="paused"
               label={WORDS.registrierungPaused}
@@ -148,8 +139,8 @@ export default function SaisonSettingsPage({ params }: Props) {
               pairs={3}
             />,
           ],
-          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(WORDS.gruppen, "swap") }] },
-          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(TEAM, "replace") }] },
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(WORDS.gruppen, "swap")] }] },
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(TEAM, "replace")] }] },
           [
             <TablePlaceholder
               key="links"
@@ -157,7 +148,7 @@ export default function SaisonSettingsPage({ params }: Props) {
               rows={24}
               bare
             />,
-            { act: COPY.shared.withObject(WORDS.registrierungslinks, "send") },
+            { acts: [COPY.shared.withObject(WORDS.registrierungslinks, "send")] },
           ],
         ],
         danger: [

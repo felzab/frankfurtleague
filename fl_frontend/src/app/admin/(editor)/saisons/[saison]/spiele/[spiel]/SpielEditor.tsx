@@ -277,7 +277,6 @@ export function SpielEditor({
                 <TextField
                   label={ORT.mietpreis}
                   name="mietpreis"
-                  width="short"
                   holds={5}
                   kind="digits"
                   unit={COPY.shared.unit.euro}
@@ -303,7 +302,6 @@ export function SpielEditor({
                 <TextField
                   label={COPY.admin.payment}
                   name="payment"
-                  width="short"
                   holds={5}
                   kind="digits"
                   unit={COPY.shared.unit.euro}
@@ -389,8 +387,7 @@ export function SpielEditor({
               label={WORDS.note}
               labelHidden
               name="note"
-              width="full"
-              kind="text"
+              kind="paragraph"
               maxLength={noteMax}
               value={draft.note}
               onChange={(note) => set("note", note)}

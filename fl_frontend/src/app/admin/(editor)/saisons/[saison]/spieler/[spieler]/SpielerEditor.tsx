@@ -116,7 +116,6 @@ export function SpielerEditor({
               <TextField
                 label={COPY.shared.firstName}
                 name="first_name"
-                width="standard"
                 kind="text"
                 isRequired={required.first_name}
                 maxLength={max.first_name}
@@ -126,7 +125,6 @@ export function SpielerEditor({
               <TextField
                 label={COPY.shared.lastName}
                 name="last_name"
-                width="standard"
                 kind="text"
                 isRequired={required.last_name}
                 maxLength={max.last_name}
@@ -153,7 +151,6 @@ export function SpielerEditor({
               <TextField
                 label={WORDS.nummer}
                 name="nummer"
-                width="short"
                 holds={2}
                 kind="digits"
                 value={draft.nummer}

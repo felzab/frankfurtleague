@@ -68,7 +68,6 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
             "field",
             <FieldPlaceholder
               key="default_payment"
-              width="short"
               holds={5}
               unit={COPY.shared.unit.euro}
             />,

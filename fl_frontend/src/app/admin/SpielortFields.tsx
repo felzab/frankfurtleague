@@ -27,7 +27,6 @@ export function SpielortFields({
       <TextField
         label={COPY.shared.name}
         name="name"
-        width="standard"
         kind="text"
         defaultValue={name}
         isRequired={required.name}
@@ -36,7 +35,6 @@ export function SpielortFields({
       <TextField
         label={WORDS.mietpreis}
         name="mietpreis"
-        width="short"
         holds={5}
         kind="digits"
         unit={COPY.shared.unit.euro}

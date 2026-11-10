@@ -115,9 +115,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 function BookingPlaceholder() {
   return (
     <>
-      <FieldPlaceholder width="standard" />
+      <FieldPlaceholder />
       <FieldPlaceholder
-        width="short"
         holds={5}
         unit={COPY.shared.unit.euro}
       />
@@ -140,8 +139,8 @@ export default function SpielEditorPage({ params }: Props) {
             />,
             "score",
           ],
-          [{ titled: "full" }],
-          [{ titled: "standard" }],
+          [{ titled: "paragraph" }],
+          [{ titled: "field" }],
           [
             <TablePlaceholder
               key="report"

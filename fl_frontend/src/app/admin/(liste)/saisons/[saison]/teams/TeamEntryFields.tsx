@@ -58,7 +58,6 @@ export function TeamEntryFields({
           <TextField
             label={COPY.shared.name}
             name="name"
-            width="standard"
             kind="text"
             isRequired={required.name}
             maxLength={max.name}
@@ -66,7 +65,6 @@ export function TeamEntryFields({
           <TextField
             label={COPY.team.shorthand}
             name="shorthand"
-            width="short"
             holds={5}
             kind="text"
             isRequired={required.shorthand}
@@ -77,7 +75,6 @@ export function TeamEntryFields({
           <TextField
             label={COPY.team.fullName}
             name="full_name"
-            width="standard"
             kind="text"
             isRequired={required.full_name}
             maxLength={max.full_name}
@@ -94,7 +91,6 @@ export function TeamEntryFields({
           <TextField
             label={COPY.team.website}
             name="website_url"
-            width="standard"
             kind="url"
             example={COPY.shared.field.exampleUrl}
             maxLength={max.website_url}

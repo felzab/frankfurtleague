@@ -51,7 +51,6 @@ export function AcceptFields({
     <TextField
       label={COPY.team.shorthand}
       name="shorthand"
-      width="short"
       holds={5}
       kind="text"
       isRequired={shorthand === null}

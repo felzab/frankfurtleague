@@ -74,7 +74,8 @@ export function RegistrierungDialog({ entry, open }: { entry: RegistrierungEntry
           consequence: WORDS.declineConsequence,
           // Whose registration it is, mailed or not: a decline names its pupil, which the dialog's title does no longer.
           facts: [{ label: COPY.shared.name, value: { record: name } }],
-          tone: "primary",
+          // A refusal destroys what was sent: the one outlined danger look, its question's press the red fill.
+          tone: "danger",
           onConfirm: () => declineRegistrierung({ ...decided, reason: null }),
         },
       }}>
