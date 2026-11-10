@@ -177,7 +177,10 @@ function seatRow(seat: FLTeamSeat) {
       };
 }
 
-/** The team, its open work and its seats, read once for the seat the person holds at the address. */
+/**
+ * The team, its open work and its seats, read once for the seat the person holds at the address, and the line the
+ * Registrierungen page stands over a list its read's cap cut short, the box drawing that same list whole.
+ */
 async function readOverview(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const { team_id: team, saison_id: saison } = seat;
@@ -185,13 +188,16 @@ async function readOverview(params: Props["params"]) {
   // The league's calendar day, which the backend judges a deadline and a proposal's day by.
   const today = dayIn(now());
   return {
-    team: { plaque: { record: read.shorthand }, name: { record: read.full_name } },
-    cards: [
-      { id: "termine", title: TITLES.termine, rows: read.termine.map((row) => terminRow(row, team, saison, today)) },
-      { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
-      { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
-    ],
-    seats: { title: TITLES.seats, rows: read.seats.map(seatRow) },
+    cut: read.registrierungen_complete ? null : COPY.admin.registrierung.cut,
+    drawn: {
+      team: { plaque: { record: read.shorthand }, name: { record: read.full_name } },
+      cards: [
+        { id: "termine", title: TITLES.termine, rows: read.termine.map((row) => terminRow(row, team, saison, today)) },
+        { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
+        { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
+      ],
+      seats: { title: TITLES.seats, rows: read.seats.map(seatRow) },
+    },
   };
 }
 
@@ -200,9 +206,11 @@ async function readOverview(params: Props["params"]) {
  * every day, the dates answered on their rows and everything else opening its own page, then its seats, read-only.
  */
 export default function TeamOverviewPage({ params }: Props) {
+  const overview = readOverview(params);
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamOverview" } }}
+      notice={overview.then(({ cut }) => cut)}
       list={{
         kind: "cards",
         wait: {
@@ -215,7 +223,7 @@ export default function TeamOverviewPage({ params }: Props) {
           ],
           seats: TITLES.seats,
         },
-        content: readOverview(params),
+        content: overview.then(({ drawn }) => drawn),
       }}
     />
   );

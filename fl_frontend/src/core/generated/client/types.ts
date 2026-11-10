@@ -5982,6 +5982,7 @@ export interface FLTeamOverviewResponse {
   /** @minLength 1 */
   name: string;
   registrierungen: FLTeamPanelRegistrierung[];
+  registrierungen_complete: boolean;
   rollen: FLKontaktRolle[];
   saison_id: string;
   seats: FLTeamSeat[];

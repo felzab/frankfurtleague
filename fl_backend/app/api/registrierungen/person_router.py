@@ -113,8 +113,8 @@ async def get_open_registrierungen(
     differs. An unconfirmed row names nobody: its address is unproven.
     No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
     more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
-    any unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`
-    is false where the cap cut some.
+    any unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil
+    confirmed; `complete` is false where the cap cut some.
     """
 
     # A snapshot rather than a transaction: this writes nothing, and one point in time keeps the

@@ -93,9 +93,10 @@ async def pull_open_registrierungen(
     """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most, the confirmed ones taken first.
 
     Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
-    flood of them bury every row a pupil confirmed; a confirmed row needs a link answered in its own mailbox, of which
-    `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX` stand at a time. Two reads, each newest first on the
-    queue index, the second only for the room the first left.
+    flood of them bury every row a pupil confirmed. A confirmed row costs more: its own bot-checked submission and a
+    mailed link opened and answered, a mailbox holding `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`
+    unanswered at a time. Rows past the cap stay unread, as on the administration's list, and `complete` says so. Two
+    reads, each newest first, the second only for the room the first left.
     """
 
     rows: list[Mapping[str, Any]] = []

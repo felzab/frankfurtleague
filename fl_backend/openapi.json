@@ -16992,6 +16992,10 @@
             "title": "Registrierungen",
             "type": "array"
           },
+          "registrierungen_complete": {
+            "title": "Registrierungen Complete",
+            "type": "boolean"
+          },
           "rollen": {
             "items": {
               "$ref": "#/components/schemas/FLKontaktRolle"
@@ -17049,6 +17053,7 @@
           "termine",
           "aufstellungen",
           "registrierungen",
+          "registrierungen_complete",
           "seats"
         ],
         "title": "FLTeamOverviewResponse",
@@ -23019,7 +23024,7 @@
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before\nany unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`\nis false where the cap cut some.",
+        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before\nany unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil\nconfirmed; `complete` is false where the cap cut some.",
         "operationId": "registrierungen_get_open_registrierungen",
         "parameters": [
           {
@@ -30761,7 +30766,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview": {
       "get": {
-        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until\nthe league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming\nfixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may\nstill enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,\neach with the pupil's own position and Stufe. And the team's three seats, each with its holder's name and whether\nthat person confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
+        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until\nthe league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming\nfixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may\nstill enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,\neach with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and\n`registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that\nperson confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
         "operationId": "teams_get_team_overview",
         "parameters": [
           {
