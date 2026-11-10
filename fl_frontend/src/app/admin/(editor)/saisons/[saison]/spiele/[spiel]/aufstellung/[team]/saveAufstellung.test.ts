@@ -111,6 +111,28 @@ describe("the league's save of a line-up", () => {
     });
   });
 
+  // The harm: a bound the backend moves, said on the screen as the figure it was when the catalogue was typed.
+  it("says the nominees' gap by the bound the refusal carries", async () => {
+    refusal.write = new APIBadStatusError({
+      message: "refused",
+      url: "http://backend/api/v0/",
+      statusCode: 409,
+      serverErrorCode: "aufstellung_nominee_without_shortage",
+      refusedFields: [{ kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 9 }, in: "body" }],
+      endpoint: "/",
+      method: "PUT",
+      readOnly: false,
+      traceId: "0",
+    });
+    const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [ONE, TWO, THREE] } });
+
+    expect(answer).toStrictEqual({
+      ok: false,
+      errorCode: "aufstellung_nominee_without_shortage",
+      reason: "Nachnominierte füllen nur die Lücke bis 9.",
+    });
+  });
+
   // The harm: a refusal the block cannot foresee, its starters counted with entries it never shows, answered as an
   // unexpected failure that names no reason.
   it("says the starters' bound the write refuses, on the status line", async () => {

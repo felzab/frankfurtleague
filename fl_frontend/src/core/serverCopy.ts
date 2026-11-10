@@ -182,7 +182,8 @@ export const SERVER_COPY = catalogue({
     ansetzung_vorschlag_unchanged: "Das ist der angesetzte Termin.",
     /** A line-up's save by a seat once the lock has passed, one naming more nominees than the eleven lack, and one for a fixture holding no day or hour. */
     aufstellung_locked: "Die Aufstellung ist gesperrt.",
-    aufstellung_nominee_without_shortage: "Nachnominierte füllen nur die Lücke bis 11.",
+    aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
+      typeof max === "number" ? `Nachnominierte füllen nur die Lücke bis ${formatNumber(max)}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
     /**
      * A line-up starting more than the bound its refusal carries, the stored entries of erased pupils counted beside
