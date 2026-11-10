@@ -1492,6 +1492,8 @@ export const COPY = catalogue({
       actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
       /** A pass's label: one form, so a count of 1 needs no singular. */
       passCount: (noun: Copy, count: number) => `${noun}: ${formatNumber(count)}`,
+      /** An admission's label: the address's other pending registrations it deleted, in `passCount`'s one form. */
+      admittedOthers: (count: number) => `Weitere Registrierungen gelöscht: ${formatNumber(count)}`,
       /** What a pass deleted, the noun of `passCount`, by the pass's stored action. */
       passNoun: {
         "retention.bewerbungen": BEWERBUNGEN,
