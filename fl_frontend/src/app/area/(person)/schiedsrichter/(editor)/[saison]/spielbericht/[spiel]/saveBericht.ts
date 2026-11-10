@@ -105,8 +105,9 @@ export const saveBericht = action({
   claim: "record",
   name: "saveBericht",
   input: SaveBericht,
-  // The season's end, met by a form read before it; and goals entered beside a no-show, which the list's line words.
-  ownWords: ["saison_past", "nichtantreten_with_scorers"],
+  // The season's end, met by a form read before it; goals entered beside a no-show, which the list's line words; and a
+  // shoot-out typed level, which the form offers and the write refuses.
+  ownWords: ["saison_past", "nichtantreten_with_scorers", "elfmeterschiessen_without_winner"],
   // The no-show's rule judges the whole block, so the backend names the block, which this form shows as the goals.
   paths: { bericht: "changes.scorers" },
   examples: {
