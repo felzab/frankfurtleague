@@ -325,14 +325,13 @@ class TestTheDrain:
         assert (mails, state) == (([row_id], "open") if handed else ([], "dropped"))
 
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
-        """The second of the ban's two checkpoints, and every spelling of the address on the mail's row meets it."""
+        """The second of the ban's two checkpoints, which a ban entered in any spelling holds against the row's folded address."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BAN_LIST].insert_one(ban_document(NORA.upper(), until="2999"))
             code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
             linked = await owe(database, client, "link/1", data=FLSignInCodeData(kind="sign_in_code"), link=True)
             ban = await owe(database, client, "ban/1")
-            await database[Collection.OUTBOX].update_one({"_id": code}, {"$set": {"to": NORA.upper()}})
             answer = await claimed(database, client)
 
             return (
