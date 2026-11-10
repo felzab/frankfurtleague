@@ -26,12 +26,6 @@ function gameRow(page: Page, game: string): Locator {
 }
 
 /**
- * A club's Kürzel, as a report's side segment names it: the seed gives every club the first three letters of its name
- * (`scripts/ops/seed/seed.js :: clubRow`).
- */
-const plaqueOf = (club: string) => club.slice(0, 3).toUpperCase();
-
-/**
  * Picks a pupil from a row's player list, as a person opens it from the keyboard, and returns the pick's words, which the
  * field shows once chosen. `Unbekannt`, a goal's first entry, is no pupil.
  */
@@ -74,17 +68,17 @@ test("a referee answers the coming game, saves the played game's report, and rea
   if (side === undefined) throw new Error(`the played game „${played}“ names no second club`);
   const main = page.getByRole("main");
 
-  // A goal on its labelled row: the side, the minute and the scorer.
+  // A goal on its labelled row: the side, heard by its club's name whatever Kürzel it shows, the minute and the scorer.
   await main.getByRole("button", { name: "Tor eintragen" }).click();
   const goal = main.getByRole("group", { name: "Tor 1", exact: true });
-  await goal.getByRole("radio", { name: plaqueOf(side), exact: true }).click();
+  await goal.getByRole("radio", { name: side, exact: true }).click();
   await typeInto(goal.getByRole("textbox", { name: "Minute" }), "23");
   const scorer = await pickPupil(page, goal);
 
   // A card on its own: the side, the minute, the pupil and its colour.
   await main.getByRole("button", { name: "Karte eintragen" }).click();
   const card = main.getByRole("group", { name: "Karte 1", exact: true });
-  await card.getByRole("radio", { name: plaqueOf(side), exact: true }).click();
+  await card.getByRole("radio", { name: side, exact: true }).click();
   await typeInto(card.getByRole("textbox", { name: "Minute" }), "40");
   const cautioned = await pickPupil(page, card);
   await card.getByRole("radio", { name: "Gelb", exact: true }).click();
@@ -95,10 +89,10 @@ test("a referee answers the coming game, saves the played game's report, and rea
 
   // Read back from the server: both rows stand as entered.
   await page.reload();
-  await expect(goal.getByRole("radio", { name: plaqueOf(side), exact: true })).toBeChecked();
+  await expect(goal.getByRole("radio", { name: side, exact: true })).toBeChecked();
   await expect(goal.getByRole("textbox", { name: "Minute" })).toHaveValue("23");
   await expect(goal.getByRole("combobox", { name: "Spieler" })).toHaveValue(scorer);
-  await expect(card.getByRole("radio", { name: plaqueOf(side), exact: true })).toBeChecked();
+  await expect(card.getByRole("radio", { name: side, exact: true })).toBeChecked();
   await expect(card.getByRole("textbox", { name: "Minute" })).toHaveValue("40");
   await expect(card.getByRole("combobox", { name: "Spieler" })).toHaveValue(cautioned);
   await expect(card.getByRole("radio", { name: "Gelb", exact: true })).toBeChecked();
