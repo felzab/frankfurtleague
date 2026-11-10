@@ -74,7 +74,7 @@ export interface RenderedMail {
   readonly sender: MailSender;
 }
 
-// The 2027 scheme's light palette: one light design, in colours that still read where a mail app darkens it.
+// The mail's own palette: one light design, in colours that still read where a mail app darkens it.
 const BRAND_COLOR = "#216c2d";
 const BRAND_SOLID_COLOR = "#033f11";
 const SURFACE_COLOR = "#f5f5f5";

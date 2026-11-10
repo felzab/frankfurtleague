@@ -44,7 +44,7 @@ check is on this page.
   export (`signInGate.ts`), a Python module or package and a shell script snake_case
   (`check_public_routes.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
   folder is lowercase kebab-case (`features/address-change/`), and a dynamic route segment is named
-  as its param (`[saison_id]`). A test file is named after the module it tests (`routes.test.ts`,
+  as its param (`[saison]`). A test file is named after the module it tests (`routes.test.ts`,
   `test_recording.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
   `README.md`). The lint's `check-file/folder-naming-convention` and
   `check-file/filename-naming-convention` (`eslint-plugin-check-file`, `fl_frontend/eslint.config.mjs`)

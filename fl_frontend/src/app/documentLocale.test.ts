@@ -9,10 +9,6 @@ vi.mock("next/font/google", () => {
   const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
   return { Anton: face, Inter: face, Raleway: face };
 });
-// The root providers hand Next's router to React Aria's links; outside a mounted app router the
-// real hook throws, and nothing here navigates.
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => undefined }) }));
-
 const { default: RootLayout } = await import("./layout.tsx");
 const { DateField } = await import("@/kit/DateField.tsx");
 const { COPY } = await import("@/core/copy.ts");
