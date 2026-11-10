@@ -646,9 +646,8 @@ class TestTheConfirmation:
         assert after["unconfirmed referee"] == before["unconfirmed referee"]
         seats = after["season row"]
         assert (seats["kontakte"]["ansprechperson"]["email"], seats["kontakte"]["stellvertretung"]["email"]) == (NEW_EMAIL, EMAIL)
-        assert after["confirmation"]["kontakte"]["ansprechperson"] is None
-        # The unconfirmed seat at the same address stays, and so does the link its match confirmation sent it.
-        assert after["confirmation"]["kontakte"]["stellvertretung"] == before["confirmation"]["kontakte"]["stellvertretung"]
+        # A team's match confirmation names its seats by role and never by address, so the move leaves it whole.
+        assert after["confirmation"] == before["confirmation"]
         assert after["pending application"]["kontakte"]["trainer"]["email"] == NEW_EMAIL
         assert after["accepted application"]["kontakte"]["ansprechperson"]["email"] == NEW_EMAIL
         assert (after["confirmed registration"]["email"], after["unconfirmed registration"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
