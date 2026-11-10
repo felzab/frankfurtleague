@@ -63,12 +63,17 @@ function Listing({ leaves, addresses = ["pia@example.org"] }: { leaves: "row" | 
   );
 }
 
-/** Opens the question of the list's `place`th row and presses its act, as a keyboard's user does. */
+/**
+ * Opens the question of the list's `place`th row and presses its act, as a keyboard's user does, until the act is done.
+ * The question runs its act in a transition, which commits on a later task than the press: until then the question
+ * stands busy and the page under it is hidden from every query.
+ */
 async function removeTheRow(place = 1) {
   await userEvent.tab();
   for (let row = 1; row < place; row += 1) await userEvent.tab();
   await userEvent.keyboard("{Enter}");
   await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 }
 
 // The harm: focus dropped on `body` sends a keyboard's next Tab to the top of the document, and nothing fails.
