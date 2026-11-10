@@ -93,6 +93,9 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **swap** — Refuse a swap for anything beyond its pair, a finished season, the season's start and its sides
   having taken place; record an exit before the season's start date, or move the start past one
 - **austritt** — Ask a passkey touch for an Austritt
+- **versions** — Give a part of a document a count of its own; guard a form's save by anything but the
+  `version` of the documents it saves; let a person's own press on their own block that moves no
+  field a form saves, or a job writing only bookkeeping no form saves, raise a record's `version`
 
 ## Operations
 
