@@ -77,13 +77,14 @@ export const ADMINISTRATION_LANDING = "/admin/saisons/2027";
 
 /**
  * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the
- * landing's rule sends this person to. The press's navigation may pass through `/area` on its way there, and an
+ * landing's rule sends this person to, or a pattern of it where the pathname holds a record's id the seed mints anew on
+ * every run, as a team's Übersicht does. The press's navigation may pass through `/area` on its way there, and an
  * address asked for before it arrives aborts one of the two, so a journey goes on from here alone.
  */
-export async function declinePasskeyOffer(page: Page, landing: string): Promise<void> {
+export async function declinePasskeyOffer(page: Page, landing: string | RegExp): Promise<void> {
   await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
   await page.getByRole("button", { name: "Später" }).click();
-  await expect(page).toHaveURL((url) => url.pathname === landing);
+  await expect(page).toHaveURL((url) => (typeof landing === "string" ? url.pathname === landing : landing.test(url.pathname)));
 }
 
 /**
