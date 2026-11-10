@@ -2,12 +2,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { Checkbox } from "./Checkbox";
+import { Checkbox, Tick } from "./Checkbox";
 
 /** The drawn box beside the label: the element the focus file rings. */
 const drawnBox = () => {
@@ -33,6 +33,29 @@ function Required({ checked = false }: { checked?: boolean }) {
     </Form>
   );
 }
+
+describe("a box alone in a column", () => {
+  // The harm: a column of boxes a screen reader says as „Kontrollkästchen“ fourteen times, each drawing as it should.
+  it("is named by its column's head and its row's name, and asks its owner of a press while it is locked", async () => {
+    const onChange = vi.fn();
+    render(
+      <>
+        <span id="head">{COPY.shared.startelf}</span>
+        <span id="row">{COPY.shared.kader}</span>
+        <Tick
+          aria-labelledby="head row"
+          isSelected={false}
+          locked
+          onChange={onChange}
+        />
+      </>,
+    );
+
+    await userEvent.click(screen.getByRole("checkbox", { name: `${COPY.shared.startelf} ${COPY.shared.kader}` }));
+
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(true);
+  });
+});
 
 describe("a required checkbox", () => {
   // Read from the class, since jsdom draws nothing: the edge follows the field's invalid state, which only a
