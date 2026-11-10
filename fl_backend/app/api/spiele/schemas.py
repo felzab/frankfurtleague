@@ -329,6 +329,16 @@ class FLSpielElfmeterschiessen(BaseModel):
         return self
 
 
+class FLSpielElfmeterschiessenPayload(FLSpielElfmeterschiessen):
+    """A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.
+
+    Its own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the
+    documents it reads.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
 # A fixture's two bookings: its venue and its referee.
 type FLBookingResource = Literal["spielort", "schiedsrichter"]
 
@@ -526,7 +536,7 @@ class FLPatchSpielDataPayload(BaseModel):
     team2_quelle: FLSpielQuelle | None
 
     # Here for the same `$set` reason; the handler discards it unless the goals are level.
-    elfmeterschiessen: FLSpielElfmeterschiessen | None
+    elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
 
     date: CustomOptionalDateString
     time: CustomOptionalTimeString

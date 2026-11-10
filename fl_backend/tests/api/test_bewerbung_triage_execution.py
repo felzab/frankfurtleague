@@ -67,9 +67,10 @@ DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
 SAISON_ID = "2026"
 
-# Injected through `get_germany_now`, so the stamp the decision carries is not the wall clock.
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-TODAY = "2026-04-01"
+# Injected through `get_germany_now`, so the stamp the decision carries is not the wall clock; a century ahead of it, every
+# seeded day and birthdate with it: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2126-04-01"
 
 # The administrator the request is attributed to. Distinctive, so a sweep for it cannot hit seed data.
 ADMIN_EMAIL = "triage.quillhilde@example.com"
@@ -104,13 +105,13 @@ RULES: Mapping[str, Any] = rules_document(number_of_gruppen=2, teams_per_gruppe=
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
-SEATED: Final = {"date": "2026-01-15"}
+SEATED: Final = {"date": "2126-01-15"}
 
 
 def kontaktperson(first_name: str, *, phone: str) -> dict[str, Any]:
     """One of the three people an application is filled in by, in the shape the junction stores them."""
 
-    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone=phone, birth_date="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2126-01-16", einwilligung=SEATED, phone=phone, birth_date="2080-05-04")
 
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
@@ -149,7 +150,7 @@ def bewerbung_document(
 
     fields = {
         "kontakte": {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()},
-        "submitted_at": "2026-02-01",
+        "submitted_at": "2126-02-01",
         "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
         **overrides,
     }
@@ -179,7 +180,7 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied
             await database[Collection.TEAMS].insert_many(
                 [
                     club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
-                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2026-03-01"),
+                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
                 ]
             )
             if occupied:
@@ -515,7 +516,7 @@ UNCONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")
 CONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920009")
 
 CONFIRMATIONS = minted_confirmations(
-    hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+    hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2126-02-01"
 )
 
 
@@ -527,10 +528,10 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
         stamped = slot != open_seat
         block[slot] = kontaktperson_document(
             KONTAKTE[slot]["first_name"],
-            confirmed_at="2026-02-10" if stamped else None,
+            confirmed_at="2126-02-10" if stamped else None,
             einwilligung=SEATED,
             phone=KONTAKTE[slot]["phone"],
-            birth_date="1980-05-04" if stamped else None,
+            birth_date="2080-05-04" if stamped else None,
         )
 
     return block
@@ -567,7 +568,7 @@ class TestAcceptanceWaitsForEverySeat:
                     team_id=EXISTING_OID,
                     kontakte=confirmed_kontakte(open_seat="ansprechperson"),
                     confirmations=CONFIRMATIONS,
-                    confirmation_deadline="2026-02-15",
+                    confirmation_deadline="2126-02-15",
                 )
             )
 
@@ -593,7 +594,7 @@ class TestAcceptanceWaitsForEverySeat:
                     team_id=EXISTING_OID,
                     kontakte=confirmed_kontakte(open_seat=None),
                     confirmations=CONFIRMATIONS,
-                    confirmation_deadline="2026-02-15",
+                    confirmation_deadline="2126-02-15",
                 )
             )
             response = await accept(database, client, CONFIRMED_BEWERBUNG)
@@ -605,8 +606,8 @@ class TestAcceptanceWaitsForEverySeat:
         assert response.team_id == EXISTING_OID
         assert len(rows) == 1
         for slot in ("trainer", "ansprechperson", "stellvertretung"):
-            assert rows[0]["kontakte"][slot]["einwilligung"]["confirmed_at"] == "2026-02-10"
-            assert rows[0]["kontakte"][slot]["birth_date"] == "1980-05-04"
+            assert rows[0]["kontakte"][slot]["einwilligung"]["confirmed_at"] == "2126-02-10"
+            assert rows[0]["kontakte"][slot]["birth_date"] == "2080-05-04"
         # The bookkeeping block stays on the application: a hash copied into the junction would live there for a season.
         assert "confirmations" not in rows[0]
 
@@ -1210,7 +1211,7 @@ async def seed_a_pair_whose_seats_diverge(database: AsyncDatabase, bewerbung_id:
 
     await database[Collection.BEWERBUNGEN].insert_one(
         bewerbung_document(
-            bewerbung_id, team_id=EXISTING_OID, kontakte=kontakte, confirmations=dict(CONFIRMATIONS), confirmation_deadline="2026-04-20"
+            bewerbung_id, team_id=EXISTING_OID, kontakte=kontakte, confirmations=dict(CONFIRMATIONS), confirmation_deadline="2126-04-20"
         )
     )
 
@@ -1230,7 +1231,7 @@ async def seed_a_bounced_application(database: AsyncDatabase, client: AsyncMongo
             team_id=EXISTING_OID,
             kontakte=kontakte,
             confirmations=CONFIRMATIONS,
-            confirmation_deadline="2026-02-15",
+            confirmation_deadline="2126-02-15",
         )
     )
     # One mail for the person, read by the seat the Trainer mirrors where they hold two.
@@ -1411,7 +1412,7 @@ async def seed_an_open_ansprechperson_seat(database: AsyncDatabase, *, mirrored:
             team_id=EXISTING_OID,
             kontakte=kontakte,
             confirmations=CONFIRMATIONS,
-            confirmation_deadline="2026-04-20",
+            confirmation_deadline="2126-04-20",
         )
     )
 
@@ -1475,7 +1476,7 @@ class MissesTheFirstWrite:
 
 
 async def answer_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await answer_for(database, client, "ansprechperson", answer="given", birth_date="1980-05-04", text_versions=dict(SEAT_TEXT_VERSIONS))
+    await answer_for(database, client, "ansprechperson", answer="given", birth_date="2080-05-04", text_versions=dict(SEAT_TEXT_VERSIONS))
 
 
 async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -1536,10 +1537,10 @@ class TestAResendRacingAnAnswer:
                 {"_id": RESEND_BEWERBUNG},
                 {
                     "$set": {
-                        "erasure_announced_at": "2026-03-30",
+                        "erasure_announced_at": "2126-03-30",
                         "kontakte.stellvertretung.einwilligung.confirmed_at": None,
-                        "confirmations.ansprechperson.deadline": "2026-04-05",
-                        "confirmations.stellvertretung.deadline": "2026-04-05",
+                        "confirmations.ansprechperson.deadline": "2126-04-05",
+                        "confirmations.stellvertretung.deadline": "2126-04-05",
                     }
                 },
             )
@@ -1598,7 +1599,7 @@ class TestAResendRacingAnAnswer:
             await seed_an_open_ansprechperson_seat(database)
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": RESEND_BEWERBUNG},
-                {"$set": {"erasure_announced_at": "2026-03-30", "confirmations.ansprechperson.deadline": "2026-04-05"}},
+                {"$set": {"erasure_announced_at": "2126-03-30", "confirmations.ansprechperson.deadline": "2126-04-05"}},
             )
             await resend(database, "ansprechperson")
 
@@ -1703,7 +1704,7 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
             confirmations=CONFIRMATIONS,
             # After `TODAY`, so the seat's own link still opens and the Widerspruch below is taken,
             # and off `confirmation_deadline_from`'s answer, which a kept deadline would compare equal to.
-            confirmation_deadline="2026-04-20",
+            confirmation_deadline="2126-04-20",
         )
     )
     await answer_for(database, client, "ansprechperson")
@@ -1874,7 +1875,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
             await seed_an_application_a_seat_was_declined_on(database, client)
             # The sweep that would have deleted this application has not run; the reseat judges no deadline.
             await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": RESEAT_BEWERBUNG}, {"$set": {"confirmations.ansprechperson.deadline": "2026-03-01"}}
+                {"_id": RESEAT_BEWERBUNG}, {"$set": {"confirmations.ansprechperson.deadline": "2126-03-01"}}
             )
             await reseat(database, client, "ansprechperson")
 

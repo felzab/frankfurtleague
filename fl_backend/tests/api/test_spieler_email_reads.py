@@ -58,7 +58,7 @@ async def seed(database: AsyncDatabase) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_one(
         documents.registrierung_document(
             ObjectId(),
-            "Thessaly.Okonkwo@beispielschule.de",
+            FOLDED_EMAIL,
             saison_id=SAISON_ID,
             team_id=TEAM_OID,
             first_name="Thessaly",

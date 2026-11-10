@@ -8,7 +8,6 @@ import { Code } from "./generated/client/types";
 import { boundCall, getRequestActor, getRequestTraceId, inBackground } from "./requestScope";
 import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
-import type { SentRequest } from "./errors";
 import type { FLRefusedField } from "./generated/client/types";
 
 /**
@@ -71,7 +70,7 @@ const getFetchHeaders = (type: FetchOptions["authType"]): Record<string, string>
 const isCode = (value: unknown): value is Code => typeof value === "string" && Object.hasOwn(Code, value);
 
 /** Thrown for every status but a success: the code and the refused fields of the backend's own failure body. */
-const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; traceId: string; endpoint: string; sent: SentRequest }) => {
+const refusalOf = async ({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }) => {
   // An edge's own page, never the backend's body: nginx's and Cloudflare's answers are HTML.
   if (!res.headers.get("content-type")?.includes("application/json")) {
     return new APIBadStatusError({
@@ -79,7 +78,6 @@ const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; trac
       url: res.url,
       statusCode: res.status,
       endpoint,
-      ...sent,
       traceId,
     });
   }
@@ -97,7 +95,6 @@ const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; trac
     // The backend's `FLFailureBody` lists them on every status; a body from anywhere else marks no field.
     refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
     endpoint,
-    ...sent,
     traceId,
   });
 };
@@ -169,7 +166,6 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       message: "Network request failed. Please check your connection.",
       isTimeout: error instanceof Error && error.name === "TimeoutError",
       url: urlObj.toString(),
-      ...sent,
       traceId,
       originalError: error,
     });
@@ -181,7 +177,6 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       message: "The request's deadline had passed before this call was sent.",
       isTimeout: true,
       url: urlObj.toString(),
-      ...sent,
       traceId,
     });
   }
@@ -194,7 +189,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       throw asNetworkError(error);
     }
     // Thrown inside the dispatch, which takes a write the backend refused back from those that may stand.
-    if (!answered.ok) throw await refusalOf({ res: answered, traceId, endpoint, sent });
+    if (!answered.ok) throw await refusalOf({ res: answered, traceId, endpoint });
     return answered;
   });
 

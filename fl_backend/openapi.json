@@ -2477,10 +2477,10 @@
         "type": "object"
       },
       "FLAufstellungReminderData": {
-        "description": "A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered.",
+        "description": "A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered.",
         "properties": {
           "appointment": {
-            "$ref": "#/components/schemas/FLSpielMailAppointment"
+            "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
           "due_at": {
             "format": "date-time",
@@ -8358,7 +8358,7 @@
           "elfmeterschiessen": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessenPayload"
               },
               {
                 "type": "null"
@@ -12154,6 +12154,28 @@
         "title": "FLSpielElfmeterschiessen",
         "type": "object"
       },
+      "FLSpielElfmeterschiessenPayload": {
+        "additionalProperties": false,
+        "description": "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+        "properties": {
+          "team1": {
+            "minimum": 0.0,
+            "title": "Team1",
+            "type": "integer"
+          },
+          "team2": {
+            "minimum": 0.0,
+            "title": "Team2",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielElfmeterschiessenPayload",
+        "type": "object"
+      },
       "FLSpielJoined": {
         "description": "One fixture as the public reads serve it, each side with its club's standing in the season.\n\nThe referee is served only once they accepted the fixture as it stands.",
         "properties": {
@@ -13394,7 +13416,7 @@
         "properties": {
           "cards": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtCard"
+              "$ref": "#/components/schemas/FLSpielberichtCardPayload"
             },
             "maxItems": 60,
             "title": "Cards",
@@ -13418,7 +13440,7 @@
           },
           "scorers": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtScorer"
+              "$ref": "#/components/schemas/FLSpielberichtScorerPayload"
             },
             "maxItems": 60,
             "title": "Scorers",
@@ -13468,6 +13490,43 @@
           "colour"
         ],
         "title": "FLSpielberichtCard",
+        "type": "object"
+      },
+      "FLSpielberichtCardPayload": {
+        "additionalProperties": false,
+        "description": "One card as the referee's save sends it: a key the card does not declare is refused, never dropped.",
+        "properties": {
+          "colour": {
+            "$ref": "#/components/schemas/FLCardColour"
+          },
+          "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute",
+            "type": "string"
+          },
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
+          },
+          "spieler_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
+          }
+        },
+        "required": [
+          "side",
+          "spieler_id",
+          "minute",
+          "colour"
+        ],
+        "title": "FLSpielberichtCardPayload",
         "type": "object"
       },
       "FLSpielberichtCardPublic": {
@@ -13540,6 +13599,7 @@
           "version": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
@@ -13693,6 +13753,44 @@
         "title": "FLSpielberichtScorer",
         "type": "object"
       },
+      "FLSpielberichtScorerPayload": {
+        "additionalProperties": false,
+        "description": "One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped.",
+        "properties": {
+          "eigentor": {
+            "title": "Eigentor",
+            "type": "boolean"
+          },
+          "minute": {
+            "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
+            "title": "Minute",
+            "type": "string"
+          },
+          "side": {
+            "$ref": "#/components/schemas/FLSpielSide"
+          },
+          "spieler_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
+          }
+        },
+        "required": [
+          "side",
+          "spieler_id",
+          "minute",
+          "eigentor"
+        ],
+        "title": "FLSpielberichtScorerPayload",
+        "type": "object"
+      },
       "FLSpielberichtScorerPublic": {
         "description": "One goal: `side` is the scorer's own club, and an own goal (`eigentor`) counts for the other one.",
         "properties": {
@@ -13793,6 +13891,16 @@
             "title": "Spiel Id",
             "type": "string"
           },
+          "spielort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielortFieldPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "team1": {
             "anyOf": [
               {
@@ -13834,6 +13942,7 @@
           "time",
           "team1",
           "team2",
+          "spielort",
           "sonderereignis"
         ],
         "title": "FLSpielberichtSpiel",
@@ -14085,7 +14194,7 @@
           "elfmeterschiessen": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessenPayload"
               },
               {
                 "type": "null"
@@ -17856,7 +17965,7 @@
         "type": "object"
       },
       "FLTeamSeat": {
-        "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: only administrators see those.",
+        "description": "One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.\n\nA Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,\ntelephone number or birthdate: only administrators see those.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
@@ -17873,12 +17982,16 @@
             ],
             "title": "Name"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "title": "Rollen",
+            "type": "array"
           }
         },
         "required": [
-          "rolle",
+          "rollen",
           "name",
           "confirmed"
         ],
@@ -18210,7 +18323,7 @@
           "email_not_accepted",
           "good_spieler_exceed_kader",
           "grant_wording_stale",
-          "nichtantreten_with_tore",
+          "nichtantreten_with_elfmeterschiessen",
           "nichtantreten_with_scorers",
           "registrierung_window_reaches_saison_start",
           "saison_ends_before_start",
@@ -19525,7 +19638,7 @@
         ]
       },
       "put": {
-        "description": "Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.\n\nThe document a seat holder's save writes, on the same payload, so the lock never reaches this save\n(`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist or does not field this club\n(`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture\nholding no day or no hour (`aufstellung_spiel_undated`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past\nthe shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,\nand every refusal but `version_stale` is asked again outside the transaction just before answering.",
+        "description": "Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.\n\nThe document a seat holder's save writes, on the same payload, so the lock never reaches this save\n(`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist or does not field this club\n(`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture\nholding no day or no hour (`aufstellung_spiel_undated`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each\nsuch entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries\n(`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage\n(`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's\nsave, and every refusal but `version_stale` is asked again outside the transaction just before answering. The\nstored entries of pupils erased since the match kicked off, which the screen serves as `erased`, are written back\nafter the payload's as they stand.",
         "operationId": "aufstellungen_put_aufstellung",
         "parameters": [
           {
@@ -19721,7 +19834,7 @@
         ]
       },
       "put": {
-        "description": "Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.\n\nThe first save creates the document and answers 201. `version` is the document's as the screen was served it, null\nwhere the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season\ngranting none (`role_not_held`); a\nfixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour\n(`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named\nbeside eleven regular players, or more nominees than the regular players leave open of eleven\n(`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters\n(`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.\nEvery refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,\na fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.",
+        "description": "Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.\n\nThe first save creates the document and answers 201. `version` is the document's as the screen was served it, null\nwhere the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season\ngranting none (`role_not_held`); a\nfixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour\n(`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each\nsuch entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries\n(`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee named beside eleven regular players, or\nmore nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by\n`max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are\nrefused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils\nerased since the match kicked off, which the screen serves as `erased`, are written back after the payload's as\nthey stand.\nEvery refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,\na fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.",
         "operationId": "aufstellungen_put_aufstellung_self",
         "parameters": [
           {
@@ -26536,7 +26649,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
       "post": {
-        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a\ndiscard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the\nreferee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,\n`spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then\n(`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved\nas that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
+        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a\ndiscard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the\nreferee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,\n`spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then\n(`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved\nas that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
         "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
         "parameters": [
           {
@@ -26858,7 +26971,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/enter": {
       "post": {
-        "description": "Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.\n\nThe administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and\nnothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at\nthe season's end. Refused for a row\nalready answered, by a seat or by an administrator, or closed (`ansetzung_not_enterable`), including one a seat answers\nwhile this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since\nleft is settled as asked, and the next confirmation pass closes it.",
+        "description": "Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.\n\nThe administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and\nnothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at\nthe season's end. Refused for a row\nalready answered, by a seat or by an administrator, or closed (`ansetzung_not_enterable`), including one a seat answers\nwhile this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since\nleft is settled as asked, and the next confirmation pass closes it.",
         "operationId": "spielbestaetigungen_enter_spielbestaetigung",
         "parameters": [
           {
@@ -30346,7 +30459,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
       "put": {
-        "description": "„Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.\n\nThe same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and\n`email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link\nin this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's\nlast holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's\nstay correctable, and such a link takes the person's Widerspruch alone.\n\nWhere the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read\non the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the\nclaim, and the seat it named keeps its person. Left out, the claim stands.\n\nRefused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another\nseat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.",
+        "description": "„Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.\n\nThe same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and\n`email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link\nin this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's\nlast holder answers the team's match confirmations no more. A `past` season's seats and a departed team's\nstay correctable, and such a link takes the person's Widerspruch alone.\n\nWhere the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read\non the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the\nclaim, and the seat it named keeps its person. Left out, the claim stands.\n\nRefused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another\nseat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.",
         "operationId": "teams_put_kontakt_seat",
         "parameters": [
           {

@@ -12,6 +12,8 @@ import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { creditedSide } from "@/features/spiele/result";
+import { roleMarkOf, spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
@@ -144,16 +146,14 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
 function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "first_name" | "last_name">): Words {
   const words = SERVER_COPY.season.spiel;
   if (spieler.type === "unknown") return words.unknown;
-  if (spieler.type === "anonymous" || spieler.first_name === null) return words.anonymous;
-  return { record: spieler.last_name === null ? spieler.first_name : `${spieler.first_name} ${spieler.last_name}` };
+  return spieler.type === "anonymous" ? words.anonymous : spielerName(spieler);
 }
 
 /** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
 function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
   const name = personOf(entry);
-  return typeof name === "string" || entry.rolle === null
-    ? { name }
-    : { name, mark: { letters: COPY.shared.rolleMark[entry.rolle], label: COPY.admin.spieler.rolleOption[entry.rolle] } };
+  const mark = typeof name === "string" ? undefined : roleMarkOf(entry.rolle);
+  return mark === undefined ? { name } : { name, mark };
 }
 
 /** A line-up's pupils as one table: a row a pupil, with their number and position. */
@@ -230,7 +230,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
       };
     }
     const { tor } = event;
-    score[tor.eigentor ? (tor.side === "team1" ? "team2" : "team1") : tor.side] += 1;
+    score[creditedSide(tor)] += 1;
     return {
       id: `t${String(index)}`,
       point: { record: tor.minute },

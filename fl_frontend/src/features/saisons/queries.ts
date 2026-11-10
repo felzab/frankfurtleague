@@ -47,6 +47,11 @@ export const getAdminSaison = cache(async (saisonId: string): Promise<FLSaisonAd
   runAdminRead(() => orMissing(saisonsGetSaisonAdmin(saisonId))),
 );
 
+/** Whether the public may read `saisonId`'s pages, as the season pages' frame lists them: a planned season it may not. */
+export async function isPublicSaison(saisonId: string): Promise<boolean> {
+  return (await getSaisonFrame()).saisons.some((saison) => saison.id === saisonId);
+}
+
 /**
  * The season pages' frame: every season the public may read, the newest first, and the one the site is on,
  * `null` for a league that has none yet.

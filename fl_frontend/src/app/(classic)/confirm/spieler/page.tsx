@@ -9,7 +9,6 @@ import { requires } from "@/core/action";
 import { now } from "@/core/clock";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
 import { bornAfter, bornBy, dayIn, dayOf, formatDate } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -18,8 +17,9 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { ConfirmationFields } from "../ConfirmationFields";
+import { linkViewOf } from "../linkView";
 import { answerRegistrierung } from "./answerRegistrierung";
-import { ConfirmationFields } from "./ConfirmationFields";
 import { CONFIRMED, TO_HOME } from "./ends";
 
 import type { FLRegistrierungConfirmationViewResponse } from "@/core/generated/client/types";
@@ -88,15 +88,7 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
 const readView = cache(async (token: string): Promise<FLRegistrierungConfirmationViewResponse | null> =>
-  runWithIncomingTrace(() =>
-    registrierungenGetConfirmationView({ token }).catch((error: unknown) => {
-      // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
-      if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
-        return null;
-      }
-      throw error;
-    }),
-  ),
+  runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))),
 );
 
 /** The question: for which team, school and season the pupil registered, until when, and the answer's fields. */
@@ -121,12 +113,14 @@ function question(view: FLRegistrierungConfirmationViewResponse, token: string):
     carry: { token },
     children: (
       <ConfirmationFields
+        consent={{ name: "scope", wording: SPIELER_WORDINGS.scope, isRequired: REQUIRED.scope }}
+        media={SPIELER_WORDINGS.media}
         ageCheck={WORDS.ageCheck(view.minimum_age)}
         // The range the write judges, as the link's view serves it.
         earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
         mediaLatestBirth={bornBy(today, view.media_minimum_age)}
-        required={REQUIRED}
+        isBirthDateRequired={REQUIRED.birth_date}
       />
     ),
   };

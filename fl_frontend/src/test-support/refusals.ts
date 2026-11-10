@@ -17,8 +17,6 @@ export function refused(
     statusCode,
     serverErrorCode: code,
     endpoint: "/",
-    method: "POST",
-    readOnly: false,
     traceId: "0",
   });
 }

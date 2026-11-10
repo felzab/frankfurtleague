@@ -191,8 +191,9 @@ export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorsch
 }
 
 /**
- * The one reminder to a club that a fixture's line-up is missing: the fixture between the two sentences, the second
- * naming the moment the backend counted it due at. No token: the reader enters it on the team's own pages, signed in.
+ * The one reminder to a club that a fixture's line-up is missing: the fixture between the two sentences, its day, its
+ * hour and its ground as the fixture request names them, the second sentence naming the moment the backend counted it
+ * due at. No token: the reader enters it on the team's own pages, signed in.
  */
 export function buildAufstellungReminderEmail(
   { team, team_id: teamId, saison_id: saison, appointment, due_at: dueAt }: FLAufstellungReminderData,
@@ -206,15 +207,8 @@ export function buildAufstellungReminderEmail(
     subjectLine: words.reminderSubject(dayOf(appointment.date)),
     origin: site,
     paragraphs: [[words.missing({ record: team })]],
-    block: {
-      title: paarung(appointment),
-      facts: [
-        { label: FACT.date, value: formatDateLong(dayOf(appointment.date)) },
-        { label: FACT.time, value: formatTime(timeOf(appointment.time)) },
-      ],
-    },
+    block: slotBlock(appointment, null),
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
-    // Session 8: leads to the match's line-up page, `ROUTES.teamAufstellung`, once that row exists.
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }

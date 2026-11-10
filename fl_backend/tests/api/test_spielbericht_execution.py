@@ -540,6 +540,9 @@ class TestTheReads:
 
         assert other == Code.BERICHT_NOT_OFFICIATED
         assert (form.bericht, form.spiel.team1.name, form.spiel.saison_phase) == (None, "Adler", "achtelfinale")
+        # The ground the form's lead names, by its row's current name.
+        assert form.spiel.spielort is not None
+        assert (form.spiel.spielort.name, form.spiel.spielort.maps_link) == ("Halle Ost", "Halle Ost, Frankfurt")
         # Live squads alone, each pupil with the number a picker shows.
         assert [(spieler.spieler_id, spieler.nummer) for spieler in form.kader.team1] == [(LINA, "7")]
         assert [spieler.spieler_id for spieler in form.kader.team2] == [MIA]

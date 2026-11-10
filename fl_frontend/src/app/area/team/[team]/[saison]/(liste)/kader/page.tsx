@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -9,6 +11,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { KaderTable } from "./KaderTable";
 
+import type { TeamSeat } from "@/features/roles/resolvers";
 import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -19,8 +22,12 @@ const WORDS = COPY.admin.spieler;
 /** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamKader.path(team, saison);
 
+/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+const kaderRead = cache(getKader);
+const kaderOf = (seat: TeamSeat) => kaderRead(seat.team_id, seat.saison_id);
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamKader, address(await params)));
+  return teamMetadata(params, address, kaderOf, async () => pageMetadata(parent, ROUTES.teamKader, address(await params)));
 }
 
 /**
@@ -39,7 +46,7 @@ const HEAD: TableHead = {
 /** The page's one read, after the seat it is drawn for, handed to its template running. */
 async function read(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const squad = await readAsSeatHolder(() => getKader(seat.team_id, seat.saison_id));
+  const squad = await readAsSeatHolder(() => kaderOf(seat));
   return {
     drawn: (
       <KaderTable

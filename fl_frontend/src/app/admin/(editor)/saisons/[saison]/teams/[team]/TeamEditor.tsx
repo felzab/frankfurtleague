@@ -14,7 +14,6 @@ import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
 import { FLAustrittType } from "@/core/generated/client/types";
-import { KONTAKT_ROLLE_LONG_FORM } from "@/core/teamVocabulary";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions } from "@/features/teams/options";
@@ -259,8 +258,8 @@ export function TeamEditor({
                                 description={COPY.team.trainerAlso.description}
                                 options={[
                                   { id: "", label: COPY.team.trainerAlso.none },
-                                  { id: "ansprechperson", label: { record: KONTAKT_ROLLE_LONG_FORM.ansprechperson } },
-                                  { id: "stellvertretung", label: { record: KONTAKT_ROLLE_LONG_FORM.stellvertretung } },
+                                  { id: "ansprechperson", label: COPY.team.seatName.ansprechperson },
+                                  { id: "stellvertretung", label: COPY.team.seatName.stellvertretung },
                                 ]}
                                 defaultValue={target.trainerAlso ?? ""}
                               />

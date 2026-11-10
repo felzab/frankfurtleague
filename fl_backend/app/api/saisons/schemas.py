@@ -406,6 +406,11 @@ class FLSaisonFrameEntry(BaseReadModel):
 
 FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
 
+# What every season button's read projects of a season beside its id, and the order it lists them in, the newest
+# first: the public frame's and each person's own list alike, so no two buttons order one league's seasons apart.
+SAISON_FRAME_FIELDS: Final = ("start_date", "end_date")
+SAISON_FRAME_ORDER: Final[Mapping[str, int]] = {"_id": -1}
+
 
 class FLSaisonFrameResponse(BaseAPIResponse):
     """Every season the public may read, the newest first, and the one the site is on.

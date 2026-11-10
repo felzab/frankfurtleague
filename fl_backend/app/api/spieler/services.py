@@ -3,6 +3,7 @@ from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
+from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerRolle
@@ -429,7 +430,7 @@ def build_self_saisons_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "from": Collection.SAISONS,
                 "localField": "kader.saison_id",
                 "foreignField": "_id",
-                "pipeline": [{"$project": {"start_date": 1, "end_date": 1}}, {"$sort": {"_id": -1}}],
+                "pipeline": [{"$project": dict.fromkeys(SAISON_FRAME_FIELDS, 1)}, {"$sort": dict(SAISON_FRAME_ORDER)}],
                 "as": "saisons",
             }
         },

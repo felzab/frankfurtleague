@@ -8,21 +8,19 @@ import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { matchdayOf } from "@/features/spiele/blocks";
+import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
-import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
-import { LockedLineup } from "./lockedView";
 import { TeamAufstellung } from "./TeamAufstellung";
 
-import type { Copy, Words } from "@/core/copy";
-import type { FLAufstellungResponse, FLAufstellungSpiel } from "@/core/generated/client/types";
+import type { Copy } from "@/core/copy";
+import type { FLAufstellungResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
-import type { PageTitle } from "@/kit/RailFrame";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/area/team/[team]/[saison]/spiele/[spiel]">;
@@ -43,38 +41,28 @@ async function lineupAt(params: Props["params"], team: string, saison: string): 
   return found === null || found.spiel.saison_id !== saison ? null : found;
 }
 
-/** A side as the title names it: its club, or, while the draw has not settled it, that it is still open. */
-const sideOf = (team: FLAufstellungSpiel["team1"]): Words => (team === null ? COPY.spielplan.quelle.open : { record: team.name });
-
-const titleOf = ({ team1, team2 }: FLAufstellungSpiel): PageTitle => ({ route: "spiel", team1: sideOf(team1), team2: sideOf(team2) });
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, ([seat]) =>
-    metadataFor(lineupAt(params, seat.team_id, seat.saison_id), async ({ spiel }) =>
+  return teamMetadata(
+    params,
+    address,
+    (seat) => lineupAt(params, seat.team_id, seat.saison_id),
+    async ({ spiel }) =>
       pageMetadata(parent, ROUTES.teamAufstellung, address(await params), {
-        title: COPY.page.spiel(sideOf(spiel.team1), sideOf(spiel.team2)),
+        title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
       }),
-    ),
   );
 }
 
 /**
  * The line under the title: the matchday, as the Spiele list names it, and when the match is played; and where nothing
- * is stored, the day the line-up is due, or since when it is overdue. Due and overdue refuse nothing: they are words
- * alone. From the lock, that the league alone changes it, stored or not.
+ * is stored before the lock, the day the line-up is due, or since when it is overdue. Due and overdue refuse nothing:
+ * they are words alone. From the lock, the closed editor's reason says the league alone changes it.
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
   const words = COPY.area.team.aufstellung;
-  const due = marks === null || marks.stored ? null : dayIn(new Date(marks.due_at));
-  const owed =
-    marks?.phase === "locked"
-      ? words.lockedLine
-      : due === null
-        ? null
-        : marks?.phase === "overdue"
-          ? words.overdueSince(due)
-          : words.dueBy(due);
+  const due = marks === null || marks.stored || marks.phase === "locked" ? null : dayIn(new Date(marks.due_at));
+  const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
   return SERVER_COPY.area.line([matchdayOf(spiel, spiel), when, owed]);
 }
 
@@ -83,36 +71,32 @@ const overdueChip = ({ marks }: FLAufstellungResponse): ChipProps | undefined =>
   marks !== null && !marks.stored && marks.phase === "overdue" ? { tone: "danger", label: COPY.area.team.aufstellung.overdue } : undefined;
 
 /**
- * The page once read: the editor until one hour before kick-off, and the line-up read-only from then, when the league
- * alone changes it. A match with no day or hour takes no line-up, so its editor opens with nobody to name.
+ * The page once read: the editor until one hour before kick-off, and from then the same editor closed, as the
+ * administration opens a record it may no longer change, since the league alone changes the line-up now. A match with
+ * no day or hour takes no line-up, so its editor opens with nobody to name.
  */
 async function readEditor(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
   const found = await readAsSeatHolder(() => lineupAt(params, seat.team_id, seat.saison_id));
   if (found === null) notFound();
 
-  const title = titleOf(found.spiel);
-  if (found.marks?.phase === "locked") {
-    return (
-      <LockedLineup
-        title={title}
-        lead={leadOf(found)}
-        read={found}
-      />
-    );
-  }
+  const words = COPY.area.team.aufstellung;
+  const closed = found.marks?.phase === "locked" ? words.lockedLine : undefined;
+  // The block's every act answers a press with why it is closed: the lock before the missing slot.
+  const locked = closed ?? (found.marks === null ? words.needsSlot : undefined);
   const chip = overdueChip(found);
   return (
     <TeamAufstellung
       team={seat.team_id}
       saison={seat.saison_id}
-      title={title}
+      title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler, erased: found.erased }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
-      {...(found.marks === null ? { locked: COPY.area.team.aufstellung.needsSlot } : {})}
+      {...(locked === undefined ? {} : { locked })}
+      {...(closed === undefined ? {} : { closed })}
     />
   );
 }
@@ -123,14 +107,14 @@ export default function AufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        // Nobody named yet and the whole squad under it, the taller of the block's two states.
+        // The line-up the board drew: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {
             block: (
               <LineupPlaceholder
                 words={LINEUP_WORDS}
-                picked={0}
-                rest={20}
+                picked={STARTERS_MAX}
+                rest={9}
               />
             ),
           },

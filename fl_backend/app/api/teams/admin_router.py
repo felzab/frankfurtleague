@@ -121,16 +121,23 @@ from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
     InvitationsCollection,
+    InvitationsReadCollection,
     OutboxCollection,
+    OutboxReadCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpieleCollection,
+    SpieleReadCollection,
     TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
@@ -185,7 +192,7 @@ async def _rewrite_the_outgoing_clubs_sides(
 async def _with_seat_states(
     teams_raw: Sequence[Mapping[str, Any]],
     *,
-    outbox_collection: AsyncCollection,
+    outbox_collection: ReadCollection,
     today: str,
 ) -> list[dict[str, Any]]:
     """The memberships read with each seat's link state composed on."""
@@ -218,7 +225,7 @@ async def write_the_contact_block(
     """Store a block over `stored`, read in this session, owing each person it newly seats their link; each link owed.
 
     Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
-    entry, unconfirmed, and a seat handed on loses its links on the team's open match confirmations.
+    entry, unconfirmed.
     """
 
     kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
@@ -270,7 +277,7 @@ async def write_the_contact_block(
     return [mint for _, mint in links]
 
 
-async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: AsyncCollection) -> FLInvitationRow:
+async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: ReadCollection) -> FLInvitationRow:
     """One live link as a read serves it, with what became of its last mail."""
 
     state = await state_of(outbox_collection=outbox_collection, reference=invitation_reference(live["_id"]))
@@ -286,9 +293,9 @@ async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: Asyn
     summary="One season's Teams list and what its create dialog offers",
 )
 async def get_teams_admin(
-    teams_collection: TeamsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
+    teams_collection: TeamsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
     filters: FLTeamsAdminFilterParams = Depends(),
 ) -> FLTeamsAdminListResponse:
     """
@@ -350,12 +357,12 @@ async def get_teams_admin(
 async def get_team_saison_admin(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    teams_collection: TeamsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    invitations_collection: InvitationsCollection,
-    outbox_collection: OutboxCollection,
+    teams_collection: TeamsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    invitations_collection: InvitationsReadCollection,
+    outbox_collection: OutboxReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLTeamSaisonAdminResponse:
     """
@@ -764,7 +771,7 @@ async def put_kontakt_seat(
     The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
     `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
     in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
-    last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+    last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
     stay correctable, and such a link takes the person's Widerspruch alone.
 
     Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read

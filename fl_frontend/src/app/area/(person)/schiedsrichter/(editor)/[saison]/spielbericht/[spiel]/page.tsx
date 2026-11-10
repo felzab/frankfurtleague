@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
 import { RecordRowsPlaceholder } from "@/kit/RecordRows";
@@ -18,8 +18,11 @@ import {
 import { CustomObjectIdStringSchema } from "@/core/objectId";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { requireRole } from "@/features/roles/resolvers";
+import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
+import { isPublicSaison } from "@/features/saisons/queries";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
+import { matchName, matchTitle } from "@/features/spiele/blocks";
+import { spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -28,7 +31,7 @@ import { Card, Goal } from "./berichtRules";
 import { valuesOf } from "./berichtValues";
 import { saveBericht } from "./saveBericht";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { FLSpielberichtSchiedsrichterResponse, FLSpielberichtSpieler, FLSpielSide } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
@@ -56,20 +59,18 @@ const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielberic
 /**
  * What the address holds for the signed-in referee: the report's read, or `unbooked` for a fixture booked to another
  * referee, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
- * A referee whose record went between the frame's check and the read is sent on as the frame sends a person holding
- * no such Funktion. Memoised for the render, so the tab's title and the page share the one read.
+ * A referee whose record went between the frame's check and the read is sent on as every person place sends them.
+ * Memoised for the render, so the tab's title and the page share the one read.
  */
 const find = cache(async (saison: string, spiel: string): Promise<FLSpielberichtSchiedsrichterResponse | "unbooked" | null> => {
   await requireRole("schiedsrichter", address({ saison, spiel }));
   const id = CustomObjectIdStringSchema.safeParse(spiel);
   if (!id.success) return null;
   try {
-    const read = await getOwnSpielbericht(id.data);
+    const read = await readAsRoleHolder("schiedsrichter", () => getOwnSpielbericht(id.data));
     return read === null || read.spiel.saison_id !== saison ? null : read;
   } catch (error) {
-    if (!(error instanceof APIBadStatusError)) throw error;
-    if (error.serverErrorCode === "bericht_not_officiated") return "unbooked";
-    if (error.serverErrorCode === "role_not_held") redirect(ROUTES.area.path());
+    if (error instanceof APIBadStatusError && error.serverErrorCode === "bericht_not_officiated") return "unbooked";
     throw error;
   }
 });
@@ -79,23 +80,14 @@ const findIn = async (params: Props["params"]) => {
   return find(saison, spiel);
 };
 
-/** A side by its club's name, and by its place while the knockout slot is open. */
-const nameOf = (read: FLSpielberichtSchiedsrichterResponse, side: FLSpielSide): Words => {
-  const team = read.spiel[side];
-  return team === null ? COPY.admin.spiel[side] : { record: team.name };
-};
-
 /** The match by its two teams, as its own page is titled. */
-const titleOf = (read: FLSpielberichtSchiedsrichterResponse): PageTitle => ({
-  route: "spiel",
-  team1: nameOf(read, "team1"),
-  team2: nameOf(read, "team2"),
-});
+const titleOf = ({ spiel }: FLSpielberichtSchiedsrichterResponse): PageTitle =>
+  matchTitle(spiel.team1?.name ?? null, spiel.team2?.name ?? null);
 
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findIn(params), async (found) =>
     pageMetadata(parent, ROUTES.schiedsrichterSpielbericht, address(await params), {
-      title: found === "unbooked" ? COPY.admin.spiel.spielbericht : ROUTES.spiel.title(nameOf(found, "team1"), nameOf(found, "team2")),
+      title: found === "unbooked" ? COPY.admin.spiel.spielbericht : matchName(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null),
     }),
   );
 }
@@ -144,7 +136,7 @@ export default function SpielberichtPage({ params }: Props) {
 
 /** A pupil by number and name as the squad lists them; one an erasure took is „anonym“, as every page names them. */
 function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }: FLSpielberichtSpieler): Option {
-  const name = first === null ? SERVER_COPY.season.spiel.anonymous : { record: last === null ? first : `${first} ${last}` };
+  const name = spielerName({ first_name: first, last_name: last });
   return { id, label: { record: SERVER_COPY.area.line([nummer === null ? null : { record: nummer }, name]) } };
 }
 
@@ -190,22 +182,26 @@ async function readPage(params: Props["params"]) {
   if (!found.completed) {
     // The write's own refusals a page can foresee from the fixture it serves, stated before any press meets them.
     if (spiel.sonderereignis === "ausgefallen" || spiel.sonderereignis === "annulliert") {
-      return card(title, "danger", COPY.admin.spiel[spiel.sonderereignis], saison);
+      return card(title, "danger", WORDS.befell[spiel.sonderereignis], saison);
     }
     const day = dayOf(spiel.date);
     if (day === null) return card(title, "info", COPY.spielplan.when(null, null), saison);
     if (day > dayIn(now())) return card(title, "info", SERVER_COPY.area.schiedsrichter.spielberichtFrom(day), saison);
   }
 
+  // The form tells its two sides apart, so a side the knockout has not settled goes by its place, never „Noch offen“ twice.
   const sideOf = (side: FLSpielSide) => {
     const team = found.spiel[side];
-    return { name: nameOf(found, side), plaque: team === null ? null : { record: team.shorthand } };
+    return team === null ? { name: COPY.admin.spiel[side], plaque: null } : { name: { record: team.name }, plaque: { record: team.shorthand } };
   };
 
   return (
     <BerichtEditor
       title={title}
-      lead={COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time))}
+      lead={SERVER_COPY.area.line([
+        COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
+        spiel.spielort === null ? null : { record: spiel.spielort.name },
+      ])}
       record={{ id: spiel.spiel_id, version: found.version, values: valuesOf(found) }}
       save={saveBericht}
       phase={spiel.saison_phase}
@@ -217,6 +213,7 @@ async function readPage(params: Props["params"]) {
       remarksMax={spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax}
       sidesChanged={found.sides_changed.length > 0}
       {...(found.completed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
+      {...((await isPublicSaison(saison)) ? { spielPage: ROUTES.spiel.path(saison, spiel.spiel_id) } : {})}
     />
   );
 }

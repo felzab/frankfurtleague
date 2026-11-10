@@ -17,7 +17,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.address_change.services import masked_address
-from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.grants.erasure import erase_grants_in_session
 from app.api.grants.services import compose_notice
 from app.api.identity.crud import erase_the_mails_in_session
@@ -33,12 +32,11 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_grants_erasure_test")
 
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # When the notices she finds still queued were, so none reads as one the erasure queued.
-QUEUED = datetime(2026, 3, 31, 9, 0, tzinfo=UTC)
-TODAY = "2026-04-01"
+QUEUED = datetime(2126, 3, 31, 9, 0, tzinfo=UTC)
 RUNNING = "2026"
-STANDING = compose_barred_until_saison_id(running_saison_id=RUNNING)
 
 # The person erased. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"

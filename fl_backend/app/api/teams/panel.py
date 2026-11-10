@@ -81,7 +81,7 @@ class FLTeamOverviewResponse(BaseAPIResponse):
     termine: list[FLTeamPanelTermin]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]
-    # Always three, an empty slot answered with no name.
+    # One per person, an empty slot answered with no name: three, or two where the Trainer holds a second seat.
     seats: list[FLTeamSeat]
 
 

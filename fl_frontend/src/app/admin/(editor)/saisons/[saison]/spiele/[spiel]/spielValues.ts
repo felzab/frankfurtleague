@@ -1,3 +1,5 @@
+import { isNoShow } from "@/features/spiele/result";
+
 import type { CalendarDay, TimeOfDay } from "@/core/format";
 import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
@@ -26,10 +28,6 @@ export type SpielValues = {
   sonderereignis: string;
   note: string;
 };
-
-/** A no-show, whose goals the write composes from the season's rules rather than taking any typed. */
-export const isNoShow = (sonderereignis: FLSonderereignis | string | null) =>
-  sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 /** An event after which the match carries no result at all, which the write refuses goals beside. */
 export const takesNoResult = (sonderereignis: FLSonderereignis | string | null) =>

@@ -152,8 +152,9 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     async def _seed() -> None:
         async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
+            # Each case's record laid over the builder's own: the table holds records no model reads, a missing one among them.
             await database.spieler.insert_many(
-                [spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME, einwilligung=case.einwilligung) for case in NAME_IS_PUBLIC]
+                [{**spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME), "einwilligung": case.einwilligung} for case in NAME_IS_PUBLIC]
             )
             await database.saison_spieler.insert_many(
                 [
@@ -163,13 +164,12 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
             )
             await database.schiedsrichter.insert_many(
                 [
-                    schiedsrichter_document(
-                        _schiedsrichter_oid_for(case),
-                        email="pfiff@example.com",
-                        name="Ada Kern",
-                        default_payment=20,
-                        einwilligung=case.einwilligung,
-                    )
+                    {
+                        **schiedsrichter_document(
+                            _schiedsrichter_oid_for(case), email="pfiff@example.com", name="Ada Kern", default_payment=20, einwilligung=None
+                        ),
+                        "einwilligung": case.einwilligung,
+                    }
                     for case in NAME_IS_PUBLIC
                 ]
             )

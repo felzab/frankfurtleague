@@ -9,7 +9,6 @@ import { requires } from "@/core/action";
 import { now } from "@/core/clock";
 import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
 import { bornAfter, bornBy, dayIn, dayOf } from "@/core/format";
 import { schiedsrichterGetConfirmationView } from "@/core/generated/client/sdk";
 import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs";
@@ -18,8 +17,9 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { ConfirmationFields } from "../ConfirmationFields";
+import { linkViewOf } from "../linkView";
 import { answerSchiedsrichter } from "./answerSchiedsrichter";
-import { ConfirmationFields } from "./ConfirmationFields";
 import { END, TO_HOME } from "./ends";
 
 import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
@@ -77,15 +77,7 @@ export default function SchiedsrichterConfirmationPage({ searchParams }: Props) 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
 const readView = cache(async (token: string): Promise<FLSchiedsrichterConfirmationViewResponse | null> =>
-  runWithIncomingTrace(() =>
-    schiedsrichterGetConfirmationView({ token }).catch((error: unknown) => {
-      // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
-      if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
-        return null;
-      }
-      throw error;
-    }),
-  ),
+  runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))),
 );
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
@@ -127,11 +119,13 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
         carry: { token },
         children: (
           <ConfirmationFields
+            consent={{ name: "scope", wording: SCHIEDSRICHTER_WORDINGS.scope, isRequired: REQUIRED.scope }}
+            media={SCHIEDSRICHTER_WORDINGS.media}
             // The range the write judges, as the link's view serves it.
             earliestBirth={bornAfter(today, view.maximum_age)}
             latestBirth={bornBy(today, view.minimum_age)}
             mediaLatestBirth={bornBy(today, view.media_minimum_age)}
-            required={REQUIRED}
+            isBirthDateRequired={REQUIRED.birth_date}
           />
         ),
       };

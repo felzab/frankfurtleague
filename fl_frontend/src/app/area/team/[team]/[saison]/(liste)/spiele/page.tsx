@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { ListPage } from "@/kit/ListPage";
 
 import { COPY } from "@/core/copy";
@@ -9,6 +11,7 @@ import { getTeamSpiele } from "@/features/spiele/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLTeamPanelSpiel } from "@/core/generated/client/types";
+import type { TeamSeat } from "@/features/roles/resolvers";
 import type { ChipProps } from "@/kit/Chip";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -17,8 +20,12 @@ type Props = PageProps<"/area/team/[team]/[saison]/spiele">;
 /** The page's own address, which a session sent to sign in comes back to. */
 const address = ({ team, saison }: { team: string; saison: string }) => ROUTES.teamSpiele.path(team, saison);
 
+/** The page's one read, memoised for the render on its two ids, which `cache` compares by identity, so the tab's title and the page share it. */
+const spieleRead = cache(getTeamSpiele);
+const spieleOf = (seat: TeamSeat) => spieleRead(seat.team_id, seat.saison_id);
+
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
-  return teamMetadata(params, address, async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
+  return teamMetadata(params, address, spieleOf, async () => pageMetadata(parent, ROUTES.teamSpiele, address(await params)));
 }
 
 /** The states of a date the league asked the club about that still wait on the club's own answer. */
@@ -44,7 +51,7 @@ function openOn({ termin, aufstellung }: FLTeamPanelSpiel): ChipProps | undefine
  */
 async function readSpiele(params: Props["params"]) {
   const [seat] = await requireTeamSeats(params, address);
-  const { spiele } = await readAsSeatHolder(() => getTeamSpiele(seat.team_id, seat.saison_id));
+  const { spiele } = await readAsSeatHolder(() => spieleOf(seat));
   return {
     groups: spiele.map((spiel) => {
       const { head, spiel: row } = headedMatchOf(spiel);
@@ -58,7 +65,7 @@ async function readSpiele(params: Props["params"]) {
         },
       };
     }),
-    empty: { kind: "none", plural: COPY.page.spiele } as const,
+    empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" } as const,
   };
 }
 

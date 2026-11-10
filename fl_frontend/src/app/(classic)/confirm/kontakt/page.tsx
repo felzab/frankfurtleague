@@ -8,19 +8,18 @@ import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit
 import { requires } from "@/core/action";
 import { now } from "@/core/clock";
 import { SEAT_WORDINGS } from "@/core/consentWordings";
-import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
+import { COPY, rollenText } from "@/core/copy";
 import { bornAfter, bornBy, dayIn, dayOf, formatDate } from "@/core/format";
 import { bewerbungenGetEinwilligungView } from "@/core/generated/client/sdk";
 import { BewerbungenPostEinwilligungBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { rollenText } from "@/core/teamVocabulary";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { pageMetadata } from "@/shared/utils/metadata";
 
+import { ConfirmationFields } from "../ConfirmationFields";
+import { linkViewOf } from "../linkView";
 import { answerKontakt, objectKontakt } from "./answerKontakt";
-import { ConfirmationFields } from "./ConfirmationFields";
 import { END, TO_HOME } from "./ends";
 
 import type { CalendarDay } from "@/core/format";
@@ -88,15 +87,7 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
 const readView = cache(async (token: string): Promise<FLBewerbungEinwilligungViewResponse | null> =>
-  runWithIncomingTrace(() =>
-    bewerbungenGetEinwilligungView({ token }).catch((error: unknown) => {
-      // A failed read is no state of the link's: it reaches the frame's error boundary, which logs it.
-      if (error instanceof APIBadStatusError && (error.serverErrorCode === "link_invalid" || error.serverErrorCode === "payload_refused")) {
-        return null;
-      }
-      throw error;
-    }),
-  ),
+  runWithIncomingTrace(() => linkViewOf(bewerbungenGetEinwilligungView({ token }))),
 );
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
@@ -174,6 +165,8 @@ function question(view: FLBewerbungEinwilligungViewResponse, token: string, unti
     carry: { token },
     children: (
       <ConfirmationFields
+        consent={{ name: "whatsapp", wording: SEAT_WORDINGS.scope }}
+        media={SEAT_WORDINGS.media}
         ageCheck={WORDS.ageCheck(view.minimum_age)}
         // The range the write judges, as the link's view serves it.
         earliestBirth={bornAfter(today, view.maximum_age)}

@@ -4,9 +4,11 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, season_has_ended
+from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
 from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
@@ -180,7 +182,7 @@ def erase_at_from(*, deadline: str) -> datetime:
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
-    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
+    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today."""
 
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today)}
 
@@ -518,14 +520,13 @@ def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mappi
                 "from": Collection.SAISONS,
                 "localField": "_id",
                 "foreignField": "_id",
-                "pipeline": [{"$project": {"start_date": 1, "end_date": 1}}],
+                "pipeline": [{"$project": dict.fromkeys(SAISON_FRAME_FIELDS, 1)}],
                 "as": "saison",
             }
         },
         {"$unwind": "$saison"},
         {"$replaceWith": "$saison"},
-        # As the public frame orders its seasons (`app/api/saisons/public_router.py :: get_frame`).
-        {"$sort": {"_id": -1}},
+        {"$sort": dict(SAISON_FRAME_ORDER)},
     ]
 
 
@@ -533,10 +534,6 @@ def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mappi
 OWN_ROW_AS: Final = "spielbestaetigung"
 OWN_ROW_VEREINE_AS: Final = "vereine"
 BERICHT_AS: Final = "spielbericht"
-SAISON_AS: Final = "saison"
-
-# What a row's state judges of the clubs' season rows its Ansetzung names: each club's exit.
-OWN_VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
 
 
 def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
@@ -581,7 +578,7 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
                             "let": {"saison_id": "$saison_id", "team_ids": ["$ansetzung.team1_id", "$ansetzung.team2_id"]},
                             "pipeline": [
                                 {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$in": ["$team_id", "$$team_ids"]}]}}},
-                                {"$project": dict(OWN_VEREIN_FIELDS)},
+                                {"$project": dict(JUDGED_VEREIN_FIELDS)},
                             ],
                             "as": OWN_ROW_VEREINE_AS,
                         }
@@ -599,15 +596,7 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
                 "as": BERICHT_AS,
             }
         },
-        {
-            "$lookup": {
-                "from": Collection.SAISONS,
-                "localField": "saison_id",
-                "foreignField": "_id",
-                "pipeline": [{"$project": {"_id": 0, "status": 1}}],
-                "as": SAISON_AS,
-            }
-        },
+        SAISON_LOOKUP,
     ]
 
 
@@ -633,7 +622,8 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrich
 
     row = next(iter(spiel[OWN_ROW_AS]), None)
     bericht = next(iter(spiel[BERICHT_AS]), None)
-    saison = next(iter(spiel[SAISON_AS]), None)
+    # One row: a fixture's season always stands, and the read joins it by its id.
+    [saison] = spiel[SAISON_AS]
     spielort = spiel.get("spielort")
 
     def team_name(side: str) -> str | None:
@@ -660,7 +650,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrich
         entered=row is not None and entered_of(row),
         past=spiel.get("date") is not None and spiel["date"] < today,
         # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
-        reportable=takes_a_bericht(spiel, today=today) and not season_has_ended(saison_status=None if saison is None else saison.get("status")),
+        reportable=takes_a_bericht(spiel, today=today) and not season_has_ended(saison_status=saison["status"]),
         submitted_at=None if bericht is None else bericht.get("submitted_at"),
     )
 

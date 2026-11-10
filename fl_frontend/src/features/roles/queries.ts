@@ -6,6 +6,7 @@ import { dayOf, formatPeriod } from "@/core/format";
 import { schiedsrichterGetSelfSaisons, spielerGetSelfSaisons } from "@/core/generated/client/sdk";
 import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
+import { isRoleGone } from "@/features/roles/resolvers";
 import { getSaisonFrame } from "@/features/saisons/queries";
 import { runPersonRead } from "@/shared/utils/personRead";
 
@@ -26,11 +27,12 @@ const OWN_SAISONS = { spieler: spielerGetSelfSaisons, schiedsrichter: schiedsric
  *
  * The frame's own read, which a page of the place shares: its address without a season sends the reader on to
  * `standard`, and a season's page holds the season of its address to the list. A session turned away and a person
- * holding no such Funktion are answered `null` without a read: their page sends them on, and a read the backend
- * refuses would fail the frame around that redirect.
+ * holding no such Funktion are answered `null` without a read. One whose Funktion the backend finds gone after that
+ * check is refused `role_not_held` here, for the page to send on (`readAsRoleHolder`); the frame reads through
+ * `getOwnSaisons`, which answers that refusal `null`, since a refusal would fail the frame around the page's redirect.
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments rather than the caller.
-export const getOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> => {
+export const readOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> => {
   const subject = await getSubjectSession();
   if (subject === null || !rolesOf(subject).roles.some((role) => role.kind === kind)) return null;
 
@@ -44,3 +46,11 @@ export const getOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | n
     standard: own.find((saison) => saison.id === running)?.id ?? newest.id,
   };
 });
+
+/** The frame's read of `readOwnSaisons`: a Funktion the backend finds gone draws no season button. */
+export const getOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> =>
+  readOwnSaisons(kind).catch((error: unknown) => {
+    if (isRoleGone(error)) return null;
+    throw error;
+  }),
+);

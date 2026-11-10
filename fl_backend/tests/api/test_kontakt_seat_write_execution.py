@@ -291,7 +291,11 @@ class TestAConfirmationLandingBeforeTheSave:
     """
 
     UNCONFIRMED = block(trainer={**stored_person("Ida"), "birth_date": None})
-    LINKED = {"trainer": {**link_entry(), "token_hashes": [hash_token(LINK)], "deadline": "2026-04-15"}}
+    LINKED = {
+        "trainer": {**link_entry(), "token_hashes": [hash_token(LINK)], "deadline": "2026-04-15"},
+        "ansprechperson": None,
+        "stellvertretung": None,
+    }
 
     def pressed_then_written(self, url: str, sent: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
         async def body(database: AsyncDatabase) -> tuple[dict[str, Any], list[Any]]:

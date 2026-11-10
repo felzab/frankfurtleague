@@ -1,14 +1,12 @@
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { kaderName } from "@/features/spieler/constants";
+import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
 
 import { STARTERS_MAX } from "./constants";
 
-import type { Words } from "@/core/copy";
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { LineupPlayer, LineupWords } from "@/kit/Lineup";
-import type { RoleMarkProps } from "@/kit/RoleMark";
 
 /** Every word the line-up's block shows, on the team's page and the administrator's alike. */
 export const LINEUP_WORDS: LineupWords = {
@@ -23,38 +21,22 @@ export const LINEUP_WORDS: LineupWords = {
   none: COPY.shared.empty.none(SERVER_COPY.season.spiel.aufstellung),
   noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
   startersFull: COPY.shared.field.max(STARTERS_MAX),
-  nomineeLocked: COPY.area.team.aufstellung.nomineeLocked,
+  nomineeLocked: COPY.area.team.aufstellung.nomineeLocked(STARTERS_MAX),
   anonymous: SERVER_COPY.season.spiel.anonymous,
 };
 
-/** A pupil as the club's own people read them, or „anonym“ where an erasure took the record. */
-export function nameOf({ first_name, last_name }: Pick<FLAufstellungSpieler, "first_name" | "last_name">): Words {
-  return first_name === null ? SERVER_COPY.season.spiel.anonymous : { record: kaderName({ first_name, last_name }) };
-}
-
-/** The captain's or the co-captain's mark after the name, where the squad row holds either role. */
-export function markOf({ rolle }: Pick<FLAufstellungSpieler, "rolle">): RoleMarkProps | undefined {
-  return rolle === null ? undefined : { letters: COPY.shared.rolleMark[rolle], label: COPY.admin.spieler.rolleOption[rolle] };
-}
-
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
-export function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
+function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
   return is_nachnominiert ? { tone: "info", label: COPY.admin.spieler.nominee } : undefined;
 }
 
-/**
- * The shirt number as a figure, `null` where the row holds none. A stored number is one to four digits
- * (`fl_backend/app/api/spieler/schemas.py :: SQUAD_NUMMER_PATTERN`), so it reads whole.
- */
-const nummerOf = ({ nummer }: Pick<FLAufstellungSpieler, "nummer">): number | null => (nummer === null ? null : Number(nummer));
-
 function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {
-  const mark = markOf(spieler);
+  const mark = roleMarkOf(spieler.rolle);
   const chip = chipOf(spieler);
   return {
     id: spieler.spieler_id,
-    name: nameOf(spieler),
-    nummer: nummerOf(spieler),
+    name: spielerName(spieler),
+    nummer: shirtNumber(spieler.nummer),
     ...(spieler.position === null ? {} : { position: { record: spieler.position } }),
     ...(mark === undefined ? {} : { mark }),
     ...(chip === undefined ? {} : { chip }),

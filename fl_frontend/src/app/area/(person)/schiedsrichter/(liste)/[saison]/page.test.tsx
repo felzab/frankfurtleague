@@ -7,9 +7,12 @@ import type { ReactElement } from "react";
 
 const state = vi.hoisted(() => ({ spiele: [] as unknown[] }));
 
-vi.mock("@/features/roles/resolvers", () => ({ requireRole: () => Promise.resolve({}) }));
+vi.mock("@/features/roles/resolvers", () => ({
+  requireRole: () => Promise.resolve({}),
+  readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
+}));
 vi.mock("@/features/roles/queries", () => ({
-  getOwnSaisons: () => Promise.resolve({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
+  readOwnSaisons: () => Promise.resolve({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
 }));
 vi.mock("@/features/schiedsrichter/queries", () => ({
   getOwnSpiele: () => Promise.resolve({ saison_id: "2027", spiele: state.spiele }),

@@ -328,9 +328,13 @@ export const AufstellungenGetAufstellungParams = zod.object({
  * (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
  * holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past
- * the shortage (`aufstellung_nominee_without_shortage`). The payload's own rules refuse as they do a seat's save,
- * and every refusal but `version_stale` is asked again outside the transaction just before answering.
+ * squad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each
+ * such entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries
+ * (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage
+ * (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
+ * save, and every refusal but `version_stale` is asked again outside the transaction just before answering. The
+ * stored entries of pupils erased since the match kicked off, which the screen serves as `erased`, are written back
+ * after the payload's as they stand.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -394,10 +398,14 @@ export const AufstellungenGetAufstellungSelfParams = zod.object({
  * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
  * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named
- * beside eleven regular players, or more nominees than the regular players leave open of eleven
- * (`aufstellung_nominee_without_shortage`). A pupil named twice (`spieler_named_twice`) and more than eleven starters
- * (`starters_exceed_eleven`) are refused as the payload's own rules. A line-up being due or overdue refuses nothing.
+ * squad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each
+ * such entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries
+ * (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee named beside eleven regular players, or
+ * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
+ * `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
+ * refused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils
+ * erased since the match kicked off, which the screen serves as `erased`, are written back after the payload's as
+ * they stand.
  * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
  * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
  * @summary Save one club's line-up for one fixture as its seat holder
@@ -2322,6 +2330,8 @@ export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegE
 export const spielberichtePutSpielberichtBerichtBodyBerichtScorersItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielberichtePutSpielberichtBerichtBodyBerichtScorersMax = 60;
 
+export const spielberichtePutSpielberichtBerichtBodyVersionOneMin = 0;
+
 export const SpielberichtePutSpielberichtBerichtBody = zod
   .object({
     bericht: zod.object({
@@ -2337,9 +2347,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 zod.null(),
               ]),
             })
-            .describe(
-              "One card: who was shown it, when, and its colour.\n\nA null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad\nstill takes cards.",
-            ),
+            .describe("One card as the referee's save sends it: a key the card does not declare is refused, never dropped."),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtCardsMax),
       ergebnis_vorschlag: zod
@@ -2350,7 +2358,9 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 team1: zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min),
                 team2: zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min),
               })
-              .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+              .describe(
+                "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+              ),
             zod.null(),
           ]),
           sonderereignis: zod.union([zod.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]), zod.null()]),
@@ -2369,13 +2379,11 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 zod.null(),
               ]),
             })
-            .describe(
-              "One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.",
-            ),
+            .describe("One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped."),
         )
         .max(spielberichtePutSpielberichtBerichtBodyBerichtScorersMax),
     }),
-    version: zod.union([zod.int(), zod.null()]),
+    version: zod.union([zod.int().min(spielberichtePutSpielberichtBerichtBodyVersionOneMin), zod.null()]),
   })
   .describe("The whole `bericht` block, written wholesale by the referee's PUT.");
 
@@ -2475,7 +2483,7 @@ export const SpielbestaetigungenSweepSpielbestaetigungenParams = zod.object({
  * `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
  * (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
  * as that save resolves it. The
- * row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+ * row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
  * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
  * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
  * @summary Adopt a club's proposed date
@@ -2600,7 +2608,7 @@ export const SpielbestaetigungenDiscardSpielbestaetigungParams = zod.object({
 });
 
 /**
- * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.
+ * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
  *
  * The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
  * nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
@@ -2737,7 +2745,9 @@ export const SpielePatchSpielBody = zod.object({
         team1: zod.int().min(spielePatchSpielBodyElfmeterschiessenOneTeam1Min),
         team2: zod.int().min(spielePatchSpielBodyElfmeterschiessenOneTeam2Min),
       })
-      .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
+      .describe(
+        "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+      ),
     zod.null(),
   ]),
   note: zod.union([zod.string().max(spielePatchSpielBodyNoteOneMax), zod.null()]),
@@ -3756,7 +3766,7 @@ export const TeamsPostInvitationDispatchBody = zod
  * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
  * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
  * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
- * last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+ * last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
  * stay correctable, and such a link takes the person's Widerspruch alone.
  *
  * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read

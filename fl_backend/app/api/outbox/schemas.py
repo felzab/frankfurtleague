@@ -196,7 +196,7 @@ class FLSpielVorschlagDiscardedData(BaseModel):
 
 
 class FLAufstellungReminderData(BaseModel):
-    """A club's one reminder that it has entered no line-up for a fixture: the pairing and the kick-off, and where it is entered."""
+    """A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered."""
 
     kind: Literal["aufstellung_reminder"]
     # The reader's own club, one of the two sides.
@@ -205,7 +205,7 @@ class FLAufstellungReminderData(BaseModel):
     team_id: CustomObjectId
     saison_id: str
     spiel_id: CustomObjectId
-    appointment: FLSpielMailAppointment
+    appointment: FLSpielMailAnsetzung
     # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_DAYS` before the kick-off:
     # carried, so the mail states it and no builder counts the days a second time.
     due_at: AwareDatetime

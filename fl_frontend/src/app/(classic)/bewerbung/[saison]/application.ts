@@ -9,7 +9,7 @@ export const REPLAY_FIELD = "idempotency_key";
 export const NO_SECOND_SEAT = "none";
 
 /** The boxes in the order the form shows them, the seats' one order. */
-export const SEATS = KONTAKT_ROLLEN.map(({ value }) => value);
+export const SEATS = KONTAKT_ROLLEN;
 
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;

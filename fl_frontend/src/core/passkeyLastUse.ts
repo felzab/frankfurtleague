@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAuthMiddleware, isAPIError } from "better-auth/api";
 
+import { now } from "./clock";
 import { logger } from "./logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 
@@ -40,7 +41,7 @@ export const passkeyLastUse = () =>
               await ctx.context.adapter.update({
                 model: "passkey",
                 where: [{ field: "credentialID", value: credentialID }],
-                update: { lastUsedAt: new Date() },
+                update: { lastUsedAt: now() },
               });
             } catch (failed) {
               // Logged and left: the sign-in is verified and its session committed, and a card's date

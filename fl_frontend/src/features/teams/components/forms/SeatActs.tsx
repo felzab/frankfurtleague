@@ -6,8 +6,7 @@ import { useLocked } from "@/kit/draftUnsaved";
 import { PressAct } from "@/kit/PressAct";
 import { TextField } from "@/kit/TextField";
 
-import { COPY } from "@/core/copy";
-import { rollenText } from "@/core/teamVocabulary";
+import { COPY, rollenText } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

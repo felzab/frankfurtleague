@@ -288,7 +288,7 @@ def joined(**fields: Any) -> FLSpielJoinedInternal:
         "date": "2026-04-01",
         "time": "18:00:00",
         "spielort": {"spielort_id": SPIELORT, "mietpreis": 40},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20, "name_is_public": True},
+        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 20},
         "team1": {"team_id": HOME, "tore": None},
         "team2": {"team_id": AWAY, "tore": None},
     }

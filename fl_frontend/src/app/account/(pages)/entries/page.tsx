@@ -11,6 +11,7 @@ import { dayOf, formatDate, formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
+import { kaderName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";
@@ -49,7 +50,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             id: `spieler-${spieler.spieler_id}`,
             title: COPY.shared.kader,
             description: WORDS.description.spieler,
-            facts: [fact(COPY.shared.name, `${spieler.first_name} ${spieler.last_name ?? ""}`.trim()), birthday(spieler.birth_date)],
+            facts: [fact(COPY.shared.name, kaderName(spieler)), birthday(spieler.birth_date)],
             save: { kind: "spieler" },
             scope: spieler.einwilligung.scope,
             media: spieler.einwilligung.media,

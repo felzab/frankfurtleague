@@ -9,18 +9,18 @@ import { ContractBreakError } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellung } from "@/features/aufstellungen/queries";
-import { matchdayOf } from "@/features/spiele/blocks";
+import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import { AdminAufstellung } from "./AdminAufstellung";
 
-import type { Copy, Words } from "@/core/copy";
-import type { FLAufstellungResponse, FLAufstellungSpiel } from "@/core/generated/client/types";
-import type { PageTitle } from "@/kit/RailFrame";
+import type { Copy } from "@/core/copy";
+import type { FLAufstellungResponse } from "@/core/generated/client/types";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/spiele/[spiel]/aufstellung/[team]">;
@@ -40,15 +40,10 @@ async function findAufstellung(params: Props["params"]): Promise<FLAufstellungRe
   return found === null || found.spiel.saison_id !== saison ? null : found;
 }
 
-/** A side as the title names it: its club, or, while the draw has not settled it, that it is still open. */
-const sideOf = (team: FLAufstellungSpiel["team1"]): Words => (team === null ? COPY.spielplan.quelle.open : { record: team.name });
-
-const titleOf = ({ team1, team2 }: FLAufstellungSpiel): PageTitle => ({ route: "spiel", team1: sideOf(team1), team2: sideOf(team2) });
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findAufstellung(params), ({ spiel, team_id }) =>
     pageMetadata(parent, ROUTES.adminAufstellung, ROUTES.adminAufstellung.path(spiel.saison_id, spiel.spiel_id, team_id), {
-      title: COPY.page.spiel(sideOf(spiel.team1), sideOf(spiel.team2)),
+      title: matchName(spiel.team1?.name ?? null, spiel.team2?.name ?? null),
     }),
   );
 }
@@ -82,7 +77,7 @@ async function readEditor(params: Props["params"]) {
   return (
     <AdminAufstellung
       team={found.team_id}
-      title={titleOf(found.spiel)}
+      title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler, erased: found.erased }}
       players={playersOf(found)}
@@ -99,14 +94,14 @@ export default function AdminAufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        // Nobody named yet and the whole squad under it, the taller of the block's two states.
+        // The line-up the board drew: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {
             block: (
               <LineupPlaceholder
                 words={LINEUP_WORDS}
-                picked={0}
-                rest={20}
+                picked={STARTERS_MAX}
+                rest={9}
               />
             ),
           },

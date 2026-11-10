@@ -9,12 +9,13 @@ import {
   spielberichtePutSpielberichtBerichtBodyBerichtScorersMax,
 } from "@/core/generated/zod/inputs";
 
-import { UNKNOWN_SCORER } from "./berichtValues";
+import { UNKNOWN_PLAYER } from "./berichtValues";
 
 const { scorers, cards } = SpielberichtePutSpielberichtBerichtBody.shape.bericht.shape;
 const scorer = scorers.element.shape;
 const card = cards.element.shape;
 const [namedScorer] = scorer.spieler_id.options;
+const [namedCarded] = card.spieler_id.options;
 
 /**
  * A goal's row as the form sends it, each box held to the write's rule. Its player is a choice to make: „Unbekannt“
@@ -22,15 +23,15 @@ const [namedScorer] = scorer.spieler_id.options;
  */
 export const Goal = z.object({
   side: blankIsNull(scorer.side),
-  spieler_id: blankIsNull(z.union([namedScorer, z.literal(UNKNOWN_SCORER)])),
+  spieler_id: blankIsNull(z.union([namedScorer, z.literal(UNKNOWN_PLAYER)])),
   minute: scorer.minute,
   eigentor: scorer.eigentor,
 });
 
-/** A card's row as the form sends it, each box held to the write's rule. */
+/** A card's row as the form sends it, each box held to the write's rule; its player is chosen as a goal's is. */
 export const Card = z.object({
   side: blankIsNull(card.side),
-  spieler_id: blankIsNull(card.spieler_id),
+  spieler_id: blankIsNull(z.union([namedCarded, z.literal(UNKNOWN_PLAYER)])),
   minute: card.minute,
   colour: blankIsNull(card.colour),
 });

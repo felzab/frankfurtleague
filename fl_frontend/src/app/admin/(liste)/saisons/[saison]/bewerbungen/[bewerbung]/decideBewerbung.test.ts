@@ -32,8 +32,6 @@ const refusal = (serverErrorCode: Code, path: readonly string[] = []) =>
     statusCode: 409,
     serverErrorCode,
     endpoint: "/",
-    method: "POST",
-    readOnly: false,
     traceId: "0",
     refusedFields: path.length === 0 ? [] : [{ path: [...path], kind: serverErrorCode, ctx: {}, in: "body" }],
   });

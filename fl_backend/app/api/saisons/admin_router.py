@@ -114,17 +114,21 @@ from app.core.dependencies import (
     BanListCollection,
     DBClient,
     InvitationsCollection,
+    InvitationsReadCollection,
     OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielberichteCollection,
     SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
+    SpieleReadCollection,
     SpieltageCollection,
     SpieltageReadCollection,
-    TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -184,9 +188,9 @@ async def _rewrite_gruppenphase_sides(
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
 @router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
 async def get_saisons_admin(
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
     filters: FLSaisonsFilterParams = Depends(),
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
@@ -245,13 +249,13 @@ async def get_saisons_admin(
 @router.get("/{saison_id}/admin", response_model=FLSaisonAdminResponse, summary="One Saison for the admin editor")
 async def get_saison_admin(
     saison_id: str,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    spiele_collection: SpieleReadCollection,
     spieltage_collection: SpieltageReadCollection,
-    teams_collection: TeamsCollection,
+    teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
-    invitations_collection: InvitationsCollection,
+    invitations_collection: InvitationsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
     """
@@ -660,8 +664,8 @@ async def _judge_the_activation(
     *,
     saison_id: str,
     target_status: str,
-    saisons_collection: AsyncCollection,
-    spiele_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
+    spiele_collection: ReadCollection,
     spieltage_collection: ReadCollection,
     session: AsyncClientSession | None,
 ) -> tuple[list[Any], WriteRefusal | None]:
@@ -707,7 +711,7 @@ async def _judge_the_activation(
 
 
 async def _pull_recorded_fact_rows(
-    *, spiele_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None
+    *, spiele_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The season's fixtures as `holds_a_recorded_fact` reads them, which the planning window of the replace and the undraw turns on.
 
@@ -1246,7 +1250,7 @@ async def delete_spielplan(
     return undrawn
 
 
-async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id: str) -> list[Mapping[str, Any]]:
+async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: str) -> list[Mapping[str, Any]]:
     """Every team this season holds, ordered as its other lists are.
 
     Read one over the cap and refused past it (`app/api/spiele/crud.py :: advance_bracket_winners`'s
@@ -1274,8 +1278,8 @@ class _PlannedTeam(NamedTuple):
 async def _plan_the_dispatch(
     *,
     saison_id: str,
-    saison_teams_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
+    saison_teams_collection: ReadCollection,
+    invitations_collection: ReadCollection,
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
