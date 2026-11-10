@@ -2520,7 +2520,9 @@ export const SpielbestaetigungenPostSchiedsrichterAnswerBody = zod
  * the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
  * administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
  * outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
- * fixture (`spiel_double_booked`). The reason is stored as typed.
+ * fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside
+ * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
+ * than letting it stand.
  * @summary Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date
  */
 export const spielbestaetigungenPostTeamAnswerPathSpielbestaetigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

@@ -5,6 +5,7 @@ from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
 from app.api.bewerbungen.services import days_after, group_seats_by_mailbox, seat_named
+from app.api.identity.schemas import FLSubjectSeat
 from app.api.outbox.schemas import (
     FLAustrittNoticeData,
     FLOutboxData,
@@ -157,6 +158,19 @@ LINK_FIELDS: Mapping[str, int] = {
     "answer.by.rolle": 1,
     "closed": 1,
     **{f"kontakte.{seat}.token_hashes": 1 for seat in KONTAKT_ROLLEN},
+}
+
+
+# What a club's answer judges of its row: its fixture, party and Ansetzung, the deadline, and whether it is answered or
+# closed. An INCLUSION, so no reason or proposal is read that the judgement does not need.
+TEAM_ANSWER_FIELDS: Mapping[str, int] = {
+    "saison_id": 1,
+    "spiel_id": 1,
+    "party": 1,
+    "ansetzung": 1,
+    "deadline": 1,
+    "answer.kind": 1,
+    "closed": 1,
 }
 
 
@@ -616,17 +630,39 @@ def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Ma
 REASON_OWN_DECLINE: Final = "schiedsrichter_declined"
 
 
-def find_foreign_row_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> WriteRefusal | None:
+def foreign_row_refusal() -> WriteRefusal:
     """`ansetzung_foreign_row`: ONE answer for an id naming no row and a row naming somebody else, so no id is confirmed to exist."""
-
-    party = (spielbestaetigung_raw or {}).get("party") or {}
-    if party.get("kind") == "schiedsrichter" and party.get("schiedsrichter_id") in set(schiedsrichter_ids):
-        return None
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_FOREIGN_ROW,
         status=HTTPStatus.FORBIDDEN,
     )
+
+
+def find_foreign_row_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> WriteRefusal | None:
+    """`foreign_row_refusal` unless the row's party is one of these referee records."""
+
+    party = (spielbestaetigung_raw or {}).get("party") or {}
+    if party.get("kind") == "schiedsrichter" and party.get("schiedsrichter_id") in set(schiedsrichter_ids):
+        return None
+
+    return foreign_row_refusal()
+
+
+def answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: Iterable[FLSubjectSeat]) -> FLKontaktRolle | None:
+    """The seat a signed-in person answers a team row from: their first in `KONTAKT_ROLLEN` order on the row's team in its season.
+
+    `None` for a row of no team, or of a team the seats do not sit on, which `foreign_row_refusal` answers alike.
+    """
+
+    raw = spielbestaetigung_raw or {}
+    party = raw.get("party") or {}
+    if party.get("kind") != "team":
+        return None
+
+    held = {seat.rolle for seat in seats if seat.team_id == party.get("team_id") and seat.saison_id == raw.get("saison_id")}
+
+    return next((rolle for rolle in KONTAKT_ROLLEN if rolle in held), None)
 
 
 def compose_schiedsrichter_answer_update(*, answer: FLSpielbestaetigungAnswerKind, reason: str | None, today: str) -> dict[str, Any]:
