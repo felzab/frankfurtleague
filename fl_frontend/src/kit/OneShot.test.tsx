@@ -6,8 +6,10 @@ import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { OneShotForm } from "./OneShot";
+import { TextField } from "./TextField";
 
 import type { ActionAnswer } from "@/core/action";
+import type { ReactNode } from "react";
 import type { EndState } from "./OneShot";
 
 const check = vi.hoisted(() => ({ take: vi.fn() }));
@@ -17,14 +19,15 @@ vi.mock("./useBotCheck", () => ({ useBotCheck: () => ({ widget: null, takeToken:
 
 const REFUSED: ActionAnswer<EndState> = { ok: false, reason: COPY.shared.failure.tooManyAttempts };
 
-const form = (action: (formData: FormData) => Promise<ActionAnswer<EndState>>) => (
+const form = (action: (formData: FormData) => Promise<ActionAnswer<EndState>>, fields?: ReactNode) => (
   <OneShotForm
     head={<h1>{COPY.shared.help}</h1>}
     action={action}
     acts={{ primary: COPY.shared.verb.next }}
     botCheck={{ siteKey: "key" }}
-    replayField="replay"
-  />
+    replayField="replay">
+    {fields}
+  </OneShotForm>
 );
 
 const press = () => act(async () => void fireEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next })));
@@ -42,18 +45,33 @@ describe("a form anybody may send", () => {
     expect(screen.getByRole("status").textContent).toBe(COPY.shared.botCheck);
   });
 
-  // The harm: a second press carrying a new key, after an answer lost on its way, stores a second application.
-  it("posts each press's token, and one replay key over every press", async () => {
-    check.take.mockResolvedValueOnce({ token: "first" }).mockResolvedValueOnce({ token: "second" });
+  // The harm: a retry carrying a new key, after an answer lost on its way, stores a second application; an edit sent
+  // under the old key is answered as the press before it, the edit stored nowhere and nothing on the page saying so.
+  it("posts each press's token, the last press's key on a retry, and a new key once a field changed", async () => {
+    check.take.mockResolvedValueOnce({ token: "first" }).mockResolvedValueOnce({ token: "second" }).mockResolvedValueOnce({ token: "third" });
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    render(form(action));
+    render(
+      form(
+        action,
+        <TextField
+          label={COPY.shared.firstName}
+          name="first_name"
+          width="W3"
+          kind="text"
+        />,
+      ),
+    );
 
     await press();
     await press();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Mia" } });
+    await press();
 
-    const [first, second] = action.mock.calls.map(([sent]) => sent);
-    expect([first?.get(TURNSTILE_FIELD), second?.get(TURNSTILE_FIELD)]).toStrictEqual(["first", "second"]);
-    expect(first?.get("replay")).toBe(second?.get("replay"));
+    const [first, retry, edited] = action.mock.calls.map(([sent]) => sent);
+    expect([first, retry, edited].map((sent) => sent?.get(TURNSTILE_FIELD))).toStrictEqual(["first", "second", "third"]);
     expect(first?.get("replay")).toBeTruthy();
+    expect(retry?.get("replay")).toBe(first?.get("replay"));
+    expect(edited?.get("replay")).toBeTruthy();
+    expect(edited?.get("replay")).not.toBe(first?.get("replay"));
   });
 });

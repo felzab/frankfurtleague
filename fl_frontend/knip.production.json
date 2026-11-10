@@ -22,7 +22,6 @@
   // its line here and in `knip.json`.
   "ignoreFiles": [
     // Session 8.
-    "src/kit/CardMark.tsx",
     "src/kit/Lineup.tsx",
     "src/kit/lineupStyles.ts",
     "src/kit/RecordRows.tsx"

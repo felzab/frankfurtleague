@@ -177,14 +177,21 @@ type QuestionWait = {
   act: Copy;
   /** The quieter act's words beneath it, where the question has one. */
   second?: Copy;
-  /** The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width. */
-  sentence?: string;
+  /**
+   * The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width;
+   * `false` where the question lands with no sentence most days, which leaves the wait none.
+   */
+  sentence?: string | false;
+  /** The second sentence's words, set unseen, where the question stands one in a paragraph of its own. */
+  sentenceAfter?: string;
   /** The placeholders of the answer's fields, where the question asks any. */
   fields?: ReactNode;
+  /** The fields' placeholders stand in `Section` boxes, laid out as the question's own boxes are. */
+  boxes?: boolean;
 };
 
-/** The question while the read says what it asks: its title, its facts, its sentence, its fields and its acts. */
-function QuestionPlaceholder({ facts, act, second, sentence, fields }: QuestionWait) {
+/** The question while the read says what it asks: its title, its facts, its sentences, its fields and its acts. */
+function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, boxes = false }: QuestionWait) {
   return (
     <ClassicPage width="form">
       <Waiting layout="flex flex-col gap-6">
@@ -199,12 +206,21 @@ function QuestionPlaceholder({ facts, act, second, sentence, fields }: QuestionW
             width="w-full"
           />
         ) : (
+          sentence !== false && (
+            <PlaceholderSentence
+              text="text-base"
+              words={sentence}
+            />
+          )
+        )}
+        {sentenceAfter !== undefined && (
           <PlaceholderSentence
             text="text-base"
-            words={sentence}
+            words={sentenceAfter}
           />
         )}
-        {fields !== undefined && <div className="grid justify-items-start gap-4">{fields}</div>}
+        {/* `OneShotForm`'s own wrapper, so the fields stand where the question's land. */}
+        {fields !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{fields}</div>}
         <div className="grid gap-3 lg:justify-items-center">
           <span className={buttonPlaceholder()}>{act}</span>
           {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}

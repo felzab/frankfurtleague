@@ -241,6 +241,15 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "ansetzung_not_discardable",
   "ansetzung_not_adoptable",
   "ansetzung_foreign_row",
+  // A team's or a referee's own answer to a fixture someone answered first, the league closed or decided, or the
+  // fixture left, or one pressed past the deadline on a page read before it.
+  "ansetzung_answered",
+  "ansetzung_closed",
+  "ansetzung_decided",
+  "ansetzung_changed",
+  "ansetzung_deadline_past",
+  // A registration's stored person named or renamed since the list offering its admission was read.
+  "registrierung_person_not_named",
   // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",

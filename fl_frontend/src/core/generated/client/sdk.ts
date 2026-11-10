@@ -2141,6 +2141,7 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, sais
 /**
  * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
  *
+ * Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
  * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no

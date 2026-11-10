@@ -92,8 +92,9 @@ export function OneShotForm({
   /** The bot check's public key, on a form whose action declares the check (`fl_frontend/src/core/action.ts`). */
   botCheck?: { siteKey: string };
   /**
-   * The field a replay key posts under, where a press whose answer was lost may have landed: one key for as long as the
-   * form stands, whatever the page reads again, so the second press finds the first rather than repeating it.
+   * The field a replay key posts under, where a press whose answer was lost may have landed: a press posting what the
+   * last one posted carries its key, so a retry finds the first press rather than repeating it, and a press after any
+   * field changed carries a new one, since a key never stands for two different requests.
    */
   replayField?: string;
   /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, as an editor's do. */
@@ -114,7 +115,8 @@ export function OneShotForm({
     { resetOnLeave: false },
   );
   const check = useBotCheck({ siteKey: botCheck?.siteKey ?? null, size: "flexible" });
-  const [replayKey] = useState(() => crypto.randomUUID());
+  // What the last press posted and the key it carried, read again by every press however often the page reads again.
+  const lastSent = useRef<{ posted: string; key: string } | null>(null);
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
   const [isChecking, setChecking] = useState(false);
@@ -142,11 +144,21 @@ export function OneShotForm({
     submit(formData);
   };
 
+  /**
+   * The key for what this press posts: the last press's where both post the same, a new one where any field changed. The
+   * posted data is compared, never a change event, since a select's choice reaches the form as no event of its own.
+   */
+  const replayKeyFor = (formData: FormData) => {
+    const posted = JSON.stringify([...formData]);
+    if (lastSent.current?.posted !== posted) lastSent.current = { posted, key: crypto.randomUUID() };
+    return lastSent.current.key;
+  };
+
   const send = (formData: FormData, act: Act) => {
     setPressed(act);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
-    if (replayField !== undefined) formData.set(replayField, replayKey);
     formData.set(ACT_FIELD, act);
+    if (replayField !== undefined) formData.set(replayField, replayKeyFor(formData));
     if (botCheck === undefined) submit(formData);
     else void checked(formData);
   };
