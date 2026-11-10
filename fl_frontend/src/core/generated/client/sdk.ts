@@ -2147,7 +2147,9 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, sais
  * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
  * differs. An unconfirmed row names nobody: its address is unproven.
  * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
- * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.
+ * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
+ * any unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`
+ * is false where the cap cut some.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungen = async (

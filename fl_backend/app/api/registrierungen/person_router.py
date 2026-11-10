@@ -112,7 +112,9 @@ async def get_open_registrierungen(
     A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
     differs. An unconfirmed row names nobody: its address is unproven.
     No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
-    more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.
+    more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
+    any unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`
+    is false where the cap cut some.
     """
 
     # A snapshot rather than a transaction: this writes nothing, and one point in time keeps the
@@ -120,9 +122,10 @@ async def get_open_registrierungen(
     async with db.start_session(snapshot=True) as session:
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
-        served = await pull_open_registrierungen(
+        opened = await pull_open_registrierungen(
             registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
         )
+        served = opened.rows
         confirmed = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
 
         persons = await persons_at(
@@ -197,6 +200,7 @@ async def get_open_registrierungen(
         team_id=team_id,
         saison_id=saison_id,
         registrierungen=[as_served(row) for row in served],
+        complete=opened.complete,
     )
 
 

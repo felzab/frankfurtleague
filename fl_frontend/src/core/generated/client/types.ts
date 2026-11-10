@@ -3129,6 +3129,7 @@ export interface FLOpenRegistrierung {
  * One team's pending registrations for one season, newest first.
  */
 export interface FLOpenRegistrierungenResponse {
+  complete: boolean;
   registrierungen: FLOpenRegistrierung[];
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */

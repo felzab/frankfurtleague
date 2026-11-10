@@ -284,6 +284,8 @@ class FLOpenRegistrierungenResponse(BaseAPIResponse):
     team_id: CustomObjectId
     saison_id: str
     registrierungen: list[FLOpenRegistrierung]
+    # Whether every pending registration is listed: false where the read's cap cut some, the confirmed ones kept first.
+    complete: bool
 
 
 class FLRegistrierungAdmitPayload(BaseModel):

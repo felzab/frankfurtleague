@@ -7192,6 +7192,10 @@
       "FLOpenRegistrierungenResponse": {
         "description": "One team's pending registrations for one season, newest first.",
         "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLOpenRegistrierung"
@@ -7212,7 +7216,8 @@
         "required": [
           "team_id",
           "saison_id",
-          "registrierungen"
+          "registrierungen",
+          "complete"
         ],
         "title": "FLOpenRegistrierungenResponse",
         "type": "object"
@@ -22871,7 +22876,7 @@
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them.",
+        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before\nany unconfirmed one, so no flood of rows typed through the team's link hides a row a pupil confirmed; `complete`\nis false where the cap cut some.",
         "operationId": "registrierungen_get_open_registrierungen",
         "parameters": [
           {

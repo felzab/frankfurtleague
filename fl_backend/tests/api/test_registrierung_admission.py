@@ -12,6 +12,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.services import compose_person_move
+from app.api.registrierungen import crud as registrierungen_crud
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
@@ -1114,6 +1115,41 @@ def keys_at_every_depth(value: Any) -> Iterator[str]:
     elif isinstance(value, list):
         for inner in value:
             yield from keys_at_every_depth(inner)
+
+
+class TestThePendingReadsCap:
+    def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+        """Anybody holding the link types an unconfirmed row per press, newer than every row a pupil confirmed before.
+
+        The cap at two, so three unconfirmed rows past one confirmed row stand for a flood past the real cap.
+        """
+
+        monkeypatch.setattr(registrierungen_crud, "OPEN_REGISTRIERUNGEN_CAP", 2)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmed = await seed(database, registrierung_document())
+            flood = [
+                await seed(database, registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}"))
+                for index in range(3)
+            ]
+            answered = await read(database, client)
+
+            return confirmed, flood, [row.registrierung_id for row in answered.registrierungen], answered.complete
+
+        confirmed, flood, served, complete = on_a_league(mongo_replica_set_url, body)
+
+        # The confirmed row kept, the room left taken by the newest unconfirmed one, the two newest first.
+        assert served == [flood[-1], confirmed]
+        assert complete is False
+
+    def test_a_list_inside_the_cap_is_complete(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed(database, registrierung_document())
+            await seed(database, registrierung_document(confirmed=False, email="zweite@beispielschule.de", first_name="Zweite"))
+
+            return (await read(database, client)).complete
+
+        assert on_a_league(mongo_replica_set_url, body) is True
 
 
 class TestThePendingReadServesNoAddress:

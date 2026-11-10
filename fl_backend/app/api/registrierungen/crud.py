@@ -5,7 +5,7 @@ Here rather than in `services.py`, which decides from its arguments and names no
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -42,33 +42,65 @@ async def pull_registrierung(
     return row
 
 
-# The most pending rows one read serves a team, newest first: the collection is written by anybody holding a team's
-# link, so the read is bounded whatever the form stored.
+# The most pending rows one read serves a team: the collection is written by anybody holding a team's link, so the read
+# is bounded whatever the form stored.
 OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
+
+
+class OpenRegistrierungen(NamedTuple):
+    rows: list[Mapping[str, Any]]
+    # Whether every pending row of the team's season is among `rows`, the cap having cut none.
+    complete: bool
 
 
 async def pull_open_registrierungen(
     *, registrierungen_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession
-) -> list[Mapping[str, Any]]:
-    """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most."""
+) -> OpenRegistrierungen:
+    """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most, the confirmed ones taken first.
 
-    return await aggregate_many_from_db(
-        collection=registrierungen_collection,
-        pipeline=[
-            {"$match": build_open_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort())},
-            {"$limit": OPEN_REGISTRIERUNGEN_CAP},
-            # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
-            # the join runs on reaches this handler, let alone the wire.
-            {
-                "$project": {
-                    **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
-                }
-            },
-        ],
-        session=session,
-    )
+    Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
+    flood of them bury every row a pupil confirmed; a confirmed row needs a link answered in its own mailbox, of which
+    `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX` stand at a time. Two reads, each newest first on the
+    queue index, the second only for the room the first left.
+    """
+
+    rows: list[Mapping[str, Any]] = []
+    for confirmed in (True, False):
+        room = OPEN_REGISTRIERUNGEN_CAP - len(rows)
+        # One row past the room, so a cut is known rather than guessed from a full page.
+        read = await aggregate_many_from_db(
+            collection=registrierungen_collection,
+            pipeline=[
+                {
+                    "$match": {
+                        **build_open_filter(saison_id=saison_id, team_id=team_id),
+                        "einwilligung.confirmed_at": {"$ne": None} if confirmed else None,
+                    }
+                },
+                {"$sort": dict(build_registrierungen_sort())},
+                {"$limit": room + 1},
+                # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
+                # the join runs on reaches this handler, let alone the wire.
+                {
+                    "$project": {
+                        **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
+                        **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
+                    }
+                },
+            ],
+            session=session,
+        )
+        rows += read[:room]
+        if len(read) > room:
+            return OpenRegistrierungen(rows=_newest_first(rows), complete=False)
+
+    return OpenRegistrierungen(rows=_newest_first(rows), complete=True)
+
+
+def _newest_first(rows: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The served rows in `build_registrierungen_sort`'s order, whichever read took each."""
+
+    return sorted(rows, key=lambda row: (row["submitted_at"], row["_id"]), reverse=True)
 
 
 async def persons_at(
