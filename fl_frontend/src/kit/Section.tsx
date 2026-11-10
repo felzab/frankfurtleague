@@ -185,6 +185,7 @@ export function Section({
   help,
   note,
   danger,
+  rows,
   children,
 }: {
   title: Copy;
@@ -194,9 +195,14 @@ export function Section({
   note?: Copy;
   /** An editor's irreversible and retiring acts, one row each, filling the box's width: `EditorPage`'s danger rows. */
   danger?: ReactNode;
+  /**
+   * Content whose own hairlines reach the box's edges, such as a list of records (`RecordRows`): it fills the box's
+   * width under the rule and brings its own insets, where `children` stand in the box's padding.
+   */
+  rows?: ReactNode;
   children?: ReactNode;
 }) {
-  const slots = boxHead({ ruled: children !== undefined || danger !== undefined });
+  const slots = boxHead({ ruled: children !== undefined || danger !== undefined || rows !== undefined });
   return (
     <section className={cardSurface({ class: danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
@@ -225,6 +231,7 @@ export function Section({
       {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
           apart, each field's message line, always there, holding the rest of the space between two fields. */}
       {children !== undefined && <div className={slots.content({ class: "gap-2" })}>{children}</div>}
+      {rows !== undefined && <div className="grid">{rows}</div>}
       {danger !== undefined && <div className="grid">{danger}</div>}
     </section>
   );
