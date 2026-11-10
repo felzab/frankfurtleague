@@ -795,6 +795,8 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 
 async def the_report_kader(database: AsyncDatabase) -> Issued:
+    # With its season's row, which the read holds to stand for as long as its fixture does.
+    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
     await database[Collection.SPIELE].insert_one(valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "tore": 1}))
 
     return await sent_by(
