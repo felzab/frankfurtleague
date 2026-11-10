@@ -10,9 +10,12 @@ from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.spieler.admin_router import get_spieler_saison, patch_spieler_saison
+from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.recording import actor_var
 from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, evidence_state_of
 from tests.app_client import app_client
@@ -51,6 +54,8 @@ IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 YOUNG = "jonas.jungspund@schule.de"
 BYSTANDER = "baldur.krautzberger@example.com"
 NOBODY = "niemand@schule.de"
+# The administrator saving the Spieler editor.
+EDITOR = "admin@frankfurtleague.de"
 
 # Fixed, so a failure names the same row every run.
 TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607840001")
@@ -252,6 +257,52 @@ class TestTheTwoChoices:
 
         assert response.status_code == 204, response.text
         assert after[PUPIL_OID]["einwilligung"] == _einwilligung()
+
+
+@pytest.mark.db
+class TestAnEditorReadBeforeThePress:
+    def test_the_editors_save_lands_and_the_press_stands(self, mongo_replica_set_url: str):
+        """The press moves no field the Spieler editor saves, so a count it raised would refuse that editor's next save for nothing."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            read = await get_spieler_saison(
+                spieler_id=PUPIL_OID,
+                saison_id=ACTIVE_SAISON,
+                spieler_collection=database[Collection.SPIELER],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+            )
+            pressed = await http.patch(PATCH_PATH, json=_payload(scope="internal"), headers=_person(IDENTIFIER))
+            # The administrator `bind_actor` would bind, since the editor's save is called here rather than served.
+            token = actor_var.set(EDITOR)
+            try:
+                await patch_spieler_saison(
+                    spieler_id=PUPIL_OID,
+                    saison_id=ACTIVE_SAISON,
+                    spieler_data=FLPatchSpielerSaisonPayload(
+                        first_name="Ortrun",
+                        last_name="Zwiebelmayer",
+                        birth_date=ADULT_BIRTHDATE,
+                        nummer="07",
+                        position=None,
+                        stufe=None,
+                        rolle="kapitaen",
+                        version=read.version,
+                    ),
+                    spieler_collection=database[Collection.SPIELER],
+                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                    saisons_collection=database[Collection.SAISONS],
+                    db=database.client,
+                )
+            finally:
+                actor_var.reset(token)
+            return pressed, await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+
+        pressed, stored = served(mongo_replica_set_url, steps)
+
+        assert pressed.status_code == 204, pressed.text
+        assert (stored["first_name"], stored["einwilligung"]["scope"]) == ("Ortrun", "internal")
 
 
 @pytest.mark.db

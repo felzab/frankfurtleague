@@ -35,7 +35,15 @@ from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
+from app.core.crud import (
+    GERMAN_COLLATION,
+    aggregate_many_from_db,
+    patch_one_in_db,
+    patch_past_the_version_in_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -378,14 +386,9 @@ async def patch_einwilligung(
 
         update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
         if update is not None:
-            await patch_one_in_db(
-                collection=spieler_collection,
-                db_filter={"_id": row["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
-            )
+            # Past the count: no form saves the consent, so the Spieler editor's next save stands; this transaction's
+            # read above is what a second press is judged against.
+            await patch_past_the_version_in_db(collection=spieler_collection, db_filter={"_id": row["_id"]}, update=update, session=session)
         choices = withdrawal_line(blocks=[saved], chosen=chosen)
         if choices is not None:
             journal.note("withdrawal", [f"{Collection.SPIELER}/{row['_id']}"], choices=list(choices))
