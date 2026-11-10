@@ -77,36 +77,29 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     givable: row.givable,
     mediaFrom: mediaFrom(row.media_offered, row.media_minimum_age),
   }));
-  // A returning pupil's registration asks no choice: their record holds the choices.
-  const registered = registrierungen.flatMap((row): Entry[] =>
-    row.scope === null || row.media === null
-      ? []
-      : [
-          {
-            id: `registrierung-${row.registrierung_id}`,
-            title: COPY.page.registrierung,
-            description: WORDS.description.registrierung,
-            facts: [
-              fact(COPY.shared.name, `${row.first_name} ${row.last_name}`),
-              birthday(row.birth_date),
-              // The team's season, or the season alone where the team no longer stands.
-              fact(
-                COPY.shared.facts.team,
-                row.team_name === null
-                  ? COPY.shared.saisonName(row.saison_id)
-                  : WORDS.teamSeason({ record: row.team_name }, COPY.shared.saisonName(row.saison_id)),
-              ),
-            ],
-            save: { kind: "registrierung", registrierung_id: row.registrierung_id },
-            scope: row.scope,
-            media: row.media,
-            evidence: row.evidence_state,
-            // Withdraw-only: a grant on a pending registration waits on its team's admission.
-            givable: false,
-            mediaFrom: null,
-          },
-        ],
-  );
+  const registered = registrierungen.map((row): Entry => ({
+    id: `registrierung-${row.registrierung_id}`,
+    title: COPY.page.registrierung,
+    description: WORDS.description.registrierung,
+    facts: [
+      fact(COPY.shared.name, `${row.first_name} ${row.last_name}`),
+      birthday(row.birth_date),
+      // The team's season, or the season alone where the team no longer stands.
+      fact(
+        COPY.shared.facts.team,
+        row.team_name === null
+          ? COPY.shared.saisonName(row.saison_id)
+          : WORDS.teamSeason({ record: row.team_name }, COPY.shared.saisonName(row.saison_id)),
+      ),
+    ],
+    save: { kind: "registrierung", registrierung_id: row.registrierung_id },
+    scope: row.scope,
+    media: row.media,
+    evidence: row.evidence_state,
+    // Withdraw-only: a grant on a pending registration waits on its team's admission.
+    givable: false,
+    mediaFrom: null,
+  }));
   const seated = seats.map((seat): Entry => ({
     id: `seat-${seat.team_id}-${seat.saison_id}`,
     title: { record: seat.team_name },
