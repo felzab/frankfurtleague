@@ -88,9 +88,7 @@ def row(spiel_id: ObjectId, *, schiedsrichter_id: ObjectId = OTTO_ID, **fields: 
 
     [stored] = [candidate for candidate in SPIELE if candidate["_id"] == spiel_id]
 
-    return documents.spielbestaetigung_document(
-        stored, party={"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}, kontakte=None, **fields
-    )
+    return documents.spielbestaetigung_document(stored, party={"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}, **fields)
 
 
 async def seed(database: AsyncDatabase, *, saison_status: str) -> None:

@@ -29,7 +29,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
 
 
-# `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_seats`'s reason.
+# `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_overview`'s reason.
 @router.patch(
     "/{bewerbung_id:objectid}/account/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,

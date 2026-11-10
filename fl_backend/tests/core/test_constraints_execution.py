@@ -884,7 +884,6 @@ class TestTwoRefereesOpenRowsOnOneStand:
                         "spielbestaetigungen",
                         _id=row_id,
                         party={"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
-                        kontakte=None,
                     )
                 )
             return await database.spielbestaetigungen.count_documents({"answer": None, "closed": None})

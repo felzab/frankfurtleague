@@ -122,9 +122,9 @@ export function CardPlaceholder({
 }
 
 /**
- * A card's rows while they are read: `rows` of `CardActRow`'s rows at its height, each its name over its one line as
- * bars, its `acts` as buttons' placeholders by their labels where the card's rows carry acts, which on a phone stand
- * under the words and make the row taller, and the chevron at its end where a row leads on.
+ * A card's rows while they are read: `rows` of `CardActRow`'s rows at its height, each its name over the line a row may
+ * add as bars, its `acts` as buttons' placeholders by their labels where the card's rows carry acts, which on a phone
+ * stand under the words and make the row taller, and the chevron at its end where a row leads on.
  */
 export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: ReadonlyArray<Copy> }) {
   const s = actRow({ acts: acts !== undefined });

@@ -250,7 +250,7 @@ def a_confirmation(row_id: ObjectId, party: dict[str, Any], *, spiel_id: ObjectI
         team2={"team_id": OTHER_TEAM_OID},
     )
 
-    return spielbestaetigung_document(spiel, party=party, _id=row_id, deadline="2126-03-08", asked_at="2126-03-01", kontakte=None)
+    return spielbestaetigung_document(spiel, party=party, _id=row_id, deadline="2126-03-08", asked_at="2126-03-01")
 
 
 def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
@@ -275,10 +275,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
                 **a_confirmation(OTHER_CONFIRMATION_OID, a_referee(OTHER_REFEREE_OID), spiel_id=OTHER_SPIEL_OID),
                 "answer": declined(OTHER_REASON),
             },
-            {
-                **a_confirmation(TEAM_CONFIRMATION_OID, {"kind": "team", "team_id": HOME_TEAM_OID}, spiel_id=THEIR_SPIEL_OID),
-                "kontakte": {"trainer": None, "ansprechperson": {"token_hashes": [hash_token("their-seats-link")]}, "stellvertretung": None},
-            },
+            a_confirmation(TEAM_CONFIRMATION_OID, {"kind": "team", "team_id": HOME_TEAM_OID}, spiel_id=THEIR_SPIEL_OID),
         ]
     )
 
