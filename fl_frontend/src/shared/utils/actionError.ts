@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import { isEdgeRefusal } from "@/kit/edgeRefusal";
 
-import { APIBadStatusError, APINetworkError, isRecordMissing, isRefusalCode, mayHaveWritten, RolledBackError } from "@/core/errors";
+import { APIBadStatusError, APINetworkError, isRecordMissing, isRefusal, isRuleRefusal, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
@@ -11,6 +11,9 @@ import type { Code } from "@/core/generated/client/types";
 import type { ActionFailure } from "@/shared/types/types";
 import type { ZodError } from "zod";
 import type { FieldErrors } from "./validation";
+
+// The old importers' path to the two checks, which stand in `core/errors.ts`.
+export { isRefusal, isRuleRefusal } from "@/core/errors";
 
 /**
  * What every spine's guard answers a session that drew the page and fails it by the press: lapsed, ended, or an
@@ -46,28 +49,11 @@ const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den e
 const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: LADE_DIE_SEITE_NEU });
 
 /**
- * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
- * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
- */
-export function isRefusal(error: unknown): error is APIBadStatusError {
-  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
-}
-
-/**
  * Whether the backend found the Funktion the request acts in not held (`role_not_held`): a write
  * answers it with `SITZ_WEG`, and a page reading for that seat renders the forbidden panel.
  */
 export function isFunktionLost(error: unknown): error is APIBadStatusError {
   return isRefusal(error) && error.serverErrorCode === "role_not_held";
-}
-
-/**
- * Whether one of the API's rules refused the request, by the code's class
- * (`fl_frontend/src/core/errors.ts :: isRefusalCode`): a code no arm names reaches its kind's fallback
- * at any status, and a protocol code, a routing one included, never does.
- */
-export function isRuleRefusal(error: unknown): error is APIBadStatusError {
-  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
 }
 
 /**

@@ -150,6 +150,22 @@ export function isRefusalCode(code: Code | undefined): boolean {
 }
 
 /**
+ * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
+ * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
+ */
+export function isRefusal(error: unknown): error is APIBadStatusError {
+  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+}
+
+/**
+ * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
+ * fallback at any status, and a protocol code, a routing one included, never does.
+ */
+export function isRuleRefusal(error: unknown): error is APIBadStatusError {
+  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
+}
+
+/**
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
  * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.
  */

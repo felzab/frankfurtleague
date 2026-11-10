@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema } from "@/core/objectId";
 
 import type { NextPageProps } from "@/shared/types/types";
 

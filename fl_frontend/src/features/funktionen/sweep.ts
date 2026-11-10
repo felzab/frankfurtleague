@@ -4,8 +4,13 @@ import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 
-import { REFERENZEN_ADRESSEN_MAX } from "./constants";
 import { postReferenzen } from "./mutations";
+
+/**
+ * The most addresses one references read judges, mirroring the backend's `REFERENCES_ADDRESSES_MAX`
+ * (`fl_backend/app/shared/schemas/bounds.py`): a larger batch is refused whole, every pass alike.
+ */
+export const REFERENZEN_ADRESSEN_MAX = 250;
 
 /** What one pass did, by count and never by address: the scheduler's pass line is all that records it. */
 type AccountSweepCount = {
