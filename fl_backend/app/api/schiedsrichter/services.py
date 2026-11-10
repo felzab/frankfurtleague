@@ -5,6 +5,7 @@ from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after, season_has_ended
 from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
@@ -533,7 +534,6 @@ def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mappi
 OWN_ROW_AS: Final = "spielbestaetigung"
 OWN_ROW_VEREINE_AS: Final = "vereine"
 BERICHT_AS: Final = "spielbericht"
-SAISON_AS: Final = "saison"
 
 
 def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
@@ -596,15 +596,7 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
                 "as": BERICHT_AS,
             }
         },
-        {
-            "$lookup": {
-                "from": Collection.SAISONS,
-                "localField": "saison_id",
-                "foreignField": "_id",
-                "pipeline": [{"$project": {"_id": 0, "status": 1}}],
-                "as": SAISON_AS,
-            }
-        },
+        SAISON_LOOKUP,
     ]
 
 

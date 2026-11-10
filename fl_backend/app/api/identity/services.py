@@ -17,6 +17,7 @@ from app.api.grants.services import OWNER, admin_tier_of, holds_an_owners_power
 from app.api.identity.schemas import FLAccountErasureView, FLErasureViewResponse, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_erasure_registrierung_filter, build_own_registrierung_filter
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.services import (
     build_self_referee_filter,
     build_unplayed_assignment_filter,
@@ -33,22 +34,8 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableD
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
 
 
-def seat_saison_lookup() -> Mapping[str, Any]:
-    """Each season row's own `saisons` row beside it as `saison`, its status and span alone: the read finding a seat answers its season too."""
-
-    return {
-        "$lookup": {
-            "from": DbCollection.SAISONS,
-            "localField": "saison_id",
-            "foreignField": "_id",
-            "pipeline": [{"$project": {"status": 1, "start_date": 1, "end_date": 1}}],
-            "as": "saison",
-        }
-    }
-
-
 def seat_saisons(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
-    """Each row's season, by its id, as `seat_saison_lookup` joined it: its status and its span.
+    """Each row's season, by its id, as `app/api/saisons/services.py :: SAISON_LOOKUP` joined it: its status and its span.
 
     Raised rather than dropped: a seat whose season has no row is a database this read cannot answer truthfully for, and a
     silently shorter list is a person shown no panel at all.
@@ -56,7 +43,7 @@ def seat_saisons(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, An
 
     saisons: dict[str, Mapping[str, Any]] = {}
     for row in rows:
-        [saison] = row.get("saison") or [None]
+        [saison] = row.get(SAISON_AS) or [None]
         if saison is None:
             raise RuntimeError(f"saison_teams holds a seat in {row['saison_id']}, which saisons has no row for")
         saisons[row["saison_id"]] = saison
@@ -84,7 +71,8 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
         # otherwise answered in whatever order the collection was written in.
         {"$sort": {"saison_id": 1, "team_id": 1}},
-        seat_saison_lookup(),
+        # The read finding a seat answers its season too.
+        SAISON_LOOKUP,
     ]
 
 

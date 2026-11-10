@@ -39,12 +39,11 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import RecordCollections
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import find_role_refusal
-from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, find_saison_past_refusal, matchday_of
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP, SPIELTAG_POSITION_LOOKUP, find_saison_past_refusal, matchday_of
 from app.api.spielberichte.crud import anchor_the_pupils_named
 from app.api.spielberichte.services import SIDES, team_id_of
 from app.api.spiele.services import build_spiele_pipeline, spiel_label
 from app.core.codes import Code
-from app.core.collections import Collection
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -59,19 +58,6 @@ from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
-
-_SAISON_ROWS_AS = "saison_rows"
-
-# The fixture's season's status beside it, in the fixture's own aggregation: a finished season's line-up is read-only.
-_SAISON_STATUS_LOOKUP: Mapping[str, Any] = {
-    "$lookup": {
-        "from": Collection.SAISONS,
-        "localField": "saison_id",
-        "foreignField": "_id",
-        "pipeline": [{"$project": {"_id": 0, "status": 1}}],
-        "as": _SAISON_ROWS_AS,
-    }
-}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -133,7 +119,7 @@ async def _pull_spiel(*, spiele_collection: ReadCollection, spiel_id: ObjectId, 
 
     found = await aggregate_many_from_db(
         collection=spiele_collection,
-        pipeline=[*build_spiele_pipeline(db_filter={"_id": spiel_id}), SPIELTAG_POSITION_LOOKUP, _SAISON_STATUS_LOOKUP],
+        pipeline=[*build_spiele_pipeline(db_filter={"_id": spiel_id}), SPIELTAG_POSITION_LOOKUP, SAISON_LOOKUP],
         limit=1,
         session=session,
     )
@@ -166,7 +152,7 @@ async def _read_state(
         session=session,
     )
 
-    return _State(spiel=spiel, side=fielding[0], saison_status=spiel[_SAISON_ROWS_AS][0]["status"], kader=kader)
+    return _State(spiel=spiel, side=fielding[0], saison_status=spiel[SAISON_AS][0]["status"], kader=kader)
 
 
 def _judge_the_fixture(state: _State, *, locks: bool, now: datetime) -> None:

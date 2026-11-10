@@ -248,7 +248,7 @@ def _only_with_panel(subject: FLSubject) -> FLSubject:
 def roles_from(identifier: str, *, seat_rows: Rows, referee_rows: Rows, pupil_rows: Rows) -> FLSubject:
     """`roles_of`'s answer over rows a caller already read through the subject's own selections, so none is read twice.
 
-    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, `shorthand`, seats and `seat_saison_lookup`'s `saison`, and
+    The rows must carry what `_judged` reads: each seat row's `austritt`, `name`, `shorthand`, seats and `SAISON_LOOKUP`'s `saison`, and
     each person's stamp and retirement.
     """
 
