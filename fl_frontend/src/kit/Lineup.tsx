@@ -337,28 +337,32 @@ export function Lineup({ players, value, onChange, startersMax, words, locked, r
                 </tr>
               </thead>
               <tbody>
-                {rest.map((player) => (
-                  <tr
-                    key={player.id}
-                    data-kit-row
-                    className={s.row()}>
-                    <NameCell
-                      player={player}
-                      nameId={`${id}-${player.id}`}
-                    />
-                    <FactCells player={player} />
-                    <td className={s.end()}>
-                      <RowActs className={s.acts()}>
-                        <Button
-                          variant="secondary"
-                          label={words.pick}
-                          locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
-                          onPress={() => change([...value.picked, player.id], value.starters)}
-                        />
-                      </RowActs>
-                    </td>
-                  </tr>
-                ))}
+                {rest.map((player) => {
+                  const nameId = `${id}-${player.id}`;
+                  return (
+                    <tr
+                      key={player.id}
+                      data-kit-row
+                      className={s.row()}>
+                      <NameCell
+                        player={player}
+                        nameId={nameId}
+                      />
+                      <FactCells player={player} />
+                      <td className={s.end()}>
+                        <RowActs className={s.acts()}>
+                          <Button
+                            variant="secondary"
+                            label={words.pick}
+                            aria-describedby={nameId}
+                            locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
+                            onPress={() => change([...value.picked, player.id], value.starters)}
+                          />
+                        </RowActs>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

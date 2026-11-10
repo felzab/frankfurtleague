@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getOwnSaisons } from "@/features/roles/queries";
 import { requireRole } from "@/features/roles/resolvers";
-import { matchdayOf, matchRowOf } from "@/features/spiele/blocks";
+import { headedMatchOf } from "@/features/spiele/blocks";
 import { getSpielerSaisonSelf } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -76,7 +76,8 @@ async function readSaison(params: Props["params"]): Promise<ReadContent> {
         kind: "spiele",
         spiele: spiele.map((spiel) => {
           const chip = spielChipOf(spiel, deregistered);
-          return { head: matchdayOf(spiel, spiel), spiel: { ...matchRowOf(spiel), ...(chip === undefined ? {} : { chip }) } };
+          const { head, spiel: row } = headedMatchOf(spiel);
+          return { head, spiel: { ...row, ...(chip === undefined ? {} : { chip }) } };
         }),
         empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
       },

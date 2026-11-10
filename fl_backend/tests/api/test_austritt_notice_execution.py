@@ -48,10 +48,11 @@ def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
         team_id,
         name,
         name[:3].upper(),
+        # Two seats confirmed by their own people, whom the notice reaches, and one nobody confirmed, mailed nothing.
         kontakte={
-            "trainer": kontaktperson_document(f"{name}trainer"),
-            "ansprechperson": kontaktperson_document(f"{name}kontakt"),
-            "stellvertretung": None,
+            "trainer": kontaktperson_document(f"{name}trainer", confirmed_at="2026-03-01"),
+            "ansprechperson": kontaktperson_document(f"{name}kontakt", confirmed_at="2026-03-01"),
+            "stellvertretung": kontaktperson_document(f"{name}vertretung"),
             "trainer_is_also": None,
         },
         **fields,

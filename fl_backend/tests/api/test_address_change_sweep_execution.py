@@ -151,7 +151,6 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any
         saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
         bewerbungen_collection=replaced.get("bewerbungen_collection", database[Collection.BEWERBUNGEN]),
         registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         grants_collection=database[Collection.GRANTS],
         outbox_collection=database[Collection.OUTBOX],
         action_log_collection=database[Collection.ACTION_LOG],

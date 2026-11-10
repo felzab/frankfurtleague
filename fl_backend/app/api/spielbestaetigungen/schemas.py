@@ -7,7 +7,6 @@ from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_REASON_MAX_LENGTH
-from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     CustomDateString,
@@ -17,7 +16,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLKontaktRolle, FLSpielSide
+from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
@@ -36,8 +35,9 @@ FLSpielbestaetigungClosedReason = Literal[
     "spiel_past",
 ]
 
-# What a reopened link shows. `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture
-# was called off, whatever was answered; `discarded`: the league discarded this decline's proposal.
+# What a row reads as, the first state matching winning (`app/api/spielbestaetigungen/services.py :: state_of`).
+# `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was
+# answered; `discarded`: the league discarded this decline's proposal.
 FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "discarded", "expired", "invalid", "cancelled"]
 
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
@@ -74,7 +74,7 @@ class FLSpielbestaetigungAppointment(BaseModel):
 
 
 class FLSpielbestaetigungByKontakt(BaseModel):
-    """The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded."""
+    """The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded."""
 
     kind: Literal["kontakt"]
     rolle: FLKontaktRolle
@@ -109,7 +109,7 @@ class FLSpielbestaetigungClosed(BaseModel):
 
 
 class _FLSpielbestaetigungFields(BaseModel):
-    """Every field a confirmation row stores and an administrator reads alike: all but the seats a team row was asked at."""
+    """Every field a confirmation row stores and an administrator reads alike: all but the anchor."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -134,23 +134,8 @@ class FLSpielbestaetigung(_FLSpielbestaetigungFields):
     """
 
 
-class FLSpielbestaetigungSeatRecord(BaseModel):
-    """One seat as `spielbestaetigungen` stores it: every link the seat was mailed, by its hash, and the address they went to."""
-
-    token_hashes: list[str]
-    email: str
-
-
-class FLSpielbestaetigungKontakteRecord(BaseModel):
-    trainer: FLSpielbestaetigungSeatRecord | None
-    ansprechperson: FLSpielbestaetigungSeatRecord | None
-    stellvertretung: FLSpielbestaetigungSeatRecord | None
-
-
 class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
-    """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
-
-    kontakte: FLSpielbestaetigungKontakteRecord | None
+    """One confirmation as `spielbestaetigungen` stores it, with the anchor no read serves."""
 
 
 # --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
@@ -184,15 +169,14 @@ class FLSpielbestaetigungEnterPayload(BaseModel):
     reason: CustomSpielbestaetigungReason
 
 
-# --- The LINK. The token is the whole credential, so both endpoints are base-tier and every payload
-# forbids an undeclared key. Nothing below names a person, a seat's address or a hash
-# (`READ-ANSETZUNG-001`).
+# --- A CLUB'S ANSWER, signed in on the person lane, and the fixture its pages state. Every payload forbids an undeclared
+# key. Nothing below names a person, a seat's address or a hash.
 
 
 class FLSpielbestaetigungViewAnsetzung(BaseModel):
     """The clubs, the day, the hour and the ground a page or a message states.
 
-    The fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about.
+    The fixture as it stands, or on a row whose fixture moved since, the Ansetzung the row asked about.
     """
 
     team1_name: str
@@ -200,20 +184,6 @@ class FLSpielbestaetigungViewAnsetzung(BaseModel):
     date: CustomDateString
     time: CustomTimeString
     spielort: FLSpielortFieldPublic | None
-
-
-class FLSpielbestaetigungViewResponse(BaseAPIResponse):
-    """What one link's page renders, filled in every state; the frontend narrows a spent one to its `state`."""
-
-    state: FLSpielbestaetigungState
-    side: FLSpielSide
-    ansetzung: FLSpielbestaetigungViewAnsetzung
-    deadline: CustomDateString
-    # The OTHER club's proposal, on `vorschlag` alone and null otherwise: its date and hour alone, never
-    # that club's reason or which of its seats answered.
-    vorschlag: FLSpielbestaetigungAppointment | None
-    # Non-null exactly on `zugesagt` and `declined`: a role, never a name.
-    answered_by: FLSpielbestaetigungBy | None
 
 
 class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment):
@@ -266,12 +236,6 @@ class FLSpielbestaetigungTeamAnswerPayload(BaseModel):
     @classmethod
     def an_acceptance_gives_no_reason(cls, reason: str | None, info: ValidationInfo) -> str | None:
         return _an_acceptance_gives_no_reason(reason, info)
-
-
-class FLSpielbestaetigungAnswerPayload(FLSpielbestaetigungTeamAnswerPayload):
-    """The club's answer as a mailed link carries it, the link's token beside it."""
-
-    token: CustomToken
 
 
 class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):

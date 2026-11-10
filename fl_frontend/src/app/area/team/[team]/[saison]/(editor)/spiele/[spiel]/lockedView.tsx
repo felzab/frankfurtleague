@@ -44,10 +44,11 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungSpieler[], gone: Re
 
 /**
  * The line-up once the team can change nothing more, from one hour before kick-off: no editor, no bar and no act, as
- * the public match page shows a line-up. Everyone named, the starters over the bench, each under its head and left
- * out where it holds nobody, then the squad's other pupils; a line-up never entered says so in its card.
+ * the public match page shows a line-up. Under the title the editor's line, saying the league alone changes it now;
+ * everyone named, the starters over the bench, each under its head and left out where it holds nobody, then the squad's
+ * other pupils; a line-up never entered says so in its card.
  */
-export function LockedLineup({ title, read }: { title: PageTitle; read: FLAufstellungResponse }) {
+export function LockedLineup({ title, lead, read }: { title: PageTitle; lead: Copy; read: FLAufstellungResponse }) {
   const byId = new Map([...read.kader, ...read.named].map((spieler) => [spieler.spieler_id, spieler]));
   const gone = new Set(read.named.map((spieler) => spieler.spieler_id));
   const named = (starts: boolean) =>
@@ -87,10 +88,11 @@ export function LockedLineup({ title, read }: { title: PageTitle; read: FLAufste
     <ReadPage
       scope="area"
       // Never drawn: the record is read already, and the editor's wait stood while it was.
-      wait={{ groups: [{ kind: "folds", folds: <ReadFoldsPlaceholder count={cards.length} /> }] }}
+      wait={{ lead: true, groups: [{ kind: "folds", folds: <ReadFoldsPlaceholder count={cards.length} /> }] }}
       record={Promise.resolve({
         title,
         chip: { tone: "neutral", label: COPY.area.team.aufstellung.locked },
+        lead,
         groups: [
           {
             kind: "folds",

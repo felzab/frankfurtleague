@@ -12,7 +12,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getTeamPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
-import { matchdayOf, matchRowOf, outcomeFor } from "@/features/spiele/blocks";
+import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
 import { austrittChip, austrittState } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -160,8 +160,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
           point: { record: formatNumber(index + 1) },
           counts: true,
           outcome: outcomeFor(spiel, team.id),
-          title: matchdayOf(spiel, spiel),
-          children: <SpielList matches={[matchRowOf(spiel)]} />,
+          title: headedMatchOf(spiel).head,
+          children: <SpielList matches={[headedMatchOf(spiel).spiel]} />,
         })),
         empty: { kind: "none", plural: COPY.page.spiele },
       },

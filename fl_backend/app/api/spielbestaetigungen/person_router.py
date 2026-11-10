@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -11,12 +10,15 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.spielbestaetigungen.crud import (
     OWN_ROW_FIELDS,
+    VEREIN_FIELDS,
     pull_ansetzung_state,
     pull_own_states,
     pull_spielorte_public,
 )
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
+    FLSpielbestaetigungAppointment,
+    FLSpielbestaetigungByKontakt,
     FLSpielbestaetigungenSelfResponse,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
     FLSpielbestaetigungSchiedsrichterAnswerResponse,
@@ -24,37 +26,53 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
+    TEAM_ANSWER_FIELDS,
+    AnsetzungState,
     ansetzung_left_refusal,
+    answering_seat,
     build_answerable_filter,
     build_current_rows_pipeline,
     clubs_without_a_season_row,
+    compose_answer_update,
     compose_schiedsrichter_answer_update,
     entered_of,
     find_foreign_row_refusal,
     find_spent_link_refusal,
+    find_vorschlag_past_refusal,
+    find_vorschlag_unchanged_refusal,
     first_press_refusal,
+    foreign_row_refusal,
+    judged_as_a_proposal,
     own_reason_of,
+    proposal_payload,
     schiedsrichter_state_of,
     stand_moved,
     view_ansetzung_of,
     view_snapshot_of,
 )
+from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_spieltag_span
+from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
 from app.api.teams.crud import pull_team_names
-from app.core.codes import Code
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
-    SpielorteCollection,
-    TeamsCollection,
+    SpieleReadCollection,
+    SpielorteReadCollection,
+    SpieltageReadCollection,
+    TeamsReadCollection,
     get_german_date_str,
 )
-from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
+from app.core.exceptions import DocumentNotFoundError
+from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -72,12 +90,12 @@ router = APIRouter(
 @router.get("/self", response_model=FLSpielbestaetigungenSelfResponse, summary="A signed-in referee's own fixture assignments")
 async def get_self(
     identifier: PersonIdentifier,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spiele_collection: SpieleCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spielorte_collection: SpielorteCollection,
-    teams_collection: TeamsCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    spielorte_collection: SpielorteReadCollection,
+    teams_collection: TeamsReadCollection,
     records: SubjectLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -316,6 +334,12 @@ async def post_team_answer(
     answer_data: Annotated[FLSpielbestaetigungTeamAnswerPayload, Body()],
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageReadCollection,
+    records: SubjectLookup,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSpielbestaetigungAnswerResponse:
     """
     Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
@@ -332,9 +356,119 @@ async def post_team_answer(
     the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
     administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
     outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
-    fixture (`spiel_double_booked`). The reason is stored as typed.
+    fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside
+    the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
+    than letting it stand.
     """
 
-    # Session 8: the answer judges the caller's seat on the row's team and then the row as the mailed link's answer
-    # judged it (`app/api/spielbestaetigungen/public_router.py :: post_spielbestaetigung`, which this replaces).
-    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+    vorschlag = (
+        None
+        if answer_data.vorschlag is None
+        else FLSpielbestaetigungAppointment(date=answer_data.vorschlag.date, time=answer_data.vorschlag.time)
+    )
+
+    async def answer(session: AsyncClientSession) -> FLSpielbestaetigungAnswerResponse:
+        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
+
+        subject = await roles_of(identifier, records, session=session)
+        # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
+        row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, projection=TEAM_ANSWER_FIELDS, session=session)
+        seat = answering_seat(spielbestaetigung_raw=row, seats=subject.seats)
+        refuse(None if seat is not None else foreign_row_refusal())
+        assert row is not None and seat is not None
+
+        ansetzung_state = await pull_ansetzung_state(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            spiel_projection=None,
+            verein_projection=VEREIN_FIELDS,
+            session=session,
+        )
+        # One snapshot with the row, and the fixture is removed with its rows in one transaction.
+        assert ansetzung_state is not None
+
+        async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
+            """Every refusal after the seat's, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
+
+            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
+
+            if vorschlag is not None:
+                refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
+
+                stored = FLSpiel.model_validate(current.spiel)
+                refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
+                proposed = proposal_payload(stored, vorschlag)
+
+                # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
+                membership = await pull_saison_membership(
+                    saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
+                )
+                # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
+                refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership)))
+
+                span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
+                if span is not None:
+                    refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
+
+                # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
+                # proposal an earlier rule refuses. Only claims the stored fixture did not make.
+                booked = await pull_booked_slots(
+                    spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
+                )
+                refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
+
+        await judge(ansetzung_state, session)
+
+        try:
+            await patch_one_in_db(
+                collection=spielbestaetigungen_collection,
+                db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
+                update=compose_answer_update(answer=answer_data.answer, seat=seat, vorschlag=vorschlag, reason=answer_data.reason, today=today),
+                session=session,
+                expected_version=None,
+                return_document=ReturnDocument.BEFORE,
+            )
+        except DocumentNotFoundError:
+            # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
+            # the filter repeats that judgement on the write.
+            refuse(first_press_refusal())
+
+        # The season row the seat was judged off: an erasure or a Widerspruch emptying the seat under this answer then
+        # conflicts with it, so no reason typed from a seat its holder has left outlives the step taking that holder's reasons.
+        await anchor_in_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": row["saison_id"], "team_id": row["party"]["team_id"]},
+            session=session,
+        )
+
+        await record_act(
+            collection=spielbestaetigungen_collection,
+            action="spielbestaetigung.answered",
+            by=ACT_BY_KONTAKT,
+            team=next((str(verein["name"]) for verein in ansetzung_state.vereine if verein["team_id"] == row["party"]["team_id"]), None),
+            record_id=spielbestaetigung_id,
+            label=str(row["saison_id"]),
+            session=session,
+        )
+
+        # Nothing judged is written here, so a move, a club's exit, a re-dated matchday or a rival booking landing under
+        # this transaction raises no conflict: all judged again outside it before answering.
+        current = await pull_ansetzung_state(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            spiel_projection=None,
+            verein_projection=VEREIN_FIELDS,
+            session=None,
+        )
+        # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
+        assert current is not None
+        await judge(current, None)
+
+        return FLSpielbestaetigungAnswerResponse(
+            state=answer_data.answer, answered_by=FLSpielbestaetigungByKontakt(kind="kontakt", rolle=seat), vorschlag=vorschlag
+        )
+
+    async with transaction_session(db) as session:
+        return await session.with_transaction(answer)
