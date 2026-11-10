@@ -41,6 +41,15 @@ export type JourneyOptions = {
   entered: { club: string; colour: string };
   /** The pupil the administration edits in the running season's squads. */
   squadded: string;
+  /**
+   * A confirmed contact seat's address on a club of the running season, and what waits on it: the coming fixture whose
+   * date it answers and whose line-up it owes, and the pupil whose confirmed registration it decides.
+   */
+  contact: { address: string; club: string; fixture: string; pupil: string };
+  /** A club of the running season whose live registration link (`?token=…`) a pupil registers through, and the address of its confirmed contact seat, which admits them. */
+  registering: { club: string; token: string; admitter: string };
+  /** A confirmed referee's address, the played fixture whose report they owe, and the coming one whose booking they answer. */
+  booked: { address: string; played: string; coming: string };
 };
 
 type JourneyFixtures = {
@@ -198,6 +207,9 @@ export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures
   departing: [{ club: "", fixture: "" }, { option: true }],
   entered: [{ club: "", colour: "" }, { option: true }],
   squadded: ["", { option: true }],
+  contact: [{ address: "", club: "", fixture: "", pupil: "" }, { option: true }],
+  registering: [{ club: "", token: "", admitter: "" }, { option: true }],
+  booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
   // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.
   // Worker-scoped, so the count lives as long as the worker and a replacement worker starts its own block
