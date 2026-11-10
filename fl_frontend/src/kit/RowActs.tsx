@@ -12,9 +12,11 @@ const ROW = "[data-kit-row]";
 
 /**
  * What a keyboard reaches in a row: every act and link the kit draws is one of these, a locked act included, and a
- * record row's choice, whose radio the Tab key reaches unless its group holds it out (`tabindex="-1"`).
+ * record row's leading choice, whose radio the Tab key reaches unless its group holds it out (`tabindex="-1"`). A box
+ * standing before a row's act, a line-up's tick, is no such place: the person removing rows one by one reaches the
+ * next row's act.
  */
-const PRESSABLE = 'a[href], button:not(:disabled), input:not([type="hidden"], :disabled, [tabindex="-1"])';
+const PRESSABLE = 'a[href], button:not(:disabled), input[type="radio"]:not(:disabled, [tabindex="-1"])';
 
 /** A dialog or a question standing over the page, which hands the focus back to what opened it as it closes. */
 const DIALOG = '[role="dialog"], [role="alertdialog"]';

@@ -450,7 +450,7 @@ def registrierung_document(
             position=position,
             nummer=nummer,
             stufe=stufe,
-            confirmation={**compose_confirmation(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
+            confirmation={**compose_confirmation(today=submitted_at, deadline=deadline, mailed=True), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
         "idempotency_key": str(registrierung_id),

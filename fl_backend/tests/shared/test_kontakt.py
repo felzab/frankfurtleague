@@ -2,11 +2,23 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload
+from app.api.address_change.schemas import FLAddressChangeMove, FLAddressChangeRecord
+from app.api.bewerbungen.schemas import FLBewerbungRecord
+from app.api.outbox.schemas import FLOutboxRow
+from app.api.registrierungen.schemas import FLRegistrierungRecord
+from app.api.schiedsrichter.schemas import (
+    FLPatchSchiedsrichterPayload,
+    FLPostSchiedsrichterPayload,
+    FLSchiedsrichterKontaktRecord,
+    FLSchiedsrichterRecord,
+)
+from app.api.spieler.schemas import FLSpielerRecord
+from app.api.teams.schemas import FLKontaktpersonRecord, FLSaisonTeamKontakteRecord, FLSaisonTeamRecord
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 Body = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -156,3 +168,41 @@ class TestTheReadShapeJudgesNeitherMember:
         """The narrowing is the rule and never the key: a row missing one is the 500 this pair exists to avoid."""
         with pytest.raises(ValidationError):
             FLKontakt.model_validate({"phone": None})
+
+
+# Each stored address field of a record model, at the model that declares it; the record models nesting one are wired
+# below, so a field turned back to a plain string is caught at its own model.
+STORED_ADDRESSES: list[tuple[type[BaseModel], str]] = [
+    (FLRegistrierungRecord, "email"),
+    (FLSpielerRecord, "email"),
+    (FLSchiedsrichterKontaktRecord, "email"),
+    (FLKontaktpersonRecord, "email"),
+    (FLAddressChangeRecord, "address"),
+    (FLAddressChangeRecord, "email"),
+    (FLAddressChangeMove, "old"),
+    (FLAddressChangeMove, "new"),
+    (FLOutboxRow, "to"),
+]
+
+
+class TestAStoredAddress:
+    """Every lookup of a person by address is an equality on the fold, so a row stored otherwise escapes an erasure."""
+
+    @pytest.mark.parametrize(("model", "field"), STORED_ADDRESSES, ids=lambda value: getattr(value, "__name__", value))
+    def test_the_read_back_names_one_its_fold_would_change(self, model: type[BaseModel], field: str):
+        adapter = TypeAdapter(model.model_fields[field].rebuild_annotation())
+
+        assert adapter.validate_python("tom@beispielschule.de") == "tom@beispielschule.de"
+        for unfolded in ("Tom@beispielschule.de", " tom@beispielschule.de"):
+            with pytest.raises(ValidationError):
+                adapter.validate_python(unfolded)
+
+    def test_the_records_nesting_one_take_the_stored_shape(self):
+        """A page's read keeps the plain address; the record model is what the read-back judges."""
+
+        assert FLSaisonTeamRecord.model_fields["kontakte"].annotation == FLSaisonTeamKontakteRecord | None
+        assert FLBewerbungRecord.model_fields["kontakte"].annotation == FLSaisonTeamKontakteRecord
+        assert FLSchiedsrichterRecord.model_fields["kontakt"].annotation == FLSchiedsrichterKontaktRecord
+        assert {seat: FLSaisonTeamKontakteRecord.model_fields[seat].annotation for seat in KONTAKT_ROLLEN} == dict.fromkeys(
+            KONTAKT_ROLLEN, FLKontaktpersonRecord | None
+        )

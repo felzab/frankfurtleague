@@ -20,8 +20,8 @@ its invalidation live here rather than in the backend.
 | `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                      |
 | `e2e/`                   | The Playwright journeys against the end-to-end stack, every project's at its top and one project's under `desktop/` or `phone/`, and `support/`, the fixtures and helpers they import |
 
-**Routes are thin**: a page fetches, then hands off. A rebuilt administration page's own write sits
-beside its route, one module per act (`saveSpiel.ts` beside the match editor). A slice holds what
+**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, one
+module per act (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts` beside a team's Kader). A slice holds what
 several routes share, and only the modules it needs: `queries.ts` for reads, `mutations.ts` for the
 calls that write, `actions.ts` or an act's own module for the server actions more than one page calls
 (`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in person's own pages

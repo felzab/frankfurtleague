@@ -7,10 +7,10 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after, mailbox_anchor_ids
+from app.api.bewerbungen.services import build_key_filter, days_after
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
-from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
-from app.api.outbox.services import OwedMail, enqueue_mails
+from app.api.outbox.services import enqueue_mails
+from app.api.registrierungen.crud import judge_the_mailbox_in_session
 from app.api.registrierungen.schemas import (
     FLInvitationViewResponse,
     FLPostRegistrierungPayload,
@@ -22,12 +22,11 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     CONFIRMATION_ANSWER_FIELDS,
     CONFIRMATION_VIEW_FIELDS,
-    REGISTRIERUNG_LINK,
     build_confirmation_filter,
-    build_open_link_filter,
     compose_confirmation,
     compose_confirmation_update,
     compose_registrierung,
+    confirmation_mail,
     find_age_refusal,
     find_already_confirmed_refusal,
     find_expired_token_refusal,
@@ -42,11 +41,12 @@ from app.api.registrierungen.services import (
     state_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
-from app.api.spieler.services import build_live_squad_filter, find_full_squad_refusal
+from app.api.spieler.crud import pull_squad_room
+from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_mailboxes_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     InvitationsCollection,
@@ -91,8 +91,8 @@ SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_s
 JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
 
 # `resolve_public_saison` is deliberately NOT called below, where every other base-tier season read
-# calls it: a season taking registrations is normally `future`, so that resolve would 404 the flow
-# this exists for. The INVITE authorises instead.
+# calls it: a link minted for a season that takes no registration today, a `future` one among them,
+# reads as closed rather than as a season nobody knows. The INVITE authorises instead.
 
 
 async def _club_departed(
@@ -163,8 +163,13 @@ async def post_invitation_view(
 
     # What an entry submitted TODAY would store, the admission judging the submission's day.
     nominee = entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)
-    squad_size = await saison_spieler_collection.count_documents(
-        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None)
+    room = await pull_squad_room(
+        saison_spieler_collection=saison_spieler_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        rules=rules,
+        excluding_spieler_id=None,
+        session=None,
     )
 
     return FLInvitationViewResponse(
@@ -177,8 +182,7 @@ async def post_invitation_view(
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=find_full_squad_refusal(squad_size=squad_size, max_kader_size=int(rules.get("max_kader_size") or 0), nominee=nominee)
-        is None,
+        kader_free=find_full_squad_refusal(room=room, nominee=nominee) is None,
         nachnominierung=nominee,
     )
 
@@ -256,34 +260,29 @@ async def post_registrierung(
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
-        squad_size = await saison_spieler_collection.count_documents(
-            build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=None), session=session
+        room = await pull_squad_room(
+            saison_spieler_collection=saison_spieler_collection,
+            saison_id=saison_id,
+            team_id=team_id,
+            rules=rules,
+            excluding_spieler_id=None,
+            session=session,
         )
         refuse(
             find_kader_refusal(
-                free=find_full_squad_refusal(
-                    squad_size=squad_size,
-                    max_kader_size=int(rules.get("max_kader_size") or 0),
-                    nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today),
-                )
-                is None
+                full=find_full_squad_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
             )
         )
 
-        waiting = await registrierungen_collection.count_documents(
-            build_open_link_filter(saison_id=saison_id, address=str(registrierung_data.email)),
-            limit=OPEN_LINKS_PER_MAILBOX,
+        mailed = await judge_the_mailbox_in_session(
+            registrierungen_collection=registrierungen_collection,
+            mailbox_anchors_collection=mailbox_anchors_collection,
+            saison_id=saison_id,
+            address=str(registrierung_data.email),
+            excluding_id=None,
+            at=germany_now,
             session=session,
         )
-        mailed = waiting < OPEN_LINKS_PER_MAILBOX
-        # As the application's press judges it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
-        if mailed:
-            await anchor_mailboxes_in_db(
-                collection=mailbox_anchors_collection,
-                ids=mailbox_anchor_ids(addresses=[str(registrierung_data.email)]),
-                at=germany_now,
-                session=session,
-            )
 
         deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
 
@@ -313,18 +312,14 @@ async def post_registrierung(
             outbox_collection=outbox_collection,
             session=session,
             mails=[
-                OwedMail(
+                confirmation_mail(
+                    registrierung_id=registrierung_id,
                     key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
-                    to=str(registrierung_data.email),
-                    data=FLRegistrierungLinkData(
-                        kind="registrierung_confirmation",
-                        # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
-                        # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
-                        team=str((junction_raw or {}).get("name", "")),
-                        saison_id=saison_id,
-                    ),
-                    reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
-                    link=REGISTRIERUNG_LINK,
+                    address=str(registrierung_data.email),
+                    # Off the invite the token opened. `or {}` for the type checker alone: `refuse` above has raised where
+                    # the row is missing.
+                    team=str((junction_raw or {}).get("name", "")),
+                    saison_id=saison_id,
                 )
             ]
             if mailed

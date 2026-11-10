@@ -5,20 +5,23 @@ Here rather than in `services.py`, which decides from its arguments and names no
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Final
+from datetime import datetime
+from typing import Any, Final, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
-    SUBMITTED,
     WITHOUT_TOKEN_HASHES,
     build_addresses_filter,
     build_open_filter,
+    build_open_link_filter,
     build_registrierungen_sort,
+    find_unknown_registrierung_refusal,
 )
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -26,46 +29,112 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
 
 
-async def pull_open_registrierung(
+async def pull_registrierung(
     *, registrierungen_collection: AsyncCollection, registrierung_id: Any, session: AsyncClientSession
 ) -> Mapping[str, Any]:
-    """The pending registration this id names, or a 404: an admitted one is gone, and a declined one is decided."""
+    """The registration this id names, of any status, or `role_not_held` where no row holds it.
 
-    return await pull_one_from_db(
-        collection=registrierungen_collection,
-        db_filter={"_id": registrierung_id, "status": SUBMITTED},
-        projection=dict(WITHOUT_TOKEN_HASHES),
+    Never a 404, which would answer before the caller judges the seat: an unknown id and another team's row answer alike,
+    so nobody learns which ids exist. An admitted row is gone, so its id is one no row holds.
+    """
+
+    row = await registrierungen_collection.find_one({"_id": registrierung_id}, projection=dict(WITHOUT_TOKEN_HASHES), session=session)
+    refuse(find_unknown_registrierung_refusal(found=row is not None))
+    assert row is not None
+
+    return row
+
+
+async def judge_the_mailbox_in_session(
+    *,
+    registrierungen_collection: AsyncCollection,
+    mailbox_anchors_collection: AsyncCollection,
+    saison_id: str,
+    address: str,
+    # The row being mailed where it stands already, which takes no place from itself.
+    excluding_id: Any,
+    at: datetime,
+    session: AsyncClientSession,
+) -> bool:
+    """Whether the season may mail this address's mailbox another confirmation link, anchoring the mailbox where it may.
+
+    Below `OPEN_LINKS_PER_MAILBOX` unanswered mailed links, as the application's press judges it
+    (`app/api/bewerbungen/public_router.py :: post_bewerbung`): the anchor puts two writes mailing one mailbox in one
+    write set, so neither passes on a count the other is about to raise.
+    """
+
+    waiting = await registrierungen_collection.count_documents(
+        {**build_open_link_filter(saison_id=saison_id, address=address), **({} if excluding_id is None else {"_id": {"$ne": excluding_id}})},
+        limit=OPEN_LINKS_PER_MAILBOX,
         session=session,
     )
+    if waiting >= OPEN_LINKS_PER_MAILBOX:
+        return False
+
+    await anchor_mailboxes_in_db(collection=mailbox_anchors_collection, ids=mailbox_anchor_ids(addresses=[address]), at=at, session=session)
+
+    return True
 
 
-# The most pending rows one read serves a team, newest first: the collection is written by anybody holding a team's
-# link, so the read is bounded whatever the form stored.
+# The most pending rows one read serves a team: the collection is written by anybody holding a team's link, so the read
+# is bounded whatever the form stored.
 OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
+
+
+class OpenRegistrierungen(NamedTuple):
+    rows: list[Mapping[str, Any]]
+    # Whether every pending row of the team's season is among `rows`, the cap having cut none.
+    complete: bool
 
 
 async def pull_open_registrierungen(
     *, registrierungen_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession
-) -> list[Mapping[str, Any]]:
-    """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most."""
+) -> OpenRegistrierungen:
+    """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most, the confirmed ones taken first.
 
-    return await aggregate_many_from_db(
-        collection=registrierungen_collection,
-        pipeline=[
-            {"$match": build_open_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort())},
-            {"$limit": OPEN_REGISTRIERUNGEN_CAP},
-            # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
-            # the join runs on reaches this handler, let alone the wire.
-            {
-                "$project": {
-                    **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
-                }
-            },
-        ],
-        session=session,
-    )
+    Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
+    flood of them bury every row a pupil confirmed; a confirmed row needs a link answered in its own mailbox, of which
+    `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX` stand at a time. Two reads, each newest first on the
+    queue index, the second only for the room the first left.
+    """
+
+    rows: list[Mapping[str, Any]] = []
+    for confirmed in (True, False):
+        room = OPEN_REGISTRIERUNGEN_CAP - len(rows)
+        # One row past the room, so a cut is known rather than guessed from a full page.
+        read = await aggregate_many_from_db(
+            collection=registrierungen_collection,
+            pipeline=[
+                {
+                    "$match": {
+                        **build_open_filter(saison_id=saison_id, team_id=team_id),
+                        "einwilligung.confirmed_at": {"$ne": None} if confirmed else None,
+                    }
+                },
+                {"$sort": dict(build_registrierungen_sort())},
+                {"$limit": room + 1},
+                # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
+                # the join runs on reaches this handler, let alone the wire.
+                {
+                    "$project": {
+                        **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
+                        **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
+                    }
+                },
+            ],
+            session=session,
+        )
+        rows += read[:room]
+        if len(read) > room:
+            return OpenRegistrierungen(rows=_newest_first(rows), complete=False)
+
+    return OpenRegistrierungen(rows=_newest_first(rows), complete=True)
+
+
+def _newest_first(rows: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The served rows in `build_registrierungen_sort`'s order, whichever read took each."""
+
+    return sorted(rows, key=lambda row: (row["submitted_at"], row["_id"]), reverse=True)
 
 
 async def persons_at(

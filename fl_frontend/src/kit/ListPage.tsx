@@ -16,7 +16,7 @@ import { FieldPlaceholder } from "./FieldPair";
 import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { ListCardRows, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { RowActs } from "./RowActs";
@@ -82,7 +82,8 @@ type CardsContent = {
   cards: ReadonlyArray<{
     id: string;
     title: Copy;
-    rows: ReadonlyArray<CardActRowProps & { id: string }>;
+    /** Each row, with the words the list's search narrows it by where more than its name is searched. */
+    rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
     /** `false` on a card holding a list rather than open work, such as a referee's games: a count says how much is open. */
     count?: false;
     /**
@@ -155,6 +156,8 @@ type ListContent =
     }
   | {
       kind: "cards";
+      /** The search field's name, where a card's list can reach about 20 rows, as a table's takes it. */
+      search?: ListSearch;
       /**
        * Each card while it waits, in their order, its title, the acts its rows carry, which a phone sets on a line of
        * their own, and `count` as the card states it, and how many rows each draws; the seats' card's title, where
@@ -558,8 +561,13 @@ async function ListBody({ list }: { list: ListContent }) {
                   {...(entry.count === false ? {} : { count: entry.rows.length })}>
                   {entry.rows.length === 0 ? (
                     <EmptyState kind="clear" />
+                  ) : list.search !== undefined ? (
+                    <ListCardRows
+                      rows={entry.rows}
+                      {...(entry.empty === undefined ? {} : { empty: entry.empty })}
+                    />
                   ) : (
-                    entry.rows.map(({ id, ...row }) => (
+                    entry.rows.map(({ id, words: _words, ...row }) => (
                       <CardActRow
                         key={id}
                         {...row}
@@ -683,7 +691,7 @@ export function ListPage({
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
-  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" ? list.search : undefined;
+  const search = list.kind === "table" || list.kind === "spiele" || list.kind === "tiles" || list.kind === "cards" ? list.search : undefined;
   const hasToolbar = search !== undefined || filters !== undefined || create !== undefined || link !== undefined;
 
   return (

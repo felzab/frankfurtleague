@@ -1,8 +1,15 @@
 from datetime import UTC, datetime, timedelta
 
-from app.api.outbox.schemas import FLBanData
+from bson import ObjectId
+
+from app.api.invitations.crud import owed_invitation_mails
+from app.api.invitations.services import confirmed_recipients
+from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielNoticeData
 from app.api.outbox.services import DELIVERY_DEADLINE, REPETITION_AFTER, RETENTION, OwedMail, final_update, retry_update, row_of
+from app.api.spielbestaetigungen.services import austritt_notices_of, team_mails
 from app.core import clock
+
+APPOINTMENT = FLSpielMailAppointment(team1="Adler", team2="Bieber", date="2026-05-02", time="10:00:00")
 
 # The last half minute of summer time, so each span below crosses the clock falling back.
 BEFORE_THE_CLOCK_FALLS_BACK = datetime(2026, 10, 25, 2, 59, 30, tzinfo=clock.GERMANY)
@@ -14,6 +21,42 @@ MAIL = OwedMail(
     reference=None,
     link=None,
 )
+
+
+SAISON_ID = "2026"
+OWN, OPPONENT = ObjectId("6890a1b2c3d4e5f607f40001"), ObjectId("6890a1b2c3d4e5f607f40002")
+SEATED = {"trainer": {"email": "theo@beispielschule.de", "einwilligung": {"confirmed_at": "2026-03-01"}}}
+
+
+def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
+    """Unnamed, the hand-out cannot drop a mail whose seat changed hands before it went, and nothing else fails.
+
+    The Austritt notice names the opponent it goes to, never the departed club its reference names.
+    """
+
+    request = FLSpielNoticeData(kind="spiel_cancelled", recipient="team", appointment=APPOINTMENT)
+    row = {"_id": ObjectId(), "saison_id": SAISON_ID, "party": {"kind": "team", "team_id": OWN}}
+    spiel = {"team1": {"team_id": OWN}, "team2": {"team_id": OPPONENT}, "date": "2026-05-02", "time": "10:00:00"}
+    vereine = {
+        OWN: {"_id": ObjectId(), "team_id": OWN, "name": "Adler", "kontakte": SEATED},
+        OPPONENT: {"_id": ObjectId(), "team_id": OPPONENT, "name": "Bieber", "kontakte": SEATED},
+    }
+
+    owed = [
+        *team_mails(spielbestaetigung_raw=row, kontakte=SEATED, data=request, occasion="cancelled"),
+        *owed_invitation_mails(
+            invitation_id=ObjectId(),
+            team_id=OWN,
+            team_name="Adler",
+            saison_id=SAISON_ID,
+            recipient=confirmed_recipients(kontakte=SEATED),
+            occasion="dispatch",
+        ),
+    ]
+    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], vereine=vereine)[vereine[OPPONENT]["_id"]]
+
+    assert [mail.club for mail in owed] == [FLOutboxClub(saison_id=SAISON_ID, team_id=OWN)] * 2
+    assert notice.club == FLOutboxClub(saison_id=SAISON_ID, team_id=OPPONENT)
 
 
 def run_for(instant: datetime) -> timedelta:

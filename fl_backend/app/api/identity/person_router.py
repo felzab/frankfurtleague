@@ -72,13 +72,14 @@ async def post_account_erasure(
     pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the
     person's day.
 
-    Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
+    Removed: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals
+    and cards and its line-up entries moving to the one row that holds no person; the referee record,
     every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
     confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
     address's pending change naming this one as its new address, every record it would move standing at its own; every
     grant the address holds, every administrator being told it ended.
     Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
-    and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
+    and its other seats standing.
     Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
     standing. Every match report stands, its remarks and entries included, and names no referee. Every record the
     person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
@@ -153,8 +154,8 @@ async def get_account_erasure_view(
     and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
     has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
     booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
-    the links their contact seats were mailed on
-    their teams' match confirmations, which stop answering; every reason they typed answering a match confirmation, from any
+    the goals, cards and line-up entries of their pupil record, which move onto the ghost; every reason they typed
+    answering a match confirmation, from any
     seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
     marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which
     every administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the

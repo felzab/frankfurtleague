@@ -13,6 +13,7 @@ import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type { EditorSave } from "./useEditor";
 
 type Spielort = { name: string };
@@ -169,4 +170,27 @@ describe("an editor's own acts", () => {
       expect(act).not.toHaveBeenCalled();
     },
   );
+});
+
+/** An editor of one bare block, closed for `reason`, as a finished season's line-up opens. */
+function ClosedBlocks({ reason }: { reason: Copy }) {
+  const editor = useEditor({ id: "spiel-1", version: 1, values: { name: "" } }, async () => ({ ok: true, value: 2 }));
+  return (
+    <EditorPage
+      title={{ record: "Ahorn vs. Eiche" }}
+      editor={editor}
+      closed={reason}
+      sections={[{ id: "block", block: <p>{NAME}</p> }]}
+    />
+  );
+}
+
+// The harm: an editor of blocks alone closed with nothing on the page saying why but the chip.
+describe("a closed editor of blocks alone", () => {
+  it("says why it is closed over its blocks", () => {
+    const reason = COPY.shared.failure.stale;
+    render(<ClosedBlocks reason={reason} />);
+
+    expect(screen.getByText(reason)).toBeTruthy();
+  });
 });

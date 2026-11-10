@@ -6,6 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
+import { CardActRow } from "./Card";
 import { cardSurface } from "./cardStyles";
 import { isEdgeRefusal } from "./edgeRefusal";
 import { EmptyState } from "./EmptyState";
@@ -19,6 +20,7 @@ import { SchoolTiles } from "./TileGrid";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
+import type { CardActRowProps } from "./Card";
 import type { EmptyStateProps } from "./EmptyState";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps, TableRow } from "./Table";
@@ -126,6 +128,31 @@ export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: Schoo
       </div>
     );
   return <SchoolTiles schools={shown.map((tile) => tile.tile)} />;
+}
+
+/**
+ * One card's rows in the list template, searched by the text its scope holds, as `ListMatches` searches the matches: a
+ * row's name, or the `words` it states where more of it is searched. A search that empties a list's card says so in its
+ * list's words; a card of open work it empties says nothing is open in what was searched.
+ */
+export function ListCardRows({
+  rows,
+  empty,
+}: {
+  rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
+  /** The card's list's own empty state, as the list template states it for a card holding a list. */
+  empty?: EmptyStateProps;
+}) {
+  const { query } = use(ListQuery);
+  const wanted = query.trim().toLowerCase();
+  const shown = wanted === "" ? rows : rows.filter((row) => (row.words ?? textOf(row.name)).toLowerCase().includes(wanted));
+  if (shown.length === 0) return <EmptyState {...(empty === undefined ? ({ kind: "clear" } as const) : { ...empty, kind: "search" })} />;
+  return shown.map(({ id, words: _words, ...row }) => (
+    <CardActRow
+      key={id}
+      {...row}
+    />
+  ));
 }
 
 /**

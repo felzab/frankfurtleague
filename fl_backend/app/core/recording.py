@@ -139,7 +139,7 @@ async def record_act(
     record_id: ObjectId | None = None,
     # League data. A grant act's holds the grantee's folded address, an erasure's its typed reference.
     label: str | None = None,
-    # How many records a page of a pass took.
+    # How many records a page of a pass took, or the other records an act took with its own.
     count: int | None = None,
     # REQUIRED: the act's own transaction, so a failed act leaves no row and a retried one leaves one.
     session: AsyncClientSession,

@@ -38,6 +38,7 @@ const STORED: FLAufstellungResponse = {
     { spieler_id: TWO, starts: true },
     { spieler_id: ONE, starts: false },
   ],
+  erased: [],
   version: 3,
   marks: null,
   saison_status: "active",
