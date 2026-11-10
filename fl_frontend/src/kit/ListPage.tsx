@@ -357,10 +357,12 @@ function FiltersPlaceholder({ count }: { count: number }) {
       </span>
       <span className="flex items-start gap-3 max-lg:hidden">
         {Array.from({ length: count }, (_, index) => (
-          <FieldPlaceholder
+          // A filter's select at the least width its row gives it (`./Filters.tsx`).
+          <span
             key={index}
-            width="fit"
-          />
+            className="w-40">
+            <FieldPlaceholder width="standard" />
+          </span>
         ))}
       </span>
     </Placeholder>

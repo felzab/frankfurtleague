@@ -40,7 +40,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         {...box("schule.team_name")}
         label={bewerbung.teamName}
         description={bewerbung.teamNameDescription}
-        width="W3"
+        width="standard"
         kind="text"
         isRequired={required.teamName}
         maxLength={maxLength.teamName}
@@ -48,7 +48,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
       <TextField
         {...box("schule.full_name")}
         label={team.fullName}
-        width="W3L"
+        width="standard"
         kind="text"
         isRequired={required.fullName}
         maxLength={maxLength.fullName}
@@ -58,7 +58,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         name={schulform.name}
         defaultValue={schulform.defaultValue}
         onChange={(value) => schulform.onChange(value ?? "")}
-        width="fit"
         isRequired={required.schulform}
         options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
@@ -72,7 +71,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
       <TextField
         {...box("schule.website_url")}
         label={team.website}
-        width="W3"
+        width="standard"
         kind="url"
         example={shared.field.exampleUrl}
         isRequired={required.website}
@@ -92,7 +91,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         {...path("first_name")}
         label={shared.firstName}
         description={COPY.account.entries.mediaFrom(floor)}
-        width="W3"
+        width="standard"
         kind="text"
         isRequired={required.firstName}
         maxLength={maxLength.firstName}
@@ -100,7 +99,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       <TextField
         {...path("last_name")}
         label={shared.lastName}
-        width="W3"
+        width="standard"
         kind="text"
         isRequired={required.lastName}
         maxLength={maxLength.lastName}
@@ -109,7 +108,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         {...path("email")}
         label={COPY.signIn.address}
         description={bewerbung.ownAddress}
-        width="W3"
+        width="standard"
         kind="email"
         isRequired={required.email}
         maxLength={maxLength.email}
@@ -117,7 +116,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       <TextField
         {...path("phone")}
         label={COPY.shared.facts.phone}
-        width="W3"
+        width="standard"
         kind="tel"
         isRequired={required.phone}
       />
@@ -195,7 +194,8 @@ export function BewerbungFields({
           {...box("stufengroesse")}
           label={team.stufengroesse}
           description={bewerbung.stufengroesseDescription}
-          width="C5"
+          width="short"
+          holds={5}
           kind="digits"
           isRequired={required.stufengroesse}
         />
@@ -223,7 +223,6 @@ export function BewerbungFields({
               label={team.trainerAlso.label}
               description={team.trainerAlso.description}
               name="kontakte.trainer_is_also"
-              width="fit"
               value={trainerAlso}
               onChange={(value) => setTrainerAlso(value ?? NO_SECOND_SEAT)}
               options={[
@@ -241,7 +240,7 @@ export function BewerbungFields({
           {...box("trikot.existing_set")}
           label={team.trikotSet}
           description={bewerbung.trikotSetDescription}
-          width="W3"
+          width="standard"
           kind="text"
           isRequired={required.trikotSet}
           maxLength={maxLength.trikotSet}
@@ -258,7 +257,8 @@ export function BewerbungFields({
         <TextField
           {...box("kader.expected_size")}
           label={team.expectedKader}
-          width="C5"
+          width="short"
+          holds={5}
           kind="digits"
           isRequired={required.expectedSize}
         />
@@ -266,7 +266,8 @@ export function BewerbungFields({
           {...box("kader.good_spieler")}
           label={team.goodSpieler}
           description={bewerbung.goodSpielerDescription}
-          width="C5"
+          width="short"
+          holds={5}
           kind="digits"
           isRequired={required.goodSpieler}
         />

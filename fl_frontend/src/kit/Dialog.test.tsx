@@ -44,7 +44,7 @@ function CreateDialog({ create }: { create: (formData: FormData) => Promise<Acti
       <TextField
         label={INPUT}
         name="created"
-        width="W3"
+        width="standard"
         kind="text"
       />
     </Dialog>
@@ -72,7 +72,7 @@ function EditorHoldingDialog({
               <TextField
                 label={NAME}
                 name="name"
-                width="W3"
+                width="standard"
                 kind="text"
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}
@@ -208,7 +208,7 @@ function HeldDialog() {
         <TextField
           label={INPUT}
           name="created"
-          width="W3"
+          width="standard"
           kind="text"
         />
       </Dialog>
@@ -389,7 +389,7 @@ function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<Act
       <TextField
         label={INPUT}
         name="created"
-        width="W3"
+        width="standard"
         kind="text"
       />
     </Dialog>

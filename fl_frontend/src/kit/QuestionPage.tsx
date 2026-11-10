@@ -54,11 +54,13 @@ export function QuestionPage<Input>({
       <PageWait
         fallback={
           <QuestionFormPlaceholder verb={form.verb}>
-            {fields.map(({ name, width, description }) => (
+            {fields.map((field) => (
               <FieldPlaceholder
-                key={name}
-                width={width}
-                {...(description === undefined ? {} : { description })}
+                key={field.name}
+                {...(field.width === "short"
+                  ? { width: "short", holds: field.holds, ...(field.unit === undefined ? {} : { unit: field.unit }) }
+                  : { width: field.width })}
+                {...(field.description === undefined ? {} : { description: field.description })}
               />
             ))}
           </QuestionFormPlaceholder>

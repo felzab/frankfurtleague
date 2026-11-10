@@ -280,7 +280,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.winPoints}
               name="winPoints"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.winPoints}
               isDisabled={facts.begun}
@@ -290,7 +291,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.drawPoints}
               name="drawPoints"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.drawPoints}
               isDisabled={facts.begun}
@@ -300,7 +302,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.lossPoints}
               name="lossPoints"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.lossPoints}
               isDisabled={facts.begun}
@@ -311,7 +314,6 @@ export function SaisonEditor({
           <Select
             label={WORDS.tiebreak}
             name="tiebreak"
-            width="fit"
             options={TIEBREAK}
             isRequired={required.tiebreak}
             isDisabled={facts.begun}
@@ -325,7 +327,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.forfeitWinner}
               name="forfeitWinner"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.forfeitWinner}
               value={draft.forfeitWinner}
@@ -334,7 +337,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.forfeitLoser}
               name="forfeitLoser"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.forfeitLoser}
               value={draft.forfeitLoser}
@@ -355,7 +359,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.gruppen}
               name="gruppen"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.gruppen}
               isDisabled={drawn}
@@ -365,7 +370,8 @@ export function SaisonEditor({
             <TextField
               label={WORDS.teamsPerGruppe}
               name="teamsPerGruppe"
-              width="C2"
+              width="short"
+              holds={2}
               kind="digits"
               isRequired={required.teamsPerGruppe}
               isDisabled={drawn}
@@ -376,7 +382,6 @@ export function SaisonEditor({
           <Select
             label={WORDS.qualifiers}
             name="qualifiers"
-            width="fit"
             options={qualifiers}
             isRequired={required.qualifiers}
             isDisabled={facts.begun || drawn}
@@ -396,7 +401,8 @@ export function SaisonEditor({
           <TextField
             label={WORDS.maxKader}
             name="maxKader"
-            width="C2"
+            width="short"
+            holds={2}
             kind="digits"
             isRequired={required.maxKader}
             value={draft.maxKader}

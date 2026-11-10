@@ -66,9 +66,7 @@ export function AppointmentDialog({
           label={TITLE}
         />
       }>
-      <FieldPair
-        short="both"
-        phone="pair">
+      <FieldPair>
         <DateField
           label={COPY.admin.spiel.date}
           name={DATE}

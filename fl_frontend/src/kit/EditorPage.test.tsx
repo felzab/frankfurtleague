@@ -46,7 +46,7 @@ function SpielortEditor({
             <TextField
               label={NAME}
               name="name"
-              width="W3"
+              width="standard"
               kind="text"
               isRequired
               value={editor.draft.name}
@@ -118,7 +118,7 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
               <TextField
                 label={NAME}
                 name="name"
-                width="W3"
+                width="standard"
                 kind="text"
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}

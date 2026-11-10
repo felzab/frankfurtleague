@@ -54,7 +54,7 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
       <TextField
         label={COPY.admin.spiel.reason}
         name="reason"
-        width="W4"
+        width="full"
         kind="text"
         isRequired={required}
         maxLength={max}

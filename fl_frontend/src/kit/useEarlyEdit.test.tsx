@@ -123,7 +123,7 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W3"
+        width="standard"
         kind="text"
         onChange={onChange}
       />
@@ -135,7 +135,7 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W3"
+        width="standard"
         kind="text"
         value="Riedberg"
         onChange={onChange}
@@ -152,7 +152,7 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W4"
+        width="full"
         kind="text"
         onChange={onChange}
       />
@@ -164,7 +164,7 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W3"
+        width="standard"
         kind="email"
         onChange={onChange}
       />
@@ -189,14 +189,16 @@ const FIELDS: Case[] = [
           <TextField
             key="first"
             label={WORD}
-            width="C2"
+            width="short"
+            holds={2}
             kind="digits"
             onChange={onChange}
           />,
           <TextField
             key="second"
             label={WORD}
-            width="C2"
+            width="short"
+            holds={2}
             kind="digits"
           />,
         ]}
@@ -317,7 +319,7 @@ describe("what a person did to a field before the page hydrated", () => {
     const page = (
       <TextField
         label={WORD}
-        width="W3"
+        width="standard"
         kind="text"
       />
     );
@@ -341,7 +343,7 @@ describe("what a person did to a field before the page hydrated", () => {
     const page = (
       <TextField
         label={WORD}
-        width="W3"
+        width="standard"
         kind="email"
         onChange={onChange}
       />
@@ -389,14 +391,14 @@ describe("what a person did to a field before the page hydrated", () => {
         <>
           <TextField
             label={WORD}
-            width="W3"
+            width="standard"
             kind="text"
             value={names.first}
             onChange={(first) => setNames({ ...names, first })}
           />
           <TextField
             label={WORD}
-            width="W3"
+            width="standard"
             kind="text"
             value={names.last}
             onChange={(last) => setNames({ ...names, last })}
@@ -427,14 +429,14 @@ describe("a field the person left as the server drew it", () => {
       <>
         <TextField
           label={WORD}
-          width="W4"
+          width="full"
           kind="text"
           value={"Zwei\r\nZeilen"}
           onChange={onChange}
         />
         <TextField
           label={WORD}
-          width="W3"
+          width="standard"
           kind="email"
           value=" lena@example.com "
           onChange={onChange}
@@ -470,7 +472,7 @@ describe("a field the person left as the server drew it", () => {
         <>
           <TextField
             label={WORD}
-            width="W3"
+            width="standard"
             kind="email"
             value=" lena@example.com "
             onChange={onChange}
@@ -499,7 +501,7 @@ describe("a field the person left as the server drew it", () => {
         />
         <TextField
           label={WORD}
-          width="W3"
+          width="standard"
           kind="text"
           isDisabled
           onChange={onChange}
@@ -524,7 +526,7 @@ describe("a control whose server markup takes no edit", () => {
     const page = (
       <TextField
         label={WORD}
-        width="W4"
+        width="full"
         kind="text"
         value="Alt"
       />
@@ -581,7 +583,7 @@ function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
       <TextField
         label={WORD}
         name="email"
-        width="W3"
+        width="standard"
         kind="email"
         value={email}
         onChange={setEmail}
@@ -606,7 +608,7 @@ function Editor({ save }: { save: Save }) {
             <TextField
               label={WORD}
               name="name"
-              width="W3"
+              width="standard"
               kind="text"
               value={editor.draft.name}
               onChange={(name) => editor.set("name", name)}
@@ -746,7 +748,7 @@ describe("a press held across hydration over a field edited before it", () => {
         <TextField
           label={WORD}
           name="name"
-          width="W3"
+          width="standard"
           kind="text"
         />
       </HeldForm>
@@ -858,7 +860,7 @@ describe("a press held across hydration over a field edited before it", () => {
         <TextField
           label={WORD}
           name="field"
-          width="W3"
+          width="standard"
           kind="text"
           isRequired
         />

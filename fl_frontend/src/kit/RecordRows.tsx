@@ -66,10 +66,10 @@ const recordRows = tv({
     // Edge to edge in its box, which holds it unpadded (`Section`'s `list`): the rows, then the foot.
     root: "grid w-full min-w-0",
     // The columns every row shares, so a field stands at one x in every row. A phone's first line: the lead, the
-    // figure, and the remove control at the row's end. From desktop up one line: the lead, the figure, the main field
-    // up to a form field's cap, the trailing cell taking the room that is left, the remove control. The cap is
-    // counted in the field's own letters, so the grid is set in the field's text.
-    grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm lg:grid-cols-[auto_auto_minmax(0,var(--container-field))_1fr_auto] lg:gap-x-3 pointer-coarse:text-base",
+    // figure, and the remove control at the row's end. From desktop up one line: the lead and the figure at their own
+    // widths, the main field taking the room that is left, since a row spans its box, then the trailing cell at its
+    // own width and the remove control.
+    grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm lg:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] lg:gap-x-3 pointer-coarse:text-base",
     // A row brings the box's 16-px insets itself, so the hairline over it reaches the box's edges. Its label and its
     // lines stand 8 px apart, 16 px under the hairline. Under the last line the row's message line is always there:
     // 4 px under the fields, 16 px tall, 4 px over the next hairline, which the 24 px of padding hold, so a message

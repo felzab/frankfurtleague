@@ -120,7 +120,7 @@ function ReasonField() {
       // The name `enterZusage` reads the reason by.
       name="reason"
       // A paragraph: a reason a person writes, at four lines, its line breaks kept.
-      width="W4"
+      width="full"
       kind="text"
       isRequired={requires(SpielbestaetigungenEnterSpielbestaetigungBody.shape.reason, "")}
       maxLength={spielbestaetigungenEnterSpielbestaetigungBodyReasonMax}

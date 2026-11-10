@@ -73,7 +73,7 @@ export function SecurityBoxes({
         <TextField
           label={COPY.shared.name}
           name="name"
-          width="W3"
+          width="standard"
           kind="text"
           isRequired={name.required}
           maxLength={name.max}

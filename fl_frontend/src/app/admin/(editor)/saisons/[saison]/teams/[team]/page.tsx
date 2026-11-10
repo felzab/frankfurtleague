@@ -37,7 +37,7 @@ const LINK_WORDS = COPY.admin.saison;
 const SELECT = (
   <FieldPlaceholder
     key="select"
-    width="fit"
+    width="standard"
   />
 );
 
@@ -60,13 +60,18 @@ export default function TeamEditorPage({ params }: Props) {
       wait={{
         sections: [
           [
-            "pair",
+            "field",
+            <FieldPlaceholder
+              key="shorthand"
+              width="short"
+              holds={5}
+            />,
             "field",
             SELECT,
             "field",
             <FieldPlaceholder
               key="description"
-              width="W4"
+              width="full"
             />,
           ],
           ["pair", "pair", "field"],

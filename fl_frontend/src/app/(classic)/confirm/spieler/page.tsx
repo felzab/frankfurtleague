@@ -71,7 +71,7 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
         <>
           {/* The floor the page reads is any age's words about as long, set unseen. */}
           <FieldPlaceholder
-            width="C10"
+            width="standard"
             description={WORDS.ageCheck(16)}
           />
           <RadioGroupPlaceholder

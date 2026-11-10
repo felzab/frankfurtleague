@@ -61,32 +61,33 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
  */
 type EmailAutofill = "email" | "username" | "off";
 
-/**
- * A single line at its width, its keyboard set by `kind`; a URL and a minute name the example their message shows. A
- * score is `C2`; a postcode, whole euros, a house number or a minute `C5`; a name, an address, a phone number or a URL
- * `W3`, a long field up to the form's cap; a long name past it, a venue's, `W3L`; `column` such a field in a column
- * narrower than the cap, which it fills.
- */
-type SingleLine = {
-  width: "C2" | "C5" | "W3" | "W3L" | "column";
-} & (
-  | { kind: "text"; autofill?: Autofill; example?: never; unit?: never; pattern?: never }
-  /** `unit` stands after the field, outside it, as „€“ after a price. */
-  | { kind: "digits"; autofill?: Autofill; example?: never; unit?: Copy; pattern?: never }
-  | { kind: "email"; autofill?: EmailAutofill; example?: never; unit?: never; pattern?: never }
-  | { kind: "tel" | "search"; autofill?: never; example?: never; unit?: never; pattern?: never }
-  | { kind: "url"; autofill?: never; example: Copy; unit?: never; pattern?: never }
+/** A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. */
+type Kind =
+  | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
+  | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
+  | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
+  | { kind: "tel" | "search"; autofill?: never; example?: never; pattern?: never }
+  | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
   /**
    * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
-   * off the published contract, a server module the kit cannot import, and `unit` stands after it as a digits field's.
+   * off the published contract, a server module the kit cannot import.
    */
-  | { kind: "minute"; autofill?: never; example: Copy; unit?: Copy; pattern: string }
-);
+  | { kind: "minute"; autofill?: never; example: Copy; pattern: string };
 
-/** A paragraph: the column's width at four lines. */
-type Paragraph = { width: "W4"; kind: "text"; autofill?: never; example?: never; unit?: never; pattern?: never };
+/**
+ * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score, a shirt number or a
+ * count, 5 for a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
+ * „€“ after a price.
+ */
+type Short = { width: "short"; holds: 2 | 5; unit?: Copy } & Kind;
 
-export type TextFieldProps = Shared & Line & (SingleLine | Paragraph);
+/** A value whose length varies, a name, an address, a phone number or a URL: the one standard width. */
+type Standard = { width: "standard"; holds?: never; unit?: never } & Kind;
+
+/** A paragraph: its box's whole width at four lines. */
+type Paragraph = { width: "full"; holds?: never; kind: "text"; autofill?: never; example?: never; unit?: never; pattern?: never };
+
+export type TextFieldProps = Shared & Line & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
@@ -137,8 +138,8 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
 }
 
 /**
- * Type text or a number: the label above, an asterisk after it on a required field, the field at its
- * width class, then its message line as `line` sets it. An error first shows once the value is
+ * Type text or a number: the label above, an asterisk after it on a required field, the field at the width of
+ * what it holds, then its message line as `line` sets it. An error first shows once the value is
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
@@ -161,9 +162,9 @@ export function TextField(props: TextFieldProps) {
     example:
       props.kind === "url" || props.kind === "minute" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
   };
-  const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" || kind === "minute" });
+  const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
-    width === "W4" ? (
+    width === "full" ? (
       <ParagraphBox
         isStored={Boolean(props.value ?? props.defaultValue)}
         className={frame}
@@ -174,7 +175,7 @@ export function TextField(props: TextFieldProps) {
         className={frame}
       />
     );
-  const unit = fieldUnit();
+  const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
   const root = useEarlyEdit();
 
@@ -205,8 +206,14 @@ export function TextField(props: TextFieldProps) {
       {props.unit === undefined ? (
         field
       ) : (
-        <span className={unit.row()}>
-          {field}
+        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused.
+        <div
+          data-kit-focus="field"
+          className={fieldFrame({ width: "short", inset: "full", class: unit.frame() })}>
+          <Input
+            data-kit-focus
+            className={unit.value()}
+          />
           {/* Read once, as the input's description, and hidden where it stands, so browsing past the field does
               not read it a second time: the label names what the figure counts, the unit what it counts in. */}
           <span
@@ -215,7 +222,7 @@ export function TextField(props: TextFieldProps) {
             className={unit.unit()}>
             {props.unit}
           </span>
-        </span>
+        </div>
       )}
       {props.line === "withError" ? (
         <LineWithError constraints={constraints} />

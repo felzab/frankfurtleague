@@ -182,7 +182,7 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
                 <FieldPlaceholder
-                  width="column"
+                  width="standard"
                   line={false}
                 />
                 {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
@@ -331,7 +331,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         <TextField
           label={address.label}
           name="email"
-          width="column"
+          width="standard"
           kind="email"
           autofill="username"
           // The one field of the view, its two acts right under it: the line appears with the error alone.

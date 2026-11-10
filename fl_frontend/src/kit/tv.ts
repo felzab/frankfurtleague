@@ -20,7 +20,6 @@ export const tv = createTV({
           "bracket",
           "dialog",
           "field",
-          "field-long",
           "form",
           "classic",
           "content",

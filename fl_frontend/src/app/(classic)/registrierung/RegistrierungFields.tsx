@@ -64,7 +64,7 @@ export function RegistrierungFields({
         <TextField
           label={COPY.shared.firstName}
           name="first_name"
-          width="W3"
+          width="standard"
           kind="text"
           autofill="given-name"
           isRequired={required.firstName}
@@ -73,7 +73,7 @@ export function RegistrierungFields({
         <TextField
           label={COPY.shared.lastName}
           name="last_name"
-          width="W3"
+          width="standard"
           kind="text"
           autofill="family-name"
           isRequired={required.lastName}
@@ -83,7 +83,7 @@ export function RegistrierungFields({
           label={COPY.signIn.address}
           name="email"
           description={WORDS.ownAddress}
-          width="W3"
+          width="standard"
           kind="email"
           autofill="email"
           isRequired={required.email}
@@ -92,20 +92,19 @@ export function RegistrierungFields({
         <TextField
           label={SQUAD.nummer}
           name="nummer"
-          width="C2"
+          width="short"
+          holds={2}
           kind="digits"
         />
         <Select
           label={SQUAD.position}
           name="position"
-          width="fit"
           defaultValue=""
           options={POSITIONS}
         />
         <Select
           label={SQUAD.stufe}
           name="stufe"
-          width="fit"
           defaultValue=""
           options={[NOT_PROVIDED, ...stufen.map((stufe) => ({ id: stufe, label: { record: stufe } }))]}
         />

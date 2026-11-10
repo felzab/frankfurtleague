@@ -41,6 +41,9 @@ type ScoreColumn = {
  */
 type CountedColumn = { label: Copy; head?: never; counted: readonly [number, number] };
 
+/** A score field's box, a short field of two characters at its inset, for what stands in a field's place. */
+const SCORE_FIELD_CLASSES = `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[2]} ${fieldFrame.variants.inset.full}`;
+
 const scoreRows = tv({
   slots: {
     // 8 px more above it than between two fields, as a sub-group sets itself off.
@@ -57,7 +60,7 @@ const scoreRows = tv({
     field: "contents [&_[data-kit-message]]:row-start-2 [&_[data-kit-message]]:text-end [&_input]:row-start-1 [&>*]:contents",
     // A counted figure in a field's place and at its width and inset, so it stands where a typed one would, in the bold
     // a score takes.
-    figure: `col-start-2 row-start-1 flex items-center px-2.5 font-numeric text-base font-bold ${fieldFrame.variants.width.C2}`,
+    figure: `col-start-2 row-start-1 flex items-center font-numeric text-base font-bold ${SCORE_FIELD_CLASSES}`,
     line: "col-span-full row-start-4 min-h-5 text-sm font-medium",
   },
   variants: {
@@ -159,7 +162,8 @@ export function ScoreRows({
         label={label}
         labelHidden
         name={names[side]}
-        width="C2"
+        width="short"
+        holds={2}
         kind="digits"
         isRequired={isRequired}
         value={values[side]}
@@ -230,9 +234,7 @@ export function ScoreRowsPlaceholder() {
               widthClass="w-24"
             />
           </span>
-          <span
-            className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width.C2}`)}
-          />
+          <span className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${SCORE_FIELD_CLASSES}`)} />
           <span className={messageLine({ class: "col-span-2 col-start-1 row-start-2" })} />
         </div>
       ))}

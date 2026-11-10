@@ -126,7 +126,7 @@ export function DateField({
       {/* One field rings as a whole, its calendar button included. */}
       <Group
         data-kit-focus="field"
-        className={fieldFrame({ width: "C10", inset: "start", layout: "group", figures: true })}>
+        className={fieldFrame({ width: "standard", inset: "start", layout: "group", figures: true })}>
         <Segments isField={false} />
         <AriaButton
           data-kit-focus

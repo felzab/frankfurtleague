@@ -65,19 +65,26 @@ export const boxHead = tv({
 export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
 
 /**
- * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
- * sets them, `FieldRows`' rows of one kind at their width class, a match's score, a subgroup's name over the rows
- * after it, a field whose label the section's title is (`titled`, at its width), an act of the section (`SectionAct`)
- * by its label, its status line under it, or the placeholder of whatever else the section holds, such as its facts' or
- * a table's.
+ * One row of a section as its placeholder draws it: one field at the standard width, two forming one value as
+ * `FieldPair` sets them, `FieldRows`' rows of one kind by what they hold, a match's score, a subgroup's name over the
+ * rows after it, a field whose label the section's title is (`titled`, at its width), an act of the section
+ * (`SectionAct`) by its label, its status line under it, or the placeholder of whatever else the section holds, such as
+ * its facts' or a table's.
  */
 export type FieldRow =
-  "field" | "pair" | "subhead" | "score" | { rows: 2 | 3; width: "C2" | "C10" } | { titled: "fit" | "W4" } | { act: Copy } | ReactElement;
+  | "field"
+  | "pair"
+  | "subhead"
+  | "score"
+  | { rows: 2 | 3; holds: "count" | "day" }
+  | { titled: "standard" | "full" }
+  | { act: Copy }
+  | ReactElement;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
   if (row === "pair") return <FieldPairPlaceholder />;
-  if (row === "field") return <FieldPlaceholder width="W3" />;
+  if (row === "field") return <FieldPlaceholder width="standard" />;
   if (row === "score") return <ScoreRowsPlaceholder />;
   if (row === "subhead")
     return (
@@ -104,7 +111,7 @@ function RowPlaceholder({ row }: { row: FieldRow }) {
   return (
     <FieldRowsPlaceholder
       rows={row.rows}
-      width={row.width}
+      holds={row.holds}
     />
   );
 }
