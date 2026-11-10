@@ -5,10 +5,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { FocusScope, useFocusManager } from "react-aria/FocusScope";
 
 import { Button } from "./Button";
+import { buttonPlaceholder } from "./buttonStyles";
 import { smallCaps, stacked } from "./cardStyles";
 import { messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
+import { Icon } from "./Icon";
 import { useFocusHome } from "./RowActs";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -60,7 +63,7 @@ const FIRST_MESSAGE = "[&>:has([data-kit-message]:not(:empty))~*_[data-kit-messa
  */
 const recordRows = tv({
   slots: {
-    // Edge to edge in its box, which holds it unpadded (`Section`'s `rows`): the rows, then the foot.
+    // Edge to edge in its box, which holds it unpadded (`Section`'s `list`): the rows, then the foot.
     root: "grid w-full min-w-0",
     // The columns every row shares, so a field stands at one x in every row. A phone's first line: the lead, the
     // figure, and the remove control at the row's end. From desktop up one line: the lead, the figure, the main field
@@ -99,6 +102,9 @@ const recordRows = tv({
     },
   },
 });
+
+/** One line of a row's fields while they are read: a bar across the row, as tall as a control. */
+const FIELD_LINE = "col-span-full h-8 rounded-lg pointer-coarse:h-10";
 
 type Slots = ReturnType<typeof recordRows>;
 
@@ -192,7 +198,7 @@ function RecordRow<Row extends EditorRow>({
 /**
  * A list of records as rows of fields, such as a Spielbericht's goals: each row under the label counting it, its
  * fields on two or three lines on a phone and on one from desktop up, the remove control at its end, and the add
- * control in the foot under the list. It stands edge to edge in its box (`./Section.tsx`'s `rows`), the hairline
+ * control in the foot under the list. It stands edge to edge in its box (`./Section.tsx`'s `list`), the hairline
  * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.
  *
@@ -308,6 +314,48 @@ export function RecordRows<Row extends EditorRow>({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The list while its record is read: `rows` rows, each its label's line over as many lines of fields as a row takes
+ * on a phone, two, or three where it has a cell below, and over one from desktop up; then the foot's add control by
+ * its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
+ */
+export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; lines: 2 | 3; add: Copy }) {
+  const slots = recordRows({ beside: false });
+  return (
+    <div className={slots.root()}>
+      {rows > 0 && (
+        <div className={slots.grid()}>
+          {Array.from({ length: rows }, (_, row) => (
+            <div
+              key={row}
+              className={slots.row()}>
+              <PlaceholderLine
+                text={slots.label()}
+                width="w-12"
+              />
+              {Array.from({ length: lines }, (_, line) => (
+                <span
+                  key={line}
+                  className={placeholderBar(line === 0 ? FIELD_LINE : `${FIELD_LINE} lg:hidden`)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className={slots.foot()}>
+        <span className={buttonPlaceholder()}>
+          <Icon
+            glyph="create"
+            size={16}
+          />
+          {add}
+        </span>
+      </div>
     </div>
   );
 }
