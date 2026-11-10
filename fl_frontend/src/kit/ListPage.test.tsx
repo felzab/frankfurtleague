@@ -402,8 +402,9 @@ describe("a table a client page draws", () => {
   );
 
   // The harm: a page whose rows open its dialog draws its table itself, and a table standing outside the template's
-  // wait or its search scope lands without a placeholder or ignores what is typed into the toolbar's field.
-  it("waits in the template's placeholder and is searched by the toolbar's field", async () => {
+  // wait or its body lands without a placeholder or outside the toolbar's search scope. The page is drawn as the server
+  // draws it, its list body being a server component; what the toolbar's field narrows is `ListTable.test.tsx`'s.
+  it("waits in the template's placeholder and lands in the template's body, under the toolbar's field", async () => {
     const waiting = document.createElement("div");
     waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
     expect(waiting.querySelectorAll("[aria-busy] tbody tr")).toHaveLength(3);
@@ -418,12 +419,16 @@ describe("a table a client page draws", () => {
         }}
       />
     );
-    render(page(Promise.resolve({ drawn })));
-    expect(await screen.findByText("Finn Claus")).toBeTruthy();
-    await userEvent.type(screen.getByRole("searchbox"), "lea");
+    const landed = document.createElement("div");
+    const { prelude } = await prerender(page(Promise.resolve({ drawn })), { progressiveChunkSize: Number.MAX_SAFE_INTEGER });
+    landed.innerHTML = await new Response(prelude).text();
 
-    expect(screen.queryByText("Finn Claus")).toBe(null);
-    expect(screen.getByText("Lea Bauer")).toBeTruthy();
+    const field = landed.querySelector('input[type="search"]');
+    const rows = [...landed.querySelectorAll("tbody tr")].map((row) => row.textContent);
+    expect(rows).toStrictEqual(["Lea Bauer", "Finn Claus"]);
+    expect(landed.querySelector("[aria-busy]")).toBe(null);
+    // The table stands after the field in the one scope the template holds both in.
+    expect(field?.compareDocumentPosition(landed.querySelector("table") as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 });
 
