@@ -49,7 +49,7 @@ class BerichtContext(NamedTuple):
     spiel: Mapping[str, Any]
     # Every squad row of the two clubs in the season, ausgetragen ones too, each joined to its pupil's names.
     kader: Sequence[Mapping[str, Any]]
-    saison_status: str | None
+    saison_status: str
 
 
 def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]) -> list[Mapping[str, Any]]:
