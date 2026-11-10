@@ -428,9 +428,10 @@ function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; start
  */
 export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
   const s = lineup();
+  // Inline, so its line keeps the count's baseline, which the band aligns on, as a fold's head does (`ReadFolds.tsx`).
   const count = (
     <span className={s.count()}>
-      <span className={placeholderBar("h-3 w-4")} />
+      <span className={placeholderBar("inline-block h-3 w-4 align-middle")} />
     </span>
   );
   return (
