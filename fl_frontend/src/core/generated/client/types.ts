@@ -5007,14 +5007,16 @@ export interface FLSpielPageResponse {
 
 /**
  * One card: who was shown it, when, and its colour.
+ *
+ * A null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad
+ * still takes cards.
  */
 export interface FLSpielberichtCard {
   colour: FLCardColour;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
   side: FLSpielSide;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
+  spieler_id: string | null;
 }
 
 /**

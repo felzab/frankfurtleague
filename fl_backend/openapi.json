@@ -13406,7 +13406,7 @@
         "type": "object"
       },
       "FLSpielberichtCard": {
-        "description": "One card: who was shown it, when, and its colour.",
+        "description": "One card: who was shown it, when, and its colour.\n\nA null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad\nstill takes cards.",
         "properties": {
           "colour": {
             "$ref": "#/components/schemas/FLCardColour"
@@ -13420,9 +13420,16 @@
             "$ref": "#/components/schemas/FLSpielSide"
           },
           "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{24}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spieler Id"
           }
         },
         "required": [

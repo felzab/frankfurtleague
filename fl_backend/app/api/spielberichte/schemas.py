@@ -63,10 +63,14 @@ class FLSpielberichtScorer(BaseModel):
 
 
 class FLSpielberichtCard(BaseModel):
-    """One card: who was shown it, when, and its colour."""
+    """One card: who was shown it, when, and its colour.
+
+    A null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad
+    still takes cards.
+    """
 
     side: FLSpielSide
-    spieler_id: CustomObjectId
+    spieler_id: CustomObjectId | None
     minute: CustomSpielberichtMinute
     colour: FLCardColour
 
