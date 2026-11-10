@@ -1477,7 +1477,9 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
  * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
  * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted in the same transaction, so a second press meets no row.
+ * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
+ * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
+ * about any of them.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
  * (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
