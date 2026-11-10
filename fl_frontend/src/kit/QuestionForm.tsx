@@ -8,7 +8,7 @@ import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { ActRow } from "./Dialog";
+import { ActRow } from "./DialogOverlay";
 import { StatusLine } from "./FieldParts";
 import { statusLine } from "./fieldStyles";
 import { HeldForm } from "./HeldForm";

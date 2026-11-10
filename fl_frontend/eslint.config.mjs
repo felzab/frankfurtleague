@@ -918,8 +918,8 @@ const DESIGN_BANS = [
     [
       ["Modal", "ModalOverlay"],
       "Modal",
-      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
-      "The overlay is `Dialog`'s, `ConfirmDialog`'s and `Sheet`'s alone.",
+      ["src/kit/DialogOverlay.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
+      "The overlay is `DialogOverlay`'s, which `Dialog` and `ConfirmDialog` stand in, and `Sheet`'s alone.",
     ],
     [
       ["Form"],

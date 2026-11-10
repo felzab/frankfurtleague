@@ -7,6 +7,7 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
+import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
@@ -20,6 +21,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
+import type { RoleMarkProps } from "./RoleMark";
 import type { Plaque } from "./TeamPlaque";
 
 /** A column after the name: its head, and how its values set. */
@@ -72,6 +74,8 @@ export type TableRow = {
   words?: string;
   /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
   plaque?: Plaque;
+  /** The role a player's row holds in its squad, the boxed letter directly after the name and before any chip. */
+  mark?: RoleMarkProps;
   chip?: ChipProps;
   /** Beside `chip`, where the last mail of a row that mails met trouble: the delivery's chip, as a seat's. */
   delivery?: ChipProps;
@@ -185,15 +189,11 @@ const PHONE_END = "max-lg:col-start-2 max-lg:flex max-lg:w-auto max-lg:items-cen
 /** Words on a phone wrapping rather than cut, a long address breaking anywhere rather than widening the row. */
 const PHONE_WRAPS = "max-lg:whitespace-normal max-lg:wrap-anywhere";
 
-/** An act row's name on a phone: its own line across the row. */
-const PHONE_WHOLE_NAME = `max-lg:col-span-full max-lg:px-3 max-lg:pt-3 ${PHONE_WRAPS}`;
-
 /** What else the name cell holds, on a line of its own under the name. */
 const PHONE_NAME_LINE = "max-lg:col-span-full max-lg:px-3";
 
-/** An act row's second line on a phone: the chips in the name's track, each kept column in its own. */
-const PHONE_CHIPS = "max-lg:order-1 max-lg:col-start-1 max-lg:flex max-lg:flex-wrap max-lg:items-center max-lg:gap-2 max-lg:ps-3 max-lg:pt-1";
-const PHONE_COLUMN = "max-lg:order-1 max-lg:pt-1";
+/** A column a phone's act row keeps, on the line under the name cell's, in its own track (`phoneTrack`). */
+const PHONE_COLUMN = "max-lg:pt-1";
 
 const table = tv({
   slots: {
@@ -220,9 +220,11 @@ const table = tv({
     // A second chip on the name's line, its own line under it on a phone, over the name's and the first chip's tracks: a
     // row with a date holds about 230 px there, which two chips of some 100 and 88 px and their gaps leave the name 26 px
     // of at 400 px wide, and overrun by 14 at 360, where one chip leaves it 122 and 82. The name stays the row's first read.
+    // An act row's wraps on a phone as its first chip does (`nameLine`).
     delivery: "flex max-lg:col-span-2 max-lg:col-start-1 max-lg:row-start-2 max-lg:justify-self-start",
-    // The name's first line, and its chips, each of the name line's own grid here and of the row's in an act table.
+    // The name's words, which a phone's stacked row and its act row wrap.
     whole: "",
+    // The chips, each a part of the name's line.
     chips: "contents",
     lineWords: "truncate",
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
@@ -309,12 +311,12 @@ const table = tv({
     },
     // A phone's act row is several lines, which no table row can be: the table is a grid there, its rows subgrids, so head
     // and rows still share one set of tracks, the name's and the narrow column's. The name cell gives way to its parts,
-    // `contents`, so they can stand in the row's grid: the name on a line of its own across the row, wrapping where it
-    // is longer, since a name is what a row is told by and a cut one's `title` no touch can reach; the chips under it in
-    // the name's track, wrapping there, beside the columns the phone keeps in theirs, which keeps each under its head; and
-    // the acts under those, `order` holding that sequence whatever the name's cell also holds. An empty chips' span keeps
-    // the name's track taken, so a column never falls into it. A table keeps its table layout from `lg`, the acts its
-    // row's last cell.
+    // `contents`, so they stand in the row's grid, one under another: the name's line across the row, the name wrapping
+    // where it is longer, since a name is what a row is told by and a cut one's `title` no touch can reach, and its mark
+    // and its chips directly after it, each dropping to the next line only where the name's no longer holds it
+    // (`nameLine`); the muted line and a refusal under it; the columns the phone keeps, each in its own track
+    // (`phoneTrack`), which keeps it under its head; and the acts last. A table keeps its table layout from `lg`, the
+    // acts its row's last cell.
     acts: {
       // A row with no acts in such a table: the same lines, its acts' cell left out on a phone.
       table: {
@@ -325,8 +327,7 @@ const table = tv({
         head: "max-lg:leading-10",
         row: "max-lg:col-span-full max-lg:grid max-lg:h-auto max-lg:grid-cols-subgrid max-lg:items-center max-lg:pb-3",
         name: "max-lg:contents",
-        whole: PHONE_WHOLE_NAME,
-        chips: PHONE_CHIPS,
+        whole: PHONE_WRAPS,
         line: PHONE_NAME_LINE,
         lineWords: PHONE_WRAPS,
         refusal: PHONE_NAME_LINE,
@@ -337,13 +338,12 @@ const table = tv({
       row: {
         row: "max-lg:col-span-full max-lg:grid max-lg:h-auto max-lg:grid-cols-subgrid max-lg:items-center max-lg:pb-3",
         name: "max-lg:contents",
-        whole: PHONE_WHOLE_NAME,
-        chips: PHONE_CHIPS,
+        whole: PHONE_WRAPS,
         line: PHONE_NAME_LINE,
         lineWords: PHONE_WRAPS,
         refusal: PHONE_NAME_LINE,
         cell: PHONE_COLUMN,
-        acts: "max-lg:order-2 max-lg:col-span-full max-lg:w-auto max-lg:px-3 max-lg:pt-2",
+        acts: "max-lg:col-span-full max-lg:w-auto max-lg:px-3 max-lg:pt-2",
       },
     },
     linked: {
@@ -417,6 +417,16 @@ function phoneTracks(columns: ReadonlyArray<TableColumn>) {
 }
 
 /**
+ * The track of a column an act table keeps on a phone, for its head and its cells alike: stated, since the grid's own
+ * placement would stand a cell in the first free track, the name's, under lines that span the row. A grid placement,
+ * which a table cell ignores from `lg`.
+ */
+function phoneTrack(columns: ReadonlyArray<TableColumn>, column: TableColumn) {
+  const kept = columns.filter((other) => other.hideOnPhone !== true).indexOf(column);
+  return kept === -1 ? undefined : { gridColumnStart: kept + 2 };
+}
+
+/**
  * A stacked phone row's chevron spans the lines of every cell the phone draws, the rank, the name and each column it
  * keeps: a count no grid rule can name, since a span to the last line reaches no line the cells add themselves. A grid
  * placement, which a stacked phone row alone reads: a table cell ignores it.
@@ -469,8 +479,9 @@ type TableActs = "table" | "row" | undefined;
 /**
  * A row's name line. The name's track grows to the name and stops at the room the line has, so a chip stands directly
  * after a short name and a long one is cut. Its least size of nothing leaves the name out of the line's least width
- * while the plaque and the chip, in tracks of their own size, count towards it, so the table can narrow the column to
- * no less than they need and a chip never lies over the next cell, however little the facts leave the name.
+ * while the plaque, a mark and the chip, in tracks of their own size, count towards it, so the table can narrow the column
+ * to no less than they need and a chip never lies over the next cell, however little the facts leave the name. A phone's
+ * act row cuts no name: its line wraps instead.
  */
 const nameLine = tv({
   base: "min-w-0 items-center gap-2",
@@ -484,8 +495,10 @@ const nameLine = tv({
     // A flex row on a phone, where a lone plaque's name draws nothing: a margin takes back a gap in a flex row alone,
     // since a grid's track stands where it stands whatever its item's margin.
     lonePlaque: { true: "max-lg:flex" },
-    // A phone's act row sets the line's parts in its own grid.
-    acts: { true: "max-lg:contents" },
+    // A phone's act row sets the line across the row and wraps it, plainly: a chip stands directly after the name while
+    // the line holds both and on the next line where it does not, 4 px under it, and a name longer than the line wraps
+    // inside it, so no name gives way to a chip.
+    acts: { true: "max-lg:col-span-full max-lg:flex max-lg:flex-wrap max-lg:gap-y-1 max-lg:px-3 max-lg:pt-3" },
   },
 });
 
@@ -493,8 +506,8 @@ const nameLine = tv({
 const nameWords = tv({
   base: "min-w-0",
   variants: {
-    // A prose table's name wraps; every other is cut with „…“.
-    cut: { true: "truncate" },
+    // A prose table's name wraps; every other is cut with „…“, an act row's from `lg` alone, since a phone wraps it.
+    cut: { always: "truncate", desktop: "lg:truncate", never: "" },
     // A lone plaque's name draws nothing on a phone, so the span takes back the gap before it, and the chip stands
     // as far from the plaque as from a name.
     lonePlaque: { true: "max-lg:-ms-2" },
@@ -502,8 +515,8 @@ const nameWords = tv({
 });
 
 /**
- * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
- * its size and its line; a prose table's name wraps instead. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
+ * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then a player's mark and
+ * the chip, which keep their size and their line; a prose table's name wraps instead, and so does an act row's on a phone. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link; the link's stretched box still covers it, so a press on it opens the row's record, which on a phone,
  * where a club's plaque may stand alone, the link names by the club's full name.
  */
@@ -544,7 +557,7 @@ function NameCell({
         )}
         <CutText
           text={name}
-          className={nameWords({ cut: !prose, lonePlaque, class: s.whole() })}>
+          className={nameWords({ cut: prose ? "never" : acts === undefined ? "always" : "desktop", lonePlaque, class: s.whole() })}>
           {row.href === undefined ? (
             opens
           ) : (
@@ -555,6 +568,7 @@ function NameCell({
             </Link>
           )}
         </CutText>
+        {row.mark !== undefined && <RoleMark {...row.mark} />}
         <span className={s.chips()}>
           {row.chip !== undefined && <Chip {...row.chip} />}
           {row.delivery !== undefined && (
@@ -657,7 +671,8 @@ export function Table({
                   key={column.key}
                   role="columnheader"
                   scope="col"
-                  className={table({ ...columnLook(column), compact, prose, stack, acts: tableActs }).head()}>
+                  className={table({ ...columnLook(column), compact, prose, stack, acts: tableActs }).head()}
+                  style={hasActs ? phoneTrack(columns, column) : undefined}>
                   {column.label}
                 </th>
               ))}
@@ -717,7 +732,8 @@ export function Table({
                       <td
                         key={column.key}
                         role="cell"
-                        className={s.cell()}>
+                        className={s.cell()}
+                        style={hasActs ? phoneTrack(columns, column) : undefined}>
                         {(prose || stack) && (
                           <span
                             aria-hidden
@@ -797,7 +813,8 @@ export function TablePlaceholder({
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={table({ ...columnLook(column), compact, stack, acts: tableActs }).head()}>
+                className={table({ ...columnLook(column), compact, stack, acts: tableActs }).head()}
+                style={acts === undefined ? undefined : phoneTrack(columns, column)}>
                 {column.label}
               </th>
             ))}
@@ -816,21 +833,21 @@ export function TablePlaceholder({
                 </td>
               )}
               <td className={table({ compact, stack, acts: rowActs }).name()}>
-                <span className={table({ acts: rowActs }).whole({ class: "flex min-w-0 items-center gap-2" })}>
+                <span className={nameLine({ shape: "wraps", acts: acts !== undefined })}>
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
                     text={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
                     width="w-1/2"
                   />
                 </span>
-                <span className={table({ acts: rowActs }).chips()} />
               </td>
               {columns.map((column) => {
                 const s = table({ ...columnLook(column), compact, stack, acts: rowActs });
                 return (
                   <td
                     key={column.key}
-                    className={s.cell()}>
+                    className={s.cell()}
+                    style={acts === undefined ? undefined : phoneTrack(columns, column)}>
                     {stack && <span className={s.label()}>{column.label}</span>}
                     <PlaceholderLine
                       text=""

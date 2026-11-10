@@ -8,7 +8,7 @@ import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-compone
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { ActRow, DialogOverlay } from "./Dialog";
+import { ActRow, DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { StatusLine } from "./FieldParts";
 import { answering } from "./useFormAction";
