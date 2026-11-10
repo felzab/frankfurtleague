@@ -61,6 +61,29 @@ describe("a row's name cell", () => {
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });
 
+  // The harm: a captain's mark after the chip, read as part of the state, or drawn as a bare letter a screen reader
+  // spells out with nothing saying what it stands for.
+  it("sets a player's mark directly after the name and before the chip, named by its role", () => {
+    const WORDS = COPY.admin.spieler;
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "Lea Bauer" },
+            // Any of the catalogue's words stands for the letters here: the mark draws what its page hands it.
+            mark: { letters: COPY.shared.bank, label: WORDS.rolleOption.kapitaen },
+            chip: { tone: "info", label: WORDS.nominee },
+            cells: {},
+          },
+        ])}
+      />,
+    );
+    const nameLine = screen.getByText("Lea Bauer").parentElement;
+    expect(nameLine?.textContent).toBe(`Lea Bauer${COPY.shared.bank}${WORDS.rolleOption.kapitaen}${WORDS.nominee}`);
+    expect(screen.getByText(COPY.shared.bank).getAttribute("aria-hidden")).toBe("true");
+  });
+
   // The harm: on a phone a row with acts stands its chip on a line of its own under the name, or cuts its name for the
   // chip, where no touch reaches a cut name's `title`. jsdom lays nothing out, so each case holds what the wrapping
   // rests on: one line holding the name and then its chips, set to wrap, and a name cut from `lg` alone.

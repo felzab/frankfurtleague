@@ -7,6 +7,7 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
+import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
@@ -20,6 +21,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
+import type { RoleMarkProps } from "./RoleMark";
 import type { Plaque } from "./TeamPlaque";
 
 /** A column after the name: its head, and how its values set. */
@@ -72,6 +74,8 @@ export type TableRow = {
   words?: string;
   /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
   plaque?: Plaque;
+  /** The role a player's row holds in its squad, the boxed letter directly after the name and before any chip. */
+  mark?: RoleMarkProps;
   chip?: ChipProps;
   /** Beside `chip`, where the last mail of a row that mails met trouble: the delivery's chip, as a seat's. */
   delivery?: ChipProps;
@@ -308,11 +312,11 @@ const table = tv({
     // A phone's act row is several lines, which no table row can be: the table is a grid there, its rows subgrids, so head
     // and rows still share one set of tracks, the name's and the narrow column's. The name cell gives way to its parts,
     // `contents`, so they stand in the row's grid, one under another: the name's line across the row, the name wrapping
-    // where it is longer, since a name is what a row is told by and a cut one's `title` no touch can reach, and its
-    // chips directly after it, each dropping to the next line only where the name's no longer holds it (`nameLine`);
-    // the muted line and a refusal under it; the columns the phone keeps, each in its own track (`phoneTrack`), which
-    // keeps it under its head; and the acts last. A table keeps its table layout from `lg`, the acts its row's last
-    // cell.
+    // where it is longer, since a name is what a row is told by and a cut one's `title` no touch can reach, and its mark
+    // and its chips directly after it, each dropping to the next line only where the name's no longer holds it
+    // (`nameLine`); the muted line and a refusal under it; the columns the phone keeps, each in its own track
+    // (`phoneTrack`), which keeps it under its head; and the acts last. A table keeps its table layout from `lg`, the
+    // acts its row's last cell.
     acts: {
       // A row with no acts in such a table: the same lines, its acts' cell left out on a phone.
       table: {
@@ -475,8 +479,8 @@ type TableActs = "table" | "row" | undefined;
 /**
  * A row's name line. The name's track grows to the name and stops at the room the line has, so a chip stands directly
  * after a short name and a long one is cut. Its least size of nothing leaves the name out of the line's least width
- * while the plaque and the chip, in tracks of their own size, count towards it, so the table can narrow the column to
- * no less than they need and a chip never lies over the next cell, however little the facts leave the name. A phone's
+ * while the plaque, a mark and the chip, in tracks of their own size, count towards it, so the table can narrow the column
+ * to no less than they need and a chip never lies over the next cell, however little the facts leave the name. A phone's
  * act row cuts no name: its line wraps instead.
  */
 const nameLine = tv({
@@ -511,8 +515,8 @@ const nameWords = tv({
 });
 
 /**
- * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then the chip, which keeps
- * its size and its line; a prose table's name wraps instead, and so does an act row's on a phone. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
+ * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then a player's mark and
+ * the chip, which keep their size and their line; a prose table's name wraps instead, and so does an act row's on a phone. A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link; the link's stretched box still covers it, so a press on it opens the row's record, which on a phone,
  * where a club's plaque may stand alone, the link names by the club's full name.
  */
@@ -564,6 +568,7 @@ function NameCell({
             </Link>
           )}
         </CutText>
+        {row.mark !== undefined && <RoleMark {...row.mark} />}
         <span className={s.chips()}>
           {row.chip !== undefined && <Chip {...row.chip} />}
           {row.delivery !== undefined && (
