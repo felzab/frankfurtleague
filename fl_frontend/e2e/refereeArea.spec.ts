@@ -29,6 +29,17 @@ function gameRow(page: Page, game: string): Locator {
  * Picks a pupil from a row's player list, as a person opens it from the keyboard, and returns the pick's words, which the
  * field shows once chosen. `Unbekannt`, a goal's first entry, is no pupil.
  */
+/**
+ * A radio pressed on its label, as a person presses it: React Aria clips the radio's own input to nothing, so a press
+ * aimed at the input lands on the label over it and Playwright waits for the input to take it.
+ */
+async function pressRadio(scope: Locator, name: string): Promise<void> {
+  await scope
+    .locator("label")
+    .filter({ has: scope.getByRole("radio", { name, exact: true }) })
+    .click();
+}
+
 async function pickPupil(page: Page, row: Locator): Promise<string> {
   await row.getByRole("combobox", { name: "Spieler" }).click();
   await page.keyboard.press("ArrowDown");
@@ -71,17 +82,17 @@ test("a referee answers the coming game, saves the played game's report, and rea
   // A goal on its labelled row: the side, heard by its club's name whatever Kürzel it shows, the minute and the scorer.
   await main.getByRole("button", { name: "Tor eintragen" }).click();
   const goal = main.getByRole("group", { name: "Tor 1", exact: true });
-  await goal.getByRole("radio", { name: side, exact: true }).click();
+  await pressRadio(goal, side);
   await typeInto(goal.getByRole("textbox", { name: "Minute" }), "23");
   const scorer = await pickPupil(page, goal);
 
   // A card on its own: the side, the minute, the pupil and its colour.
   await main.getByRole("button", { name: "Karte eintragen" }).click();
   const card = main.getByRole("group", { name: "Karte 1", exact: true });
-  await card.getByRole("radio", { name: side, exact: true }).click();
+  await pressRadio(card, side);
   await typeInto(card.getByRole("textbox", { name: "Minute" }), "40");
   const cautioned = await pickPupil(page, card);
-  await card.getByRole("radio", { name: "Gelb", exact: true }).click();
+  await pressRadio(card, "Gelb");
 
   const bar = page.getByRole("region", { name: "Speichern" });
   await bar.getByRole("button", { name: "Speichern" }).click();

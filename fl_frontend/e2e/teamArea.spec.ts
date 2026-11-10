@@ -25,10 +25,21 @@ const STARTING = 11;
 /** The page's title, which every rail page writes in its strip, and on a phone at the top of its content. */
 const titleOf = (page: Page, name: string): Locator => page.getByRole("banner").getByRole("heading", { level: 1, name, exact: true });
 
-/** One of the team's pages through the frame's menu, the rail on a desktop and the bar under the page on a phone. */
+/**
+ * One of the team's pages through the frame's menu: the rail on a desktop; on a phone the bar under the page, or the
+ * „Mehr“ sheet for a page the bar has no place for.
+ */
 async function openPage(page: Page, name: string): Promise<void> {
   // Each is a navigation landmark, and only the one the width shows is in the accessibility tree.
-  await page.getByRole("navigation").getByRole("link", { name, exact: true }).click();
+  const menu = page.getByRole("navigation");
+  const entry = menu.getByRole("link", { name, exact: true });
+  const more = menu.getByRole("button", { name: "Mehr", exact: true });
+  await expect(entry.or(more).first()).toBeVisible();
+  if (await entry.isVisible()) await entry.click();
+  else {
+    await more.click();
+    await page.getByRole("dialog", { name: "Mehr" }).getByRole("link", { name, exact: true }).click();
+  }
   await expect(titleOf(page, name)).toBeVisible();
 }
 
@@ -62,10 +73,12 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await expect(toast(page, "Zugesagt")).toBeVisible();
   await expect(termine.getByRole("link", { name: fixture, exact: true })).toHaveCount(0);
 
-  // The registration is admitted on its row at once: its toast, and the row leaves the list.
+  // The registration's row opens its dialog, titled by the pupil's name, whose „Aufnehmen“ admits at once: its toast,
+  // and the row leaves the list.
   await openPage(page, "Registrierungen");
   const registration = page.getByRole("main").getByRole("row").filter({ hasText: pupil });
-  await registration.getByRole("button", { name: "Aufnehmen" }).click();
+  await registration.getByRole("button", { name: pupil, exact: true }).click();
+  await page.getByRole("dialog", { name: pupil }).getByRole("button", { name: "Aufnehmen", exact: true }).click();
   await expect(toast(page, "Aufgenommen")).toBeVisible();
   await expect(registration).toHaveCount(0);
 

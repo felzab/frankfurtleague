@@ -77,7 +77,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await typeInto(box.getByRole("textbox", { name: /^Vorname/ }), pupil.firstName);
   await typeInto(box.getByRole("textbox", { name: /^Nachname/ }), pupil.lastName);
   await typeInto(box.getByRole("textbox", { name: /^E-Mail-Adresse/ }), pupil.address);
-  await typeInto(box.getByRole("textbox", { name: /^Nummer/ }), pupil.nummer);
+  await typeInto(box.getByRole("textbox", { name: /^Trikotnummer/ }), pupil.nummer);
   await choose(page, box, /Position/, pupil.position);
   await choose(page, box, /Stufe/, pupil.stufe);
   await main.getByRole("button", { name: "Registrierung abschicken" }).click();
