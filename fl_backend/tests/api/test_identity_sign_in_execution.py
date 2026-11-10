@@ -24,13 +24,14 @@ from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    EINWILLIGUNG,
+    SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
+    own_einwilligung_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -120,7 +121,11 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP}, **fields}
+        oid,
+        email=email,
+        name=name,
+        default_payment=20,
+        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
     )
 
 

@@ -492,7 +492,8 @@ class TestTheOutgoingClubsSquadIsRetired:
             return await squad_now(database)
 
         # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
-        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[junction(WITHDRAWN, "Z", dict(EXIT)), junction(RIVAL, "A")])
+        unreadable = {**junction(WITHDRAWN, "A", dict(EXIT)), "gruppe": "Z"}
+        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[unreadable, junction(RIVAL, "A")])
 
         assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
 

@@ -794,10 +794,10 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
     return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": home})
 
 
-def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
-    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
+def a_report(saison_id: str) -> dict[str, Any]:
+    """A report document on no fixture, which no count of submitted reports joins: the removal's filter reads the season alone."""
 
-    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id})
 
 
 async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
@@ -812,12 +812,12 @@ class TestAReplaceTakesTheSeasonsReports:
     def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the replace's report delete and this fails: a report document would name a fixture the replace removed.
 
-        The season's holds no submitted report, which would refuse the replace; the neighbour's does.
+        The season's names no fixture the draw holds, so it refuses nothing; the neighbour's stands.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID, bericht=False), a_report(NEIGHBOUR_SAISON_ID)])
+            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID), a_report(NEIGHBOUR_SAISON_ID)])
             await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             berichte = database[Collection.SPIELBERICHTE]
@@ -1380,8 +1380,10 @@ UNDECLARED_RULE: dict[str, Any] = {"spielzeit_minuten": 25}
 def a_short_seed(*, extra_rules: Mapping[str, Any] | None = None) -> Seed:
     """A season created with the placeholder shape, holding only the clubs that turned up: six, across two groups."""
 
+    # Laid over the builder's season, which refuses a rule no model declares.
+    season = saison_document()
     return Seed(
-        saison=saison_document(rules={**rules_document(), **(extra_rules or {})}),
+        saison={**season, "rules": {**season["rules"], **(extra_rules or {})}},
         entered=entry_rows(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP),
     )
 

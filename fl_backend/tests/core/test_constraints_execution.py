@@ -273,8 +273,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "admin_tier": "owner",
             "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         },
-        # An open team row as the pass mints it: one seat holding the link the request went out with,
-        # one sharing it as a mirrored pair does, one empty.
+        # An open team row as the pass mints it.
         "spielbestaetigungen": spielbestaetigung_document(
             spiel_document(
                 spiel_id=SPIEL_OID,
@@ -290,11 +289,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             party={"kind": "team", "team_id": TEAM_OID},
             _id=SPIELBESTAETIGUNG_OID,
             deadline="2026-03-08",
-            kontakte={
-                "trainer": {"token_hashes": ["e" * 64]},
-                "ansprechperson": {"token_hashes": ["e" * 64], "delivery": None},
-                "stellvertretung": None,
-            },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
         "aufstellungen": aufstellung_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}, TEAM_OID, starters=[SPIELER_OID]),
@@ -392,11 +386,11 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["grants"],
         valid_document("grants", _id=TEAM_OID, admin_tier="administration"),
     ),
-    # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
+    # Both rows open, one party, one digest, differing in when they were asked: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.
     "uniq_spielbestaetigung_open": (
         valid_documents()["spielbestaetigungen"],
-        valid_document("spielbestaetigungen", _id=TEAM_OID, kontakte={"trainer": None, "ansprechperson": None, "stellvertretung": None}),
+        valid_document("spielbestaetigungen", _id=TEAM_OID, asked_at="2026-03-01"),
     ),
     # Two reports of one fixture differing in their whole block: the index refuses on the fixture alone.
     "uniq_spielbericht_spiel_id": (

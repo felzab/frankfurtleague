@@ -410,10 +410,10 @@ class TestAnUndrawTakesTheSeasonsConfirmations:
         assert on_a_seeded_saison(mongo_replica_set_url, body) == [NEIGHBOUR_SAISON_ID]
 
 
-def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
-    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
+def a_report(saison_id: str) -> dict[str, Any]:
+    """A report document on no fixture, which no count of submitted reports joins: the removal's filter reads the season alone."""
 
-    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id})
 
 
 async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
@@ -428,12 +428,12 @@ class TestAnUndrawTakesTheSeasonsReports:
     def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the undraw's report delete and this fails: a report document would name a fixture no season holds.
 
-        The season's holds no submitted report, which would refuse the undraw; the neighbour's does.
+        The season's names no fixture the draw holds, so it refuses nothing; the neighbour's stands.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID, bericht=False), a_report(NEIGHBOUR_SAISON_ID)])
+            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID), a_report(NEIGHBOUR_SAISON_ID)])
             await call_undraw(database, client)
 
             berichte = database[Collection.SPIELBERICHTE]
