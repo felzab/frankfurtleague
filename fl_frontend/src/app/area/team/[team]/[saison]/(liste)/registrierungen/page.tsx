@@ -1,5 +1,6 @@
 import { ListPage } from "@/kit/ListPage";
 
+import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -15,7 +16,7 @@ import { RegistrierungActs } from "./RegistrierungActs";
 
 import type { FLOpenRegistrierung } from "@/core/generated/client/types";
 import type { TableHead, TableRow } from "@/kit/Table";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata, ResolvingMetadata, Route } from "next";
 import type { Admission, Decided } from "./RegistrierungActs";
 
 type Props = PageProps<"/area/team/[team]/[saison]/registrierungen">;
@@ -106,7 +107,13 @@ export default function RegistrierungenPage({ params }: Props) {
           table: {
             label: ROUTES.teamRegistrierungen.title,
             rows,
-            empty: { kind: "none", plural: ROUTES.teamRegistrierungen.title, glyph: "registrierungen" } as const,
+            empty: {
+              kind: "none",
+              plural: ROUTES.teamRegistrierungen.title,
+              glyph: "registrierungen",
+              // Only the league mints and mails a team's registration link, so an empty list names whom to ask.
+              line: { ...WORDS.linkFromLeague, link: { href: KONTAKT_MAILTO as Route, label: { record: KONTAKT_EMAIL } } },
+            } as const,
           },
         })),
       }}
