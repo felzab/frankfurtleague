@@ -3640,6 +3640,27 @@ export const FLOverviewGapKind = {
   team_missing: "team_missing",
 } as const;
 
+/**
+ * One season as a frame's season button lists it: its id and its span.
+ */
+export interface FLSaisonFrameEntry {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end_date: string;
+  id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+}
+
+/**
+ * The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.
+ *
+ * A season the public frame withholds, a planned one, is served as any other: the person's row in it is what the
+ * frame leads to.
+ */
+export interface FLOwnSaisonsResponse {
+  saisons: FLSaisonFrameEntry[];
+}
+
 export type FLOwnerWaitDays = 7;
 
 /**
@@ -4463,17 +4484,6 @@ export interface FLSaisonAdminResponse {
 }
 
 /**
- * One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's.
- */
-export interface FLSaisonFrameEntry {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end_date: string;
-  id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  start_date: string;
-}
-
-/**
  * Every season the public may read, the newest first, and the one the site is on.
  *
  * `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
@@ -4731,11 +4741,10 @@ export interface FLSchiedsrichterSpiel {
 }
 
 /**
- * A referee's fixtures of one season, open work first, and the seasons they have fixtures in.
+ * A referee's fixtures of one season, open work first.
  */
 export interface FLSchiedsrichterSpieleResponse {
   saison_id: string;
-  saison_ids: string[];
   spiele: FLSchiedsrichterSpiel[];
 }
 
@@ -5558,7 +5567,6 @@ export interface FLSpielerSaisonSelfSpiel {
 export interface FLSpielerSaisonSelfResponse {
   kader: FLSpielerSelfKaderRow | null;
   saison_id: string;
-  saison_ids: string[];
   spiele: FLSpielerSaisonSelfSpiel[];
 }
 

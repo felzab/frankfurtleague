@@ -18,7 +18,7 @@ from app.api.account.services import (
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonRules
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.panel import FLSpielerSaisonSelfResponse
 from app.api.spieler.schemas import (
@@ -417,6 +417,19 @@ async def patch_einwilligung(
             await session.with_transaction(write)
 
 
+# Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").
+@spieler_router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in pupil holds a squad row in")
+async def get_self_saisons(identifier: PersonIdentifier) -> FLOwnSaisonsResponse:
+    """
+    Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.
+
+    A planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).
+    """
+
+    # Session 8: the read goes from the pupil's own record through their squad rows to those rows' seasons.
+    raise APIError(HTTPStatus.NOT_IMPLEMENTED, Code.UNHANDLED_CRASH)
+
+
 @spieler_router.get(
     "/self/{saison_id}",
     response_model=FLSpielerSaisonSelfResponse,
@@ -426,8 +439,8 @@ async def get_self_saison(saison_id: str, identifier: PersonIdentifier) -> FLSpi
     """
     What the signed-in pupil's own page shows of one season, in one read.
 
-    The seasons they hold a squad row in, newest first; their squad row of this season with the name its club plays the
-    season under, null where they hold none; and that club's fixtures in the order the draw numbered them, each with
+    Their squad row of this season with the name its club plays the season under, null where they hold none; and
+    that club's fixtures in the order the draw numbered them, each with
     whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
     none is stored (null).
 

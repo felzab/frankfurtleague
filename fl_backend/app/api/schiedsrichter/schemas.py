@@ -291,9 +291,7 @@ class FLSchiedsrichterSpiel(BaseModel):
 
 
 class FLSchiedsrichterSpieleResponse(BaseAPIResponse):
-    """A referee's fixtures of one season, open work first, and the seasons they have fixtures in."""
+    """A referee's fixtures of one season, open work first."""
 
     saison_id: str
-    # Every season in which a fixture is booked to one of their records, newest first, which the page's season button offers.
-    saison_ids: list[str]
     spiele: list[FLSchiedsrichterSpiel]
