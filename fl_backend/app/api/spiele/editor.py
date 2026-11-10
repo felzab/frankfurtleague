@@ -9,7 +9,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import Field
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.schemas import FLAufstellungSummary
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
@@ -155,7 +154,7 @@ def _fielding(stored: FLSpiel, team_id: CustomObjectId) -> FLPatchSpielDataPaylo
 async def _teams_of(
     *,
     spiel: FLSpielJoinedAdmin,
-    spiele_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
 ) -> list[FLSpielEditorTeam]:
     """Every club holding a row for the fixture's season, in the German order of their names, each judged by the write's own rules."""
@@ -194,10 +193,10 @@ async def _teams_of(
 async def _spielbericht_of(
     *,
     spiel_id: CustomObjectId,
-    spiele_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    saison_spieler_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
+    saisons_collection: ReadCollection,
+    saison_spieler_collection: ReadCollection,
+    spieler_collection: ReadCollection,
     spielberichte_collection: ReadCollection,
 ) -> FLSpielEditorBericht | None:
     """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's."""
@@ -252,14 +251,14 @@ async def _aufstellungen_of(*, spiel: FLSpielJoinedAdmin, aufstellungen_collecti
 async def read_spiel_editor(
     *,
     spiel_id: CustomObjectId,
-    spiele_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    spielorte_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_spieler_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
+    spiele_collection: ReadCollection,
+    saisons_collection: ReadCollection,
+    spielorte_collection: ReadCollection,
+    schiedsrichter_collection: ReadCollection,
+    saison_spieler_collection: ReadCollection,
+    spieler_collection: ReadCollection,
     spielberichte_collection: ReadCollection,
-    spielbestaetigungen_collection: AsyncCollection,
+    spielbestaetigungen_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     aufstellungen_collection: ReadCollection,
 ) -> FLSpieleAdminSingleResponse:

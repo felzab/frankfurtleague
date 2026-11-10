@@ -5,7 +5,7 @@ from app.api.saisons.crud import pull_active_saison_id
 from app.api.spielberichte.crud import pull_states
 from app.api.spielberichte.schemas import FLSpielberichteSaisonResponse
 from app.core.config import API_VERSION
-from app.core.dependencies import SaisonsCollection, SpielberichteReadCollection
+from app.core.dependencies import SaisonsReadCollection, SpielberichteReadCollection
 from app.core.security import bind_actor, verify_access_admin
 
 router = APIRouter(
@@ -21,7 +21,7 @@ router = APIRouter(
 )
 async def get_spielberichte(
     spielberichte_collection: SpielberichteReadCollection,
-    saisons_collection: SaisonsCollection,
+    saisons_collection: SaisonsReadCollection,
     saison_id: str | None = None,
 ) -> FLSpielberichteSaisonResponse:
     """
