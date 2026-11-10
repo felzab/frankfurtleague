@@ -142,6 +142,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str)
             session=session,
             mails=owed_invitation_mails(
                 invitation_id=invitation_id,
+                team_id=ALREADY_MAILED,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
                 recipient=[InvitationRecipient(rolle="trainer", email=to)],

@@ -460,6 +460,18 @@ class FLOutboxLink(BaseModel):
     replaced: bool
 
 
+class FLOutboxClub(BaseModel):
+    """The club whose contact seats a mail goes to, by its season row: handed out only while a seat there holds its address.
+
+    The seat must be confirmed, as `app/api/invitations/services.py :: confirmed_recipients` chose it, and may be any of
+    the club's: a person holding two seats is sent one mail, which leaving one of them keeps owed. A seat emptied, handed
+    on, re-addressed or objected to since the mail was owed drops it, as `FLOutboxLink.addresses` drops a link's mail.
+    """
+
+    saison_id: str
+    team_id: CustomObjectId
+
+
 class FLOutboxDelivery(BaseModel):
     state: FLOutboxDeliveryState
     reason: str | None
@@ -497,6 +509,8 @@ class FLOutboxRow(BaseModel):
     # Null on a sign-in mail, which no league record holds.
     reference: FLOutboxReference | None
     link: FLOutboxLink | None
+    # Null on every mail but one to a club's contact seats; defaulted, as a row owed before the field was written has none.
+    club: FLOutboxClub | None = Field(default=None)
     state: FLOutboxRowState
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.

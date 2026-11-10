@@ -16,6 +16,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import (
+    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxKind,
@@ -87,7 +88,8 @@ class OwedMail:
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
     the hand-out on the record `reference` names. `valid_until` ends the row where its link dies before `DELIVERY_DEADLINE`:
-    the mail states the link's life, which a late send would make false.
+    the mail states the link's life, which a late send would make false. `club` names the club whose contact seats the
+    mail goes to, every such mail naming it: the hand-out drops it where no confirmed seat there holds `to` any more.
     """
 
     key: str
@@ -96,6 +98,7 @@ class OwedMail:
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
     valid_until: datetime | None = None
+    club: FLOutboxClub | None = None
 
 
 async def enqueue_mails(
@@ -171,6 +174,8 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
         "reference": None if reference is None else {"collection": str(reference.collection), "id": reference.id, "seat": reference.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
+        # Field by field, for `reference`'s reason.
+        "club": None if mail.club is None else {"saison_id": mail.club.saison_id, "team_id": mail.club.team_id},
         "state": "open",
         "recorded_at": now,
         "deadline": deadline,
