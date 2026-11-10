@@ -12,13 +12,16 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungMarks, FLAufstellungPhase
+from app.api.aufstellungen.schemas import FLAufstellungenPublic, FLAufstellungEntry, FLAufstellungMarks, FLAufstellungPhase
+from app.api.spielberichte.services import SIDES, team_id_of
+from app.api.spieler.services import PUBLIC_PERSON
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import AUFSTELLUNG_DUE_HOURS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_HOURS, AUFSTELLUNG_STARTERS_MAX
+from app.shared.schemas.literals import FLSpielSide
 
 _REMINDER_BEFORE: Final = timedelta(hours=AUFSTELLUNG_REMINDER_HOURS)
 _DUE_BEFORE: Final = timedelta(hours=AUFSTELLUNG_DUE_HOURS)
@@ -191,3 +194,89 @@ def build_aufstellung_kader_pipeline(*, saison_id: str, team_id: ObjectId) -> li
         {"$sort": {_UNNUMBERED: 1, _NUMMER_ORDER: 1, "last_name": 1, "first_name": 1, "spieler_id": 1}},
         {"$unset": [_NUMMER_ORDER, _UNNUMBERED]},
     ]
+
+
+# --- The PUBLIC read: each side's line-up on the match page, every pupil through the base tier's mask.
+
+PUBLIC_AUFSTELLUNGEN_AS = "aufstellungen_rows"
+
+
+def public_aufstellungen_lookup() -> Mapping[str, Any]:
+    """The line-ups of the clubs a fixture fields now, joined onto the fixture as `build_spiele_pipeline` answers it.
+
+    Picked by the club and never by a side: a club a knockout correction replaced keeps its line-up, which no side then
+    joins. Each holds its pupils projected through `PUBLIC_PERSON` at the join, so no consent record and no withheld
+    name leaves the database, and their squad rows of the line-up's own club and season for the number, the position
+    and the captaincy.
+    """
+
+    return {
+        "$lookup": {
+            "from": Collection.AUFSTELLUNGEN,
+            "localField": "_id",
+            "foreignField": "spiel_id",
+            # Each side's club as the fixture's own join left it, null on an open knockout slot, which no line-up names.
+            "let": {"fielded": ["$team1.team_id", "$team2.team_id"]},
+            "pipeline": [
+                {"$match": {"$expr": {"$in": ["$team_id", "$$fielded"]}}},
+                {
+                    "$lookup": {
+                        "from": Collection.SPIELER,
+                        "localField": "spieler.spieler_id",
+                        "foreignField": "_id",
+                        "pipeline": [{"$project": {"_id": 1, **PUBLIC_PERSON}}],
+                        "as": "persons",
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": Collection.SAISON_SPIELER,
+                        "localField": "spieler.spieler_id",
+                        "foreignField": "spieler_id",
+                        "let": {"saison_id": "$saison_id", "team_id": "$team_id"},
+                        "pipeline": [
+                            {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$eq": ["$team_id", "$$team_id"]}]}}},
+                            {"$project": {"_id": 0, "spieler_id": 1, "nummer": 1, "position": 1, "rolle": 1}},
+                        ],
+                        "as": "squad_rows",
+                    }
+                },
+                {"$project": {"_id": 0, "team_id": 1, "spieler": 1, "persons": 1, "squad_rows": 1}},
+            ],
+            "as": PUBLIC_AUFSTELLUNGEN_AS,
+        }
+    }
+
+
+def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellungenPublic:
+    """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where its club stored none."""
+
+    by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
+
+    def side_of(side: FLSpielSide) -> dict[str, Any] | None:
+        row = by_club.get(team_id_of(spiel_raw, side))
+        if row is None:
+            return None
+
+        persons = {person["_id"]: person for person in row["persons"]}
+        squad_rows = {squad_row["spieler_id"]: squad_row for squad_row in row["squad_rows"]}
+
+        def entry(stored: Mapping[str, Any]) -> dict[str, Any]:
+            person = persons.get(stored["spieler_id"], {})
+            squad_row = squad_rows.get(stored["spieler_id"], {})
+            # A null forename is the mask's answer for a withheld name and the sentinel's for an erased pupil alike.
+            named = person.get("first_name") is not None
+            return {
+                "type": "named" if named else "anonymous",
+                "first_name": person.get("first_name") if named else None,
+                "last_name": person.get("last_name") if named else None,
+                "nummer": squad_row.get("nummer"),
+                "position": squad_row.get("position"),
+                # Beside a name alone: beside a withheld one the captaincy would say who the nameless pupil is.
+                "rolle": squad_row.get("rolle") if named else None,
+                "starts": stored["starts"],
+            }
+
+        return {"spieler": [entry(stored) for stored in row["spieler"]]}
+
+    return FLAufstellungenPublic.model_validate({side: side_of(side) for side in SIDES})
