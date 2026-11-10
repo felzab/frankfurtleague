@@ -67,7 +67,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.state === "valid" && !spiel.past) {
     return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, open: true };
   }
-  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.admin.actionLog.action["spielbericht.saved"] } };
+  if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.area.schiedsrichter.reported } };
   if (spiel.reportable) return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(SPIEL.spielbericht) } };
   if (spiel.state === "agreed") {
     return { chip: { tone: "success", label: SPIEL.zugesagt }, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };

@@ -856,6 +856,8 @@ export const COPY = catalogue({
     schiedsrichter: {
       /** What a referee answers, the object of „Einteilung ablehnen“. */
       einteilung: "Einteilung",
+      /** A game's chip on the referee's list once their report is stored, apart from the action log's entry of the same words. */
+      reported: "Spielbericht eingetragen",
 
       /** The match report's form; a goal's and a result's words are the match editor's and the match page's. */
       spielbericht: {
