@@ -175,6 +175,8 @@ export const SERVER_COPY = catalogue({
     registrierung_kader_full: KADER_FULL,
     /** An admission of a pupil a squad of the season holds already. */
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
+    /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
+    registrierung_stufe_not_allowed: "Diese Stufe ist in dieser Saison nicht zugelassen.",
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
     /** A club's decline proposing the day and hour the fixture holds. */
@@ -1223,7 +1225,6 @@ export const SERVER_COPY = catalogue({
       `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
   },
 
-  // Session 8: its page reads these.
   /**
    * The fixed text of a pupil's confirmation page, `ROUTES.registrierungConfirmation`, built as `kontaktConfirmation`
    * is: the registration the pupil made, what is stored and until when, the deadline, what the birthdate is checked
@@ -1237,6 +1238,8 @@ export const SERVER_COPY = catalogue({
     ageCheck,
     deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
     more: MORE,
+    /** The first paragraph, its sentences in reading order. */
+    text: (...sentences: Copy[]) => sentences.join(" "),
     /** The done card's title; the link opened again titles it with the day (`COPY.shared.end.doneOn`). */
     confirmed: "Registrierung bestätigt",
   },
