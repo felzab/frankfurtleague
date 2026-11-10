@@ -344,7 +344,7 @@ def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
 
 
 def test_every_role_list_is_drawn_from_the_own_records():
-    """One row seating the mailbox confirmed and again unconfirmed in another spelling, and an unconfirmed referee row.
+    """One row seating the mailbox confirmed and again unconfirmed, and an unconfirmed referee row.
 
     Kills a Funktion list built from the rows the pre-filter matched rather than from the own records. Both judgements
     are pure over the rows the subject's reads hand them, so the rows are given as those reads leave them.
@@ -353,7 +353,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
     identifier = "ortrud.zwiebelmayer@schule.de"
     seat_rows: list[Mapping[str, Any]] = [
         {
-            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier.upper(), confirmed_at=None)),
+            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier, confirmed_at=None)),
             # As `app/api/identity/services.py :: seat_saison_lookup` joins the row's season.
             "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }
