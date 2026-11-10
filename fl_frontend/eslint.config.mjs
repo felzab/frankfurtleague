@@ -778,10 +778,6 @@ const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
-const PALETTE =
-  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
-const COLOURED =
-  "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -1004,10 +1000,10 @@ const DESIGN_BANS = [
     PRODUCTION,
   ),
 
-  // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
-  // the token colours. Tailwind's own scale stays defined beside the tokens' steps, so the classes are
-  // held here.
-  // Session 8: the theme resets Tailwind's namespaces to `initial`, and the bans the resets make redundant go.
+  // The scale: one spacing scale, seven type sizes, four corners and a round shape, two shadows and the token colours.
+  // The theme resets Tailwind's type sizes, corners, shadows and colours (`src/app/tokens.css`), so a class off those
+  // compiles to nothing and `no-unknown-classes` refuses it; what the reset leaves is held here. Spacing keeps
+  // Tailwind's steps, on which the widths and heights are drawn, and a value in brackets compiles in any namespace.
   classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
     allow: [TOGGLE_OFFSET.home],
   }),
@@ -1026,26 +1022,17 @@ const DESIGN_BANS = [
     "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
     KIT,
   ),
+  // A square corner is Tailwind's own `none` value, set by no theme name.
   classBan(
-    CLASS(String.raw`text-(?:lg|[4-9]xl)`),
-    "Type is seven sizes: text-2xs for a phone's compact table alone, then text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
-    PRODUCTION,
-  ),
-  classBan(
-    CLASS(String.raw`rounded(?:-${SIDES})?(?:-(?:none|xs|2xl|3xl|4xl))?`),
+    CLASS(String.raw`rounded(?:-${SIDES})?-none`),
     "A corner is rounded-sm (4 px), rounded-md (6 px), rounded-lg (8 px) or rounded-xl (12 px), or rounded-full for a shape round by nature.",
     PRODUCTION,
   ),
+  // These three families take a colour, `none` or a value in brackets beside their reset steps.
   classBan(
-    CLASS(String.raw`(?:shadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner))?|(?:inset-shadow|drop-shadow|text-shadow)(?:-.+)?)`),
+    CLASS(String.raw`(?:inset-shadow|drop-shadow|text-shadow)(?:-.+)?`),
     "Only menus and pop-ups cast a shadow: shadow-menu or shadow-dialog.",
     PRODUCTION,
-  ),
-  classBan(CLASS(String.raw`(?:${COLOURED})-(?:${PALETTE})-\d+(?:\x2F.+)?`), "A colour is one of the tokens.", PRODUCTION),
-  classBan(
-    CLASS(String.raw`(?:${COLOURED})-(?:black|white)(?:\x2F.+)?`),
-    "A colour is one of the tokens; the scrim is the kit's.",
-    OUTSIDE_KIT,
   ),
   classBan(
     String.raw`^.*(?:\[|\(--).*$`,
