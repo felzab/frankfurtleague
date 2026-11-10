@@ -1024,8 +1024,8 @@ export const SERVER_COPY = catalogue({
           },
           {
             name: "Registrierungslinks",
-            content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
-            period: "ohne Frist; die Adresse bis zur Löschung dieser Person",
+            content: "Team, Saison",
+            period: "ohne Frist",
           },
           { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
           {
