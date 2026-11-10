@@ -77,7 +77,7 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, grant: Grant): Promise<SignInDestination> {
   if (grant.admin_tier !== null) {
     // The guard's own verdict rather than a second spelling of it: `/area` sends a granted session
-    // the guard refuses back here (`fl_frontend/src/app/area/(persoenlich)/page.tsx`).
+    // the guard refuses back here (`fl_frontend/src/app/area/(person)/(landing)/page.tsx`).
     if (isAdminSession(served, grant)) return "/area";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in

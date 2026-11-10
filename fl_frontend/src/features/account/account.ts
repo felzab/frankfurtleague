@@ -26,6 +26,7 @@ function entryOf(target: RoleTarget): NonNullable<Account["roles"]>[number] {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
       const rollen = target.roles.flatMap((role) => (role.kind === "kontakt" ? [role.rolle] : []));
+      // Session 8: the place carries its own line for the account row, `COPY.area.team.accountLine` over the seat's Kürzel.
       return {
         href,
         label: { record: first.team_name },
@@ -42,11 +43,12 @@ function entryOf(target: RoleTarget): NonNullable<Account["roles"]>[number] {
 }
 
 /**
- * The person signed in as a frame's account row shows them: their address, `role` the area's line under it, and every
- * place their Funktionen open on; `null` for no session, whose page sends it on. The menu marks the place the page
- * lies under (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`), since a team's layout cannot name its team.
+ * The person signed in as a frame's account row shows them: their address, `role` the area's line under it, which an
+ * area that is no one role's leaves out, and every place their Funktionen open on; `null` for no session, whose page
+ * sends it on. The menu marks the place the page lies under (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`), since
+ * a team's layout cannot name its team.
  */
-export async function readAccount(role: Copy): Promise<Account | null> {
+export async function readAccount(role?: Copy): Promise<Account | null> {
   const subject = await getSubjectSession();
   if (subject === null) return null;
   return {
