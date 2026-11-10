@@ -93,7 +93,7 @@ class FLAufstellungSpiel(BaseModel):
 class FLAufstellungSpieler(BaseModel):
     """A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.
 
-    Both names null where an erasure took the record, whose entries name the sentinel.
+    Both names null where no record holds the pupil.
     """
 
     spieler_id: CustomObjectId
@@ -120,6 +120,16 @@ class FLAufstellungMarks(BaseReadModel):
     locks_at: FLUtcInstant
 
 
+class FLAufstellungErased(BaseReadModel):
+    """An entry of the stored line-up naming a pupil erased after the match kicked off, which the club fielded and nobody names.
+
+    Read-only and counted: no save names it, and every save keeps it as stored, since it is the record of whom the club
+    fielded.
+    """
+
+    starts: bool
+
+
 class FLAufstellungResponse(BaseAPIResponse):
     """One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
 
@@ -132,11 +142,13 @@ class FLAufstellungResponse(BaseAPIResponse):
     team_id: CustomObjectId
     # The club's live squad of the fixture's season, in shirt-number order.
     kader: list[FLAufstellungSpieler]
-    # Every pupil the stored line-up names outside that squad, one deregistered or erased since, so a stored entry keeps
-    # its row.
+    # Every pupil the stored line-up names outside that squad, one ausgetragen since, so a stored entry keeps its row.
     named: list[FLAufstellungSpieler]
-    # The stored line-up in the order it was saved, empty where none is stored: `version` tells the two apart.
+    # The stored line-up's entries naming a pupil, in the order it was saved, empty where none is stored: `version` tells
+    # the two apart. What a save sends back.
     spieler: list[FLAufstellungEntry]
+    # Its entries naming an erased pupil, in the order it was saved: shown and counted beside `spieler`, never sent.
+    erased: list[FLAufstellungErased]
     # The document's count of writes, null where none is stored: a save sends it back.
     version: int | None
     # Null for a fixture holding no day or no hour, which owes no line-up and takes none.
