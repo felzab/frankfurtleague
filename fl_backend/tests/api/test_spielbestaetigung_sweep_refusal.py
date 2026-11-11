@@ -8,6 +8,9 @@ from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
     compose_ansetzung,
     deadline_of,
+    discard_owes_a_notice,
+    notice_owed,
+    parties_told_of_the_change,
     reason_to_close,
     request_is_due,
 )
@@ -120,3 +123,55 @@ class TestARowClosesAtItsKickOff:
         )
 
         assert (before, at) == (None, "spiel_past")
+
+
+A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF = (KICK_OFF - timedelta(minutes=1), KICK_OFF)
+
+
+class TestANoticeIsAboutASlotStillToCome:
+    """Judged by the day instead, a party would be told of a match already under way, or not, by the hour the next pass ran."""
+
+    def test_a_call_off_entered_after_the_kick_off_tells_nobody(self):
+        asked = row(TEAM, asked_at=TODAY)
+        called_off = spiel(sonderereignis="ausgefallen")
+
+        owed = [notice_owed(row=asked, reason="cancelled", spiel=called_off, now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
+
+        assert owed == [True, False]
+
+    def test_a_closing_other_than_a_move_is_about_the_slot_its_row_asked(self):
+        """The fixture moved a week on and its referee taken off, both after the kick-off: the referee is told nothing.
+
+        Only a move's notice names the slot moved to. The referee change ranks ahead of the move, so its notice would be
+        about the slot gone by, and the referee was never asked about the new one.
+        """
+
+        asked = row(REFEREE, asked_at=TODAY)
+        moved_and_taken_off = spiel(schiedsrichter=None, date=days_after(day=spiel()["date"], days=7))
+
+        # The premise: the close shuts the row for the referee change, not the move.
+        assert reason_to_close(row=asked, spiel=moved_and_taken_off, austritte={}, now=KICK_OFF) == "schiedsrichter_switched"
+        assert notice_owed(row=asked, reason="schiedsrichter_switched", spiel=moved_and_taken_off, now=KICK_OFF) is False
+
+    def test_a_discard_after_the_kick_off_tells_the_club_nothing(self):
+        owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
+
+        assert owed == [True, False]
+
+
+class TestASaveNamesOnlyThoseItsOwnChangeTells:
+    def test_a_second_move_before_the_pass_names_nobody_the_first_already_tells(self):
+        """A row the first move already closes is that move's mail: named again, the editor's question would promise a second one.
+
+        The pass sends one notice per row, at the close, whichever save left the fixture where it stands.
+        """
+
+        asked = [row(TEAM, asked_at=TODAY)]
+        first, second = spiel(time="19:00:00"), spiel(time="20:00:00")
+
+        told = [
+            parties_told_of_the_change(rows=asked, stored=stored, changed=changed, austritte={}, now=NOW)
+            for stored, changed in ((spiel(), first), (first, second))
+        ]
+
+        assert told == [[TEAM], []]
