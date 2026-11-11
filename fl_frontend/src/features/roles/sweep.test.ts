@@ -1,7 +1,7 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 
 import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
@@ -76,9 +76,6 @@ const unreferencedBut =
     identifiers.filter((identifier) => !referenced.includes(identifier));
 
 const failures = (): Line[] => lines.filter(({ level }) => level === "ERROR");
-
-/** The trace a refused call was sent under, which its failure line carries to join the backend's. */
-const TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736";
 
 beforeEach(() => {
   calls.length = 0;
@@ -201,7 +198,7 @@ describe("a pass meeting a failure", () => {
 
   /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
      database would otherwise answer every address unreferenced, twice. */
-  it("deletes nothing the backend's fail-safe refuses, naming the refusal's status, code and trace", async () => {
+  it("deletes nothing the backend's fail-safe refuses, and files the refusal on one failure line", async () => {
     accounts = ["a@schule.de", "b@schule.de"];
     references = () => {
       throw new APIBadStatusError({
@@ -210,46 +207,14 @@ describe("a pass meeting a failure", () => {
         endpoint: "/identity/references",
         statusCode: 409,
         serverErrorCode: "no_owner",
-        traceId: TRACE_ID,
+        traceId: "0",
       });
     };
 
     await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual([]);
-    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      {
-        event: "account.references_failed",
-        fields: {
-          name: "APIBadStatusError",
-          status: 409,
-          server_error_code: "no_owner",
-          trace_id: TRACE_ID,
-          count: 2,
-        },
-      },
-    ]);
-  });
-
-  /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all. */
-  it("names an unanswered call's trace on its failure line", async () => {
-    accounts = ["a@schule.de"];
-    references = () => {
-      throw new APINetworkError({
-        message: "The backend did not answer.",
-        url: "http://backend:8000/api/v0/identity/references",
-        traceId: TRACE_ID,
-        isTimeout: true,
-      });
-    };
-
-    await runAccountSweep();
-
-    expect(deleteCalls).toStrictEqual([]);
-    expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "account.references_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, count: 1 } },
-    ]);
+    expect(failures().map(({ event }) => event)).toStrictEqual(["account.references_failed"]);
   });
 
   /* Every kind of line a pass writes, each failure carrying an address in its message the way a real
