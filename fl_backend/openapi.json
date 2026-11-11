@@ -134,6 +134,21 @@
         "title": "CheckIsLiveResponse",
         "type": "object"
       },
+      "CheckIsReadyResponse": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CheckIsReadyResponse",
+        "type": "object"
+      },
       "Code": {
         "enum": [
           "document_not_found",
@@ -28571,6 +28586,68 @@
           }
         },
         "summary": "Liveness probe",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/v0/system/is_ready": {
+      "get": {
+        "description": "Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.\n\nUnauthenticated, for a monitor outside.",
+        "operationId": "system_check_is_ready",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckIsReadyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Readiness probe",
         "tags": [
           "system"
         ]

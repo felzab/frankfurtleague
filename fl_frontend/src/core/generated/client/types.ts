@@ -3,6 +3,11 @@ export const CheckIsLiveResponseValue = {
 } as const;
 export type CheckIsLiveResponse = typeof CheckIsLiveResponseValue;
 
+export const CheckIsReadyResponseValue = {
+  status: "ok",
+} as const;
+export type CheckIsReadyResponse = typeof CheckIsReadyResponseValue;
+
 export type Code = (typeof Code)[keyof typeof Code];
 
 export const Code = {

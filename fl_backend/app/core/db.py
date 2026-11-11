@@ -2,7 +2,7 @@ import functools
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import NamedTuple
+from typing import Final, NamedTuple
 
 from fastapi import Depends, FastAPI, Request
 from pymongo import AsyncMongoClient
@@ -147,9 +147,13 @@ async def lifespan(app: FastAPI):
             await client.close()
 
 
+# What a 503 for an absent or unanswering database asks the caller to wait, in seconds.
+RETRY_AFTER: Final = {"Retry-After": "30"}
+
+
 async def get_db_client(request: Request) -> AsyncMongoClient:
     if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
     return request.app.state.db_client
 
 
@@ -160,7 +164,7 @@ async def get_database(
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
     if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
     return request.app.state.db_client[config.db_base_name]
 
 
