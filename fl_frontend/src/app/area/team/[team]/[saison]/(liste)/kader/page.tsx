@@ -40,8 +40,8 @@ const HEAD: TableHead = {
   line: "phone",
   columns: [
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
-    { key: "position", label: WORDS.position, hideOnPhone: true },
-    { key: "stufe", label: WORDS.stufe, hideOnPhone: true },
+    { key: "position", label: WORDS.position, hideOnPhone: true, width: "word" },
+    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, width: "code" },
   ],
 };
 

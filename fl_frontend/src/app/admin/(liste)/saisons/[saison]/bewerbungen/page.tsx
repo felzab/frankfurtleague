@@ -37,7 +37,7 @@ const HEAD: TableHead = {
   state: { label: COPY.admin.schiedsrichter.state },
   columns: [
     { key: "received", label: WORDS.received, hideOnPhone: true, width: "date" },
-    { key: "seats", label: COPY.admin.spiel.confirmations, hideOnPhone: true },
+    { key: "seats", label: COPY.admin.spiel.confirmations, hideOnPhone: true, width: "word" },
   ],
 };
 

@@ -187,9 +187,9 @@ export function BulkAccept({
         nameLabel: COPY.shared.facts.school,
         state: { label: COPY.admin.schiedsrichter.state },
         columns: [
-          { key: "gruppe", label: COPY.team.gruppe, narrow: true },
-          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true },
-          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true },
+          { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
+          { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
+          { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, width: "code" },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
         empty: { kind: "none", plural: COPY.page.adminBewerbungen, glyph: "bewerbungen" },

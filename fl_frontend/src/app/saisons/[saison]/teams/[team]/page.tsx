@@ -177,7 +177,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                     nameLabel: column.name,
                     columns: [
                       { key: "nummer", label: column.nummer, figures: true },
-                      { key: "position", label: column.position },
+                      { key: "position", label: column.position, width: "word" },
                     ],
                     rows: kader.map((spieler, index) => ({
                       id: String(index),

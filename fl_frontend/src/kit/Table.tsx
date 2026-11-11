@@ -38,10 +38,13 @@ type TableColumn = {
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
   /**
-   * What the column holds, which sets the least it takes, on a table that waits: its values are the read's, so without
-   * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
+   * What the column holds, which sets the least it takes in the table and in its wait alike, so its edges stand where
+   * its placeholder drew them whatever the read holds. Every column whose values are bounded by construction states it,
+   * an enumerated value or a fixed-format one, a head wider than its values too, since its wait's bar would otherwise set
+   * the column (`barOf`). A figures column's bar sets nothing, so one whose head is wider than its figures needs none.
+   * Any other column stating none holds free text, whose width is the record's, and its wait draws a typical value's bar.
    */
-  width?: "count" | "pair" | "marked" | "date" | "instant" | "excerpt" | "phone" | "line";
+  width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "phrase" | "excerpt" | "phone" | "line";
   /**
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: cut with „…“ at the
    * column `width` sets, whole in its tooltip while it is cut, and wrapping on a stacked phone row, where a touch reaches
@@ -62,7 +65,7 @@ type TableColumn = {
      * most one column so and leaves its others out. At most a date's width, which leaves the name 184 px at 360 px; a
      * wider column, a team's name or a phone number, leaves it too little.
      */
-    | { narrow: true; hideOnPhone?: never; phoneOnly?: never; width?: "count" | "pair" | "marked" | "date" }
+    | { narrow: true; hideOnPhone?: never; phoneOnly?: never; width?: "count" | "pair" | "marked" | "code" | "word" | "date" }
   );
 
 /** A club's won, drawn and lost counts. */
@@ -356,7 +359,10 @@ const table = tv({
     // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
     // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
     // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
-    // slots, a date ten characters, an instant 20, „bis“ before its date and time, an excerpt 20, the start of a `cut`
+    // slots, a code three capitals, such as a Stufe or a club's shorthand, a word ten letters, one of a set the contract or
+    // the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a group („Gruppe M“), a kit colour or a count
+    // of seats („2 von 3“), a date ten characters, an instant 20, „bis“ before its date and time, a phrase of the catalogue's
+    // 24, such as a link's state „Keine bestätigte Adresse“ (156 px estimated, 6.5 a letter), an excerpt 20, the start of a `cut`
     // text in a row whose acts need the room a whole line would take, a phone number 20, a line of an address 35 where
     // the box is 56 rem or wider and 20 below it, where a name beside a state, the line and a phone number would keep
     // less than its least width. A date stands at the start in the body's face, never as `figures`, which would centre
@@ -365,8 +371,11 @@ const table = tv({
       count: { head: "min-w-12" },
       pair: { head: "min-w-16 @max-2xl:min-w-13" },
       marked: { head: "min-w-16 @max-2xl:min-w-11" },
+      code: { head: "min-w-16" },
+      word: { head: "min-w-24" },
       date: { head: "min-w-28" },
       instant: { head: "min-w-40" },
+      phrase: { head: "min-w-48" },
       excerpt: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-44 @4xl:min-w-72" },
@@ -1043,6 +1052,15 @@ function SideActBar({ act, stacks }: { act: Copy; stacks: Stacks }) {
 }
 
 /**
+ * A column's bar while its rows are read. A figure's is a glyph's width, centred, and sets nothing. In a column stating
+ * its width (`TableColumn`'s `width`) the bar never widens the column past its head: a share of a width counts nothing
+ * towards a cell's least width (CSS Sizing 3, 5.2.1), so the bar fills the column up to a typical value's 80 px, and the
+ * column stands as wide in the wait as on the page. A column stating none holds free text, whose words set its width on
+ * the page, and its 80-px bar sets it in the wait.
+ */
+const barOf = (column: TableColumn) => (column.figures === true ? "mx-auto w-4" : column.width === undefined ? "w-20" : "w-full max-w-20");
+
+/**
  * A table while its rows are read: its own head, the columns' labels as the page states them, over `rows` rows at the
  * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
  * centred, a name from the start after a club's plaque where the rows hold clubs, a chip's bar in the status column,
@@ -1167,7 +1185,7 @@ export function TablePlaceholder({
                     {stack && <span className={s.label()}>{column.label}</span>}
                     <PlaceholderLine
                       textClass=""
-                      widthClass={column.figures === true ? "mx-auto w-4" : "w-20"}
+                      widthClass={barOf(column)}
                     />
                   </td>
                 );
