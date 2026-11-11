@@ -10,7 +10,6 @@ FROM python:3.14.10-slim@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980
 
 # tini for PID 1 signal routing -> the container shuts down gracefully.
 RUN apt-get update && \
-    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
