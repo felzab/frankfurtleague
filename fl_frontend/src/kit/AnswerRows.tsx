@@ -43,19 +43,21 @@ const PARTY_CLASSES = "flex min-w-0 items-center gap-2";
 /**
  * A party's name with its chips, here and on a seat's row (`SeatRows`): the chips directly after the name on its line,
  * as every row holds them (`cardStyles.ts :: nameWithChips`), after its plaque. A name too long for its line is cut with
- * „…“.
+ * „…“. `id` names the name, for what its row's acts are described by.
  */
 export function PartyHead({
   name,
   plaque,
   chips,
   muted = false,
+  id,
 }: {
   name: Words;
   plaque?: Plaque;
   chips: ReadonlyArray<ChipProps>;
   /** A place nobody holds: its name muted. */
   muted?: boolean;
+  id?: string;
 }) {
   const s = nameWithChips({ card: true, led: true });
   return (
@@ -64,6 +66,7 @@ export function PartyHead({
       <span className={s.line()}>
         <span className={s.head()}>
           <CutText
+            id={id}
             text={textOf(name)}
             className={s.name({ class: muted ? "text-fg-muted" : undefined })}
           />

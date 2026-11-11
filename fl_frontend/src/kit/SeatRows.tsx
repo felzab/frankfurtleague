@@ -1,9 +1,12 @@
+import { useId } from "react";
+
 import { COPY, textOf } from "@/core/copy";
 
 import { PartyHead, PartyHeadPlaceholder } from "./AnswerRows";
 import { buttonLook } from "./buttonStyles";
 import { actRow, cardSurface, stacked } from "./cardStyles";
 import { EMAIL_WORDS } from "./Facts";
+import { RowActs } from "./RowActs";
 import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -42,7 +45,8 @@ const seatRows = tv({
 /**
  * A record's three seats in one box: a row a seat, its name with its chips over one muted line, the words a party's in
  * `AnswerRows`, and its acts. A seat's acts are side acts, up to two a row, so every row that carries any holds them in
- * one „⋯“ at its end, at every width (`SideActs`).
+ * one „⋯“ at its end, at every width (`SideActs`). The „⋯“ is described by the seat's name and its line: every row's
+ * carries the same name, and a seat nobody holds is told from the next by its line alone.
  */
 export function SeatRows({
   label,
@@ -54,6 +58,7 @@ export function SeatRows({
   /** The rows alone, without their own box, inside a card's body, whose box already holds them. */
   bare?: boolean;
 }) {
+  const listId = useId();
   const s = seatRows({ bare });
   // One form for the list: its rows keep the acts' place at their end where any of them carries acts.
   const row = actRow({ opens: false, folds: rows.some((seat) => seat.acts !== undefined) });
@@ -61,23 +66,38 @@ export function SeatRows({
     <ul
       aria-label={label}
       className={s.root()}>
-      {rows.map((seat) => (
-        <li
-          key={seat.id}
-          className={s.row()}>
-          <span className={row.frame()}>
-            <span className={row.words({ class: "gap-1" })}>
-              <PartyHead
-                name={seat.name}
-                chips={seat.chips}
-                muted={seat.muted === true}
-              />
-              <span className={row.line()}>{textOf(seat.line)}</span>
+      {rows.map((seat) => {
+        const nameId = `${listId}-${seat.id}`;
+        const lineId = `${nameId}-line`;
+        return (
+          <li
+            key={seat.id}
+            className={s.row()}>
+            <span className={row.frame()}>
+              <span className={row.words({ class: "gap-1" })}>
+                <PartyHead
+                  id={nameId}
+                  name={seat.name}
+                  chips={seat.chips}
+                  muted={seat.muted === true}
+                />
+                <span
+                  id={lineId}
+                  className={row.line()}>
+                  {textOf(seat.line)}
+                </span>
+              </span>
+              {seat.acts !== undefined && (
+                <RowActs
+                  className={row.acts()}
+                  describedBy={`${nameId} ${lineId}`}>
+                  {seat.acts}
+                </RowActs>
+              )}
             </span>
-            {seat.acts !== undefined && <span className={row.acts()}>{seat.acts}</span>}
-          </span>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }
