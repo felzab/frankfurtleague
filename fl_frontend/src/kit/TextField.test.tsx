@@ -156,7 +156,9 @@ describe("a field's message line", () => {
       </Form>,
     );
     const field = screen.getByRole("textbox");
-    expect(field.parentElement?.children).toHaveLength(2);
+    // The description's slot stands hidden from the first render, so React Aria ties a later consequence to the field.
+    const drawn = [...(field.parentElement?.children ?? [])].filter((part) => !(part instanceof HTMLElement && part.hidden));
+    expect(drawn).toHaveLength(2);
 
     await userEvent.type(field, "lena");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
