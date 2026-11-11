@@ -2,8 +2,7 @@ import { Suspense } from "react";
 
 import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
-import { cardSurface } from "./cardStyles";
-import { EmptyState } from "./EmptyState";
+import { EmptyBox } from "./EmptyState";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
@@ -129,9 +128,7 @@ function GroupBody({ group }: { group: GroupContent }) {
       return <StatTiles {...group.tiles} />;
     case "timeline":
       return group.items.length === 0 ? (
-        <div className={cardSurface({ class: "overflow-hidden" })}>
-          <EmptyState {...group.empty} />
-        </div>
+        <EmptyBox {...group.empty} />
       ) : (
         <Timeline
           label={group.label}
@@ -142,9 +139,7 @@ function GroupBody({ group }: { group: GroupContent }) {
       // One under another on a phone and a tablet, on one set of columns, and two a row from `lg`, as `SpielList`'s cards.
       const pairs = spielPairs();
       return group.spiele.length === 0 ? (
-        <div className={cardSurface({ class: "overflow-hidden" })}>
-          <EmptyState {...group.empty} />
-        </div>
+        <EmptyBox {...group.empty} />
       ) : (
         <div className={pairs.list()}>
           {group.spiele.map(({ head, spiel }) => (
