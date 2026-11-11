@@ -18,10 +18,10 @@
 // - one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the
 //   Übersicht for „Übernehmen“ and „Verwerfen“;
 // - the signed-in areas: a seat whose club holds a stored line-up, a locked one, an agreed date and several
-//   registrations, and Birke's Trainer holding a declined date and an expired one beside a club with no
-//   registration; referees with a booking to answer, one agreed, a report owed and one adopted; a captain and a
-//   Co-Kapitän; a pupil with a finished season beside the running one; and a person granted no page, one
-//   unconfirmed and one waiting on the club;
+//   registrations, and Birke's Trainer holding a declined date and, until today's match 7 kicks off, an expired one
+//   beside a club with no registration; referees with a booking to answer, one agreed until its kick-off today, a
+//   report owed and one adopted; a captain and a Co-Kapitän; a pupil with a finished season beside the running one;
+//   and a person granted no page, one unconfirmed and one waiting on the club;
 // - an owner and administrators in effect, an addition and a handover waiting, since a wait cannot be slept through;
 // - a ban, a running change of a person's address and of a holder's, and a log row of each who;
 // - a retired club, and clubs still in the league the planned season has not entered.
@@ -760,8 +760,10 @@ const JOURNEY_REQUESTS = [
 const agreed = (answeredOn, by) => ({ kind: "agreed", at: day(answeredOn), by, vorschlag: null, reason: null });
 
 // Each a state a person's own page shows, no journey's: Kastanie's agreement on match 10, which is why the first pass
-// asks it nothing; Birke's request about today's match 7, unanswered past its deadline a week ago; and two referees'
-// bookings, Carla Conrad's on match 11 still to answer and Anna Ahrens's on today's match 6 agreed.
+// asks it nothing; Birke's request about today's match 7, unanswered past its deadline a week ago, which the first pass
+// after its 17:30 kick-off closes, taking it off Birke's Übersicht; and two referees' bookings, Carla Conrad's on match
+// 11 still to answer and Anna Ahrens's on today's match 6 agreed, which her list shows until the 16:00 kick-off and as
+// the report owed from then.
 const TODAYS_SEVENTH = running.spiele.find((row) => row.spiel_nr === 7);
 const TODAYS_SIXTH = running.spiele.find((row) => row.spiel_nr === 6);
 const STATED_REQUESTS = [
