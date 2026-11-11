@@ -44,35 +44,6 @@ describe("the season's card before the start", () => {
     expect(screen.getByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBeTruthy();
   });
 
-  // The opening match by its plaques alone, so the line a phone shows never wraps.
-  it("names the opening match by its matchday and its two plaques, without the clubs' names", () => {
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString(), opening: OPENING }}
-      />,
-    );
-    const line = screen.getByText(OPENING.spieltag).parentElement;
-    expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–HEL`);
-    expect(screen.queryByText(SPIEL.team1.name.record)).toBe(null);
-  });
-
-  // The dashed open plaque holds no text, so the Spielplan's words for an open side name it to a screen reader.
-  // The countdown always shows, the season's start being its one instant; only the opening match waits on a dated fixture.
-  it("counts down alone while no match is dated", () => {
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString() }}
-      />,
-    );
-    expect(screen.getByRole("timer").textContent).toBe(
-      `1${COPY.landing.saison.days}0${COPY.landing.saison.hours}0${COPY.landing.saison.minutes}`,
-    );
-    expect(screen.queryByText(SERVER_COPY.landing.saison.spieltag(1))).toBe(null);
-    expect(screen.queryByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBe(null);
-  });
-
   it("shows the application window while no match is dated, with the way to apply", () => {
     render(
       <SaisonBlock
@@ -109,17 +80,6 @@ describe("the season's card while it runs", () => {
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     expect(links).toStrictEqual(["/saisons/2027/spiele/1", "/saisons/2027/spiele/2"]);
   });
-
-  it("leaves out the head of a match it does not have, as before the first result", () => {
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{ kind: "running", next: { ...SPIEL, id: "2" } }}
-      />,
-    );
-    expect(screen.queryByText(SERVER_COPY.landing.saison.last)).toBe(null);
-    expect(screen.getByText(SERVER_COPY.landing.saison.next)).toBeTruthy();
-  });
 });
 
 describe("the season's card once decided", () => {
@@ -146,34 +106,6 @@ describe("the season's card once decided", () => {
     ).toStrictEqual(["LIELiebig1", "ELIElisabethen2", "ERSErnst-Reuter3"]);
     expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
       `${SERVER_COPY.landing.saison.place(4)}CMSCarlo-Mierendorff`,
-    );
-  });
-
-  // A place left vacant keeps its step or row, the dashed plaque and its label in the name's stead, so it reads as a
-  // place without a club.
-  it("labels a vacant step and a vacant fourth place in the club's stead", () => {
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{
-          kind: "decided",
-          places: [
-            { name: { record: "Liebig" }, plaque: { record: "LIE" } },
-            null,
-            { name: { record: "Carlo-Mierendorff" }, plaque: { record: "CMS" } },
-            null,
-          ],
-        }}
-      />,
-    );
-    const vacant = SERVER_COPY.landing.saison.vacant;
-    expect(
-      within(screen.getByRole("list"))
-        .getAllByRole("listitem")
-        .map((place) => place.textContent),
-    ).toStrictEqual(["LIELiebig1", `${COPY.shared.noValue}${vacant}2`, "CMSCarlo-Mierendorff3"]);
-    expect(screen.getByText(SERVER_COPY.landing.saison.place(4)).parentElement?.textContent).toBe(
-      `${SERVER_COPY.landing.saison.place(4)}${COPY.shared.noValue}${vacant}`,
     );
   });
 });

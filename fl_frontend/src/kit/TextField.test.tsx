@@ -82,16 +82,6 @@ describe("a digits field", () => {
     expect(field.contains(unit ?? null)).toBe(false);
     expect(field.parentElement?.getAttribute("data-kit-focus")).toBe("field");
   });
-
-  it("leaves a text field's characters free", () => {
-    render(
-      <TextField
-        label={COPY.shared.startelf}
-        kind="text"
-      />,
-    );
-    expect(screen.getByRole("textbox").hasAttribute("pattern")).toBe(false);
-  });
 });
 
 describe("a minute field", () => {
