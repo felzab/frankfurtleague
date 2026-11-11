@@ -5,7 +5,6 @@ import { actRow, card, cardHover, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
-import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 
@@ -241,7 +240,7 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           </span>
           {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
         </span>
-        {acts !== undefined && <RowActs className={s.acts()}>{acts}</RowActs>}
+        {acts !== undefined && <div className={s.acts()}>{acts}</div>}
         <span className={s.end()}>
           <RowEnd />
         </span>

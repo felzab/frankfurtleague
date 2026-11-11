@@ -4,7 +4,6 @@ import { PartyHead, PartyHeadPlaceholder } from "./AnswerRows";
 import { buttonPlaceholder } from "./buttonStyles";
 import { actRow, cardSurface, stacked } from "./cardStyles";
 import { EMAIL_WORDS } from "./Facts";
-import { RowActs } from "./RowActs";
 import { SideActsScope } from "./SideActs";
 import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
@@ -87,9 +86,9 @@ export function SeatRows({
               <span className={row.line()}>{textOf(seat.line)}</span>
             </span>
             {seat.acts !== undefined && (
-              <RowActs className={row.acts()}>
+              <div className={row.acts()}>
                 <SideActsScope folds={folds}>{seat.acts}</SideActsScope>
-              </RowActs>
+              </div>
             )}
           </span>
         </li>

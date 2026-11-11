@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Suspense, use } from "react";
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -179,26 +179,6 @@ describe("a list past one read's cap", () => {
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
     expect(load).toHaveBeenLastCalledWith({ by: "system", query: "", cursor: "9" });
-  });
-
-  // The harm: the keyboard that pressed for the last page restarts at the top of the document.
-  it("leaves the keys where the button stood once the last page takes it", async () => {
-    render(
-      <Searched>
-        <ListTable
-          table={TABLE}
-          more={{ cursor: "2", load: loading(answered("Letzte Seite")) }}
-        />
-      </Searched>,
-    );
-    const button = screen.getByRole("button", { name: COPY.shared.loadMore });
-    const place = button.closest('[data-kit-focus="home"]');
-    button.focus();
-
-    await userEvent.keyboard("{Enter}");
-
-    await waitFor(() => expect(document.activeElement).toBe(place));
-    expect(screen.getByText("Letzte Seite")).toBeTruthy();
   });
 
   it.each<[string, Answer]>([

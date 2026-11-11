@@ -11,7 +11,6 @@ import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RoleMark } from "./RoleMark";
-import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
@@ -847,9 +846,7 @@ export function Table({
   );
   return (
     // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
-    <div
-      data-kit-focus="home"
-      className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
+    <div className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
@@ -996,9 +993,9 @@ export function Table({
                         role="cell"
                         className={parts.acts()}>
                         {row.acts !== undefined && (
-                          <RowActs className={parts.actsLine()}>
+                          <div className={parts.actsLine()}>
                             <SideActsScope folds={folds}>{row.acts}</SideActsScope>
-                          </RowActs>
+                          </div>
                         )}
                       </td>
                     )}

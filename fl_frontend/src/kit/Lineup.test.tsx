@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -151,25 +151,6 @@ describe("a line-up", () => {
       starters: ids(1, 2, 4, 6, 7, 8, 9, 10, 11, 12),
     });
     expect(namesIn(WORDS.rest)).toStrictEqual([nameOf(5), nameOf(13)]);
-  });
-
-  // The harm: a keyboard's focus dropped on `body` with each row named or taken out, back at the page's top every time.
-  it("hands the focus to the row after the one that left, in either list", async () => {
-    render(
-      <Held
-        players={squad(4)}
-        start={lineupValue([idOf(1), idOf(2)], [])}
-      />,
-    );
-
-    crossOf(1).focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(document.activeElement).toBe(crossOf(2)));
-
-    const word = (nummer: number) => within(rowOf(nummer)).getByRole("button", { name: WORDS.pick });
-    word(3).focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(document.activeElement).toBe(word(4)));
   });
 });
 
