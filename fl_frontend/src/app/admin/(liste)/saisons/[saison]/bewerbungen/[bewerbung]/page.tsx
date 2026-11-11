@@ -162,27 +162,32 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
 
 /** A person's row: nobody's on an emptied seat, and its acts while the application stands undecided and the seat can take them. */
 function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
-  return seatsOf(bewerbung).map(({ seat, rollen, person, state, chips, day }) => ({
-    id: seat,
-    name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
-    muted: person === null,
-    chips,
-    line: { record: COPY.admin.seatLine(rollen, person?.email ?? null, day) },
-    ...(bewerbung.status === "submitted" && state !== "erased"
-      ? {
-          acts: (
-            <SeatActs
-              rollen={rollen}
-              person={person}
-              rules={SEAT_RULES}
-              write={writeSeat}
-              carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
-              link={state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null}
-            />
-          ),
-        }
-      : {}),
-  }));
+  return seatsOf(bewerbung).map(({ seat, rollen, person, state, chips, day }) => {
+    const row = {
+      id: seat,
+      name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
+      muted: person === null,
+      chips,
+      line: { record: COPY.admin.seatLine(rollen, person?.email ?? null, day) },
+    };
+    if (bewerbung.status !== "submitted" || state === "erased") return row;
+    const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
+    return {
+      ...row,
+      // The fresh link beside the edit, as `SeatActs` draws them, both from `link`.
+      sideActs: link === null ? 1 : 2,
+      acts: (
+        <SeatActs
+          rollen={rollen}
+          person={person}
+          rules={SEAT_RULES}
+          write={writeSeat}
+          carry={{ id: bewerbung.id, seat, version: String(bewerbung.version) }}
+          link={link}
+        />
+      ),
+    };
+  });
 }
 
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {

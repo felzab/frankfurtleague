@@ -3,10 +3,11 @@ import { useId } from "react";
 import { COPY, textOf } from "@/core/copy";
 
 import { PartyHead, PartyHeadPlaceholder } from "./AnswerRows";
-import { buttonLook } from "./buttonStyles";
+import { buttonPlaceholder } from "./buttonStyles";
 import { actRow, cardSurface, stacked } from "./cardStyles";
 import { EMAIL_WORDS } from "./Facts";
 import { RowActs } from "./RowActs";
+import { SideActsScope } from "./SideActs";
 import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -22,16 +23,23 @@ export type SeatRow = {
   chips: ReadonlyArray<ChipProps>;
   /** The muted line: the seats held, the address and where the answer stands (`COPY.admin.seatLine`). */
   line: Words;
-  /** The row's side acts, the page's own, in one „⋯“ at the row's end (`SideActs`). */
+  /** The row's side acts, the page's own, drawn by `SideActs` in the form the list decides. */
   acts?: ReactElement;
+  /**
+   * How many side acts `acts` draws, which the list reads to decide their form for all its rows: the acts reach it as an
+   * element, which says nothing of what it holds. Derived from the one value that decides the acts themselves, such as
+   * the seat's fresh link, never a second condition beside it.
+   */
+  sideActs?: number;
   /** A seat nobody holds: its name muted. */
   muted?: boolean;
 };
 
-// A card's act row in every part but the chevron: a seat opens no page of its own (`cardStyles.ts :: actRow`).
+// The list is the container its rows read, a card's act row in every part but the chevron: a seat opens no page of its
+// own (`cardStyles.ts :: actRow`).
 const seatRows = tv({
   slots: {
-    root: "w-full overflow-hidden text-sm",
+    root: "@container w-full overflow-hidden text-sm",
     row: stacked(),
   },
   variants: {
@@ -44,9 +52,11 @@ const seatRows = tv({
 
 /**
  * A record's three seats in one box: a row a seat, its name with its chips over one muted line, the words a party's in
- * `AnswerRows`, and its acts. A seat's acts are side acts, up to two a row, so every row that carries any holds them in
- * one „⋯“ at its end, at every width (`SideActs`). The „⋯“ is described by the seat's name and its line: every row's
- * carries the same name, and a seat nobody holds is told from the next by its line alone.
+ * `AnswerRows`, and its acts. A seat's acts are side acts, up to two a row, and the list decides their form for all its
+ * rows (`SideActs`): where some row carries two, every row that carries any holds them in one „⋯“ at its end, at every
+ * width; where none does, each row's one act is its button, on a line under the words in a box narrower than 32 rem and
+ * at the row's end from it, as every card's act row holds it. The acts are described by the seat's name and its line:
+ * every row's carries the same name, and a seat nobody holds is told from the next by its line alone.
  */
 export function SeatRows({
   label,
@@ -60,8 +70,9 @@ export function SeatRows({
 }) {
   const listId = useId();
   const s = seatRows({ bare });
-  // One form for the list: its rows keep the acts' place at their end where any of them carries acts.
-  const row = actRow({ opens: false, folds: rows.some((seat) => seat.acts !== undefined) });
+  // One form for the list, decided once for all its rows: one „⋯“ on every row where some row carries two side acts.
+  const folds = rows.some((seat) => (seat.sideActs ?? 0) > 1);
+  const row = actRow({ opens: false, folds });
   return (
     <ul
       aria-label={label}
@@ -91,7 +102,7 @@ export function SeatRows({
                 <RowActs
                   className={row.acts()}
                   describedBy={`${nameId} ${lineId}`}>
-                  {seat.acts}
+                  <SideActsScope folds={folds}>{seat.acts}</SideActsScope>
                 </RowActs>
               )}
             </span>
@@ -106,11 +117,12 @@ export function SeatRows({
  * The seats while they are read: three rows, each a name and a chip over the muted line, drawn from the rows' recipe, so
  * each stands as a seat's row will. The line's words are set unseen, an address wrapping in a phone's column as it will.
  * `readOnly` is the seats of a page that only shows them: its line names the seat alone and its row ends with its words.
- * Any other draws the „⋯“'s bar at the row's end.
+ * Any other draws the one act every seat carries, „Sitz bearbeiten“, as its button: whether the list folds its acts
+ * into a „⋯“ is the read's to tell, and the button, under the words in a narrow box, is the taller of the two forms.
  */
 export function SeatRowsPlaceholder({ bare = false, readOnly = false }: { bare?: boolean; readOnly?: boolean }) {
   const s = seatRows({ bare });
-  const row = actRow({ opens: false, folds: !readOnly });
+  const row = actRow({ opens: false });
   return (
     <div className={s.root()}>
       {[0, 1, 2].map((index) => (
@@ -127,7 +139,7 @@ export function SeatRowsPlaceholder({ bare = false, readOnly = false }: { bare?:
             </span>
             {!readOnly && (
               <span className={row.acts()}>
-                <span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />
+                <span className={buttonPlaceholder()}>{COPY.shared.withObject(COPY.team.seat, "edit")}</span>
               </span>
             )}
           </span>
