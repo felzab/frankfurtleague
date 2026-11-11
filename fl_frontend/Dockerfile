@@ -60,6 +60,9 @@ ENV SKIP_ENV_VALIDATION=true
 # manifest, lockfile or patch written after it.
 COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* --exclude=patches . .
 
+# The build reads it as Next's `deploymentId` (`next.config.ts`). An `ARG` reaches only the stage that
+# declares it, so the runner declares it again.
+ARG APP_VERSION
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     pnpm run build
 
