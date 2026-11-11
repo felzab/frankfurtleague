@@ -59,7 +59,6 @@ export const TYPE_CHOICES = Object.keys(TYPES) as [ActionTypeChoice, ...ActionTy
 
 export const TYPE_OPTIONS = TYPE_CHOICES.map((id) => ({ id, label: TYPES[id] }));
 
-/** „Zeitraum“'s presets, each how far before today it reaches. */
 const PERIODS = {
   "7-days": { label: WORDS.time.days(7), span: { days: 7 } },
   "30-days": { label: WORDS.time.days(30), span: { days: 30 } },
@@ -80,7 +79,6 @@ const ROLE_WORDS: ReadonlyMap<string, Copy> = new Map([
   [ERASED_ACTOR_MARKER, COPY.admin.erasedActor],
 ]);
 
-/** Who `by` names: a role's word, an erased person's, or an administrator's own address. */
 export const actorWords = (by: string): Words => ROLE_WORDS.get(by) ?? { record: by };
 
 /**
@@ -90,17 +88,14 @@ export const actorWords = (by: string): Words => ROLE_WORDS.get(by) ?? { record:
  */
 const optionId = (by: string) => createHash("sha256").update(by).digest("hex").slice(0, 16);
 
-/** What „Wer“ offers: every `by` the log holds, by what it reads. */
 export function byOptions(held: readonly string[]): readonly Option[] {
   return held
     .map((by) => ({ id: optionId(by), label: actorWords(by) }))
     .sort(({ label: one }, { label: other }) => textOf(one).localeCompare(textOf(other), "de"));
 }
 
-/** The `by` a „Wer“ option stands for, read back on the server from what the log holds. */
 export const byOf = (held: readonly string[], id: string | null) => held.find((by) => optionId(by) === id) ?? null;
 
-/** The filters a read narrows by, none where it names none. */
 export type ChosenFilters = { by?: string | null; type?: ActionTypeChoice | null; time?: PeriodChoice | null };
 
 /**

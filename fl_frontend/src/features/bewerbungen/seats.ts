@@ -12,7 +12,7 @@ import type { ChipProps } from "@/kit/Chip";
 /** Where a seat's answer stands, as the link's own page says it, and an erasure's entry, which the read serves as none. */
 type SeatState = FLBewerbungConfirmation["state"] | "erased";
 
-/** One person's row on an application: the seat its writes name, every seat they hold, and where those stand. */
+/** `seat` is the one its writes name, `rollen` every seat the person holds. */
 export type SeatView = {
   seat: FLKontaktRolle;
   rollen: readonly FLKontaktRolle[];
@@ -27,7 +27,7 @@ export type SeatView = {
 
 const WORDS = COPY.admin.schiedsrichter;
 
-/** What the submission owed no mail, its mailbox holding too many unanswered links, on a seat and on the lists' rows. */
+/** The submission owed no mail, its mailbox holding too many unanswered links. */
 export const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
 
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {

@@ -5,7 +5,7 @@ import { SaisonsPatchSaisonBody, SaisonsPostSaisonBody } from "@/core/generated/
 
 const create = SaisonsPostSaisonBody.shape;
 
-/** What the create asks of the dialog's two boxes, read on the server so its schema never reaches the browser. */
+/** Read on the server so its schema never reaches the browser. */
 export const CREATE_REQUIRED = {
   start: requires(create.start_date, ""),
   end: requires(create.end_date, ""),
@@ -19,9 +19,8 @@ const rules = patch.rules.shape;
 const bewerbung = patch.bewerbung.options[0].shape;
 
 /**
- * What the season write asks of each of the editor's boxes. The application window's two days are asked of a window
- * that is set, which the editor marks once either holds a day; the registration window's one day is optional as the
- * window is.
+ * The application window's two days are asked of a window that is set, which the editor marks once either holds a day;
+ * the registration window's one day is optional as the window is.
  */
 export const SAISON_REQUIRED = {
   start: requires(patch.start_date, null),

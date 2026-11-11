@@ -11,7 +11,6 @@ import { rowOf } from "./rows";
 
 const { by, cursor, q } = ActionLogGetActionLogBody.shape;
 
-/** The next page of the Protokoll, or a search's first: each inside the filters the page's address holds. */
 export const loadActionLog = action({
   lane: "admin",
   name: "loadActionLog",
