@@ -3855,7 +3855,7 @@ export const TeamsReplaceSaisonTeamBody = zod
  *
  * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
  * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
- * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
+ * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal until
  * the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
  * fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
  * still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,

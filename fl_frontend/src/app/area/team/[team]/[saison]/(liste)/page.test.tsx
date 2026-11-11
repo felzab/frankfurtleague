@@ -44,7 +44,6 @@ const termin = (overrides: Partial<FLTeamPanelTermin>): FLTeamPanelTermin => ({
   state: "valid",
   deadline: "2026-11-12",
   vorschlag: null,
-  reason: null,
   ...overrides,
 });
 

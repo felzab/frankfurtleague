@@ -17595,18 +17595,6 @@
             "title": "Deadline",
             "type": "string"
           },
-          "reason": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
           "side": {
             "$ref": "#/components/schemas/FLSpielSide"
           },
@@ -17641,8 +17629,7 @@
           "side",
           "state",
           "deadline",
-          "vorschlag",
-          "reason"
+          "vorschlag"
         ],
         "title": "FLTeamPanelTermin",
         "type": "object"
@@ -30625,7 +30612,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview": {
       "get": {
-        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until\nthe league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming\nfixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may\nstill enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,\neach with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and\n`registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that\nperson confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
+        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal until\nthe league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming\nfixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may\nstill enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,\neach with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and\n`registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that\nperson confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
         "operationId": "teams_get_team_overview",
         "parameters": [
           {
