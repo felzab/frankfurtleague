@@ -681,11 +681,11 @@ const SOURCE_BANS = [
   ),
   syntaxBan(
     // Per function, so a module caching a public read beside a caller's own is held too, which the
-    // module list below cannot do.
+    // module-wide ban below spares.
     // Anchored on the directive: esquery's `:has` takes no chained child combinator.
     syntax(
-      ':function:has(CallExpression[callee.name="runPersonRead"], Property[key.name="authType"][value.value="admin"]) > BlockStatement > ExpressionStatement[directive=/^use cache/]',
-      "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares.",
+      ":function:has(CallExpression[callee.name=/^run(?:Admin|Person)Read$/]) > BlockStatement > ExpressionStatement[directive=/^use cache/]",
+      "A function reading for its caller, through runAdminRead or runPersonRead, is never cached: `\"use cache\"` keys on the arguments, not the caller, so an administrator's or a person's read would become a slot every caller shares. Memoize it per render with React's `cache`.",
     ),
     SOURCE,
   ),
@@ -698,27 +698,14 @@ const SOURCE_BANS = [
     ),
     SOURCE,
   ),
-  // Every query module caching none of its reads. One whose cached reads sit beside admin-tier ones takes
-  // the directive per function, which a module-wide ban would refuse.
+  // Every module but the three caching a public read, each per function beside the reads it leaves uncached.
   syntaxBan(
     syntax(
       "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/], CallExpression > MemberExpression.callee[computed=true] > Literal.property[value=/^(?:cacheTag|cacheLife)$/]",
-      'This module caches no read: `"use cache"` keys on the arguments, not the caller, so a read made for one signed-in administrator or seat holder would become a slot every caller shares.',
+      "A public read is cached in fl_frontend/src/features/saisons/queries.ts, fl_frontend/src/app/(classic)/landing.ts or fl_frontend/src/kit/ClassicFrame.tsx alone: `\"use cache\"` keys on the arguments, not the caller, so a read made for one signed-in administrator or seat holder would become a slot every caller shares. Add a public read beside theirs, or memoize a caller's read per render with React's `cache`.",
     ),
     SOURCE,
-    {
-      only: [
-        "account",
-        "action-log",
-        "address-change",
-        "ban-list",
-        "bewerbungen",
-        "grants",
-        "registrierungen",
-        "schiedsrichter",
-        "spielorte",
-      ].map((slice) => `src/features/${slice}/queries.ts`),
-    },
+    { allow: ["src/features/saisons/queries.ts", "src/app/(classic)/landing.ts", "src/kit/ClassicFrame.tsx"] },
   ),
 ];
 
