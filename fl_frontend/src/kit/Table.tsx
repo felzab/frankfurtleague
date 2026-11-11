@@ -279,13 +279,15 @@ const table = tv({
     end: "w-0 pe-3",
     // A prose or a stacked cell's column label on a phone, drawn for the eye alone: the read head names the column.
     label: "",
-    // Under the name line, cut as a name is, so a table's row keeps its height.
-    refusal: "block truncate text-xs text-danger",
+    // Under the name line, cut as a name is, so a table's row keeps its height. Its words count nothing towards the
+    // column's least width (`contain-inline-size`), as the name's do not (`nameHead`): a sentence on one line would
+    // otherwise hold the name's column at its whole length.
+    refusal: "block truncate text-xs text-danger contain-inline-size",
     // The name's words, which a `stack` table's phone row wraps.
     whole: "",
     lineWords: "truncate",
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
-    // least width, as the name's does (`nameLine`).
+    // least width, as the name's does (`nameHead`).
     line: "grid grid-cols-[minmax(0,max-content)] text-xs text-fg-muted",
     // The status column's cell, and the row's chips in it, side by side on one line.
     state: "px-3",
@@ -636,12 +638,25 @@ const nameLine = tv({
 /**
  * The name with a club's plaque before it and a player's mark after it, which never part: as wide as they are and no
  * wider, so what follows stands directly after a short name, and shrinking with the line, the name cut between them.
+ * The name stands in a grid track that grows to its words and may shrink to nothing, `minmax(0, max-content)`, so its
+ * words count nothing towards the column's least width, which the line's own sets (`nameLine`). It is not a flex row:
+ * a table cell is never narrower than its content's least width, and a cut name's least, one line that never wraps,
+ * is its whole words, which a flex row counts in full, so a long name would hold its column at them and push the
+ * table past its box. The plaque and the mark keep their size, each in a track of its own.
  */
 const nameHead = tv({
-  base: "flex min-w-0 items-center gap-2",
+  base: "grid min-w-0 auto-cols-max grid-flow-col items-center gap-2",
   variants: {
-    // A prose table's name line holds its parts itself.
-    wraps: { true: "contents" },
+    shape: {
+      // A prose table's name line holds its parts itself.
+      wraps: "contents",
+      name: "grid-cols-[minmax(0,max-content)]",
+      plaque: "grid-cols-[max-content_minmax(0,max-content)]",
+    },
+    // A phone's lone plaque, whose name draws nothing: a flex row there, since a margin takes back a gap in a flex row
+    // alone (`nameWords`), where a grid's track stands where it stands whatever its item's margin. The name's words are
+    // read but not drawn, so they count nothing towards the line's least width either.
+    lonePlaque: { true: "@max-2xl:flex" },
     address: { true: "items-start" },
   },
 });
@@ -711,7 +726,7 @@ function NameCell({
       role="cell"
       className={s.name()}>
       <span className={nameLine({ shape, lonePlaque, stacks, address })}>
-        <span className={nameHead({ wraps: prose, address })}>
+        <span className={nameHead({ shape, lonePlaque, address })}>
           {plaque !== undefined && (
             <TeamPlaque
               plaque={plaque}
