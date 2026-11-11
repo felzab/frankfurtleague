@@ -1,6 +1,7 @@
 import "server-only";
 
-import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
+import { linkInvalid } from "@/kit/mailedLinkState";
+import { TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { COPY } from "@/core/copy";
 import { dayIn } from "@/core/format";

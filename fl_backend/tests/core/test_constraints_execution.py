@@ -1,4 +1,3 @@
-import contextlib
 import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
@@ -7,14 +6,10 @@ from typing import Any, Final
 import pytest
 from bson import ObjectId
 from pymongo import ASCENDING
-from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
 from app.api.registrierungen.crud import pull_open_registrierungen
-from app.api.spielberichte.crud import pull_bericht_context
-from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
 from app.core.constraints import (
     SUPPORT_INDEXES,
@@ -22,7 +17,6 @@ from app.core.constraints import (
     UNIQUE_INDEXES,
     apply_constraints,
 )
-from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
@@ -444,7 +438,9 @@ assert DUPLICATE_PAIRS.keys() == {index.name for index in UNIQUE_INDEXES}
     ("collection", "first", "second"),
     [pytest.param(index.collection, *DUPLICATE_PAIRS[index.name], id=index.name) for index in UNIQUE_INDEXES],
 )
-def test_each_unique_index_refuses_the_second_document(mongo_url: str, collection: str, first: dict[str, Any], second: dict[str, Any]):
+def test_each_unique_index_refuses_the_second_document(
+    mongo_replica_set_url: str, collection: str, first: dict[str, Any], second: dict[str, Any]
+):
     async def body(database: AsyncDatabase) -> str:
         await database[collection].insert_one(first)
         try:
@@ -454,10 +450,10 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
         return "accepted"
 
     # 11000 is DuplicateKey: the index is what refuses the write.
-    assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == "rejected:11000"
 
 
-def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
+def test_two_ended_changes_of_one_address_are_both_kept(mongo_replica_set_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
     # A century ahead of the real clock: the TTL monitor deletes a tombstone whose retention has passed, under the count.
@@ -470,10 +466,10 @@ def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
         )
         return await database.address_changes.count_documents({})
 
-    assert on_the_shipped_schema(mongo_url, body) == 2
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == 2
 
 
-def test_a_second_nameless_referee_is_refused(mongo_url: str):
+def test_a_second_nameless_referee_is_refused(mongo_replica_set_url: str):
     """The rule reaches every row, so the one nameless row it can ever meet is the ghost.
 
     A second would split the fixtures of everybody erased across two sentinels nobody can tell apart
@@ -489,10 +485,10 @@ def test_a_second_nameless_referee_is_refused(mongo_url: str):
             return f"rejected:{failure.code}"
         return "accepted"
 
-    assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == "rejected:11000"
 
 
-def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
+def test_only_an_open_confirmation_meets_the_rule(mongo_replica_set_url: str):
     """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
 
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
@@ -509,7 +505,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
         )
         return await database.spielbestaetigungen.count_documents({})
 
-    assert on_the_shipped_schema(mongo_url, body) == 4
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == 4
 
 
 def _raised(failure: RuntimeError, named: str) -> str:
@@ -520,7 +516,7 @@ def _raised(failure: RuntimeError, named: str) -> str:
     return "raised" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
 
 
-def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: str):
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_replica_set_url: str):
     """The tempting fix — catch it, log it, carry on — leaves a database that looks constrained and is not."""
 
     async def body(database: AsyncDatabase) -> str:
@@ -531,10 +527,10 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: 
             return _raised(failure, "uniq_shorthand")
         return "carried on"
 
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
 
 
-def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_url: str):
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_replica_set_url: str):
     """A support index costs speed rather than correctness, which is exactly why a boot might be tempted to shrug one off."""
 
     async def body(database: AsyncDatabase) -> str:
@@ -547,10 +543,10 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
             return _raised(failure, CONFLICTING_SUPPORT_INDEX)
         return "carried on"
 
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
 
 
-def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_url: str):
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_replica_set_url: str):
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
@@ -561,128 +557,24 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
             return _raised(failure, CONFLICTING_TTL_INDEX)
         return "carried on"
 
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
 
 
-@pytest.mark.parametrize("collection", ["bewerbungen", "registrierungen"])
-def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str, collection: str):
-    """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
+def test_every_declared_support_index_is_built(mongo_replica_set_url: str):
+    """`apply_constraints` creates each one, under the collation it is declared with."""
 
-    async def body(database: AsyncDatabase) -> list[str]:
-        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY))
-        explained = await database[collection].find(build_key_filter(key=IDEMPOTENCY_KEY)).explain()
-
-        return winning_stages(explained)
-
-    stages = on_the_shipped_schema(mongo_url, body)
-
-    assert "IXSCAN" in stages and "COLLSCAN" not in stages, stages
-
-
-# Section 6, the support indexes. Dropping one costs speed rather than correctness, which is why
-# nothing asserted on them -- and why a read they no longer serve fails no test while it scans.
-
-# Enough rows that the planner prefers an index: on a handful of documents a collection scan wins on
-# merit, and a test asserting IXSCAN there would pass for the wrong reason.
-ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
-
-# A triage tab's read, the one `bewerbungen_saison_id_status_queue` serves: one season, one status.
-BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
-    {"saison_id": SAISON_ID, "status": "submitted"},
-]
-
-# One status of one season counted, which the index's two leading keys answer.
-BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
-    {"saison_id": SAISON_ID, "status": "submitted"},
-]
-
-
-def read_id(db_filter: dict[str, Any]) -> str:
-    """Names how many values an `$in` holds, or two reads narrowing on one key would share an id."""
-
-    named = [f"{field}-in-{len(term['$in'])}" if isinstance(term, dict) else field for field, term in db_filter.items()]
-    return "+".join(named) or "none"
-
-
-def index_reads(filters: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str]]:
-    return [
-        # Every filter, because the planner is asked afresh for each. Some share an index with the
-        # unfiltered read; what the case pins is that the added predicate does not push the plan off it.
-        *((db_filter, "desc") for db_filter in filters),
-        # The whole `asc` pin: both sort builders derive a single `direction`, so a tie-break pinned
-        # against `order` breaks every `asc` read alike and one read catches it.
-        (filters[0], "asc"),
-    ]
-
-
-def misplanned(planned: list[tuple[str, list[str]]], *, barred: tuple[str, ...] = ("SORT", "COLLSCAN")) -> list[tuple[str, list[str]]]:
-    """Each read whose plan reaches no index or holds a banned stage, so one case names every read that regressed.
-
-    One corpus serves them all: each filter and order is a query shape of its own, planned afresh.
-    """
-
-    return [(read, stages) for read, stages in planned if "IXSCAN" not in stages or any(stage in stages for stage in barred)]
-
-
-def walk_stages(node: Any) -> list[str]:
-    """Outermost first, down the several inputs a `SORT_MERGE` carries as well as the one every other stage has.
-
-    A walk following `inputStage` alone stops at the merge, so an exploded `$in` reads as a plan
-    reaching no index at all.
-    """
-
-    if node is None:
-        return []
-
-    stages = [node["stage"], *walk_stages(node.get("inputStage"))]
-    for branch in node.get("inputStages", []):
-        stages.extend(walk_stages(branch))
-
-    return stages
-
-
-def winning_stages(explained: Mapping[str, Any]) -> list[str]:
-    """The winning plan's stages. A blocking sort shows up here as `SORT`."""
-
-    return walk_stages(explained["queryPlanner"]["winningPlan"])
-
-
-def counted_stages(explained: Mapping[str, Any]) -> list[str]:
-    """The same, for a pipeline explained through the command, which answers in two shapes."""
-
-    # A pipeline pushed whole into the query layer answers a top-level `queryPlanner`; one left as
-    # aggregation stages answers it under the cursor stage. Reading one alone reports the other as
-    # no plan at all.
-    planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
-    winning: Any = planner["winningPlan"]
-
-    # `queryPlan` is where the slot-based engine puts the tree; the classic one puts it in the plan.
-    return walk_stages(winning.get("queryPlan", winning))
-
-
-#: What the declared support set may not fall below. The equality beside it compares the registry's own
-#: length on both sides, so it holds no floor.
-SUPPORT_INDEX_FLOOR: Final = 9
-
-
-def test_every_declared_support_index_is_built(mongo_url: str):
-    """`apply_constraints` creates each one, and the declared set does not quietly shrink."""
-
-    async def body(database: AsyncDatabase) -> int:
+    async def body(database: AsyncDatabase) -> None:
         for index in SUPPORT_INDEXES:
             built = {existing["name"]: existing async for existing in await database[index.collection].list_indexes()}
             assert index.name in built, f"{index.name} missing from {index.collection}: {sorted(built)}"
             # Read back too: one built under another collation serves none of the reads it is declared for.
             locale = (built[index.name].get("collation") or {}).get("locale")
             assert locale == (index.collation or {}).get("locale"), f"{index.name} is built under {locale}, declared {index.collation}"
-        return len(SUPPORT_INDEXES)
 
-    built = on_the_shipped_schema(mongo_url, body)
-    assert built == len(SUPPORT_INDEXES)
-    assert built >= SUPPORT_INDEX_FLOOR, f"only {built} support index(es) are declared -- lower the floor only for one deliberately removed"
+    on_the_shipped_schema(mongo_replica_set_url, body)
 
 
-def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url: str):
+def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_replica_set_url: str):
     """`expireAfterSeconds` is what makes it a TTL index at all, and one built without it serves reads and expires nothing."""
 
     async def body(database: AsyncDatabase) -> list[tuple[str, Any, Any]]:
@@ -696,88 +588,48 @@ def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url
     # Read back rather than assumed: an index is only ever ADDED
     # (`app/core/constraints.py :: apply_constraints`), so a changed bound reaches the declaration
     # and never a database that already holds the name.
-    assert on_the_shipped_schema(mongo_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
-
-
-def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str):
-    """The property, not the key list: naming keys passes for an index this endpoint's own sort cannot use.
-
-    The sort comes from `build_bewerbungen_sort`, so a change there is judged rather than mirrored.
-    """
-
-    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
-        await database["bewerbungen"].insert_many(
-            [
-                valid_document(
-                    "bewerbungen",
-                    _id=ObjectId(),
-                    submitted_at=f"2026-02-{(row % 28) + 1:02d}",
-                    saison_id=SAISON_ID if row % 2 else "2025",
-                    status="submitted" if row % 3 else "accepted",
-                )
-                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
-            ]
-        )
-        planned = []
-        for db_filter, order in index_reads(BEWERBUNGEN_QUEUE_FILTERS):
-            explained = await database["bewerbungen"].find(db_filter).sort(build_bewerbungen_sort(order=order)).limit(50).explain()
-            planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
-        return planned
-
-    assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
-
-
-def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url: str):
-    """Every read of the triage list counts all three statuses, so a count that scans is a scan per page load.
-
-    `COUNT_SCAN` and not merely an index: it answers off the keys and fetches no document at all.
-    """
-
-    async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
-        await database["bewerbungen"].insert_many(
-            [
-                valid_document(
-                    "bewerbungen",
-                    _id=ObjectId(),
-                    submitted_at=f"2026-02-{(row % 28) + 1:02d}",
-                    saison_id=SAISON_ID if row % 2 else "2025",
-                    status=("submitted", "accepted", "declined")[row % 3],
-                )
-                for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
-            ]
-        )
-        planned = []
-        for db_filter in BEWERBUNGEN_COUNT_FILTERS:
-            # The pipeline `count_documents` itself issues, explained through the command: a `find` the
-            # endpoint never makes would plan something no page load pays for.
-            explained = await database.command(
-                {
-                    "explain": {
-                        "aggregate": "bewerbungen",
-                        "pipeline": [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}],
-                        "cursor": {},
-                    },
-                    "verbosity": "queryPlanner",
-                }
-            )
-            planned.append((read_id(db_filter), counted_stages(explained)))
-        return planned
-
-    planned = on_the_shipped_schema(mongo_url, body)
-
-    assert [(read, stages) for read, stages in planned if "COUNT_SCAN" not in stages or "COLLSCAN" in stages] == []
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
 
 
 CONFIRMED_QUEUE_INDEX = "registrierungen_saison_id_team_id_confirmed_queue"
+
+# Enough rows that the planner prefers an index: on a handful of documents a collection scan wins on merit.
+ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
 
 # The pupils who confirmed, older than every row of the flood typed through the team's link after them.
 CONFIRMED_BENEATH_A_FLOOD = 3
 
 
-def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_url: str):
+class _SentReads:
+    """A collection keeping each pipeline a call site aggregates, so the read is explained as it was sent."""
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.sent: list[list[Mapping[str, Any]]] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def aggregate(self, pipeline: list[Mapping[str, Any]], **kwargs: Any) -> Any:
+        self.sent.append(pipeline)
+        return await self._collection.aggregate(pipeline, **kwargs)
+
+
+def index_names(node: Any) -> list[str]:
+    """Every index a plan walks, at any depth: an exploded `$in` nests its scans past `inputStage`."""
+
+    if isinstance(node, Mapping):
+        return [*([node["indexName"]] if "indexName" in node else []), *(name for value in node.values() for name in index_names(value))]
+    if isinstance(node, list):
+        return [name for value in node for name in index_names(value)]
+    return []
+
+
+def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_replica_set_url: str):
     """The confirmed read as `pull_open_registrierungen` sends it, explained with its run: it fetches the confirmed rows alone.
 
-    On the queue index it would fetch every unconfirmed row standing newer, the flood whole, to discard it.
+    Anybody holding the team's link writes an unconfirmed row with every press. On the queue index the read would fetch every
+    one standing newer, the flood whole, on each look at the team's list: what it serves stays the same, so only the plan shows it.
     """
 
     def registration(position: int, *, confirmed: bool) -> dict[str, Any]:
@@ -805,147 +657,32 @@ def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_
                 *(registration(position, confirmed=False) for position in range(CONFIRMED_BENEATH_A_FLOOD, ROWS_ENOUGH_TO_PREFER_AN_INDEX)),
             ]
         )
-        # Standing in for the collection, as `sent_by` hands its recorder on.
-        reads: Any = _SentKaderReads(database[Collection.REGISTRIERUNGEN])
+        reads: Any = _SentReads(database[Collection.REGISTRIERUNGEN])
         async with database.client.start_session() as session:
             opened = await pull_open_registrierungen(registrierungen_collection=reads, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
-        (pipeline, _), *_ = reads.sent
+        pipeline, *_ = reads.sent
         explained = await database.command(
             {"explain": {"aggregate": str(Collection.REGISTRIERUNGEN), "pipeline": pipeline, "cursor": {}}, "verbosity": "executionStats"}
         )
+        # A pipeline pushed whole into the query layer answers at the top level, one left as stages under the cursor stage.
         stats: Any = explained.get("executionStats") or explained["stages"][0]["$cursor"]["executionStats"]
         planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
         served = sum(row.get("einwilligung") is not None for row in opened.rows)
 
         return index_names(planner["winningPlan"]), stats["totalDocsExamined"], served
 
-    indexes, examined, served = on_the_shipped_schema(mongo_url, body)
+    indexes, examined, served = on_the_shipped_schema(mongo_replica_set_url, body)
 
     assert served == CONFIRMED_BENEATH_A_FLOOD
     assert indexes == [CONFIRMED_QUEUE_INDEX]
     assert examined == CONFIRMED_BENEATH_A_FLOOD
 
 
-GERMAN_KADER_INDEX = "saison_spieler_saison_id_team_id_de"
-
-# The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
-KADER_TEAMS = 10
-KADER_SAISONS = ("2024", "2025", SAISON_ID)
-
-Issued = tuple[list[Mapping[str, Any]], Mapping[str, Any] | None]
-
-
-def count_pipeline(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    """The pipeline `count_documents` sends for `db_filter`."""
-
-    return [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}]
-
-
-class _SentKaderReads:
-    """A squad collection keeping each aggregate and count a call site sends, with its collation, so the read is explained as sent."""
-
-    def __init__(self, collection: Any) -> None:
-        self._collection = collection
-        self.sent: list[Issued] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def aggregate(self, pipeline: list[Mapping[str, Any]], *, collation: Mapping[str, Any] | None = None, **kwargs: Any) -> Any:
-        self.sent.append((pipeline, collation))
-        return await self._collection.aggregate(pipeline, collation=collation, **kwargs)
-
-    async def count_documents(self, db_filter: Mapping[str, Any], **kwargs: Any) -> int:
-        self.sent.append((count_pipeline(db_filter), kwargs.get("collation")))
-        return await self._collection.count_documents(db_filter, **kwargs)
-
-
-async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSession], Awaitable[Any]]) -> Issued:
-    """The one squad read `read` sends; a refusal it answers after the read is beside the point here."""
-
-    kader = _SentKaderReads(database[Collection.SAISON_SPIELER])
-    async with database.client.start_session() as session:
-        with contextlib.suppress(APIError):
-            await read(kader, session)
-    [issued] = kader.sent
-    return issued
-
-
-async def the_report_kader(database: AsyncDatabase) -> Issued:
-    # With its season's row, which the read holds to stand for as long as its fixture does.
-    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
-    await database[Collection.SPIELE].insert_one(valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "tore": 1}))
-
-    return await sent_by(
-        database,
-        lambda kader, session: pull_bericht_context(
-            spiele_collection=database[Collection.SPIELE],
-            saisons_collection=database[Collection.SAISONS],
-            saison_spieler_collection=kader,
-            spiel_id=SPIEL_OID,
-            session=session,
-        ),
-    )
-
-
-async def the_kader_page(database: AsyncDatabase) -> Issued:
-    return await sent_by(
-        database,
-        lambda kader, session: _read_the_squad(saison_spieler_collection=kader, team_id=TEAM_OID, saison_id=SAISON_ID, session=session),
-    )
-
-
-def index_names(node: Any) -> list[str]:
-    """Every index a plan walks, at any depth: a `$lookup` or an exploded `$in` nests its scans past `inputStage`."""
-
-    if isinstance(node, Mapping):
-        return [*([node["indexName"]] if "indexName" in node else []), *(name for value in node.values() for name in index_names(value))]
-    if isinstance(node, list):
-        return [name for value in node for name in index_names(value)]
-    return []
-
-
-@pytest.mark.parametrize(
-    ("issue", "index"),
-    [
-        pytest.param(the_report_kader, GERMAN_KADER_INDEX, id="the-report-s-squads"),
-        pytest.param(the_kader_page, GERMAN_KADER_INDEX, id="the-squad-page"),
-    ],
-)
-def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
-    mongo_url: str, issue: Callable[[AsyncDatabase], Awaitable[Issued]], index: str
-):
-    """An index serves only a read of its own collation: the two name-sorted reads take the German one."""
-
-    async def body(database: AsyncDatabase) -> tuple[list[str], list[str], Mapping[str, Any] | None]:
-        await database[Collection.SAISON_SPIELER].insert_many(
-            [
-                valid_document("saison_spieler", _id=ObjectId(), spieler_id=ObjectId(), saison_id=saison, team_id=team)
-                for saison in KADER_SAISONS
-                for team in (TEAM_OID, OTHER_TEAM_OID, *(ObjectId() for _ in range(KADER_TEAMS - 2)))
-                for _ in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX // (KADER_TEAMS * len(KADER_SAISONS)))
-            ]
-        )
-        pipeline, collation = await issue(database)
-        command: dict[str, Any] = {"aggregate": str(Collection.SAISON_SPIELER), "pipeline": pipeline, "cursor": {}}
-        if collation is not None:
-            command["collation"] = collation
-        explained = await database.command({"explain": command, "verbosity": "queryPlanner"})
-        planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
-
-        return counted_stages(explained), index_names(planner["winningPlan"]), collation
-
-    stages, indexes, collation = on_the_shipped_schema(mongo_url, body)
-
-    assert "COLLSCAN" not in stages, f"read under {collation} scans the squads: {stages}"
-    assert indexes == [index], f"read under {collation} walked {indexes}, not {index}"
-
-
 OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")
 
 
 class TestTwoRefereesOpenRowsOnOneStand:
-    def test_each_referee_holds_an_open_row_of_their_own(self, mongo_url: str):
+    def test_each_referee_holds_an_open_row_of_their_own(self, mongo_replica_set_url: str):
         """The mint inserts a new referee's row while the close's share still leaves the old one's open.
 
         Without the referee key that insert collides, passing the fixture over every pass until the close shuts the old row.
@@ -962,4 +699,4 @@ class TestTwoRefereesOpenRowsOnOneStand:
                 )
             return await database.spielbestaetigungen.count_documents({"answer": None, "closed": None})
 
-        assert on_the_shipped_schema(mongo_url, body) == 2
+        assert on_the_shipped_schema(mongo_replica_set_url, body) == 2

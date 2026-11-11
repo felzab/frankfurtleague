@@ -11,7 +11,9 @@
 # - A mailed link's query never reaches an access line, and every line holds the request's trace id.
 # - A visitor's `traceparent` is replaced on every location proxying to the frontend, and the protocol
 #   Next is handed is the edge's own word: `https` from production's blocks, `http` from the local ones.
-# - Each security header is sent once, as written, on every location's response.
+# - Each security header is sent once, as written, on every location's response, a link page's
+#   referrer policy withholding the referrer.
+# - A link page's request writes no error line, its frontend failing included.
 # - Each upstream is named through a variable and found through Docker's DNS alone, and the
 #   capabilities the model grants are enough to start nginx.
 # - Each rate zone and the connection ceiling admit their figure and refuse past it, every location
@@ -67,15 +69,34 @@ rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH"
 
 # Each header's name and value off the file the set is written in, so a location restating the set
-# with a different value fails as surely as one dropping it.
+# with a different value fails as surely as one dropping it. A value naming a variable is the default of
+# the http-level map setting it, which every page but a link page is sent.
 declare -A SECURITY_HEADERS=()
+map_default() { # $1 the variable; prints the default of the map in nginx/shared/http.conf setting it
+  awk -v variable="$1" '
+    { sub(/\r$/, "") }
+    $1 == "map" && $3 == variable && $4 == "{" { inside = 1; next }
+    inside && $1 == "}" { exit }
+    inside && $1 == "default" { value = $2; sub(/;$/, "", value); gsub(/"/, "", value); print value; exit }
+  ' "${REPO_ROOT}/nginx/shared/http.conf"
+}
 while IFS= read -r written_line; do
   [[ "$written_line" =~ ^[[:space:]]*add_header ]] || continue
-  [[ "$written_line" =~ ^[[:space:]]*add_header[[:space:]]+([A-Za-z-]+)[[:space:]]+\"([^\"]*)\"[[:space:]]+always\;$ ]] \
-    || refuse "nginx/shared/security_headers.conf holds '${written_line}', whose name and value this test cannot read."
-  SECURITY_HEADERS["${BASH_REMATCH[1],,}"]="${BASH_REMATCH[2]}"
+  if [[ "$written_line" =~ ^[[:space:]]*add_header[[:space:]]+([A-Za-z-]+)[[:space:]]+\"([^\"]*)\"[[:space:]]+always\;$ ]]; then
+    SECURITY_HEADERS["${BASH_REMATCH[1],,}"]="${BASH_REMATCH[2]}"
+  elif [[ "$written_line" =~ ^[[:space:]]*add_header[[:space:]]+([A-Za-z-]+)[[:space:]]+(\$[a-z_]+)[[:space:]]+always\;$ ]]; then
+    header_default="$(map_default "${BASH_REMATCH[2]}")"
+    [[ -n "$header_default" ]] \
+      || refuse "nginx/shared/http.conf declares no map with a default for ${BASH_REMATCH[2]}, which nginx/shared/security_headers.conf sends as ${BASH_REMATCH[1]}."
+    SECURITY_HEADERS["${BASH_REMATCH[1],,}"]="$header_default"
+  else
+    refuse "nginx/shared/security_headers.conf holds '${written_line}', whose name and value this test cannot read."
+  fi
 done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
 (( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
+# Every response under a link page's address withholds the referrer from the first byte, its token in
+# that address: written here rather than read off the configuration, which is what it judges.
+LINK_REFERRER_POLICY="no-referrer"
 
 # The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, and
 # as `backend` from a container of its own, so each case is graded on a real 200 rather than a 502
@@ -97,6 +118,9 @@ server {
     add_header X-Seen-Forwarded-Proto $http_x_forwarded_proto always;
     # Any body, so a 413 the body caps' cases read is the edge's and never the stub's own 1m default.
     client_max_body_size 0;
+    # A frontend failing mid-request: the connection closed with no answer, which the edge words as
+    # an upstream that closed early and answers 502.
+    if ($arg_upstream = fail) { return 444; }
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
   # Setting no header, so it forwards every one the edge sent as the edge sent it, to the listener
@@ -294,8 +318,8 @@ read_headers() {
 # the origin from either directive breaks all three while every header still matches the file
 # (`docs/ops/spec.md` §1.4).
 BOT_CHECK_ORIGIN="https://challenges.cloudflare.com"
-grade_security_headers() { # $1 what the request was, the headers already read
-  local name directive pattern
+grade_security_headers() { # $1 what the request was, the headers already read; $2 "link" for a link page's response
+  local name directive pattern wanted
   for directive in script-src frame-src; do
     pattern=";[[:space:]]*${directive}[[:space:]]+([^;]*)"
     if [[ ! "; ${SENT_VALUE[content-security-policy]:-}" =~ $pattern || " ${BASH_REMATCH[1]} " != *" ${BOT_CHECK_ORIGIN} "* ]]; then
@@ -305,15 +329,17 @@ grade_security_headers() { # $1 what the request was, the headers already read
     fi
   done
   for name in "${!SECURITY_HEADERS[@]}"; do
+    wanted="${SECURITY_HEADERS[$name]}"
+    if [[ "${2:-}" == link && "$name" == referrer-policy ]]; then wanted="$LINK_REFERRER_POLICY"; fi
     # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
     # restated beside the include -- for the CSP, a second enforcing policy.
     if [[ "${SENT[$name]:-0}" != 1 ]]; then
       fail "HEADER $1"
       detail "expected one ${name}, nginx sent ${SENT[$name]:-0}"
       HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
-    elif [[ "${SENT_VALUE[$name]}" != "${SECURITY_HEADERS[$name]}" ]]; then
+    elif [[ "${SENT_VALUE[$name]}" != "$wanted" ]]; then
       fail "HEADER $1"
-      detail "expected ${name}: ${SECURITY_HEADERS[$name]}" "nginx sent ${name}: ${SENT_VALUE[$name]}"
+      detail "expected ${name}: ${wanted}" "nginx sent ${name}: ${SENT_VALUE[$name]}"
       HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
     fi
   done
@@ -322,8 +348,18 @@ grade_security_headers() { # $1 what the request was, the headers already read
 # One request into EVERY location `nginx/shared/site.conf` declares, the list read off that file so a
 # location added there is probed without this one learning it.
 HEADER_PATHS=()
+# By index into the paths, each location metering on the link pages' zone, which is a link page's.
+declare -A HEADER_LINK=()
+# The index of the path whose block is being read, or -1 outside one.
+header_block=-1
 while IFS= read -r location_line; do
+  location_line="${location_line%$'\r'}"
+  [[ "$location_line" != "}" ]] || header_block=-1
+  if (( header_block >= 0 )) && [[ "$location_line" =~ ^[[:space:]]+limit_req[[:space:]]+zone=linkpage[[:space:]] ]]; then
+    HEADER_LINK[$header_block]="link"
+  fi
   [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
+  header_block=${#HEADER_PATHS[@]}
   location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
   case "$location_args" in
     "= "*) HEADER_PATHS+=( "${location_args#= }" ) ;;
@@ -332,13 +368,14 @@ while IFS= read -r location_line; do
     /*) HEADER_PATHS+=( "${location_args}/probe" ) ;;
     # Reached through `error_page` alone, never a path: the rate zones below ask it with a
     # request the edge refuses.
-    @*) ;;
+    @*) header_block=-1 ;;
     # A regex location answers no path this can derive, and probing around it would call the file
     # covered while one of its locations went unasked.
     *) refuse "nginx/shared/site.conf declares 'location ${location_args}', whose path this probe cannot derive." ;;
   esac
 done < "${REPO_ROOT}/nginx/shared/site.conf"
 (( ${#HEADER_PATHS[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location to probe."
+(( ${#HEADER_LINK[@]} > 0 )) || refuse "nginx/shared/site.conf yielded no location metering on the link pages' zone, so no link page's headers were judged."
 
 # The header a visitor may not choose, sent on every request below: nginx forwards every request
 # header no `proxy_set_header` names, so a location dropping the inherited set hands it to Next as
@@ -360,7 +397,7 @@ done
 curl "${HEADER_REQUESTS[@]}" || true
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
-  grade_security_headers "${HEADER_PATHS[_i]}"
+  grade_security_headers "${HEADER_PATHS[_i]}" "${HEADER_LINK[$_i]:-}"
   seen_trace="${SENT_VALUE[x-seen-traceparent]:-}"
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
@@ -614,6 +651,10 @@ expect_action refusal some:429
 # is graded too.
 REFUSAL_WRITTEN="$(sed -n 's/^[[:space:]]*return 429 "\(.*\)";$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
 [[ -n "$REFUSAL_WRITTEN" ]] || refuse "nginx/shared/site.conf returns no 429 sentence this test can read."
+# "link" for a transfer to a link page, each of whose labels opens with `link-`.
+link_label() { # $1 the transfer's label
+  if [[ "$1" == link-* ]]; then printf 'link'; fi
+}
 grade_refusal() { # $1 the transfer's label, its files named for it
   read_headers "${SCRATCH}/$1.headers"
   # Exactly, as Next compares it: a `charset` appended is the failure this case exists for.
@@ -628,7 +669,7 @@ grade_refusal() { # $1 the transfer's label, its files named for it
     detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(cat "${SCRATCH}/$1.body" 2>/dev/null)'"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
-  grade_security_headers "the edge's own 429, $1"
+  grade_security_headers "the edge's own 429, $1" "$(link_label "$1")"
 }
 # The page `nginx/shared/site.conf :: @edge_refusal_page` returns, read off the file as nginx sends it:
 # the single-quoted string, its newlines kept.
@@ -718,7 +759,7 @@ grade_page() { # $1 the transfer's label, its files named for it; $2 "head" wher
     detail "expected the page's colours to be the rebuilt site's tokens: ${palette}"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
-  grade_security_headers "the edge's own 429 page, $1"
+  grade_security_headers "the edge's own 429 page, $1" "$(link_label "$1")"
 }
 grade_spent() { # $1 a `spent_request` label: graded on the half the edge refused, where one was; $2 "page" or "head"
   local _j half=a
@@ -1019,6 +1060,62 @@ if [[ "${SENT_VALUE[x-seen-forwarded-proto]:-}" != https ]]; then
   RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
 fi
 
+# --- a link page's frontend failing -----------------------------------------------------------------
+
+# Every link page loaded, and a server action posted to each link page's block, against a frontend
+# closing the connection unanswered: nginx's error line about such a request carries its request line
+# whole, so none may reach the error log. On the local edge, whose link zone has room left and whose
+# action key has refilled while the connection ceiling's answers were held, three seconds whole.
+UPSTREAM_FAILURES=0
+UPSTREAM_MARKER="fl-upstream-failure"
+# A static file asked for from a link page, the page's address in its `Referer` under a token of its
+# own: the edge cannot keep that header out of the error line, so this line is written, and is the
+# control that this run read the error log at all. Only the link pages' `Referrer-Policy`, graded
+# above, keeps a browser from sending it.
+REFERRED_TOK="UkVGRVJSRURMSU5LVE9L"
+UPSTREAM_REQUESTS=()
+UPSTREAM_LABELS=()
+upstream_request() { # $1 a label, the rest curl options naming one transfer
+  UPSTREAM_LABELS+=( "$1" ); shift
+  if (( ${#UPSTREAM_REQUESTS[@]} > 0 )); then UPSTREAM_REQUESTS+=( --next ); fi
+  UPSTREAM_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 5 -H "Host: localhost" -A "$UPSTREAM_MARKER" "$@" )
+}
+for _i in "${!LINK_SPENT[@]}"; do
+  upstream_request "the load of ${LINK_SPENT[_i]}" -H "Accept: ${NAVIGATION_ACCEPT}" "${BASE}${LINK_SPENT[_i]}&upstream=fail"
+done
+for _i in "${!LINK_ACTION_PATHS[@]}"; do
+  upstream_request "an action posted to ${LINK_ACTION_PATHS[_i]}" -X POST -H "Accept: ${ACTION_ACCEPT}" -H "Next-Action: ${ACTION_ID}" \
+    -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}${LINK_ACTION_PATHS[_i]}?token=${TOK}&upstream=fail"
+done
+upstream_request "a static file a link page asked for" -H "Referer: http://localhost/confirm/kontakt?token=${REFERRED_TOK}" \
+  "${BASE}/_next/static/chunks/referred.js?upstream=fail"
+mapfile -t UPSTREAM_STATUSES < <(curl "${UPSTREAM_REQUESTS[@]}" || true)
+# A request a zone refused, or one the stub answered, never met the failure, and judging the log after
+# it would call a silence nobody caused a pass.
+for _j in "${!UPSTREAM_LABELS[@]}"; do
+  _status="${UPSTREAM_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
+  [[ "$_status" == 502 ]] \
+    || refuse "${UPSTREAM_LABELS[_j]} answered ${_status} where the failing frontend's 502 was wanted, so whether its error line holds the token was not judged."
+done
+# Read once every one's access line is written, which comes after its error line.
+UPSTREAM_LOGGED=0
+for _ in $(seq 1 50); do
+  read_streams
+  UPSTREAM_LOGGED="$({ grep -c "\"user_agent\":\"${UPSTREAM_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
+  if (( ${UPSTREAM_LOGGED:-0} >= ${#UPSTREAM_LABELS[@]} )); then break; fi
+  sleep 0.2
+done
+(( ${UPSTREAM_LOGGED:-0} >= ${#UPSTREAM_LABELS[@]} )) \
+  || refuse "the edge logged ${UPSTREAM_LOGGED:-0} of the ${#UPSTREAM_LABELS[@]} requests its failing frontend answered, so whether an error line holds a token was not judged."
+grep -qF "$REFERRED_TOK" "$ERROR_LOG" \
+  || refuse "the failing frontend's static file wrote no error line holding its Referer, so this run read no error line it could judge the link pages' silence against."
+UPSTREAM_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" || true; })"
+if [[ -n "$UPSTREAM_ERRORS" ]]; then
+  fail "UPSTREAM a link page's failing frontend"
+  detail "an error line on stderr holds a live token: ${UPSTREAM_ERRORS}"
+  UPSTREAM_FAILURES=$(( UPSTREAM_FAILURES + 1 ))
+fi
+
 # --- every access line ------------------------------------------------------------------------------
 
 # Every line the run wrote, the floods' included, each holding the trace id the application's lines
@@ -1047,13 +1144,14 @@ if [[ -n "$TOKEN_LINES" ]]; then
   LINE_FAILURES=$(( LINE_FAILURES + 1 ))
 fi
 
-if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + RESOLVE_FAILURES > 0 )); then
-  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap and ${RESOLVE_FAILURES} upstream cases failed.
+if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + RESOLVE_FAILURES + UPSTREAM_FAILURES > 0 )); then
+  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap, ${RESOLVE_FAILURES} upstream and ${UPSTREAM_FAILURES} failing-frontend cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
 ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the mailed link's token on none,
-${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
+${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written, a
+link page's and its refusals withholding the referrer,
 each handing its upstream the edge's own traceparent, an empty
 Next-Action handed to no one, each rate zone and the connection ceiling admitting their figure and
 refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
@@ -1061,4 +1159,5 @@ plain text an action reads, every link page metered on every request, its load r
 own page and no token reaching the error log, the code check metered on the crash reports' zone, every
 body cap taking its figure and refusing a byte past it,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s,
-and the frontend's redirect naming itself handed back as the visitor's origin"
+the frontend's redirect naming itself handed back as the visitor's origin, and a link page's failing
+frontend writing no token to the error log"

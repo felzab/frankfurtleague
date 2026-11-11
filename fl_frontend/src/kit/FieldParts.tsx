@@ -87,18 +87,10 @@ export function FieldLabel({ label, isRequired }: { label: Words; isRequired: bo
 
 /**
  * A form's status line at its acts: a refusal, a done save, why its act cannot run, or the editor's count of unsaved
- * fields. An outcome or a reason is announced politely, from a live region standing from the first render, so it
- * answers the press that sent the form; the running count stays outside the region, since it would speak on every
- * edit that changes it.
+ * fields. With nothing to say it is not drawn, so it takes no room.
  */
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
-  const tone = status?.tone ?? "none";
-  return (
-    <p className={statusLine({ placement, tone, quiet: status === null })}>
-      <span role="status">{tone === "changes" ? null : status?.text}</span>
-      {tone === "changes" && status?.text}
-    </p>
-  );
+  return status !== null && <p className={statusLine({ placement, tone: status.tone })}>{status.text}</p>;
 }
 
 /**
@@ -129,15 +121,13 @@ export function MessageLine({
   }
   const words = consequence ?? description;
   return (
-    // Mounted with the field, hidden while it has nothing to say: React Aria ties the field's description to its slot only
-    // where the slot stands as the field mounts or turns valid or invalid (`useField`'s `useSlotId`), so a consequence
-    // appearing on an edit in a slot mounted then would stand unread by the field it is about.
-    <Text
-      slot="description"
-      hidden={words === undefined}
-      data-kit-message={words === undefined ? undefined : true}
-      className={messageLine({ tone: consequence === undefined ? "description" : "consequence" })}>
-      {words}
-    </Text>
+    words !== undefined && (
+      <Text
+        slot="description"
+        data-kit-message
+        className={messageLine({ tone: consequence === undefined ? "description" : "consequence" })}>
+        {words}
+      </Text>
+    )
   );
 }

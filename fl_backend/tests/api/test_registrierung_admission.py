@@ -13,8 +13,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.services import compose_person_move
 from app.api.outbox.services import row_of
-from app.api.registrierungen import crud as registrierungen_crud
 from app.api.registrierungen import person_router
+from app.api.registrierungen.crud import OPEN_REGISTRIERUNGEN_CAP
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.public_router import post_confirmation
@@ -245,24 +245,6 @@ async def admit(
         ),
         db=client,
     )
-
-
-class SeasonsRunningARivalAtTheAnchor(InterleavedCollection):
-    """`saisons` with a rival run once just before the squad cap's anchor write, inside the admission's transaction."""
-
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.update_many(*args, **kwargs)
-
-
-class PersonsRunningARivalBeforeTheInsert(InterleavedCollection):
-    """`spieler` with a rival run once just before a new person is inserted: after the address was read and found nobody."""
-
-    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.insert_one(*args, **kwargs)
 
 
 async def decline(
@@ -532,7 +514,7 @@ class TestTheSquadCap:
             async def the_rival_takes_the_place() -> None:
                 await admit(database, client, second)
 
-            seasons = SeasonsRunningARivalAtTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
+            seasons = InterleavedCollection(database[Collection.SAISONS], the_rival_takes_the_place, before="update_many")
             outcome = await outcome_of(admit(database, client, first, saisons=seasons))
             # Serially the refused admission reaches the anchor once; landing inside, its retry reaches it again.
             seasons.assert_landed_inside(serially=1)
@@ -946,7 +928,8 @@ class TestOneAddressAdmittedTwiceAtOnce:
             async def the_rival_writes_the_person() -> None:
                 answers.append(await admit(database, client, second))
 
-            spieler = PersonsRunningARivalBeforeTheInsert(database[Collection.SPIELER], the_rival_writes_the_person)
+            # Before the new person's insert, after the address was read and found nobody.
+            spieler = InterleavedCollection(database[Collection.SPIELER], the_rival_writes_the_person, before="insert_one")
             outcome = await outcome_of(admit(database, client, first, spieler=spieler))
             # Serially the address resolves before any insert; landing inside, the first attempt reaches it.
             spieler.assert_landed_inside(serially=0)
@@ -1026,16 +1009,6 @@ class TestEverySeatActsAlike:
         assert after == before
 
 
-class RegistrationsRunningARivalAfterTheirRead(InterleavedCollection):
-    """`registrierungen` with a rival run once just after the decline read the pending registration, before it writes."""
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        await self.run_the_rival()
-
-        return found
-
-
 class TestTheDecline:
     def test_a_rival_decision_landing_after_its_read_makes_it_retry_and_miss(self, mongo_replica_set_url: str):
         """The rival's decision stands: the decline's write conflicts with it, and the retry's read finds nothing pending."""
@@ -1046,7 +1019,8 @@ class TestTheDecline:
             async def the_rival_declines() -> None:
                 await decline(database, client, registrierung_id, reason="other_person", identifier=THEO)
 
-            registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
+            # After the decline read the pending registration, before it writes.
+            registrierungen = InterleavedCollection(database[Collection.REGISTRIERUNGEN], the_rival_declines, after="find_one")
             with pytest.raises(DocumentNotFoundError):
                 await decline(database, client, registrierung_id, registrierungen=registrierungen)
 
@@ -1154,28 +1128,28 @@ class TestThePendingReadServesTheShirtNumbers:
 
 
 class TestThePendingReadsCap:
-    def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+    def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str):
         """Anybody holding the link types an unconfirmed row per press, newer than every row a pupil confirmed before.
 
-        The cap at two, so three unconfirmed rows past one confirmed row stand for a flood past the real cap.
+        A full cap of unconfirmed rows past one confirmed row: newest first alone, the confirmed row is the one cut.
         """
-
-        monkeypatch.setattr(registrierungen_crud, "OPEN_REGISTRIERUNGEN_CAP", 2)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             confirmed = await seed(database, registrierung_document())
+            # One insert, in order: each `ObjectId` is newer than the one before, which the read's sort breaks its tie on.
             flood = [
-                await seed(database, registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}"))
-                for index in range(3)
+                registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}")
+                for index in range(OPEN_REGISTRIERUNGEN_CAP)
             ]
+            await database[Collection.REGISTRIERUNGEN].insert_many(flood)
             answered = await read(database, client)
 
-            return confirmed, flood, [row.registrierung_id for row in answered.registrierungen], answered.complete
+            return confirmed, [row["_id"] for row in flood], [row.registrierung_id for row in answered.registrierungen], answered.complete
 
         confirmed, flood, served, complete = on_a_league(mongo_replica_set_url, body)
 
-        # The confirmed row kept, the room left taken by the newest unconfirmed one, the two newest first.
-        assert served == [flood[-1], confirmed]
+        # The confirmed row kept, the room left taken by the newest unconfirmed rows, newest first: the oldest is the one cut.
+        assert served == [*reversed(flood[1:]), confirmed]
         assert complete is False
 
     def test_a_list_inside_the_cap_is_complete(self, mongo_replica_set_url: str):

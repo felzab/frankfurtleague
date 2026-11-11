@@ -155,8 +155,8 @@ export type TableRow = {
       acts?: ReactElement;
       /**
        * How many side acts `acts` draws (`SideActs`), which the list reads to decide their form for all its rows: the
-       * acts reach it as an element, which says nothing of what it holds. Derived from the one value that decides the
-       * acts themselves, never a second condition beside it.
+       * acts reach it as an element, which says nothing of what it holds. Counted by the rule the acts' own module
+       * lists them by, such as `changeActKinds`, never a second condition beside it.
        */
       sideActs?: number;
     }

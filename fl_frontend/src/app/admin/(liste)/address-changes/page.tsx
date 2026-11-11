@@ -13,6 +13,7 @@ import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { startLostMailboxChange } from "./addressChangeActs";
+import { changeActKinds } from "./changeActKinds";
 import { ChangeActs } from "./ChangeActs";
 import { StartFields } from "./StartFields";
 
@@ -90,8 +91,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
       ...(until === undefined ? {} : { after: WORDS.newLine.after(until) }),
     },
     cells: { after: { record: change.email } },
-    // The fresh link before the ending, as `ChangeActs` draws them, both from `resends`.
-    sideActs: resends ? 2 : 1,
+    sideActs: changeActKinds(resends).length,
     acts: (
       <ChangeActs
         id={change.id}

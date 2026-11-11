@@ -90,19 +90,19 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """A running season and a live club, its junction row carrying three people's contact records."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 def on_a_league(url: str, body: Body) -> Any:
