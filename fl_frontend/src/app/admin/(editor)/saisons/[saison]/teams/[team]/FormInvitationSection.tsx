@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { Button } from "@/kit/Button";
 import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
@@ -15,6 +14,7 @@ import { copyTextToClipboard } from "@/shared/utils/clipboard";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Fact } from "@/kit/Facts";
+import type { SectionActItem } from "@/kit/SectionAct";
 
 const WORDS = COPY.admin.team;
 const LINK = COPY.account.address.link;
@@ -53,6 +53,8 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
       appToast(copied ? "success" : "danger", copied ? COPY.shared.toast.copied : COPY.shared.toast.failure);
     });
   };
+  // The minted link's copy, the footer's first act while the link shows: it writes nothing, so it answers in its toast.
+  const copying: SectionActItem[] = fresh === null ? [] : [{ label: WORDS.copyLink, press: () => copy(fresh) }];
 
   return (
     <>
@@ -64,19 +66,15 @@ export function FormInvitationSection({ team, saison, view }: { team: string; sa
             text={WORDS.linkOnce}
           />
           <Facts facts={[{ label: LINK, value: { record: fresh } }]} />
-          <Button
-            variant="secondary"
-            label={WORDS.copyLink}
-            onPress={() => copy(fresh)}
-          />
         </>
       )}
       {live === null ? (
-        <SectionAct acts={[{ label: COPY.shared.withObject(LINK, "create"), locked, run: mint }]} />
+        <SectionAct acts={[...copying, { label: COPY.shared.withObject(LINK, "create"), locked, run: mint }]} />
       ) : (
-        // The live link's three acts share the box's one footer and its one line.
+        // The live link's three acts share the box's one footer and its one line, after the minted link's copy.
         <SectionAct
           acts={[
+            ...copying,
             { label: COPY.shared.withObject(LINK, "send"), locked, run: () => mailInvitation({ ...key, invitation_id: live }) },
             { label: COPY.shared.withObject(LINK, "replace"), locked, confirm: REPLACED, run: mint },
             {

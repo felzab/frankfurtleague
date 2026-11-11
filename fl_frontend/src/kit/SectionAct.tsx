@@ -14,15 +14,8 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
 
-/** One act of a section's footer. */
-export type SectionActItem = {
-  label: Copy;
-  run: () => Promise<ActionAnswer>;
-  /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
-  isDisabled?: boolean;
-  /** Why its write would refuse the record as it stands, which the page read, the button saying why (`Button`). */
-  locked?: Copy;
-} & (
+/** An act that sends: its write, answering in the footer's status line. */
+type Sending = { run: () => Promise<ActionAnswer>; press?: never } & (
   | {
       variant?: "primary" | "secondary";
       /** The question it asks before it runs; its button then carries the question's verb and tone. */
@@ -31,6 +24,21 @@ export type SectionActItem = {
   // An act that destroys takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
   | { variant?: never; confirm: ConfirmWords & { tone: "danger" } }
 );
+
+/**
+ * An act that writes nothing and runs at once, such as copying a link the section shows: a secondary button whose
+ * outcome is its own toast, so the status line, which speaks of the section's writes, stays as it was.
+ */
+type AtOnce = { press: () => void; run?: never; variant?: never; confirm?: never };
+
+/** One act of a section's footer. */
+export type SectionActItem = {
+  label: Copy;
+  /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
+  isDisabled?: boolean;
+  /** Why its write would refuse the record as it stands, which the page read, the button saying why (`Button`). */
+  locked?: Copy;
+} & (Sending | AtOnce);
 
 const NO_INPUTS: ReadonlyArray<unknown> = [];
 
@@ -54,6 +62,16 @@ function ActButton({
   onAnswered: (ran: ActionAnswer) => void;
 }) {
   const reason = useLocked(act.locked);
+  if (act.press !== undefined)
+    return (
+      <Button
+        variant="secondary"
+        label={act.label}
+        isDisabled={act.isDisabled ?? false}
+        locked={reason}
+        onPress={act.press}
+      />
+    );
   const { confirm } = act;
   if (confirm === undefined || reason !== undefined)
     return (
@@ -100,7 +118,7 @@ export function SectionAct({
   /** The acts' inputs: the kit's fields, each holding its own value for `run` to read. */
   children?: ReactNode;
   /** The section's acts, the main one last. */
-  acts: readonly [SectionActItem, ...SectionActItem[]];
+  acts: readonly [...SectionActItem[], SectionActItem];
   /** The values the acts' `run` reads; none for acts taking no input. */
   inputs?: ReadonlyArray<unknown>;
 }) {
@@ -124,7 +142,8 @@ export function SectionAct({
             isBusy={isPending && pressed.at === at}
             onPress={() => {
               setPressed({ on: inputs, at });
-              if (act.confirm === undefined) submit(act.run);
+              // An act at once never calls this: its button runs it alone.
+              if (act.run !== undefined && act.confirm === undefined) submit(act.run);
             }}
             onAnswered={(ran) => submit(() => Promise.resolve(ran))}
           />
