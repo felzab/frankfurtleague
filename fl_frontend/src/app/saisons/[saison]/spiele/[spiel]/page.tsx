@@ -178,7 +178,7 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): Tab
     nameLabel: column.name,
     columns: [
       { key: "nummer", label: column.nummer, figures: true },
-      { key: "position", label: column.position },
+      { key: "position", label: column.position, width: "word" },
     ],
     rows: spieler.map((entry, index) => ({
       id: String(index),

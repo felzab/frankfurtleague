@@ -43,7 +43,7 @@ const WORDS = COPY.admin.saison;
 const TEAM = COPY.shared.facts.team;
 
 /** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
-const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link }] };
+const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link, width: "phrase" }] };
 
 /** One of the editor's selects of a few short choices while it is read. */
 const SELECT = <FieldPlaceholder key="select" />;

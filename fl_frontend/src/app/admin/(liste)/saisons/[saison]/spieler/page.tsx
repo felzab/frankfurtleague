@@ -101,7 +101,7 @@ const HEAD: TableHead = {
   columns: [
     { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone", cut: true },
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
-    { key: "stufe", label: WORDS.stufe, hideOnPhone: true },
+    { key: "stufe", label: WORDS.stufe, hideOnPhone: true, width: "code" },
   ],
 };
 

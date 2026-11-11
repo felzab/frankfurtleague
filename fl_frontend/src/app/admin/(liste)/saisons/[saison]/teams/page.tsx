@@ -76,8 +76,8 @@ const HEAD: TableHead = {
   nameLabel: TEAM,
   state: { label: COPY.admin.schiedsrichter.state },
   columns: [
-    { key: "gruppe", label: COPY.team.gruppe, narrow: true },
-    { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true },
+    { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
+    { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
   ],
 };
 
