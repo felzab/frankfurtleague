@@ -66,6 +66,17 @@ def _release() -> None:
     _LOOP.close()
 
 
+# Each seed's bound. A rival a case runs inside a write that then waits on that write's own transaction deadlocks until
+# MongoDB aborts the transaction at its 60 s lifetime limit, and the retry that follows passes the case. Under that limit,
+# the case fails under its own name; the slowest seed of the tier takes about 3 s.
+SEED_BOUND_S = 30.0
+
+_UNFINISHED = (
+    "this seed ran past {bound:.0f} s and was cancelled. A rival run inside a write that waits on that write's own transaction"
+    " deadlocks until MongoDB aborts it at its lifetime limit: run the rival before the write it contends with."
+)
+
+
 def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
     """A client's connections belong to the loop that opened them, so ONE lasting loop is what lets every seed share one client.
 
@@ -78,7 +89,21 @@ def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
         _LOOP = asyncio.new_event_loop()
         atexit.register(_release)
 
-    return _LOOP.run_until_complete(seed)
+    return _LOOP.run_until_complete(_bounded(seed))
+
+
+async def _bounded(seed: Coroutine[Any, Any, Any]) -> Any:
+    """Past the bound the seed is cancelled and unwound before this raises, so its sessions abort their transactions here."""
+
+    bound = asyncio.timeout(SEED_BOUND_S)
+    try:
+        async with bound:
+            return await seed
+    except TimeoutError as timeout:
+        # A `TimeoutError` the body raised itself passes as it was.
+        if bound.expired():
+            raise TimeoutError(_UNFINISHED.format(bound=SEED_BOUND_S)) from timeout
+        raise
 
 
 def shared_client(url: str) -> AsyncMongoClient:

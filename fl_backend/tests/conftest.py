@@ -1,14 +1,12 @@
 import copy
 import io
-import json
 import logging
 import re
 import sys
 import time
-from collections.abc import Callable, Generator, Iterator, Mapping
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack, contextmanager
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -18,7 +16,7 @@ from pymongo.database import Database
 
 from app.core.recording import actor_var
 from tests.documents import EINWILLIGUNG, rules_document
-from tests.tier import TIER_GUARD, UNMARKED_USE, expired_transaction_kills, expired_transactions_refusal
+from tests.tier import TIER_GUARD, UNMARKED_USE
 from tests.worker import guard_every_database, release_every_database, worker_database
 
 if TYPE_CHECKING:
@@ -341,99 +339,6 @@ _NO_SERVER = (
 
 _UNSTARTABLE = "the xdist controller could not start the db tier's servers, so no test needing one can run in this worker -- {reason}"
 
-# Each replica set's count as it became primary, so only the run's own expired transactions count.
-_KILLS_AT_START: dict[str, int | None] = {}
-
-# Each replica set's container, so a refusal can read when the server aborted each transaction.
-_REPLICA_SET_CONTAINERS: dict[str, Any] = {}
-
-# Each case's span, its setup's start to its teardown's end, on the clock the worker reports.
-_CASE_SPANS: dict[str, list[float]] = {}
-
-# mongod's log ids: the expired-transaction pass aborting one, the pass giving up on checking out the
-# session of one whose operation it interrupted, and any transaction's record as it ends.
-_EXPIRED_ABORT_LOG_ID = 20707
-_CHECKOUT_TIMED_OUT_LOG_ID = 11790801
-_TRANSACTION_LOG_ID = 51802
-
-# The expired-transaction pass's thread: other session kills, a step-down's among them, log a
-# timed-out checkout under the same id.
-_EXPIRY_PASS_THREAD = "abortExpiredTransactions"
-
-# The server's clock is the container's, which can sit a moment off the host's.
-_CLOCK_SLACK_S = 2.0
-
-# Set by the controller's check, printed after pytest's closing line: the refusal has no test to be reported against.
-_EXPIRED_REFUSAL: list[str] = []
-
-
-def _server_status(url: str) -> Mapping[str, Any]:
-    client = MongoClient(url)
-    try:
-        return client.admin.command("serverStatus")
-    finally:
-        client.close()
-
-
-def _expired_since_start(url: str) -> str | None:
-    """The refusal for a transaction the server aborted at its lifetime limit during this run, or `None`."""
-
-    now = expired_transaction_kills(_server_status(url))
-
-    return expired_transactions_refusal(_KILLS_AT_START.get(url), now, lambda: _named_aborts(url))
-
-
-def _running_at(moment: float) -> list[str]:
-    return sorted(case for case, (start, stop) in _CASE_SPANS.items() if start - _CLOCK_SLACK_S <= moment <= stop + _CLOCK_SLACK_S)
-
-
-def _logged_at(entry: Mapping[str, Any]) -> float:
-    return datetime.fromisoformat(entry["t"]["$date"]).timestamp()
-
-
-def _named_aborts(url: str) -> Iterator[str]:
-    """Time spent inside an operation means a case waited on it, the deadlock; time spent idle means the case that opened it went on."""
-
-    container = _REPLICA_SET_CONTAINERS.get(url)
-    if container is None:
-        return
-    stdout, _ = container.get_logs()
-    entries = [json.loads(line) for line in stdout.decode("utf-8", errors="replace").splitlines() if line.startswith("{")]
-    # The abort names the session; the transaction's own record, logged by whichever thread unwinds it, carries its times.
-    records = [
-        (entry["attr"]["parameters"]["lsid"]["id"]["$uuid"], entry["attr"]["parameters"]["txnNumber"], _logged_at(entry), entry["attr"])
-        for entry in entries
-        if entry.get("id") == _TRANSACTION_LOG_ID and "parameters" in entry.get("attr", {})
-    ]
-    named: set[tuple[str, object]] = set()
-    for entry in entries:
-        if entry.get("id") == _EXPIRED_ABORT_LOG_ID:
-            session, txn_number = entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"]
-        elif entry.get("id") == _CHECKOUT_TIMED_OUT_LOG_ID and entry.get("ctx") == _EXPIRY_PASS_THREAD:
-            # Counted under `timedOutKills`, its line naming the session alone: the record is the one the interrupted
-            # operation logged for that session as it unwound, the nearest in time.
-            session, txn_number = entry["attr"]["lsidToKill"]["id"]["$uuid"], None
-        else:
-            continue
-        aborted = _logged_at(entry)
-        candidates = [
-            (abs(at - aborted), number, attr) for lsid, number, at, attr in records if lsid == session and txn_number in (None, number)
-        ]
-        _, txn_number, record = min(candidates, key=lambda candidate: candidate[0]) if candidates else (0.0, txn_number, {})
-        # Once each: a later pass meeting the transaction still running after a timed-out kill counts it again.
-        if (session, txn_number) in named:
-            continue
-        named.add((session, txn_number))
-        active_s = record.get("timeActiveMicros", 0) / 1e6
-        inactive_s = record.get("timeInactiveMicros", 0) / 1e6
-        writes = {key: value for key, value in record.items() if key in {"ninserted", "nModified", "ndeleted"}}
-        opened = aborted - active_s - inactive_s
-        yield (
-            f"\n  aborted at {entry['t']['$date']} after {active_s + inactive_s:.1f} s open, {active_s:.1f} s of it inside an"
-            f" operation, {writes or 'no writes recorded'}:\n    running as it opened: {_running_at(opened) or 'none recorded'}"
-            f"\n    running as it was aborted: {_running_at(aborted) or 'none recorded'}"
-        )
-
 
 def _log_tail(container: DockerContainer) -> str | None:
     """`None` for a container the daemon never created, which ran nothing to log."""
@@ -508,7 +413,6 @@ def _elected(container: DockerContainer) -> str:
                 # `except Exception` misses.
                 raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
             time.sleep(0.25)
-        _KILLS_AT_START[url] = expired_transaction_kills(client.admin.command("serverStatus"))
     finally:
         client.close()
 
@@ -536,11 +440,7 @@ def _replica_set_mongod() -> Iterator[str]:
     )
 
     with _started(container, lambda: _elected(container)) as url:
-        _REPLICA_SET_CONTAINERS[url] = container
-        try:
-            yield url
-        finally:
-            _REPLICA_SET_CONTAINERS.pop(url, None)
+        yield url
 
 
 def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[AbstractContextManager[str], str]:
@@ -652,49 +552,6 @@ def pytest_configure_node(node: Any) -> None:
     node.workerinput.update(_SHARED_SERVERS or _UNSTARTED)
 
 
-@pytest.hookimpl(wrapper=True)
-def pytest_runtestloop(session: pytest.Session) -> Generator[None, object, object]:
-    """Under `-n`, after every worker's last test and while the controller still holds the servers.
-
-    A failure counted here is what pytest's own exit code reads, as `--cov-fail-under` does it.
-    """
-
-    finished = yield
-    url = _SHARED_SERVERS.get(REPLICA_SET_KEY)
-    expired = None if url is None else _expired_since_start(url)
-    if expired is not None:
-        refuse_the_run(session, expired)
-
-    return finished
-
-
-def refuse_the_run(session: pytest.Session, refusal: str) -> None:
-    """The run's failure with no test to be reported against, counted where pytest's exit code reads it."""
-    _EXPIRED_REFUSAL.append(refusal)
-    session.testsfailed += 1
-
-
-# Outermost, so it prints after pytest's own closing line: that line counts tests alone, and would
-# read "passed" over a run this refusal failed.
-@pytest.hookimpl(wrapper=True, tryfirst=True)
-def pytest_sessionfinish(session: pytest.Session) -> Generator[None, object, object]:
-    finished = yield
-    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
-    for refusal in _EXPIRED_REFUSAL:
-        if reporter is not None:
-            reporter.write_line(f"FAILED {refusal}", red=True)
-
-    return finished
-
-
-def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """Under `-n` the controller hears every worker's reports, so it holds every case's span when the check asks."""
-
-    span = _CASE_SPANS.setdefault(report.nodeid, [report.start, report.stop])
-    span[0] = min(span[0], report.start)
-    span[1] = max(span[1], report.stop)
-
-
 def pytest_unconfigure(config: pytest.Config) -> None:
     release_every_database()
     _UNSTARTED.clear()
@@ -746,11 +603,6 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
     with _replica_set_mongod() as url:
         yield url
-        # The serial run's half of the check `pytest_runtestloop` makes under `-n`: this server stops
-        # before that hook would ask it.
-        expired = _expired_since_start(url)
-        if expired is not None:
-            pytest.fail(expired, pytrace=False)
 
 
 @pytest.fixture(scope="session")
