@@ -229,8 +229,9 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The administrator's Übersicht: its four cards by the names the read serves them under, and each row's one line
-   * saying what is open there, by the kind of open work.
+   * What is open, in one set of words wherever open work is listed: the administrator's Übersicht, its four cards by
+   * the names the read serves them under and each row's one line by the kind of open work, whose words a team's
+   * Übersicht, a team's „Spiele“ and a referee's „Spiele“ take for the same work.
    */
   overview: {
     card: {
