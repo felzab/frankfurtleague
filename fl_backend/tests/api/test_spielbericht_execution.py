@@ -137,16 +137,7 @@ async def seed(database: AsyncDatabase) -> None:
             documents.saison_spieler_document(MIA, SAISON_ID, TEAM2, nummer="9"),
         ]
     )
-    await database[Collection.SPIELORTE].insert_one(
-        {
-            "_id": SPIELORT,
-            "name": "Halle Ost",
-            "address": dict(documents.ADDRESS),
-            "maps_link": "Halle Ost, Frankfurt",
-            "default_mietpreis": 40,
-            "inactive_since": None,
-        }
-    )
+    await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [referee(SCHIEDSRICHTER, "Otto Gruber", REFEREE_EMAIL), referee(ANDERER, "Ella Engel", OTHER_REFEREE_EMAIL)]
     )

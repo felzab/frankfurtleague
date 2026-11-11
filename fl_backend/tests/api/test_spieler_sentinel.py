@@ -7,11 +7,11 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
+from app.api.schiedsrichter.services import build_real_referees_filter
 from app.api.spieler.admin_router import patch_spieler_saison
 from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
-from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
+from app.api.spieler.services import build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
@@ -45,7 +45,7 @@ def on_a_league(url: str, body: Body) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=documents.rules_document()))
             await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZOX"))
             await database[Collection.SPIELER].insert_many(
-                [build_ghost_spieler(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor")]
+                [documents.ghost_spieler_document(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor")]
             )
 
             return await body(database, client)
@@ -107,7 +107,7 @@ def test_every_route_by_id_answers_not_found_for_the_sentinel_and_writes_nothing
 
     sentinel, squad_rows = on_a_league(mongo_replica_set_url, body)
 
-    assert sentinel == build_ghost_spieler()
+    assert sentinel == documents.ghost_spieler_document()
     assert squad_rows == 0
 
 
@@ -138,7 +138,7 @@ def test_the_squad_read_never_serves_a_row_naming_the_sentinel_and_still_serves_
 
 def _referees() -> list[dict[str, Any]]:
     return [
-        build_ghost_schiedsrichter(),
+        documents.ghost_schiedsrichter_document(),
         *(
             documents.schiedsrichter_document(oid, email=f"referee{n}@example.com", name=f"Referee {n}", default_payment=20, einwilligung=None)
             for n, oid in enumerate(REFEREE_OIDS)

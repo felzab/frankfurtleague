@@ -56,7 +56,15 @@ def match(
 
 
 def spieltag(spieltag_id: ObjectId, position: int, saison_phase: str = "gruppenphase") -> dict[str, Any]:
-    return {"_id": spieltag_id, "start": None, "end": None, "position": position, "saison_phase": saison_phase, "saison_id": SAISON}
+    return {
+        "_id": spieltag_id,
+        "start": None,
+        "end": None,
+        "position": position,
+        "saison_phase": saison_phase,
+        "saison_id": SAISON,
+        "version": 0,
+    }
 
 
 def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:

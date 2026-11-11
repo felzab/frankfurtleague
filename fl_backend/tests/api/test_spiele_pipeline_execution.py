@@ -17,13 +17,13 @@ from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    ADDRESS,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
     spielbestaetigung_document,
+    spielort_document,
 )
 from tests.worker import worker_database
 
@@ -123,14 +123,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def venue_document(name: str = "Sportplatz Ost") -> dict[str, Any]:
-    return {
-        "_id": VERDICT_SPIELORT_ID,
-        "name": name,
-        "address": dict(ADDRESS),
-        "maps_link": f"{name}, Frankfurt",
-        "default_mietpreis": 80,
-        "inactive_since": None,
-    }
+    return spielort_document(VERDICT_SPIELORT_ID, name)
 
 
 def on_a_spiel(url: str, spiel: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:

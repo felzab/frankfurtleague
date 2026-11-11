@@ -24,10 +24,17 @@ from bson import ObjectId
 
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
+from app.api.invitations.services import compose_invitation
+from app.api.outbox.schemas import FLBanData
+from app.api.outbox.services import OwedMail, row_of
 from app.api.registrierungen.services import compose_confirmation, compose_confirmation_update, compose_registrierung
+from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spielbestaetigungen.services import compose_ansetzung
+from app.api.spieler.services import build_ghost_spieler
+from app.api.teams.services import compose_kontakt_confirmation
 from app.core.clock import utc_stamp
-from app.core.collections import Collection
+from app.core.collections import EDITED_COLLECTIONS, Collection
+from app.core.crud import VERSION_FIELD
 from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
@@ -55,6 +62,10 @@ def _read_back(collection: Collection, document: dict[str, Any]) -> dict[str, An
 
     # The id the insert mints where the builder leaves one to it, as every stored document holds one.
     RECORD_MODELS[collection].model_validate({"_id": ObjectId(), **document}, extra="forbid")
+    # The read-back's rule beside the model, whose `version` defaults to 0 for the runtime reads: every write of an edited
+    # collection stores one.
+    if collection in EDITED_COLLECTIONS and VERSION_FIELD not in document:
+        raise ValueError(f"a {collection} document without `{VERSION_FIELD}`, which every write of it stores")
     return document
 
 
@@ -149,6 +160,7 @@ def team_document(team_id: Any, name: str, shorthand: str, **fields: Any) -> dic
             "address": dict(ADDRESS),
             "schulform": None,
             "inactive_since": None,
+            "version": 0,
             **fields,
         },
     )
@@ -323,6 +335,76 @@ def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-0
     }
 
 
+def outbox_document(key: str, *, to: str, now: datetime, **fields: Any) -> dict[str, Any]:
+    """One owed ban notice's row as the outbox stores it, its id minted here; `now` a century ahead, as the TTL index reads it."""
+
+    owed = OwedMail(key=key, to=to, data=FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127"))
+    return _read_back(Collection.OUTBOX, {"_id": ObjectId(), **row_of(owed, now=now, secret=None, valid_until=None), **fields})
+
+
+def ghost_spieler_document() -> dict[str, Any]:
+    """The pupils' sentinel as the erasure's insert stores it."""
+
+    return _read_back(Collection.SPIELER, {**build_ghost_spieler(), "version": 0})
+
+
+def ghost_schiedsrichter_document() -> dict[str, Any]:
+    """The referees' sentinel as the erasure's insert stores it."""
+
+    return _read_back(Collection.SCHIEDSRICHTER, {**build_ghost_schiedsrichter(), "version": 0})
+
+
+def invitation_document(
+    invitation_id: Any, *, saison_id: str, team_id: Any, token: str, created_at: str, sent_at: str | None = None, **fields: Any
+) -> dict[str, Any]:
+    """One registration link as its mint stores it, live and minted for copying unless `sent_at` says it was mailed."""
+
+    return _read_back(
+        Collection.INVITATIONS,
+        {
+            "_id": invitation_id,
+            **compose_invitation(saison_id=saison_id, team_id=team_id, token_hashes=[hash_token(token)], today=created_at, sent_at=sent_at),
+            **fields,
+        },
+    )
+
+
+def spieltag_document(spieltag_id: Any, saison_id: str, position: int, **fields: Any) -> dict[str, Any]:
+    """One matchday as the draw inserts it: of the group phase and undated."""
+
+    return _read_back(
+        Collection.SPIELTAGE,
+        {
+            "_id": spieltag_id,
+            "start": None,
+            "end": None,
+            "position": position,
+            "saison_phase": "gruppenphase",
+            "saison_id": saison_id,
+            "version": 0,
+            **fields,
+        },
+    )
+
+
+def spielort_document(spielort_id: Any, name: str, *, default_mietpreis: int = 80, **fields: Any) -> dict[str, Any]:
+    """One venue as its create stores it, live, searched for by its name in Frankfurt."""
+
+    return _read_back(
+        Collection.SPIELORTE,
+        {
+            "_id": spielort_id,
+            "name": name,
+            "address": dict(ADDRESS),
+            "maps_link": f"{name}, Frankfurt",
+            "default_mietpreis": default_mietpreis,
+            "inactive_since": None,
+            "version": 0,
+            **fields,
+        },
+    )
+
+
 def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **fields: Any) -> dict[str, Any]:
     """A person as their admission writes them, the record and the date their registration carried."""
 
@@ -336,6 +418,7 @@ def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **
             "email": f"{spieler_id}@schule.example".lower(),
             "birth_date": "2009-05-04",
             "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
+            "version": 0,
             **fields,
         },
     )
@@ -358,6 +441,12 @@ def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, 
     """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
     return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_confirmations(today=today).items()}
+
+
+def row_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+    """A season row's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
+
+    return {seat: {**compose_kontakt_confirmation(today=today), "token_hashes": [hashes[seat]]} for seat in KONTAKT_ROLLEN}
 
 
 def bewerbung_document(
@@ -592,6 +681,7 @@ def schiedsrichter_document(
             "inactive_since": None,
             "birth_date": None,
             "einwilligung": None if einwilligung is None else dict(einwilligung),
+            "version": 0,
             **fields,
         },
     )

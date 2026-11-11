@@ -155,43 +155,43 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
 
     client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.GRANTS].insert_many(grants_for_the_suite())
-        database[Collection.SAISONS].insert_many([documents.saison_document(OTHER_SAISON, "past"), documents.saison_document(SAISON, "active")])
-        database[Collection.TEAMS].insert_many(
-            [
-                documents.team_document(HOME, "Lessing", "LES"),
-                documents.team_document(AWAY, "Goethe", "GOE"),
-                documents.team_document(PICKED, "Schiller", "SCH"),
-            ]
-        )
-        database[Collection.SAISON_TEAMS].insert_many(
-            [
-                documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
-                for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
-            ]
-        )
-        database[Collection.SPIELORTE].insert_one(
-            {"_id": SPIELORT, "name": "Halle Ost", "maps_link": "Halle Ost, Frankfurt", "default_mietpreis": 40, "inactive_since": None}
-        )
-        database[Collection.SCHIEDSRICHTER].insert_one(
-            documents.schiedsrichter_document(
-                SCHIEDSRICHTER, email="anna.koerner@example.com", name="Anna Körner", default_payment=20, einwilligung=None
+        with a_clean_database_sync(client, mongo_replica_set_url, database_name) as database:
+            database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            database[Collection.SAISONS].insert_many(
+                [documents.saison_document(OTHER_SAISON, "past"), documents.saison_document(SAISON, "active")]
             )
-        )
-        database[Collection.SPIELE].insert_many(list(SPIELE.values()))
-        database[Collection.SPIELBESTAETIGUNGEN].insert_many(ROWS)
-        database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
-        database[Collection.BEWERBUNGEN].insert_many(
-            [
-                application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
-                application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
-                application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
-            ]
-        )
+            database[Collection.TEAMS].insert_many(
+                [
+                    documents.team_document(HOME, "Lessing", "LES"),
+                    documents.team_document(AWAY, "Goethe", "GOE"),
+                    documents.team_document(PICKED, "Schiller", "SCH"),
+                ]
+            )
+            database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
+                    for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
+                ]
+            )
+            database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
+            database[Collection.SCHIEDSRICHTER].insert_one(
+                documents.schiedsrichter_document(
+                    SCHIEDSRICHTER, email="anna.koerner@example.com", name="Anna Körner", default_payment=20, einwilligung=None
+                )
+            )
+            database[Collection.SPIELE].insert_many(list(SPIELE.values()))
+            database[Collection.SPIELBESTAETIGUNGEN].insert_many(ROWS)
+            database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
+            database[Collection.BEWERBUNGEN].insert_many(
+                [
+                    application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
+                    application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
+                    application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
+                ]
+            )
 
-        with unwritten(mongo_replica_set_url, database_name):
-            yield mongo_replica_set_url
+            with unwritten(mongo_replica_set_url, database_name):
+                yield mongo_replica_set_url
     finally:
         client.close()
 

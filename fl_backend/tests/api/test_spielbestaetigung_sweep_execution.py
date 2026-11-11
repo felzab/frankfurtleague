@@ -196,6 +196,7 @@ def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]], junctions
                         "position": 1,
                         "saison_id": SAISON_ID,
                         "saison_phase": "gruppenphase",
+                        "version": 0,
                     },
                     {
                         "_id": PAST_SPIELTAG,
@@ -204,19 +205,11 @@ def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]], junctions
                         "position": 1,
                         "saison_id": PAST_SAISON_ID,
                         "saison_phase": "gruppenphase",
+                        "version": 0,
                     },
                 ]
             )
-            await database[Collection.SPIELORTE].insert_one(
-                {
-                    "_id": SPIELORT,
-                    "name": "Sportpark",
-                    "address": dict(documents.ADDRESS),
-                    "maps_link": "Sportpark, Frankfurt",
-                    "default_mietpreis": 80,
-                    "inactive_since": None,
-                }
-            )
+            await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportpark"))
             await database[Collection.SCHIEDSRICHTER].insert_many(
                 [referee(SCHIEDSRICHTER, REFEREE_EMAIL, "Pfiff"), referee(OTHER_SCHIEDSRICHTER, OTHER_REFEREE_EMAIL, "Flagge")]
             )

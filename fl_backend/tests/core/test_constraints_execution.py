@@ -30,11 +30,13 @@ from tests.documents import (
     bericht_document,
     kontaktperson_document,
     minted_confirmations,
+    outbox_document,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
     spieler_document,
 )
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -104,6 +106,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
             "bewerbung": None,
             "registrierung": None,
+            "version": 0,
         },
         "teams": {
             "_id": TEAM_OID,
@@ -115,6 +118,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": dict(ADDRESS),
             "schulform": None,
             "inactive_since": None,
+            "version": 0,
         },
         # `name` and `shorthand` are the season's own copy of the club's identity, required since the
         # junction became their home; a row without them is unreadable rather than merely stale.
@@ -127,6 +131,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "kontakte": None,
             "name": "Lessing",
             "shorthand": "LEX",
+            "version": 0,
         },
         "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
@@ -139,6 +144,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "position": "Angriff",
             "nummer": "10",
             "inactive_since": None,
+            "version": 0,
         },
         "spiele": {
             "team1": {"team_id": TEAM_OID, "tore": 2},
@@ -156,6 +162,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "sonderereignis": None,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
+            "version": 0,
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
@@ -165,6 +172,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "position": 1,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
+            "version": 0,
         },
         "spielorte": {
             "_id": SPIELORT_OID,
@@ -173,6 +181,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "maps_link": "Sportplatz Ost, Frankfurt",
             "default_mietpreis": 80,
             "inactive_since": None,
+            "version": 0,
         },
         "schiedsrichter": {
             "_id": SCHIEDSRICHTER_OID,
@@ -181,6 +190,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"phone": None, "email": None},
             "inactive_since": None,
+            "version": 0,
         },
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
         # one carries a value, a write-path rule.
@@ -193,7 +203,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "schule": {
                 "team_name": "Lessing",
                 "full_name": "Lessing-Gymnasium",
-                "shorthand": "LEX",
                 "schulform": "gymnasium_g9",
                 "address": dict(ADDRESS),
                 "website_url": "https://lessing-gymnasium.example.de",
@@ -213,6 +222,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "confirmations": minted_confirmations(
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
+            "version": 0,
         },
         "action_log": {
             "_id": ACTION_LOG_ENTRY_OID,
@@ -241,6 +251,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "created_at": "2026-03-15",
             "revoked_at": None,
+            "sent_at": None,
         },
         # Every key the submission writes, `birth_date`, `einwilligung` and `decision`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -363,7 +374,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # whose second row carried a revocation date would pass while the filter matched anything.
     "uniq_invitation_live": (
         valid_documents()["invitations"],
-        valid_document("invitations", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
+        valid_document("invitations", _id=TEAM_OID, token_hashes=["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"]),
     ),
     # Both rows keyed alike: the index refuses on the key alone, and a pair carrying no key at all would pass while
     # the partial filter matched nothing.
@@ -405,12 +416,18 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
     "uniq_address_change_address": (
         valid_documents()["address_changes"],
-        valid_document("address_changes", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
+        {
+            "_id": TEAM_OID,
+            **address_change_document(address="alt@example.invalid", email="zweite@example.invalid", token_hash="b" * 64, day="2026-03-16"),
+        },
     ),
     # A second owner at another address: a Playground paste is the one writer that could make one, and it would hold the
     # role beside the first with nothing in the application able to take it away again.
     "uniq_grant_owner": (valid_documents()["grants"], valid_document("grants", _id=TEAM_OID, address="zweite@example.invalid")),
-    "uniq_outbox_key": ({"_id": ObjectId(), "key": "ban/1"}, {"_id": ObjectId(), "key": "ban/1"}),
+    "uniq_outbox_key": (
+        outbox_document("ban/1", to="gesperrt@example.invalid", now=MAIL_NOW),
+        outbox_document("ban/1", to="gesperrt@example.invalid", now=MAIL_NOW),
+    ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
@@ -446,7 +463,9 @@ def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
 
     async def body(database: AsyncDatabase) -> int:
         await database.address_changes.insert_one(valid_document("address_changes", **ended))
-        await database.address_changes.insert_one(valid_document("address_changes", _id=TEAM_OID, stop_hash="c" * 64, **ended))
+        await database.address_changes.insert_one(
+            valid_document("address_changes", _id=TEAM_OID, stop={"token_hashes": [hash_token("stop-c")]}, **ended)
+        )
         return await database.address_changes.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2

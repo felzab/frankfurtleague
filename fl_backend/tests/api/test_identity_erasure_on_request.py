@@ -22,7 +22,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureResponse
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -31,6 +30,7 @@ from app.core.db import collection_dependency
 from app.core.recording import actor_var
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
+from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -483,7 +483,7 @@ class TestRowsNoMailboxNames:
         """The referee step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ghost = build_ghost_schiedsrichter()
+            ghost = documents.ghost_schiedsrichter_document()
             await database[Collection.SCHIEDSRICHTER].insert_one({**ghost, "kontakt": {**ghost["kontakt"], "email": SENTINEL_ADDRESS}})
             view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(SENTINEL_ADDRESS))
             erasure = await posted(mongo_replica_set_url, PATH, erasure_of(SENTINEL_ADDRESS))

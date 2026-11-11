@@ -161,18 +161,17 @@ def on_a_spiel(url: str, body: Body, *, rows: list[dict[str, Any]] | None = None
                 await database[Collection.TEAMS].insert_one(documents.team_document(team_id, name, shorthand))
                 await database[Collection.SAISON_TEAMS].insert_one(junction(team_id))
             await database[Collection.SPIELTAGE].insert_one(
-                {"_id": SPIELTAG, "start": SPAN[0], "end": SPAN[1], "position": 1, "saison_id": SAISON_ID, "saison_phase": "gruppenphase"}
-            )
-            await database[Collection.SPIELORTE].insert_one(
                 {
-                    "_id": SPIELORT,
-                    "name": "Halle Ost",
-                    "address": dict(documents.ADDRESS),
-                    "maps_link": "Halle Ost, Frankfurt",
-                    "default_mietpreis": 40,
-                    "inactive_since": None,
+                    "_id": SPIELTAG,
+                    "start": SPAN[0],
+                    "end": SPAN[1],
+                    "position": 1,
+                    "saison_id": SAISON_ID,
+                    "saison_phase": "gruppenphase",
+                    "version": 0,
                 }
             )
+            await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
             await database[Collection.SCHIEDSRICHTER].insert_one(
                 documents.schiedsrichter_document(SCHIEDSRICHTER, email="otto@example.com", name=REFEREE, default_payment=20, einwilligung=None)
             )

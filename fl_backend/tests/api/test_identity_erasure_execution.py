@@ -31,7 +31,6 @@ from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_decline_update
 from app.api.spieler.crud import erase_person_in_session
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -780,7 +779,7 @@ class TestTheSentinelIsNobodyToErase:
         """Catches the step keying its removals on the bare id: the sentinel would go, and every reference repointed at it dangle."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
 
             async def erase(session: Any) -> Any:
                 return await erase_person_in_session(

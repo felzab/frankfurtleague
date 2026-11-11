@@ -16,6 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
+from app.api.registrierungen.services import compose_confirmation_update
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -23,7 +24,6 @@ from app.core.exceptions import APIError
 from app.main import create_app
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
-from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, build_test_config
@@ -45,6 +45,12 @@ SAISON_ID = "2026"
 # A century ahead of the real clock, every seeded day with it: the TTL monitor deletes a row whose delete date has passed,
 # under a case reading it back.
 TODAY = "2126-04-01"
+# A pupil's answer to their link, as the confirmation writes it.
+ANSWERED = compose_confirmation_update(
+    **documents.registrierung_confirmed(
+        birth_date="2009-05-04", today=TODAY, at=documents.confirmed_instant(TODAY), scope="kader_public", media=False
+    )
+)
 # Every season's start unless a case says so: after `TODAY`, so an entry made today is an ordinary one.
 AFTER_TODAY = "2126-04-20"
 # `TODAY` as the wire's clock reads it, so a request over the wire is judged on the day a direct call is.
@@ -93,14 +99,9 @@ def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
 def invitation_document(
     invitation_id: ObjectId, team_id: ObjectId, token: str, *, revoked_at: str | None = None, saison_id: str = SAISON_ID
 ) -> dict[str, Any]:
-    return {
-        "_id": invitation_id,
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "token_hashes": [hash_token(token)],
-        "created_at": "2126-03-15",
-        "revoked_at": revoked_at,
-    }
+    return documents.invitation_document(
+        invitation_id, saison_id=saison_id, team_id=team_id, token=token, created_at="2126-03-15", revoked_at=revoked_at
+    )
 
 
 def payload(**overrides: Any) -> dict[str, Any]:
@@ -548,7 +549,7 @@ class TestAMailboxPastTheBound:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             for _ in range(OPEN_LINKS_PER_MAILBOX):
                 await register(database, client)
-            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}})
+            await database[Collection.REGISTRIERUNGEN].update_one({}, ANSWERED)
             await register(database, client)
 
             return (await rows_of(database))[-1]["confirmation"]["sent_at"]
@@ -606,9 +607,7 @@ class TestAMailboxPastTheBound:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             for _ in range(2 * OPEN_LINKS_PER_MAILBOX):
                 await register(database, client)
-            await database[Collection.REGISTRIERUNGEN].update_many(
-                {"confirmation.sent_at": TODAY}, {"$set": {"einwilligung": {"confirmed_at": TODAY}}}
-            )
+            await database[Collection.REGISTRIERUNGEN].update_many({"confirmation.sent_at": TODAY}, ANSWERED)
             await register(database, client)
 
             return (await rows_of(database))[-1]["confirmation"]["sent_at"]

@@ -112,9 +112,7 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
             for team_id, name, shorthand in ((TEAM1, "Adler", "ADX"), (TEAM2, "Biber", "BIX"))
         ]
     )
-    await database[Collection.SPIELORTE].insert_one(
-        {"_id": SPIELORT, "name": "Halle Ost", "address": dict(documents.ADDRESS), "maps_link": "Halle Ost, Frankfurt", "inactive_since": None}
-    )
+    await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost"))
     consent = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2027-04-01")
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [

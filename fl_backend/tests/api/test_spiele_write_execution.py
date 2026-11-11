@@ -134,6 +134,7 @@ def spieltag_documents() -> list[dict[str, Any]]:
             "position": 1,
             "saison_id": SAISON_ID,
             "saison_phase": saison_phase,
+            "version": 0,
         }
         for spieltag_id, (saison_phase, start, end) in SPIELTAGE.items()
     ]
@@ -353,14 +354,7 @@ def venue_documents() -> list[dict[str, Any]]:
     """
 
     return [
-        {
-            "_id": spielort_id,
-            "name": name,
-            "address": dict(documents.ADDRESS),
-            "maps_link": f"{name}, Frankfurt",
-            "default_mietpreis": DEFAULT_MIETPREIS,
-            "inactive_since": inactive_since,
-        }
+        documents.spielort_document(spielort_id, name, default_mietpreis=DEFAULT_MIETPREIS, inactive_since=inactive_since)
         for spielort_id, (name, inactive_since) in VENUES.items()
     ]
 
@@ -380,6 +374,7 @@ def referee_documents() -> list[dict[str, Any]]:
                 if schiedsrichter_id in (SCHIEDSRICHTER_UNCONFIRMED, GHOST_SCHIEDSRICHTER_ID)
                 else documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20")
             ),
+            "version": 0,
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]

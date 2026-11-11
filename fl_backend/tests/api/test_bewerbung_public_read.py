@@ -129,41 +129,40 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
 
     client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
+        with a_clean_database_sync(client, mongo_url, CORPUS_DATABASE) as database:
+            database[Collection.SAISONS].insert_many(
+                [
+                    _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
+                    _saison(SHUT_SAISON, bewerbung={"open": True, "start": "2025-03-01", "end": "2025-04-30"}),
+                    # A span that has not begun: the opening date is what rules it out.
+                    _saison(NOT_YET_OPEN_SAISON, bewerbung={"open": True, "start": "2026-09-01", "end": "2026-10-31"}),
+                    # A span already over: the closing date is what rules it out.
+                    _saison(ALREADY_CLOSED_SAISON, bewerbung={"open": True, "start": "2026-01-01", "end": "2026-02-28"}),
+                    _saison(PAUSED_SAISON, bewerbung={**RUNNING_WINDOW, "open": False}),
+                    # No key at all, as every season stored before the field existed carries none.
+                    _saison(WINDOWLESS_SAISON, bewerbung=None),
+                ]
+            )
+            database[Collection.TEAMS].insert_many(
+                [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
+            )
+            database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    _junction(OPEN_SAISON, *CLUBS[0], trikot_farbe="rot"),
+                    _junction(OPEN_SAISON, *CLUBS[1], trikot_farbe="blau"),
+                    # No colour assigned: `distinct` yields the null this row holds, and the answer must
+                    # not carry it.
+                    _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
+                    # A club that LEFT the season, still holding its colour: the assignment stands until
+                    # an administrator clears it, which is the set the admin sees too.
+                    _junction(OPEN_SAISON, *RETIRED_CLUB, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
+                    # Another season's assignment, so an answer dropping the season term serves it too.
+                    _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
+                ]
+            )
 
-        database[Collection.SAISONS].insert_many(
-            [
-                _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
-                _saison(SHUT_SAISON, bewerbung={"open": True, "start": "2025-03-01", "end": "2025-04-30"}),
-                # A span that has not begun: the opening date is what rules it out.
-                _saison(NOT_YET_OPEN_SAISON, bewerbung={"open": True, "start": "2026-09-01", "end": "2026-10-31"}),
-                # A span already over: the closing date is what rules it out.
-                _saison(ALREADY_CLOSED_SAISON, bewerbung={"open": True, "start": "2026-01-01", "end": "2026-02-28"}),
-                _saison(PAUSED_SAISON, bewerbung={**RUNNING_WINDOW, "open": False}),
-                # No key at all, as every season stored before the field existed carries none.
-                _saison(WINDOWLESS_SAISON, bewerbung=None),
-            ]
-        )
-        database[Collection.TEAMS].insert_many(
-            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
-        )
-        database[Collection.SAISON_TEAMS].insert_many(
-            [
-                _junction(OPEN_SAISON, *CLUBS[0], trikot_farbe="rot"),
-                _junction(OPEN_SAISON, *CLUBS[1], trikot_farbe="blau"),
-                # No colour assigned: `distinct` yields the null this row holds, and the answer must
-                # not carry it.
-                _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
-                # A club that LEFT the season, still holding its colour: the assignment stands until
-                # an administrator clears it, which is the set the admin sees too.
-                _junction(OPEN_SAISON, *RETIRED_CLUB, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
-                # Another season's assignment, so an answer dropping the season term serves it too.
-                _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
-            ]
-        )
-
-        with unwritten(mongo_url, CORPUS_DATABASE):
-            yield mongo_url
+            with unwritten(mongo_url, CORPUS_DATABASE):
+                yield mongo_url
     finally:
         client.close()
 
@@ -185,12 +184,12 @@ def seeded_with(mongo_url: str, saisons: list[dict[str, Any]]) -> str:
     name = WINDOW_DATABASE
     client = MongoClient(mongo_url)
     try:
-        database = a_clean_database_sync(client, mongo_url, name, constraints=True)
-        database[Collection.SAISONS].insert_many(saisons)
+        with a_clean_database_sync(client, mongo_url, name, constraints=True) as database:
+            database[Collection.SAISONS].insert_many(saisons)
 
-        # The name rather than the url handed in: what a caller pairs with `answered` is the database
-        # this seeded, and a pairing it has to assemble is one it can get wrong.
-        return name
+            # The name rather than the url handed in: what a caller pairs with `answered` is the database
+            # this seeded, and a pairing it has to assemble is one it can get wrong.
+            return name
     finally:
         client.close()
 

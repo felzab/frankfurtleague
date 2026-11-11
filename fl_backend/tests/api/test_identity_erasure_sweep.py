@@ -29,7 +29,6 @@ from app.api.identity.schemas import FLErasureSweepParams
 from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
 from app.api.registrierungen.services import compose_decline_update
 from app.api.saisons.admin_router import activate_saison
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -42,6 +41,8 @@ from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     aufstellung_document,
+    ghost_schiedsrichter_document,
+    ghost_spieler_document,
     kontakte_document,
     kontaktperson_document,
     registrierung_document,
@@ -159,8 +160,8 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
             await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
-            await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
+            await database[Collection.SPIELER].insert_one(ghost_spieler_document())
+            await database[Collection.SCHIEDSRICHTER].insert_one(ghost_schiedsrichter_document())
 
             return await body(database, client)
 
@@ -311,7 +312,7 @@ class TestThePopulation:
 
         assert named == []
         assert answer["spieler"] == 0
-        assert ghost == build_ghost_spieler()
+        assert ghost == ghost_spieler_document()
 
 
 # --- The run.

@@ -94,14 +94,7 @@ def junction_rows() -> list[dict[str, Any]]:
 
 
 def spielort_row(spielort_id: ObjectId, name: str, *, inactive_since: str | None) -> dict[str, Any]:
-    return {
-        "_id": spielort_id,
-        "name": name,
-        "address": dict(documents.ADDRESS),
-        "maps_link": f"{name}, Frankfurt",
-        "default_mietpreis": 70,
-        "inactive_since": inactive_since,
-    }
+    return documents.spielort_document(spielort_id, name, default_mietpreis=70, inactive_since=inactive_since)
 
 
 def schiedsrichter_rows() -> list[dict[str, Any]]:
@@ -241,33 +234,33 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
 
     client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_replica_set_url, database_name)
-        database[Collection.GRANTS].insert_many(grants_for_the_suite())
-        # Finished, the one status that closes the editor, so the served status is this row's and no default's; a later
-        # season stored ahead of it, so a status read off whichever season comes first shows.
-        database[Collection.SAISONS].insert_many(
-            [documents.saison_document(LATER_SAISON_ID, "future"), documents.saison_document(SAISON_ID, "past")]
-        )
-        database[Collection.SPIELE].insert_one(spiel_document())
-        spiele = other_spiele()
-        database[Collection.SPIELE].insert_many(spiele)
-        database[Collection.SPIELBERICHTE].insert_many(spielberichte_rows(spiele))
-        database[Collection.SPIELBESTAETIGUNGEN].insert_many(spielbestaetigungen_rows(spiele))
-        spieler, kader = kader_rows()
-        database[Collection.SPIELER].insert_many(spieler)
-        database[Collection.SAISON_SPIELER].insert_many(kader)
-        database[Collection.SAISON_TEAMS].insert_many(junction_rows())
-        database[Collection.SPIELORTE].insert_many(
-            [
-                spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
-                spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
-                spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
-            ]
-        )
-        database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
+        with a_clean_database_sync(client, mongo_replica_set_url, database_name) as database:
+            database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            # Finished, the one status that closes the editor, so the served status is this row's and no default's; a later
+            # season stored ahead of it, so a status read off whichever season comes first shows.
+            database[Collection.SAISONS].insert_many(
+                [documents.saison_document(LATER_SAISON_ID, "future"), documents.saison_document(SAISON_ID, "past")]
+            )
+            database[Collection.SPIELE].insert_one(spiel_document())
+            spiele = other_spiele()
+            database[Collection.SPIELE].insert_many(spiele)
+            database[Collection.SPIELBERICHTE].insert_many(spielberichte_rows(spiele))
+            database[Collection.SPIELBESTAETIGUNGEN].insert_many(spielbestaetigungen_rows(spiele))
+            spieler, kader = kader_rows()
+            database[Collection.SPIELER].insert_many(spieler)
+            database[Collection.SAISON_SPIELER].insert_many(kader)
+            database[Collection.SAISON_TEAMS].insert_many(junction_rows())
+            database[Collection.SPIELORTE].insert_many(
+                [
+                    spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
+                    spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
+                    spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
+                ]
+            )
+            database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
 
-        with unwritten(mongo_replica_set_url, database_name):
-            yield mongo_replica_set_url
+            with unwritten(mongo_replica_set_url, database_name):
+                yield mongo_replica_set_url
     finally:
         client.close()
 

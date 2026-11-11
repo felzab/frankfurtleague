@@ -151,7 +151,12 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     """One person per row of the table, each holding a name and a live squad row in one team's season; one referee per row, booked."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(
+            mongo_url,
+            DATABASE_NAME,
+            constraints=False,
+            stores_a_refused_shape="consent records of every shape the mirror tables judge, ones no model reads among them",
+        ) as (_, database):
             # Each case's record laid over the builder's own: the table holds records no model reads, a missing one among them.
             await database.spieler.insert_many(
                 [{**spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME), "einwilligung": case.einwilligung} for case in NAME_IS_PUBLIC]

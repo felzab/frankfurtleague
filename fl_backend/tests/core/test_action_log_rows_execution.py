@@ -20,7 +20,14 @@ from app.core.collections import Collection
 from app.core.recording import ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, actor_var, record_act
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, schiedsrichter_document, team_document
+from tests.documents import (
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spielort_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -216,7 +223,7 @@ RETIRE_AND_REVIVE = {
         acts=("team.retired", "team.reactivated"),
     ),
     "spielort": RetireAndRevive(
-        seeds={Collection.SPIELORTE: [{"_id": SPIELORT_OID, "name": "Halle", "inactive_since": None}]},
+        seeds={Collection.SPIELORTE: [spielort_document(SPIELORT_OID, "Halle")]},
         retire=_retire_venue,
         revive=_revive_venue,
         acts=("spielort.retired", "spielort.reactivated"),

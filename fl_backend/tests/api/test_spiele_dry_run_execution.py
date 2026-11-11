@@ -109,54 +109,53 @@ def seeded_url(mongo_replica_set_url: str) -> str:
 
     client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)
-        database[Collection.GRANTS].insert_many(grants_for_the_suite())
-        rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
-        database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=rules))
-        database[Collection.TEAMS].insert_many([documents.team_document(team_id, *names) for team_id, names in NAMES.items()])
-        database[Collection.SAISON_TEAMS].insert_many(
-            [documents.saison_team_document(SAISON_ID, team_id, *names, gruppe="A") for team_id, names in NAMES.items()]
-        )
-        # Position 1 in each: the two sit in different phases, where the positions restart.
-        database[Collection.SPIELTAGE].insert_many(
-            [
-                {"_id": spieltag_id, "start": tag, "end": tag, "position": 1, "saison_id": SAISON_ID, "saison_phase": saison_phase}
-                for spieltag_id, saison_phase, tag in (
-                    (SPIELTAG_VIERTELFINALE, "viertelfinale", "2026-05-01"),
-                    (SPIELTAG_HALBFINALE, "halbfinale", "2026-05-08"),
+        with a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME) as database:
+            database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
+            database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=rules))
+            database[Collection.TEAMS].insert_many([documents.team_document(team_id, *names) for team_id, names in NAMES.items()])
+            database[Collection.SAISON_TEAMS].insert_many(
+                [documents.saison_team_document(SAISON_ID, team_id, *names, gruppe="A") for team_id, names in NAMES.items()]
+            )
+            # Position 1 in each: the two sit in different phases, where the positions restart.
+            database[Collection.SPIELTAGE].insert_many(
+                [
+                    {
+                        "_id": spieltag_id,
+                        "start": tag,
+                        "end": tag,
+                        "position": 1,
+                        "saison_id": SAISON_ID,
+                        "saison_phase": saison_phase,
+                        "version": 0,
+                    }
+                    for spieltag_id, saison_phase, tag in (
+                        (SPIELTAG_VIERTELFINALE, "viertelfinale", "2026-05-01"),
+                        (SPIELTAG_HALBFINALE, "halbfinale", "2026-05-08"),
+                    )
+                ]
+            )
+            database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportplatz Ost", default_mietpreis=65))
+            database[Collection.SCHIEDSRICHTER].insert_one(
+                documents.schiedsrichter_document(
+                    SCHIEDSRICHTER,
+                    email="ada.kern@example.com",
+                    name="Ada Kern",
+                    default_payment=15,
+                    einwilligung=documents.own_einwilligung_document(
+                        text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20"
+                    ),
                 )
-            ]
-        )
-        database[Collection.SPIELORTE].insert_one(
-            {
-                "_id": SPIELORT,
-                "name": "Sportplatz Ost",
-                "address": dict(documents.ADDRESS),
-                "maps_link": "Sportplatz Ost, Frankfurt",
-                "default_mietpreis": 65,
-                "inactive_since": None,
-            }
-        )
-        database[Collection.SCHIEDSRICHTER].insert_one(
-            documents.schiedsrichter_document(
-                SCHIEDSRICHTER,
-                email="ada.kern@example.com",
-                name="Ada Kern",
-                default_payment=15,
-                einwilligung=documents.own_einwilligung_document(
-                    text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20"
-                ),
             )
-        )
-        spiele = bracket()
-        database[Collection.SPIELE].insert_many(spiele)
-        database[Collection.SPIELBERICHTE].insert_one(
-            documents.spielbericht_document(
-                spiele[0], bericht=documents.bericht_document(sides=documents.spielbericht_sides(spiele[0])), version=BERICHT_VERSION
+            spiele = bracket()
+            database[Collection.SPIELE].insert_many(spiele)
+            database[Collection.SPIELBERICHTE].insert_one(
+                documents.spielbericht_document(
+                    spiele[0], bericht=documents.bericht_document(sides=documents.spielbericht_sides(spiele[0])), version=BERICHT_VERSION
+                )
             )
-        )
 
-        return mongo_replica_set_url
+            return mongo_replica_set_url
     finally:
         client.close()
 

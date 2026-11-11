@@ -45,7 +45,9 @@ async def _seasons(database: AsyncDatabase) -> list[tuple[str, str]]:
 
 def _on(url: str, stored: list[tuple[str, str]], body: Any, **fields: Any) -> Any:
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        # A row whose id is longer than a year is a hand edit the read-back refuses, stored so the create is seen to step past it.
+        refused = None if all(len(saison_id) == 4 for saison_id, _ in stored) else "a season row whose id is longer than a year"
+        async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=refused) as (_, database):
             for saison_id, status in stored:
                 # A row whose id is no year is a hand edit no record model reads, laid over a season's own: it still carries
                 # real days, so the list reads it as it reads any season.

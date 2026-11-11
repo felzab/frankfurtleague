@@ -201,6 +201,9 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     )
 
 
+# Why a case stores seats the read-back refuses: the near misses a pattern must not reach are spellings no fold holds.
+UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure's pattern must miss"
+
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 # The counts and both collections keyed by `_id`: what most cases below read.
@@ -247,14 +250,17 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
     )
 
 
-def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+def on_a_league(url: str, body: Body, *, mutates_schema: bool = False, stores_a_refused_shape: str | None = None) -> Any:
     """The shipped support indexes, so a namespace a transaction cannot create is there.
 
-    `mutates_schema=True` where the body plants a validator of its own to make one write fail.
+    `mutates_schema=True` where the body plants a validator of its own to make one write fail, and `stores_a_refused_shape`
+    where it stores an address no fold holds.
     """
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(
+            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+        ) as (client, database):
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     saison_team_document(ROW_A_EARLIER_OID, EARLIER_SAISON, TEAM_A_OID),
@@ -396,7 +402,7 @@ def after_erase_the_near_misses(url: str) -> tuple[FLErasureResponse, dict[Any, 
 
         return response, await stored_rows(database)
 
-    return on_a_league(url, body)
+    return on_a_league(url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
 
 
 def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
@@ -680,7 +686,7 @@ def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fol
 
         return read
 
-    read = on_a_league(mongo_replica_set_url, body)
+    read = on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
     parted: dict[str, Any] = {}
     for identifier in SERVER_IDENTIFIERS:
         pattern = same_address(identifier)

@@ -1,11 +1,10 @@
 """
 API · every read the application mounts answers a whole league in each season phase that changes what a read serves
 
-A read whose pipeline stops fitting its response model answers 500 to every caller and fails no static check, and no
-case per read is kept to see it. This case asks each GET route `app.routes` mounts, signed in as its guard requires,
-against one league seeded three times: before its start with its opening match's sides set, running with its
-semi-finals drawn and fielded, and decided. A route added later is asked without a case of its own, and a path or a
-query parameter no seed value names fails here until one does.
+A read whose pipeline stops fitting its response model answers 500 to every caller and fails no static check. This case
+asks each GET route `app.routes` mounts, signed in as its guard requires, against one league seeded three times: before
+its start with its opening match's sides set, running with its semi-finals drawn and fielded, and decided. A route added
+later is asked without a case of its own, and a path or a query parameter no seed value names fails here until one does.
 """
 
 import asyncio
@@ -30,7 +29,6 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system, verify_admin_actor, verify_person_actor
 from app.main import create_app
-from app.readback import RECORD_MODELS
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config, grants_for_the_suite
@@ -83,11 +81,7 @@ def _drawn() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     ]
     plan = draw_spielplan(saison_id=SAISON, rules=FLSaisonRules.model_validate(RULES), entered=entered)
 
-    def stored(collection: Collection, document: dict[str, Any]) -> dict[str, Any]:
-        RECORD_MODELS[collection].model_validate(document, extra="forbid")
-        return document
-
-    spieltage = [stored(Collection.SPIELTAGE, {**spieltag, "version": 0}) for spieltag in plan.spieltage]
+    spieltage = [documents.spieltag_document(spieltag.pop("_id"), **spieltag) for spieltag in map(dict, plan.spieltage)]
     spiele = [{**spiel, "version": 0} for spiel in plan.spiele]
     return spieltage, spiele
 
@@ -189,7 +183,7 @@ PHASES = {phase.name: phase for phase in (_before_start(), _running(), _decided(
 
 
 def _seed(database: Any, phase: Phase) -> None:
-    (own_club, own_name, own_shorthand), (squad_club, _, _), *_ = CLUBS
+    (own_club, _, _), (squad_club, _, _), *_ = CLUBS
     featured = phase.featured
 
     database[Collection.GRANTS].insert_many(grants_for_the_suite())
@@ -216,16 +210,7 @@ def _seed(database: Any, phase: Phase) -> None:
     )
     database[Collection.SPIELTAGE].insert_many(phase.spieltage)
     database[Collection.SPIELE].insert_many([documents.spiel_document(spiel_id=spiel.pop("_id"), **spiel) for spiel in map(dict, phase.spiele)])
-    database[Collection.SPIELORTE].insert_one(
-        {
-            "_id": SPIELORT,
-            "name": "Halle Ost",
-            "address": dict(documents.ADDRESS),
-            "maps_link": "Halle Ost, Frankfurt",
-            "default_mietpreis": 40,
-            "inactive_since": None,
-        }
-    )
+    database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     database[Collection.SCHIEDSRICHTER].insert_many(
         [
             documents.schiedsrichter_document(
@@ -355,9 +340,10 @@ def league(request: pytest.FixtureRequest, mongo_replica_set_url: str) -> Iterat
     database_name = build_test_config().db_base_name
     client = MongoClient(mongo_replica_set_url)
     try:
-        _seed(a_clean_database_sync(client, mongo_replica_set_url, database_name), phase)
-        with unwritten(mongo_replica_set_url, database_name):
-            yield phase
+        with a_clean_database_sync(client, mongo_replica_set_url, database_name) as database:
+            _seed(database, phase)
+            with unwritten(mongo_replica_set_url, database_name):
+                yield phase
     finally:
         client.close()
 

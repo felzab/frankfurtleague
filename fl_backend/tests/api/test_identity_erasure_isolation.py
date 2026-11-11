@@ -97,6 +97,7 @@ async def a_league(database: AsyncDatabase) -> None:
             "token_hashes": [hash_token(INVITATION_TOKEN)],
             "created_at": "2026-03-15",
             "revoked_at": None,
+            "sent_at": None,
         }
     )
     await database[Collection.BEWERBUNGEN].insert_one(
