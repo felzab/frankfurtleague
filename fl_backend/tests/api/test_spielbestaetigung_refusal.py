@@ -14,7 +14,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     compose_ansetzung,
-    find_spent_link_refusal,
+    find_unanswerable_refusal,
     proposal_payload,
     state_of,
     view_ansetzung_of,
@@ -112,7 +112,7 @@ class TestADecidedSpielTakesNoAnswer:
     def test_the_answer_is_refused(self, situation: dict[str, Any]):
         """Let through, a press tells its seat holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
 
-        refusal = find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), today=TODAY)
+        refusal = find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), today=TODAY)
 
         assert refusal is not None and refusal.error_code == Code.ANSETZUNG_DECIDED
 
@@ -173,7 +173,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
         )
 
-        assert find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
+        assert find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
 
         assert "austritt.date" in vereine_seen
         assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []

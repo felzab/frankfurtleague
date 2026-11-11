@@ -27,7 +27,7 @@ from app.api.spielbestaetigungen.services import (
     compose_answer_update,
     compose_schiedsrichter_answer_update,
     find_foreign_row_refusal,
-    find_spent_link_refusal,
+    find_unanswerable_refusal,
     find_vorschlag_past_refusal,
     find_vorschlag_unchanged_refusal,
     first_press_refusal,
@@ -152,7 +152,7 @@ async def post_schiedsrichter_answer(
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert ansetzung_state is not None
-        refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today))
+        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today))
 
         try:
             await patch_one_in_db(
@@ -204,7 +204,7 @@ async def post_schiedsrichter_answer(
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
             assert current is not None
-            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
 
         return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 
@@ -279,7 +279,7 @@ async def post_team_answer(
         async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
             """Every refusal after the seat's, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
 
-            refuse(find_spent_link_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
 
             if vorschlag is not None:
                 refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))

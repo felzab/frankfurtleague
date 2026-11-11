@@ -203,7 +203,7 @@ def state_of(
     # Closed, by the reason stored; open or a discard still holding its question, by the one the close would store.
     reason = (
         closed["reason"]
-        if isinstance(closed, Mapping) and closed["reason"] not in REASONS_ANSWERED_FOR_THE_STAND
+        if isinstance(closed, Mapping) and closed["reason"] not in REASONS_ANSWERING_THE_ANSETZUNG
         else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, today=today)
     )
 
@@ -221,8 +221,8 @@ def state_of(
     if (
         reason is None
         and isinstance(closed, Mapping)
-        and closed["reason"] in REASONS_ANSWERED_FOR_THE_STAND
-        and not stand_moved(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state)
+        and closed["reason"] in REASONS_ANSWERING_THE_ANSETZUNG
+        and not ansetzung_moved(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state)
     ):
         return "discarded"
 
@@ -283,7 +283,7 @@ def schiedsrichter_state_of(
     return state
 
 
-def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str) -> WriteRefusal | None:
+def find_unanswerable_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, today: str) -> WriteRefusal | None:
     """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
     An answered row whose Ansetzung moved answers `ansetzung_answered` and reads `invalid`: the page re-reads the view on
@@ -418,7 +418,7 @@ def side_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielSide:
     return "team1" if team_id == spielbestaetigung_raw["ansetzung"]["team1_id"] else "team2"
 
 
-def stand_moved(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState) -> bool:
+def ansetzung_moved(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState) -> bool:
     return ansetzung_digest_of(ansetzung_state.spiel) != spielbestaetigung_raw["ansetzung"]["digest"]
 
 
@@ -575,7 +575,7 @@ def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Ma
 
 
 # The close a referee's own decline writes in its transaction: outside `REASONS_INVALID`, so the row reads as
-# their decline, and outside `REASONS_ANSWERED_FOR_THE_STAND`, so a re-booking is asked afresh.
+# their decline, and outside `REASONS_ANSWERING_THE_ANSETZUNG`, so a re-booking is asked afresh.
 REASON_OWN_DECLINE: Final = "schiedsrichter_declined"
 
 
@@ -673,7 +673,7 @@ def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 # A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
 # needs a new digest, which only a move mints.
-REASONS_ANSWERED_FOR_THE_STAND: Final = frozenset({"discarded"})
+REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
 # discard its club's answer to the Ansetzung left, and a referee change, never a club's.
@@ -686,7 +686,7 @@ def build_holding_filter() -> dict[str, Any]:
     Every other closing ends the question, so a fixture reinstated or moved back to its old slot is asked afresh.
     """
 
-    return {"$or": [build_closable_filter(), {"closed.reason": {"$in": sorted(REASONS_ANSWERED_FOR_THE_STAND)}}]}
+    return {"$or": [build_closable_filter(), {"closed.reason": {"$in": sorted(REASONS_ANSWERING_THE_ANSETZUNG)}}]}
 
 
 def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
