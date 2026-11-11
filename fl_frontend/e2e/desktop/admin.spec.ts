@@ -1,11 +1,11 @@
 /**
- * E2E · the administration's spike pages: an administrator creates a venue in the dialog over the
- * Spielorte list and finds it there, moves a match's kick-off in the match editor and saves it, then
- * opens the match's matchday in its editor, on the session `../support/administrator.setup.ts` saved.
- * Desktop alone: the seeded match and the new venue can each be written once.
+ * E2E · the administration's venue and match editors, where no lower tier sees a created venue missing from its list, a
+ * kick-off's time segments go unsaved, or a long name push the page sideways. Desktop alone: the seeded match and the new
+ * venue can each be written once.
  */
 import { expect } from "@playwright/test";
 
+import { save, saveBar, scrollsSideways, typeInto } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 import type { Page } from "@playwright/test";
@@ -28,18 +28,6 @@ const SAISON = "2027";
 const MATCHDAY = "gruppenphase-2";
 // The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
 const PAIRING = /Kastanie.*Eiche/;
-
-/**
- * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's
- * `Table` stands in a box of its own that scrolls sideways (`fl_frontend/src/kit/Table.tsx`), so a name
- * that stops wrapping widens that box's content and never the document's.
- */
-const scrollsSideways = (page: Page) =>
-  page.evaluate(() =>
-    [document.documentElement, ...Array.from(document.querySelectorAll("table"), (table) => table.parentElement)].some(
-      (box) => box !== null && box.scrollWidth > box.clientWidth,
-    ),
-  );
 
 /** The match's id, read off its card on its matchday's tab of the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
@@ -71,11 +59,11 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   // By the label's start: a required field's label ends in its asterisk.
-  await dialog.getByRole("textbox", { name: /^Name/ }).fill(NEW_VENUE);
-  await dialog.getByRole("textbox", { name: /^Straße/ }).fill("Ulmenring");
-  await dialog.getByRole("textbox", { name: /^Nr\./ }).fill("3");
-  await dialog.getByRole("textbox", { name: /^PLZ/ }).fill("60431");
-  await dialog.getByRole("textbox", { name: /^Mietpreis/ }).fill("35");
+  await typeInto(dialog.getByRole("textbox", { name: /^Name/ }), NEW_VENUE);
+  await typeInto(dialog.getByRole("textbox", { name: /^Straße/ }), "Ulmenring");
+  await typeInto(dialog.getByRole("textbox", { name: /^Nr\./ }), "3");
+  await typeInto(dialog.getByRole("textbox", { name: /^PLZ/ }), "60431");
+  await typeInto(dialog.getByRole("textbox", { name: /^Mietpreis/ }), "35");
   await dialog.getByRole("button", { name: "Spielort anlegen" }).click();
 
   // The dialog closes once the venue is created, and the list behind it reads it at once.
@@ -92,12 +80,8 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   const time = page.getByRole("group", { name: /^Uhrzeit/ });
   await time.getByRole("spinbutton").first().click();
   await page.keyboard.type("1830");
-  // The editor's save bar is a landmark of its own, named by its act, so its line is read inside it.
-  const bar = page.getByRole("region", { name: "Speichern" });
-  await expect(bar.getByText("1 Änderung", { exact: true })).toBeVisible();
-
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(saveBar(page).getByText("1 Änderung", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server: the match now kicks off at 18:30.
   await page.reload();

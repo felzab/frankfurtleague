@@ -8,7 +8,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { pressRowAct, typeInto } from "../support/application";
+import { chip, pressRowAct, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
@@ -42,10 +42,9 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await dialog.getByRole("button", { name: "Änderung eintragen" }).click();
   await expect(dialog).toBeHidden();
 
-  // The row waits on the new mailbox, which its link reached. Its chip is drawn after its name and in the „Stand“
-  // column, and the list's width shows one.
+  // The row waits on the new mailbox, which its link reached.
   const row = page.getByRole("main").getByRole("row").filter({ hasText: MOVER });
-  await expect(row.getByText("Neue offen", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(chip(row, "Neue offen")).toBeVisible();
   await mailedMessage(newAddress, "Neue E-Mail-Adresse bestätigen", before);
 
   await pressRowAct(row, "Verwerfen");

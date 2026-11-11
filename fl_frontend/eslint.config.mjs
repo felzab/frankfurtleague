@@ -23,8 +23,8 @@ import tokenContrast from "./eslint-rules/token-contrast.mjs";
 const TEST = /\.test\.tsx?$/;
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
-/** Next.js requires the root layout and the global error file to write `<html>` and `<body>`. */
-const ROOT_DOCUMENT = ["src/app/layout.tsx", "src/app/global-error.tsx"];
+/** Next.js requires the root layout to write `<html>` and `<body>`. */
+const ROOT_DOCUMENT = ["src/app/layout.tsx"];
 
 const layerOf = (path) => (path.startsWith("src/core/") ? "core" : path.startsWith("src/shared/") ? "shared" : "other");
 
@@ -98,7 +98,6 @@ const LAYER = (layer) => (zone) => zone.layer === layer;
 
 const RULES = {
   "no-restricted-syntax": (entries) => ["error", ...entries],
-  "no-restricted-imports": (entries) => ["error", { patterns: entries }],
   "@typescript-eslint/no-restricted-imports": (entries) => ["error", { patterns: entries }],
   "no-restricted-properties": (entries) => ["error", ...entries],
   "no-restricted-globals": (entries) => ["error", { globals: entries, checkGlobalObject: true }],
@@ -136,7 +135,7 @@ const syntax = (selector, message) => ({ selector, message });
 const LAYER_BOUNDARY = {
   core: {
     regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)(?:features|shared)/`,
-    message: "core is infrastructure: it must not depend on shared or features.",
+    message: "core is infrastructure: it must not depend on shared or features. Move what it needs into core, or have the caller hand it in.",
   },
   shared: {
     regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)features/`,
@@ -156,7 +155,7 @@ const escaped = (specifiers) =>
 /** One of the package specifiers `specifiers` exactly. */
 const packageNamed = (...specifiers) => String.raw`^(?:${escaped(specifiers)})$`;
 
-/** One of the packages `specifiers` or a subpath under it, as a `no-restricted-imports` group reads a package. */
+/** One of the packages `specifiers` or a subpath under it, as an import ban's group reads a package. */
 const packageUnder = (...specifiers) => String.raw`^(?:${escaped(specifiers)})(?:\x2F.*)?$`;
 
 /**
@@ -268,7 +267,8 @@ const LOCALE_PROVIDER = {
   message: "The locale is pinned once, in fl_frontend/src/kit/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
 
-const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
+/** typescript-eslint's rule, which extends ESLint's with `allowTypeImports`, so a type alone may cross a ban. */
+const importBan = (entry, reach, options) => ban("@typescript-eslint/no-restricted-imports", entry, reach, options);
 
 // ---------------------------------------------------------------------------------------------------
 // The background passes. Each pass's generated sender is imported by its slice's wrapper and by the job
@@ -379,11 +379,10 @@ const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, r
 
 const IMPORT_BANS = [
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
-  // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
-  // so a blanket cross-feature ban would flag mostly-correct sites.
+  // Layer boundaries, `core`'s and `shared`'s alone: a slice's page reads and renders other slices' records through
+  // their modules, which a ban between features would refuse.
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
-  // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/kit/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
@@ -393,19 +392,6 @@ const IMPORT_BANS = [
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
-  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
-  // The files spared are the runtime split, Next's documented shape; the boot, which turns the settings' failed
-  // validation into its refusal; and the sign-in's browser client's one loader, which no ban above names, so a page
-  // carries the client's weight only once a press asks for it.
-  ban(
-    "no-restricted-syntax",
-    syntax(
-      "ImportExpression",
-      "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
-    ),
-    PRODUCTION,
-    { allow: ["src/instrumentation.ts", "src/instrumentationNode.ts", "src/core/auth/browserClient.ts"] },
-  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------
@@ -615,7 +601,7 @@ const SOURCE_BANS = [
   syntaxBan(
     syntax(
       'CallExpression[callee.type="MemberExpression"][callee.object.type="MemberExpression"][callee.object.property.name="api"] > ObjectExpression.arguments > Property[key.name="request"]',
-      "A `request` handed to an `auth.api` call carries that call onto the browser's paths.",
+      "A `request` handed to an `auth.api` call carries that call onto the browser's paths: hand it the request's `headers` instead.",
     ),
     SOURCE,
   ),
@@ -681,11 +667,11 @@ const SOURCE_BANS = [
   ),
   syntaxBan(
     // Per function, so a module caching a public read beside a caller's own is held too, which the
-    // module list below cannot do.
+    // module-wide ban below spares.
     // Anchored on the directive: esquery's `:has` takes no chained child combinator.
     syntax(
-      ':function:has(CallExpression[callee.name="runPersonRead"], Property[key.name="authType"][value.value="admin"]) > BlockStatement > ExpressionStatement[directive=/^use cache/]',
-      "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares.",
+      ":function:has(CallExpression[callee.name=/^run(?:Admin|Person)Read$/]) > BlockStatement > ExpressionStatement[directive=/^use cache/]",
+      "A function reading for its caller, through runAdminRead or runPersonRead, is never cached: `\"use cache\"` keys on the arguments, not the caller, so an administrator's or a person's read would become a slot every caller shares. Memoize it per render with React's `cache`.",
     ),
     SOURCE,
   ),
@@ -698,27 +684,14 @@ const SOURCE_BANS = [
     ),
     SOURCE,
   ),
-  // Every query module caching none of its reads. One whose cached reads sit beside admin-tier ones takes
-  // the directive per function, which a module-wide ban would refuse.
+  // Every module but the three caching a public read, each per function beside the reads it leaves uncached.
   syntaxBan(
     syntax(
       "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/], CallExpression > MemberExpression.callee[computed=true] > Literal.property[value=/^(?:cacheTag|cacheLife)$/]",
-      'This module caches no read: `"use cache"` keys on the arguments, not the caller, so a read made for one signed-in administrator or seat holder would become a slot every caller shares.',
+      "A public read is cached in fl_frontend/src/features/saisons/queries.ts, fl_frontend/src/app/(classic)/landing.ts or fl_frontend/src/kit/ClassicFrame.tsx alone: `\"use cache\"` keys on the arguments, not the caller, so a read made for one signed-in administrator or seat holder would become a slot every caller shares. Add a public read beside theirs, or memoize a caller's read per render with React's `cache`.",
     ),
     SOURCE,
-    {
-      only: [
-        "account",
-        "action-log",
-        "address-change",
-        "ban-list",
-        "bewerbungen",
-        "grants",
-        "registrierungen",
-        "schiedsrichter",
-        "spielorte",
-      ].map((slice) => `src/features/${slice}/queries.ts`),
-    },
+    { allow: ["src/features/saisons/queries.ts", "src/app/(classic)/landing.ts", "src/kit/ClassicFrame.tsx"] },
   ),
 ];
 
@@ -754,7 +727,6 @@ const PROPERTY_BANS = [
 // The design system's checks: one component and one layout per pattern, the second way refused.
 // ---------------------------------------------------------------------------------------------------
 
-const kitImport = (entry, reach, options) => ban("@typescript-eslint/no-restricted-imports", entry, reach, options);
 const classBan = (pattern, message, reach, options) => ban("better-tailwindcss/no-restricted-classes", { pattern, message }, reach, options);
 
 /** Any variant prefix, then the class; `!` is Tailwind's important flag. */
@@ -797,7 +769,6 @@ const DESIGN_BANS = [
     ),
     PAGE_CODE,
   ),
-  // Every control is the kit's, which takes no `className` or `style`.
   ...["className", "style"].map((propName) =>
     ban(
       "react/forbid-component-props",
@@ -825,8 +796,7 @@ const DESIGN_BANS = [
       }[element] ?? {},
     ),
   ),
-  // Only a template writes the page's heading and its main landmark; the landing's template writes its
-  // hero's heading inside the classic page's landmark.
+  // The landing's template writes its hero's heading inside the classic page's landmark.
   ...[
     ["h1", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx", "src/kit/LandingPage.tsx"]],
     ["main", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"]],
@@ -838,7 +808,7 @@ const DESIGN_BANS = [
   // A wait is the template's: each holds one boundary around the content it draws, its fallback the skeleton
   // of that content's box, so a page has no boundary of its own to leave without a loading state or to shape
   // wrongly.
-  kitImport(
+  importBan(
     {
       regex: packageUnder("react"),
       importNames: ["Suspense"],
@@ -849,7 +819,7 @@ const DESIGN_BANS = [
   ),
   // The cross-fade between pages is the kit's one `PageFade`, standing first in each page template: a fade of a
   // page's own is a second motion beside it, one the tokens' duration and reduced-motion rules do not reach.
-  kitImport(
+  importBan(
     {
       regex: packageUnder("react"),
       importNames: ["ViewTransition"],
@@ -857,18 +827,16 @@ const DESIGN_BANS = [
     },
     OUTSIDE_KIT,
   ),
-  // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
-  // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
-  // route group, whose layout draws the phone's band with the way back rather than the logo and the bar.
+  // The editor template's route group draws the phone's band with the way back rather than the logo and the bar.
   ...[
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
     ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
-  ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
+  ].map(([name, owners, message]) => importBan({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // A form's footer is its container's: each container of fields places the one footer where its acts stand, so a page
   // never draws a second footer, and every form's acts stand at the same end.
-  kitImport(
+  importBan(
     {
       regex: kitModule("FormFooter"),
       message: "A form's footer is its container's: hand the acts to the dialog, the box, the form or the section act that places it.",
@@ -889,15 +857,13 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  // The fields' rhythm is the containers' to draw: a page hands its fields to a box, a dialog or a form.
-  kitImport(
+  importBan(
     {
       regex: kitModule("FieldStack"),
       message: "Fields stand in their container's `FieldStack`: hand them to a `Section`, a `Dialog`, a `FieldGroup` or a form template.",
     },
     OUTSIDE_KIT,
   ),
-  // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(
     syntax(
       'JSXOpeningElement[name.name="Section"] > JSXAttribute[name.name="danger"]',
@@ -907,8 +873,8 @@ const DESIGN_BANS = [
     { allow: ["src/kit/EditorPage.tsx"] },
   ),
   // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
-  // file of a new one joins this list having done that (`.claude/rules/frontend.md`), and its field joins the hook's test.
-  kitImport(
+  // file of a new one joins this list having done that (`src/kit/useEarlyEdit.ts`), and its field joins the hook's test.
+  importBan(
     {
       // The package's root is in the list too, since it exports every one of them.
       regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
@@ -929,12 +895,11 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  // React Aria, the icon set and Next's link only inside the kit.
   ...[
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
-  ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
+  ].map(([regex, what]) => importBan({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[
@@ -976,7 +941,7 @@ const DESIGN_BANS = [
       "A date's segments are `Segments`' alone, which stand `inert` until the page's code runs: a digit typed sooner fails hydration.",
     ],
   ].map(([names, subpath, homes, message]) =>
-    kitImport(
+    importBan(
       {
         regex: String.raw`^react-aria-components(?:\x2F${subpath})?$`,
         importNamePattern: `^(?:${names.join("|")})$`,
@@ -988,7 +953,7 @@ const DESIGN_BANS = [
   ),
   // A segmented control's glyph segment, a link of the collapsed rail and an icon-only link are the other
   // icon-only controls: each one's name is its tooltip too.
-  kitImport(
+  importBan(
     {
       regex: kitModule("Tooltip"),
       message:
@@ -997,8 +962,7 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
   ),
-  // A chip stands right after the name it belongs to, so only the blocks carrying a name render one.
-  kitImport(
+  importBan(
     {
       regex: kitModule("Chip"),
       allowTypeImports: true,
@@ -1021,7 +985,6 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  // Only a confirmation asks a question.
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
     PRODUCTION,
@@ -1029,7 +992,6 @@ const DESIGN_BANS = [
   ),
   ban("no-restricted-globals", { name: "confirm", message: "Ask before an irreversible act with the kit's `ConfirmDialog`." }, PRODUCTION),
 
-  // The focus look is the focus file's four rules on React Aria's data attributes.
   classBan(
     CLASS(String.raw`(?:outline|ring|ring-offset)(?:-.+)?`),
     "Focus is drawn by the focus file alone, on the kit's `data-kit-focus` attribute.",
@@ -1081,16 +1043,25 @@ const DESIGN_BANS = [
     OUTSIDE_KIT,
   ),
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
-  classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
-
-  // Motion: the token pair inside the kit.
   classBan(
-    CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
-    "Motion is the kit's, from the token pair under reduced motion.",
+    CLASS(String.raw`backdrop-.+`),
+    "Only a dialog or a sheet blurs the page behind it: render the kit's `Dialog` or `Sheet`.",
     OUTSIDE_KIT,
   ),
 
-  // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
+  classBan(
+    CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
+    "Motion is the kit's, from the token pair under reduced motion: render the kit's block that moves, or add the motion to the kit.",
+    OUTSIDE_KIT,
+  ),
+  // A fill of a control's own under the pointer or a press, a group's or a peer's included, stands apart from every
+  // other control and vanishes on a ground of its colour, a card's head among them; only an eye sees it.
+  classBan(
+    CLASS(String.raw`(?:[^:]*:)*[^:]*(?:hover|pressed|active)[^:]*:bg-(?!layer!?$).+`),
+    "A control under the pointer or pressed lays the one hover layer, `bg-layer`: take it from `hoverLook` in src/kit/hoverStyles.ts.",
+    KIT,
+  ),
+
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
   syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
@@ -1169,7 +1140,6 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // The copy standard allows a semicolon in legal text alone: the legal pages' region of the server's catalogue.
   syntaxBan(
     syntax(
       `${inLiteral(";")}:not(VariableDeclarator[id.name="SERVER_COPY"] > CallExpression > ObjectExpression > Property[key.name="legal"] *)`,
@@ -1178,8 +1148,7 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A field's message line is one pattern phrase: no full stop, no article, 80 characters at most. Its entries are
-  // `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
+  // A field's message is `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
   ...[
     ["field", "src/core/copy.ts"],
     ["refusal", "src/core/serverCopy.ts"],
@@ -1193,7 +1162,6 @@ const DESIGN_BANS = [
       { only: [file] },
     ),
   ),
-  // An entry returning what it is handed as it came would make any string a `Copy`: the catalogue words its argument.
   syntaxBan(
     syntax(
       "ArrowFunctionExpression > Identifier.body, ArrowFunctionExpression > TemplateLiteral.body[expressions.length=1]:not(:has(> TemplateElement[value.raw=/\\S/]))",
@@ -1202,7 +1170,6 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A status line or a callout says one sentence: what is so, never a second one saying why or how.
   syntaxBan(
     syntax(
       `Property[key.name=/^(?:failure|refusal|refusalLine|ruleLine|botCheck|consequence)$/] ${inLiteral(String.raw`[.?]\s+\S`)}`,
@@ -1241,11 +1208,10 @@ const DESIGN_BANS = [
     { allow: ["src/core/config.ts"] },
   ),
 
-  // A field's required mark is derived, never set by hand.
   syntaxBan(
     syntax(
       'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.type="Literal"], [value.expression.type="Literal"])',
-      "A field's required mark is derived from its data, never written as a literal.",
+      "A field's required mark is derived from its data, never written as a literal: pass the `required` its rules read off the save's generated schema, or a condition of the form's state.",
     ),
     PRODUCTION,
   ),
@@ -1363,7 +1329,10 @@ const eslintConfig = defineConfig([
       // from a server-only module does not pull the module in with it.
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
 
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      // The tree's one check of what is declared and never read, the compiler's flags left off. Every parameter, not only
+      // those after the last one read: a leading one a calling convention forces takes a `_`.
+      "@typescript-eslint/no-unused-vars": ["error", { args: "all", argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-private-class-members": "error",
 
       // A zero-width or line-separator character in code, a comment or a template reads as nothing and
       // changes what the line means. Plain strings stay free for the typography's no-break spaces.
@@ -1398,10 +1367,6 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-return": "error",
     },
   },
-
-  // An exemption written as a disable comment is a roster entry: once the line it excuses is gone,
-  // the comment fails rather than standing ready to excuse whatever is written there next.
-  { linterOptions: { reportUnusedDisableDirectives: "error" } },
 
   {
     files: ["src/**/*.{ts,tsx}"],
@@ -1497,7 +1462,7 @@ const eslintConfig = defineConfig([
       ],
       "check-file/filename-naming-convention": [
         "error",
-        { "src/**/!(not-found|global-error).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
+        { "src/**/!(not-found).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
         { ignoreMiddleExtensions: true },
       ],
     },
@@ -1516,7 +1481,7 @@ const eslintConfig = defineConfig([
   },
 
   // `src/core/generated/` is Orval's output, rewritten whole by every generation.
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/", "src/core/generated/"]),
+  globalIgnores(["src/core/generated/"]),
 ]);
 
 export default eslintConfig;

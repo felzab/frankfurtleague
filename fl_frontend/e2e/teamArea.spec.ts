@@ -1,12 +1,10 @@
 /**
- * E2E · the contact's journey through a team's area, under each project: a Trainer signs in and lands on the team's
- * Übersicht, agrees to the date the league asked about, admits the confirmed registration and finds the pupil in the
- * Kader, then enters the owed line-up and reads it back from the server. Each project signs in as a seat of its own
- * (`contact`), on a club no other journey answers for, so the date, the registration and the line-up are this journey's
- * alone.
+ * E2E · a contact's team area, under each project, where no lower tier sees a date's answer, an admission or a line-up
+ * lost between the page and the server, or the frame's menu on a phone fail to reach the team's pages.
  */
 import { expect } from "@playwright/test";
 
+import { box, labelOf, save, saveBar } from "./support/controls";
 import { test } from "./support/journey";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 
@@ -41,11 +39,6 @@ async function openPage(page: Page, name: string): Promise<void> {
     await page.getByRole("dialog", { name: "Mehr" }).getByRole("link", { name, exact: true }).click();
   }
   await expect(titleOf(page, name)).toBeVisible();
-}
-
-/** A box of the Übersicht by its title: a box carries its title as a heading, and no landmark. */
-function box(page: Page, title: string): Locator {
-  return page.getByRole("main").locator("section", { has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
 /** The toast an act at once answers with, by its title. */
@@ -93,7 +86,8 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await expect(titleOf(page, fixture)).toBeVisible();
 
   const main = page.getByRole("main");
-  const named = main.getByRole("table", { name: "Aufstellung" }).getByRole("checkbox");
+  const lineUp = main.getByRole("table", { name: "Aufstellung" });
+  const named = lineUp.getByRole("checkbox");
   const rest = main.getByRole("table", { name: "Nicht aufgestellt" });
   // The squad's first pupils by shirt number, each moving up into the named list before the next is pressed: a press
   // landing before the move would name the same pupil twice.
@@ -101,21 +95,19 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
     await rest.getByRole("button", { name: "Aufstellen" }).first().click();
     await expect(named).toHaveCount(count);
   }
-  // A tick is a box drawn inside its label, which takes the press: React Aria clips the box's own input to nothing.
+  // Each tick on its label, one label to a named pupil's row.
   for (let index = 0; index < STARTING; index++) {
-    const tick = named.nth(index);
-    await tick.locator("xpath=ancestor::label[1]").click();
-    await expect(tick).toBeChecked();
+    await labelOf(lineUp, "checkbox").nth(index).click();
+    await expect(named.nth(index)).toBeChecked();
   }
 
-  const bar = page.getByRole("region", { name: "Speichern" });
+  const bar = saveBar(page);
   await expect(bar.getByText("Startelf 11 von 11", { exact: true })).toBeVisible();
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server: everyone named, the Startelf ticked.
   await page.reload();
   await expect(named).toHaveCount(NAMED);
-  await expect(main.getByRole("table", { name: "Aufstellung" }).getByRole("checkbox", { checked: true })).toHaveCount(STARTING);
+  await expect(lineUp.getByRole("checkbox", { checked: true })).toHaveCount(STARTING);
   await expect(bar.getByText("Startelf 11 von 11", { exact: true })).toBeVisible();
 });

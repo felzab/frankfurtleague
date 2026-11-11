@@ -8,11 +8,11 @@
  */
 import path from "node:path";
 
-import { test as base } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
 
 import { standInForTurnstile } from "./turnstileStandIn";
 
-import type { Page, Request } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Page, Request } from "@playwright/test";
 
 export type JourneyOptions = {
   /** An administrator's grant. */
@@ -49,14 +49,23 @@ export type JourneyOptions = {
 type JourneyFixtures = {
   /** The administrator's device, beside the one the journey's own person holds, already signed in. */
   administration: Page;
+  /** A device beside the test's own, signed in as nobody: a second device of the journey's person, or another's. */
+  secondDevice: Page;
 };
 
 /**
- * The session `./administrator.setup.ts` saves, which every administration journey opens with
- * (https://playwright.dev/docs/auth). Beside the stack's keys in `.tmp-e2e/`, which goes when the stack goes and no
- * failed run uploads: it holds a live session of that stack.
+ * The end-to-end stack's own folder, where it files the mail it does not send and keeps its keys: by default the one
+ * in this checkout's root, which `./scripts/ops/local.sh --e2e` makes and `--e2e --down` deletes. `E2E_DIR` names
+ * another checkout's, so a run from a worktree reads the stack its primary checkout started.
  */
-export const ADMINISTRATOR_STATE = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "administrator.json");
+export const E2E_DIR = path.resolve(process.env.E2E_DIR ?? path.join(__dirname, "..", "..", "..", ".tmp-e2e"));
+
+/**
+ * The session `./administrator.setup.ts` saves, which every administration journey opens with
+ * (https://playwright.dev/docs/auth). Beside the stack's keys, which go when the stack goes and no failed run uploads:
+ * it holds a live session of that stack.
+ */
+export const ADMINISTRATOR_STATE = path.join(E2E_DIR, "administrator.json");
 
 /**
  * Waits for Next's prefetch of a match link of the made-up seed's running season, a request carrying the `_rsc`
@@ -70,6 +79,51 @@ export function hydrated(page: Page): Promise<Request> {
     const url = new URL(request.url());
     return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
   });
+}
+
+/** The function a page's refusals reach the journey through, on every frame's `window`: a name no page of the site uses. */
+const REFUSAL_BINDING = "journeyMeetsRefusal";
+
+/**
+ * Readies a context as every journey meets the site: Turnstile's stand-in, and each Content-Security-Policy refusal a
+ * page of it meets, by its directive and the address refused, which the fixture that made the context then asserts
+ * none of. A refusal that breaks no locator, such as of a stylesheet React Aria injects, passes every other assertion.
+ * The browser fires `securitypolicyviolation` for each, bubbling to the document
+ * (https://developer.mozilla.org/en-US/docs/Web/API/SecurityPolicyViolationEvent), and an init script, which runs in
+ * every frame before any of the page's own scripts, forwards it to a binding.
+ */
+async function readyForJourney(context: BrowserContext): Promise<readonly string[]> {
+  await standInForTurnstile(context);
+
+  const refusals: string[] = [];
+  await context.exposeBinding(REFUSAL_BINDING, (_source, refusal: string) => {
+    refusals.push(refusal);
+  });
+  await context.addInitScript((binding) => {
+    document.addEventListener("securitypolicyviolation", (event) => {
+      const forward = Reflect.get(window, binding) as (refusal: string) => Promise<void>;
+      void forward(`${event.effectiveDirective} ${event.blockedURI}`);
+    });
+  }, REFUSAL_BINDING);
+  return refusals;
+}
+
+function expectNoRefusal(refusals: readonly string[]): void {
+  expect(refusals, "the edge's Content-Security-Policy refused what a page of the journey asked for").toEqual([]);
+}
+
+/**
+ * A browser context beside the test's own, built and closed in a fixture as Playwright's guide builds one for a second
+ * role (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), so a journey that fails closes it
+ * too. The project's `use` options reach it as they reach every context the test's browser makes
+ * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance).
+ */
+async function provideDevice(browser: Browser, options: BrowserContextOptions, provide: (page: Page) => Promise<void>): Promise<void> {
+  const device = await browser.newContext(options);
+  const refusals = await readyForJourney(device);
+  await provide(await device.newPage());
+  await device.close();
+  expectNoRefusal(refusals);
 }
 
 export const test = base.extend<JourneyFixtures & JourneyOptions>({
@@ -86,19 +140,19 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   registering: [{ club: "", token: "", admitter: "" }, { option: true }],
   booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
-  // The test's own context; a context a journey builds beside it takes the stand-in itself. `provide` is the
-  // fixture's `use`, named apart from React's hook, which a lint rule reads it as.
+  // The test's own context. `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it
+  // as.
   context: async ({ context }, provide) => {
-    await standInForTurnstile(context);
+    const refusals = await readyForJourney(context);
     await provide(context);
+    expectNoRefusal(refusals);
   },
 
-  // A second context as a fixture, as Playwright's guide builds one for a second role
-  // (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures).
   administration: async ({ browser }, provide) => {
-    const device = await browser.newContext({ storageState: ADMINISTRATOR_STATE });
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
+    await provideDevice(browser, { storageState: ADMINISTRATOR_STATE }, provide);
+  },
+
+  secondDevice: async ({ browser }, provide) => {
+    await provideDevice(browser, {}, provide);
   },
 });

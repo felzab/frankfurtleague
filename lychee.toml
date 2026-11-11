@@ -10,5 +10,5 @@ include_fragments = "full"
 # Markdown only: the other kinds lychee reads by default hold no documentation link.
 extensions = ["md"]
 
-# .claude/ and .github/ hold Markdown too; .gitignore still decides what is skipped.
+# .github/ holds Markdown too; .gitignore still decides what is skipped.
 hidden = true

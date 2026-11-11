@@ -1,9 +1,6 @@
 /**
- * E2E · the Spielplan at its season's address, under each project: the matchday tabs, a match opened
- * as the pop-up over them, Back closing it onto the matchday it was opened from, the match's own page on
- * a direct load, and a club's name in the pop-up leading to its page with the pop-up closed. The made-up
- * seed's running season is 2027: its first matchday is played, its
- * second is today, and its first match is Ahorn against Kastanie, 2:1.
+ * E2E · the Spielplan, under each project, where no lower tier sees a match open as a page of its own rather than the
+ * pop-up over the matchday, Back lose the matchday it was opened from, or a direct load of the match draw the pop-up.
  */
 import { expect } from "@playwright/test";
 
@@ -13,7 +10,8 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const prefetched = hydrated(page);
   await page.goto("/saisons/2027");
 
-  // The tabs open on the current matchday, the first holding a match still to play.
+  // The tabs open on the current matchday, the first holding a match still to play: the seed's running season played its
+  // first matchday, and its second is today.
   const tabs = page.getByRole("navigation", { name: "Spieltage" });
   await expect(tabs.getByRole("link", { name: "2. Spieltag" })).toHaveAttribute("aria-current", "page");
   await prefetched;
@@ -25,7 +23,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027" && url.searchParams.get("tab") === "gruppenphase-1");
 
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
-  // matches are on the page, so the row's name finds it.
+  // matches are on the page, so the row's name finds it: the seed's first match, Ahorn against Kastanie, 2:1.
   await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
   const popup = page.getByRole("dialog", { name: "Ahorn vs. Kastanie" });
   await expect(popup).toBeVisible();

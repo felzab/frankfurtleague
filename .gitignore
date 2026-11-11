@@ -1,6 +1,5 @@
-# The checkout's share of the deny list in .claude/settings.json, because those tools are not the
-# only route into a commit -- a shell command, an installer or an external editor is git's problem
-# alone. Unanchored: a private key is one wherever it lands.
+# Credential shapes, kept out of a commit whatever wrote the file: a shell command, an installer and
+# an external editor all reach git. Unanchored: a private key is one wherever it lands.
 .env*
 *.pem
 *.key
@@ -39,7 +38,7 @@ secrets/
 
 # Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path
 # (":" separators become ";C:\..."). Empty and useless. Prevent one by prefixing a hand-typed
-# bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
+# bind mount with MSYS_NO_PATHCONV=1.
 *;C
 *;C/
 
