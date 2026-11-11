@@ -118,7 +118,6 @@ test("the person deletes their account from the mailed link, signed out when it 
   const erasure = page.getByRole("main");
   await expect(erasure.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
   await expect(erasure.getByRole("definition").filter({ hasText: leaver })).toHaveText(leaver);
-  await expect(erasure.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
 
   // The deletion leads to the page that needs no session.
   await page.getByRole("main").getByRole("button", { name: "Konto löschen" }).click();

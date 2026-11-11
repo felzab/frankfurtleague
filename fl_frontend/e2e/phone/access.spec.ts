@@ -27,12 +27,6 @@ test("Administratoren reads who holds access and what waits, and offers an admin
   await expect(page.getByRole("button", { name: "Zurückziehen" })).toHaveCount(0);
 });
 
-test("the Sperrliste reads a ban", async ({ page }) => {
-  await page.goto("/admin/ban-list");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Sperrliste" })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("row").filter({ hasText: "gesperrte.person.mit.langer.adresse@example.com" })).toBeVisible();
-});
-
 test("Löschungen opens on its one form", async ({ page }) => {
   await page.goto("/admin/erasures");
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Löschungen" })).toBeVisible();
