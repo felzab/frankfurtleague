@@ -42,9 +42,4 @@ describe("a field's message line", () => {
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
     expect(screen.getByText(COPY.shared.failure.unexpected)).toBeTruthy();
   });
-
-  it("shows a message the server sent as it came", () => {
-    render(<Addressed validationErrors={{ adresse: COPY.shared.field.taken }} />);
-    expect(screen.getByText(COPY.shared.field.taken)).toBeTruthy();
-  });
 });

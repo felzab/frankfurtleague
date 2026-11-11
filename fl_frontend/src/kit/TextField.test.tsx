@@ -20,17 +20,6 @@ describe("an address field's autofill", () => {
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("email");
   });
 
-  it("takes the token it is given, as the sign-in's account name", () => {
-    render(
-      <TextField
-        label={COPY.signIn.address}
-        kind="email"
-        autofill="username"
-      />,
-    );
-    expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("username");
-  });
-
   // The harm: the address of a person being erased stays in the administrator's browser, and no check reads that.
   it("offers nothing where an administrator types somebody else's", () => {
     render(

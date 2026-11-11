@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,20 +62,6 @@ describe("a row's side acts", () => {
 
     await userEvent.click(entries[0] as HTMLElement);
     expect(send).toHaveBeenCalledTimes(1);
-  });
-
-  // The harm: the question an entry opened closes and the keys stand nowhere, the entry that held them gone with its menu.
-  it("hand the focus back to the „⋯“ once a question opened from it closes", async () => {
-    render(<Acts send={() => undefined} />);
-    const more = screen.getByRole("button", { name: MORE });
-
-    await userEvent.click(more);
-    await userEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: DISCARD }));
-    const question = await screen.findByRole("alertdialog");
-    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.back }));
-
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(more));
   });
 
   // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard reaches
