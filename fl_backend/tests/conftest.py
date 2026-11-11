@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
-from pymongo import MongoClient, monitoring
+from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.core.recording import actor_var
 from tests.documents import EINWILLIGUNG, rules_document
-from tests.tier import TIER_GUARD, UNMARKED_USE
+from tests.tier import is_db_marked, refuse_server_fixtures
 from tests.worker import guard_every_database, release_every_database, worker_database
 
 if TYPE_CHECKING:
@@ -519,8 +519,13 @@ def pytest_configure(config: pytest.Config) -> None:
         if isinstance(stream, io.TextIOWrapper):
             stream.reconfigure(encoding="utf-8")
     guard_every_database()
-    monitoring.register(UNMARKED_USE)
-    config.pluginmanager.register(TIER_GUARD, "fl-db-tier-guard")
+
+
+# First, so the refusal lands before pytest sets up the server fixture it names.
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    if not is_db_marked(item):
+        refuse_server_fixtures(item.nodeid, getattr(item, "fixturenames", ()))
 
 
 # `optionalhook`, because xdist SPECS this hook. Where an environment is behind `uv.lock` the plugin

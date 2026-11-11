@@ -15,7 +15,7 @@ them.
 | `session_headers.py`                                                     | The actor's session headers as the frontend's server sends them (`fl_backend/tests/session_headers.py :: StampedHeaders`) |
 | `database.py`                                                            | The database a db test opens for itself: built once, emptied per call, every document it leaves read back                 |
 | `worker.py`                                                              | The per-worker database naming, and the guard that holds every open to it                                                 |
-| `tier.py`                                                                | The refusal of a test that uses a database without `@pytest.mark.db`                                                      |
+| `tier.py`                                                                | The refusal of a test that asks for a server without `@pytest.mark.db`                                                    |
 | `documents.py`                                                           | The stored shapes both tiers build from: seeds, and the rules and consent payload fixtures and rules models take          |
 | `payloads.py`                                                            | The request bodies a test submits, built from a stored document                                                           |
 | `bans.py`                                                                | The ban list under the suite's key, and a ban entered through its route rather than seeded                                |
