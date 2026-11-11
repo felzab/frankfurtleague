@@ -412,7 +412,7 @@ export const SERVER_COPY = catalogue({
        * school: behind a mistyped address a stranger gets nothing to attach the names to.
        */
       received: {
-        subject: (saison: string) => `Bewerbung ${boundBy("für", "die", COPY.shared.saisonName(saison))} eingegangen`,
+        subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
         lead: (saison: string) => `${boundBy("Für", "die", COPY.shared.saisonName(saison))} ist eine Bewerbung eingegangen.`,
         named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du ${boundBy("als", rollenText(rollen))} genannt.`,
         others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
@@ -420,15 +420,15 @@ export const SERVER_COPY = catalogue({
       },
       /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
       link: {
-        subject: (saison: string) => `Eintrag ${boundBy("für", "die", COPY.shared.saisonName(saison))} bestätigen`,
+        subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
         lead: (schule: string) => `Die Bewerbung ${boundBy("von", schule)} nennt dich als Kontaktperson.`,
       },
       reminder: {
-        subject: (saison: string) => `Erinnerung: Eintrag ${boundBy("für", "die", COPY.shared.saisonName(saison))} bestätigen`,
+        subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
         lead: (schule: string) => `Deine Antwort zur Bewerbung ${boundBy("von", schule)} fehlt noch.`,
       },
       zusage: {
-        subject: (saison: string) => `Zusage ${boundBy("für", "die", COPY.shared.saisonName(saison))}`,
+        subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
         /** The first sentence after the club's name, the preview; the welcome stands apart from it. */
         lead: {
           after: (saison: string) => ` spielt ${boundBy("in", "der", COPY.shared.saisonName(saison))}.`,
@@ -442,7 +442,7 @@ export const SERVER_COPY = catalogue({
         signIn: "Melde dich mit dieser Adresse an, dort findest du dein Team.",
       },
       absage: {
-        subject: (saison: string) => `Absage ${boundBy("für", "die", COPY.shared.saisonName(saison))}`,
+        subject: (saison: string) => `Absage für die ${COPY.shared.saisonName(saison)}`,
         lead: {
           before: "Danke für die Bewerbung von\u00A0",
           after: (saison: string) => ` ${boundBy("für", "die", COPY.shared.saisonName(saison))}.`,
@@ -453,7 +453,7 @@ export const SERVER_COPY = catalogue({
         title: "Die Absage",
       },
       erasure: {
-        subject: (saison: string) => `Bewerbung ${boundBy("für", "die", COPY.shared.saisonName(saison))} gelöscht`,
+        subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} gelöscht`,
         again: "Solange das Bewerbungsfenster offen ist, kann sich deine Schule neu bewerben.",
       },
       objection: {
@@ -470,7 +470,7 @@ export const SERVER_COPY = catalogue({
 
     /** A seat on a team's season: its sentences are the confirmation page's, `kontaktConfirmation`. */
     kontakt: {
-      subject: (team: string) => `Eintrag ${boundBy("für", team)} bestätigen`,
+      subject: (team: string) => `Eintrag für ${team} bestätigen`,
       /** A closed row's button, which has nothing to confirm. */
       toEntry: "Zum Eintrag",
     },
@@ -596,7 +596,7 @@ export const SERVER_COPY = catalogue({
      * rather than pressed. It names no end date, since a window moved later moves every link with it.
      */
     invitation: {
-      subject: (team: string) => `Registrierungslink ${boundBy("für", team)}`,
+      subject: (team: string) => `Registrierungslink für ${team}`,
       passOn: (saison: string, team: string) =>
         `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonName(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
@@ -610,14 +610,14 @@ export const SERVER_COPY = catalogue({
      */
     registrierung: {
       confirmation: {
-        subject: (team: string) => `Registrierung ${boundBy("für", team)} bestätigen`,
+        subject: (team: string) => `Registrierung für ${team} bestätigen`,
         confirm: "Bestätige deine Registrierung.",
         admission: "Erst danach kann dein Team dich aufnehmen.",
         /** The deadline where the mail's data counts days, the page's sentence taking a day. */
         deadlineIn: (days: number) => `Bestätigst du nicht ${boundBy("in", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
       },
       absage: {
-        subject: (team: string) => `Registrierung ${boundBy("für", team)} abgelehnt`,
+        subject: (team: string) => `Registrierung für ${team} abgelehnt`,
         /** The lead follows the team's name, set semibold. */
         lead: { after: (saison: string) => ` hat deine Registrierung ${boundBy("für", "die", COPY.shared.saisonName(saison))} abgelehnt.` },
         askTeam: "Fragen dazu beantwortet dein Team.",
