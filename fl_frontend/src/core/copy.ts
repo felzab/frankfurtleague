@@ -164,7 +164,7 @@ const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 // A line-up's starters of the most that may start, alone in the save bar and after the count of everyone it names.
-const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} von ${formatNumber(max)}`;
+const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
 // The owner tier's one word: its chip, its acts and every sentence naming it, the server's among them, read this line.
 const OWNER_TIER = "Leitung";
 // The plurals a page's title and the action log's count of a pass say alike.
@@ -197,8 +197,8 @@ export type Wait = { readonly hours: 24 } | { readonly days: 7 };
  */
 export const waitWords = (wait: Wait) =>
   "hours" in wait
-    ? { span: `${formatNumber(wait.hours)} Stunden`, after: `nach ${formatNumber(wait.hours)} Stunden` }
-    : { span: `${formatNumber(wait.days)} Tage`, after: `nach ${formatNumber(wait.days)} Tagen` };
+    ? { span: `${formatNumber(wait.hours)} Stunden`, after: `${boundBy("nach", formatNumber(wait.hours))} Stunden` }
+    : { span: `${formatNumber(wait.days)} Tage`, after: `${boundBy("nach", formatNumber(wait.days))} Tagen` };
 
 /**
  * „bis 12.11.2026, 17:54“, „Erst ab 16 Jahren“: words ending on „bis“ or „ab“ and the value it bounds, joined by a
@@ -303,7 +303,7 @@ export const COPY = catalogue({
     /** The status cards' titles and ways on: a mailed page's ends, and the frames' own. */
     end: {
       /** A mailed page's link opened again, titled with what the person did and the day: „Eintrag bestätigt am 12. November 2026“. */
-      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
+      doneOn: (done: Copy, day: CalendarDay) => `${done} ${boundBy("am", formatDateLong(day))}`,
       /** An area with no season yet, where a page shows a season's work. */
       noSaison: "Noch keine Saison",
       toHome: "Zur Startseite",
@@ -357,7 +357,7 @@ export const COPY = catalogue({
       rueckzug: { label: "Rückzug", state: "Zurückgezogen", shorthand: "RZ" },
     },
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `state` and the day it took effect. */
-    austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDate(day)}`,
+    austrittSince: (state: Copy, day: CalendarDay) => `${state} ${boundBy("seit", formatDate(day))}`,
     startelf: "Startelf",
     bank: "Bank",
     /**
@@ -754,8 +754,8 @@ export const COPY = catalogue({
       /** A row's line under its name, in a list's date form: when it was set up, and when it last signed in where it has. */
       dates: (created: Date, lastUsed: Date | null) =>
         lastUsed === null
-          ? `Eingerichtet am ${formatDate(created)}`
-          : `Eingerichtet am ${formatDate(created)} · Zuletzt verwendet am ${formatDate(lastUsed)}`,
+          ? `Eingerichtet ${boundBy("am", formatDate(created))}`
+          : `Eingerichtet ${boundBy("am", formatDate(created))} · Zuletzt verwendet ${boundBy("am", formatDate(lastUsed))}`,
       /**
        * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
        * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
@@ -874,7 +874,7 @@ export const COPY = catalogue({
         needsSlot: "Erst mit Datum und Uhrzeit",
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
         dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
-        overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
+        overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
         /**
          * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
          * Übersicht whose answer is past its deadline; on a Spiele card the chip names what is overdue.
@@ -1006,7 +1006,7 @@ export const COPY = catalogue({
     expired: "Abgelaufen",
     erased: "Gelöscht",
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
-    seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} von ${formatNumber(seats)}`,
+    seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
     seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) =>
       [rollenText(rollen), address, day].filter((part) => part !== null).join(" · "),
@@ -1056,10 +1056,10 @@ export const COPY = catalogue({
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `An ${address} gesendet`,
-      confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
+      confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
       openUntil: (day: CalendarDay) => `Offen ${boundBy("bis", formatDate(day))}`,
-      expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
-      objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDate(day)}`,
+      expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
+      objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
       phoneExample: "069 90009123",
       retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
@@ -1168,7 +1168,7 @@ export const COPY = catalogue({
       entriesHold: "Spiele sind schon bearbeitet",
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
-      linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDate(day)}`,
+      linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
       linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",
@@ -1300,7 +1300,7 @@ export const COPY = catalogue({
       /** „E-Mail an“'s value in the decline: a seat past the mailbox bound has heard of no application, so it hears of no decline. */
       mailedSeats: "Angeschriebene Kontaktpersonen",
       /** The bulk card's line over the record's name. */
-      cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} von ${formatNumber(total)}`,
+      cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} ${boundBy("von", formatNumber(total))}`,
       /** The object of the bulk's button and of its question. */
       count: (count: number) => (count === 1 ? "1 Bewerbung" : `${formatNumber(count)} Bewerbungen`),
       acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonName(saison)}.`,

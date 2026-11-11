@@ -50,12 +50,12 @@ const ADDRESS_CONFIRMED = "Adresse bestätigt";
 // league's address, and the privacy notice's link, around its title.
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
 // In the two parts around its day, each holding its own space, which a mail sets semibold between them.
-const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum ", after: ", löschen wir deinen Eintrag." };
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum\u00A0", after: ", löschen wir deinen Eintrag." };
 const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before}${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
 // The same in an application, where any seat's lapse takes the whole application with it, so the deletion names no day:
 // another seat's earlier day can overtake the reader's own.
 const APPLICATION_DEADLINE = {
-  before: "Bestätige bis zum ",
+  before: "Bestätige bis zum\u00A0",
   after: ". Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung.",
 };
 const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before}${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
@@ -242,7 +242,7 @@ export const SERVER_COPY = catalogue({
     } satisfies Record<FLOverviewCardName, string>,
     answerDue: "Antwort heute fällig",
     /** By the deadline the clubs' answer was due on, the earliest where the row's clubs were given several. */
-    answerOverdue: (deadline: CalendarDay) => `Antwort seit ${formatDate(deadline)} überfällig`,
+    answerOverdue: (deadline: CalendarDay) => `Antwort ${boundBy("seit", formatDate(deadline))} überfällig`,
     /** What a fixture lacks, by its own word: „Termin“, or the label its box carries in the match editor. */
     missing: (label: Copy) => `${label} fehlt`,
     /** A report awaiting the administrator, by the state it reads in. */
@@ -257,7 +257,7 @@ export const SERVER_COPY = catalogue({
     seatsConfirmed: (confirmed: number, seats: number) =>
       confirmed === seats
         ? "Alle Kontaktpersonen bestätigt"
-        : `${formatNumber(confirmed)} von ${formatNumber(seats)} Kontaktpersonen bestätigt`,
+        : `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))} Kontaktpersonen bestätigt`,
     /**
      * A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names: a group short of the
      * place a side waits on, a tie no rule breaks, and a club or a booking the administrator can change each say
@@ -316,19 +316,19 @@ export const SERVER_COPY = catalogue({
      */
     spiel: {
       /** The mail by the name the notices give it, „Anfrage“: a subject naming one answer would pass over the other. */
-      requestSubject: (day: CalendarDay) => `Anfrage: Spieltermin am ${formatDateLong(day)}`,
-      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDateLong(day)}`,
+      requestSubject: (day: CalendarDay) => `Anfrage: Spieltermin ${boundBy("am", formatDateLong(day))}`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin ${boundBy("am", formatDateLong(day))}`,
       /** Both answers named before the press, as the page offers both. */
       confirmAsk: (team: Words) => `Sag den Termin für ${textOf(team)} zu oder schlag einen anderen vor.`,
       answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
       /** Around the deadline. */
-      answerUntil: { before: "Antworte bis zum ", after: "." },
+      answerUntil: { before: "Antworte bis zum\u00A0", after: "." },
       /** Any seat of the club answers, and the first answer binds the club. */
       firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
 
       /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
       movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDateLong(day)}`,
-      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} verlegt`,
+      movedFromSubject: (day: CalendarDay) => `Spiel ${boundBy("am", formatDateLong(day))} verlegt`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
       /**
        * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
@@ -344,29 +344,29 @@ export const SERVER_COPY = catalogue({
         schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
       },
       /** A club taken off a fixture it was asked about, around the moment it was asked about. */
-      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDateLong(day)}`,
-      void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am `, after: " gilt nicht mehr." },
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am\u00A0`, after: " gilt nicht mehr." },
 
       /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
-      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
-      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am `, after: " fällt aus." },
+      cancelledSubject: (day: CalendarDay) => `Spiel ${boundBy("am", formatDateLong(day))} fällt aus`,
+      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am\u00A0`, after: " fällt aus." },
       reinstated: {
         team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
         schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
       },
 
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
-      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDateLong(day)}`,
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel ${boundBy("am", formatDateLong(day))}`,
       booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
       /** The decline in the word its button and its chip carry, „Ablehnen“ and „Abgelehnt“. */
       sayYesOrNo: "Sag zu oder lehne ab.",
       /** A referee taken off a fixture, around the moment they were booked for. */
-      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDateLong(day)}`,
-      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am\u00A0`, after: " nicht mehr." },
 
       /** A club's proposal the league discarded, around the moment that stands. */
-      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDateLong(day)}`,
-      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am\u00A0`, after: "." },
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
     },
 
@@ -379,7 +379,7 @@ export const SERVER_COPY = catalogue({
       reminderSubject: (day: CalendarDay) => `Erinnerung: Aufstellung für den ${formatDateLong(day)}`,
       missing: (team: Words) => `Die Aufstellung von ${textOf(team)} fehlt noch.`,
       /** Around the moment the line-up is due. */
-      dueUntil: { before: "Trag sie bis zum ", after: " ein." },
+      dueUntil: { before: "Trag sie bis zum\u00A0", after: " ein." },
     },
 
     /** An opponent's word that a club left the season. The lead follows the club's name, set semibold. */
@@ -441,7 +441,7 @@ export const SERVER_COPY = catalogue({
         lead: { before: "Danke für die Bewerbung von ", after: (saison: string) => ` für die ${COPY.shared.saisonName(saison)}.` },
         decision: "In dieser Saison können wir das Team nicht aufnehmen.",
         /** After `decision`: the decline stands as the application's deletion notice, so no second mail follows. */
-        deletion: (days: number) => `Die Bewerbung löschen wir in ${formatNumber(days)} Tagen.`,
+        deletion: (days: number) => `Die Bewerbung löschen wir ${boundBy("in", formatNumber(days))} Tagen.`,
         title: "Die Absage",
       },
       erasure: {
@@ -603,7 +603,7 @@ export const SERVER_COPY = catalogue({
         confirm: "Bestätige deine Registrierung.",
         admission: "Erst danach kann dein Team dich aufnehmen.",
         /** The deadline where the mail's data counts days, the page's sentence taking a day. */
-        deadlineIn: (days: number) => `Bestätigst du nicht in ${formatNumber(days)} Tagen, löschen wir deine Registrierung.`,
+        deadlineIn: (days: number) => `Bestätigst du nicht ${boundBy("in", formatNumber(days))} Tagen, löschen wir deine Registrierung.`,
       },
       absage: {
         subject: (team: string) => `Registrierung für ${team} abgelehnt`,
@@ -614,7 +614,7 @@ export const SERVER_COPY = catalogue({
         otherPerson: "Unter dieser Adresse steht schon eine andere Person.",
         registerAgain: "Registriere dich mit deiner eigenen Adresse neu.",
         /** The decline stands as the registration's deletion notice, as an application's does. */
-        deletion: (days: number) => `Die Registrierung löschen wir in ${formatNumber(days)} Tagen.`,
+        deletion: (days: number) => `Die Registrierung löschen wir ${boundBy("in", formatNumber(days))} Tagen.`,
       },
     },
   },
@@ -699,7 +699,8 @@ export const SERVER_COPY = catalogue({
       },
       confirm: {
         title: "Kontaktpersonen bestätigen",
-        text: (days: number) => `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link.`,
+        text: (days: number) =>
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb ${boundBy("von", formatNumber(days))} Tagen über einen eigenen Link.`,
       },
       decision: {
         title: "Zusage der Liga",
@@ -927,18 +928,18 @@ export const SERVER_COPY = catalogue({
         heading: "Bewerbung einer Schule",
         form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb ${boundBy("von", formatNumber(days))} Tagen über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
       },
       kader: {
         heading: "Im Kader",
         text: (minAge: number, days: number) =>
-          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von ${formatNumber(days)} Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days))} Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
         // The referee's minimum age is the backend's alone, `fl_backend/app/shared/schemas/bounds.py`.
         text: (days: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb von ${formatNumber(days)} Tagen mit deinem Geburtsdatum; pfeifen kann, wer mindestens 16 Jahre alt ist. Löschen wir deinen Eintrag, bleibt an angesetzten und gespielten Spielen das Honorar ohne deinen Namen stehen.`,
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days))} Tagen mit deinem Geburtsdatum; pfeifen kann, wer mindestens 16 Jahre alt ist. Löschen wir deinen Eintrag, bleibt an angesetzten und gespielten Spielen das Honorar ohne deinen Namen stehen.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
@@ -948,7 +949,7 @@ export const SERVER_COPY = catalogue({
         heading: "Anmeldung und Konto",
         // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
-          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
+          `Du meldest dich mit einem Code an, den wir dir schicken und ${boundBy("nach", formatNumber(code.minutes))} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet ${boundBy("nach", formatNumber(person.idleDays))} Tagen ohne Nutzung, spätestens ${boundBy("nach", formatNumber(person.days))} Tagen; mit Zugang zur Verwaltung ${boundBy("nach", formatNumber(admin.idleHours))} Stunde ohne Nutzung, spätestens ${boundBy("nach", formatNumber(admin.hours))} Stunden.`,
         changes: (linkHours: number, stopDays: number, administratorWait: Wait, ownerWait: Wait) =>
           `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. Mit der ${ownerTier} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
         ban: "Stört eine Adresse den Spielbetrieb, kann die Verwaltung sie sperren. Mit ihr meldet sich dann niemand an, und sie bekommt keine E-Mails. Hat sie ein Konto, schreiben wir das dorthin.",
@@ -1126,7 +1127,7 @@ export const SERVER_COPY = catalogue({
   bewerbung: {
     end: {
       /** The landing's band alike, so the two pages say one thing of an upcoming window. */
-      opensOn: (day: CalendarDay) => `Die Bewerbung öffnet am ${formatDateLong(day)}`,
+      opensOn: (day: CalendarDay) => `Die Bewerbung öffnet ${boundBy("am", formatDateLong(day))}`,
       /** A paused window alike, the visitor being able to do nothing about either, and the landing's band, as `opensOn`. */
       closed: "Die Bewerbung ist gerade geschlossen",
       over: "Die Saison ist vorbei",
@@ -1240,7 +1241,7 @@ export const SERVER_COPY = catalogue({
     stored:
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
-    deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
+    deadline: (until: CalendarDay) => `Bestätigst du nicht ${boundBy("bis zum", formatDateLong(until))}, löschen wir deine Registrierung.`,
     more: MORE,
     /** The first paragraph, its sentences in reading order. */
     text: (...sentences: Copy[]) => sentences.join(" "),
