@@ -26,22 +26,24 @@ export type AnswerRow = {
   reason?: Words;
 };
 
-// The name's and the line's sizes are a `Card` row's, so a party reads alike on the Übersicht and here. The list is the
-// container its rows read (`cardStyles.ts :: nameWithChips`). The hairline stands inside the box's padding, 12 px clear
-// on each side, and the first and last rows take the padding as their own.
+// The name's and the line's sizes are a `Card` row's, so a party reads alike on the Übersicht and here. The hairline
+// stands inside the box's padding, 12 px clear on each side, and the first and last rows take the padding as their own.
 const answerRows = tv({
   slots: {
-    root: "@container grid w-full text-sm",
+    root: "grid w-full text-sm",
     row: `grid gap-1 py-3 first:pt-0 last:pb-0 ${stacked()}`,
     line: "text-xs text-fg-muted",
     reason: "break-words whitespace-pre-line",
   },
 });
 
+// A party's plaque before its line of name and chips, centred on the lines they take.
+const PARTY_CLASSES = "flex min-w-0 items-center gap-2";
+
 /**
- * A party's name with its chips, here and on a seat's row (`SeatRows`), inside the list that is their container: the
- * chips after the name on its line where the list is wide and on the line under it where it is narrow, side by side
- * either way (`cardStyles.ts :: nameWithChips`). A name too long for its line is cut with „…“, after its plaque.
+ * A party's name with its chips, here and on a seat's row (`SeatRows`): the chips directly after the name on its line,
+ * as every row holds them (`cardStyles.ts :: nameWithChips`), after its plaque. A name too long for its line is cut with
+ * „…“.
  */
 export function PartyHead({
   name,
@@ -55,47 +57,49 @@ export function PartyHead({
   /** A place nobody holds: its name muted. */
   muted?: boolean;
 }) {
-  const s = nameWithChips();
+  const s = nameWithChips({ card: true, led: true });
   return (
-    <span className={s.line()}>
-      <span className={s.head()}>
-        {plaque !== undefined && <TeamPlaque plaque={plaque} />}
-        <CutText
-          text={textOf(name)}
-          className={s.name({ class: muted ? "text-fg-muted" : undefined })}
-        />
-      </span>
-      {chips.length > 0 && (
-        <span className={s.chips()}>
-          {chips.map((chip) => (
-            <Chip
-              key={chip.label}
-              {...chip}
-            />
-          ))}
+    <span className={PARTY_CLASSES}>
+      {plaque !== undefined && <TeamPlaque plaque={plaque} />}
+      <span className={s.line()}>
+        <span className={s.head()}>
+          <CutText
+            text={textOf(name)}
+            className={s.name({ class: muted ? "text-fg-muted" : undefined })}
+          />
         </span>
-      )}
+        {chips.length > 0 && (
+          <span className={s.chips()}>
+            {chips.map((chip) => (
+              <Chip
+                key={chip.label}
+                {...chip}
+              />
+            ))}
+          </span>
+        )}
+      </span>
     </span>
   );
 }
 
 /**
  * A party's name and chips while they are read: a bar each, the plaque's before the name's where the rows carry one,
- * in the line the rows draw theirs in, so the chips' bar stands where the chips will at the list's width.
+ * in the line the rows draw theirs in, so the chips' bar stands where the chips will.
  */
 export function PartyHeadPlaceholder({ plaque = false }: { plaque?: boolean }) {
-  const s = nameWithChips();
+  const s = nameWithChips({ card: true, led: true });
   return (
-    <span className={s.line()}>
-      <span className={s.head()}>
-        {plaque && <span className={placeholderBar("h-6 w-10")} />}
+    <span className={PARTY_CLASSES}>
+      {plaque && <span className={placeholderBar("h-6 w-10")} />}
+      <span className={s.line()}>
         <PlaceholderLine
           textClass={s.name()}
           widthClass="w-24"
         />
-      </span>
-      <span className={s.chips()}>
-        <span className={placeholderBar("h-5 w-16")} />
+        <span className={s.chips()}>
+          <span className={placeholderBar("h-5 w-16")} />
+        </span>
       </span>
     </span>
   );

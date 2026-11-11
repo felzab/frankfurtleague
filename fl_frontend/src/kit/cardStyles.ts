@@ -55,31 +55,56 @@ export const columnHead = tv({
 });
 
 /**
- * How a row of a card holds its name and its chips, a card's act row, a seat's and a party's alike: its box's own width
- * decides (`@container` on the row or its list), the same for every row of that box, never a row's content and never
- * the screen, since the rail and a card grid resize the box under one viewport. From 32 rem the chips stand directly
- * after the name on its line, the name cut with „…“ before a chip gives way; in a narrower box, a phone's and each card
- * of two beside the rail, they take the line under the name, which then has the row's whole width. Either way the
- * chips stand side by side on one line: what parts them from the name is their own basis, the whole line.
+ * How a row holds its name and its chips, wherever the chips stand on the name's line: a list's stacked row, a card's,
+ * a seat's, a party's and a line-up's alike. The chips stand directly after the name, to its right, and the name gives
+ * way to them: the line is a wrapping flex row, which breaks by its items' hypothetical sizes (CSS Flexible Box Layout
+ * 1, 9.3). The name's group, the name and a player's mark after it, has the name's least width for its basis, 5 rem,
+ * and grows to its words and no further, so the chips follow a short name where its words end, a long name is cut with
+ * „…“ beside them, and chips the line cannot hold beside the name's least width take the next line. An address is
+ * never cut (`AddressWords`), so its least is a line of an address, the 20 characters an address column takes at the
+ * least (`Table.tsx`'s `line` width without its padding): beside chips that leave it less, it would break over three
+ * lines.
  *
- * 32 rem is the least box that holds a name and its chip beside two acts: of its 512 px the row's padding and chevron
- * take 62 and the widest two acts 235, which leaves the words 215.
+ * The chips stand side by side, 8 px apart, and move as one: they part only on a line of their own too narrow for both.
+ * The name's words stand in a track that may shrink to nothing, so they count nothing towards the least width of what
+ * holds the line, which a table cell reads (`Table.tsx :: nameLine`). A plaque stands before the line, never in it: it
+ * is taller than a line of words, and beside the line it stands centred on the name over its chips, where in the line
+ * it would raise the name's line under them. A list from 42 rem is a table and holds its chips in a column of their own
+ * instead (`Table.tsx :: table`).
  */
 export const nameWithChips = tv({
   slots: {
-    line: "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 @lg:flex-nowrap",
-    // A plaque and a mark keep their size around the name, which is cut between them.
-    head: "flex max-w-full min-w-0 items-center gap-2",
-    name: "min-w-0 truncate font-medium",
-    chips: "flex basis-full items-center gap-2 @lg:shrink-0 @lg:basis-auto",
+    line: "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5",
+    head: "grid max-w-max min-w-0 grow basis-20 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)] items-center gap-2",
+    name: "min-w-0 truncate",
+    chips: "flex max-w-full flex-wrap items-center gap-x-2 gap-y-0.5",
+  },
+  variants: {
+    // The chips beside the address's first line.
+    address: {
+      true: { line: "items-start", head: "basis-38 items-start" },
+    },
+    // After a plaque, in the room it leaves.
+    led: {
+      true: { line: "flex-1" },
+    },
+    // A card's row sets its name in the medium weight.
+    card: {
+      true: { name: "font-medium" },
+    },
   },
 });
 
 /**
- * A card's row that carries acts, a record's and a seat's: by the same box's width as its name and chips
- * (`nameWithChips`), the acts stand beside the words, at the row's end, from 32 rem, and on one line under the words in
- * a narrower box, 8 px under them, so the words, the grey line among them, keep the row's whole width there. The
- * chevron of a row that opens a record is the row's last column in both, centred on the row's height.
+ * A card's row that carries acts, a record's and a seat's: the card's own width decides where they stand (`@container`
+ * on the row or its list), the same for every row of that card, never a row's content and never the screen, since the
+ * rail and a card grid resize the box under one viewport. From 32 rem the acts stand beside the words, at the row's
+ * end, and on one line under the words in a narrower box, 8 px under them, so the words, the grey line among them, keep
+ * the row's whole width there. The chevron of a row that opens a record is the row's last column in both, centred on
+ * the row's height.
+ *
+ * 32 rem is the least box that holds a name and its chip beside two acts: of its 512 px the row's padding and chevron
+ * take 62 and the widest two acts 235, which leaves the words 215.
  */
 export const actRow = tv({
   slots: {
@@ -97,30 +122,10 @@ export const actRow = tv({
       true: { frame: "grid-cols-[minmax(0,1fr)_auto] @lg:grid-cols-[minmax(0,1fr)_auto_auto]" },
       false: { frame: "grid-cols-[minmax(0,1fr)] @lg:grid-cols-[minmax(0,1fr)_auto]" },
     },
-    // The row's acts are side acts, which fold into one „⋯“ in a narrow box (`actsFold`): they stand at the row's end
-    // at every width, where a narrow box draws the „⋯“ and a wide one the acts themselves.
+    // The rows' acts are side acts in one „⋯“ (`SideActs`), which stands at the row's end at every width, beside the
+    // words, as a chevron does.
     folds: {
       true: { frame: "grid-cols-[minmax(0,1fr)_auto]", acts: "col-start-2 row-start-1 ms-3 mt-0" },
-    },
-  },
-});
-
-/**
- * A row's side acts by its box's width (`SideActs`): their buttons where the box is wide, and one „⋯“ holding them
- * where its rows are stacked. Both are drawn and one is shown, at the box's own stacking width: a list's, `list` or
- * `crowded` (`Table.tsx :: table`'s `stacks`), or a card's rows' (`nameWithChips`). The table's wait draws its bars
- * from the same.
- */
-export const actsFold = tv({
-  slots: {
-    buttons: "flex items-center gap-2",
-    menu: "flex",
-  },
-  variants: {
-    at: {
-      list: { buttons: "@max-2xl:hidden", menu: "@2xl:hidden" },
-      crowded: { buttons: "@max-5xl:hidden", menu: "@5xl:hidden" },
-      card: { buttons: "@max-lg:hidden", menu: "@lg:hidden" },
     },
   },
 });

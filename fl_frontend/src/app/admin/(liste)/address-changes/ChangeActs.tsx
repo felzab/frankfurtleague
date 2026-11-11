@@ -21,11 +21,11 @@ import type { SideAct } from "@/kit/SideActs";
  * What a running change's row does, each act behind the passkey touch, the last step of its press: „Link senden“ where
  * the change waits on the new mailbox, the one step a fresh link serves, its answer a toast, the row holding no status
  * line; and its ending, asked once, naming both addresses and whom it mails: „Zurückziehen“ in the wait, as Administratoren
- * says of the same record, and „Verwerfen“ before it, in the outlined danger look of every destroying act's button.
+ * says of the same record, and „Verwerfen“ before it, in the danger hue of every destroying act.
  *
- * Both are side acts of the row (`SideActs`), so a phone's row folds them into its „⋯“. The fresh link runs from the
- * press itself, the button's or the menu entry's, which is the press the touch is asked from; the ending's question is
- * held here and opened by either, and its own final press asks the touch.
+ * Both are side acts of the row (`SideActs`), the entries of its „⋯“. The fresh link runs from the entry's own press,
+ * which is the press the touch is asked from; the ending's question is held here and opened by its entry, and its own
+ * final press asks the touch.
  */
 export function ChangeActs({
   id,
