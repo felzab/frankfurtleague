@@ -70,7 +70,8 @@ function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddr
 /**
  * One running change, which opens no page: its address on file, its state, and whatever its last mail met. When its
  * step ends stands on the row's muted line, as a waiting change's does on Administratoren: a column for it would leave
- * the two addresses too little of a 42-rem table beside the two chips.
+ * the two addresses too little of a 42-rem table beside the two chips. A stacked row, which leaves the „Neu“ column
+ * out, names the new address on that line before the moment, the address breaking after its „@“ as every one does.
  */
 function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
   const delivery = deliveryChip(change.delivery);
@@ -83,6 +84,11 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
     chip: chipOf(change),
     ...(delivery === null ? {} : { delivery }),
     ...(until === undefined ? {} : { line: until }),
+    phoneLine: {
+      before: WORDS.newLine.before,
+      address: { record: change.email },
+      ...(until === undefined ? {} : { after: WORDS.newLine.after(until) }),
+    },
     cells: { after: { record: change.email } },
     // The fresh link before the ending, as `ChangeActs` draws them, both from `resends`.
     sideActs: resends ? 2 : 1,

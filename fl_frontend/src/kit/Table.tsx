@@ -20,7 +20,7 @@ import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { AddressText } from "./AddressWords";
@@ -75,6 +75,15 @@ export type Counts = readonly [won: number, drawn: number, lost: number];
  */
 type TableCell = Words | { value: Words; cancelled: number } | { counts: Counts };
 
+/**
+ * A muted line holding an address amid the catalogue's words, „Neu: <address> · bis 12.11., 15:12“: the address
+ * between `before` and `after`, which an address never cut breaks after its „@“ (`AddressWords`), where a plain line
+ * would break it anywhere.
+ */
+type AddressLine = { before: Copy; address: RecordText; after?: Copy };
+
+const isAddressLine = (line: Words | AddressLine): line is AddressLine => typeof line !== "string" && "address" in line;
+
 export type TableRow = {
   id: string;
   /** The record's name, marked where it is an address (`AddressText`); with `href` the whole row opens the record. */
@@ -112,51 +121,44 @@ export type TableRow = {
    * club that has played no match, shows a dash.
    */
   place?: number | null;
+  /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
+  line?: Words;
+  /**
+   * The line on a phone, a box narrower than 42 rem, alone, standing for columns a phone leaves out, such as a player's
+   * position and Stufe, which from 42 rem the columns say; in `line`'s place there where the row has both. One holding
+   * an address amid the catalogue's words, such as a change's new address, breaks it after its „@“ (`AddressLine`).
+   */
+  phoneLine?: Words | AddressLine;
 } & (
   | {
-      /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
-      line?: Words;
-      phoneLine?: never;
+      href?: Route;
+      /**
+       * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
+       * page back to a card: a client page's own, since a function cannot cross from the server.
+       */
+      onOpen?: () => void;
+      acts?: never;
+      sideActs?: never;
     }
   | {
-      line?: never;
+      href?: never;
+      onOpen?: never;
       /**
-       * The same line on a phone alone, standing for columns a phone leaves out, such as a player's position and Stufe:
-       * from `lg` those columns say it.
+       * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, or
+       * the row's one side act is one or two kit buttons, each the trigger of its dialog, as a card's act row holds
+       * them: on one line under the row's words where the list is stacked, at the row's end where it is a table. The
+       * side acts of a list some row of which carries two or more are `SideActs`' one „⋯“ on every row. A row the
+       * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
        */
-      phoneLine?: Words;
+      acts?: ReactElement;
+      /**
+       * How many side acts `acts` draws (`SideActs`), which the list reads to decide their form for all its rows: the
+       * acts reach it as an element, which says nothing of what it holds. Derived from the one value that decides the
+       * acts themselves, never a second condition beside it.
+       */
+      sideActs?: number;
     }
-) &
-  (
-    | {
-        href?: Route;
-        /**
-         * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
-         * page back to a card: a client page's own, since a function cannot cross from the server.
-         */
-        onOpen?: () => void;
-        acts?: never;
-        sideActs?: never;
-      }
-    | {
-        href?: never;
-        onOpen?: never;
-        /**
-         * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, or
-         * the row's one side act is one or two kit buttons, each the trigger of its dialog, as a card's act row holds
-         * them: on one line under the row's words where the list is stacked, at the row's end where it is a table. The
-         * side acts of a list some row of which carries two or more are `SideActs`' one „⋯“ on every row. A row the
-         * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
-         */
-        acts?: ReactElement;
-        /**
-         * How many side acts `acts` draws (`SideActs`), which the list reads to decide their form for all its rows: the
-         * acts reach it as an element, which says nothing of what it holds. Derived from the one value that decides the
-         * acts themselves, never a second condition beside it.
-         */
-        sideActs?: number;
-      }
-  );
+);
 
 export type TableProps = {
   /** The table's name. */
@@ -736,7 +738,8 @@ function NameCell({
         </span>
       </span>
       {row.line !== undefined && (
-        <span className={s.line()}>
+        // A phone's line takes its place below 42 rem.
+        <span className={s.line({ class: row.phoneLine === undefined ? "" : "@max-2xl:hidden" })}>
           <CutText
             text={textOf(row.line)}
             className={s.lineWords()}
@@ -745,10 +748,19 @@ function NameCell({
       )}
       {row.phoneLine !== undefined && (
         <span className={s.line({ class: "@2xl:hidden" })}>
-          <CutText
-            text={textOf(row.phoneLine)}
-            className={s.lineWords()}
-          />
+          {isAddressLine(row.phoneLine) ? (
+            // Shown only where the row is stacked, which wraps its lines, so it is never cut.
+            <span className={addressWords()}>
+              {row.phoneLine.before}
+              <AddressWords address={row.phoneLine.address.record} />
+              {row.phoneLine.after}
+            </span>
+          ) : (
+            <CutText
+              text={textOf(row.phoneLine)}
+              className={s.lineWords()}
+            />
+          )}
         </span>
       )}
       {row.refusal !== undefined && (
