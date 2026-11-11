@@ -221,9 +221,7 @@ export function OneShotForm({
           {check.widget}
           {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
               so a screen reader hears what the press did. Around the whole footer, whose acts it reorders by layout. */}
-          <RowActs
-            className="contents"
-            describedBy={describedBy}>
+          <RowActs className="contents">
             <FormFooter
               status={status}
               note={note}>
@@ -231,6 +229,7 @@ export function OneShotForm({
                 <Button
                   variant="quiet"
                   label={COPY.shared.verb[acts.refusal.verb]}
+                  aria-describedby={describedBy}
                   isBusy={isBusy && pressed === "secondary"}
                   onPress={() => {
                     if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
@@ -241,6 +240,7 @@ export function OneShotForm({
                 variant="primary"
                 type="submit"
                 label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
+                aria-describedby={describedBy}
                 isBusy={isBusy && pressed === "primary"}
               />
             </FormFooter>

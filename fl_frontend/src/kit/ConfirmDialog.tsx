@@ -55,8 +55,6 @@ export type Tone = "danger" | "primary";
 export type Trigger<T extends Tone = Tone> = {
   label: Copy;
   isBusy?: boolean;
-  /** One repeated on every row of a list is described by its row's name (`Button`). */
-  "aria-describedby"?: string;
 } & (
   | { icon: IconName; leadingIcon?: never; isDisabled?: never; variant?: never }
   | ({ icon?: never; leadingIcon?: IconName; isDisabled?: boolean } & ([T] extends ["danger"]
@@ -66,13 +64,12 @@ export type Trigger<T extends Tone = Tone> = {
 
 /** A question's or a dialog's trigger, drawn as its tone says (`Trigger`). */
 export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone }) {
-  const { label, isBusy, "aria-describedby": describedBy } = trigger;
+  const { label, isBusy } = trigger;
   return trigger.icon !== undefined ? (
     <Button
       icon={trigger.icon}
       label={label}
       isBusy={isBusy}
-      aria-describedby={describedBy}
     />
   ) : (
     <Button
@@ -81,7 +78,6 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
       leadingIcon={trigger.leadingIcon}
       isDisabled={trigger.isDisabled}
       isBusy={isBusy}
-      aria-describedby={describedBy}
     />
   );
 }

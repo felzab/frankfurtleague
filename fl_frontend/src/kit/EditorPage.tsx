@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useId, useRef } from "react";
+import { Fragment, useRef } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -15,7 +15,6 @@ import { statusLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
-import { RowName } from "./RowActs";
 import { dangerRow, Section } from "./Section";
 
 import type { Copy } from "@/core/copy";
@@ -75,38 +74,31 @@ export type DangerAct = {
 function DangerRow({ act }: { act: DangerAct }) {
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
-  const nameId = useId();
   return (
     // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
-        <span
-          id={nameId}
-          className="font-semibold">
-          {act.name}
-        </span>
+        <span className="font-semibold">{act.name}</span>
         <p className={statusLine({ placement: "column", tone: "resting" })}>{act.consequence}</p>
       </div>
       {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
-      <RowName value={nameId}>
-        {locked !== undefined ? (
-          <Button
-            variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
-            label={label}
-            locked={locked}
-          />
-        ) : act.dialog === undefined ? (
-          <ConfirmDialog
-            {...act.confirm}
-            trigger={{ label }}
-          />
-        ) : (
-          <Dialog
-            {...act.dialog}
-            trigger={{ label }}
-          />
-        )}
-      </RowName>
+      {locked !== undefined ? (
+        <Button
+          variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
+          label={label}
+          locked={locked}
+        />
+      ) : act.dialog === undefined ? (
+        <ConfirmDialog
+          {...act.confirm}
+          trigger={{ label }}
+        />
+      ) : (
+        <Dialog
+          {...act.dialog}
+          trigger={{ label }}
+        />
+      )}
     </div>
   );
 }

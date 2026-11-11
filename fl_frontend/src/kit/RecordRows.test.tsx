@@ -137,7 +137,7 @@ describe("a row's controls", () => {
     expect(row.getByRole("radiogroup", { name: TEAM })).toBeTruthy();
     expect(row.getByRole("textbox", { name: MINUTE })).toBeTruthy();
     expect(row.getByRole("combobox", { name: COPY.shared.spieler })).toBeTruthy();
-    expect(row.getByRole("button", { name: REMOVE, description: rowLabel(3) })).toBeTruthy();
+    expect(row.getByRole("button", { name: REMOVE })).toBeTruthy();
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 import type { ReactNode, RefObject } from "react";
 
@@ -126,26 +126,18 @@ export function useFocusHome(held: RefObject<HTMLElement | null>) {
 }
 
 /**
- * The id of the name of the row whose acts stand inside, which every button there is described by: each row's carries
- * the same label, „Zusagen“ or „Aufnehmen“, so a screen reader hears whose it is only from its row. A dialog opened from
- * the row stands outside the row's words and sets it back to none (`DialogOverlay`).
- */
-export const RowName = createContext<string | undefined>(undefined);
-
-/**
  * What a server component draws that can leave with the focus on it: a row's acts, or a lone act that goes, as a dialog's
  * trigger giving way to its locked button does. `contents` where the wrapper is to lay nothing out. A `div`, since what
  * it holds may be flow content, a one-shot form's whole footer, and every caller stands it in a flow container.
- * `describedBy` is the id of the row's name, which each of its buttons is described by (`RowName`).
  */
-export function RowActs({ className, describedBy, children }: { className: string; describedBy?: string; children: ReactNode }) {
+export function RowActs({ className, children }: { className: string; children: ReactNode }) {
   const acts = useRef<HTMLDivElement>(null);
   useFocusHome(acts);
   return (
     <div
       ref={acts}
       className={className}>
-      <RowName value={describedBy}>{children}</RowName>
+      {children}
     </div>
   );
 }

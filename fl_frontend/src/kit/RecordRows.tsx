@@ -199,7 +199,6 @@ function RecordRow<Row extends EditorRow>({
             <Button
               icon="close"
               label={removal.label}
-              aria-describedby={labelId}
               onPress={removal.act}
             />
           </div>
@@ -249,7 +248,7 @@ export function RecordRows<Row extends EditorRow>({
   /** A new row as the add control makes it. */
   blank: Row;
   cells: RowCells<Row>;
-  /** The label over a row by its number, from 1, such as „Tor 3“: it names the row and describes its remove control. */
+  /** The label over a row by its number, from 1, such as „Tor 3“, which names the row. */
   rowLabel: (number: number) => Copy;
   /** The add control's label, such as „Tor eintragen“. */
   add: Copy;

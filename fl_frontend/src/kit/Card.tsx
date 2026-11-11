@@ -1,5 +1,3 @@
-import { useId } from "react";
-
 import { textOf } from "@/core/copy";
 
 import { buttonPlaceholder } from "./buttonStyles";
@@ -217,8 +215,6 @@ export type CardActRowProps = {
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ opens: true });
   const words = nameWithChips({ card: true });
-  // What the row's acts are described by, since every row's carry the same labels.
-  const nameId = useId();
   return (
     <div
       data-kit-row
@@ -228,7 +224,6 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           <span className={words.line()}>
             <span className={words.head()}>
               <CutText
-                id={nameId}
                 text={textOf(name)}
                 className={words.name()}>
                 <Link
@@ -246,13 +241,7 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           </span>
           {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
         </span>
-        {acts !== undefined && (
-          <RowActs
-            className={s.acts()}
-            describedBy={nameId}>
-            {acts}
-          </RowActs>
-        )}
+        {acts !== undefined && <RowActs className={s.acts()}>{acts}</RowActs>}
         <span className={s.end()}>
           <RowEnd />
         </span>
