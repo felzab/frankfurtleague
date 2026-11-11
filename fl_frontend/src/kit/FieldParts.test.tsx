@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { getDefaultNormalizer, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
 import { Input, TextField } from "react-aria-components/TextField";
@@ -30,7 +30,7 @@ describe("a form's status line", () => {
       />,
     );
     expect(screen.getByRole("status").textContent).toBe("");
-    expect(screen.getByText(COPY.template.changesPending(2))).toBeTruthy();
+    expect(screen.getByText(COPY.template.changesPending(2), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) })).toBeTruthy();
   });
 });
 

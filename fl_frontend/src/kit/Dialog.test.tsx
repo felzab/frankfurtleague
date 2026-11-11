@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Activity, useState } from "react";
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, getDefaultNormalizer, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -254,7 +254,7 @@ describe("the kit's dialog", () => {
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(save).not.toHaveBeenCalled();
     // The editor's draft stands, waiting for its own save.
-    expect(screen.getByText(COPY.template.changesPending(1))).toBeTruthy();
+    expect(screen.getByText(COPY.template.changesPending(1), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) })).toBeTruthy();
   });
 
   /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
