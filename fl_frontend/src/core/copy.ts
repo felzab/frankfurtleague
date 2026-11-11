@@ -153,6 +153,8 @@ const PASSKEY_REQUIRED = "Die Verwaltung ist erst mit einem Passkey erreichbar."
 const SPIELER = "Spieler";
 const SCHIEDSRICHTER = "Schiedsrichter";
 const KADER = "Kader";
+// A contact person's or a referee's own entry, which their confirmation's title and its objection's question name.
+const ENTRY = "Eintrag";
 // The privacy notice's title, which the deletion box's sentence names as the place listing what outlives an erasure.
 const PRIVACY_NOTICE = "Datenschutz";
 // The danger box over a record's retiring: a venue's, a referee's and a club's alike.
@@ -307,6 +309,8 @@ export const COPY = catalogue({
     toSpiel: "Zum Spiel",
     /** An accepted application's way to its team's page. */
     toTeam: "Zum Team",
+    /** A contact person's or a referee's own entry, which the objection on their mailed page asks about: „Eintrag widersprechen?“. */
+    entry: ENTRY,
     /** A fact nobody has entered, where a sentence names it in words rather than a glyph: a match mail's ground. */
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
@@ -433,7 +437,7 @@ export const COPY = catalogue({
     adminActionLog: "Protokoll",
     addressChangeConfirmation: "Änderung der E-Mail-Adresse",
     /** A contact person's and a referee's confirmation of their own entry. */
-    entryConfirmation: "Eintrag bestätigen",
+    entryConfirmation: `${ENTRY} ${infinitive("confirm")}`,
     registrierungConfirmation: "Registrierung bestätigen",
     accountErasure: "Konto löschen",
     registrierung: "Registrierung",

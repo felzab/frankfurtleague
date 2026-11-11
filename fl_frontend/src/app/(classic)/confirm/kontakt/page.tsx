@@ -22,6 +22,7 @@ import { linkViewOf } from "../linkView";
 import { answerKontakt, objectKontakt } from "./answerKontakt";
 import { END, TO_HOME } from "./ends";
 
+import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
@@ -116,6 +117,9 @@ const standsFor = (view: FLBewerbungEinwilligungViewResponse): Fact[] => [
   { label: SERVER_COPY.mail.bewerbung.registeredAs, value: rollenOf(view) },
 ];
 
+/** The objection's question, „Eintrag widersprechen?“, over what the page says an objection does to this seat. */
+const objection = (consequence: Copy) => ({ verb: "oppose", subject: COPY.shared.entry, consequence }) as const;
+
 /** A season row whose season ended or whose club left: it takes no confirmation, so the page offers the objection alone. */
 function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): MailedState {
   const team = { record: view.schule };
@@ -131,7 +135,7 @@ function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): Ma
     ),
     more: WORDS.more,
     action: objectKontakt,
-    acts: { primary: COPY.shared.verb.oppose },
+    acts: { refusal: objection(WORDS.objectionEffect.seasonRow) },
     carry: { token },
   };
 }
@@ -161,7 +165,10 @@ function question(view: FLBewerbungEinwilligungViewResponse, token: string, unti
         ),
     more: WORDS.more,
     action: answerKontakt,
-    acts: { primary: COPY.page.entryConfirmation, secondary: COPY.shared.verb.oppose },
+    acts: {
+      primary: COPY.page.entryConfirmation,
+      refusal: objection(onSeasonRow ? WORDS.objectionEffect.seasonRow : WORDS.objectionEffect.application),
+    },
     carry: { token },
     children: (
       <ConfirmationFields

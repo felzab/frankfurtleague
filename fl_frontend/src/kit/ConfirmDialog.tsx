@@ -89,7 +89,8 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
 /**
  * What opens the question: its own trigger, which it draws; the open state another control holds, as the kit's `Dialog`
  * takes it; or a control in a look of the frame's own that is no button, such as the band's „‹ Zurück“, which asks
- * before it drops an editor's unsaved changes. A button opening a question is always a `trigger`.
+ * before it drops an editor's unsaved changes. A button opening a question is a `trigger`, but for a form's own press
+ * that asks first, whose form holds the open state: `QuestionForm`'s, and a mailed page's refusal (`OneShotForm`).
  */
 type Opening<T extends Tone> =
   | {
