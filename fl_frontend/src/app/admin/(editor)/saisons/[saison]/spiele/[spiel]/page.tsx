@@ -143,15 +143,20 @@ export default function SpielEditorPage({ params }: Props) {
           ],
           [{ titled: "paragraph" }],
           [{ titled: "field" }],
-          [
-            <TablePlaceholder
-              key="report"
-              head={REPORT_HEAD}
-              rows={3}
-              plaques
-              bare
-            />,
-          ],
+          {
+            block: (
+              <SectionPlaceholder
+                list={
+                  <TablePlaceholder
+                    head={REPORT_HEAD}
+                    rows={3}
+                    plaques
+                    bare
+                  />
+                }
+              />
+            ),
+          },
           [
             <AnswerRowsPlaceholder
               key="answers"
