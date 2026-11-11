@@ -70,22 +70,32 @@ function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddr
 /**
  * One running change, which opens no page: its address on file, its state, and whatever its last mail met. When its
  * step ends stands on the row's muted line, as a waiting change's does on Administratoren: a column for it would leave
- * the two addresses too little of a 42-rem table beside the two chips.
+ * the two addresses too little of a 42-rem table beside the two chips. A stacked row, which leaves the „Neu“ column
+ * out, names the new address on that line before the moment, the address breaking after its „@“ as every one does.
  */
 function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
   const delivery = deliveryChip(change.delivery);
   const until = untilOf(change);
+  // A fresh link serves only the step that waits on the new mailbox.
+  const resends = change.waits_on === "new_address";
   return {
     id: change.id,
     name: { record: change.address, address: true },
     chip: chipOf(change),
     ...(delivery === null ? {} : { delivery }),
     ...(until === undefined ? {} : { line: until }),
+    phoneLine: {
+      before: WORDS.newLine.before,
+      address: { record: change.email },
+      ...(until === undefined ? {} : { after: WORDS.newLine.after(until) }),
+    },
     cells: { after: { record: change.email } },
+    // The fresh link before the ending, as `ChangeActs` draws them, both from `resends`.
+    sideActs: resends ? 2 : 1,
     acts: (
       <ChangeActs
         id={change.id}
-        resends={change.waits_on === "new_address"}
+        resends={resends}
         verb={change.waits_on === "waiting_period" ? "withdraw" : "discard"}
         facts={endFactsOf(change)}
         holder={holder}
@@ -95,14 +105,15 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 }
 
 /**
- * The table's head, drawn while the rows are read and over them once they are. A row carries a fresh link and its
- * ending, two side acts, so every row's stand in its „⋯“. The new address is a column holding an address, cut at an
- * address's step as every list's is.
+ * The table's head, drawn while the rows are read and over them once they are. A row carries its ending, and a fresh
+ * link before it while the change waits on the new mailbox: where some row carries both, every row's stand in its „⋯“,
+ * and else each row's ending is its button, which the wait draws, the taller of the two. The new address is a column
+ * holding an address, cut at an address's step as every list's is.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   state: { label: COPY.admin.schiedsrichter.state, delivery: true },
-  folds: true,
+  acts: [COPY.shared.verb.discard],
   columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
 };
 

@@ -178,6 +178,8 @@ const BANS = "Sperren";
 const EFFECTIVE_FROM = "Gilt ab";
 // A link's last moment, a fact's label and a row's line alike.
 const VALID_UNTIL = "Gültig bis";
+// A move's new slot, a fact's label, a column's head and a row's line alike.
+const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
 const ACCOUNT_ERASED = "Konto gelöscht";
 // One word for every retention pass, its noun saying what it took.
@@ -1017,7 +1019,7 @@ export const COPY = catalogue({
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
     facts: {
       before: "Bisher",
-      after: "Neu",
+      after: AFTER,
       fromNow: "Ab sofort",
       mailTo: "E-Mail an",
       enteredOn: "Eingetragen am",
@@ -1476,6 +1478,11 @@ export const COPY = catalogue({
       /** A row's muted line, the moment its step ends: while a link is open, and in the wait. */
       until: (moment: string) => `bis ${formatInstantShort(moment)}`,
       from: (moment: string) => `ab ${formatInstantShort(moment)}`,
+      /**
+       * A stacked row's muted line, standing for the „Neu“ column a phone leaves out: „Neu: <address> · bis 12.11.,
+       * 15:12“, the new address between the two parts, the moment after it where the step has one (`until`, `from`).
+       */
+      newLine: { before: `${AFTER}: `, after: (until: string) => ` · ${until}` },
       startConsequence: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span} nach ihrer Bestätigung.`,
       /** A callout, the typed address matching a listed row. */
       replaces: "Eine laufende Änderung wird ersetzt.",

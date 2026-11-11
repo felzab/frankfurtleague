@@ -129,6 +129,8 @@ type ListContent =
       wait: number;
       /** „Weitere 50 laden“ stands under the list as a rule, so its wait draws the button. */
       paged?: true;
+      /** Each row is a club's, its plaque before its name, so its wait draws the plaque's bar and the name's after it. */
+      plaques?: true;
       content: Promise<TableContent>;
     }
   | {
@@ -213,6 +215,7 @@ function ListPlaceholder({ list }: { list: ListContent }) {
           <TablePlaceholder
             head={list.head}
             rows={list.wait}
+            plaques={list.plaques === true}
           />
           {list.paged === true && (
             <div className="flex items-center gap-3">

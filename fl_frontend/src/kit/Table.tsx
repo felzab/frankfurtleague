@@ -4,7 +4,7 @@ import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
@@ -14,12 +14,13 @@ import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
+import { SideActsScope } from "./SideActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { AddressText } from "./AddressWords";
@@ -74,6 +75,15 @@ export type Counts = readonly [won: number, drawn: number, lost: number];
  */
 type TableCell = Words | { value: Words; cancelled: number } | { counts: Counts };
 
+/**
+ * A muted line holding an address amid the catalogue's words, „Neu: <address> · bis 12.11., 15:12“: the address
+ * between `before` and `after`, which an address never cut breaks after its „@“ (`AddressWords`), where a plain line
+ * would break it anywhere.
+ */
+type AddressLine = { before: Copy; address: RecordText; after?: Copy };
+
+const isAddressLine = (line: Words | AddressLine): line is AddressLine => typeof line !== "string" && "address" in line;
+
 export type TableRow = {
   id: string;
   /** The record's name, marked where it is an address (`AddressText`); with `href` the whole row opens the record. */
@@ -111,44 +121,44 @@ export type TableRow = {
    * club that has played no match, shows a dash.
    */
   place?: number | null;
+  /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
+  line?: Words;
+  /**
+   * The line on a phone, a box narrower than 42 rem, alone, standing for columns a phone leaves out, such as a player's
+   * position and Stufe, which from 42 rem the columns say; in `line`'s place there where the row has both. One holding
+   * an address amid the catalogue's words, such as a change's new address, breaks it after its „@“ (`AddressLine`).
+   */
+  phoneLine?: Words | AddressLine;
 } & (
   | {
-      /** The muted line under the name, cut as a name is: what the row's record is, or when it takes effect. */
-      line?: Words;
-      phoneLine?: never;
+      href?: Route;
+      /**
+       * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
+       * page back to a card: a client page's own, since a function cannot cross from the server.
+       */
+      onOpen?: () => void;
+      acts?: never;
+      sideActs?: never;
     }
   | {
-      line?: never;
+      href?: never;
+      onOpen?: never;
       /**
-       * The same line on a phone alone, standing for columns a phone leaves out, such as a player's position and Stufe:
-       * from `lg` those columns say it.
+       * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, or
+       * the row's one side act is one or two kit buttons, each the trigger of its dialog, as a card's act row holds
+       * them: on one line under the row's words where the list is stacked, at the row's end where it is a table. The
+       * side acts of a list some row of which carries two or more are `SideActs`' one „⋯“ on every row. A row the
+       * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
        */
-      phoneLine?: Words;
+      acts?: ReactElement;
+      /**
+       * How many side acts `acts` draws (`SideActs`), which the list reads to decide their form for all its rows: the
+       * acts reach it as an element, which says nothing of what it holds. Derived from the one value that decides the
+       * acts themselves, never a second condition beside it.
+       */
+      sideActs?: number;
     }
-) &
-  (
-    | {
-        href?: Route;
-        /**
-         * What the whole row does where it leads to a step of the page rather than to an address, such as a bulk's check
-         * page back to a card: a client page's own, since a function cannot cross from the server.
-         */
-        onOpen?: () => void;
-        acts?: never;
-      }
-    | {
-        href?: never;
-        onOpen?: never;
-        /**
-         * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, or
-         * the row's one side act is one or two kit buttons, each the trigger of its dialog, as a card's act row holds
-         * them: on one line under the row's words where the list is stacked, at the row's end where it is a table. The
-         * side acts of a list whose rows carry two or more are `SideActs`' one „⋯“ (`folds`). A row the reader can do
-         * nothing to takes none, and a table none of whose rows takes any draws no act column.
-         */
-        acts?: ReactElement;
-      }
-  );
+);
 
 export type TableProps = {
   /** The table's name. */
@@ -163,13 +173,6 @@ export type TableProps = {
    * side by side in it; a stacked row sets them after its name on the name's line instead.
    */
   state?: { label: Copy; delivery?: true };
-  /**
-   * The rows' acts are side acts, two or more on some row, drawn by `SideActs` as one „⋯“ on every row that carries
-   * any: it stands at the row's end at every width, a stacked row's in the chevron's place rather than on a line under
-   * its words. A list whose rows carry one side act at the most, or a decision, such as „Zusagen“ and „Ablehnen“, folds
-   * nothing.
-   */
-  folds?: boolean;
   columns: ReadonlyArray<TableColumn>;
   rows: ReadonlyArray<TableRow>;
   /** What stands in the rows' place when there are none. */
@@ -214,13 +217,14 @@ export type TableProps = {
  */
 export type TableHead = Pick<
   TableProps,
-  "nameLabel" | "rankLabel" | "state" | "folds" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
+  "nameLabel" | "rankLabel" | "state" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
 > & {
   /** The rows open nothing, so their wait ends in no chevron. */
   linked?: false;
   /**
-   * The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. A list that
-   * `folds` names none: its wait draws the „⋯“.
+   * The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. A list of side
+   * acts names its lone act: whether its rows fold into a „⋯“ is the read's to tell, so its wait draws the taller form,
+   * the button on a line of its own under a stacked row's words.
    */
   acts?: ReadonlyArray<Copy>;
 };
@@ -246,7 +250,7 @@ const PHONE_WRAPS_CLASSES = "max-lg:wrap-anywhere max-lg:whitespace-normal";
  * its parts, `contents`, and each part of the row takes a line of its own, in one order: the name's, its chips directly
  * after the name (`cardStyles.ts :: nameWithChips`), with the columns the phone keeps beside it, each in its own track
  * under its head; the muted line; a refusal; and the acts on one line. The chevron spans the lines, centred on the row,
- * and so does the „⋯“ of a list that `folds`. A line that holds nothing takes no height, and a head cell's words stand
+ * and so does the „⋯“ of a list whose side acts fold. A line that holds nothing takes no height, and a head cell's words stand
  * on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
  *
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
@@ -412,7 +416,8 @@ const table = tv({
     lone: {
       true: {},
     },
-    // A list whose rows carry acts: on a line under a stacked row's words, or in one „⋯“ at its end (`folds`).
+    // A list whose rows carry acts: on a line under a stacked row's words, or in one „⋯“ at its end, where its side
+    // acts fold (`SideActs`).
     acts: {
       under: {},
       folded: {},
@@ -733,7 +738,8 @@ function NameCell({
         </span>
       </span>
       {row.line !== undefined && (
-        <span className={s.line()}>
+        // A phone's line takes its place below 42 rem.
+        <span className={s.line({ class: row.phoneLine === undefined ? "" : "@max-2xl:hidden" })}>
           <CutText
             text={textOf(row.line)}
             className={s.lineWords()}
@@ -742,10 +748,19 @@ function NameCell({
       )}
       {row.phoneLine !== undefined && (
         <span className={s.line({ class: "@2xl:hidden" })}>
-          <CutText
-            text={textOf(row.phoneLine)}
-            className={s.lineWords()}
-          />
+          {isAddressLine(row.phoneLine) ? (
+            // Shown only where the row is stacked, which wraps its lines, so it is never cut.
+            <span className={addressWords()}>
+              {row.phoneLine.before}
+              <AddressWords address={row.phoneLine.address.record} />
+              {row.phoneLine.after}
+            </span>
+          ) : (
+            <CutText
+              text={textOf(row.phoneLine)}
+              className={s.lineWords()}
+            />
+          )}
         </span>
       )}
       {row.refusal !== undefined && (
@@ -776,7 +791,6 @@ export function Table({
   nameLabel,
   rankLabel,
   state,
-  folds = false,
   columns,
   rows,
   empty,
@@ -792,6 +806,8 @@ export function Table({
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose, stack });
+  // The list decides its rows' side acts' form, once for all of them: one „⋯“ on every row where some row carries two.
+  const folds = rows.some((row) => (row.sideActs ?? 0) > 1);
   // Where a stacked row's acts stand: under its words, or, one „⋯“, at its end.
   const acts = !hasActs ? undefined : folds ? "folded" : "under";
   const parts = table({ stacks, acts });
@@ -967,7 +983,7 @@ export function Table({
                           <RowActs
                             className={parts.actsLine()}
                             describedBy={nameId}>
-                            {row.acts}
+                            <SideActsScope folds={folds}>{row.acts}</SideActsScope>
                           </RowActs>
                         )}
                       </td>
@@ -1001,8 +1017,8 @@ function ActBars({ acts }: { acts: ReadonlyArray<Copy> }) {
  * the chevron where rows lead on. Drawn with the table's own recipe and the columns' stated widths inside the table's
  * own container, so it takes the form the rows will at every width: a list's rows stacked where its box is narrow, the
  * chip's bar after the name's, a phone's left-out columns left out, a `stack` table's rows stacked as `Table`'s and
- * each row's acts as buttons, or as the „⋯“ of a list that `folds`. Each cell's bar stands in a line of the cell's own
- * height, so a row holds its height wherever its lines stack.
+ * each row's acts as buttons, which a stacked row sets on a line under its words. Each cell's bar stands in a line of
+ * the cell's own height, so a row holds its height wherever its lines stack.
  */
 export function TablePlaceholder({
   head,
@@ -1016,23 +1032,12 @@ export function TablePlaceholder({
   plaques?: boolean;
   bare?: boolean;
 }) {
-  const {
-    nameLabel,
-    rankLabel,
-    state,
-    folds = false,
-    columns,
-    compact = false,
-    chevronOnPhone = true,
-    plaqueAlone = false,
-    acts,
-    stack = false,
-  } = head;
-  const hasActs = folds || acts !== undefined;
+  const { nameLabel, rankLabel, state, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts, stack = false } = head;
+  const hasActs = acts !== undefined;
   const linked = head.linked !== false && !hasActs;
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose: false, stack });
   const phoneEnd = { stack, stacks, chevronOnPhone: linked && chevronOnPhone };
-  const actsForm = !hasActs ? undefined : folds ? "folded" : "under";
+  const actsForm = hasActs ? "under" : undefined;
   const chipsOnLine = chipsOnLineOf(state, stacks);
   const lonePlaque = plaques && plaqueAlone;
   const parts = table({ stacks, acts: actsForm, chipsOnLine: chipsOnLine === "never" ? undefined : chipsOnLine });
@@ -1120,15 +1125,10 @@ export function TablePlaceholder({
                   <RowEnd />
                 </td>
               )}
-              {hasActs && (
+              {acts !== undefined && (
                 <td className={parts.acts()}>
                   <span className={parts.actsLine()}>
-                    {folds ? (
-                      // The „⋯“'s bar, as `SideActs` draws its button.
-                      <span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />
-                    ) : (
-                      acts !== undefined && <ActBars acts={acts} />
-                    )}
+                    <ActBars acts={acts} />
                   </span>
                 </td>
               )}

@@ -224,45 +224,45 @@ export function TeamEditor({
             fields: (
               <SeatRows
                 label={COPY.team.kontakte}
-                rows={row.seats.map(({ target, ...seat }) => ({
-                  ...seat,
+                rows={row.seats.map(({ target, ...seat }) => {
                   // A finished season's seats are its record, and a closed page acts on nothing but its danger box.
-                  ...(isClosed
-                    ? {}
-                    : {
-                        acts: (
-                          <SeatActs
-                            rollen={target.rollen}
-                            person={target.person}
-                            rules={seatRules}
-                            write={writeSeat}
-                            carry={{ team_id: team, saison_id: saison, seat: target.rolle, version: String(row.version) }}
-                            link={
-                              target.asks
-                                ? {
-                                    send: sendSeatLink,
-                                    seat: { team_id: team, saison_id: saison, seat: target.rolle },
-                                    ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
-                                  }
-                                : null
-                            }>
-                            {target.rolle === "trainer" && (
-                              <Select
-                                label={COPY.team.trainerAlso.label}
-                                name="trainer_is_also"
-                                description={COPY.team.trainerAlso.description}
-                                options={[
-                                  { id: "", label: COPY.team.trainerAlso.none },
-                                  { id: "ansprechperson", label: COPY.team.seatName.ansprechperson },
-                                  { id: "stellvertretung", label: COPY.team.seatName.stellvertretung },
-                                ]}
-                                defaultValue={target.trainerAlso ?? ""}
-                              />
-                            )}
-                          </SeatActs>
-                        ),
-                      }),
-                }))}
+                  if (isClosed) return seat;
+                  const link = target.asks
+                    ? {
+                        send: sendSeatLink,
+                        seat: { team_id: team, saison_id: saison, seat: target.rolle },
+                        ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
+                      }
+                    : null;
+                  return {
+                    ...seat,
+                    // The fresh link beside the edit, as `SeatActs` draws them, both from `link`.
+                    sideActs: link === null ? 1 : 2,
+                    acts: (
+                      <SeatActs
+                        rollen={target.rollen}
+                        person={target.person}
+                        rules={seatRules}
+                        write={writeSeat}
+                        carry={{ team_id: team, saison_id: saison, seat: target.rolle, version: String(row.version) }}
+                        link={link}>
+                        {target.rolle === "trainer" && (
+                          <Select
+                            label={COPY.team.trainerAlso.label}
+                            name="trainer_is_also"
+                            description={COPY.team.trainerAlso.description}
+                            options={[
+                              { id: "", label: COPY.team.trainerAlso.none },
+                              { id: "ansprechperson", label: COPY.team.seatName.ansprechperson },
+                              { id: "stellvertretung", label: COPY.team.seatName.stellvertretung },
+                            ]}
+                            defaultValue={target.trainerAlso ?? ""}
+                          />
+                        )}
+                      </SeatActs>
+                    ),
+                  };
+                })}
               />
             ),
           },

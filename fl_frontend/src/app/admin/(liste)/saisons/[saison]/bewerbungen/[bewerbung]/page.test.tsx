@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { SideActsScope } from "@/kit/SideActs";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -71,8 +72,8 @@ function readOf({ duplicate }: { duplicate: boolean }) {
   };
 }
 
-async function seatRows(): Promise<readonly SeatRow[]> {
-  state.read = readOf({ duplicate: false });
+async function seatRows(read: unknown = readOf({ duplicate: false })): Promise<readonly SeatRow[]> {
+  state.read = read;
 
   const page = BewerbungPage(PARAMS) as { props: { record: Promise<ReadRecord> } };
   const { groups } = await page.props.record;
@@ -111,5 +112,27 @@ describe("a seat the submission never mailed", () => {
     // A seat's acts stand in its row's „⋯“.
     await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
     expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.account.address.link, "send") })).toBeTruthy();
+  });
+});
+
+describe("a seat row's count of its acts", () => {
+  /* The list reads the count to choose between a „⋯“ and a lone button for all its rows: a count short of the acts
+     drawn turns a list of two acts a row into one of buttons, or hides a lone act behind a menu of one entry. */
+  it("is the number of acts the row draws, with its fresh link and without", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
+    const read = readOf({ duplicate: false });
+    // The Ansprechperson answered, so their row carries no fresh link.
+    read.bewerbung.confirmations.ansprechperson = { ...open, state: "confirmed" };
+    const rows = (await seatRows(read)).filter((row) => row.acts !== undefined);
+
+    const counts: Array<{ said: number | undefined; drawn: number }> = [];
+    for (const row of rows) {
+      const { unmount } = render(<SideActsScope folds>{row.acts}</SideActsScope>);
+      await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
+      counts.push({ said: row.sideActs, drawn: within(screen.getByRole("menu")).getAllByRole("menuitem").length });
+      unmount();
+    }
+    expect(new Set(counts.map(({ said }) => said))).toStrictEqual(new Set([1, 2]));
+    for (const { said, drawn } of counts) expect(said).toBe(drawn);
   });
 });

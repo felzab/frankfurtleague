@@ -94,7 +94,14 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
       filters={readFilters(list, searchParams)}
       filterCount={2}
       create={{ label: actLabel(ACT), act: readCreate(list, params) }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 24, content: readTeams(list, params, searchParams) }}
+      list={{
+        kind: "table",
+        search: { label: WORDS.search },
+        head: HEAD,
+        wait: 24,
+        plaques: true,
+        content: readTeams(list, params, searchParams),
+      }}
     />
   );
 }

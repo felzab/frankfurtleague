@@ -27,7 +27,8 @@ const ACT = { verb: "save" } as const;
  * A seat row's acts, on an application and on a club alike: „Link senden“ while its person owes an answer, and „Sitz
  * bearbeiten“, whose dialog replaces the person, or fills a seat emptied, each box posting under the name both writes
  * read. An act inside an editor waits for an unsaved draft, since the write raises the count the draft's save sends.
- * Both are the row's side acts (`SideActs`): the entries of the „⋯“ at the row's end, a locked one saying why there.
+ * Both are the row's side acts (`SideActs`), in the form the list decides: the entries of the „⋯“ at the row's end, or
+ * the edit alone as its button, a locked one saying why either way. The row's `sideActs` counts what `link` adds here.
  */
 export function SeatActs<Key>({
   rollen,
@@ -61,7 +62,6 @@ export function SeatActs<Key>({
     link === null
       ? null
       : {
-          icon: "email",
           label: SEND,
           isBusy: isSending,
           ...(sendLocked === undefined ? {} : { locked: sendLocked }),
@@ -71,7 +71,6 @@ export function SeatActs<Key>({
             }),
         };
   const edit: SideAct = {
-    icon: "rename",
     label: EDIT,
     ...(unsaved === undefined ? {} : { locked: unsaved }),
     onPress: () => setEditing(true),
