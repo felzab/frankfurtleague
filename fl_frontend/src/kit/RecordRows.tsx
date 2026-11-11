@@ -52,12 +52,6 @@ export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowC
   { beside?: RowCell<Row>; below?: never } | { below: RowCell<Row>; beside?: never }
 );
 
-/**
- * A later cell's message goes while an earlier one says something: a row has one line, and its first refused field
- * speaks on it, as a box shows the first refusal it meets.
- */
-const FIRST_MESSAGE_CLASSES = "[&>:has([data-kit-message]:not(:empty))~*_[data-kit-message]]:hidden";
-
 /*
  * The rows' whole look, in the one place a ruling changes it: the grid, the hairline between rows, the row's label and
  * every gap, each 4, 8 or 16 px.
@@ -75,13 +69,13 @@ const recordRows = tv({
     // lines stand 8 px apart, 16 px inside the hairlines over and under it. A field's message stands under that field
     // in its own cell, as under any field, and only while it has words, so the row grows by it as a refusal lands; the
     // cells hang from their tops, so the controls of a row stay on one line while one of them says something.
-    row: `col-span-full grid grid-cols-subgrid items-start gap-y-2 p-4 ${stacked()} ${FIRST_MESSAGE_CLASSES}`,
+    row: `col-span-full grid grid-cols-subgrid items-start gap-y-2 p-4 ${stacked()}`,
     // The label counting the row, „Tor 1“, on the kit's label rung, the same at every width.
     label: smallCaps({ class: "col-span-full row-start-1" }),
     lead: "col-start-1 row-start-2",
     figure: "col-start-2 row-start-2",
     // A phone's second line, the main field and what stands beside it; from desktop up its two cells are the row's own.
-    second: `col-span-full row-start-3 grid items-start gap-x-2 lg:contents ${FIRST_MESSAGE_CLASSES}`,
+    second: "col-span-full row-start-3 grid items-start gap-x-2 lg:contents",
     main: "lg:col-start-3 lg:row-start-2",
     beside: "lg:col-start-4 lg:row-start-2",
     // A line of its own at every width, under the row's first line from desktop up, so the main field keeps the room
@@ -204,11 +198,11 @@ function RecordRow<Row extends EditorRow>({
  * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.
  *
- * A row's refusal stands under the refused field, the first one a row meets alone, and the refused field takes the
- * kit's invalid look. A kit field named as its cell names it takes the form's served refusal by that name and keeps its
- * own check at the send; a choice posting no form value takes `error` as its `errorMessage`. A field in a row carries
- * no description, since the row's one message is the refusal's. The list's own refusal, such as too many rows, stands
- * under the add control.
+ * Each refused field's refusal stands under it, however many of a row's fields are refused, and the refused field takes
+ * the kit's invalid look. A kit field named as its cell names it takes the form's served refusal by that name and keeps
+ * its own check at the send; a choice posting no form value takes `error` as its `errorMessage`. A field in a row
+ * carries no description, so the line under a field is its refusal's alone.
+ * The list's own refusal, such as too many rows, stands under the add control.
  *
  * The add control appends `blank` and hands the keys to the new row's first control. A removed row hands them to the
  * row after it, else the row before it, else the list, as every row the kit lets leave does (`./RowActs.tsx`), so a
