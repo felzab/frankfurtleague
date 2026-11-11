@@ -731,11 +731,7 @@ export const FLOutboxStatusState = {
 export interface FLOutboxStatus {
   delivery: FLOutboxDelivery | null;
   state: FLOutboxStatusState;
-  /**
-   * Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
-   *
-   * The one judgement of it, which the backend's refusals and every page showing the seat read.
-   */
+  /** Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient. */
   readonly undeliverable: boolean;
 }
 
@@ -1285,7 +1281,7 @@ export interface FLAustrittPayload {
 }
 
 /**
- * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).
+ * The ban's own notice, the one mail a ban does not stop.
  */
 export interface FLBanData {
   ban_reason: string;
@@ -3233,10 +3229,7 @@ export interface FLSpielVorschlagDiscardedData {
 }
 
 /**
- * A pupil's confirmation link.
- *
- * The window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::
- * FLRegistrierungConfirmationDeadlineDays`.
+ * A pupil's confirmation link; the window its mail states is a published bound, never carried here.
  */
 export interface FLRegistrierungLinkData {
   kind: "registrierung_confirmation";

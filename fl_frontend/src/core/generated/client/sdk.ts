@@ -1759,15 +1759,10 @@ export const getOutboxPostEventUrl = () => {
 };
 
 /**
- * Record what the mail provider reported about one message, on the row of the mail it was.
+ * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
  *
- * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
- * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
- * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
- * its send, which keeps its key alone, rather than a refusal the provider
- * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
- * its address, in the same transaction.
+ * A redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the
+ * closed chase of every seat holding its address.
  * @summary Record one delivery event on its mail's row
  */
 export const outboxPostEvent = async (
@@ -1799,20 +1794,10 @@ export const getOutboxPostHandoutUrl = () => {
 };
 
 /**
- * Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
+ * Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.
  *
- * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
- * is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
- * hold every claim until its deadline. A mail to an address a ban holds is stopped as
- * `barred`, the ban's own notice alone excepted. A mail to a club's contact seats is stopped as `dropped` where no
- * confirmed seat of that club's season row holds its address any more. A mail carrying a link has it minted here, its hash written to
- * the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
- * holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
- * answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every
- * outcome, with `lease`, to `POST /outbox/result`;
- * where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
- * staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
- * and secrets.
+ * The caller sends each under the idempotency key its `attempt` names and reports every outcome with `lease` before the
+ * lease lapses, after which the next claim hands the mail out again.
  * @summary Claim the mails owed now and hand them out
  */
 export const outboxPostHandout = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLOutboxHandoutResponse> => {
@@ -1827,16 +1812,11 @@ export const getOutboxPostResultUrl = () => {
 };
 
 /**
- * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
+ * Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.
  *
- * `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
- * refusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,
- * is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
- * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
- * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
- * hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
- * counted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are
- * one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
+ * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
+ * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
+ * mail or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResult = async (
@@ -1868,12 +1848,10 @@ export const getOutboxPostSignInUrl = () => {
 };
 
 /**
- * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
+ * Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.
  *
- * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
- * the call. `secret` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
- * is settled; `valid_until` is both the last moment a hand-out may send it and the moment the row is deleted, settled
- * or not.
+ * `secret` is stored as it arrives and dropped once the mail is settled; `valid_until` is both the last moment a send
+ * may happen and when the row is deleted.
  * @summary Owe one mail of the sign-in library
  */
 export const outboxPostSignIn = async (
