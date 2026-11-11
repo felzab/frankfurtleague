@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { wholeText } from "@/test-support/wholeText";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -179,6 +179,28 @@ describe("a row's name cell", () => {
     );
     expect(nameLine?.className.split(" ")).toContain("items-start");
     expect(nameLine?.textContent).toBe(`${address}${COPY.admin.expired}`);
+  });
+
+  // The harm: on a row that opens a page, its name's link stretches over the whole row, so the pointer never reaches a
+  // cut cell's words and their whole never shows. jsdom lays nothing out, so the cell's box and its cut are given by hand.
+  it("shows a cut cell's whole words under the pointer on a row whose link stretches over it", () => {
+    const address = "schiedsrichterin.mit.einer.sehr.langen.adresse@example.com";
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Elif Engin" }, href: "/admin/schiedsrichter", cells: { email: { record: address } } }])}
+        columns={[{ key: "email", label: COPY.signIn.address, width: "line", cut: true }]}
+      />,
+    );
+    const cell = screen.getByText(address);
+    Object.defineProperties(cell, { scrollWidth: { value: 631 }, clientWidth: { value: 264 } });
+    cell.getBoundingClientRect = () => new DOMRect(500, 100, 264, 20);
+    const link = screen.getByRole("link", { name: "Elif Engin" });
+    const host = link.parentElement;
+    fireEvent.pointerMove(link, { clientX: 600, clientY: 110 });
+    expect(host?.getAttribute("title")).toBe(address);
+    // Past the cell, over a part of the row holding nothing cut, no tooltip stands.
+    fireEvent.pointerMove(link, { clientX: 900, clientY: 110 });
+    expect(host?.hasAttribute("title")).toBe(false);
   });
 
   // The harm: a phone row loses a player's position and Stufe, which only its desktop columns hold, or a desktop row

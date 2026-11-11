@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { Fragment, useId } from "react";
 
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
@@ -7,7 +7,7 @@ import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
-import { CutText } from "./CutText";
+import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RoleMark } from "./RoleMark";
@@ -754,6 +754,9 @@ export function Table({
               const acts: TableActs = !hasActs ? undefined : row.acts === undefined ? "table" : "row";
               const marks = { linked: leadsOn(row), muted: row.muted === true, acts };
               const nameId = row.acts === undefined ? undefined : `${tableId}-${row.id}`;
+              // A row its name's link or press stretches over: the cut words under the pointer, in any cell, are the
+              // tooltip the stretched name carries (`CutRow`).
+              const Stretched = leadsOn(row) ? CutRow : Fragment;
               return (
                 <tr
                   key={row.id}
@@ -761,76 +764,78 @@ export function Table({
                   data-kit-row
                   role="row"
                   className={table({ ...marks, ...phoneEnd }).row()}>
-                  {rankLabel !== undefined && (
-                    <td
-                      role="cell"
-                      className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
-                      {row.place == null ? COPY.shared.noValue : formatNumber(row.place)}
-                    </td>
-                  )}
-                  <NameCell
-                    row={row}
-                    barred={rankLabel === undefined ? row.qualifies : undefined}
-                    compact={compact}
-                    prose={prose}
-                    stack={stack}
-                    plaqueAlone={plaqueAlone}
-                    acts={acts}
-                    nameId={nameId}
-                  />
-                  {columns.map((column) => {
-                    const s = table({
-                      ...columnLook(column),
-                      figures: column.figures === true,
-                      strong: column.strong === true,
-                      compact,
-                      prose,
-                      stack,
-                      acts,
-                    });
-                    return (
+                  <Stretched>
+                    {rankLabel !== undefined && (
                       <td
-                        key={column.key}
                         role="cell"
-                        className={s.cell()}
-                        style={hasActs ? phoneTrack(columns, column) : undefined}>
-                        {(prose || stack) && (
-                          <span
-                            aria-hidden
-                            className={s.label()}>
-                            {column.label}
-                          </span>
-                        )}
-                        <Cell
-                          cell={row.cells[column.key]}
-                          slot={marked.has(column.key)}
-                          cut={column.cut === true}
-                          stack={stack}
-                        />
+                        className={table({ align: "centre", figures: true, qualifies: row.qualifies, compact }).cell()}>
+                        {row.place == null ? COPY.shared.noValue : formatNumber(row.place)}
                       </td>
-                    );
-                  })}
-                  {isLinked && (
-                    <td
-                      role="cell"
-                      className={table(phoneEnd).end()}
-                      style={endStyle}>
-                      {leadsOn(row) && <RowEnd />}
-                    </td>
-                  )}
-                  {hasActs && (
-                    <td
-                      role="cell"
-                      className={table({ acts }).acts()}>
-                      {row.acts !== undefined && (
-                        <RowActs
-                          className="flex items-center gap-2 lg:justify-end"
-                          describedBy={nameId}>
-                          {row.acts}
-                        </RowActs>
-                      )}
-                    </td>
-                  )}
+                    )}
+                    <NameCell
+                      row={row}
+                      barred={rankLabel === undefined ? row.qualifies : undefined}
+                      compact={compact}
+                      prose={prose}
+                      stack={stack}
+                      plaqueAlone={plaqueAlone}
+                      acts={acts}
+                      nameId={nameId}
+                    />
+                    {columns.map((column) => {
+                      const s = table({
+                        ...columnLook(column),
+                        figures: column.figures === true,
+                        strong: column.strong === true,
+                        compact,
+                        prose,
+                        stack,
+                        acts,
+                      });
+                      return (
+                        <td
+                          key={column.key}
+                          role="cell"
+                          className={s.cell()}
+                          style={hasActs ? phoneTrack(columns, column) : undefined}>
+                          {(prose || stack) && (
+                            <span
+                              aria-hidden
+                              className={s.label()}>
+                              {column.label}
+                            </span>
+                          )}
+                          <Cell
+                            cell={row.cells[column.key]}
+                            slot={marked.has(column.key)}
+                            cut={column.cut === true}
+                            stack={stack}
+                          />
+                        </td>
+                      );
+                    })}
+                    {isLinked && (
+                      <td
+                        role="cell"
+                        className={table(phoneEnd).end()}
+                        style={endStyle}>
+                        {leadsOn(row) && <RowEnd />}
+                      </td>
+                    )}
+                    {hasActs && (
+                      <td
+                        role="cell"
+                        className={table({ acts }).acts()}>
+                        {row.acts !== undefined && (
+                          <RowActs
+                            className="flex items-center gap-2 lg:justify-end"
+                            describedBy={nameId}>
+                            {row.acts}
+                          </RowActs>
+                        )}
+                      </td>
+                    )}
+                  </Stretched>
                 </tr>
               );
             })}
