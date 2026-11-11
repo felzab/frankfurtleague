@@ -3,19 +3,10 @@ import "server-only";
 import * as zod from "zod";
 
 /**
- * Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
+ * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
- * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
- * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
- * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
- * from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the
- * hourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on
- * file proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it
- * holds -- so this start answers alike whatever the new address holds.
- *
- * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
- * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
- * address holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.
+ * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
+ * either link ends the change, and a live change of the address is replaced.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChangeBodyEmailMax = 254;

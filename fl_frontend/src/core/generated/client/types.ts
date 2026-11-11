@@ -254,7 +254,7 @@ export interface FLAcceptBewerbungResponse {
 }
 
 /**
- * The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.
+ * The change started, whose link reaches the address on file by mail alone.
  */
 export interface FLAccountAddressChangeMintResponse {
   email: string;
@@ -279,7 +279,7 @@ export const FLAddressChangeWay = {
 } as const;
 
 /**
- * The address's live change as its own account page reads it.
+ * The signed-in address's live change.
  */
 export interface FLAccountAddressChangeOpen {
   effective_from: string | null;
@@ -362,10 +362,7 @@ export const FLEinwilligungScope = {
 } as const;
 
 /**
- * A person's own record's two choices as its box shows them.
- *
- * The choices alone: the box names no day and no label, and `evidence_state` stands for each choice's evidence in the
- * precondition a press echoes.
+ * A person's own record's two consent choices.
  */
 export interface FLAccountEinwilligung {
   media: boolean;
@@ -421,7 +418,7 @@ export interface FLKontakt {
 }
 
 /**
- * One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.
+ * One of the signed-in person's referee records: its stored data, its fee and its consent.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   birth_date: string | null;
@@ -458,7 +455,7 @@ export interface FLAccountSeatEinwilligung {
 }
 
 /**
- * The pupil's record on the account page: its stored data and the consent the page moves.
+ * The signed-in pupil's own record: its stored data and its consent.
  */
 export interface FLAccountSpielerEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -474,7 +471,7 @@ export interface FLAccountSpielerEinwilligung {
 }
 
 /**
- * Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.
+ * Every confirmed consent record the signed-in address holds, empty where it holds none.
  *
  * The referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.
  */

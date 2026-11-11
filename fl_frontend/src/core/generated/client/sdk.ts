@@ -199,11 +199,7 @@ export const getAccountDeleteAddressChangeUrl = () => {
 };
 
 /**
- * Stop the change pending on the signed-in address at any step: its new address goes.
- *
- * Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
- * confirmation and counts nothing: a stop hands nothing over. A holder's change in its wait tells every holder. 404 where no
- * change is pending on the address.
+ * Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.
  * @summary Stop the address change pending on the signed-in person
  */
 export const accountDeleteAddressChange = async (
@@ -220,15 +216,9 @@ export const getAccountGetAddressChangeUrl = () => {
 };
 
 /**
- * Answer the change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
+ * The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
  *
- * PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
- * `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
- * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
- * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
- * mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,
- * whose press is refused until the hourly pass ends the change. `wait_tier` is null for an address holding no grant, and
- * `owner` for a row a handover names, whatever its stored tier.
+ * The pending address is served whole only where the person typed it, and masked where an administrator started the change.
  * @summary The address change pending on a signed-in person
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {
@@ -243,19 +233,10 @@ export const getAccountPostAddressChangeUrl = () => {
 };
 
 /**
- * Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
+ * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
- * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
- * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
- * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
- * from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the
- * hourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on
- * file proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it
- * holds -- so this start answers alike whatever the new address holds.
- *
- * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
- * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
- * address holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.
+ * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
+ * either link ends the change, and a live change of the address is replaced.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
@@ -287,17 +268,10 @@ export const getAccountGetEinwilligungenUrl = () => {
 };
 
 /**
- * Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.
+ * Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.
  *
- * The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
- * `bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;
- * `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.
- *
- * PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
- * `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
- * seat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is
- * admitted, `media_offered` whether the media consent may be switched on. A record awaiting its person's
- * confirmation is not served: there is nothing on it yet to change.
+ * An address holding nothing is answered empty, never refused, and retired and past records are served too, so a
+ * withdrawal stays open wherever a consent stands.
  * @summary A signed-in person's own consent records
  */
 export const accountGetEinwilligungen = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountEinwilligungenResponse> => {

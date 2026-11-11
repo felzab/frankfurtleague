@@ -407,7 +407,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeMintResponse": {
-        "description": "The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.",
+        "description": "The change started, whose link reaches the address on file by mail alone.",
         "properties": {
           "email": {
             "title": "Email",
@@ -433,7 +433,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeOpen": {
-        "description": "The address's live change as its own account page reads it.",
+        "description": "The signed-in address's live change.",
         "properties": {
           "effective_from": {
             "anyOf": [
@@ -585,7 +585,7 @@
         "type": "object"
       },
       "FLAccountEinwilligung": {
-        "description": "A person's own record's two choices as its box shows them.\n\nThe choices alone: the box names no day and no label, and `evidence_state` stands for each choice's evidence in the\nprecondition a press echoes.",
+        "description": "A person's own record's two consent choices.",
         "properties": {
           "media": {
             "title": "Media",
@@ -630,7 +630,7 @@
         "type": "object"
       },
       "FLAccountEinwilligungenResponse": {
-        "description": "Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.",
+        "description": "Every confirmed consent record the signed-in address holds, empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.",
         "properties": {
           "bewerbungen": {
             "items": {
@@ -971,7 +971,7 @@
         "type": "object"
       },
       "FLAccountSchiedsrichterEinwilligung": {
-        "description": "One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.",
+        "description": "One of the signed-in person's referee records: its stored data, its fee and its consent.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -1101,7 +1101,7 @@
         "type": "object"
       },
       "FLAccountSpielerEinwilligung": {
-        "description": "The pupil's record on the account page: its stored data and the consent the page moves.",
+        "description": "The signed-in pupil's own record: its stored data and its consent.",
         "properties": {
           "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -18100,7 +18100,7 @@
   "paths": {
     "/api/v0/account/address_change": {
       "delete": {
-        "description": "Stop the change pending on the signed-in address at any step: its new address goes.\n\nIts address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh\nconfirmation and counts nothing: a stop hands nothing over. A holder's change in its wait tells every holder. 404 where no\nchange is pending on the address.",
+        "description": "Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.",
         "operationId": "account_delete_address_change",
         "responses": {
           "200": {
@@ -18165,7 +18165,7 @@
         ]
       },
       "get": {
-        "description": "Answer the change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.\n\nPERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused\n`address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,\nwhose press is refused until the hourly pass ends the change. `wait_tier` is null for an address holding no grant, and\n`owner` for a row a handover names, whatever its stored tier.",
+        "description": "The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.\n\nThe pending address is served whole only where the person typed it, and masked where an administrator started the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -18230,7 +18230,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.\n\n**The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the\nsecond; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within\n`ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole\nfrom that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the\nhourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on\nfile proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it\nholds -- so this start answers alike whatever the new address holds.\n\nRefused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's\nlive change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the\naddress holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.",
+        "description": "Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.\n\nEverything the address holds moves once the new address confirms, after a wait where it holds a grant; declining\neither link ends the change, and a live change of the address is replaced.",
         "operationId": "account_post_address_change",
         "requestBody": {
           "content": {
@@ -18307,7 +18307,7 @@
     },
     "/api/v0/account/einwilligungen": {
       "get": {
-        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is\nadmitted, `media_offered` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "description": "Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.\n\nAn address holding nothing is answered empty, never refused, and retired and past records are served too, so a\nwithdrawal stays open wherever a consent stands.",
         "operationId": "account_get_einwilligungen",
         "responses": {
           "200": {
