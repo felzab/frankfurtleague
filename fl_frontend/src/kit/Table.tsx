@@ -40,7 +40,7 @@ type TableColumn = {
    * What the column holds, which sets the least it takes, on a table that waits: its values are the read's, so without
    * this its edges land elsewhere than its placeholder drew them. A head wider than its values needs none.
    */
-  width?: "count" | "pair" | "marked" | "date" | "instant" | "phone" | "line";
+  width?: "count" | "pair" | "marked" | "date" | "instant" | "excerpt" | "phone" | "line";
   /**
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: cut with „…“ at the
    * column `width` sets, whole in its tooltip while it is cut, and wrapping on a stacked phone row, where a touch reaches
@@ -290,15 +290,17 @@ const table = tv({
     // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
     // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
     // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
-    // slots, a date ten characters, an instant 20, „bis“ before its date and time, a phone number 20, a line of an address
-    // 35. A date stands at the start in the body's face, never as `figures`, which would centre it and set it apart from
-    // every other date column.
+    // slots, a date ten characters, an instant 20, „bis“ before its date and time, an excerpt 20, the start of a `cut`
+    // text in a row whose acts need the room a whole line would take, a phone number 20, a line of an address 35. A date
+    // stands at the start in the body's face, never as `figures`, which would centre it and set it apart from every other
+    // date column.
     width: {
       count: { head: "min-w-12" },
       pair: { head: "min-w-16 max-lg:min-w-13" },
       marked: { head: "min-w-16 max-lg:min-w-11" },
       date: { head: "min-w-28" },
       instant: { head: "min-w-40" },
+      excerpt: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-72" },
     },
