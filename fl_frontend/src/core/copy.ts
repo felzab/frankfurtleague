@@ -204,7 +204,8 @@ export const waitWords = (wait: Wait) =>
  * „bis 12.11.2026, 17:54“, „nach 15 Tagen“, „für die Saison 2027“, „Erst ab 16 Jahren“: the words of a phrase joined by
  * no-break spaces, so a line never ends on a preposition or an article apart from its value, nor on a number apart from
  * its unit. Every preposition before a value and every count before its noun in the catalogue and in `serverCopy.ts`
- * is joined here, and a phrase of several words takes each as a part: `boundBy("für", "die", saison)`. Prose before words
+ * is joined here, but for a mail's subject: one header line no layout wraps, which a mail program shows and searches
+ * as typed. A phrase of several words takes each as a part: `boundBy("für", "die", saison)`. Prose before words
  * with no value, „bis zum Ende der Saison“, breaks as any words do.
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
