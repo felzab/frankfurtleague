@@ -1961,17 +1961,8 @@ export const getRegistrierungenPostRegistrierungUrl = () => {
 /**
  * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
- * Everything the league decides -- the team, the season, `status`, `submitted_at` and the
- * deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
- * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
- *
- * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
- * since its last press sends a new key. The key goes with its registration, so one pressed again after the team
- * admitted or declined the pupil, or after the row lapsed, is a new registration.
- *
- * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
- * the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
+ * A press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,
+ * and owes no second mail.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierung = async (
@@ -2005,8 +1996,7 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
 /**
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
- * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `choices_stale` and `giving_not_allowed`.
+ * A grant is refused, and a request moving neither choice writes nothing.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligung = async (
@@ -2040,9 +2030,6 @@ export const getRegistrierungenPostConfirmationUrl = () => {
 
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
- *
- * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
- * `confirmation_exists`, `confirmation_age` and `media_age`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -2074,10 +2061,9 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
 };
 
 /**
- * What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
+ * What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
  *
- * A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
- * left the season reading expired; only a token no registration holds is refused (`link_invalid`).
+ * A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationView = async (
@@ -2111,9 +2097,7 @@ export const getRegistrierungenPostInvitationViewUrl = () => {
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
  *
- * A POST because the link value travels in the body and never in a path the edge would log. A paused
- * or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
- * invalid; only a link that opens no live invite, or whose team has left the season, is refused.
+ * A paused or ended window is a state here, so such a link reads as closed rather than as invalid.
  * @summary What a registration link opens
  */
 export const registrierungenPostInvitationView = async (
@@ -2145,15 +2129,11 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, sais
 };
 
 /**
- * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
+ * Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.
  *
- * Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
- * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
- * differs. An unconfirmed row names nobody: its address is unproven.
- * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
- * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
- * any unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil
- * confirmed; `complete` is false where the cap cut some.
+ * A confirmed row names the stored person its address resolves to, flagged where their name or birthdate differs,
+ * `kader_full` marks a row whose admission would meet the squad's cap, and no address, telephone number, birthdate or
+ * consent record is served for anybody.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungen = async (
@@ -2174,13 +2154,10 @@ export const getRegistrierungenGetRegistrierungenAdminUrl = (params: Registrieru
 };
 
 /**
- * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
+ * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
  *
- * The page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.
- * `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
- * `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
- * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
- * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
+ * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
+ * the read's cap cut the list.
  * @summary One Saison's pending Registrierungen for its list
  */
 export const registrierungenGetRegistrierungenAdmin = async (
@@ -2198,20 +2175,10 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
 };
 
 /**
- * Run the three registration retention clocks over one season, as of today in Europe/Berlin.
+ * Erase one season's due registrations, as of today in Europe/Berlin.
  *
- * A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline
- * clock does not run for a `past` season, whose own end takes every row it reads.
- *
- * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Every removal names this season alone and is made inside a transaction.
- *
- * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
- * its clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
- * nobody behind it. `failed` sums the rows each of the three clocks passed over.
- *
- * 404 where no season has the id. Idempotent: a run after every due row went writes nothing.
+ * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
+ * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -2229,28 +2196,10 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
 };
 
 /**
- * Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
+ * Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.
  *
- * The person survives the season, so the admission first looks for them: the stored person holding the
- * registration's address IS that person, and is updated with the registration's name, its birthdate and its freshly
- * confirmed consent record. Where that person's
- * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
- * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
- * this admission proves again.
- *
- * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
- * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
- * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
- * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
- * about any of them, and the admission's act counts them.
- *
- * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
- * the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
- * offer (`registrierung_stufe_not_allowed`), a
- * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
- * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
- * written on any of them.
+ * `spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;
+ * the registration and every other pending one of its address this season are erased, and nobody is mailed.
  * @summary Admit a registration into the team's squad
  */
 export const registrierungenAdmit = async (
@@ -2283,16 +2232,10 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
 };
 
 /**
- * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
+ * Decline one pending registration, confirmed or not, for a reason from a closed set or none.
  *
- * The decision records a reason from a closed set, never free text:
- * `other_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
- * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A
- * confirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.
- *
- * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
- * one the team has declined already (404).
+ * A pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is
+ * mailed nothing.
  * @summary Decline a registration
  */
 export const registrierungenDecline = async (
