@@ -57,10 +57,17 @@ def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: 
     return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at, locks_at=locks_at)
 
 
-def kicked_off_by(*, date: str | None, time: str | None, now: datetime) -> bool:
-    """Whether the fixture's kick-off has come at `now`; never for one holding no day or no hour, which takes no line-up."""
+def keeps_erased(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture's line-up keeps an erased pupil's entry at `now`: from the lock, where it is the club's final record.
 
-    return date is not None and time is not None and _at_kickoff_time(date, time, days_back=0) <= now
+    Judged against the fixture as it stands, by the erasure, the screen and the save alike: a fixture re-dated ahead of its
+    lock again is a line-up the club picks anew, so its next save drops the entry. Never for a fixture holding no day or
+    no hour, which nothing says was played.
+    """
+
+    marks = aufstellung_marks(date=date, time=time, stored=False, now=now)
+
+    return marks is not None and marks.phase == "locked"
 
 
 def aufstellung_reminder_owed(*, date: str | None, time: str | None, now: datetime) -> bool:
@@ -107,15 +114,22 @@ def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
 
 
 def is_erased(entry: Mapping[str, Any]) -> bool:
-    """Whether a stored entry names a pupil erased after the match kicked off, whom no save names and every save keeps."""
+    """Whether a stored entry names a pupil erased from a locked line-up, whom no save names."""
 
     return entry["spieler_id"] == GHOST_SPIELER_ID
 
 
-def erased_entries(saved: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
-    """The stored line-up's entries naming an erased pupil, in their stored order: several may stand, all naming the sentinel."""
+def erased_entries(saved: Mapping[str, Any] | None, *, spiel: Mapping[str, Any], now: datetime) -> list[Mapping[str, Any]]:
+    """The stored line-up's entries naming an erased pupil that it keeps (`keeps_erased`), in their stored order.
 
-    return [] if saved is None else [entry for entry in saved["spieler"] if is_erased(entry)]
+    Several may stand, all naming the sentinel. None where the fixture stands ahead of its lock, so the screen shows none
+    and the save writes none.
+    """
+
+    if saved is None or not keeps_erased(date=spiel.get("date"), time=spiel.get("time"), now=now):
+        return []
+
+    return [entry for entry in saved["spieler"] if is_erased(entry)]
 
 
 def newly_named(entries: Sequence[FLAufstellungEntry], saved: Mapping[str, Any] | None) -> set[ObjectId]:

@@ -26,6 +26,7 @@ from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pul
 from app.core.dependencies import (
     AddressChangeReadCollection,
     BanListCollection,
+    BanListReadCollection,
     DBClient,
     GrantsCollection,
     OutboxCollection,
@@ -75,7 +76,7 @@ async def _pull_the_season_a_ban_counts_from(
 
 
 @router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
-async def get_ban_list_entries(ban_list_collection: BanListCollection) -> FLBanListResponse:
+async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FLBanListResponse:
     """
     List every ban, newest first: the address, why, on which day and the last season covered.
 

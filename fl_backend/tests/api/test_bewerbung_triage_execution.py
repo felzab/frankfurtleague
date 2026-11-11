@@ -611,6 +611,31 @@ class TestAcceptanceWaitsForEverySeat:
         # The bookkeeping block stays on the application: a hash copied into the junction would live there for a season.
         assert "confirmations" not in rows[0]
 
+    def test_its_mail_goes_only_to_a_seat_still_holding_its_person_at_the_hand_out(self, mongo_replica_set_url: str):
+        """A holder who left the new season row's seat before the drain is told nothing of the club, as every club mail."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(
+                bewerbung_document(
+                    CONFIRMED_BEWERBUNG,
+                    team_id=EXISTING_OID,
+                    kontakte=confirmed_kontakte(open_seat=None),
+                    confirmations=CONFIRMATIONS,
+                    confirmation_deadline="2126-02-15",
+                )
+            )
+            await accept(database, client, CONFIRMED_BEWERBUNG)
+            [row] = await junction_rows(database, team_id=EXISTING_OID)
+            await database[Collection.SAISON_TEAMS].update_one({"_id": row["_id"]}, {"$set": {"kontakte.trainer": None}})
+            mails = await drained(database, client)
+
+            return row["kontakte"], sorted(mail.to for mail in mails if mail.data.kind == "bewerbung_zusage")
+
+        seated, told = on_a_league(mongo_replica_set_url, body)
+
+        assert seated["trainer"]["email"] not in told
+        assert told == sorted({seated[slot]["email"] for slot in ("ansprechperson", "stellvertretung")})
+
 
 async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]:
     """One application whose school makes no club, stored as it is.

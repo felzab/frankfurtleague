@@ -4,7 +4,6 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.account.schemas import (
     FLAccountAddressChangeMintResponse,
@@ -49,14 +48,17 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
+    AddressChangeReadCollection,
     DBClient,
     GrantsCollection,
+    GrantsReadCollection,
     OutboxCollection,
-    SpielerCollection,
+    SpielerReadCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -71,7 +73,7 @@ router = APIRouter(
 @router.get("/einwilligungen", response_model=FLAccountEinwilligungenResponse, summary="A signed-in person's own consent records")
 async def get_einwilligungen(
     identifier: PersonIdentifier,
-    spieler_collection: SpielerCollection,
+    spieler_collection: SpielerReadCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLAccountEinwilligungenResponse:
@@ -136,8 +138,8 @@ def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccount
 async def _address_change_answer(
     identifier: str,
     *,
-    address_changes_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
+    address_changes_collection: ReadCollection,
+    grants_collection: ReadCollection,
     now: datetime,
     session: AsyncClientSession | None,
 ) -> FLAccountAddressChangeResponse:
@@ -150,8 +152,8 @@ async def _address_change_answer(
 @router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: PersonIdentifier,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
+    address_changes_collection: AddressChangeReadCollection,
+    grants_collection: GrantsReadCollection,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
     """

@@ -142,6 +142,9 @@ class SupportIndex:
     # The collation of the reads it serves, which must be the index's own: a read under another one walks none of its
     # string keys.
     collation: Mapping[str, Any] | None = None
+    # Which rows it holds, where a read asks for those alone among many others: the read states this filter's own
+    # predicate, or the planner may not take the index.
+    partial_filter: Mapping[str, Any] | None = None
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
@@ -214,6 +217,18 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "registrierungen_saison_id_team_id_queue",
         (("saison_id", ASCENDING), ("team_id", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
+    ),
+    # The confirmed rows alone, which the team's pending read takes first: on the queue index above it would fetch every
+    # unconfirmed row standing newer, and anybody holding the team's link writes one with every press. "To use the
+    # partial index, a query must contain the filter expression" (https://www.mongodb.com/docs/manual/core/index-partial/,
+    # read 2026-11-11), so the read states this filter whole (`app/api/registrierungen/services.py ::
+    # build_confirmed_open_filter`).
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_saison_id_team_id_confirmed_queue",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING)),
+        "one team's pending registrations a pupil confirmed, newest first",
+        partial_filter={"status": "submitted", "einwilligung.confirmed_at": {"$type": "string"}},
     ),
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,
@@ -412,9 +427,10 @@ async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
 async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None:
     # Omitted rather than passed as `None`, for `_apply_unique_index`'s reason.
     collation_option: _CollationOption = {"collation": support.collation} if support.collation is not None else {}
+    partial_option: _PartialFilterOption = {"partialFilterExpression": support.partial_filter} if support.partial_filter is not None else {}
 
     try:
-        await db[support.collection].create_index(list(support.keys), name=support.name, **collation_option)
+        await db[support.collection].create_index(list(support.keys), name=support.name, **collation_option, **partial_option)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
 

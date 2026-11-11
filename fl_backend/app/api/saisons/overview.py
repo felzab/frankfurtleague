@@ -208,6 +208,9 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "from": Collection.SPIELBESTAETIGUNGEN,
                 "pipeline": [
                     {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
+                    # An inclusion of what the close's judgement and the cards read, so nothing else a row stores reaches
+                    # this handler.
+                    {"$project": dict.fromkeys([*CLOSE_FIELDS, ROW_ANSWER, ROW_DEADLINE], 1)},
                     # Each party by its own record's name, as the acts' recipients below are named.
                     *build_party_name_stages(saison_id=saison_id),
                 ],

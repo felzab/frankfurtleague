@@ -12,6 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
+from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -30,6 +31,8 @@ from tests.documents import (
     bericht_document,
     kontaktperson_document,
     minted_confirmations,
+    registrierung_confirmed,
+    registrierung_document,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -749,6 +752,64 @@ def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url
     assert [(read, stages) for read, stages in planned if "COUNT_SCAN" not in stages or "COLLSCAN" in stages] == []
 
 
+CONFIRMED_QUEUE_INDEX = "registrierungen_saison_id_team_id_confirmed_queue"
+
+# The pupils who confirmed, older than every row of the flood typed through the team's link after them.
+CONFIRMED_BENEATH_A_FLOOD = 3
+
+
+def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_url: str):
+    """The confirmed read as `pull_open_registrierungen` sends it, explained with its run: it fetches the confirmed rows alone.
+
+    On the queue index it would fetch every unconfirmed row standing newer, the flood whole, to discard it.
+    """
+
+    def registration(position: int, *, confirmed: bool) -> dict[str, Any]:
+        return registrierung_document(
+            ObjectId(),
+            f"schueler.{position}@example.invalid",
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            first_name="Flut",
+            last_name=f"Nr{position}",
+            token=f"link-{position}",
+            submitted_at="2026-03-01" if confirmed else "2026-03-15",
+            deadline="2026-03-29",
+            confirmed=registrierung_confirmed(
+                birth_date="2009-05-04", today="2026-03-02", at="2026-03-02T08:00:00+00:00", scope="internal", media=False
+            )
+            if confirmed
+            else None,
+        )
+
+    async def body(database: AsyncDatabase) -> tuple[list[str], int, int]:
+        await database[Collection.REGISTRIERUNGEN].insert_many(
+            [
+                *(registration(position, confirmed=True) for position in range(CONFIRMED_BENEATH_A_FLOOD)),
+                *(registration(position, confirmed=False) for position in range(CONFIRMED_BENEATH_A_FLOOD, ROWS_ENOUGH_TO_PREFER_AN_INDEX)),
+            ]
+        )
+        # Standing in for the collection, as `sent_by` hands its recorder on.
+        reads: Any = _SentKaderReads(database[Collection.REGISTRIERUNGEN])
+        async with database.client.start_session() as session:
+            opened = await pull_open_registrierungen(registrierungen_collection=reads, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
+        (pipeline, _), *_ = reads.sent
+        explained = await database.command(
+            {"explain": {"aggregate": str(Collection.REGISTRIERUNGEN), "pipeline": pipeline, "cursor": {}}, "verbosity": "executionStats"}
+        )
+        stats: Any = explained.get("executionStats") or explained["stages"][0]["$cursor"]["executionStats"]
+        planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
+        served = sum(row.get("einwilligung") is not None for row in opened.rows)
+
+        return index_names(planner["winningPlan"]), stats["totalDocsExamined"], served
+
+    indexes, examined, served = on_the_shipped_schema(mongo_url, body)
+
+    assert served == CONFIRMED_BENEATH_A_FLOOD
+    assert indexes == [CONFIRMED_QUEUE_INDEX]
+    assert examined == CONFIRMED_BENEATH_A_FLOOD
+
+
 GERMAN_KADER_INDEX = "saison_spieler_saison_id_team_id_de"
 
 # The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
@@ -795,6 +856,8 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 
 async def the_report_kader(database: AsyncDatabase) -> Issued:
+    # With its season's row, which the read holds to stand for as long as its fixture does.
+    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
     await database[Collection.SPIELE].insert_one(valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "tore": 1}))
 
     return await sent_by(

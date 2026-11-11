@@ -190,7 +190,7 @@ async def erase_person_in_session(
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonErased:
-    """Repoint their report and kicked-off line-up entries at the sentinel, drop those on line-ups ahead, remove them and their squad rows.
+    """Repoint their report and locked line-up entries at the sentinel, drop their other line-up entries, remove them and their squad rows.
 
     Whether they may be erased is the caller's to judge; the sentinel must stand already
     (`ensure_ghost_spieler`).

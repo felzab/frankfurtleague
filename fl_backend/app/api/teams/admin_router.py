@@ -432,7 +432,7 @@ async def get_team_saison_admin(
     memberships = served[0]["memberships"]
 
     return FLTeamSaisonAdminResponse(
-        version=composite_version(team_raw, row_raw or {}),
+        version=composite_version(team_raw, *([] if row_raw is None else [row_raw])),
         team=FLTeamRecord.model_validate(team_raw),
         saison=FLTeamSaisonFacts(
             id=saison_id,

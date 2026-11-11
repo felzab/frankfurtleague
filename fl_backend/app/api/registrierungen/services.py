@@ -238,7 +238,10 @@ def registrierung_is_confirmed(*, einwilligung: Any) -> bool:
 
 
 def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
-    """Whether the submission owed this row no mail: its mailbox stood past `OPEN_LINKS_PER_MAILBOX`, which the block's null `sent_at` keeps."""
+    """Whether no mail is owed this row, which the block's null `sent_at` keeps.
+
+    Its submission's or its address move's mailbox stood past `OPEN_LINKS_PER_MAILBOX`, or the move found its link over.
+    """
 
     return isinstance(confirmation, Mapping) and confirmation.get("sent_at") is None
 
@@ -549,6 +552,22 @@ def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     """One team's pending rows, on the equality prefix `registrierungen_saison_id_team_id_queue` sorts after."""
 
     return {"saison_id": saison_id, "team_id": team_id, "status": SUBMITTED}
+
+
+def build_confirmed_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """One team's pending rows a pupil confirmed, stating `registrierungen_saison_id_team_id_confirmed_queue`'s partial filter whole.
+
+    A stamp is a stored day, so `$type` matches exactly the confirmed rows; `$ne: null` would match them too and keep the
+    planner off the partial index.
+    """
+
+    return {**build_open_filter(saison_id=saison_id, team_id=team_id), "einwilligung.confirmed_at": {"$type": "string"}}
+
+
+def build_unconfirmed_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
+    """One team's pending rows nobody confirmed, on `registrierungen_saison_id_team_id_queue`: null matches a missing stamp too."""
+
+    return {**build_open_filter(saison_id=saison_id, team_id=team_id), "einwilligung.confirmed_at": None}
 
 
 def build_own_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:

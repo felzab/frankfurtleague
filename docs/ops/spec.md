@@ -337,15 +337,19 @@ runs at whatever page path it is posted to, handing it inside its own process to
 the one request on the path the client chose. The answers six link pages take through a server
 action — a pupil's registration on `/registrierung` and the pupil's answer on `/confirm/spieler`, the
 referee's on `/confirm/schiedsrichter`, a contact seat's on `/confirm/kontakt`, an address link's on
-`/confirm/address` and the deletion link's on `/erasure` — are bounded by the action pair, 30 at once
-and 60 a minute per network wherever a script posts them, 80 at once where the post lands on a link
-page, and by the link pages' pair besides only there. **Both figures at a link page are sized for a
-design case rather than a guarantee**, the season's `max_kader_size` having no upper bound: the first
-season's squad of 50 (`fl_backend/app/api/saisons/schemas.py :: FIRST_SAISON_RULES`) behind one
-school's address in one break, each pupil opening the team's invite and their own link and sending
-each page's form, a retry each, passing within two minutes at the unchanged rates — 10N requests on
-the link pages' key, a burst of 10N - 60, and 4N sends on the action key, a burst of 4N - 120
-(`nginx/shared/site.conf :: location /confirm/`). The public application's submission is such an action too, on `/bewerbung/<saison>`:
+`/confirm/address` and the deletion link's on `/erasure` — are bounded by the action pair, 60 a
+minute per network, 30 at once where a browser posts from a page outside the link pages and 80 at
+once where the post lands on a link page, and by the link pages' pair besides only there. A script
+chooses the path it posts to, so 80 at once is the per-network ceiling of every server action, the
+sign-in's and the application's included; the registration's send stays bounded by its Turnstile
+check and the confirmation's by its single-use token. **Both figures at a link page are sized for the
+largest squad a season may set**, `max_kader_size`'s published maximum of 50
+(`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one school's address in one
+break, each pupil opening the team's invite and their own link and sending each page's form, a retry
+each, passing within two minutes at the unchanged rates — 10N requests on the link pages' key, a
+burst of 10N - 60, and 4N sends on the action key, a burst of 4N - 120
+(`nginx/shared/site.conf :: location /confirm/`), which
+`scripts/checks/check_public_routes.py :: unsized_links` holds to that maximum. The public application's submission is such an action too, on `/bewerbung/<saison>`:
 the action pair is its only meter, the bot check its gate. A pair for one action would key on its id, which Next recalculates between builds
 (`next/dist/docs/01-app/02-guides/data-security.md`).
 

@@ -340,7 +340,7 @@ async def sweep_address_change(
 
 
 @router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
-async def get_address_change_moves(address_changes_collection: AddressChangeCollection) -> FLAddressChangeMovesResponse:
+async def get_address_change_moves(address_changes_collection: AddressChangeReadCollection) -> FLAddressChangeMovesResponse:
     """
     List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
 

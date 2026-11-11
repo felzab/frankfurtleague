@@ -1040,20 +1040,24 @@ def main() -> int:
         served = metadata(app_dir)
         where = edge_locations(conf_path)
         rates = zone_rates(conf_path.parent / NGINX_HTTP_CONF)
-        squad = kader_size_max(REPO_ROOT / OPENAPI)
     except (NginxSyntax, RouteShape) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was accounted for, so this is a refusal rather than a verdict on the routes.", file=sys.stderr)
         print("      Teach scripts/checks/check_public_routes.py the construct, or revert it.", file=sys.stderr)
         return EXIT_REFUSED
-    except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError) as error:
+    except (OSError, UnicodeDecodeError) as error:
         print(f"      {error}", file=sys.stderr)
-        print(
-            f"      Nothing was accounted for: the route tree, the edge configuration and {OPENAPI}'s squad bound all have to be readable.",
-            file=sys.stderr,
-        )
+        print("      Nothing was accounted for: the route tree and the edge configuration both have to be readable.", file=sys.stderr)
         # Input the checker cannot judge, which the kernel's contract calls EXIT_REFUSED.
         # EXIT_CRASH would claim the environment is broken and send a reader to the wrong repair.
+        return EXIT_REFUSED
+    # Apart from the reads above, so a programming error in them crashes as one rather than reading as an unreadable
+    # tree: here a `ValueError`, `KeyError` or `TypeError` can only be the published document's shape.
+    try:
+        squad = kader_size_max(REPO_ROOT / OPENAPI)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"      {error}", file=sys.stderr)
+        print(f"      Nothing was accounted for: {OPENAPI}'s squad bound has to be readable.", file=sys.stderr)
         return EXIT_REFUSED
 
     findings, used = account(found, where, root, conf_path.name)

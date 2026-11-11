@@ -116,8 +116,8 @@ async def put_aufstellung_self(
     more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
     `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
     refused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils
-    erased since the match kicked off, which the screen serves as `erased`, are written back after the payload's as
-    they stand.
+    erased from the line-up once it locked, which a seat meets only on a fixture re-dated ahead of its lock since, are
+    dropped by the save, and the screen serves none of them.
     Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
     a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
     """

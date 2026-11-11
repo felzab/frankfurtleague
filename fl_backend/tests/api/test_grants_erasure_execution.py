@@ -89,7 +89,7 @@ def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | Non
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
     return {
         "_id": row_id,
-        "key": f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA}",
+        "key": f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA_ID}",
         "kind": "grant",
         "to": DORA,
         "data": FLGrantData.model_validate(composed.data).model_dump(mode="json"),

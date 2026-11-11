@@ -69,6 +69,7 @@ async function rowsOf(
     termine: [],
     aufstellungen: [],
     registrierungen: [],
+    registrierungen_complete: true,
     seats: [],
     ...held,
   } satisfies FLTeamOverviewResponse;

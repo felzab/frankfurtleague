@@ -142,7 +142,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - People and data: pupils from 16, with name, address, birthdate, shirt number, position, Stufe
     and, where a team's contact seat sets one, the role of Kapitän or Co-Kapitän,
     the publication scope and the media answer with their evidence; the registration link's entry,
-    naming the administrator who minted it.
+    naming its team and season.
   - Recipients: administrators; the team's seats, who decide an admission; the booked referee, who
     reads both squads for their fixture's report while the fixture takes one and its season runs
     (`fl_backend/app/api/spielberichte/services.py :: takes_a_bericht`); the public, as section 4
@@ -246,9 +246,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   remarks (`fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`). A report and a
   line-up store a pupil by record id alone and the read joins the name from the pupil's row, so a
   name stands only while that row exists: the season rule or an erasure leaves the slot naming
-  nobody, the erasure repointing both at the nameless sentinel
+  nobody, the erasure repointing a report's entries and those of a line-up locked before its match
+  at the nameless sentinel, and removing the pupil from a line-up not yet locked
   (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
-  `fl_backend/app/api/aufstellungen/crud.py :: repoint_pupil_aufstellungen_in_session`). Whether a card may stand beside a named pupil of 16 or 17 is open, and
+  `fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`). Whether a card may stand beside a named pupil of 16 or 17 is open, and
   the deploy shipping the read waits on the answer ([section 11](#11-open-and-owed-a-decision)).
 - **A photograph, a video or an interview needs its own consent, from 18**, published on this site
   and the league's Instagram account, and a withdrawal takes it down from both, which the notice
@@ -283,9 +284,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 - **What an erasure deletes or repoints**, in one transaction: every record the address holds,
   outright rather than nulled; a referee's fixtures repointed at the ghost
   (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), which also ends their engagement,
-  a fixture played or called off keeping its booking and `payment`; a pupil's goals and cards
-  repointed at `:: GHOST_SPIELER_ID`
-  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`); the marker naming
+  a fixture played or called off keeping its booking and `payment`; a pupil's goals and cards, and
+  their entries on line-ups locked before their match, repointed at `:: GHOST_SPIELER_ID`, and their
+  entries on line-ups not yet locked removed
+  (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
+  `fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`); the marker naming
   nobody in place of their address wherever the action log names it
   (`fl_backend/app/api/action_log/crud.py :: reattribute_administrator_in_session`); every reason typed in a fixture answer from a seat they
   hold, found by team, season and role (`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`),
@@ -372,6 +375,17 @@ Each bound is read from the symbol beside it; nothing compares this table with t
 - **A registration's deadline is stored at the mint**, so a raised bound never moves a link already
   in somebody's inbox. Every link asking a person to confirm being named or registered is ruled to
   live 14 days, and every unconfirmed or declined item to go 14 days after, which the notice states.
+  An address change moving an unconfirmed registration mails a fresh link to the new address and
+  stores a deadline 14 days on, which that mail states; a move mailing none, the new mailbox holding
+  its three links or the registration's link being over, keeps the stored deadline, so a
+  registration nobody can confirm is kept no day longer for the move
+  (`fl_backend/app/api/address_change/crud.py :: _move_the_registrierung_in_session`).
+- **A sent mail's row keeps its key alone once an address change replaces its address**
+  (`fl_backend/app/api/outbox/services.py :: TOMBSTONE_UPDATE`): its recipient, its delivery state
+  and the record it was about go at the change, and the key a pass decides by stays until the row's
+  30 days are out, so the new address is owed nothing twice. A key is built from record ids, seats,
+  roles and instants, and never from an address, so the row keeps nothing about the replaced
+  mailbox.
 - **A ban removes itself on the league's calendar rather than a count of days**: somebody too young
   stays barred until too old. Its row goes with no message; the one sent at the ban, to an address
   holding a sign-in account alone (`fl_backend/app/api/ban_list/schemas.py ::
