@@ -13,19 +13,26 @@ from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
+    AddressChangeReadCollection,
     AufstellungenCollection,
     BewerbungenCollection,
+    BewerbungenReadCollection,
     DBClient,
     GrantsCollection,
+    GrantsReadCollection,
     OutboxCollection,
     RegistrierungenCollection,
+    RegistrierungenReadCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SchiedsrichterCollection,
+    SchiedsrichterReadCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
+    SpielerReadCollection,
     get_germany_now,
 )
 from app.core.journal import Journal
@@ -73,7 +80,8 @@ async def post_account_erasure(
     person's day.
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals
-    and cards and its line-up entries moving to the one row that holds no person; the referee record,
+    and cards and its entries on line-ups locked before their match moving to the one row that holds no person, and its
+    entries on line-ups not yet locked going; the referee record,
     every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
     confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
     address's pending change naming this one as its new address, every record it would move standing at its own; every
@@ -137,13 +145,13 @@ async def post_account_erasure(
 )
 async def get_account_erasure_view(
     identifier: PersonIdentifier,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spieler_collection: SpielerCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    address_changes_collection: AddressChangeCollection,
-    grants_collection: GrantsCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    spieler_collection: SpielerReadCollection,
+    registrierungen_collection: RegistrierungenReadCollection,
+    address_changes_collection: AddressChangeReadCollection,
+    grants_collection: GrantsReadCollection,
     db: DBClient,
 ) -> FLAccountErasureViewResponse:
     """
@@ -154,7 +162,8 @@ async def get_account_erasure_view(
     and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
     has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
     booking their referee record, which move onto the ghost; the confirmations their referee record was asked for, which go;
-    the goals, cards and line-up entries of their pupil record, which move onto the ghost; every reason they typed
+    the goals, cards and locked line-ups' entries of their pupil record, which move onto the ghost, and its entries on
+    line-ups not yet locked, which go; every reason they typed
     answering a match confirmation, from any
     seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
     marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which

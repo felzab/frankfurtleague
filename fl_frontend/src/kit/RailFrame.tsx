@@ -139,7 +139,8 @@ export function RailFrame({
             <Suspense fallback={<RailEntriesPlaceholder groups={groups} />}>
               <RailEntries groups={groups} />
             </Suspense>
-            <div className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "h-(--rail-foot)" : ""}`}>
+            <div
+              className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "min-h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
                 <Suspense fallback={<AccountRowPlaceholder />}>
                   <AccountRow account={foot.account} />
@@ -286,9 +287,10 @@ export function RailPage({
   action?: ReactElement;
   /**
    * A way to the record's public page, such as a match editor's to the match's own page, in words at the strip's end
-   * as the strip's legal links stand; absent until the record has one.
+   * as the strip's legal links stand; absent until the record has one. While the record is read, `waits` holds the
+   * link's place by its words, so a phone's title line, as tall as the link, stands at its height before it lands.
    */
-  link?: { href: Route; label: Copy };
+  link?: { href: Route; label: Copy } | { waits: Copy };
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
   bar?: ReactElement;
   children: ReactNode;
@@ -323,14 +325,22 @@ export function RailPage({
           </span>
         )}
         {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
-        {link !== undefined && (
-          <NextLink
-            href={link.href}
-            data-kit-focus="ring"
-            className={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
-            {link.label}
-          </NextLink>
-        )}
+        {link !== undefined &&
+          ("waits" in link ? (
+            <Placeholder layoutClass={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
+              <PlaceholderLine
+                textClass="text-sm"
+                words={link.waits}
+              />
+            </Placeholder>
+          ) : (
+            <NextLink
+              href={link.href}
+              data-kit-focus="ring"
+              className={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
+              {link.label}
+            </NextLink>
+          ))}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}

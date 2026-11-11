@@ -54,6 +54,7 @@ from app.core.dependencies import (
     DBClient,
     OutboxCollection,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
@@ -121,7 +122,7 @@ async def pull_the_season_after(
 
 
 @router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the sweep has to visit")
-async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSweepSaisonsResponse:
+async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
     seasons = await pull_many_from_db(

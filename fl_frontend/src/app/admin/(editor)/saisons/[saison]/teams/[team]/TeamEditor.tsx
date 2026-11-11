@@ -7,7 +7,6 @@ import { Segmented } from "@/kit/ChoiceButtons";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
-import { FieldPair } from "@/kit/FieldPair";
 import { SeatRows } from "@/kit/SeatRows";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
@@ -117,36 +116,30 @@ export function TeamEditor({
     title: TEAM,
     fields: (
       <>
-        <FieldPair
-          short="second"
-          phone="pair">
-          <TextField
-            label={COPY.shared.name}
-            name="name"
-            width="W3"
-            kind="text"
-            isRequired={required.name}
-            maxLength={max.name}
-            {...(renamed ? { consequence: WORDS.renameReach } : {})}
-            value={draft.name}
-            onChange={(name) => set("name", name)}
-          />
-          <TextField
-            label={COPY.team.shorthand}
-            name="shorthand"
-            width="C5"
-            kind="text"
-            isRequired={required.shorthand}
-            maxLength={SHORTHAND_LENGTH}
-            minLength={SHORTHAND_LENGTH}
-            value={draft.shorthand}
-            onChange={(shorthand) => set("shorthand", shorthand)}
-          />
-        </FieldPair>
+        <TextField
+          label={COPY.shared.name}
+          name="name"
+          kind="text"
+          isRequired={required.name}
+          maxLength={max.name}
+          {...(renamed ? { consequence: WORDS.renameReach } : {})}
+          value={draft.name}
+          onChange={(name) => set("name", name)}
+        />
+        <TextField
+          label={COPY.team.shorthand}
+          name="shorthand"
+          holds={5}
+          kind="text"
+          isRequired={required.shorthand}
+          maxLength={SHORTHAND_LENGTH}
+          minLength={SHORTHAND_LENGTH}
+          value={draft.shorthand}
+          onChange={(shorthand) => set("shorthand", shorthand)}
+        />
         <TextField
           label={COPY.team.fullName}
           name="full_name"
-          width="W3L"
           kind="text"
           isRequired={required.full_name}
           maxLength={max.full_name}
@@ -156,7 +149,6 @@ export function TeamEditor({
         <Select
           label={COPY.team.schulform}
           name="schulform"
-          width="fit"
           options={schulformOptions()}
           value={draft.schulform}
           onChange={(schulform) => set("schulform", schulform ?? "")}
@@ -164,7 +156,6 @@ export function TeamEditor({
         <TextField
           label={COPY.team.website}
           name="website_url"
-          width="W3"
           kind="url"
           example={COPY.shared.field.exampleUrl}
           maxLength={max.website_url}
@@ -174,8 +165,7 @@ export function TeamEditor({
         <TextField
           label={WORDS.description}
           name="description"
-          width="W4"
-          kind="text"
+          kind="paragraph"
           description={WORDS.descriptionNote}
           maxLength={descriptionMax}
           value={draft.description}
@@ -209,7 +199,6 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.gruppe}
                   name="gruppe"
-                  width="fit"
                   isRequired={rules.gruppeRequired}
                   isDisabled={row.gruppeLocked}
                   {...(row.gruppeNote === undefined ? {} : { description: row.gruppeNote })}
@@ -220,7 +209,6 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.trikotFarbe}
                   name="trikot_farbe"
-                  width="fit"
                   isDisabled={row.colourLocked}
                   options={row.colours}
                   value={draft.trikot_farbe}
@@ -262,7 +250,6 @@ export function TeamEditor({
                               <Select
                                 label={COPY.team.trainerAlso.label}
                                 name="trainer_is_also"
-                                width="fit"
                                 description={COPY.team.trainerAlso.description}
                                 options={[
                                   { id: "", label: COPY.team.trainerAlso.none },
@@ -323,8 +310,7 @@ export function TeamEditor({
                 <TextField
                   label={COPY.admin.spiel.reason}
                   name="reason"
-                  width="W4"
-                  kind="text"
+                  kind="paragraph"
                   isRequired={austrittRules.required.reason}
                   maxLength={austrittRules.reasonMax}
                   description={WORDS.austrittReasonDescription}

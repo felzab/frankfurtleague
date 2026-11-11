@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
 import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
-import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
+import { FieldPlaceholder } from "@/kit/FieldPair";
 import { SectionPlaceholder } from "@/kit/Section";
 import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
@@ -111,18 +111,16 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A booking and its money while the match is read, at their widths, stacking on a phone as the editor's pair does. */
+/** A booking and its money under it while the match is read, each at its width. */
 function BookingPlaceholder() {
   return (
-    <FieldPair
-      short="second"
-      phone="stack">
-      <FieldPlaceholder width="W3" />
+    <>
+      <FieldPlaceholder />
       <FieldPlaceholder
-        width="C5"
-        figures
+        holds={5}
+        unit={COPY.shared.unit.euro}
       />
-    </FieldPair>
+    </>
   );
 }
 
@@ -132,21 +130,10 @@ export default function SpielEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
+        // A public season's match, the editor's state most days, links its page from the strip.
+        link: COPY.shared.end.toSpiel,
         sections: [
-          [
-            <FieldPair
-              key="when"
-              short="both"
-              phone="pair">
-              <FieldPlaceholder width="C10" />
-              <FieldPlaceholder
-                width="C5"
-                figures
-              />
-            </FieldPair>,
-            <BookingPlaceholder key="spielort" />,
-            <BookingPlaceholder key="schiedsrichter" />,
-          ],
+          ["pair", <BookingPlaceholder key="spielort" />, <BookingPlaceholder key="schiedsrichter" />],
           [
             <SwitchPlaceholder
               key="result"
@@ -154,8 +141,8 @@ export default function SpielEditorPage({ params }: Props) {
             />,
             "score",
           ],
-          [{ titled: "W4" }],
-          [{ titled: "fit" }],
+          [{ titled: "paragraph" }],
+          [{ titled: "field" }],
           [
             <TablePlaceholder
               key="report"

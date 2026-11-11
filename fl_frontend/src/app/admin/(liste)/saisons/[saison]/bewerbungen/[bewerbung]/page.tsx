@@ -82,7 +82,7 @@ function applicationFacts(read: FLBewerbungSingleResponse): readonly Fact[] {
     figure(COPY.team.stufengroesse, bewerbung.stufengroesse),
     figure(COPY.team.expectedKader, bewerbung.kader.expected_size),
     figure(COPY.team.goodSpieler, bewerbung.kader.good_spieler),
-    { label: COPY.team.wunschfarbe, value: { record: trikotFarbeLabel(bewerbung.trikot.wunschfarbe) } },
+    { label: COPY.team.wunschfarbe, value: trikotFarbeLabel(bewerbung.trikot.wunschfarbe) },
     { label: COPY.team.trikotSet, value: orDash(bewerbung.trikot.existing_set) },
     { label: COPY.team.wunschgegner, value: orDash(bewerbung.wunschgegner) },
     ...decisionFacts(read),

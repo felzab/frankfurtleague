@@ -16,9 +16,10 @@ from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
     WITHOUT_TOKEN_HASHES,
     build_addresses_filter,
-    build_open_filter,
+    build_confirmed_open_filter,
     build_open_link_filter,
     build_registrierungen_sort,
+    build_unconfirmed_open_filter,
     find_unknown_registrierung_refusal,
 )
 from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
@@ -93,24 +94,21 @@ async def pull_open_registrierungen(
     """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most, the confirmed ones taken first.
 
     Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
-    flood of them bury every row a pupil confirmed; a confirmed row needs a link answered in its own mailbox, of which
-    `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX` stand at a time. Two reads, each newest first on the
-    queue index, the second only for the room the first left.
+    flood of them bury every row a pupil confirmed. A confirmed row costs more: its own bot-checked submission and a
+    mailed link opened and answered, a mailbox holding `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`
+    unanswered at a time. Rows past the cap stay unread, as on the administration's list, and `complete` says so. Two
+    reads, each newest first, the second only for the room the first left.
     """
 
     rows: list[Mapping[str, Any]] = []
-    for confirmed in (True, False):
+    # Each on its own index, so neither fetches a row of the other kind to discard it.
+    for db_filter in (build_confirmed_open_filter, build_unconfirmed_open_filter):
         room = OPEN_REGISTRIERUNGEN_CAP - len(rows)
         # One row past the room, so a cut is known rather than guessed from a full page.
         read = await aggregate_many_from_db(
             collection=registrierungen_collection,
             pipeline=[
-                {
-                    "$match": {
-                        **build_open_filter(saison_id=saison_id, team_id=team_id),
-                        "einwilligung.confirmed_at": {"$ne": None} if confirmed else None,
-                    }
-                },
+                {"$match": db_filter(saison_id=saison_id, team_id=team_id)},
                 {"$sort": dict(build_registrierungen_sort())},
                 {"$limit": room + 1},
                 # An inclusion: nothing beyond the form's own fields, the consent stamp and the address

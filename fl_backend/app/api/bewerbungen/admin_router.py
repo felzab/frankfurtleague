@@ -63,7 +63,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.crud import states_of
-from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
+from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxClub
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
@@ -82,8 +82,10 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     BewerbungenCollection,
+    BewerbungenReadCollection,
     DBClient,
     OutboxCollection,
+    OutboxReadCollection,
     SaisonsCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
@@ -94,6 +96,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -146,7 +149,7 @@ async def _entry_of(bewerbung_raw: Mapping[str, Any], *, saison_teams_collection
     return None if row is None else FLBewerbungEntry.model_validate(row)
 
 
-async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: BewerbungenCollection) -> set[Any]:
+async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: ReadCollection) -> set[Any]:
     """The clubs the season's `Dublette`n collide on, which `is_duplicate` asks of a stored application."""
 
     cells = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_duplicates_pipeline(saison_id=saison_id))
@@ -157,7 +160,7 @@ async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: BewerbungenC
 # Two static segments, matching `GET /saisons/list/admin`.
 @router.get("/list/admin", response_model=FLBewerbungenAdminListResponse, summary="One Saison's Bewerbungen for its list")
 async def get_bewerbungen_admin(
-    bewerbungen_collection: BewerbungenCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     saison_id: Annotated[str, Query()],
@@ -208,11 +211,11 @@ async def get_bewerbungen_admin(
 @router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung for its review page")
 async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    bewerbungen_collection: BewerbungenCollection,
+    bewerbungen_collection: BewerbungenReadCollection,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    outbox_collection: OutboxCollection,
+    outbox_collection: OutboxReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
     """One application.
@@ -445,6 +448,8 @@ async def accept_bewerbung(
                         # As the school submitted it, which the acceptance's payload never carries.
                         wunschgegner=bewerbung_raw.get("wunschgegner"),
                     ),
+                    # To the season row's seats written above, so the hand-out drops it once its person left the seat.
+                    club=FLOutboxClub(saison_id=saison_id, team_id=team_id),
                 )
                 for email, seats in people_with_address(kontakte=bewerbung_raw.get("kontakte"))
             ],

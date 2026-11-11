@@ -27,6 +27,8 @@ async function EditorBody({ editor }: { editor: Promise<ReactNode> }) {
  */
 export type EditorWait = {
   lead?: true;
+  /** The words of the strip's way to the record's public page, where the editor lands with one most days (`RailPage`). */
+  link?: Copy;
   sections: ReadonlyArray<ReadonlyArray<FieldRow> | { note: Copy; rows: ReadonlyArray<FieldRow> } | { block: ReactElement }>;
   danger?: ReadonlyArray<DangerRowWait>;
 };
@@ -45,10 +47,10 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
         <RailPage
           scope="area"
           title={null}
+          {...(wait.link === undefined ? {} : { link: { waits: wait.link } })}
           bar={
             <Placeholder layoutClass={editorBarLook().bar()}>
               <span className={editorBarLook().row()}>
-                <span className="min-w-0 flex-1" />
                 <span className={buttonPlaceholder()}>{COPY.shared.verb.save}</span>
               </span>
             </Placeholder>

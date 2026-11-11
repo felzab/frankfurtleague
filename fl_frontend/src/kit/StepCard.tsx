@@ -7,10 +7,9 @@ import { COPY } from "@/core/copy";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { Card, CardPlaceholder } from "./Card";
-import { ActRow } from "./DialogOverlay";
 import { Facts, FactsPlaceholder } from "./Facts";
-import { StatusLine } from "./FieldParts";
-import { statusLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
+import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
 import { tv } from "./tv";
@@ -20,7 +19,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { TableProps } from "./Table";
 
-const stepCard = tv({ slots: { body: "grid gap-4", inputs: "grid justify-items-start gap-4" } });
+const stepCard = tv({ slots: { body: "grid gap-4" } });
 
 /**
  * One record of a run in its card, as the record's list row is one line: its name, where it stands in the run, the facts
@@ -47,7 +46,7 @@ export function StepCard({
   children: ReactNode;
 }) {
   const [isBlocked, setBlocked] = useState(false);
-  const { body, inputs } = stepCard();
+  const { body } = stepCard();
   return (
     <Card
       title={title}
@@ -59,12 +58,8 @@ export function StepCard({
         onInvalid={() => setBlocked(true)}
         onSend={onNext}>
         <Facts facts={facts} />
-        <div className={inputs()}>{children}</div>
-        <ActRow>
-          <StatusLine
-            status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}
-            placement="row"
-          />
+        <FieldStack>{children}</FieldStack>
+        <FormFooter status={isBlocked ? { tone: "error", text: COPY.template.checkFields } : null}>
           <Button
             variant="quiet"
             label={COPY.shared.verb.skip}
@@ -76,7 +71,7 @@ export function StepCard({
             label={COPY.shared.verb.next}
             onPress={() => setBlocked(false)}
           />
-        </ActRow>
+        </FormFooter>
       </HeldForm>
     </Card>
   );
@@ -84,19 +79,18 @@ export function StepCard({
 
 /** A record's card while the run is read: its head, `facts` of its facts, its inputs' placeholders and its acts. */
 export function StepCardPlaceholder({ facts, children }: { facts: number; children: ReactNode }) {
-  const { body, inputs } = stepCard();
+  const { body } = stepCard();
   return (
     <CardPlaceholder
       line
       body="fields">
       <div className={body()}>
         <FactsPlaceholder pairs={facts} />
-        <div className={inputs()}>{children}</div>
-        <ActRow>
-          <span className={statusLine({ placement: "row" })} />
+        <FieldStack>{children}</FieldStack>
+        <FormFooterPlaceholder>
           <span className={buttonPlaceholder()}>{COPY.shared.verb.skip}</span>
           <span className={buttonPlaceholder()}>{COPY.shared.verb.next}</span>
-        </ActRow>
+        </FormFooterPlaceholder>
       </div>
     </CardPlaceholder>
   );
@@ -104,19 +98,13 @@ export function StepCardPlaceholder({ facts, children }: { facts: number; childr
 
 /**
  * A run's check page: a row per record, each leading back to its card, the line saying why a refused one needs that, and
- * the one act confirming the whole run, as wide as the column on a phone.
+ * the one act confirming the whole run in its footer, as wide as the column on a phone.
  */
 export function CheckStep({ table, refused, act }: { table: TableProps; refused: boolean; act: ReactElement | null }) {
   return (
     <>
       <Table {...table} />
-      <div className="grid gap-3 lg:flex lg:items-center">
-        {act}
-        <StatusLine
-          status={refused ? { tone: "error", text: COPY.template.checkFields } : null}
-          placement="row"
-        />
-      </div>
+      <FormFooter status={refused ? { tone: "error", text: COPY.template.checkFields } : null}>{act}</FormFooter>
     </>
   );
 }

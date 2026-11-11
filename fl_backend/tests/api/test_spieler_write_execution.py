@@ -108,7 +108,7 @@ async def save(
                 **{key: value for key, value in (row or {}).items() if key in ROW_FIELDS},
                 **row_fields,
             },
-            version=composite_version(person or {}, row or {}) if version is None else version,
+            version=composite_version(*(document for document in (person, row) if document is not None)) if version is None else version,
         ),
         spieler_collection=database.spieler,
         saison_spieler_collection=database.saison_spieler,

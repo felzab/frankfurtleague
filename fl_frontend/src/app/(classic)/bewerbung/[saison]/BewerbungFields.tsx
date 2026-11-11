@@ -13,7 +13,6 @@ import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
 import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 
@@ -40,7 +39,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         {...box("schule.team_name")}
         label={bewerbung.teamName}
         description={bewerbung.teamNameDescription}
-        width="W3"
         kind="text"
         isRequired={required.teamName}
         maxLength={maxLength.teamName}
@@ -48,7 +46,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
       <TextField
         {...box("schule.full_name")}
         label={team.fullName}
-        width="W3L"
         kind="text"
         isRequired={required.fullName}
         maxLength={maxLength.fullName}
@@ -58,7 +55,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
         name={schulform.name}
         defaultValue={schulform.defaultValue}
         onChange={(value) => schulform.onChange(value ?? "")}
-        width="fit"
         isRequired={required.schulform}
         options={SCHULFORMEN.map((id) => ({ id, label: team.schulformOption[id] }))}
       />
@@ -72,7 +68,6 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
       <TextField
         {...box("schule.website_url")}
         label={team.website}
-        width="W3"
         kind="url"
         example={shared.field.exampleUrl}
         isRequired={required.website}
@@ -92,7 +87,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         {...path("first_name")}
         label={shared.firstName}
         description={COPY.account.entries.mediaFrom(floor)}
-        width="W3"
         kind="text"
         isRequired={required.firstName}
         maxLength={maxLength.firstName}
@@ -100,7 +94,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       <TextField
         {...path("last_name")}
         label={shared.lastName}
-        width="W3"
         kind="text"
         isRequired={required.lastName}
         maxLength={maxLength.lastName}
@@ -109,7 +102,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         {...path("email")}
         label={COPY.signIn.address}
         description={bewerbung.ownAddress}
-        width="W3"
         kind="email"
         isRequired={required.email}
         maxLength={maxLength.email}
@@ -117,7 +109,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
       <TextField
         {...path("phone")}
         label={COPY.shared.facts.phone}
-        width="W3"
         kind="tel"
         isRequired={required.phone}
       />
@@ -126,8 +117,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
 }
 
 /**
- * The application's five boxes and the sentence above the send: the school, one per seat with the Trainer first, the
- * team. A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
+ * The application's five boxes: the school, one per seat with the Trainer first, the team. A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
  * the season wears stands listed, muted and closed. A person holding two seats clears the higher floor, which the
  * Trainer's box says once the second seat is chosen.
  */
@@ -145,7 +135,6 @@ export function BewerbungFields({
   const [trainerAlso, setTrainerAlso] = useState<string>(NO_SECOND_SEAT);
   // Written as it is typed and read when a box comes back, so no render follows a keystroke.
   const [typed] = useState(() => new Map<string, string>());
-  const noticeLine = useId();
   const coveredLine = useId();
 
   // A long form, entered once, by somebody who has it saved nowhere else. The answer replaces this form, ending the warning.
@@ -195,7 +184,7 @@ export function BewerbungFields({
           {...box("stufengroesse")}
           label={team.stufengroesse}
           description={bewerbung.stufengroesseDescription}
-          width="C5"
+          holds={5}
           kind="digits"
           isRequired={required.stufengroesse}
         />
@@ -223,7 +212,6 @@ export function BewerbungFields({
               label={team.trainerAlso.label}
               description={team.trainerAlso.description}
               name="kontakte.trainer_is_also"
-              width="fit"
               value={trainerAlso}
               onChange={(value) => setTrainerAlso(value ?? NO_SECOND_SEAT)}
               options={[
@@ -241,7 +229,6 @@ export function BewerbungFields({
           {...box("trikot.existing_set")}
           label={team.trikotSet}
           description={bewerbung.trikotSetDescription}
-          width="W3"
           kind="text"
           isRequired={required.trikotSet}
           maxLength={maxLength.trikotSet}
@@ -258,7 +245,7 @@ export function BewerbungFields({
         <TextField
           {...box("kader.expected_size")}
           label={team.expectedKader}
-          width="C5"
+          holds={5}
           kind="digits"
           isRequired={required.expectedSize}
         />
@@ -266,7 +253,7 @@ export function BewerbungFields({
           {...box("kader.good_spieler")}
           label={team.goodSpieler}
           description={bewerbung.goodSpielerDescription}
-          width="C5"
+          holds={5}
           kind="digits"
           isRequired={required.goodSpieler}
         />
@@ -279,11 +266,6 @@ export function BewerbungFields({
           free={{ arrow: bewerbung.suggestions, maxLength: maxLength.wunschgegner }}
         />
       </Section>
-
-      <ConsentLine
-        id={noticeLine}
-        line={[bewerbung.notice.before, { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice }, bewerbung.notice.after]}
-      />
     </>
   );
 }

@@ -7,7 +7,7 @@ import { formatNumber } from "@/core/format";
 
 import { smallCaps } from "./cardStyles";
 import { RequiredMark } from "./FieldParts";
-import { fieldFrame, messageLine } from "./fieldStyles";
+import { fieldFrame } from "./fieldStyles";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
@@ -41,13 +41,16 @@ type ScoreColumn = {
  */
 type CountedColumn = { label: Copy; head?: never; counted: readonly [number, number] };
 
+/** A score field's box, a short field of two characters at its inset, for what stands in a field's place. */
+const SCORE_FIELD_CLASSES = `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[2]} ${fieldFrame.variants.inset.full}`;
+
 const scoreRows = tv({
   slots: {
     // The section's own spacing above it, as every field of the box has.
     root: "grid w-full gap-x-3",
     // A line of its own over the column's start, from the head to the last row's fields, rather than a border on each
-    // cell: the last row's message line stands under the fields, and the rule ends with them.
-    rule: "col-start-3 row-span-3 row-start-1 mb-6 w-px bg-border",
+    // cell: it ends with the fields, in the last row's own 4 px under them.
+    rule: "col-start-3 row-span-3 row-start-1 mb-1 w-px bg-border",
     // Each row shares the block's columns, so the heads stand over their fields whatever a name's length. Its fields'
     // roots dissolve into it, so a field's frame takes the first line and its message line the second.
     row: "col-span-full grid grid-cols-subgrid gap-y-1 py-1",
@@ -57,8 +60,8 @@ const scoreRows = tv({
     field: "contents [&_[data-kit-message]]:row-start-2 [&_[data-kit-message]]:text-end [&_input]:row-start-1 [&>*]:contents",
     // A counted figure in a field's place and at its width and inset, so it stands where a typed one would, in the bold
     // a score takes.
-    figure: `col-start-2 row-start-1 flex items-center px-2.5 font-numeric text-base font-bold ${fieldFrame.variants.width.C2}`,
-    line: "col-span-full row-start-4 min-h-5 text-sm font-medium",
+    figure: `col-start-2 row-start-1 flex items-center font-numeric text-base font-bold ${SCORE_FIELD_CLASSES}`,
+    line: "col-span-full row-start-4 text-sm font-medium",
   },
   variants: {
     // The hues the Timeline marks a result in, a decided match `success` and a draw `warn`; a consequence takes a
@@ -159,7 +162,7 @@ export function ScoreRows({
         label={label}
         labelHidden
         name={names[side]}
-        width="C2"
+        holds={2}
         kind="digits"
         isRequired={isRequired}
         value={values[side]}
@@ -197,12 +200,13 @@ export function ScoreRows({
           {shootOut !== null && field(side, "shootOut", shootOut)}
         </div>
       ))}
-      {/* Always there, so a line appearing moves nothing. */}
-      <p
-        id={lineId}
-        className={slots.line()}>
-        {said}
-      </p>
+      {said !== undefined && (
+        <p
+          id={lineId}
+          className={slots.line()}>
+          {said}
+        </p>
+      )}
     </div>
   );
 }
@@ -223,13 +227,9 @@ export function ScoreRowsPlaceholder() {
               widthClass="w-24"
             />
           </span>
-          <span
-            className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${fieldFrame.variants.width.C2}`)}
-          />
-          <span className={messageLine({ class: "col-span-2 col-start-1 row-start-2" })} />
+          <span className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${SCORE_FIELD_CLASSES}`)} />
         </div>
       ))}
-      <span className={slots.line()} />
     </div>
   );
 }

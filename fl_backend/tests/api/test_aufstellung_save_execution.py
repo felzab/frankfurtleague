@@ -352,7 +352,7 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, *pupils: Obje
 
 
 class TestAnErasedPupilsEntry:
-    """Kept as the record where the match has kicked off, removed where it is still ahead."""
+    """Kept as the record where the line-up is locked, removed where the club may still change it."""
 
     def test_two_erased_after_kick_off_stay_apart_and_the_line_up_saves_as_served(self, mongo_replica_set_url: str):
         """Both entries name the one sentinel: served among the named, a save of the screen as served was refused as naming one twice."""
@@ -400,6 +400,62 @@ class TestAnErasedPupilsEntry:
             return stored["spieler"]
 
         assert on_a_season(mongo_replica_set_url, body) == [{"spieler_id": OLE, "starts": True}]
+
+    def test_one_erased_after_the_lock_stays_as_the_record(self, mongo_replica_set_url: str):
+        """From the lock the line-up is the club's final record, which only an administrator still writes."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seat_saves(database, client, _payload(LINA, OLE, starters=2))
+            await erase(database, client, LINA, now=LOCKED)
+            stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
+            assert stored is not None
+
+            return stored["spieler"]
+
+        assert on_a_season(mongo_replica_set_url, body) == [
+            {"spieler_id": GHOST_SPIELER_ID, "starts": True},
+            {"spieler_id": OLE, "starts": True},
+        ]
+
+    def test_one_kept_leaves_with_the_next_save_once_its_match_is_re_dated_ahead(self, mongo_replica_set_url: str):
+        """A match called off after kick-off and re-dated is picked anew: a kept entry would hold a starter's place nobody could free."""
+
+        others = [ObjectId() for _ in range(9)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_many(
+                [documents.spieler_document(pupil, f"Mit{index}", "Muster") for index, pupil in enumerate(others)]
+            )
+            await database[Collection.SAISON_SPIELER].insert_many(
+                [documents.saison_spieler_document(pupil, SAISON_ID, HOME, nummer=str(20 + index)) for index, pupil in enumerate(others)]
+            )
+            await admin_saves(database, client, _payload(LINA, OLE, starters=1))
+            await erase(database, client, LINA, now=PLAYED)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2026-11-21"}})
+            async with client.start_session(snapshot=True) as session:
+                served = await get_aufstellung_self(
+                    spiel_id=SPIEL,
+                    team_id=HOME,
+                    identifier=HOME_SEAT,
+                    spiele_collection=database[Collection.SPIELE],
+                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                    spieler_collection=database[Collection.SPIELER],
+                    aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                    records=record_collections(database),
+                    session=session,
+                    now=PLAYED,
+                )
+            answer, _ = await seat_saves(database, client, _payload(OLE, MIA, *others, starters=11, version=served.version), now=PLAYED)
+            stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
+            assert stored is not None
+
+            return served, answer, stored["spieler"]
+
+        served, answer, stored = on_a_season(mongo_replica_set_url, body)
+
+        assert (served.erased, answer.erased) == ([], [])
+        assert GHOST_SPIELER_ID not in {entry["spieler_id"] for entry in stored}
+        assert sum(entry["starts"] for entry in stored) == 11
 
 
 # --- One document per club per fixture: a club's two seats saving at once meet on it, and the other club's save never does.

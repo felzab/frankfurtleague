@@ -15,7 +15,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry
-from app.api.aufstellungen.services import kicked_off_by
+from app.api.aufstellungen.services import keeps_erased
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -66,9 +66,6 @@ async def write_aufstellung(
 
     if saved is None:
         await post_one_to_db(collection=aufstellungen_collection, document={"saison_id": saison_id, **key, "spieler": entries}, session=session)
-        # After the insert, as a report's first write anchors it: a draw's removal writes the season too, so the two
-        # conflict and no line-up is left on a fixture the removal took.
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         written = await pull_one_from_db(collection=aufstellungen_collection, db_filter=key, session=session)
     else:
         # `AFTER`: the screen's next save sends the count this write left.
@@ -80,6 +77,10 @@ async def write_aufstellung(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+    # After the line-up's own write, on every save: a draw's removal writes the season, so no line-up is left on a
+    # fixture the removal took, and so does the activation ending it, which no save then outlives. The save's judgement
+    # of the season's status, asked again outside the transaction, leaves a gap before the commit this closes.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
     await record_act(
         collection=aufstellungen_collection,
@@ -101,16 +102,17 @@ async def erase_pupil_from_aufstellungen_in_session(
     *,
     aufstellungen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
-    # The erasing request's clock, which judges each match kicked off or still ahead.
+    # The erasing request's clock, which judges each line-up locked or still the club's to change.
     now: datetime,
     # REQUIRED: the erasure's own, so a line-up never names the sentinel of an erasure that rolled back.
     session: AsyncClientSession,
 ) -> int:
-    """Repoint this pupil's entries on kicked-off matches' line-ups at the sentinel, remove the rest, answering how many line-ups changed.
+    """Repoint this pupil's entries on locked line-ups at the sentinel, remove the rest, answering how many line-ups changed.
 
-    A kicked-off match's entry stands, as a report's does: the line-up is the club's record of whom it fielded, and a
-    removed entry would read as a pupil nobody picked. A match still ahead fielded nobody yet, so its club picks again
-    rather than keeping a place nobody can fill.
+    A locked line-up's entry stands, as a report's does: from the lock the line-up is the club's record of whom it
+    fielded, and a removed entry would read as a pupil nobody picked. One still ahead of its lock is the club's to
+    change, so its club picks again rather than keeping a place nobody can fill. Judged by `keeps_erased`, which the
+    screen and the save judge again against the fixture as it then stands.
     """
 
     naming = await aggregate_many_from_db(
@@ -134,20 +136,19 @@ async def erase_pupil_from_aufstellungen_in_session(
     if not naming:
         return 0
 
-    kicked_off = {
-        row["_id"] for row in naming if any(kicked_off_by(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in row[_SPIEL_AS])
+    locked = {
+        row["_id"] for row in naming if any(keeps_erased(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in row[_SPIEL_AS])
     }
-    # A match re-dated to no day or no hour since its line-up was saved counts as ahead: nothing says it was played.
-    ahead = sorted({row["_id"] for row in naming} - kicked_off, key=str)
+    ahead = sorted({row["_id"] for row in naming} - locked, key=str)
 
     changed = 0
-    if kicked_off:
+    if locked:
         # Narrowed to the line-ups holding an entry to change, since an array-filtered update reaches
         # `patch_many_in_db` unnarrowed (the manual's "$[<identifier>]" page).
         changed += (
             await patch_many_in_db(
                 collection=aufstellungen_collection,
-                db_filter={"_id": {"$in": sorted(kicked_off, key=str)}, "spieler.spieler_id": spieler_id},
+                db_filter={"_id": {"$in": sorted(locked, key=str)}, "spieler.spieler_id": spieler_id},
                 update={"$set": {"spieler.$[entry].spieler_id": GHOST_SPIELER_ID}},
                 array_filters=[{"entry.spieler_id": spieler_id}],
                 session=session,

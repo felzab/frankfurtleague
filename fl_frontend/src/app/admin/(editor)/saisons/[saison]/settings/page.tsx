@@ -46,12 +46,7 @@ const TEAM = COPY.shared.facts.team;
 const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link }] };
 
 /** One of the editor's selects of a few short choices while it is read. */
-const SELECT = (
-  <FieldPlaceholder
-    key="select"
-    width="fit"
-  />
-);
+const SELECT = <FieldPlaceholder key="select" />;
 
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
@@ -111,13 +106,13 @@ export default function SaisonSettingsPage({ params }: Props) {
       // standing, and the rows of a season not yet the site's. Only the read says which one it is.
       wait={{
         sections: [
-          { note: WORDS.startFixed, rows: [{ rows: 2, width: "C10" }] },
-          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, width: "C2" }, SELECT, "subhead", { rows: 2, width: "C2" }] },
-          { note: WORDS.lockedByDraw, rows: [{ rows: 2, width: "C2" }, SELECT] },
+          { note: WORDS.startFixed, rows: [{ rows: 2, holds: "day" }] },
+          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, holds: "count" }, SELECT, "subhead", { rows: 2, holds: "count" }] },
+          { note: WORDS.lockedByDraw, rows: [{ rows: 2, holds: "count" }, SELECT] },
           [
             <FieldPlaceholder
               key="maxKader"
-              width="C2"
+              holds={2}
             />,
             <ToggleBoxesPlaceholder
               key="stufen"
@@ -125,17 +120,14 @@ export default function SaisonSettingsPage({ params }: Props) {
             />,
           ],
           [
-            { rows: 2, width: "C10" },
+            { rows: 2, holds: "day" },
             <CheckboxPlaceholder
               key="paused"
               label={WORDS.bewerbungPaused}
             />,
           ],
           [
-            <FieldPlaceholder
-              key="end"
-              width="C10"
-            />,
+            <FieldPlaceholder key="end" />,
             <CheckboxPlaceholder
               key="paused"
               label={WORDS.registrierungPaused}
@@ -147,8 +139,8 @@ export default function SaisonSettingsPage({ params }: Props) {
               pairs={3}
             />,
           ],
-          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(WORDS.gruppen, "swap") }] },
-          { note: WORDS.lockedSinceStart, rows: ["field", "field", { act: COPY.shared.withObject(TEAM, "replace") }] },
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(WORDS.gruppen, "swap")] }] },
+          { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(TEAM, "replace")] }] },
           [
             <TablePlaceholder
               key="links"
@@ -156,7 +148,7 @@ export default function SaisonSettingsPage({ params }: Props) {
               rows={24}
               bare
             />,
-            { act: COPY.shared.withObject(WORDS.registrierungslinks, "send") },
+            { acts: [COPY.shared.withObject(WORDS.registrierungslinks, "send")] },
           ],
         ],
         danger: [

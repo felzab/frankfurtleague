@@ -327,8 +327,9 @@ async def get_team_overview(
     the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
     fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
     still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
-    each with the pupil's own position and Stufe. And the team's three seats, each with its holder's name and whether
-    that person confirmed it.
+    each with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and
+    `registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that
+    person confirmed it.
 
     No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
     signed-in person holds no seat on this team in this season.
@@ -359,11 +360,9 @@ async def get_team_overview(
             team_id=team_id,
             session=session,
         )
-        registrierungen = (
-            await pull_open_registrierungen(
-                registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
-            )
-        ).rows
+        opened = await pull_open_registrierungen(
+            registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
+        )
 
     termine: list[FLTeamPanelTermin] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
@@ -424,8 +423,9 @@ async def get_team_overview(
                     "admissible": registrierung_is_confirmed(einwilligung=registrierung.get("einwilligung")),
                 }
             )
-            for registrierung in registrierungen
+            for registrierung in opened.rows
         ],
+        registrierungen_complete=opened.complete,
         seats=_seats_of(kontakte),
     )
 

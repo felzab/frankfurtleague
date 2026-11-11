@@ -14,7 +14,12 @@ export const buttonLook = tv({
       primary: "border-transparent bg-brand-solid px-3.5 text-on-brand",
       // No fill of its own, the control edge alone, so it reads as one control on the page, a card and an overlay.
       secondary: "border-border-control bg-transparent px-3.5 text-fg",
+      // The press that destroys, a question's own button: the red fill.
       danger: "border-transparent bg-danger-solid px-3.5 text-on-brand",
+      // An act that destroys, where its button opens the question asking first: in an editor's danger box, a dialog's
+      // part ending its record, a Konto box and a section's footer alike, the control edge with words in the danger
+      // hue, as GitHub Primer draws a danger zone's button, the red fill kept for the press that destroys.
+      dangerOutline: "border-border-control bg-transparent px-3.5 text-danger",
       // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
       icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
@@ -38,7 +43,7 @@ export const buttonLook = tv({
   // words' colour), so the step shows on the page, a card, a card's head and an overlay alike, and over a row's own
   // layer.
   compoundVariants: [
-    { look: ["primary", "secondary", "danger", "icon"], host: "aria", locked: false, class: hoverLook({ host: "aria" }) },
+    { look: ["primary", "secondary", "danger", "dangerOutline", "icon"], host: "aria", locked: false, class: hoverLook({ host: "aria" }) },
     { look: ["primary", "secondary", "icon"], host: "link", class: hoverLook({ host: "link" }) },
     // A quiet act is a button, so it takes no underline, which marks a link alone, and its words alone answer: they
     // take their full colour, as a plain button and a text button do (Apple's HIG, Material).
@@ -47,6 +52,17 @@ export const buttonLook = tv({
   ],
   defaultVariants: { locked: false },
 });
+
+/**
+ * The look of a button opening the question an act asks first, by the question's tone: an act that destroys takes the
+ * outlined danger look, any other the secondary one, since the fill belongs to the question's own button that does the
+ * act. Every question's and dialog's trigger is drawn by it (`ConfirmDialog.tsx :: TriggerButton`), and so is the
+ * locked button standing in a trigger's place and the question form's press, so one destroying act looks the same
+ * wherever it stands.
+ */
+export function askingLook(tone: "danger" | "primary") {
+  return tone === "danger" ? "dangerOutline" : "secondary";
+}
 
 /**
  * A button while what it acts on is read, the class of a `span` holding what the button will hold: its label, and its

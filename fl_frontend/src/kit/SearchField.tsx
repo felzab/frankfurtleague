@@ -36,7 +36,7 @@ export function SearchField({
       className="group">
       <div
         data-kit-focus="field"
-        className={fieldFrame({ width: "column", inset: "none", layout: "group" })}>
+        className={fieldFrame({ width: "standard", inset: "none", layout: "group" })}>
         <span className={searchGlyph()}>
           <Icon
             glyph="search"

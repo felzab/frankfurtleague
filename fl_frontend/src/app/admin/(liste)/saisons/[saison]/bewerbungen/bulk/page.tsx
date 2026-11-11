@@ -51,11 +51,11 @@ export default function BulkAcceptPage({ params }: Props) {
       wait={
         // A new school's card, the taller of the two: its code stands in a group of its own, with the word on its address.
         <StepCardPlaceholder facts={5}>
-          <FieldPlaceholder width="fit" />
-          <FieldPlaceholder width="fit" />
+          <FieldPlaceholder />
+          <FieldPlaceholder />
           <FieldGroupPlaceholder>
             <FieldPlaceholder
-              width="C5"
+              holds={5}
               description={COPY.team.shorthandDescription}
             />
             <CalloutPlaceholder text={COPY.admin.bewerbung.addressPublic} />

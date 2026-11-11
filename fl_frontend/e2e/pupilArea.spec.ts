@@ -42,9 +42,15 @@ function birthDate(): string {
   return `0101${String(new Date().getFullYear() - 17)}`;
 }
 
-/** A fact's value, which its term names for a screen reader. */
+/**
+ * A fact's value: the definition after its term. ARIA prohibits naming a `term` or a `definition`, so neither is found by
+ * a name; a screen reader reads the two in order.
+ */
 function valueOf(scope: Locator, term: string): Locator {
-  return scope.getByRole("definition", { name: term, exact: true });
+  return scope
+    .getByRole("term")
+    .filter({ hasText: new RegExp(`^${term}$`) })
+    .locator("xpath=following-sibling::dd[1]");
 }
 
 /**
@@ -77,7 +83,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await typeInto(box.getByRole("textbox", { name: /^Vorname/ }), pupil.firstName);
   await typeInto(box.getByRole("textbox", { name: /^Nachname/ }), pupil.lastName);
   await typeInto(box.getByRole("textbox", { name: /^E-Mail-Adresse/ }), pupil.address);
-  await typeInto(box.getByRole("textbox", { name: /^Nummer/ }), pupil.nummer);
+  await typeInto(box.getByRole("textbox", { name: /^Trikotnummer/ }), pupil.nummer);
   await choose(page, box, /Position/, pupil.position);
   await choose(page, box, /Stufe/, pupil.stufe);
   await main.getByRole("button", { name: "Registrierung abschicken" }).click();
@@ -104,7 +110,9 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await expect(team).toHaveURL((url) => url.pathname.endsWith("/registrierungen"));
   const row = team.getByRole("main").getByRole("row").filter({ hasText: name });
   await expect(row.getByText("Bestätigt", { exact: true })).toBeVisible();
-  await row.getByRole("button", { name: "Aufnehmen", exact: true }).click();
+  // The row opens its dialog, titled by the pupil's name, which holds „Aufnehmen“ (D747).
+  await row.getByRole("button", { name, exact: true }).click();
+  await team.getByRole("dialog", { name }).getByRole("button", { name: "Aufnehmen", exact: true }).click();
   // The admission's end: the registration leaves the open list for the squad.
   await expect(row).toHaveCount(0);
 

@@ -100,8 +100,8 @@ async def put_aufstellung(
     (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage
     (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
     save, and every refusal but `version_stale` is asked again outside the transaction just before answering. The
-    stored entries of pupils erased since the match kicked off, which the screen serves as `erased`, are written back
-    after the payload's as they stand.
+    stored entries of pupils erased from the locked line-up, which the screen serves as `erased`, are written back after
+    the payload's as they stand while the line-up is locked, and dropped once the fixture is re-dated ahead of its lock.
     """
 
     answer, created = await save_aufstellung_screen(

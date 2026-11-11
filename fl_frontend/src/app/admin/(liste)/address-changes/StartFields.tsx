@@ -30,7 +30,6 @@ export function StartFields({
       <TextField
         label={COPY.account.address.current}
         name="address"
-        width="W3"
         kind="email"
         autofill="off"
         isRequired={required.address}
@@ -46,7 +45,6 @@ export function StartFields({
       <TextField
         label={COPY.account.address.new}
         name="email"
-        width="W3"
         kind="email"
         autofill="off"
         isRequired={required.email}

@@ -19,7 +19,7 @@ const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 
 /**
  * Either link's question answered, the side and the way the page read posted beside the token, the pressed act under
- * `act`, `kit/OneShot.tsx`'s field: the main act confirms, the quieter one declines. The two word the end alone; the
+ * `act`, `kit/OneShot.tsx`'s field: the main act confirms, the refusal declines. The two word the end alone; the
  * backend tells the links apart by the token. A link that holds no more at the press, answered, ended or refused since
  * the page opened, ends as the link no longer valid, one message for every cause.
  */

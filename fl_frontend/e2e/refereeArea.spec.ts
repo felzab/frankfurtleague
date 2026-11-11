@@ -26,6 +26,18 @@ function gameRow(page: Page, game: string): Locator {
 }
 
 /**
+ * A radio pressed on its label, as a person presses it: React Aria clips the radio's own input to nothing, so a press
+ * aimed at the input lands on the label over it and Playwright waits for the input to take it. `has` is queried inside
+ * each label, so its locator starts at the page, never at `scope`.
+ */
+async function pressRadio(scope: Locator, name: string): Promise<void> {
+  await scope
+    .locator("label")
+    .filter({ has: scope.page().getByRole("radio", { name, exact: true }) })
+    .click();
+}
+
+/**
  * Picks a pupil from a row's player list, as a person opens it from the keyboard, and returns the pick's words, which the
  * field shows once chosen. `Unbekannt`, a goal's first entry, is no pupil.
  */
@@ -71,17 +83,17 @@ test("a referee answers the coming game, saves the played game's report, and rea
   // A goal on its labelled row: the side, heard by its club's name whatever Kürzel it shows, the minute and the scorer.
   await main.getByRole("button", { name: "Tor eintragen" }).click();
   const goal = main.getByRole("group", { name: "Tor 1", exact: true });
-  await goal.getByRole("radio", { name: side, exact: true }).click();
+  await pressRadio(goal, side);
   await typeInto(goal.getByRole("textbox", { name: "Minute" }), "23");
   const scorer = await pickPupil(page, goal);
 
   // A card on its own: the side, the minute, the pupil and its colour.
   await main.getByRole("button", { name: "Karte eintragen" }).click();
   const card = main.getByRole("group", { name: "Karte 1", exact: true });
-  await card.getByRole("radio", { name: side, exact: true }).click();
+  await pressRadio(card, side);
   await typeInto(card.getByRole("textbox", { name: "Minute" }), "40");
   const cautioned = await pickPupil(page, card);
-  await card.getByRole("radio", { name: "Gelb", exact: true }).click();
+  await pressRadio(card, "Gelb");
 
   const bar = page.getByRole("region", { name: "Speichern" });
   await bar.getByRole("button", { name: "Speichern" }).click();
@@ -104,6 +116,10 @@ test("a referee answers the coming game, saves the played game's report, and rea
   // Konto's referee box holds the fee the league pays them.
   await page.goto("/account/entries");
   const entry = page.getByRole("main").locator("section", { has: page.getByRole("heading", { name: "Schiedsrichter", exact: true }) });
-  const fee = entry.getByRole("definition", { name: "Honorar", exact: true });
+  // The definition after its term: ARIA prohibits naming either, so a screen reader reads the two in order.
+  const fee = entry
+    .getByRole("term")
+    .filter({ hasText: /^Honorar$/ })
+    .locator("xpath=following-sibling::dd[1]");
   await expect(fee).toHaveText(/^\d+,\d{2}\s€$/);
 });

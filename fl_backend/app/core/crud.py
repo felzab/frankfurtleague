@@ -126,7 +126,7 @@ def composite_version(*documents: Mapping[str, Any]) -> int:
     save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
     """
 
-    return sum(int(document.get(VERSION_FIELD) or 0) for document in documents)
+    return sum(int(document[VERSION_FIELD]) for document in documents)
 
 
 def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> WriteRefusal | None:
@@ -145,7 +145,7 @@ def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: i
     it, as a number refuses once the document moved or went.
     """
 
-    if (None if saved is None else int(saved.get(VERSION_FIELD) or 0)) == version:
+    if (None if saved is None else int(saved[VERSION_FIELD])) == version:
         return None
 
     return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)

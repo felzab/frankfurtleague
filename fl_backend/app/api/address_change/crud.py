@@ -52,10 +52,10 @@ from app.api.outbox.schemas import (
 from app.api.outbox.services import SIGN_IN_KINDS, TOMBSTONE_UPDATE, OwedMail, enqueue_mails, final_update
 from app.api.registrierungen.crud import judge_the_mailbox_in_session
 from app.api.registrierungen.services import (
-    SUBMITTED,
     build_erasure_registrierung_filter,
     compose_confirmation,
     confirmation_mail,
+    link_is_over,
     registrierung_is_confirmed,
 )
 from app.api.schiedsrichter.services import build_self_referee_filter
@@ -731,8 +731,10 @@ async def _move_the_registrierung_in_session(
     Every link was minted for the address the row has left, so none confirms it now. A pending row is judged at the new
     mailbox as a submission is, its confirmation mail owed there under a key of this move, with a deadline the mail's
     stated days from today, and its own unsent mail to the old address dropped: one mail, telling the truth about its
-    days. A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links, or a club that left the season, is owed
-    none: the row lapses unmailed, holding no place at the new mailbox.
+    days. A row whose link is over (decided, its club left the season, or its deadline behind it) is owed none, and nor
+    is one whose new mailbox already holds `OPEN_LINKS_PER_MAILBOX` unanswered links: it keeps its stored deadline and
+    lapses on it unmailed, holding no place at the new mailbox. Only a mail restarts the clock, since a move is no
+    answer from the pupil and a row nobody can confirm is kept no day longer for it.
     """
 
     update: dict[str, Any] = {"$set": {"email": new_address}}
@@ -740,18 +742,18 @@ async def _move_the_registrierung_in_session(
         await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
         return
 
-    if row.get("status") != SUBMITTED:
-        # A decided row takes no answer, so its links only die.
-        update["$set"] |= {"confirmation.token_hashes": []}
-        await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
-        return
-
     saison_id = str(row["saison_id"])
     junction = await saison_teams_collection.find_one(
         {"saison_id": saison_id, "team_id": row["team_id"]}, {"name": 1, "austritt": 1}, session=session
     )
-    stands = junction is not None and junction.get("austritt") is None
-    mailed = stands and await judge_the_mailbox_in_session(
+    today = german_day(now)
+    over = link_is_over(
+        confirmation=row["confirmation"],
+        status=row.get("status"),
+        departed=junction is None or junction.get("austritt") is not None,
+        today=today,
+    )
+    mailed = not over and await judge_the_mailbox_in_session(
         registrierungen_collection=registrierungen_collection,
         mailbox_anchors_collection=mailbox_anchors_collection,
         saison_id=saison_id,
@@ -760,12 +762,14 @@ async def _move_the_registrierung_in_session(
         at=now,
         session=session,
     )
-    today = german_day(now)
-    update["$set"] |= {
-        "confirmation": compose_confirmation(
-            today=today, deadline=days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS), mailed=mailed
-        )
-    }
+    if mailed:
+        update["$set"] |= {
+            "confirmation": compose_confirmation(
+                today=today, deadline=days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS), mailed=True
+            )
+        }
+    else:
+        update["$set"] |= {"confirmation.token_hashes": [], "confirmation.sent_at": None}
     await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
 
     # Before the carry below, which re-addresses what is still owed: the mail owed the old address would state its own days.
