@@ -261,6 +261,17 @@ class TestTheWindowReads:
 
         assert open_window(seeded_url)["saison_id"] == OPEN_SAISON
 
+    def test_of_two_windows_open_today_the_landing_offers_the_newer_seasons(self, mongo_url: str):
+        """An administrator can leave two windows open, and the landing's offer is where a school starts its application.
+
+        Stored older first, so a read keeping the stored order, or sorting the other way, sends schools to the earlier season.
+        """
+
+        running = {"open": True, "start": "2026-03-01", "end": "2026-05-31"}
+        database = seeded_with(mongo_url, [_saison("2027", bewerbung=dict(running)), _saison("2028", bewerbung=dict(running))])
+
+        assert open_window(mongo_url, database_name=database)["saison_id"] == "2028"
+
     def test_the_landing_names_the_day_the_next_window_opens(self, mongo_url: str):
         """The later window sorts ahead of the sooner, and the pause and the ended season behind both open sooner still."""
 
