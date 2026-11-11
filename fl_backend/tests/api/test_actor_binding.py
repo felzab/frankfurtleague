@@ -21,7 +21,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_CHALLENGE
 from app.core.recording import actor_var, record_act
-from app.core.security import AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, PersonIdentifier, bind_actor, get_actor_email
+from app.core.security import AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, bind_actor, get_actor_email, get_person_identifier
 from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
@@ -154,35 +154,24 @@ def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fails():
 KNOWN_IDENTIFIER = "anna@beispielschule.de"
 MIXED_CASE = "Anna@BeispielSchule.DE"
 
-PERSON_PROBE = "/api/v0/person-probe"
-
-
-def person_client() -> TestClient:
-    """The real application and one probe route declaring a person's guard, answering what it handed the handler."""
-
-    def probe(identifier: PersonIdentifier) -> dict[str, str]:
-        return {"identifier": identifier}
-
-    app = create_app(CONFIG)
-    app.add_api_route(PERSON_PROBE, probe, methods=["GET"])
-
-    return TestClient(app, raise_server_exceptions=False)
+# A person's read with no path parameter, so a refusal can only come from the session it is sent.
+PERSON_READ_PATH = "/api/v0/spieler/self/saisons"
 
 
 def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, factor: Factor = "code") -> dict[str, str]:
-    return actor_headers(email, signed_in_before_s=age_s, factor=factor)
+    return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=age_s, factor=factor)}
 
 
 class TestThePersonsSession:
     def test_a_person_is_handed_on_folded(self):
         """So one mailbox's two spellings cannot hold two answers."""
 
-        assert person_client().get(PERSON_PROBE, headers=as_person(MIXED_CASE)).json() == {"identifier": KNOWN_IDENTIFIER}
+        assert get_person_identifier(verified_actor(MIXED_CASE, factor="code")) == KNOWN_IDENTIFIER
 
     def test_a_session_past_the_person_s_window_is_refused(self):
-        response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
+        response = client().get(PERSON_READ_PATH, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
 
         assert answer(response) == (401, Code.SESSION_REFUSED)
 
     def test_a_request_naming_nobody_is_refused(self):
-        assert answer(person_client().get(PERSON_PROBE)) == (400, Code.MISSING_ACTOR)
+        assert answer(client().get(PERSON_READ_PATH, headers=ADMIN_KEY)) == (400, Code.MISSING_ACTOR)

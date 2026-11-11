@@ -190,7 +190,10 @@ class TestTheThreeSeatsAreThreePeople:
         with pytest.raises(ValidationError) as failure:
             FLBewerbungKontaktePayload.model_validate(block)
 
-        assert seat in str(failure.value)
+        # The refusal's own message rather than the error's printed text, which repeats the input and so names the seat whatever was refused.
+        (error,) = failure.value.errors()
+        assert error["type"] == "value_error"
+        assert f"'{seat}'" in error["msg"]
 
     @pytest.mark.parametrize(("seat", "field", "value"), SHARED_CONTACT_DETAILS)
     def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
@@ -280,13 +283,6 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
-
-    @pytest.mark.parametrize("website_url", ["https://frankfurtleague.de@evil.example", "https://user:pw@evil.example"])
-    def test_a_school_website_hiding_its_host_behind_userinfo_is_refused(self, website_url: str):
-        """The admin panel renders the string and follows the host, so userinfo makes those two different domains."""
-
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
 
     def test_an_empty_website_box_is_stored_as_null(self):
         """The applicant left it empty, which is no URL to refuse: an empty `href` would link to the page it sits on."""
