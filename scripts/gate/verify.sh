@@ -136,22 +136,30 @@ SCOPE="${SELECTED[0]}"
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
 # `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
 check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
-  local checker=0 pytest=0 said rc=0
+  local said rc=0
+  local -a flags=()
+  while [[ "$1" == --checker || "$1" == --summary || "$1" == --pytest ]]; do flags+=("$1"); shift; done
+  said="$1"; shift
+  quietly "$@" || rc=$?
+  verdict "${flags[@]}" "$said" "$rc" "${BASH_LINENO[0]}" "$*"
+}
+
+# `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
+verdict() { # [--checker] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
+  local checker=0 pytest=0
   local -a summary=()
   if [[ "$1" == --checker ]]; then checker=1; shift; fi
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
-  said="$1"; shift
-  quietly "$@" || rc=$?
-  case "$rc" in
+  case "$2" in
     0) return 0 ;;
     1) if (( pytest )) && annotate_cases; then summary=(--summary); fi
-       fail "${summary[@]}" "$said"; return 1 ;;
+       fail "${summary[@]}" "$1"; return 1 ;;
     130) on_interrupt ;;
     2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above."; fi
-       on_error "$rc" "${BASH_LINENO[0]}" "$*" ;;
-    *) on_error "$rc" "${BASH_LINENO[0]}" "$*" ;;
+       on_error "$2" "$3" "$4" ;;
+    *) on_error "$2" "$3" "$4" ;;
   esac
 }
 
@@ -546,10 +554,42 @@ contract_check() {
   return "$rc"
 }
 
+# Global, for the EXIT trap, which runs after the scope has returned.
+DB_TIERS=""
+
+# A command run beside another, its output kept in `$1.log` and its status, with the milliseconds it
+# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
+# which would leave a tier running past a Ctrl-C: reset, as `build_images` does.
+run_beside() { # $1 where its files go · the command
+  local at="$1" t0 rc=0
+  shift
+  trap - INT QUIT
+  t0="$(_now_ms)"
+  "$@" > "${at}.log" 2>&1 || rc=$?
+  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
+}
+
+# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
+# it failed, or under `--verbose` whole, since two tiers streaming at once would interleave. The
+# step's time is the tier's own rather than the moment its step was printed.
+beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+  local at="$1" rc=3 ms=0
+  local -a said=()
+  shift
+  # A tier that left no status ended before its command did, which reads as a crash.
+  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
+  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
+  QUIETLY_OUTPUT=""
+  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
+  _STEP_MS0=$(( $(_now_ms) - ms ))
+  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
+  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
+}
+
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
-  trap 'rm -rf "$CONTRACT_SCRATCH"' EXIT
+  trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   step "db · the contract and its generated client match the code they are built from"
   check "The committed contract no longer matches the code it is generated from; the diff above names each file.
@@ -557,18 +597,30 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
     contract_check \
     && ok "the contract and the client are current"
 
+  # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
+  # container, each starting its own on ports Docker picks.
+  DB_TIERS="$(mktemp -d)"
+  local backend frontend
   # `loadfile` for isolation too: `fl_backend/tests/api/test_commit_fail_points.py` sets the
   # server's one `failCommand`, so its cases run one after another on one worker.
+  ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
+  backend=$!
+  # Each file starts its own replica set through `@testcontainers/mongodb`.
+  ( run_beside "${DB_TIERS}/frontend" in_dir fl_frontend pnpm run test:db ) &
+  frontend=$!
+  spinner_start "db · the backend's and the frontend's db tiers, side by side"
+  wait "$backend" || true
+  wait "$frontend" || true
+  spinner_stop
+
   step "db · pytest -m db, distributed over the two shared mongods"
-  check --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
-own message above says which." \
-    in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
+  beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
+own message above says which." "pytest -m db" \
     && ok "db-tier tests pass"
 
-  # Each file starts its own replica set through `@testcontainers/mongodb`.
   step "db · the frontend's *.db.test.ts files"
-  check --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
-own message above says which." in_dir fl_frontend pnpm run test:db \
+  beside_verdict "${DB_TIERS}/frontend" --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
+own message above says which." "pnpm run test:db" \
     && ok "frontend db-tier tests pass"
   return 0
 }
