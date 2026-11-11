@@ -494,8 +494,8 @@ const running = season({
       case 4:
         return { date: day(-13), time: "16:30:00", booking, tore: [1, 3] };
       // Matchday 2, running across today: played yesterday, still to come today, and called off. A match takes its
-      // report from its kick-off (`fl_backend/app/api/spielberichte/services.py :: is_played`), so the played one kicks
-      // off on a day already gone, and the phone's booked referee owes its report whatever hour the seed is loaded at.
+      // report from its kick-off (`fl_backend/app/api/teams/services.py :: is_played`), so the played one kicks off on
+      // a day already gone, and the phone's booked referee owes its report whatever hour the seed is loaded at.
       case 5:
         return { date: day(-1), time: "09:30:00", booking: booked(2, BOOKED_REFEREES.phone), tore: [1, 2] };
       case 6:
