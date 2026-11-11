@@ -76,7 +76,7 @@ export default function SchiedsrichterPage() {
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line" },
+    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line", cut: true },
     { key: "phone", label: COPY.shared.facts.phone, hideOnPhone: true, width: "phone" },
   ],
 };
