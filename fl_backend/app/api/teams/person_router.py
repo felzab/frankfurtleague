@@ -245,7 +245,7 @@ class _Termin(NamedTuple):
     vorschlag_open: FLSpielbestaetigungAppointment | None
 
 
-def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], today: str) -> _Termin | None:
+def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime) -> _Termin | None:
     """The team's unclosed row about the fixture's Ansetzung as it stands, where it asks the team anything."""
 
     digest = ansetzung_digest_of(spiel_raw)
@@ -264,7 +264,7 @@ def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[
     )
     vorschlag_open = None if proposal is None else FLSpielbestaetigungAppointment.model_validate(proposal)
     state = team_state_of(
-        spielbestaetigung_raw=own, ansetzung_state=AnsetzungState(spiel=spiel_raw, vereine=vereine), today=today, vorschlag_open=vorschlag_open
+        spielbestaetigung_raw=own, ansetzung_state=AnsetzungState(spiel=spiel_raw, vereine=vereine), now=now, vorschlag_open=vorschlag_open
     )
 
     return None if state is None else _Termin(row=own, state=state, vorschlag_open=vorschlag_open)
@@ -319,7 +319,6 @@ async def get_team_overview(
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamOverviewResponse:
     """
@@ -371,7 +370,7 @@ async def get_team_overview(
     termine: list[FLTeamPanelTermin] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
     for spiel in sorted(spiele, key=lambda spiel: (str(spiel.get("date") or ""), str(spiel.get("time") or ""), spiel["spiel_nr"])):
-        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, today=today)
+        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, now=now)
         if termin is not None and termin.state != "agreed":
             answer = termin.row.get("answer") or {}
             declined = termin.state == "declined"
@@ -447,7 +446,6 @@ async def get_team_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamSpieleResponse:
     """
@@ -474,7 +472,7 @@ async def get_team_spiele(
         )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, today=today)
+        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, now=now)
 
         return {**spiel, **matchday_of(spiel), "termin": None if termin is None else termin.state, "aufstellung": _marks_of(spiel, now)}
 

@@ -184,7 +184,7 @@ async def discard_spielbestaetigung(
     IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
     answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
     counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
-    agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
+    agreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every
     address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
     declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
     while this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of
@@ -235,7 +235,7 @@ async def discard_spielbestaetigung(
             session=session,
         )
 
-        if discard_owes_a_notice(row=row, today=today):
+        if discard_owes_a_notice(row=row, now=now):
             # The club's season row as it stands, its seats the mailboxes told and its name the one the notice states.
             vereine = await pull_many_from_db(
                 collection=saison_teams_collection,

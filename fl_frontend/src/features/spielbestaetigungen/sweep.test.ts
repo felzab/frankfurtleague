@@ -3,10 +3,10 @@ import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
-const LISTE = "/spielbestaetigungen/sweep";
+const LIST = "/spielbestaetigungen/sweep";
 
 /** The listing's answer, and each season's pass's, which a case sets; an `Error` is thrown, as a failed call throws. */
-let listeAnswer: () => unknown;
+let listAnswer: () => unknown;
 let passAnswer: (saisonId: string) => unknown;
 
 const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" | "failed", number>> = {}) => ({
@@ -20,9 +20,9 @@ const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "rem
 });
 
 const calls = doubleApiClient(async (call: ApiCall) => {
-  const answer = call.endpoint === LISTE ? listeAnswer() : passAnswer(/^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint)?.[1] ?? "");
+  const answer = call.endpoint === LIST ? listAnswer() : passAnswer(/^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint)?.[1] ?? "");
   if (answer instanceof Error) throw answer;
-  assert.ok(call.endpoint.startsWith(LISTE), `the pass reached a route nothing here answers: ${call.endpoint}`);
+  assert.ok(call.endpoint.startsWith(LIST), `the pass reached a route nothing here answers: ${call.endpoint}`);
   return answer;
 });
 
@@ -30,7 +30,7 @@ const { runSpielSweep } = await import("./sweep.ts");
 
 beforeEach(() => {
   calls.length = 0;
-  listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
+  listAnswer = () => ({ saison_ids: ["2627", "2728"] });
   passAnswer = (saisonId) => pass(saisonId);
 });
 
@@ -44,7 +44,7 @@ describe("the fixture confirmation job", () => {
       count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
       open: 0,
     });
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`, `${LISTE}/2728`]);
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LIST, `${LIST}/2627`, `${LIST}/2728`]);
   });
 
   /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
@@ -52,6 +52,6 @@ describe("the fixture confirmation job", () => {
     passAnswer = (saisonId) => (saisonId === "2627" ? new Error("the backend went away") : pass(saisonId));
 
     await expect(runSpielSweep()).rejects.toThrow("the backend went away");
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`]);
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LIST, `${LIST}/2627`]);
   });
 });

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query
@@ -44,7 +45,7 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsCollection,
-    get_german_date_str,
+    get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -168,7 +169,7 @@ async def patch_spiel(
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
@@ -201,7 +202,7 @@ async def patch_spiel(
             payload=spiel_data,
             collections=collections,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            today=today,
+            now=now,
         )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:

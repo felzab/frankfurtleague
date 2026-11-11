@@ -98,7 +98,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   columns: [
-    { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone" },
+    { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone", cut: true },
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
     { key: "stufe", label: WORDS.stufe, hideOnPhone: true },
   ],

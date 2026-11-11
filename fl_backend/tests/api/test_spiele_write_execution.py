@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -29,6 +30,7 @@ from app.api.spiele.services import (
     build_spiele_pipeline,
     judge_spieltag_occupancy,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
@@ -470,7 +472,7 @@ async def call_patch(
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         adopts_bericht=adopts_bericht,
-        today=ADOPTED_ON,
+        now=ADOPTED_AT,
         dry_run=dry_run,
     )
 
@@ -1367,8 +1369,8 @@ class TestTheQueueReadsTheHoldersTheRefusalReads:
 
 # The adoption stamp: a save carrying `adopts_bericht` stamps the fixture's report, in its own transaction.
 
-# The day the save runs on.
-ADOPTED_ON = "2026-05-02"
+# The instant the save runs at.
+ADOPTED_AT = datetime(2026, 5, 2, 12, tzinfo=clock.GERMANY)
 # Past the first write, so a stamp matching a constant rather than the version the editor read cannot pass.
 SEEDED_VERSION = 2
 

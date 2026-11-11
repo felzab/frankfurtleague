@@ -19,6 +19,7 @@ import { DeclineDialog } from "./DeclineDialog";
 import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type {
+  FLAufstellungPhase,
   FLSpielbestaetigungAppointment,
   FLSpielbestaetigungViewAnsetzung,
   FLTeamPanelAufstellung,
@@ -126,17 +127,25 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
   }
 }
 
+/** The chip of a line-up's phase: „Überfällig“ from its due mark, as an overdue date's, and „Gesperrt“ from the lock. */
+const AUFSTELLUNG_CHIPS = {
+  open: undefined,
+  overdue: { tone: "danger", label: TEAM.aufstellung.overdue },
+  locked: { tone: "neutral", label: TEAM.aufstellung.locked },
+} as const satisfies Record<FLAufstellungPhase, CardActRowProps["chip"]>;
+
 /**
- * A coming match the team has entered no line-up for, by the day it is due: until then, and overdue from then. From
- * the lock on only the league enters it, which its chip says.
+ * A coming match the team has entered no line-up for, by the day it is due: until then, and overdue from then, which
+ * its chip says as every other open row's does. From the lock on only the league enters it, which its chip says.
  */
 function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: string): Row {
   const due = dayIn(new Date(row.marks.due_at));
+  const chip = AUFSTELLUNG_CHIPS[row.marks.phase];
   return {
     id: row.spiel_id,
     href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
     name: matchName(row.ansetzung.team1_name, row.ansetzung.team2_name),
-    ...(row.marks.phase === "locked" ? { chip: { tone: "neutral" as const, label: TEAM.aufstellung.locked } } : {}),
+    ...(chip === undefined ? {} : { chip }),
     line: line([whenOf(row.ansetzung), row.marks.phase === "open" ? TEAM.aufstellung.dueBy(due) : TEAM.aufstellung.overdueSince(due)]),
   };
 }

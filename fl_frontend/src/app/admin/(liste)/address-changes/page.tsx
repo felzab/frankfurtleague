@@ -92,7 +92,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   columns: [
-    { key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true },
+    { key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "excerpt", cut: true },
     { key: "until", label: WORDS.until, width: "instant" },
   ],
   acts: [COPY.shared.withObject(COPY.account.address.link, "send"), COPY.shared.verb.discard],

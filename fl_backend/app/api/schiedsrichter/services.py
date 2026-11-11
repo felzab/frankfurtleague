@@ -12,6 +12,7 @@ from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_
 from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
 from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
+from app.api.teams.services import is_played
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -602,8 +603,6 @@ def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
 def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsrichterSpiel:
     """One fixture of `build_self_spiele_pipeline`'s as the referee's list shows it: as it stands, never as a row asked about it."""
 
-    today = clock.german_day(now)
-
     row = next(iter(spiel[OWN_ROW_AS]), None)
     bericht = next(iter(spiel[BERICHT_AS]), None)
     # One row: a fixture's season always stands, and the read joins it by its id.
@@ -628,11 +627,11 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         state=None
         if row is None
         else schiedsrichter_state_of(
-            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=row[OWN_ROW_VEREINE_AS]), today=today
+            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=row[OWN_ROW_VEREINE_AS]), now=now
         ),
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),
-        past=spiel.get("date") is not None and spiel["date"] < today,
+        past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
         # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
         reportable=takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"]),
         submitted_at=None if bericht is None else bericht.get("submitted_at"),

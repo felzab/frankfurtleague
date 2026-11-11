@@ -308,12 +308,12 @@ class TestAGroupSpielTakesNoShootOut:
     def test_a_group_draw_proposing_one_is_refused(self):
         vorschlag = FLSpielberichtBerichtPayload.model_validate(payload([], elfmeterschiessen={"team1": 4, "team2": 3}))
 
-        keine: dict[FLSpielSide, set[ObjectId]] = {"team1": set(), "team2": set()}
+        none_new: dict[FLSpielSide, set[ObjectId]] = {"team1": set(), "team2": set()}
 
         # Through the judgement the write asks twice, so the rule is held where it is called as well as where it is written.
         with pytest.raises(APIError) as refused:
-            judge_bericht(context=context(), payload=vorschlag, new=keine, now=NOW)
-        judge_bericht(context=context(saison_phase="achtelfinale"), payload=vorschlag, new=keine, now=NOW)
+            judge_bericht(context=context(), payload=vorschlag, new=none_new, now=NOW)
+        judge_bericht(context=context(saison_phase="achtelfinale"), payload=vorschlag, new=none_new, now=NOW)
 
         assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_THE_GRUPPE
 

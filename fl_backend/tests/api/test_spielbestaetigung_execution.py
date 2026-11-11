@@ -6,7 +6,7 @@ date is judged, and nothing of the fixture.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -40,6 +40,7 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -61,10 +62,19 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_spielbestaetigung_test")
 
 SAISON_ID = "2027"
-TODAY = "2027-05-01"
-DEADLINE = "2027-05-07"
-DATE = "2027-05-14"
+TODAY = "2126-05-01"
+DEADLINE = "2126-05-07"
+DATE = "2126-05-14"
 TIME = "18:30:00"
+
+
+def noon(day: str) -> datetime:
+    """Midday of a German day, as the request's clock reads it: well before or after any kick-off the cases hold."""
+
+    return datetime.combine(date.fromisoformat(day), time(12), tzinfo=clock.GERMANY)
+
+
+NOW = noon(TODAY)
 
 TEAM1 = ObjectId("6890a1b2c3d4e5f607d50001")
 TEAM2 = ObjectId("6890a1b2c3d4e5f607d50002")
@@ -77,7 +87,7 @@ ROW1 = ObjectId("6890a1b2c3d4e5f607d50051")
 ROW2 = ObjectId("6890a1b2c3d4e5f607d50052")
 
 # The matchday the fixture sits on, which a proposal must stay inside.
-SPAN = ("2027-05-10", "2027-05-16")
+SPAN = ("2126-05-10", "2126-05-16")
 
 PEOPLE = {
     TEAM1: {"trainer": ("Ida", "Albers"), "ansprechperson": ("Jonas", "Brandt"), "stellvertretung": ("Klara", "Cordes")},
@@ -127,7 +137,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
     kontakte = documents.kontakte_document(
         **{
             # Each confirmed, so its holder answers signed in.
-            seat: documents.kontaktperson_document(first_name, last_name=last_name, email=address(team_id, seat), confirmed_at="2027-04-01")
+            seat: documents.kontaktperson_document(first_name, last_name=last_name, email=address(team_id, seat), confirmed_at="2126-04-01")
             for seat, (first_name, last_name) in PEOPLE[team_id].items()
         }
     )
@@ -200,7 +210,7 @@ async def press_answer(
     answer: str = "agreed",
     vorschlag: tuple[str, str] | None = None,
     reason: str | None = None,
-    today: str = TODAY,
+    now: datetime = NOW,
     spielbestaetigungen: Any = None,
     spiele: Any = None,
     saison_teams: Any = None,
@@ -225,7 +235,7 @@ async def press_answer(
         spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
         records=record_collections(database),
         db=client,
-        today=today,
+        now=now,
     )
 
 
@@ -295,7 +305,7 @@ class TestTheSeatTheAnswerRecords:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             trainer = documents.kontaktperson_document(
-                "Klara", last_name="Cordes", email=address(TEAM1, "stellvertretung"), confirmed_at="2027-04-01"
+                "Klara", last_name="Cordes", email=address(TEAM1, "stellvertretung"), confirmed_at="2126-04-01"
             )
             await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM1}, {"$set": {"kontakte.trainer": trainer}})
             await press_answer(database, client, holder(TEAM1, "stellvertretung"))
@@ -324,12 +334,12 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
     @pytest.mark.parametrize(
         ("vorschlag", "neighbour", "austritt", "code"),
         [
-            pytest.param(("2027-05-20", "18:00:00"), None, None, Code.SPIEL_OUTSIDE_SPIELTAG, id="outside-the-matchday"),
+            pytest.param(("2126-05-20", "18:00:00"), None, None, Code.SPIEL_OUTSIDE_SPIELTAG, id="outside-the-matchday"),
             # Four hours apart is the buffer; two is inside it, on the referee's other booking.
             pytest.param(
-                ("2027-05-15", "20:00:00"), ("2027-05-15", "18:00:00"), None, Code.SPIEL_DOUBLE_BOOKED, id="beside-the-referees-other-fixture"
+                ("2126-05-15", "20:00:00"), ("2126-05-15", "18:00:00"), None, Code.SPIEL_DOUBLE_BOOKED, id="beside-the-referees-other-fixture"
             ),
-            pytest.param(("2027-05-15", "18:00:00"), None, "2027-05-15", Code.ELIGIBILITY_DISQUALIFIED, id="on-a-clubs-exit"),
+            pytest.param(("2126-05-15", "18:00:00"), None, "2126-05-15", Code.ELIGIBILITY_DISQUALIFIED, id="on-a-clubs-exit"),
         ],
     )
     def test_a_refused_proposal_writes_no_row_and_no_span(
@@ -390,12 +400,12 @@ class TestASpielMovedMidAnswerIsJudgedAgain:
 
 # A decline every rival below turns into a refusal: inside the matchday, clear of the referee's other bookings, on a day
 # both clubs still play.
-PROPOSAL = ("2027-05-15", "18:00:00")
+PROPOSAL = ("2126-05-15", "18:00:00")
 REASON = "Leider hat Zora an dem Tag Prüfungen"
 
 
 async def narrow_the_matchday(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG}, {"$set": {"end": "2027-05-14"}})
+    await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG}, {"$set": {"end": "2126-05-14"}})
 
 
 async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
@@ -491,10 +501,10 @@ class TestAProposalOfAPastDayIsRefusedThroughTheRoute:
         The matchday's span admits yesterday, so this rule alone refuses it.
         """
 
-        today = "2027-05-12"
+        today = "2126-05-12"
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            outcome = await outcome_of(decline_as_club(database, client, holder(TEAM1, "trainer"), ("2027-05-11", "18:00:00"), today=today))
+            outcome = await outcome_of(decline_as_club(database, client, holder(TEAM1, "trainer"), ("2126-05-11", "18:00:00"), now=noon(today)))
 
             return outcome, await row_now(database, ROW1)
 
@@ -530,7 +540,7 @@ async def discard_row(database: AsyncDatabase, client: AsyncMongoClient, row_id:
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        now=MAIL_NOW,
+        now=NOW,
     )
 
 
@@ -744,7 +754,7 @@ class TestTheAdoption:
         ("since", "today", "code"),
         [
             # The proposed day passing between the club's press and the administrator's.
-            pytest.param(None, "2027-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
+            pytest.param(None, "2126-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
             # The save's own refusal of the proposed day, which names a box of a body this request has not got.
             pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
             # The save's refusals the catalogue words by their path, each under its twin for that path.
@@ -790,7 +800,7 @@ class TestWhatTheAdministratorsReadServes:
         """
 
         closed = {"closed": {"at": TODAY, "reason": "ansetzung_changed"}}
-        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2027-04-30"}
+        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2126-04-30"}
         rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, **closed) for index in range(1, 4))]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> FLSpielbestaetigungenListResponse:
@@ -821,7 +831,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
         [
             pytest.param({}, TODAY, False, False, id="asked-and-still-in-time"),
             pytest.param({"answer": DECLINE}, TODAY, False, True, id="a-standing-proposal"),
-            pytest.param({}, "2027-05-08", False, True, id="a-deadline-passed-unanswered"),
+            pytest.param({}, "2126-05-08", False, True, id="a-deadline-passed-unanswered"),
             pytest.param({"asked_at": DEADLINE}, DEADLINE, False, True, id="due-the-day-it-was-asked"),
             pytest.param({"asked_at": None}, DEADLINE, False, True, id="due-today-and-never-asked"),
             pytest.param({}, DEADLINE, False, False, id="due-today-and-asked-days-ago"),
@@ -838,7 +848,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
         referee = documents.spielbestaetigung_document(
             spiel(),
             party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER},
-            deadline="2027-04-30",
+            deadline="2126-04-30",
             asked_at=TODAY,
             answer={"kind": "agreed", "at": TODAY, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None},
         )
@@ -854,7 +864,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
                 teams_collection=database[Collection.TEAMS],
                 spielorte_collection=database[Collection.SPIELORTE],
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                today=today,
+                now=noon(today),
             )
 
             return {
@@ -869,7 +879,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
 
 # The answering Trainer's address, and the clock their erasure runs on.
 IDA = "ida@example.com"
-ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+ERASED_AT = datetime(2126, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
 class SeasonRowsRunningARivalBeforeTheAnchor(InterleavedCollection):
@@ -948,8 +958,9 @@ NO_SUCH_ROW = ObjectId("6890a1b2c3d4e5f607d50069")
 DECLINE_REASON = "An dem Abend habe ich Prüfungen"
 
 # After the club rows' deadline and before the fixture's day: a club's answer is late here, a referee's is not.
-PAST_THE_DEADLINE = "2027-05-10"
-DAY_AFTER = "2027-05-15"
+PAST_THE_DEADLINE = "2126-05-10"
+# The fixture's own evening, two hours after its kick-off.
+REPORTED_THAT_EVENING = datetime.combine(date.fromisoformat(DATE), time(20, 30), tzinfo=clock.GERMANY)
 
 # A knockout pair beside the fixture: the quarter-final is played and its winner not yet carried into the semi-final, so a
 # resolution of the season would write the semi-final.
@@ -977,7 +988,7 @@ DUE_RESOLUTION = [
 
 
 def confirmed_consent() -> dict[str, Any]:
-    return documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2027-04-01")
+    return documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-04-01")
 
 
 def referee_row(row_id: ObjectId = REFEREE_ROW, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER, **fields: Any) -> dict[str, Any]:
@@ -1017,7 +1028,7 @@ async def einsatz_answer(
     answer: str = "agreed",
     reason: str | None = None,
     identifier: str = OTTO,
-    today: str = TODAY,
+    now: datetime = NOW,
     spielbestaetigungen: Any = None,
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     return await post_schiedsrichter_answer(
@@ -1030,7 +1041,7 @@ async def einsatz_answer(
         saisons_collection=database[Collection.SAISONS],
         records=record_collections(database),
         db=client,
-        today=today,
+        now=now,
     )
 
 
@@ -1205,7 +1216,7 @@ async def save(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        today=TODAY,
+        now=NOW,
         dry_run=dry_run,
     )
 
@@ -1269,7 +1280,7 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": UTE}, {"$set": {"inactive_since": "2027-04-20"}})
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": UTE}, {"$set": {"inactive_since": "2126-04-20"}})
             preview = await save(database, client, await spiel_now(database), dry_run=True, sonderereignis="ausgefallen")
 
             return preview.recipients
@@ -1319,7 +1330,7 @@ class TestARowAnswersOnlyToItsOwnReferee:
         "record",
         [
             pytest.param({"einwilligung": None}, id="their record unconfirmed"),
-            pytest.param({"inactive_since": "2027-04-20"}, id="their record retired"),
+            pytest.param({"inactive_since": "2126-04-20"}, id="their record retired"),
         ],
     )
     def test_the_referee_named_holding_no_role_is_refused_first(self, mongo_replica_set_url: str, record: dict[str, Any]):
@@ -1363,21 +1374,29 @@ class TestARowAnswersOnlyToItsOwnClubsSeats:
         assert on_a_spiel(mongo_replica_set_url, body, rows=rows) == (Code.ANSETZUNG_FOREIGN_ROW, True)
 
 
-class TestARefereeAnswersUntilTheDayNotTheDeadline:
+class TestARefereeAnswersUntilTheKickOffNotTheDeadline:
     """The Einteilung names no deadline: a club row of the same fixture is late where the referee's is not."""
 
     def test_past_the_rows_deadline_the_referee_still_answers(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await einsatz_answer(database, client, today=PAST_THE_DEADLINE)
+            await einsatz_answer(database, client, now=noon(PAST_THE_DEADLINE))
             # The control: the club's row, the same deadline stored, refuses on the same day.
-            club = await outcome_of(press_answer(database, client, holder(TEAM1, "trainer"), today=PAST_THE_DEADLINE))
+            club = await outcome_of(press_answer(database, client, holder(TEAM1, "trainer"), now=noon(PAST_THE_DEADLINE)))
 
             return (await row_now(database, REFEREE_ROW))["answer"]["kind"], club
 
         assert on_a_refereed_spiel(mongo_replica_set_url, body) == ("agreed", Code.ANSETZUNG_DEADLINE_PAST)
 
-    def test_after_the_spiele_day_the_answer_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await outcome_of(einsatz_answer(database, client, today=DAY_AFTER))
+    def test_a_decline_once_the_match_was_played_and_reported_is_refused_and_keeps_the_booking(self, mongo_replica_set_url: str):
+        """Taken, it would empty the slot of the match just played, its report standing with nobody booked to have written it."""
 
-        assert on_a_refereed_spiel(mongo_replica_set_url, body) == Code.ANSETZUNG_DEADLINE_PAST
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel()))
+            outcome = await outcome_of(decline_as_referee(database, client, now=REPORTED_THAT_EVENING))
+
+            return outcome, (await spiel_now(database))["schiedsrichter"], (await row_now(database, REFEREE_ROW))["answer"]
+
+        outcome, booked, answer = on_a_refereed_spiel(mongo_replica_set_url, body)
+
+        assert outcome == Code.ANSETZUNG_DEADLINE_PAST
+        assert (booked["schiedsrichter_id"], answer) == (SCHIEDSRICHTER, None)

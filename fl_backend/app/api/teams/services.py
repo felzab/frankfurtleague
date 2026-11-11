@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
+from datetime import datetime
 from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
@@ -36,6 +37,7 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
     normalise_phone,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -1055,7 +1057,7 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
     """Each seat's record and its birthdate, off the stored block.
 
     A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
@@ -1099,7 +1101,7 @@ def compose_seat_block(
     other = claimed_pair_seat(kontakte={"trainer_is_also": claim}, seat=seat)
     seats = (seat,) if other is None else (seat, other)
     person = {field: value for field, value in sent.items() if field != "trainer_is_also"}
-    # The record of a person newly seated; `compose_kontakte_herkunft` keeps the stored one of a person this write leaves.
+    # The record of a person newly seated; `compose_kontakte_origin` keeps the stored one of a person this write leaves.
     slot = {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
 
     return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
@@ -1600,6 +1602,18 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
 
     # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
+
+    if date is None:
+        return False
+
+    if time is None:
+        return date <= clock.german_day(now)
+
+    return clock.german_instant(date, time) <= now
 
 
 def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:
