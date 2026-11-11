@@ -27,7 +27,7 @@ const { submitRegistrierung } = await import("./submitRegistrierung");
 const { LINK_INVALID, REPLAY_FIELD } = await import("./invitation");
 
 const KEY = "3f2b8c1e-7a4d-4e6f-9b1a-2c3d4e5f6a7b";
-const TOKEN = "kein-echtes-token";
+const TOKEN = "not-a-real-token";
 
 /** The form as the browser posts it, the optional boxes left untouched. */
 const BOXES: Readonly<Record<string, string>> = {
