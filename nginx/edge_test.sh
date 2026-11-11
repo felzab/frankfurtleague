@@ -437,6 +437,12 @@ fi
 # before it spent.
 ACTION_FAILURES=0
 ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
+# What a refused request asks for decides its answer: Next 16.4.2's server-action client asks for this
+# alone (`next/dist/client/components/router-reducer/reducers/server-action-reducer.js`), and a
+# browser's page load names `text/html` first. Every other transfer asks with curl's own `*/*`, as an
+# in-page navigation's and a prefetch's fetch does, naming no type of its own.
+ACTION_ACCEPT="text/x-component"
+NAVIGATION_ACCEPT="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 # Every transfer of this pass goes to one curl as lines of a config read from stdin (`curl -K -`), not
 # as arguments: a pass grows with the bursts it floods past, and Windows caps one command line at
 # 32,767 characters. Nothing rewrites a config line as MSYS rewrites an argument, so each file this
@@ -514,11 +520,11 @@ spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type:
 # refuses: a block dropping it, or restating it higher, passes these.
 LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /erasure )
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
-  spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
+  spent_request "link-action-${_i}" -X POST -H "Accept: ${ACTION_ACCEPT}" -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
 done
 # The refusal itself, kept whole: what Next's action client reads as the press's error.
-spent_request refusal -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+spent_request refusal -X POST -H "Accept: ${ACTION_ACCEPT}" -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
@@ -546,7 +552,7 @@ done
 for _ in $(seq 1 10); do
   action_request auth-flood "${PROD_BASE}/api/auth/probe"
 done
-spent_request auth-landing "${PROD_BASE}/signin/continue"
+spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
 spent_request auth-ready "${PROD_BASE}/api/v0/system/is_ready"
 
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
@@ -570,12 +576,15 @@ LINK_SPENT=(
   "/erasure?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
-  spent_request "link-spent-${_i}" -A "$LINK_MARKER" "${PROD_BASE}${LINK_SPENT[_i]}"
+  spent_request "link-spent-${_i}" -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/confirm/kontakt?token=${TOK}"
-spent_request link-head -A "$LINK_MARKER" --head "${PROD_BASE}/confirm/kontakt?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" --head "${PROD_BASE}/confirm/kontakt?token=${TOK}"
+# Next's prefetch of a link page, its two headers as the router sends them and no type asked for: the
+# sentence, which the router drops, rather than a page it would try to read as one.
+spent_request link-prefetch -H "RSC: 1" -H "Next-Router-Prefetch: 1" "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 
 # A transfer curl never answered reads as `none`.
 mapfile -t ACTION_STATUSES < <(printf '%s\n' "${ACTION_CONFIG[@]}" | curl -K - || true)
@@ -638,7 +647,7 @@ import re
 import sys
 
 page = open(sys.argv[1], "rb").read().decode("utf-8")
-SITE_TOKENS = ("--bg", "--bg-card", "--fg-muted", "--fg", "--border", "--brand")
+SITE_TOKENS = ("--bg", "--bg-card", "--fg", "--border", "--warn", "--brand-solid", "--on-brand")
 
 
 def body_after(text, opener):
@@ -661,14 +670,18 @@ for theme, site_opener, page_opener in (
     ("dark", r"\[data-theme=\"dark\"\]\s*\{", r"prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{"),
 ):
     tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(site, site_opener)))
+    # Exactly the names the block of the site for this theme declares, each at its value: a name the
+    # site declares once for both themes is declared once on the page too.
+    wanted = {name: tokens[name].lower().removeprefix(chr(35)) for name in SITE_TOKENS if name in tokens}
     shown = {
         name: "".join(format(int(channel), "02x") for channel in channels)
-        for name, *channels in re.findall(r"(--[a-z-]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
+        for name, *channels in re.findall(r"(--[a-z0-9-]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
     }
-    for name in SITE_TOKENS:
-        wanted = tokens.get(name, "").lower().removeprefix(chr(35))
-        if not wanted or shown.get(name) != wanted:
-            problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted or None}")
+    for name in sorted(wanted.keys() | shown.keys()):
+        if shown.get(name) != wanted.get(name):
+            problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted.get(name)}")
+    if theme == "light":
+        problems += [f"tokens.css declares no {name}" for name in SITE_TOKENS if name not in tokens]
 # Where the two grounds stand: the body is the ground of the page and the box a card on it, as on every rebuilt
 # page, so a right value painted on the wrong element is a page in another look.
 for element, wanted in (("body", "var(--bg)"), ("main", "var(--bg-card)")):
@@ -723,7 +736,7 @@ expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
-# A link page's action still reads the sentence: the page is its load's alone.
+# A link page's action still reads the sentence: the page is a page load's alone.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   _before=$ACTION_FAILURES
   expect_action "link-action-${_i}" some:429
@@ -737,6 +750,8 @@ grade_spent form-code
 expect_action auth-allowance 200
 expect_action auth-flood some:429
 expect_action auth-landing some:429
+# A page load refused anywhere meets the page, a link page's or not.
+grade_spent auth-landing page
 expect_action auth-ready some:429
 grade_spent auth-ready
 expect_action link-allowance 200
@@ -751,6 +766,8 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
+expect_action link-prefetch some:429
+grade_spent link-prefetch
 
 # The connection ceiling, on production's catch-all: as many requests as it holds, all in flight at
 # once to an answer the stub sends slowly, pass, and one more beside them is refused.
