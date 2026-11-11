@@ -284,7 +284,7 @@ class FLBewerbungReceivedData(BaseModel):
     kind: Literal["bewerbung_received"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    # By role alone: the reader seated these people, and a mistyped address hands a stranger nobody's name.
+    # By role alone, so a mistyped address hands a stranger nobody's name.
     pending: list[FLKontaktRolle]
     deadline: CustomDateString
 
