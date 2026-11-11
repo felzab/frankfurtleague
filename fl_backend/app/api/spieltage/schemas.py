@@ -87,8 +87,8 @@ FLSpielplanSpieltagAdminListAdapter = TypeAdapter(list[FLSpielplanSpieltagAdmin]
 class FLSpielplanResponse(BaseAPIResponse):
     """A season's matchdays in the order they are played, and the one the Spielplan opens on.
 
-    `current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished
-    season, the last. Null for a season with no matchday.
+    `current_spieltag_id` is the first matchday holding a match still to be played, else the last, and the last in a
+    finished season; null for a season with no matchday.
     """
 
     spieltage: list[FLSpielplanSpieltag]
@@ -98,8 +98,8 @@ class FLSpielplanResponse(BaseAPIResponse):
 class FLSpieleSpielplanAdminResponse(BaseAPIResponse):
     """A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
 
-    `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;
-    in a finished season, the last. Null for a season with no matchday.
+    `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,
+    and the last in a finished season; null for a season with no matchday.
     """
 
     spieltage: list[FLSpielplanSpieltagAdmin]

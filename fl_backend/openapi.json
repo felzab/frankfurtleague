@@ -14710,7 +14710,7 @@
         "type": "object"
       },
       "FLSpieleSpielplanAdminResponse": {
-        "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;\nin a finished season, the last. Null for a season with no matchday.",
+        "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,\nand the last in a finished season; null for a season with no matchday.",
         "properties": {
           "current_spieltag_id": {
             "anyOf": [
@@ -15685,7 +15685,7 @@
         "type": "object"
       },
       "FLSpielplanResponse": {
-        "description": "A season's matchdays in the order they are played, and the one the Spielplan opens on.\n\n`current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished\nseason, the last. Null for a season with no matchday.",
+        "description": "A season's matchdays in the order they are played, and the one the Spielplan opens on.\n\n`current_spieltag_id` is the first matchday holding a match still to be played, else the last, and the last in a\nfinished season; null for a season with no matchday.",
         "properties": {
           "current_spieltag_id": {
             "anyOf": [
