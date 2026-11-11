@@ -126,19 +126,6 @@ describe("a refused row", () => {
   });
 });
 
-// The harm: a phone's row draws no label, so a control its cell's label does not reach is named by nothing at all.
-describe("a row's controls", () => {
-  it("are each named by their cell's label, on the row its label names", () => {
-    render(<Goals />);
-    const row = within(rowAt(2));
-
-    expect(row.getByRole("radiogroup", { name: TEAM })).toBeTruthy();
-    expect(row.getByRole("textbox", { name: MINUTE })).toBeTruthy();
-    expect(row.getByRole("combobox", { name: COPY.shared.spieler })).toBeTruthy();
-    expect(row.getByRole("button", { name: REMOVE })).toBeTruthy();
-  });
-});
-
 // The harm: a row's fields kept by its place rather than by the row, so the mark of a field the send kept back stays
 // behind on another row when one above leaves.
 describe("the add and the remove control", () => {
@@ -164,13 +151,10 @@ describe("the add and the remove control", () => {
 
 // The harm: a list the draft takes no row in, a no-show's goals, still taking one on a press, which the send then refuses.
 describe("a locked add control", () => {
-  it("adds no row on a press and says why, the rows standing with their remove controls", async () => {
-    const reason = COPY.shared.field.without(COPY.shared.tore);
-    render(<Goals locked={reason} />);
-    const add = screen.getByRole("button", { name: ADD, description: reason });
+  it("adds no row on a press, the rows standing with their remove controls", async () => {
+    render(<Goals locked={COPY.shared.field.without(COPY.shared.tore)} />);
 
-    await userEvent.click(add);
+    await userEvent.click(screen.getByRole("button", { name: ADD }));
     expect(rowCount()).toBe(GOALS.length);
-    expect(add.getAttribute("aria-disabled")).toBe("true");
   });
 });

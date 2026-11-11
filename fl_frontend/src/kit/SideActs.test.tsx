@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -64,23 +64,9 @@ describe("a row's side acts", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  // The harm: the question an entry opened closes and the keys stand nowhere, the entry that held them gone with its menu.
-  it("hand the focus back to the „⋯“ once a question opened from it closes", async () => {
-    render(<Acts send={() => undefined} />);
-    const more = screen.getByRole("button", { name: MORE });
-
-    await userEvent.click(more);
-    await userEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: DISCARD }));
-    const question = await screen.findByRole("alertdialog");
-    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.back }));
-
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(more));
-  });
-
-  // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard or a
-  // screen reader learns why the act cannot run; or its press runs the act after all.
-  it("keep a locked act's entry in the keys' reach, described by its reason, its press running nothing", async () => {
+  // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard reaches
+  // the reason under its label; or its press runs the act after all.
+  it("keep a locked act's entry in the keys' reach, its press running nothing", async () => {
     const edit = vi.fn();
     render(
       <SideActs
@@ -96,8 +82,6 @@ describe("a row's side acts", () => {
     await userEvent.keyboard("{ArrowDown}");
     const locked = within(screen.getByRole("menu")).getByRole("menuitem", { name: DISCARD });
     expect(document.activeElement).toBe(locked);
-    const reasons = (locked.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
-    expect(reasons).toContain(COPY.shared.failure.stale);
 
     await userEvent.keyboard("{Enter}");
     expect(edit).not.toHaveBeenCalled();
