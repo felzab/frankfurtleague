@@ -336,6 +336,26 @@ scope_frontend_units() {
 
 # --- frontend --------------------------------------------------------------------------------------
 
+# tsc answers 2 for the errors it found where it wrote its build information and 1 where that was
+# current already (`ExitStatus.DiagnosticsPresent_OutputsGenerated`, `_OutputsSkipped`), and 1 too
+# where it stopped before there was a program to check, a project path it could not read among
+# them, as Node does for an uncaught exception. So its words decide: an error at a file's line and
+# column is a finding, and a failure naming none is no verdict on the change.
+typecheck() {
+  local rc=0 out line
+  out="$(in_dir fl_frontend pnpm typecheck:only 2>&1)" || rc=$?
+  printf '%s\n' "$out"
+  case "$rc" in
+    0) return 0 ;;
+    1|2)
+      while IFS= read -r line; do
+        if [[ "$line" =~ \([0-9]+,[0-9]+\):\ error\ TS[0-9]+: ]]; then return 1; fi
+      done <<< "$out"
+      return 3 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 scope_frontend() {
   section frontend
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
@@ -367,7 +387,7 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   ok "route types generated"
 
   step "frontend · tsc"
-  check "tsc found type errors." in_dir fl_frontend pnpm typecheck:only && ok "no type errors"
+  check "tsc found type errors." typecheck && ok "no type errors"
 
   step "frontend · eslint"
   check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
