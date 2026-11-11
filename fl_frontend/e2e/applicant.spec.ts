@@ -83,6 +83,8 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   // The Stellvertretung objects, which empties the seat and tells the Ansprechperson.
   await page.goto(await mailedLink(personOf(school, "stellvertretung").address, SUBJECT.seat, before));
   await page.getByRole("main").getByRole("button", { name: "Widersprechen" }).click();
+  // The objection asks before it acts; its question's own press does it.
+  await page.getByRole("alertdialog", { name: "Eintrag widersprechen?" }).getByRole("button", { name: "Widersprechen" }).click();
   await expect(page.getByRole("main").getByRole("heading", { name: "Widersprochen", exact: true })).toBeVisible();
   await mailedMessage(personOf(school, "ansprechperson").address, SUBJECT.objected, before);
 
