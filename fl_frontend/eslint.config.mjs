@@ -135,7 +135,7 @@ const syntax = (selector, message) => ({ selector, message });
 const LAYER_BOUNDARY = {
   core: {
     regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)(?:features|shared)/`,
-    message: "core is infrastructure: it must not depend on shared or features.",
+    message: "core is infrastructure: it must not depend on shared or features. Move what it needs into core, or have the caller hand it in.",
   },
   shared: {
     regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)features/`,
@@ -601,7 +601,7 @@ const SOURCE_BANS = [
   syntaxBan(
     syntax(
       'CallExpression[callee.type="MemberExpression"][callee.object.type="MemberExpression"][callee.object.property.name="api"] > ObjectExpression.arguments > Property[key.name="request"]',
-      "A `request` handed to an `auth.api` call carries that call onto the browser's paths.",
+      "A `request` handed to an `auth.api` call carries that call onto the browser's paths: hand it the request's `headers` instead.",
     ),
     SOURCE,
   ),
@@ -1043,11 +1043,15 @@ const DESIGN_BANS = [
     OUTSIDE_KIT,
   ),
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
-  classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
+  classBan(
+    CLASS(String.raw`backdrop-.+`),
+    "Only a dialog or a sheet blurs the page behind it: render the kit's `Dialog` or `Sheet`.",
+    OUTSIDE_KIT,
+  ),
 
   classBan(
     CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
-    "Motion is the kit's, from the token pair under reduced motion.",
+    "Motion is the kit's, from the token pair under reduced motion: render the kit's block that moves, or add the motion to the kit.",
     OUTSIDE_KIT,
   ),
 
@@ -1200,7 +1204,7 @@ const DESIGN_BANS = [
   syntaxBan(
     syntax(
       'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.type="Literal"], [value.expression.type="Literal"])',
-      "A field's required mark is derived from its data, never written as a literal.",
+      "A field's required mark is derived from its data, never written as a literal: pass the `required` its rules read off the save's generated schema, or a condition of the form's state.",
     ),
     PRODUCTION,
   ),
