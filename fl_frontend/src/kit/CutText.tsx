@@ -17,12 +17,40 @@ const RowProbes = createContext<Set<Probe> | null>(null);
  * A row whose link stretches over the whole of it, as a table's linked row does (`Link`'s `row`): the pointer stands on
  * that link wherever it is on the row, so a cut text in another cell never sees it arrive, and the browser takes a
  * tooltip from the link's ancestors alone. Each cut text inside says, by its own box, whether a point stands over it
- * while it is cut, and the one holding the link, the only one the pointer reaches, carries the words under the pointer
- * in its `title`. The row stays one link, to a click, the keyboard and a screen reader alike; no part is lifted over it.
+ * while it is cut, and what holds the link, the only part the pointer reaches, a cut text or a `CutHost`, carries the
+ * words under the pointer in its `title`. The row stays one link, to a click, the keyboard and a screen reader alike; no part is lifted over it.
  */
 export function CutRow({ children }: { children: ReactNode }) {
   const [probes] = useState(() => new Set<Probe>());
   return <RowProbes value={probes}>{children}</RowProbes>;
+}
+
+/** The cut words under the pointer, asked of every cut text in the row as the pointer moves, for a `title`. */
+function useWordsUnderPointer(probes: Set<Probe> | null) {
+  const [words, setWords] = useState<string>();
+  const onPointerMove = (event: PointerEvent<HTMLSpanElement>) => {
+    if (probes === null) return;
+    const { clientX, clientY } = event;
+    setWords([...probes].map((probe) => probe(clientX, clientY)).find((found) => found !== undefined));
+  };
+  return [words, setWords, onPointerMove] as const;
+}
+
+/**
+ * What holds a `CutRow`'s stretched link where no cut text does, as a way's own name on Kontakt's rows (`LinkRows`):
+ * the pointer reaches it alone, so it carries the cut words under the pointer in its `title`, as a cut text holding
+ * the link does.
+ */
+export function CutHost({ className, children }: { className: string; children: ReactNode }) {
+  const [title, , onPointerMove] = useWordsUnderPointer(use(RowProbes));
+  return (
+    <span
+      className={className}
+      title={title}
+      onPointerMove={onPointerMove}>
+      {children}
+    </span>
+  );
 }
 
 /**
@@ -34,7 +62,7 @@ export function CutRow({ children }: { children: ReactNode }) {
 export function CutText({ text, className, id, children }: { text: string; className: string; id?: string; children?: ReactNode }) {
   const probes = use(RowProbes);
   const box = useRef<HTMLSpanElement>(null);
-  const [title, setTitle] = useState<string>();
+  const [title, setTitle, underPointer] = useWordsUnderPointer(probes);
   useEffect(() => {
     if (probes === null) return;
     const probe: Probe = (x, y) => {
@@ -48,11 +76,6 @@ export function CutText({ text, className, id, children }: { text: string; class
       probes.delete(probe);
     };
   }, [probes, text]);
-  const underPointer = (event: PointerEvent<HTMLSpanElement>) => {
-    if (probes === null) return;
-    const { clientX, clientY } = event;
-    setTitle([...probes].map((probe) => probe(clientX, clientY)).find((words) => words !== undefined));
-  };
   return (
     <span
       ref={box}
