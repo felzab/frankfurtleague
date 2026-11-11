@@ -2372,16 +2372,11 @@
         "type": "object"
       },
       "FLAufstellungMarks": {
-        "description": "What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.\n\nTwo facts and two instants, never one combined state: a page calls a line-up due where it is `open` with none\nstored, and overdue where the due mark has passed with none stored.",
+        "description": "What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.\n\nTwo facts and the instant it is due, never one combined state: a page calls a line-up due where it is `open` with\nnone stored, and overdue where the due mark has passed with none stored.",
         "properties": {
           "due_at": {
             "format": "date-time",
             "title": "Due At",
-            "type": "string"
-          },
-          "locks_at": {
-            "format": "date-time",
-            "title": "Locks At",
             "type": "string"
           },
           "phase": {
@@ -2395,8 +2390,7 @@
         "required": [
           "stored",
           "phase",
-          "due_at",
-          "locks_at"
+          "due_at"
         ],
         "title": "FLAufstellungMarks",
         "type": "object"
@@ -11424,11 +11418,6 @@
             "title": "Reportable",
             "type": "boolean"
           },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -11524,7 +11513,6 @@
         },
         "required": [
           "spiel_id",
-          "schiedsrichter_id",
           "team1_name",
           "team2_name",
           "date",

@@ -148,7 +148,7 @@ describe("a line-up's row", () => {
       spiel_id: "0000000000000000000000a1",
       ansetzung: { date: "2026-11-14", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Eiche" },
       side: "team1",
-      marks: { due_at: "2026-11-13T15:00:00Z", locks_at: "2026-11-14T14:00:00Z", phase, stored: false },
+      marks: { due_at: "2026-11-13T15:00:00Z", phase, stored: false },
     });
     const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });
     const [overdueDate] = await termine(termin({ state: "expired" }));

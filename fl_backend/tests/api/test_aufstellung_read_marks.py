@@ -33,7 +33,7 @@ def test_each_mark_opens_the_phase_it_names(now: datetime, phase: str):
     marks = aufstellung_marks(date=DATE, time=TIME, stored=False, now=now)
 
     assert marks is not None
-    assert (marks.phase, marks.due_at, marks.locks_at) == (phase, ANPFIFF - timedelta(hours=24), ANPFIFF - timedelta(hours=1))
+    assert (marks.phase, marks.due_at) == (phase, ANPFIFF - timedelta(hours=24))
 
 
 @pytest.mark.parametrize(
@@ -63,9 +63,12 @@ def test_a_day_back_across_a_clock_change_keeps_the_kickoffs_clock_time(
     """A Sunday 16:00 kick-off is due at 16:00 on the Saturday and reminded from 16:00 on the Friday; the lock is one real hour."""
 
     marks = aufstellung_marks(date=date, time=TIME, stored=False, now=reminder_from)
+    # The lock read off the phase it opens, the one place a read serves it.
+    around_the_lock = [aufstellung_marks(date=date, time=TIME, stored=False, now=now) for now in (locks_at - TICK, locks_at)]
 
     assert marks is not None
-    assert (marks.due_at, marks.locks_at) == (due_at, locks_at)
+    assert marks.due_at == due_at
+    assert [each.phase if each is not None else None for each in around_the_lock] == ["overdue", "locked"]
     assert [
         aufstellung_reminder_owed(date=date, time=TIME, now=now) for now in (reminder_from - TICK, reminder_from, due_at - TICK, due_at)
     ] == [

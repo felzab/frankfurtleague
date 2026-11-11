@@ -1073,12 +1073,11 @@ export const FLAufstellungPhase = {
 /**
  * What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.
  *
- * Two facts and two instants, never one combined state: a page calls a line-up due where it is `open` with none
- * stored, and overdue where the due mark has passed with none stored.
+ * Two facts and the instant it is due, never one combined state: a page calls a line-up due where it is `open` with
+ * none stored, and overdue where the due mark has passed with none stored.
  */
 export interface FLAufstellungMarks {
   due_at: string;
-  locks_at: string;
   phase: FLAufstellungPhase;
   stored: boolean;
 }
@@ -4725,8 +4724,6 @@ export interface FLSchiedsrichterSpiel {
   past: boolean;
   reason: string | null;
   reportable: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   spielbestaetigung_id: string | null;

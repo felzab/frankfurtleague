@@ -253,8 +253,6 @@ class FLSchiedsrichterSpiel(BaseModel):
     """One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe."""
 
     spiel_id: CustomObjectId
-    # Which of the address's referee records the fixture books.
-    schiedsrichter_id: CustomObjectId
     team1_name: str | None
     team2_name: str | None
     # Null on a fixture holding no day or no hour yet.

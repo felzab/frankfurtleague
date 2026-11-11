@@ -52,7 +52,7 @@ async function pageAt(marks: FLAufstellungMarks): Promise<ReactElement<{ closed?
   return shell.props.editor;
 }
 
-const MARKS = { stored: false, due_at: "2026-11-13T15:00:00Z", locks_at: "2026-11-14T14:00:00Z" } as const;
+const MARKS = { stored: false, due_at: "2026-11-13T15:00:00Z" } as const;
 
 describe("a match's line-up at the team's address", () => {
   // The harm: an editor still standing from one hour before kick-off, whose every save the backend then refuses while

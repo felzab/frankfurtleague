@@ -21,7 +21,6 @@ vi.mock("@/features/schiedsrichter/queries", () => ({
 /** A booking still to answer, a fixture to come; each case moves what it is about. */
 const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel => ({
   spiel_id: "5f0000000000000000000001",
-  schiedsrichter_id: "5f00000000000000000000aa",
   team1_name: "Ahorn",
   team2_name: "Eiche",
   date: "2026-11-17",
