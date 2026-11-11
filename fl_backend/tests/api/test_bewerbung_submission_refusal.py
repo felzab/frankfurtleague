@@ -190,7 +190,10 @@ class TestTheThreeSeatsAreThreePeople:
         with pytest.raises(ValidationError) as failure:
             FLBewerbungKontaktePayload.model_validate(block)
 
-        assert seat in str(failure.value)
+        # The refusal's own message rather than the error's printed text, which repeats the input and so names the seat whatever was refused.
+        (error,) = failure.value.errors()
+        assert error["type"] == "value_error"
+        assert f"'{seat}'" in error["msg"]
 
     @pytest.mark.parametrize(("seat", "field", "value"), SHARED_CONTACT_DETAILS)
     def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
