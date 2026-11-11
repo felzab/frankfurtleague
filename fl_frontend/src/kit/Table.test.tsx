@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { wholeText } from "@/test-support/wholeText";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -132,10 +133,7 @@ describe("a row's name cell", () => {
   it("wraps an address rather than cutting it, after its „@“ first, its chip beside its first line", () => {
     const address = "gesperrte.person@example.com";
     render(actRow(address, false, true));
-    // The address stands in parts, each a block of its own: the element holding it whole.
-    const words = screen.getByText(
-      (_, node) => node?.textContent === address && ![...node.children].some((part) => part.textContent === address),
-    );
+    const words = screen.getByText(wholeText(address));
     const nameLine = words.parentElement;
     expect(words.className.split(" ")).not.toContain("truncate");
     // Each part a block a line takes whole while it fits, so „.com“ never stands alone under „example“.

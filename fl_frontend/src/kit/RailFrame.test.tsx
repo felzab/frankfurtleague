@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { wholeText } from "@/test-support/wholeText";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -130,11 +131,6 @@ describe("the rail's account row", () => {
 
     await renderFrame(Promise.resolve({ ...ACCOUNT, roles }));
 
-    // The address stands in parts, each a block of its own (`AddressWords`): the element holding it whole.
-    const named = screen.getByText(
-      (_, node) =>
-        node?.textContent === ACCOUNT.address.record && ![...node.children].some((part) => part.textContent === ACCOUNT.address.record),
-    );
-    expect(named.nextElementSibling?.textContent).toBe(line);
+    expect(screen.getByText(wholeText(ACCOUNT.address.record)).nextElementSibling?.textContent).toBe(line);
   });
 });
