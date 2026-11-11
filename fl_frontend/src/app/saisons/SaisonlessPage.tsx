@@ -9,7 +9,7 @@ import { getSaisonFrame } from "@/features/saisons/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { SAISONLESS_PAGES } from "@/core/routes";
-import type { StatusCardProps } from "@/kit/StatusPage";
+import type { StatusCardProps } from "@/kit/StatusCard";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Saisonless = (typeof SAISONLESS_PAGES)[number];

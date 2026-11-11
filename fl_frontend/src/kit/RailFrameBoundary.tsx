@@ -12,7 +12,7 @@ import type { Route } from "next";
 import type { ErrorInfo } from "next/error";
 import type { RailGroup } from "./FrameNav";
 import type { RailPageHead } from "./RailFrame";
-import type { StatusCardProps } from "./StatusPage";
+import type { StatusCardProps } from "./StatusCard";
 
 /** One read for every render, which `use` would otherwise meet as a new promise each time and wait on afresh. */
 const NOBODY = Promise.resolve(null);
