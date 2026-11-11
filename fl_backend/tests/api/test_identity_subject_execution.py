@@ -20,11 +20,13 @@ from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    EINWILLIGUNG,
+    SCHIEDSRICHTER_TEXT_VERSIONS,
     kontaktperson_document,
+    own_einwilligung_document,
     rules_document,
     saison_document,
     saison_team_document,
+    schiedsrichter_document,
     spieler_document,
     team_document,
 )
@@ -159,16 +161,8 @@ def _pupil(pupil_id: ObjectId, email: str) -> dict[str, Any]:
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee for `_club`'s reason: `app/core/constraints.py :: uniq_schiedsrichter_name`
     # indexes it. Confirmed unless the caller says otherwise, as `_person` is.
-    return {
-        "_id": referee_id,
-        "name": name,
-        "schule": None,
-        "default_payment": 20,
-        "kontakt": {"phone": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP},
-        **fields,
-    }
+    einwilligung = fields.pop("einwilligung", own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP))
+    return schiedsrichter_document(referee_id, email=email, name=name, default_payment=20, einwilligung=einwilligung, **fields)
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]

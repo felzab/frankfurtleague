@@ -267,7 +267,15 @@ async def _seed_the_season(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(YOUNG_OID, FUTURE_SAISON, TEAM_B_OID))
     await database[Collection.SPIELTAGE].insert_many(
         [
-            {"_id": oid, "start": None, "end": None, "position": position, "saison_phase": "gruppenphase", "saison_id": ACTIVE_SAISON}
+            {
+                "_id": oid,
+                "start": None,
+                "end": None,
+                "position": position,
+                "saison_phase": "gruppenphase",
+                "saison_id": ACTIVE_SAISON,
+                "version": 0,
+            }
             for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))
         ]
     )

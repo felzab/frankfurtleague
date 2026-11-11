@@ -281,6 +281,7 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "token_hashes": [hash_token(f"seeded-{team_id}")],
         "created_at": "2026-03-15",
         "revoked_at": None,
+        "sent_at": None,
     }
 
 

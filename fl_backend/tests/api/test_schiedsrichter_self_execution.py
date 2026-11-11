@@ -52,6 +52,16 @@ UTES = ObjectId("6890a1b2c3d4e5f607e50017")
 LAST_SEASONS = ObjectId("6890a1b2c3d4e5f607e50018")
 
 AGREED = {"kind": "agreed", "at": "2027-04-20", "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": None}
+OWN_DECLINE = {"kind": "declined", "at": "2027-05-05", "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": "Verhindert"}
+
+# The entries case's own: two clubs of this season that left it, and the fixtures it adds to Otto's.
+TEAM3 = ObjectId("6890a1b2c3d4e5f607e50003")
+TEAM4 = ObjectId("6890a1b2c3d4e5f607e50004")
+LEFT_AWAY = ObjectId("6890a1b2c3d4e5f607e50071")
+LEFT_HOME = ObjectId("6890a1b2c3d4e5f607e50072")
+DECLINED_HERE = ObjectId("6890a1b2c3d4e5f607e50073")
+TODAYS = ObjectId("6890a1b2c3d4e5f607e50074")
+OPEN_SLOT = ObjectId("6890a1b2c3d4e5f607e50075")
 
 
 def spiel(spiel_id: ObjectId, spiel_nr: int, date: str, *, schiedsrichter_id: ObjectId = OTTO_ID, **fields: Any) -> dict[str, Any]:
@@ -102,9 +112,7 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
             for team_id, name, shorthand in ((TEAM1, "Adler", "ADX"), (TEAM2, "Biber", "BIX"))
         ]
     )
-    await database[Collection.SPIELORTE].insert_one(
-        {"_id": SPIELORT, "name": "Halle Ost", "address": dict(documents.ADDRESS), "maps_link": "Halle Ost, Frankfurt", "inactive_since": None}
-    )
+    await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost"))
     consent = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2027-04-01")
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
@@ -217,6 +225,57 @@ class TestTheSeasonsFixtures:
 
     def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
         assert refused(mongo_replica_set_url, own_spiele("niemand@example.com")) == Code.ROLE_NOT_HELD
+
+    def test_each_entry_reads_its_clubs_rows_of_its_season_its_own_decline_its_day_and_an_open_slot(self, mongo_replica_set_url: str):
+        """A request whose away or home club has left the season has ended; Adler's exit from the season before ends none.
+
+        His own decline shows its reason, a fixture today is not past, an open away slot is named by nobody, and every entry
+        carries its time.
+        """
+
+        left = {"type": "rueckzug", "reason": "Kein Team mehr", "date": "2027-05-01"}
+        open_rows = {LEFT_AWAY: ObjectId("6890a1b2c3d4e5f607e50061"), LEFT_HOME: ObjectId("6890a1b2c3d4e5f607e50062")}
+        added = [
+            spiel(LEFT_AWAY, 8, "2027-05-25", team2={"team_id": TEAM3, "tore": None}),
+            spiel(LEFT_HOME, 9, "2027-05-26", team1={"team_id": TEAM4, "tore": None}),
+            spiel(DECLINED_HERE, 10, "2027-05-27"),
+            spiel(TODAYS, 11, TODAY),
+            spiel(OPEN_SLOT, 12, "2027-05-28", team2=None),
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    documents.saison_team_document(SAISON_ID, TEAM3, "Corax", "COX", austritt=left),
+                    documents.saison_team_document(SAISON_ID, TEAM4, "Dachs", "DAX", austritt=left),
+                ]
+            )
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"saison_id": EARLIER_SAISON, "team_id": TEAM1}, {"$set": {"austritt": {**left, "date": "2026-06-01"}}}
+            )
+            await database[Collection.SPIELE].insert_many(added)
+            party = {"kind": "schiedsrichter", "schiedsrichter_id": OTTO_ID}
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [
+                    *(documents.spielbestaetigung_document(stored, party=party, _id=open_rows[stored["_id"]]) for stored in added[:2]),
+                    documents.spielbestaetigung_document(
+                        added[2], party=party, answer=OWN_DECLINE, closed={"at": "2027-05-05", "reason": "schiedsrichter_declined"}
+                    ),
+                ]
+            )
+            return await own_spiele()(database, client)
+
+        by_id = {entry.spiel_id: entry for entry in answered(mongo_replica_set_url, body).spiele}
+
+        assert {spiel_id: by_id[spiel_id].state for spiel_id in (LEFT_AWAY, LEFT_HOME, TO_ANSWER)} == {
+            LEFT_AWAY: "expired",
+            LEFT_HOME: "expired",
+            TO_ANSWER: "valid",
+        }
+        assert (by_id[DECLINED_HERE].state, by_id[DECLINED_HERE].reason) == ("declined", OWN_DECLINE["reason"])
+        assert (by_id[TODAYS].past, by_id[REPORTED].past) == (False, True)
+        assert (by_id[OPEN_SLOT].team1_name, by_id[OPEN_SLOT].team2_name) == ("Adler", None)
+        assert {entry.time for entry in by_id.values()} == {"18:30:00"}
 
 
 class TestTheSeasonsOffered:

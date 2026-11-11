@@ -50,6 +50,12 @@ TEAM1 = ObjectId("6890a1b2c3d4e5f607e50001")
 TEAM2 = ObjectId("6890a1b2c3d4e5f607e50002")
 SPIEL = ObjectId("6890a1b2c3d4e5f607e50011")
 VIERTELFINALE = ObjectId("6890a1b2c3d4e5f607e50012")
+# The season read's own: a fixture called off, one a side did not turn up to, one settled on penalties.
+CALLED_OFF = ObjectId("6890a1b2c3d4e5f607e50014")
+NO_SHOW = ObjectId("6890a1b2c3d4e5f607e50015")
+SHOOT_OUT = ObjectId("6890a1b2c3d4e5f607e50016")
+# A club a correction fields in the away slot after the report.
+REFIELDED = ObjectId("6890a1b2c3d4e5f607e50003")
 SPIELTAG = ObjectId("6890a1b2c3d4e5f607e50021")
 SPIELORT = ObjectId("6890a1b2c3d4e5f607e50031")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f607e50041")
@@ -131,16 +137,7 @@ async def seed(database: AsyncDatabase) -> None:
             documents.saison_spieler_document(MIA, SAISON_ID, TEAM2, nummer="9"),
         ]
     )
-    await database[Collection.SPIELORTE].insert_one(
-        {
-            "_id": SPIELORT,
-            "name": "Halle Ost",
-            "address": dict(documents.ADDRESS),
-            "maps_link": "Halle Ost, Frankfurt",
-            "default_mietpreis": 40,
-            "inactive_since": None,
-        }
-    )
+    await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [referee(SCHIEDSRICHTER, "Otto Gruber", REFEREE_EMAIL), referee(ANDERER, "Ella Engel", OTHER_REFEREE_EMAIL)]
     )
@@ -547,6 +544,26 @@ class TestTheReads:
         assert [(spieler.spieler_id, spieler.nummer) for spieler in form.kader.team1] == [(LINA, "7")]
         assert [spieler.spieler_id for spieler in form.kader.team2] == [MIA]
 
+    def test_the_form_reads_the_spiel_as_it_stands_and_marks_the_side_whose_club_moved(self, mongo_replica_set_url: str):
+        """Abandoned since the report, its away side re-fielded: the form's lead and its marks read the fixture as stored now.
+
+        Corrected once, so the version the next save is judged on is the stored one and no create's 0.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            await put(database, client, bericht([tor("team1", None)], version=0))
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, REFIELDED, "Dachs", "DAX"))
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"team2": side(REFIELDED), "sonderereignis": "abgebrochen"}})
+            return await form_read(database, client)
+
+        form = on_the_league(mongo_replica_set_url, body)
+
+        assert (form.spiel.date, form.spiel.time, form.spiel.sonderereignis) == (DATE, "18:00:00", "abgebrochen")
+        assert form.spiel.team2 is not None and (form.spiel.team2.team_id, form.spiel.team2.name) == (REFIELDED, "Dachs")
+        assert form.sides_changed == ["team2"]
+        assert form.version == 1
+
     def test_a_spiel_taking_no_report_serves_no_squad(self, mongo_replica_set_url: str):
         """Only the pupils the stored report names, by name: the squads are served for picking, and nothing is picked here.
 
@@ -576,7 +593,10 @@ class TestTheReads:
 
         answer = on_the_league(mongo_replica_set_url, body)
 
-        assert sorted((spieler.spieler_id, spieler.last_name) for spieler in answer.named) == [(LINA, "Krause"), (MIA, None)]
+        assert sorted((spieler.spieler_id, spieler.first_name, spieler.last_name) for spieler in answer.named) == [
+            (LINA, "Lina", "Krause"),
+            (MIA, None, None),
+        ]
 
     def test_after_the_season_the_referee_reads_the_report_alone(self, mongo_replica_set_url: str):
         """Played and standing, so only the season's end decides: the persons the report names, no squad to pick from."""
@@ -622,6 +642,75 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
         assert [(entry.spiel_id, entry.state) for entry in proposed.spielberichte] == [(SPIEL, "proposed")]
         # The sides swapped: 1:0 proposed, 0:1 saved.
         assert [(entry.spiel_id, entry.state) for entry in differing.spielberichte] == [(SPIEL, "differing")]
+
+    def test_the_season_read_judges_a_call_off_a_no_show_and_a_shoot_out_by_the_fixtures_own_fields(self, mongo_replica_set_url: str):
+        """Each a report on a fixture holding an event or a shoot-out, which the state is judged against.
+
+        Read without it, the call-off reads as proposed and the adopted no-show and shoot-out as differing: wrong on the
+        administrator's overview with nothing failing.
+        """
+
+        def held(spiel_id: ObjectId, spiel_nr: int, vorschlag: dict[str, Any], scorers: list[dict[str, Any]], **fields: Any) -> Any:
+            fixture = documents.spiel_document(
+                spiel_id=spiel_id,
+                saison_id=SAISON_ID,
+                spiel_nr=spiel_nr,
+                spieltag_id=SPIELTAG,
+                **{"team1": side(TEAM1), "team2": side(TEAM2), "date": DATE, "time": "18:00:00", **fields},
+            )
+            report = documents.bericht_document(
+                ergebnis_vorschlag=vorschlag, scorers=scorers, cards=[], sides=documents.spielbericht_sides(fixture), adopted=True
+            )
+            return fixture, documents.spielbericht_document(fixture, bericht=report)
+
+        no_goals = {"team1_tore": None, "team2_tore": None, "elfmeterschiessen": None}
+        shoot_out = {"team1": 4, "team2": 3}
+        held_rows = [
+            held(
+                CALLED_OFF,
+                3,
+                {**no_goals, "team1_tore": 1, "team2_tore": 0, "sonderereignis": None},
+                [tor("team1", LINA)],
+                sonderereignis="annulliert",
+            ),
+            held(
+                NO_SHOW,
+                4,
+                {**no_goals, "sonderereignis": "nichtantreten_team2"},
+                [],
+                sonderereignis="nichtantreten_team2",
+                team1={"team_id": TEAM1, "tore": 3},
+                team2={"team_id": TEAM2, "tore": 0},
+                ergebnis="3:0",
+            ),
+            held(
+                SHOOT_OUT,
+                5,
+                {"team1_tore": 1, "team2_tore": 1, "elfmeterschiessen": shoot_out, "sonderereignis": None},
+                [tor("team1", LINA), tor("team2", MIA, minute="70")],
+                team1={"team_id": TEAM1, "tore": 1},
+                team2={"team_id": TEAM2, "tore": 1},
+                ergebnis="1:1",
+                elfmeterschiessen=shoot_out,
+            ),
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELE].insert_many([fixture for fixture, _ in held_rows])
+            await database[Collection.SPIELBERICHTE].insert_many([report for _, report in held_rows])
+            return await get_spielberichte(
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
+                saisons_collection=database[Collection.SAISONS],
+                saison_id=SAISON_ID,
+            )
+
+        states = on_the_league(mongo_replica_set_url, body)
+
+        assert {entry.spiel_id: entry.state for entry in states.spielberichte} == {
+            CALLED_OFF: "cancelled",
+            NO_SHOW: "adopted",
+            SHOOT_OUT: "adopted",
+        }
 
 
 VORJAHRESSPIEL = ObjectId("6890a1b2c3d4e5f607e50013")

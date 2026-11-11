@@ -27,6 +27,9 @@ OFFEN_OID = ObjectId("6890a1b2c3d4e5f607950011")
 BESTAETIGT_OID = ObjectId("6890a1b2c3d4e5f607950012")
 FREMDE_SAISON_OID = ObjectId("6890a1b2c3d4e5f607950013")
 ABGELEHNT_OID = ObjectId("6890a1b2c3d4e5f607950014")
+# Ids newer than every seeded row's, for the order case: one on an earlier day, one on the newest.
+EARLIER_DAY_OID = ObjectId("6890a1b2c3d4e5f607950015")
+SAME_DAY_OID = ObjectId("6890a1b2c3d4e5f607950016")
 
 # The hash of a link nobody minted here: what matters is that no read answers it, whatever it is.
 TOKEN_HASH = "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819201"
@@ -153,11 +156,21 @@ class TestWhatTheReadServes:
         assert "@beispielschule.de" not in answer
 
     def test_the_season_s_pending_rows_alone_lead_with_the_newest(self, mongo_replica_set_url: str):
-        """A declined row and another season's stay out, each of which a read narrowing nothing would serve."""
+        """A declined row and another season's stay out, each of which a read narrowing nothing would serve.
+
+        The day leads and the id breaks a tie: a row of an earlier day holding the newest id stands last, and the second row
+        of the newest day, its id the newer, first.
+        """
 
         async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.REGISTRIERUNGEN].insert_many(
+                [
+                    registrierung_document(EARLIER_DAY_OID, first_name="Bartholomew", submitted_at="2026-03-30"),
+                    registrierung_document(SAME_DAY_OID, first_name="Philippa", submitted_at="2026-04-02"),
+                ]
+            )
             return await read(database)
 
         answer = on_a_league(mongo_replica_set_url, body)
 
-        assert [row.id for row in answer.registrierungen] == [BESTAETIGT_OID, OFFEN_OID]
+        assert [row.id for row in answer.registrierungen] == [SAME_DAY_OID, BESTAETIGT_OID, OFFEN_OID, EARLIER_DAY_OID]

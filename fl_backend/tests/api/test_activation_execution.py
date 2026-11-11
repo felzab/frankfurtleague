@@ -57,6 +57,7 @@ def spieltag_document(saison_id: str, position: int, *, start: str | None) -> di
         "position": position,
         "start": start,
         "end": None if start is None else f"{saison_id}-03-02",
+        "version": 0,
     }
 
 

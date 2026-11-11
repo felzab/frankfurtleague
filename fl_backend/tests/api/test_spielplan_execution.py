@@ -130,14 +130,7 @@ def entry_rows(
 def a_stored_matchday() -> dict[str, Any]:
     """Undated, which is the shape the draw itself leaves: `spielplan_spieltage_held` counts rows and reads no field of one."""
 
-    return {
-        "_id": STORED_SPIELTAG_OID,
-        "start": None,
-        "end": None,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        "position": 1,
-    }
+    return documents.spieltag_document(STORED_SPIELTAG_OID, SAISON_ID, 1)
 
 
 def a_stored_spiel() -> dict[str, Any]:
@@ -163,7 +156,9 @@ class Seed:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
+def on_a_seeded_saison(
+    url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False, stores_a_refused_shape: str | None = None
+) -> Any:
     """The shipped unique indexes, so a document MongoDB would refuse in production fails here.
 
     `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
@@ -172,7 +167,9 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
     seeded = seed or Seed()
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(
+            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+        ) as (client, database):
             # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
             trace_id_var.set(TRACE_ID)
 
@@ -1352,7 +1349,9 @@ class ReshapedSeason:
     watermark: Any
 
 
-def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False) -> ReshapedSeason:
+def a_season_drawn_from(
+    url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False, stores_a_refused_shape: str | None = None
+) -> ReshapedSeason:
     """Draw `seed` from `shape`, twice where `replace` is set -- the first time off the seed's own rules."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReshapedSeason:
@@ -1369,7 +1368,7 @@ def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None,
             watermark=await watermark_now(database),
         )
 
-    return on_a_seeded_saison(url, body, seed=seed)
+    return on_a_seeded_saison(url, body, seed=seed, stores_a_refused_shape=stores_a_refused_shape)
 
 
 # A `rules` sub-key no model declares, which `FLSaisonRules` ignores on a read -- so only a write
@@ -1423,7 +1422,12 @@ class TestADrawStoresTheShapeItRanFrom:
     def test_a_rules_sub_key_no_model_declares_survives_the_draw(self, mongo_replica_set_url: str):
         """`$set` the MERGED `rules` object and this fails: it holds what `FLSaisonRules` declares, so a hand-added key is silently dropped."""
 
-        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(extra_rules=UNDECLARED_RULE), shape=the_short_shape())
+        drawn = a_season_drawn_from(
+            mongo_replica_set_url,
+            seed=a_short_seed(extra_rules=UNDECLARED_RULE),
+            shape=the_short_shape(),
+            stores_a_refused_shape="a season holding a rule no model declares, which the draw must leave standing",
+        )
 
         assert {rule: drawn.rules.get(rule) for rule in UNDECLARED_RULE} == UNDECLARED_RULE
         # Beside the shape it moved, so this cannot pass on a draw that wrote nothing at all.

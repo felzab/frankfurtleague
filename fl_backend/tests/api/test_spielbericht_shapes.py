@@ -114,9 +114,10 @@ def test_an_entry_carrying_a_key_it_does_not_declare_is_refused(body: dict[str, 
 
 class TestTheProposalsCountsAreItsEntries:
     def test_each_side_is_credited_its_entries_and_an_own_goal_counts_for_the_other_side(self):
-        """`side: team2, eigentor` credits team 1: the case a count by `side` alone gets wrong both ways."""
+        """`side: team2, eigentor` credits team 1 and `side: team1, eigentor` team 2: the cases a count by `side` alone gets wrong."""
 
         assert proposed(payload([tor("team1"), tor("team2", LIVE2, eigentor=True), tor("team2")])) == (2, 1)
+        assert proposed(payload([tor("team1", LIVE1, eigentor=True)])) == (0, 1)
 
     def test_a_no_show_proposes_the_event_alone(self):
         assert proposed(payload([], sonderereignis="nichtantreten_team2")) == (None, None)

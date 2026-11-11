@@ -1,7 +1,8 @@
 import asyncio
 import atexit
-from collections.abc import AsyncIterator, Coroutine, Iterable, Mapping, Sequence
-from contextlib import asynccontextmanager
+import io
+from collections.abc import AsyncIterator, Coroutine, Iterable, Iterator, Mapping, Sequence
+from contextlib import asynccontextmanager, contextmanager, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -13,6 +14,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.uri_parser import parse_uri
 
 from app.core.constraints import TTL_INDEXES, apply_constraints
+from app.readback import read_back
 
 # MongoDB's code for a document a `$jsonSchema` refused, which the driver names nowhere: a case forcing a
 # failure mid-transaction installs one. Asserted on rather than caught broadly, so an unrelated failure
@@ -101,21 +103,17 @@ _DRIFT = (
     " an index, must say so where it seeds -- pass `mutates_schema=True` -- or what it changed poisons every test after it."
 )
 
-_DRIFT_SYNC = (
-    "'{database}' carries enforcement this session did not build ({moved}). This fixture reads the schema where it seeds, so what"
-    " left it ran EARLIER in this database and the test named here only inherited it. A body that installs a validator, or adds or"
-    " drops an index, takes a database no other test shares -- this one is `build_test_config`'s, which every app under test reads."
-)
-
-
 _EXPIRED = (
     "'{database}.{collection}' holds {count} row(s) whose `{key}`, the earliest {earliest}, lies past its retention on the real"
     " clock: MongoDB's TTL monitor deletes such a row on its next pass, once a minute, under a case still reading it, which fails"
     " one run in many. Write the case on a clock a century ahead, as `tests/outbox.py :: MAIL_NOW` does."
 )
 
-
-_EXPIRED_SYNC = " This fixture reads the database where it seeds, so the rows were left by the test that used it last, which ran EARLIER."
+_REFUSED = (
+    "'{database}' holds documents their collection's record model refuses, as `python -m app.readback` would after a"
+    " deploy:\n{lines}\nA seed holds the shape a write stores, so a case never passes on a document no write leaves; a"
+    " write leaving one is a defect. A body storing one on purpose names why in `stores_a_refused_shape`."
+)
 
 
 def _expired_pipeline(key: str, seconds: int) -> list[Mapping[str, Any]]:
@@ -151,7 +149,17 @@ def _expired_rows_sync(database: Database) -> list[str]:
         )
         for ttl in TTL_INDEXES
     )
-    return [message + _EXPIRED_SYNC for message in found if message]
+    return [message for message in found if message]
+
+
+async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:
+    """Every document the read-back refuses, as it names them, through its own judgement rather than a copy of it."""
+
+    printed = io.StringIO()
+    with redirect_stdout(printed):
+        refused = await read_back(client, name)
+
+    return printed.getvalue() if refused else None
 
 
 def _data(infos: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -282,12 +290,14 @@ async def a_clean_database(
     *,
     constraints: bool = True,
     mutates_schema: bool = False,
+    stores_a_refused_shape: str | None = None,
 ) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
     """The tier's client for this url, and a database emptied for this test on a schema built once.
 
     `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
-    it leaves is recorded nowhere, so the next caller rebuilds. On the shipped schema, a body leaving a row its TTL index has
-    already expired is refused (`_expired_rows`).
+    it leaves is recorded nowhere, so the next caller rebuilds. Every document the body leaves is read back through its
+    record model (`_refused_records`), unless `stores_a_refused_shape` names why it stores one on purpose. On the shipped
+    schema, a body leaving a row its TTL index has already expired is refused (`_expired_rows`).
     """
 
     # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
@@ -315,17 +325,22 @@ async def a_clean_database(
         _guard(_DRIFT, name, baseline, present, foreign)
         _BUILT[key] = (constraints, present)
 
+    if stores_a_refused_shape is None and (refused := await _refused_records(client, name)):
+        raise AssertionError(_REFUSED.format(database=name, lines=refused))
+
     # Every run rather than the one a monitor's pass happens to land in: a row the shipped retention has already expired
     # stands here only until that pass, which is all that made a case written on a past clock flake.
     if constraints and (expired := await _expired_rows(database)):
         raise AssertionError("\n".join(expired))
 
 
-def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constraints: bool = True) -> Database:
-    """`a_clean_database` for a fixture holding a pymongo client, which returns before its test body runs.
+@contextmanager
+def a_clean_database_sync(
+    client: MongoClient, url: str, name: str, *, constraints: bool = True, stores_a_refused_shape: str | None = None
+) -> Iterator[Database]:
+    """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
 
-    Its checks therefore run at the next seed and refuse with `_DRIFT_SYNC` rather than `_DRIFT`, and with `_EXPIRED_SYNC`'s
-    note beside `_EXPIRED`.
+    A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.
     """
 
     key = _key(url, name)
@@ -340,17 +355,18 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constrain
             # the same work: `apply_constraints` is the one declaration of what a constrained
             # database carries, and a second copy of it here could disagree with production.
             on_the_seed_loop(apply_constraints(shared_client(url)[name]))
-        rebuilt, _ = _schema_sync(database)
-        _BUILT[key] = (constraints, rebuilt)
+        baseline, _ = _schema_sync(database)
+    else:
+        baseline = built[1]
+        for collection in baseline:
+            database[collection].delete_many({})
 
-        return database
+    yield database
 
     present, foreign = _schema_sync(database)
-    _guard(_DRIFT_SYNC, name, built[1], present, foreign)
+    _guard(_DRIFT, name, baseline, present, foreign)
+    _BUILT[key] = (constraints, present)
+    if stores_a_refused_shape is None and (refused := on_the_seed_loop(_refused_records(shared_client(url), name))):
+        raise AssertionError(_REFUSED.format(database=name, lines=refused))
     if constraints and (expired := _expired_rows_sync(database)):
         raise AssertionError("\n".join(expired))
-    for collection in present:
-        database[collection].delete_many({})
-    _BUILT[key] = (constraints, present)
-
-    return database

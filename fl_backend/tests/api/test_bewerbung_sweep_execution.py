@@ -161,15 +161,33 @@ def junction_row() -> dict[str, Any]:
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
+# Why a case stores a row the read-back refuses: each the row a write of the pass is to fail on.
+NO_SHORTHAND = "a season row without its shorthand, so the installed validator refuses the pass's write"
+NO_TRIKOT = "an application without its trikot, so the installed validator refuses the pass's stamp"
+UNREADABLE_DATES = "an application whose links hold a date no judge reads, so the pass passes the row over"
+NO_SIDES = "a report without its sides, so the installed validator refuses the strip"
+NO_DEADLINE = "a confirmation row without its deadline, so the installed validator refuses the strip"
 
-def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active", mutates_schema: bool = False) -> Any:
+
+def on_a_league(
+    url: str,
+    body: Body,
+    *,
+    next_status: str | None = "future",
+    status: str = "active",
+    mutates_schema: bool = False,
+    stores_a_refused_shape: str | None = None,
+) -> Any:
     """The SHIPPED indexes.
 
-    `mutates_schema` for a body that installs a validator through `refuse_writes_breaking`.
+    `mutates_schema` for a body that installs a validator through `refuse_writes_breaking`, and `stores_a_refused_shape`
+    for one storing the row it refuses.
     """
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(
+            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+        ) as (client, database):
             seasons = [season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")]
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
@@ -1233,7 +1251,9 @@ class TestOneRowHoldsBackNoOther:
             return answer, [(block["_id"], block["kontakte"] is not None) for block in blocks], await reminded(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, blocks, chased = on_a_league(mongo_replica_set_url, body, status="future", next_status="past", mutates_schema=True)
+            answer, blocks, chased = on_a_league(
+                mongo_replica_set_url, body, status="future", next_status="past", mutates_schema=True, stores_a_refused_shape=NO_SHORTHAND
+            )
 
         assert (answer.kontakt_blocks_emptied, answer.failed, chased) == (1, 1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
@@ -1257,7 +1277,7 @@ class TestOneRowHoldsBackNoOther:
             return await reminded(database), answer.failed, [seat["reminded_at"] for seat in seats], [seat["chase_closed_at"] for seat in seats]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answered, count, stamps, closed = on_a_league(mongo_replica_set_url, body)
+            answered, count, stamps, closed = on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNREADABLE_DATES)
 
         assert (answered, count, stamps, closed) == ({REMIND_OID}, 1, [None, None, None], [None, None, None])
         assert passed_over(caplog) == [("ERROR", Code.STORED_DATA_INVALID, "Application", str(SECOND_OID), "reminder", f"{REFUSED_DEADLINE}")]
@@ -1277,7 +1297,7 @@ class TestOneRowHoldsBackNoOther:
 
             return await reminded(database), answer.failed, [seat["reminded_at"] for seat in refused["confirmations"].values()]
 
-        answered, count, stamps = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+        answered, count, stamps = on_a_league(mongo_replica_set_url, body, mutates_schema=True, stores_a_refused_shape=NO_TRIKOT)
 
         # The refused row's mails went with its stamp: nobody is chased whose seat says they were not.
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
@@ -1295,7 +1315,7 @@ class TestOneRowHoldsBackNoOther:
 
             return answer.reminded, answer.failed, await reminded(database)
 
-        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == (0, 1, set())
+        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True, stores_a_refused_shape=NO_TRIKOT) == (0, 1, set())
 
     def test_a_refused_retention_row_leaves_its_rows_owes_no_notice_and_stops_no_later_clock(self, mongo_replica_set_url: str):
         """No deletion stands without its row, and nobody is told of an erasure that did not happen."""
@@ -1335,18 +1355,18 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
-        database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-        database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, confirmation_deadline=YESTERDAY))
+        with a_clean_database_sync(client, url, database_name) as database:
+            database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
+            database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, confirmation_deadline=YESTERDAY))
 
-        async def _called() -> int:
-            async with app_client(url, app=_served(), now=NOW) as http:
-                response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
-                return response.status_code
+            async def _called() -> int:
+                async with app_client(url, app=_served(), now=NOW) as http:
+                    response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
+                    return response.status_code
 
-        status = asyncio.run(_called())
+            status = asyncio.run(_called())
 
-        return status, list(database[Collection.ACTION_LOG].find({"action": "retention.bewerbungen"}))
+            return status, list(database[Collection.ACTION_LOG].find({"action": "retention.bewerbungen"}))
     finally:
         client.close()
 
@@ -1531,7 +1551,7 @@ def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
 def lapsed_row(position: int, seats: tuple[str, ...]) -> dict[str, Any]:
     """A season row of three people, these seats past their day and the others still running."""
 
-    links = documents.minted_confirmations(hashes=first_hashes(f"row-{position}"), today=MAILED_ON_THE_MARK)
+    links = documents.row_confirmations(hashes=first_hashes(f"row-{position}"), today=MAILED_ON_THE_MARK)
 
     return {
         **junction_row(),
@@ -1554,7 +1574,7 @@ class TestTheSeasonRowSeatClock:
     async def two_lapsed_seats(database: AsyncDatabase) -> None:
         """One person confirmed as the Trainer and lapsed in the seat beside it, a second lapsed with a reason typed from their seat."""
 
-        links = documents.minted_confirmations(hashes=first_hashes("row"), today=MAILED_ON_THE_MARK)
+        links = documents.row_confirmations(hashes=first_hashes("row"), today=MAILED_ON_THE_MARK)
         await database[Collection.SAISON_TEAMS].update_one(
             {"_id": JUNCTION_OID},
             {
@@ -1667,7 +1687,7 @@ class TestARefusedReminderCostsThePassNothing:
             rows = [application(numbered(position)) for position in range(FEW)]
             return await counted(rows), await counted([*rows[:-1], refused(rows[-1])])
 
-        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
+        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNREADABLE_DATES)
 
         assert carryable - with_one_refused == ROUND_TRIPS_A_ROW
 
@@ -1850,7 +1870,7 @@ class TestTheReportStripStandsApart:
             )
 
         response, junction, confirmation, report = on_a_league(
-            mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True
+            mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True, stores_a_refused_shape=NO_SIDES
         )
 
         assert (response.kontakt_blocks_emptied, response.failed, junction["kontakte"]) == (1, 1, None)
@@ -1924,7 +1944,9 @@ class TestTheSeasonsEndStripsItsConfirmations:
                 await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
             )
 
-        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
+        response, junction = on_a_league(
+            mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True, stores_a_refused_shape=NO_DEADLINE
+        )
 
         assert (response.kontakt_blocks_emptied, response.failed, junction["kontakte"]) == (1, 1, None)
         assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [

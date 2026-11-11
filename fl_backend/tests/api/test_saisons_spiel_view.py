@@ -9,7 +9,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.aufstellungen.schemas import FLAufstellungPublic
 from app.api.saisons.public_router import get_spiel
 from app.api.spielberichte.services import compose_public_bericht
-from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SPIELER_ID
 from tests import documents
@@ -85,7 +84,15 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
             await database[Collection.SPIELTAGE].insert_one(
-                {"_id": spiel["spieltag_id"], "start": None, "end": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON}
+                {
+                    "_id": spiel["spieltag_id"],
+                    "start": None,
+                    "end": None,
+                    "position": 1,
+                    "saison_phase": "gruppenphase",
+                    "saison_id": SAISON,
+                    "version": 0,
+                }
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
@@ -96,7 +103,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                 [
                     documents.spieler_document(NAMED, "Maxim", "Müller"),
                     documents.spieler_document(INTERNAL, "Nadja", "Gerber", einwilligung=internal),
-                    build_ghost_spieler(),
+                    documents.ghost_spieler_document(),
                 ]
             )
             await database[Collection.AUFSTELLUNGEN].insert_many(

@@ -519,7 +519,7 @@ class TestTheSystemsReadOfTheNewAddress:
             await database[Collection.ADDRESS_CHANGES].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
             return (await the_new_address(database, client, address_change_id=minted.id)).email
 
-        assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
+        assert on_a_person(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_BY_HAND) == NEW_EMAIL
 
     def test_a_key_naming_no_live_change_answers_null(self, mongo_replica_set_url: str):
         """Never a 404: a lapsed or answered link costs the page no error, and the stop link never names the new mailbox."""
@@ -710,7 +710,8 @@ class TestTheConfirmation:
             await answer(database, client, minted.token)
             return (await row(database, Collection.SPIELER, SPIELER_OID))["email"]
 
-        assert on_a_person(mongo_replica_set_url, body) == NEW_EMAIL
+        # The move carries the hand-written spelling onto every other record it names, which the read-back refuses too.
+        assert on_a_person(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_BY_HAND) == NEW_EMAIL
 
     def test_the_decline_ends_it_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -730,6 +731,10 @@ class TestTheConfirmation:
 
 
 VERA_ROW_OID = ObjectId("6890a1b2c3d4e5f607850032")
+
+# Why a case stores a shape the read-back refuses: each a state no write leaves, which a read or a move is held against.
+UNFOLDED_BY_HAND = "a change row holding its new address unfolded, which no start stores"
+UNCONSENTED_PUPIL = "a pupil's record holding no consent, which no admission stores"
 
 
 async def held_by_another(database: AsyncDatabase, what: str) -> None:
@@ -1177,7 +1182,10 @@ class TestAHoldersOwnChange:
             passed = await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
             return passed.effective, passed.discarded, (await row(database, Collection.GRANTS, grant))["address"]
 
-        assert on_a_person(mongo_replica_set_url, body, pupil=False) == ((1, 0, NEW_EMAIL) if moves else (0, 1, EMAIL))
+        refused = UNCONSENTED_PUPIL if what == "an-unconfirmed-pupil" else None
+        assert on_a_person(mongo_replica_set_url, body, pupil=False, stores_a_refused_shape=refused) == (
+            (1, 0, NEW_EMAIL) if moves else (0, 1, EMAIL)
+        )
 
     def test_an_entry_nobody_confirmed_still_ends_a_non_holder_s_change_at_the_pass(self, mongo_replica_set_url: str):
         """Only a holder's change has the owner as its one stop: a pupil's moved onto a stranger's seat would join two people."""

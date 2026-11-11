@@ -139,18 +139,17 @@ async def seed(database: AsyncDatabase) -> None:
         ]
     )
     await database[Collection.SPIELTAGE].insert_one(
-        {"_id": SPIELTAG, "start": "2026-03-01", "end": "2026-06-30", "position": 1, "saison_id": SAISON_ID, "saison_phase": "gruppenphase"}
-    )
-    await database[Collection.SPIELORTE].insert_one(
         {
-            "_id": SPIELORT,
-            "name": "Halle Ost",
-            "address": dict(documents.ADDRESS),
-            "maps_link": "Halle Ost, Frankfurt",
-            "default_mietpreis": 40,
-            "inactive_since": None,
+            "_id": SPIELTAG,
+            "start": "2026-03-01",
+            "end": "2026-06-30",
+            "position": 1,
+            "saison_id": SAISON_ID,
+            "saison_phase": "gruppenphase",
+            "version": 0,
         }
     )
+    await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     await database[Collection.SPIELE].insert_many([dict(spiel_raw) for spiel_raw in SPIELE])
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(stored) for stored in ROWS])
     await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(AGREED, TEAM, starters=[ObjectId()]))

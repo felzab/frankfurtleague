@@ -427,16 +427,7 @@ def masked_url(mongo_url: str) -> Iterator[str]:
             await database.saisons.insert_one(saison_document(SAISON, "active"))
             await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
-                [
-                    {
-                        "_id": row.oid,
-                        "first_name": row.first_name,
-                        "last_name": row.last_name,
-                        "inactive_since": None,
-                        "einwilligung": row.einwilligung,
-                    }
-                    for row in MASKED_SQUAD.values()
-                ]
+                [spieler_document(row.oid, row.first_name, row.last_name, einwilligung=row.einwilligung) for row in MASKED_SQUAD.values()]
             )
             await database.saison_spieler.insert_many(
                 [
@@ -504,27 +495,9 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
                 await _enter_the_club(database, SAISON)
                 await database.spieler.insert_many(
                     [
-                        {
-                            "_id": SORT_ORACLE_OIDS["Zurueckgehalten"],
-                            "first_name": withheld_forename,
-                            "last_name": "Kessler",
-                            "inactive_since": None,
-                            "einwilligung": _consent("internal"),
-                        },
-                        {
-                            "_id": SORT_ORACLE_OIDS["Berger"],
-                            "first_name": "Bea",
-                            "last_name": "Berger",
-                            "inactive_since": None,
-                            "einwilligung": _consent("kader_public"),
-                        },
-                        {
-                            "_id": SORT_ORACLE_OIDS["Yilmaz"],
-                            "first_name": "Yara",
-                            "last_name": "Yilmaz",
-                            "inactive_since": None,
-                            "einwilligung": _consent("kader_public"),
-                        },
+                        spieler_document(SORT_ORACLE_OIDS["Zurueckgehalten"], withheld_forename, "Kessler", einwilligung=_consent("internal")),
+                        spieler_document(SORT_ORACLE_OIDS["Berger"], "Bea", "Berger", einwilligung=_consent("kader_public")),
+                        spieler_document(SORT_ORACLE_OIDS["Yilmaz"], "Yara", "Yilmaz", einwilligung=_consent("kader_public")),
                     ]
                 )
                 await database.saison_spieler.insert_many(
