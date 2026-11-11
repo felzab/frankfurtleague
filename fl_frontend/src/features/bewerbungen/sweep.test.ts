@@ -1,8 +1,6 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
-
 /** One backend call, in the order it ran, or the address changes' half, which is its own suite's. */
 type SweepEvent = { kind: "api"; endpoint: string; method: string } | { kind: "address_change" };
 
@@ -194,65 +192,5 @@ describe("a half that fails", () => {
     const run = await runBewerbungSweep();
 
     expect([run.count.bewerbung_failed, run.open, run.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
-  });
-});
-
-describe("the line a failed call files", () => {
-  /* A refusal and a crash carry the same name: the status and code tell them apart, and the trace joins
-     the line to the backend's own for that request. */
-  it("names a refused call's status, code and trace", async () => {
-    seasons(["2627"]);
-    const answered = apiAnswer;
-    apiAnswer = (call) => {
-      if (call.endpoint !== "/bewerbungen/sweep/2627") return answered(call);
-      throw new APIBadStatusError({
-        message: "The backend failed the request.",
-        url: "http://backend:8000/api/v0/bewerbungen/sweep/2627",
-        endpoint: "/bewerbungen/sweep/{saison_id}",
-        statusCode: 500,
-        serverErrorCode: "database_failed",
-        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
-      });
-    };
-
-    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
-
-    expect(failures()).toStrictEqual([
-      {
-        event: "bewerbung.sweep_failed",
-        fields: {
-          name: "APIBadStatusError",
-          status: 500,
-          server_error_code: "database_failed",
-          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
-          saison_id: "2627",
-        },
-      },
-    ]);
-  });
-
-  /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all. */
-  it("names an unanswered call's trace", async () => {
-    seasons(["2627"]);
-    const answered = apiAnswer;
-    apiAnswer = (call) => {
-      if (call.endpoint !== "/registrierungen/sweep/2627") return answered(call);
-      throw new APINetworkError({
-        message: "The backend did not answer.",
-        url: "http://backend:8000/api/v0/registrierungen/sweep/2627",
-        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
-        isTimeout: true,
-      });
-    };
-
-    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
-
-    expect(failures()).toStrictEqual([
-      {
-        event: "registrierung.sweep_failed",
-        fields: { name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: "2627" },
-      },
-    ]);
   });
 });

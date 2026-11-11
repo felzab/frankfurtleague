@@ -19,6 +19,12 @@ export const railFade = tv({ base: "transition-opacity duration-(--motion-in) gr
 export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-collapsed:w-6" });
 
 /**
+ * The rung a few entries are named on, 12 px medium muted, a step under a section's title: the rail's
+ * groups and the phone sheet's. Each place adds its own spacing.
+ */
+export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
+
+/**
  * The editor's bar at the foot of the viewport, which `EditorBar` draws and the editor's placeholder holds: on desktop as
  * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line, the
  * account row's name keeping one line however long (`FrameNav.tsx :: AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at

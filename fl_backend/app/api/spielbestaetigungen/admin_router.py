@@ -138,7 +138,6 @@ async def discard_spielbestaetigung(
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> None:
     """
@@ -182,7 +181,7 @@ async def discard_spielbestaetigung(
             discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_discardable_filter()},
-                update=compose_closing_update(reason="discarded", today=today),
+                update=compose_closing_update(reason="discarded"),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.AFTER,

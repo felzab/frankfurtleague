@@ -12,7 +12,7 @@ import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { StatusPage } from "./StatusPage";
+import { ClassicStatusPage } from "./StatusCard";
 import { useBotCheck } from "./useBotCheck";
 import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -20,7 +20,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { StatusCardProps } from "./StatusPage";
+import type { StatusCardProps } from "./StatusCard";
 import type { FormStatus } from "./useFormAction";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
@@ -64,12 +64,7 @@ const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
 export function OneShotEnd({ children }: { children: ReactNode }) {
   const [end, setEnd] = useState<EndState | null>(null);
   if (end !== null) {
-    return (
-      <StatusPage
-        frame="classic"
-        {...end}
-      />
-    );
+    return <ClassicStatusPage {...end} />;
   }
   return <AnsweredEnd value={setEnd}>{children}</AnsweredEnd>;
 }

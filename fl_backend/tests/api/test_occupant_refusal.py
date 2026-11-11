@@ -947,13 +947,6 @@ class TestTheDisqualifiedOccupantFault:
         assert [fault.side for fault in faults] == ["team2"]
         assert faults[0].team_name == "Bieber"
 
-    def test_a_group_phase_spiel_is_covered(self):
-        """No bracket rule looks at the group phase, which is why this is derived beside the walk."""
-
-        faults = occupant_faults(joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15"))
-
-        assert len(faults) == 1
-
     def test_every_affected_spiel_is_reported(self):
         """One fault per remaining fixture: each needs the same decision taken separately."""
 

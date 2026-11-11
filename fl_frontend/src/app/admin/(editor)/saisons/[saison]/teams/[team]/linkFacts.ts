@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
-import { dayAfter, dayOf, formatDate } from "@/core/format";
+import { dayAfter } from "@/core/dayArithmetic";
+import { dayOf, formatDate } from "@/core/format";
 
 import type { Copy } from "@/core/copy";
 import type { FLSaisonStatus, FLTeamLinkState, FLTeamSaisonFacts } from "@/core/generated/client/types";

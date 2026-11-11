@@ -1,4 +1,4 @@
-import { StatusPage } from "@/kit/StatusPage";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -18,8 +18,7 @@ export const metadata: Metadata = NOT_FOUND_METADATA;
  */
 export default function NotfoundPage() {
   return (
-    <StatusPage
-      frame="classic"
+    <ClassicStatusPage
       tone="info"
       title={SERVER_COPY.notFound}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}

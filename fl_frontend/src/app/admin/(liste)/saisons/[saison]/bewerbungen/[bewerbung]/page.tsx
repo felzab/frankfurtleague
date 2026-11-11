@@ -11,6 +11,7 @@ import { ACCEPT_RULES, DECLINE_RULES, SEAT_RULES } from "@/features/bewerbungen/
 import { getBewerbungById } from "@/features/bewerbungen/queries";
 import { seatsOf } from "@/features/bewerbungen/seats";
 import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -174,8 +175,7 @@ function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
     const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
     return {
       ...row,
-      // The fresh link beside the edit, as `SeatActs` draws them, both from `link`.
-      sideActs: link === null ? 1 : 2,
+      sideActs: seatActKinds(link).length,
       acts: (
         <SeatActs
           rollen={rollen}

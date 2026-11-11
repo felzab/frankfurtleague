@@ -2,7 +2,8 @@ import { cache } from "react";
 
 import { ConsentLine, ConsentLinePlaceholder } from "@/kit/ConsentLine";
 import { FieldPlaceholder } from "@/kit/FieldPair";
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage } from "@/kit/MailedPage";
 import { SectionPlaceholder } from "@/kit/Section";
 
 import { requires } from "@/core/action";
@@ -20,7 +21,6 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import { endOf, readInvitation, REPLAY_FIELD, TO_HOME } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
@@ -33,9 +33,7 @@ import type { RegistrierungRules } from "./RegistrierungFields";
 
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.registrierung;
-  const title = mailedTitle(await readState());
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.registrierung, readState());
 }
 
 const WORDS = SERVER_COPY.registrierung;

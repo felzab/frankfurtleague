@@ -17,7 +17,6 @@ export default function AdminError({ error }: { error: unknown }) {
   return (
     <RailColumn>
       <StatusPage
-        frame="rail"
         scope="area"
         title={COPY.shared.failure.unexpected}
         card={{ tone: "danger", next: { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() } }}

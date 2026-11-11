@@ -458,7 +458,7 @@ async def sweep_spielbestaetigungen(
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": row["_id"], **build_holding_filter()},
-                update=compose_closing_update(reason=reasons[row["_id"]], today=today),
+                update=compose_closing_update(reason=reasons[row["_id"]]),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -539,9 +539,7 @@ async def sweep_spielbestaetigungen(
                 left = moved.get((spiel["_id"], party_key(party)), [])
                 plan.closed += len(left)
                 for row in left:
-                    plan.updates.append(
-                        ({"_id": row["_id"], **build_closable_filter()}, compose_closing_update(reason="ansetzung_changed", today=today))
-                    )
+                    plan.updates.append(({"_id": row["_id"], **build_closable_filter()}, compose_closing_update(reason="ansetzung_changed")))
                 # The slot the move left, where the party was asked about it and either day is still to come.
                 told = left[-1] if left and notice_owed(row=left[-1], reason="ansetzung_changed", spiel=spiel, now=now) else None
                 moved_from = (

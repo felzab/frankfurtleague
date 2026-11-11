@@ -15,7 +15,6 @@ export function AreaError({ error }: { error: unknown }) {
   useReportClientCrash(error);
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={COPY.shared.failure.unexpected}
       card={{ tone: "danger", next: AREA_HOME }}

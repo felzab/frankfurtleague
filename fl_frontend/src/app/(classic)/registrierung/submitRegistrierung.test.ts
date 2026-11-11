@@ -1,7 +1,7 @@
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
+import { refused } from "@/test-support/refusals";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError } from "@/core/errors";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -61,25 +61,14 @@ const OPEN: FLInvitationViewResponse = {
   nachnominierung: false,
 };
 
-const refusal = (code: Code, status: number) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/",
-    statusCode: status,
-    serverErrorCode: code,
-    endpoint: "/",
-    traceId: "0",
-    refusedFields: [],
-  });
-
 /** The registration's write refused with `code`, and the link's view read again answering `view`, or refused as dead. */
 const movedTo = (code: Code, view: FLInvitationViewResponse | null) =>
   answerWith((call: ApiCall) =>
     call.endpoint.endsWith("/invitation/view")
       ? view === null
-        ? Promise.reject(refusal("document_not_found", 404))
+        ? Promise.reject(refused("document_not_found"))
         : Promise.resolve(view)
-      : Promise.reject(refusal(code, code === "document_not_found" ? 404 : 409)),
+      : Promise.reject(refused(code)),
   );
 
 beforeEach(() => {

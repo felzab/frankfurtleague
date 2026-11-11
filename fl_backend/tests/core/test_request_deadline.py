@@ -24,7 +24,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db
-from app.core.db import collection_dependency
+from app.core.db import CLOSE_TIMEOUT_S, collection_dependency
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
@@ -80,8 +80,8 @@ SERVICE = re.compile(r"^  (\w+):$", re.MULTILINE)
 COMMAND_OVERRIDES = re.compile(r"""^    ["']?(command|entrypoint|<<)["']?\s*:""", re.MULTILINE)
 
 # uvicorn notices the signal on a 0.1 s tick and pauses 0.1 s after closing its connections before its
-# wait starts (its `Server.shutdown`, read in uvicorn 0.54), so the engine's kill falls a whole second later.
-UVICORN_STEPS_BEFORE_ITS_WAIT_S = 1
+# wait starts (its `Server.shutdown`, read in uvicorn 0.54).
+UVICORN_STEPS_BEFORE_ITS_WAIT_S = 0.2
 
 
 def _uvicorn_s_graceful_wait() -> int:
@@ -110,15 +110,17 @@ def _backend_stop_grace() -> int:
 
 
 class TestAStoppedContainerOutlastsEveryRequest:
-    """Three budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
+    """Four budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
     def test_uvicorn_waits_out_a_request_s_whole_bound(self):
         """A request cut at its deadline: the deadline, then the one grace its aborts share."""
 
         assert _uvicorn_s_graceful_wait() >= REQUEST_DEADLINE_S + ABORT_GRACE_S
 
-    def test_the_engine_kills_only_after_uvicorn_s_wait(self):
-        assert _backend_stop_grace() >= _uvicorn_s_graceful_wait() + UVICORN_STEPS_BEFORE_ITS_WAIT_S
+    def test_the_engine_kills_only_after_uvicorn_s_wait_and_the_client_s_close(self):
+        """The lifespan closes the client once uvicorn's wait ends, and the process exits in what the close leaves: hence strictly."""
+
+        assert _backend_stop_grace() > _uvicorn_s_graceful_wait() + UVICORN_STEPS_BEFORE_ITS_WAIT_S + CLOSE_TIMEOUT_S
 
     def test_the_container_runs_the_cmd_the_wait_is_read_off(self):
         """Compose's `command:` replaces that CMD and its `entrypoint:` drops it; a merge key can bring in either unread."""

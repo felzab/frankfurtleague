@@ -3,6 +3,11 @@ export const CheckIsLiveResponseValue = {
 } as const;
 export type CheckIsLiveResponse = typeof CheckIsLiveResponseValue;
 
+export const CheckIsReadyResponseValue = {
+  status: "ok",
+} as const;
+export type CheckIsReadyResponse = typeof CheckIsReadyResponseValue;
+
 export type Code = (typeof Code)[keyof typeof Code];
 
 export const Code = {
@@ -5170,8 +5175,6 @@ export const FLSpielbestaetigungClosedReason = {
 } as const;
 
 export interface FLSpielbestaetigungClosed {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  at: string;
   reason: FLSpielbestaetigungClosedReason;
 }
 

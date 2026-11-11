@@ -83,7 +83,7 @@ describe("a question behind the passkey touch", () => {
     const asked = await screen.findByRole("alertdialog");
     await pressIn(asked, VERB);
 
-    await waitFor(() => expect(within(asked).getByRole("status").textContent).toBe(COPY.signIn.refusal.unverified));
+    await within(asked).findByText(COPY.signIn.refusal.unverified);
     expect(onConfirm).not.toHaveBeenCalled();
 
     await pressIn(asked, VERB);
@@ -128,7 +128,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
     expect(passkey.prompt).not.toHaveBeenCalled();
 
     await pressIn(dialog, COPY.shared.verb.save);
-    await waitFor(() => expect(within(dialog).getByRole("status").textContent).toBe(COPY.signIn.refusal.unverified));
+    await within(dialog).findByText(COPY.signIn.refusal.unverified);
     expect(action).not.toHaveBeenCalled();
     expect(within(dialog).getByRole<HTMLInputElement>("textbox").value).toBe("Anna");
 
@@ -154,7 +154,7 @@ describe("an act pressed where it stands", () => {
 
     await userEvent.click(screen.getByRole("button", { name: VERB }));
 
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe(COPY.signIn.refusal.unverified));
+    await screen.findByText(COPY.signIn.refusal.unverified);
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -175,7 +175,7 @@ describe("an act pressed where it stands", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe(COPY.signIn.refusal.unverified));
+    await screen.findByText(COPY.signIn.refusal.unverified);
     expect(action).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));

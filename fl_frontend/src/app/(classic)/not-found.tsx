@@ -1,4 +1,4 @@
-import { StatusPage } from "@/kit/StatusPage";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -11,8 +11,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
  */
 export default function ClassicNotFound() {
   return (
-    <StatusPage
-      frame="classic"
+    <ClassicStatusPage
       tone="info"
       title={SERVER_COPY.notFound}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}

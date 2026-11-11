@@ -222,7 +222,7 @@ export function SpielEditor({
             ),
           },
         ];
-  const framed = (rest: readonly [EditorSection, ...EditorSection[]]): readonly [EditorPart, ...EditorPart[]] =>
+  const framed = (rest: readonly [EditorPart, ...EditorPart[]]): readonly [EditorPart, ...EditorPart[]] =>
     begegnung === null ? [...rest, ...lineups] : [begegnung, ...rest, ...lineups];
 
   return (
@@ -414,15 +414,20 @@ export function SpielEditor({
         },
         {
           id: "spielbericht",
-          title: WORDS.spielbericht,
-          fields: (
-            <Table
-              label={WORDS.spielbericht}
-              {...report.head}
-              rows={report.rows}
-              empty={{ kind: "none", plural: COPY.shared.tore }}
-              bare
-              stack
+          // Its own section, the table edge to edge in its box, so the table's width is the box's, which picks its form.
+          block: (
+            <Section
+              title={WORDS.spielbericht}
+              list={
+                <Table
+                  label={WORDS.spielbericht}
+                  {...report.head}
+                  rows={report.rows}
+                  empty={{ kind: "none", plural: COPY.shared.tore }}
+                  bare
+                  stack
+                />
+              }
             />
           ),
         },

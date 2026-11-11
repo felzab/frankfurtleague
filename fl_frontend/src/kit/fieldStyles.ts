@@ -67,8 +67,6 @@ export const messageLine = tv({
  * a row it takes the room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the
  * whole width. A line can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`,
  * whose word still counts whole in the width of a grid track around the line and pushes the acts out of their box.
- * With nothing to say it takes no room (`quiet`), as a field's message line takes none, yet stays in the page, since it
- * is the live region an outcome is announced from, which must stand before the outcome does.
  */
 export const statusLine = tv({
   base: "text-sm wrap-anywhere",
@@ -77,12 +75,7 @@ export const statusLine = tv({
       row: "min-w-0 flex-1",
       column: "",
     },
-    quiet: {
-      true: "sr-only",
-      false: "",
-    },
     tone: {
-      none: "",
       changes: "text-fg",
       // A danger row's second line at rest, its act's consequence in the small muted face.
       resting: "text-xs text-fg-muted",
@@ -288,14 +281,15 @@ export const toggleBox = tv({
 export const toggleLine = tv({ base: "col-start-2 grid empty:hidden" });
 
 /**
- * A radio group's answers: one under another, or, where each answer is described, side by side as cards,
- * one equal column per answer on desktop so the row is always full.
+ * A radio group's answers, one under another at every width: plain answers, or, where each answer is described,
+ * cards. Answers stand side by side only where there are two and both are short, and a card's title may carry a
+ * person's name; a dialog's box, at most 512 px, never reaches the 42 rem a row of cards would need.
  */
 export const radioList = tv({
   variants: {
     layout: {
       list: "flex flex-col gap-2",
-      cards: "grid gap-2 lg:auto-cols-fr lg:grid-flow-col",
+      cards: "grid gap-2",
     },
   },
 });

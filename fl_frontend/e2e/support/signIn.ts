@@ -11,11 +11,8 @@ import { filedMessages, mailedCode } from "./mailSink";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-/** The step a send that mailed a code, or would have, shows in the address step's place. */
-const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
-
-/** The sign-in's one line under its acts, where a send that did not go through says why: a polite status. */
-export const failureLine = (page: Page): Locator => page.getByRole("main").getByRole("status");
+/** The step a send that mailed a code, or would have, shows in the address step's place, by its heading. */
+const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("heading", { name: "Prüfe dein Postfach" });
 
 /** Asks for a code on `/signin`, as far as the step a send that mailed one shows. */
 export async function askForCode(page: Page, address: string): Promise<void> {

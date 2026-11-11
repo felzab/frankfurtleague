@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { EmptyBox } from "@/kit/EmptyState";
-import { StatusCard } from "@/kit/StatusPage";
+import { StatusCard } from "@/kit/StatusCard";
 import { CheckStep, StepCard } from "@/kit/StepCard";
 import { answering } from "@/kit/useFormAction";
 

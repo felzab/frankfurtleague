@@ -1,4 +1,5 @@
-import { dayOf, yearsLater } from "@/core/format";
+import { yearsLater } from "@/core/dayArithmetic";
+import { dayOf } from "@/core/format";
 
 import type { CalendarDay } from "@/core/format";
 

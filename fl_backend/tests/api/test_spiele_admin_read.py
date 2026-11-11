@@ -283,11 +283,13 @@ def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: s
     assert response.json()["error_code"] == error_code
 
 
-@pytest.mark.parametrize("spiel_id", ["not-an-id", "z" * 24, str(SPIEL_ID)[:-1], f"{SPIEL_ID}0"])
-def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
-    """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets."""
+def test_a_malformed_id_is_a_404_on_the_admin_path_too():
+    """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets.
 
-    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
+    One id shows the path carries the convertor; which ids are malformed is `tests/api/test_malformed_ids.py`'s.
+    """
+
+    path = f"/api/v{API_VERSION}/spiele/not-an-id/admin"
 
     assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
 

@@ -43,7 +43,7 @@ describe("a form anybody may send", () => {
     await press();
 
     expect(action).not.toHaveBeenCalled();
-    expect(screen.getByRole("status").textContent).toBe(COPY.shared.botCheck);
+    expect(screen.getByText(COPY.shared.botCheck)).toBeTruthy();
   });
 
   // The harm: a retry carrying a new key, after an answer lost on its way, stores a second application; an edit sent

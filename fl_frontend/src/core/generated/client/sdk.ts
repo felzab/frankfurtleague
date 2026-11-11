@@ -14,6 +14,7 @@ import type {
   AddressChangeSweepAddressChangeParams,
   BewerbungenGetBewerbungenAdminParams,
   CheckIsLiveResponse,
+  CheckIsReadyResponse,
   FLAcceptBewerbungPayload,
   FLAcceptBewerbungResponse,
   FLAccountAddressChangeMintResponse,
@@ -4324,6 +4325,23 @@ export const getSystemCheckIsLiveUrl = () => {
  */
 export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<CheckIsLiveResponse> => {
   return unkeyedTransport<CheckIsLiveResponse>(getSystemCheckIsLiveUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSystemCheckIsReadyUrl = () => {
+  return `/api/v0/system/is_ready`;
+};
+
+/**
+ * Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.
+ *
+ * Unauthenticated, for a monitor outside.
+ * @summary Readiness probe
+ */
+export const systemCheckIsReady = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<CheckIsReadyResponse> => {
+  return unkeyedTransport<CheckIsReadyResponse>(getSystemCheckIsReadyUrl(), {
     ...options,
     method: "GET",
   });

@@ -9,11 +9,9 @@ Invariants:
 
 from __future__ import annotations
 
-import ast
 import contextlib
 import importlib
 import os
-import re
 import shutil
 import stat
 import subprocess
@@ -22,7 +20,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Final
+from typing import Final
 
 import pytest
 
@@ -37,14 +35,6 @@ WINDOWS: Final = sys.platform == "win32"
 MSYS_RUNTIME: Final = "msys-2.0.dll"
 
 _OWNED: list[Path] = []
-
-
-def write(root: Path, rel: str, text: str) -> None:
-    """One corpus file under a fixture repository, its parents made as needed."""
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes, so Windows writes no carriage return.
-    path.write_bytes(text.encode("utf-8"))
 
 
 def withdraw(*names: str) -> None:
@@ -111,45 +101,6 @@ def run_shell(
         cwd=cwd,
         check=False,
     )
-
-
-def lift_assignment(script: Path, name: str) -> str:
-    """One top-level shell assignment: an array on one line, a double-quoted value on one, or a single-quoted one of any length.
-
-    Read rather than restated: a copy in a test passes while the script's own copy regresses.
-    """
-    found = re.search(rf"""^{name}=(\(.*\)|"[^"\n]*"|'[^']*')$""", script.read_text(encoding="utf-8"), re.MULTILINE)
-    assert found is not None, f"{_cited(script)} assigns no {name}"
-    return found.group(0)
-
-
-def declared(source: Path, name: str) -> Any:
-    """One module-level annotated constant, as its own source declares it.
-
-    Read rather than imported: a module another fixture cached would answer for the copy under test.
-    """
-    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.AnnAssign) and node.value is not None and getattr(node.target, "id", "") == name:
-            return ast.literal_eval(node.value)
-    raise AssertionError(f"{_cited(source)} no longer declares {name}")
-
-
-def details(findings: list) -> str:
-    """Every finding's text as one string, for a case asserting on what a run reported."""
-    return "\n".join(finding.detail for finding in findings)
-
-
-def severities(findings: list) -> list:
-    """The severities a run reported, so a case pins how many findings it caused as well as which."""
-    return [finding.severity for finding in findings]
-
-
-def _cited(path: Path) -> str:
-    """A path as a citation, and its bare name where it sits in a fixture tree instead."""
-    try:
-        return path.relative_to(REPO_ROOT).as_posix()
-    except ValueError:
-        return path.name
 
 
 def new_root(prefix: str) -> Path:

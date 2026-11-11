@@ -66,7 +66,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(question).toContainText("Schiedsrichter");
   await question.getByRole("button", { name: "Löschen" }).click();
   await expect(question).toBeHidden();
-  await expect(main.getByRole("status").filter({ hasText: "Gelöscht" })).toBeVisible();
+  await expect(main.getByText("Gelöscht", { exact: true })).toBeVisible();
   expect(await assertionsSigned(context), "an act of this area ran with no touch of its own").toBe(touches + 3);
 
   // --- Protokoll ---------------------------------------------------------------------------------

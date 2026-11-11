@@ -2,8 +2,9 @@ import functools
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import NamedTuple
+from typing import Final, NamedTuple
 
+import pymongo
 from fastapi import Depends, FastAPI, Request
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -91,6 +92,15 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
 # still waits, and the log lines it prints on a failure carry it.
 SERVER_SELECTION_TIMEOUT_MS = 15_000
 
+# The stop's last step, which must end before the kill. Compose's `stop_grace_period` gives the backend
+# 12 s from the signal; uvicorn spends up to 0.2 s before its graceful wait and up to 11 s in it
+# (`--timeout-graceful-shutdown`), which leaves 0.8 s for this close and the process's exit. `close`
+# selects a server for its `endSessions`, and with no member answering that selection would otherwise
+# wait out the boot's 15 s above. Cutting it loses nothing: the sessions specification says "Drivers
+# MUST ignore any errors returned by the endSessions command", and the server ends a session left open
+# after 30 minutes.
+CLOSE_TIMEOUT_S: Final = 0.5
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -144,12 +154,19 @@ async def lifespan(app: FastAPI):
         # The local rather than `app.state`, which the construction above may not have reached: a
         # lookup that raises here would replace the refusal on its way out with an `AttributeError`.
         if client is not None:
-            await client.close()
+            # A deadline rather than a client setting: the driver bounds the selection by the
+            # deadline's remaining time wherever one is set, as every request's is.
+            with pymongo.timeout(CLOSE_TIMEOUT_S):
+                await client.close()
+
+
+# What a 503 for an absent or unanswering database asks the caller to wait, in seconds.
+RETRY_AFTER: Final = {"Retry-After": "30"}
 
 
 async def get_db_client(request: Request) -> AsyncMongoClient:
     if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
     return request.app.state.db_client
 
 
@@ -160,7 +177,7 @@ async def get_database(
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
     if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers={"Retry-After": "30"})
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
     return request.app.state.db_client[config.db_base_name]
 
 

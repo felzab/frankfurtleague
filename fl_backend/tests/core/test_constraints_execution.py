@@ -503,9 +503,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
     async def body(database: AsyncDatabase) -> int:
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
         await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, answer=answer))
-        await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"at": "2026-03-02", "reason": "cancelled"})
-        )
+        await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"reason": "cancelled"}))
         await database.spielbestaetigungen.insert_one(
             valid_document("spielbestaetigungen", _id=SPIELTAG_OID, party={"kind": "team", "team_id": OTHER_TEAM_OID})
         )

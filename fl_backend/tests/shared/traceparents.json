@@ -1,0 +1,74 @@
+[
+  {
+    "case": "empty",
+    "header": ""
+  },
+  {
+    "case": "not the form at all",
+    "header": "PROBE-AAA"
+  },
+  {
+    "case": "a bare 32-hex id",
+    "header": "c0ffee00c0ffee00c0ffee00c0ffee00"
+  },
+  {
+    "case": "upper case",
+    "header": "00-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-BBBBBBBBBBBBBBBB-01"
+  },
+  {
+    "case": "a version this validator does not read",
+    "header": "01-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"
+  },
+  {
+    "case": "an all-zero trace id",
+    "header": "00-00000000000000000000000000000000-bbbbbbbbbbbbbbbb-01"
+  },
+  {
+    "case": "an all-zero parent id",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-0000000000000000-01"
+  },
+  {
+    "case": "a trace id one short",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"
+  },
+  {
+    "case": "a parent id one short",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbb-01"
+  },
+  {
+    "case": "one flag digit",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-1"
+  },
+  {
+    "case": "no flags segment",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb"
+  },
+  {
+    "case": "a fifth segment",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01-extra"
+  },
+  {
+    "case": "a trace id past 64 characters",
+    "header": "00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-bbbbbbbbbbbbbbbb-01"
+  },
+  {
+    "case": "a leading space",
+    "header": " 00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"
+  },
+  {
+    "case": "a trailing line break",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01\n"
+  },
+  {
+    "case": "a line break and more",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01\ndef"
+  },
+  {
+    "case": "a log-injection attempt",
+    "header": "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01\",\"injected\":\"line"
+  },
+  {
+    "case": "a line break alone",
+    "header": "abc\ndef"
+  }
+]
