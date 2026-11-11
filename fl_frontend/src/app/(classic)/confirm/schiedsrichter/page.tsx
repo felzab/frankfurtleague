@@ -48,7 +48,7 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
- * „Eintrag bestätigen“ and „Widersprechen“ quiet beneath it; the done states; the link opened again, saying what the
+ * „Eintrag bestätigen“ and the refusal „Widersprechen“; the done states; the link opened again, saying what the
  * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link alike.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {

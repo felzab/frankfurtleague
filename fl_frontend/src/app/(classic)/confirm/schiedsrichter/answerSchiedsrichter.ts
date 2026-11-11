@@ -36,7 +36,7 @@ const SPENT: ReadonlySet<Code> = new Set<Code>(["link_invalid", "link_expired", 
 
 /**
  * A referee's answer through their link: the main act confirms the entry with the birthdate and the consent, under the
- * labels of the wordings the page showed; the quieter one objects, the entry then going when the link lapses. A link
+ * labels of the wordings the page showed; the refusal objects, the entry then going when the link lapses. A link
  * that holds no more at the press ends as the link no longer valid, one message for every cause.
  */
 export const answerSchiedsrichter = action({

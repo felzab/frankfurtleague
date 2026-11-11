@@ -25,7 +25,7 @@ import type { FormStatus } from "./useFormAction";
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
 export type EndState = StatusCardProps;
 
-/** Which of the form's acts was pressed: the main one, or the quieter one beneath it. */
+/** Which of the form's acts was pressed: the main one, or the refusal before it. */
 export type Act = "primary" | "secondary";
 
 /** The field the pressed act posts under, beside the form's own, which the page's action reads by this name. */
@@ -65,8 +65,10 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
  * The one-shot submit: a page in the classic frame's form column whose form is sent once and whose outcome
  * replaces it. Done, the server's end state takes the page's place as the status template; refused, the
  * form stays with its input, each field's message under its field and the reason in the footer's line. The acts
- * stand in the form's footer (`FormFooter`), the main act at its right end and a second, quieter act before it, which
- * sends without asking the fields, as an objection needs none of them. The end stands in `OneShotEnd`, which the form
+ * stand in the form's footer (`FormFooter`), the main act at its right end and, before it, the refusal of what the link
+ * offers, an objection or a decline, which sends without asking the fields, needing none of them, and in the outlined
+ * danger look of every destroying act's button. It asks no question first: the page is itself the question the person
+ * opened the link to answer. The end stands in `OneShotEnd`, which the form
  * stands inside, and outlives a visit elsewhere and the page's own re-render: what was done stays done. A form anybody
  * may send carries the bot check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the
  * column.
@@ -87,6 +89,7 @@ export function OneShotForm({
   /** What stands above the form: the page's title and what the person answers. */
   head: ReactElement;
   action: OneShotAction;
+  /** The main act's words and, where the link's offer can be refused, the refusal's. */
   acts: { primary: Copy; secondary?: Copy };
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
@@ -116,7 +119,7 @@ export function OneShotForm({
   const touched = usePasskeyTouch(touch, carry.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
-      // The quieter act posts without the touch: an objection hands nothing over.
+      // The refusal posts without the touch: an objection hands nothing over.
       const reached = await (formData.get(ACT_FIELD) === "primary" ? touched(action) : action)(formData);
       // Handed up before the answer settles here: the same response may already have replaced this form.
       if (reached.ok) answered?.(reached.value);
@@ -198,7 +201,8 @@ export function OneShotForm({
               describedBy={describedBy}>
               {acts.secondary !== undefined && (
                 <Button
-                  variant="quiet"
+                  // The refusal destroys what the link offered, so it takes the one look of every destroying act's button.
+                  variant="dangerOutline"
                   label={acts.secondary}
                   isBusy={isBusy && pressed === "secondary"}
                   onPress={() => {

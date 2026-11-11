@@ -58,7 +58,7 @@ const BIRTH_DATE_REQUIRED = requires(BewerbungenPostEinwilligungBody.options[0].
 
 /**
  * `/confirm/kontakt`, the link a contact seat's mail carries, an application's or a team's season row's, on the
- * mailed-page template: the question, with „Eintrag bestätigen“ and „Widersprechen“ quiet beneath it; a closed row's
+ * mailed-page template: the question, with „Eintrag bestätigen“ and the refusal „Widersprechen“; a closed row's
  * objection alone; the done states; the link opened again, saying what the person did and on which day; and the link no
  * longer valid, an expired, mistyped or tampered link and a decided application's seat alike.
  */

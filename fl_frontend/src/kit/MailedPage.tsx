@@ -184,7 +184,7 @@ type QuestionWait = {
   facts: number;
   /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
   act: Copy;
-  /** The quieter act's words beneath it, where the question has one. */
+  /** The refusal's words, where the question has one. */
   second?: Copy;
   /**
    * The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width;
