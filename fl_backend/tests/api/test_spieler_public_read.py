@@ -231,14 +231,14 @@ class TestTheBaseTierReadExecuted:
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Six people and their squad rows.
 
     A retired row, a surname whose initial is two bytes, and a person carrying no surname at all.
     """
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(saison_document(SAISON, "active"))
             await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
@@ -266,8 +266,8 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 SQUAD_DATABASE_NAME = worker_database("fl_spieler_squad_season_test")
@@ -290,11 +290,11 @@ class TestTheClubPageReadsOneSeasonsSquad:
 
 
 @pytest.fixture(scope="module")
-def squad_url(mongo_url: str) -> Iterator[str]:
+def squad_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Two seasons of one club: a player in both, and one who played the past season alone."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
             await database.saisons.insert_many([saison_document(SAISON, "active"), saison_document(PAST_SAISON, "past")])
             await _enter_the_club(database, SAISON, PAST_SAISON)
             await database.spieler.insert_many(
@@ -321,8 +321,8 @@ def squad_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, SQUAD_DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, SQUAD_DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 MASK_DATABASE_NAME = worker_database("fl_spieler_mask_read_test")
@@ -420,11 +420,11 @@ class TestThePublicationGate:
 
 
 @pytest.fixture(scope="module")
-def masked_url(mongo_url: str) -> Iterator[str]:
+def masked_url(mongo_replica_set_url: str) -> Iterator[str]:
     """One squad in one season, holding a row for every consent state `READ-PUPIL-003` parts."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, MASK_DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(saison_document(SAISON, "active"))
             await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
@@ -442,8 +442,8 @@ def masked_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, MASK_DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, MASK_DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 SORT_ORACLE_DATABASE_NAMES = {
@@ -486,12 +486,12 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
 
 @pytest.fixture(scope="module")
-def sort_oracle_url(mongo_url: str) -> Iterator[str]:
+def sort_oracle_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Two corpora, each one squad of three: two published rows and one the `internal` scope withholds."""
 
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
-            async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
+            async with a_clean_database(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
                 await database.saisons.insert_one(saison_document(SAISON, "active"))
                 await _enter_the_club(database, SAISON)
                 await database.spieler.insert_many(
@@ -513,8 +513,11 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["first"]), unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["last"]):
-        yield mongo_url
+    with (
+        unwritten(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["first"]),
+        unwritten(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["last"]),
+    ):
+        yield mongo_replica_set_url
 
 
 def _on_the_mask_database(url: str, body: Body) -> Any:
