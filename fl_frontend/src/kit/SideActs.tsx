@@ -35,7 +35,10 @@ export type SideAct = {
   label: Copy;
   /** An icon alone as the act's button, named by `label`, as a seat's acts are; the menu's entry shows both. */
   icon?: IconName;
-  /** An act that destroys: its button in the outlined danger look every destroying act's trigger takes. */
+  /**
+   * An act that destroys: its button in the outlined danger look every destroying act's trigger takes, and its menu
+   * entry in the same danger hue (`Menu`'s `tone`), while it can run; a locked one is muted as every locked entry is.
+   */
   tone?: "danger";
   /** The act is under way: its button busy, and the „⋯“ that holds it. */
   isBusy?: boolean;
@@ -51,9 +54,9 @@ export type SideAct = {
   onPress: () => void;
 };
 
-const entryOf = ({ label, icon, locked, onPress }: SideAct): MenuEntry =>
+const entryOf = ({ label, icon, tone, locked, onPress }: SideAct): MenuEntry =>
   locked === undefined
-    ? { kind: "action", label, ...(icon === undefined ? {} : { icon }), onAction: onPress }
+    ? { kind: "action", label, ...(icon === undefined ? {} : { icon }), ...(tone === undefined ? {} : { tone }), onAction: onPress }
     : { kind: "locked", label, ...(icon === undefined ? {} : { icon }), reason: locked };
 
 function ActButton({ label, icon, tone, isBusy, locked, onPress }: SideAct) {
