@@ -104,8 +104,8 @@ about the league itself are best sent through [the contact page](https://frankfu
 
 ## Security
 
-Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) explains
-how to report it privately and what is in scope.
+Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) names
+the address to report it to and what to include.
 
 ## License
 
