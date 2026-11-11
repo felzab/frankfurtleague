@@ -10,7 +10,7 @@ import { COPY } from "@/core/copy";
 import { Lineup, lineupMoves, lineupValue } from "./Lineup";
 
 import type { Copy } from "@/core/copy";
-import type { ErasedEntry, LineupPlayer, LineupValue, LineupWords } from "./Lineup";
+import type { LineupPlayer, LineupValue, LineupWords, NamelessEntry } from "./Lineup";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/area/team/aho/2027/spiele/spiel-1",
@@ -32,7 +32,7 @@ const WORDS: LineupWords = {
   noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(MAX),
   nomineeLocked: COPY.template.draftUnsaved,
-  anonymous: COPY.shared.noValue,
+  anonymous: COPY.shared.anonymous,
 };
 
 const nameOf = (nummer: number) => `Spieler ${String(nummer)}`;
@@ -61,21 +61,21 @@ function Held({
   seen,
   locked,
   refusals,
-  erased = [],
+  nameless = [],
 }: {
   players: LineupPlayer[];
   start?: LineupValue;
   seen?: (value: LineupValue) => void;
   locked?: Copy;
   refusals?: Record<string, Copy>;
-  erased?: ReadonlyArray<ErasedEntry>;
+  nameless?: ReadonlyArray<NamelessEntry>;
 }) {
   const [value, setValue] = useState(start);
   return (
     <Lineup
       players={players}
       value={value}
-      erased={erased}
+      nameless={nameless}
       onChange={(next) => {
         setValue(next);
         seen?.(next);
@@ -238,21 +238,21 @@ describe("a line-up's states", () => {
   });
 });
 
-// The harm: an erased pupil's kept start left out of the count, so the page lets a twelfth start and the write refuses
-// it; or an erased entry sent back, which the write refuses as a pupil outside the squad.
-describe("a line-up keeping erased pupils' entries", () => {
-  it("draws them read-only, counts them as named, starting and regular, and never sends them", async () => {
+// The harm: the start of an entry naming nobody left out of the count, so the page lets a twelfth start and the write
+// refuses it; or such an entry let into the draft, where a press could take it out or tick it.
+describe("a line-up keeping entries naming nobody", () => {
+  it("draws them read-only, counts them as named, starting and regular, and keeps them out of the value", async () => {
     const seen = vi.fn();
     render(
       <Held
         players={[...squad(11), nominee(20)]}
         start={lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))}
-        erased={[{ starts: true }]}
+        nameless={[{ starts: true }]}
         seen={seen}
       />,
     );
     const picked = within(screen.getByRole("table", { name: WORDS.picked }));
-    const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.noValue}` });
+    const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.anonymous}` });
 
     expect(kept).toHaveProperty("checked", true);
     expect(kept).toHaveProperty("disabled", true);
