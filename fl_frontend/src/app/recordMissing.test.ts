@@ -1,8 +1,7 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { refused } from "@/test-support/refusals.ts";
 import { describe, expect, it } from "vitest";
-
-import { APIBadStatusError } from "@/core/errors.ts";
 
 import type { Code } from "@/core/generated/client/types.ts";
 
@@ -30,15 +29,7 @@ const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getAdminSpielplan: () => spiele.getAdminSpielplan("2027"),
 };
 
-const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>
-  new APIBadStatusError({
-    message: "not found",
-    url: "http://backend/api/v0/x",
-    statusCode: 404,
-    serverErrorCode,
-    endpoint: "/x",
-    traceId: "0",
-  });
+const notFound = (code: Code | undefined) => refused(code, { status: 404 });
 
 describe("a read of a record the API says is missing", () => {
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not

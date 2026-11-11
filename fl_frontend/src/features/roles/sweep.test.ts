@@ -1,7 +1,6 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { refused } from "@/test-support/refusals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { APIBadStatusError } from "@/core/errors.ts";
 
 import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
@@ -201,14 +200,7 @@ describe("a pass meeting a failure", () => {
   it("deletes nothing the backend's fail-safe refuses, and files the refusal on one failure line", async () => {
     accounts = ["a@schule.de", "b@schule.de"];
     references = () => {
-      throw new APIBadStatusError({
-        message: "The backend refused the request.",
-        url: "http://backend:8000/api/v0/identity/references",
-        endpoint: "/identity/references",
-        statusCode: 409,
-        serverErrorCode: "no_owner",
-        traceId: "0",
-      });
+      throw refused("no_owner");
     };
 
     await runAccountSweep();
