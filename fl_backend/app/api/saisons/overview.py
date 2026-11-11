@@ -271,6 +271,8 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind
         team is None and quelle is None for team, quelle in ((spiel.team1, spiel.team1_quelle), (spiel.team2, spiel.team2_quelle))
     )
     checks: tuple[tuple[FLOverviewGapKind, bool], ...] = (
+        # From the day after the match, not from its kick-off as the report counts it: no result can stand while the match
+        # is being played, and its evening is the referee's to send the report the result comes from.
         ("ergebnis_missing", spiel.date is not None and spiel.date < today and spiel.ergebnis is None),
         ("appointment_missing", spiel.date is None or spiel.time is None),
         ("spielort_missing", spiel.spielort is None),
