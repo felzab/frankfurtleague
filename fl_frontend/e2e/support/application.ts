@@ -5,6 +5,8 @@
  */
 import { expect } from "@playwright/test";
 
+import { box, choose, typeInto } from "./controls";
+
 import type { Locator, Page } from "@playwright/test";
 
 /** The planned season the made-up seed holds open. */
@@ -40,46 +42,6 @@ export function personOf(school: string, seat: Seat): Person {
     address: `${seat}.${name}@example.com`,
     phone: seat === "trainer" ? "069 90009001" : seat === "ansprechperson" ? "069 90009002" : "069 90009003",
   };
-}
-
-/**
- * Types into a box. Tapped first, as a person reaches it and `./signIn.ts :: sendFromHere` taps its field.
- */
-export async function typeInto(box: Locator, value: string): Promise<void> {
-  await box.click();
-  await box.fill(value);
-}
-
-/**
- * Presses a row's act by its name, as a person finds it: the row's own button where the row shows one, else the row's
- * „Mehr“ and then the menu's entry of that name. A row's acts have these two homes by their list, at every width: a
- * decision and a list's one side act are buttons, and the side acts of a list whose rows carry two or more stand in
- * each row's one „⋯“. It fails where the row shows neither.
- */
-export async function pressRowAct(row: Locator, name: string): Promise<void> {
-  const button = row.getByRole("button", { name, exact: true });
-  const more = row.getByRole("button", { name: "Mehr", exact: true });
-  await expect(button.or(more)).toBeVisible();
-  if (await button.isVisible()) {
-    await button.click();
-    return;
-  }
-  await more.click();
-  await row.page().getByRole("menuitem", { name, exact: true }).click();
-}
-
-/**
- * Opens the select `label` names inside `scope` and presses `option`, which its list shows in a pop-over of the page's. A
- * select's button is named by its value, then its label (`useSelect`), so only a select holding no value starts on its label.
- */
-export async function choose(page: Page, scope: Locator, label: RegExp, option: string | RegExp): Promise<void> {
-  await scope.getByRole("button", { name: label }).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
-}
-
-/** The form's box under `title`: a box carries its title as a heading, and no landmark. */
-function box(page: Page, title: string): Locator {
-  return page.getByRole("main").locator("section", { has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
 /** A seat's four boxes, the labels by their start: a required field's label ends in its asterisk. */

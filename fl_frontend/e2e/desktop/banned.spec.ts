@@ -6,31 +6,18 @@
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "../support/application";
-import { test as journey } from "../support/journey";
+import { typeInto } from "../support/controls";
+import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, declinePasskeyOffer, enrolPasskey, failureLine, PERSON_LANDING, signInWithCode } from "../support/signIn";
-import { standInForTurnstile } from "../support/turnstileStandIn";
-
-import type { Page } from "@playwright/test";
 
 /** The person this journey bans (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
 const PERSON = "paula.paul@example.com";
 
-/** The administrator who bans them, whom no other journey signs in as. */
+/** The administrator who bans them, on the second device, whom no other journey signs in as. */
 const ADMINISTRATOR = "admin.sperre@example.com";
 
-/** The administrator's device beside the person's, built as `../accountActs.spec.ts`'s second device is. */
-const test = journey.extend<{ desk: Page }>({
-  desk: async ({ browser }, provide) => {
-    const device = await browser.newContext();
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
-  },
-});
-
-test("a banned person is told, loses their session and cannot sign in, by the sentence", async ({ page, context, desk }) => {
+test("a banned person is told, loses their session and cannot sign in, by the sentence", async ({ page, context, secondDevice: desk }) => {
   // The person: an account, so the ban owes its mail, and a passkey, which outlives the session the ban ends.
   await signInWithCode(page, PERSON);
   await declinePasskeyOffer(page, PERSON_LANDING);
