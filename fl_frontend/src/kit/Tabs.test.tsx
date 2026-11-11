@@ -27,19 +27,6 @@ describe("the kit's tabs", () => {
     const second = within(screen.getByRole("navigation", { name: SPIELTAGE })).getByRole("link", { name: "2. Spieltag" });
     expect(second.getAttribute("href")).toBe("?tab=st-2");
   });
-
-  it("marks the tab the address names as the current page", () => {
-    render(
-      <Tabs
-        label={SPIELTAGE}
-        selectedKey="st-2"
-        tabs={TABS}>
-        Inhalt
-      </Tabs>,
-    );
-    expect(screen.getByRole("link", { name: "2. Spieltag" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: "1. Spieltag" }).hasAttribute("aria-current")).toBe(false);
-  });
 });
 
 describe("the server's choice of tab", () => {

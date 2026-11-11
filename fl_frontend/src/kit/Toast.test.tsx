@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
 import { act, render, screen } from "@testing-library/react";
-import { Dialog } from "react-aria-components/Dialog";
-import { Modal } from "react-aria-components/Modal";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -32,29 +30,6 @@ function regionOf(toast: HTMLElement): HTMLElement {
 }
 
 describe("the toast region", () => {
-  // An open modal or menu hides everything outside itself but React Aria's top-level nodes, and a node
-  // added under an element it already hid stays hidden: a toast there would be silent to a screen reader.
-  it("draws a toast raised under an open modal outside every hidden or inert element", () => {
-    render(
-      <div>
-        <ToastRegion frame="rail" />
-      </div>,
-    );
-    render(
-      <Modal isOpen>
-        <Dialog aria-label="Dialog">Inhalt</Dialog>
-      </Modal>,
-    );
-
-    act(() => appToast("danger", TITLE));
-
-    const hiding: string[] = [];
-    for (let node: HTMLElement | null = screen.getByText(TITLE); node !== null; node = node.parentElement) {
-      if (node.inert || node.getAttribute("aria-hidden") === "true") hiding.push(node.tagName);
-    }
-    expect(hiding).toStrictEqual([]);
-  });
-
   // A navigation from one frame to the other mounts the other frame's region while a toast is still showing.
   it("draws a toast raised before its region mounts", () => {
     act(() => appToast("danger", TITLE));

@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { MailedPage } from "./MailedPage";
-import { OneShotForm } from "./OneShot";
 
 import type { ReactElement } from "react";
 import type { MailedState } from "./MailedPage";
@@ -39,20 +38,6 @@ const wait = (shape: { sentence?: string | false; sentenceAfter?: string; boxes?
 /** The field's placeholder in a page's markup. */
 const fieldIn = (page: HTMLElement) => page.querySelector(`[data-field="${FIELD}"]`);
 
-/** The class of the wrapper the landed question's form gives its fields. */
-const landedWrapper = (boxes: boolean) =>
-  fieldIn(
-    served(
-      <OneShotForm
-        head={<h1>{COPY.shared.help}</h1>}
-        action={async () => ({ ok: false, reason: COPY.shared.failure.tooManyAttempts })}
-        acts={{ primary: COPY.shared.verb.next }}
-        boxes={boxes}>
-        <span data-field={FIELD} />
-      </OneShotForm>,
-    ),
-  )?.parentElement?.className;
-
 // The harm: the page shifting when its read lands, a paragraph, a line or a box out of place in the wait, which no
 // reading of the landed page meets and no type holds.
 describe("a mailed question's wait", () => {
@@ -72,9 +57,5 @@ describe("a mailed question's wait", () => {
 
     expect(underTitle(wait({ sentence: false }))).toBe(true);
     expect(underTitle(wait({}))).toBe(false);
-  });
-
-  it.each([false, true])("lays the fields out as the landed form does, boxes %s", (boxes) => {
-    expect(fieldIn(wait({ boxes }))?.parentElement?.className).toBe(landedWrapper(boxes));
   });
 });

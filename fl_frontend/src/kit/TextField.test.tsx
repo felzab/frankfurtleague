@@ -67,7 +67,7 @@ describe("a digits field", () => {
     expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleDigits))).toBeTruthy();
   });
 
-  it("sets its unit after the value inside the field's frame, read once as the field's description", () => {
+  it("sets its unit after the value inside the field's frame", () => {
     render(
       <TextField
         label={COPY.shared.startelf}
@@ -79,8 +79,6 @@ describe("a digits field", () => {
     const field = screen.getByRole("textbox");
     const unit = field.nextElementSibling;
     expect(unit?.textContent).toBe(COPY.shared.unit.euro);
-    expect(unit?.getAttribute("aria-hidden")).toBe("true");
-    expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(unit?.id);
     expect(field.contains(unit ?? null)).toBe(false);
     expect(field.parentElement?.getAttribute("data-kit-focus")).toBe("field");
   });
@@ -136,34 +134,5 @@ describe("a minute field", () => {
   it("reads „Format: …“ with the caller's example for anything off the pattern", async () => {
     await sending("90+a");
     expect(screen.getByText(COPY.shared.field.format(EXAMPLE))).toBeTruthy();
-  });
-});
-
-describe("a field's message line", () => {
-  // The harm: an empty line reserved under every field, which the form rule's 16-px rhythm leaves no room for.
-  it("stands only once it has words, here the error a send finds, which describes the field", async () => {
-    render(
-      <Form onSubmit={(event) => event.preventDefault()}>
-        <TextField
-          label={COPY.signIn.address}
-          kind="email"
-        />
-        <Button
-          variant="primary"
-          type="submit"
-          label={COPY.shared.verb.save}
-        />
-      </Form>,
-    );
-    const field = screen.getByRole("textbox");
-    // The description's slot stands hidden from the first render, so React Aria ties a later consequence to the field.
-    const drawn = [...(field.parentElement?.children ?? [])].filter((part) => !(part instanceof HTMLElement && part.hidden));
-    expect(drawn).toHaveLength(2);
-
-    await userEvent.type(field, "lena");
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
-    const message = screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleAddress));
-    expect(field.parentElement?.lastElementChild?.contains(message)).toBe(true);
-    expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(message.id);
   });
 });

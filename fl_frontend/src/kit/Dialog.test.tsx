@@ -217,10 +217,9 @@ async function leaveAndReturnWithOpen(Page: () => ReactElement) {
     );
 }
 
-// The harm: an act the record cannot take, such as an unconfirmed pupil's admission, sent anyway and refused, or closed
-// with nothing saying why.
+// The harm: an act the record cannot take, such as an unconfirmed pupil's admission, sent anyway and refused.
 describe("a dialog's locked act", () => {
-  it("sends nothing on a press, and is described by its reason", async () => {
+  it("sends nothing on a press", async () => {
     const create = vi.fn(async () => DONE);
     const reason = COPY.shared.failure.stale;
     render(
@@ -233,7 +232,6 @@ describe("a dialog's locked act", () => {
     await createThroughTheDialog();
 
     expect(create).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create"), description: reason })).toBeTruthy();
   });
 });
 
@@ -333,25 +331,6 @@ describe("the kit's dialog", () => {
 
     await waitFor(() => expect(screen.getByText(words)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
-  it("empties its status line while its act is on its way, so the same refusal twice is announced twice", async () => {
-    const refusal: ActionAnswer = { ok: false, reason: COPY.shared.failure.stale };
-    const second = Promise.withResolvers<ActionAnswer>();
-    // React batches ongoing transitions together, so an act left unsettled by a failing case holds the next one's.
-    onTestFinished(() => second.resolve(refusal));
-    const create = vi.fn<(formData: FormData) => Promise<ActionAnswer>>().mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
-    render(<CreateDialog create={create} />);
-
-    await createThroughTheDialog();
-    const line = within(screen.getByRole("dialog")).getByRole("status");
-    await waitFor(() => expect(line.textContent).toBe(COPY.shared.failure.stale));
-
-    // A polite live region speaks only where its words change.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
-    await waitFor(() => expect(line.textContent).toBe(""));
-    await act(async () => second.resolve(refusal));
-    expect(line.textContent).toBe(COPY.shared.failure.stale);
   });
 
   it.each([

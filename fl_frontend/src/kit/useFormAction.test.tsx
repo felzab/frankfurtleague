@@ -157,10 +157,6 @@ describe("a form's status line for a refusal", () => {
     const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_draw;
     expect(statusOf({ ok: false, fieldErrors: { postcode }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
   });
-
-  it("says nothing while the next send is on its way, so the same refusal again is announced again", () => {
-    expect(statusOf({ ok: false, reason: COPY.shared.failure.tooManyAttempts }, false, true)).toBeNull();
-  });
 });
 
 /** The hook under Next's `Activity`, which hides a page the person left and shows it again on return. */

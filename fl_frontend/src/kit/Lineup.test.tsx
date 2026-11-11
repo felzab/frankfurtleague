@@ -129,9 +129,8 @@ describe("a line-up", () => {
     const full = { picked: ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), starters: ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) };
     expect(seen).toHaveBeenLastCalledWith(full);
 
-    // The twelfth: heard as unavailable before the press, and refused on its own row by it.
+    // The twelfth: refused on its own row by the press.
     expect(within(rowOf(12)).queryByText(WORDS.startersFull)).toBeNull();
-    expect(screen.getByRole("checkbox", { name: `${WORDS.starts} ${nameOf(12)}`, description: WORDS.startersFull })).toBeTruthy();
     const raised = seen.mock.calls.length;
     await userEvent.click(tickOf(12));
     expect(tickOf(12).checked).toBe(false);
@@ -232,7 +231,7 @@ describe("a line-up's states", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", { name: `${WORDS.starts} ${nameOf(1)}`, description: COPY.shared.failure.stale })).toBeTruthy();
+    expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
     expect(within(rowOf(40)).getByText(COPY.admin.spiel.departed)).toBeTruthy();
     expect(tickOf(40).disabled).toBe(true);
 

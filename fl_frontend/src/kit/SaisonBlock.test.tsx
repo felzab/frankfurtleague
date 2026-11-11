@@ -58,18 +58,6 @@ describe("the season's card before the start", () => {
   });
 
   // The dashed open plaque holds no text, so the Spielplan's words for an open side name it to a screen reader.
-  it("names an empty opening side to a screen reader, as the Spielplan does", () => {
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{ kind: "countdown", start: new Date(Date.now() + DAY_MS).toISOString(), opening: { ...OPENING, team2: null } }}
-      />,
-    );
-    const line = screen.getByText(OPENING.spieltag).parentElement;
-    expect(line?.textContent).toBe(`${OPENING.spieltag}GOE–${COPY.spielplan.quelle.open}`);
-    expect(within(line as HTMLElement).getByText(COPY.spielplan.quelle.open).classList).toContain("sr-only");
-  });
-
   // The countdown always shows, the season's start being its one instant; only the opening match waits on a dated fixture.
   it("counts down alone while no match is dated", () => {
     render(

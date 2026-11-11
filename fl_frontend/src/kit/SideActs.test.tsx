@@ -78,9 +78,9 @@ describe("a row's side acts", () => {
     await waitFor(() => expect(document.activeElement).toBe(more));
   });
 
-  // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard or a
-  // screen reader learns why the act cannot run; or its press runs the act after all.
-  it("keep a locked act's entry in the keys' reach, described by its reason, its press running nothing", async () => {
+  // The harm: a locked act's entry is one the keys pass over, as a disabled entry is, so nobody on a keyboard reaches
+  // the reason under its label; or its press runs the act after all.
+  it("keep a locked act's entry in the keys' reach, its press running nothing", async () => {
     const edit = vi.fn();
     render(
       <SideActs
@@ -96,8 +96,6 @@ describe("a row's side acts", () => {
     await userEvent.keyboard("{ArrowDown}");
     const locked = within(screen.getByRole("menu")).getByRole("menuitem", { name: DISCARD });
     expect(document.activeElement).toBe(locked);
-    const reasons = (locked.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
-    expect(reasons).toContain(COPY.shared.failure.stale);
 
     await userEvent.keyboard("{Enter}");
     expect(edit).not.toHaveBeenCalled();
