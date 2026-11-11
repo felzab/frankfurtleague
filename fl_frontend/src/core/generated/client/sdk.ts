@@ -4091,9 +4091,9 @@ export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams
 };
 
 /**
- * An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
+ * Every venue in name order, the retired ones too where `include_inactive` asks for them.
  *
- * Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
+ * `maps_link` is a Maps search string, not a URL.
  * @summary List Spielorte
  */
 export const spielorteGetSpielorte = async (
@@ -4111,9 +4111,9 @@ export const getSpielortePostSpielortUrl = () => {
 };
 
 /**
- * Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+ * Create a venue, its `maps_link` derived from the name and the address.
  *
- * Refused where another venue holds the name (`duplicate_key`, naming `name`).
+ * A name another venue holds, a retired one included, is refused.
  * @summary Create a Spielort
  */
 export const spielortePostSpielort = async (
@@ -4145,10 +4145,9 @@ export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
+ * Retire a venue, which stays readable for every match played there.
  *
- * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
- * while an unplayed fixture is still booked here (`spielort_still_booked`).
+ * Refused while an unplayed fixture is booked at it.
  * @summary Deactivate a Spielort (soft delete)
  */
 export const spielorteDeleteSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
@@ -4163,10 +4162,7 @@ export const getSpielorteGetSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
- *
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
- * the editor reactivates one, and a historical match's venue is the case worth answering.
+ * One venue, a retired one included, with the `version` its save sends back.
  * @summary One Spielort
  */
 export const spielorteGetSpielort = async (
@@ -4184,11 +4180,9 @@ export const getSpielortePatchSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
+ * Save a venue on the `version` it was read at, answering the version stored.
  *
- * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
- * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming
- * `name`).
+ * Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
  * @summary Update a Spielort
  */
 export const spielortePatchSpielort = async (
@@ -4221,7 +4215,7 @@ export const getSpielorteReactivateSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Clear `inactive_since`, putting the venue back into the picker and every default read.
+ * Return a retired venue to every default read.
  * @summary Bring a deactivated Spielort back
  */
 export const spielorteReactivateSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {

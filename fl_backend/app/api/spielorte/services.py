@@ -8,11 +8,7 @@ from app.core.exceptions import WriteRefusal
 
 
 def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
-    """Named in the slice rather than spelled at its one call, as the referee's twin is.
-
-    One spelling of the partition for the retirement's refusal and for any later reader of it
-    (`app/api/schiedsrichter/services.py :: build_unplayed_assignment_filter`).
-    """
+    """A venue's unplayed bookings, spelled once for the retirement's refusal and any later reader."""
 
     return {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
