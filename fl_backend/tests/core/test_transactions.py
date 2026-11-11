@@ -15,7 +15,6 @@ from pymongo import AsyncMongoClient
 from pymongo.errors import ExecutionTimeout, OperationFailure
 from starlette.types import Message, Scope
 
-from app.core import transactions
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, fl_logger
@@ -638,24 +637,18 @@ class TestAFailedSessionAbortsInsideItsGrace:
             assert deadline.aborting_s == 0
 
 
-# Short, so the two cases below wait a fraction of the shipped grace; what they assert is how it is shared.
-SHORT_GRACE_S = 0.2
-
 # Over the event loop's timer resolution, about 16 ms on Windows, by which a sleep may end early.
 PAST_BY_S = 0.1
 
 
 class TestARequestsAbortsShareOneGrace:
-    def test_an_abort_begun_inside_the_deadline_charges_what_it_ran_past_it(
-        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-    ):
+    def test_an_abort_begun_inside_the_deadline_charges_what_it_ran_past_it(self, caplog: pytest.LogCaptureFixture):
         """Uncharged, the next abort would open a second whole grace, against a server that answers neither."""
 
-        monkeypatch.setattr(transactions, "ABORT_GRACE_S", SHORT_GRACE_S)
         # Placed once the loop runs, `PAST_BY_S` ahead of the first abort.
         deadline = RequestDeadline(at=0.0)
         # Answered only once the whole grace has passed the deadline, as an abort nothing answers runs to its timeout.
-        unanswered = _SlowlyAnsweredSession(after_s=PAST_BY_S + SHORT_GRACE_S + PAST_BY_S)
+        unanswered = _SlowlyAnsweredSession(after_s=PAST_BY_S + ABORT_GRACE_S + PAST_BY_S)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
             first, second = _aborts_sent_in_turn(deadline=deadline, sessions=[unanswered, _TransactedSession()], deadline_after_s=PAST_BY_S)
@@ -664,14 +657,13 @@ class TestARequestsAbortsShareOneGrace:
         assert (len(first), second) == (1, [])
         assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
 
-    def test_work_between_two_cut_transactions_leaves_the_second_abort_its_share(self, monkeypatch: pytest.MonkeyPatch):
+    def test_work_between_two_cut_transactions_leaves_the_second_abort_its_share(self):
         """Charged to the grace, the request's work without the database between two cut transactions would leave the second abort nothing."""
 
-        monkeypatch.setattr(transactions, "ABORT_GRACE_S", SHORT_GRACE_S)
         deadline = RequestDeadline(time.monotonic() - PAST_BY_S)
 
         sent = _aborts_sent_in_turn(
-            deadline=deadline, sessions=[_TransactedSession(), _TransactedSession()], between_s=SHORT_GRACE_S + PAST_BY_S
+            deadline=deadline, sessions=[_TransactedSession(), _TransactedSession()], between_s=ABORT_GRACE_S + PAST_BY_S
         )
 
         assert sent == [[{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]] * 2
