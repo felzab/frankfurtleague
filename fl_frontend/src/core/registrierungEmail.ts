@@ -47,7 +47,7 @@ function spielerConfirmationLink(origin: string, token: string): string {
  * **The number is the backend's published bound, never a word here**: the mail and the page would otherwise state
  * two deadlines, and one would not move.
  */
-export function buildRegistrierungBestaetigungEmail({ team, saison_id: saisonId }: FLRegistrierungLinkData, { origin, token }: MailLink): Mail {
+export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId }: FLRegistrierungLinkData, { origin, token }: MailLink): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.

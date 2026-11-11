@@ -40,8 +40,8 @@ vi.mock("next/navigation", () => ({
 
 const WORD = COPY.signIn.address;
 const YES_NO = [
-  { id: "ja", label: COPY.shared.verb.save },
-  { id: "nein", label: COPY.shared.verb.delete },
+  { id: "yes", label: COPY.shared.verb.save },
+  { id: "no", label: COPY.shared.verb.delete },
 ];
 const CARDS = YES_NO.map((choice) => ({ ...choice, line: WORD }));
 const OPTIONS = [{ id: "riedberg", label: { record: "Riedberg" } }];
@@ -276,12 +276,12 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <RadioGroup
         label={WORD}
-        defaultValue="ja"
+        defaultValue="yes"
         choices={YES_NO}
         onChange={onChange}
       />
     ),
-    ...chose("nein"),
+    ...chose("no"),
   },
   {
     field: "cards of answers",
@@ -293,33 +293,33 @@ const FIELDS: Case[] = [
         onChange={onChange}
       />
     ),
-    ...chose("ja"),
+    ...chose("yes"),
   },
   {
     field: "a segmented choice",
     page: (onChange) => (
       <Segmented
         label={WORD}
-        defaultValue="ja"
+        defaultValue="yes"
         choices={YES_NO}
         onChange={onChange}
       />
     ),
-    ...chose("nein"),
+    ...chose("no"),
   },
   {
     field: "toggle boxes",
     page: (onChange) => (
       <ToggleBoxes
         label={WORD}
-        defaultValue={["ja"]}
+        defaultValue={["yes"]}
         choices={YES_NO}
         onChange={onChange}
       />
     ),
-    edit: (root) => tick(root, "nein"),
-    raised: ["ja", "nein"],
-    shown: (root) => shownChecked(root, "nein"),
+    edit: (root) => tick(root, "no"),
+    raised: ["yes", "no"],
+    shown: (root) => shownChecked(root, "no"),
     kept: true,
   },
 ];
@@ -459,7 +459,7 @@ describe("a field the person left as the server drew it", () => {
         />
         <RadioGroup
           label={WORD}
-          defaultValue="ja"
+          defaultValue="yes"
           choices={YES_NO}
           onChange={onChange}
         />

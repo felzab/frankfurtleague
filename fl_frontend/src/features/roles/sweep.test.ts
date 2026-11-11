@@ -32,12 +32,12 @@ vi.doMock("@/core/mail.ts", async (importOriginal) => ({
 }));
 
 /** Which of `identifiers` the doubled read answers unreferenced, handed the batch alone or an address re-asked alone. */
-let referenzen: (identifiers: readonly string[]) => readonly string[] = () => [];
+let references: (identifiers: readonly string[]) => readonly string[] = () => [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
 const calls = doubleApiClient((call) => {
   const { identifiers } = JSON.parse(call.body ?? "{}") as FLReferencesPayload;
-  return { unreferenced: [...referenzen(identifiers)] } satisfies FLReferencesResponse;
+  return { unreferenced: [...references(identifiers)] } satisfies FLReferencesResponse;
 });
 
 const record =
@@ -87,13 +87,13 @@ beforeEach(() => {
   deleteOutcomes.clear();
   accounts = [];
   listing = () => Promise.resolve(accounts);
-  referenzen = () => [];
+  references = () => [];
 });
 
 describe("which accounts a pass deletes", () => {
   it("deletes an account answered unreferenced in the batch and again alone, and never one the read does not answer", async () => {
     accounts = ["erika@schule.de", "max@schule.de"];
-    referenzen = unreferencedBut("max@schule.de");
+    references = unreferencedBut("max@schule.de");
 
     await runAccountSweep();
 
@@ -104,7 +104,7 @@ describe("which accounts a pass deletes", () => {
      it, the race narrows to the seconds between that answer and the delete. */
   it("keeps an account the batch answered unreferenced and the second ask no longer does", async () => {
     accounts = ["erika@schule.de", "neu@schule.de"];
-    referenzen = (identifiers) => (identifiers.length > 1 ? identifiers : unreferencedBut("neu@schule.de")(identifiers));
+    references = (identifiers) => (identifiers.length > 1 ? identifiers : unreferencedBut("neu@schule.de")(identifiers));
 
     await runAccountSweep();
 
@@ -140,8 +140,8 @@ describe("the batches a pass asks in", () => {
 describe("a pass meeting a failure", () => {
   it("deletes nothing a failed batch asked about, still deletes from the next, and writes one failure line", async () => {
     accounts = adressen(REFERENCES_ADDRESSES_MAX + 2);
-    const zweiter = accounts.slice(REFERENCES_ADDRESSES_MAX);
-    referenzen = (identifiers) => {
+    const second = accounts.slice(REFERENCES_ADDRESSES_MAX);
+    references = (identifiers) => {
       if (identifiers.length === REFERENCES_ADDRESSES_MAX) throw new TypeError("fetch failed");
       return identifiers;
     };
@@ -149,7 +149,7 @@ describe("a pass meeting a failure", () => {
     // The batch it could not judge is what the pass left, which the heartbeat names.
     expect((await runAccountSweep()).open).toBe(REFERENCES_ADDRESSES_MAX);
 
-    expect(deleteCalls).toStrictEqual(zweiter);
+    expect(deleteCalls).toStrictEqual(second);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
       { event: "account.references_failed", fields: { name: "TypeError", count: REFERENCES_ADDRESSES_MAX } },
     ]);
@@ -157,7 +157,7 @@ describe("a pass meeting a failure", () => {
 
   it("deletes the rest past one throwing delete, logging that one by the error's name alone", async () => {
     accounts = ["a@schule.de", "b@schule.de", "c@schule.de"];
-    referenzen = (identifiers) => identifiers;
+    references = (identifiers) => identifiers;
     deleteOutcomes.set("b@schule.de", "throws");
 
     await runAccountSweep();
@@ -175,7 +175,7 @@ describe("a pass meeting a failure", () => {
 
   it("keeps an account whose second ask fails, and goes on to the next", async () => {
     accounts = ["a@schule.de", "b@schule.de", "c@schule.de"];
-    referenzen = (identifiers) => {
+    references = (identifiers) => {
       if (identifiers.length === 1 && identifiers[0] === "b@schule.de") throw new TypeError("fetch failed for b@schule.de");
       return identifiers;
     };
@@ -203,7 +203,7 @@ describe("a pass meeting a failure", () => {
      database would otherwise answer every address unreferenced, twice. */
   it("deletes nothing the backend's fail-safe refuses, naming the refusal's status, code and trace", async () => {
     accounts = ["a@schule.de", "b@schule.de"];
-    referenzen = () => {
+    references = () => {
       throw new APIBadStatusError({
         message: "The backend refused the request.",
         url: "http://backend:8000/api/v0/identity/references",
@@ -235,7 +235,7 @@ describe("a pass meeting a failure", () => {
      arrived there at all. */
   it("names an unanswered call's trace on its failure line", async () => {
     accounts = ["a@schule.de"];
-    referenzen = () => {
+    references = () => {
       throw new APINetworkError({
         message: "The backend did not answer.",
         url: "http://backend:8000/api/v0/identity/references",
@@ -256,7 +256,7 @@ describe("a pass meeting a failure", () => {
      one does: an account's address is what this pass must never put on a line, and it mails nobody. */
   it("names no address on any line, and mails nobody", async () => {
     accounts = [...adressen(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.de", "fehler@schule.de"];
-    referenzen = (identifiers) => {
+    references = (identifiers) => {
       if (identifiers.length === REFERENCES_ADDRESSES_MAX) throw new TypeError(`refused ${identifiers.join(", ")}`);
       return identifiers;
     };
@@ -280,7 +280,7 @@ describe("what a completed pass answers", () => {
      the failed ones what the heartbeat names as left. */
   it("counts what was answered unreferenced, deleted, already gone and failed", async () => {
     accounts = ["geloescht@schule.de", "fort@schule.de", "referenziert@schule.de", "neu@schule.de", "fehler@schule.de"];
-    referenzen = (identifiers) =>
+    references = (identifiers) =>
       identifiers.length > 1 ? unreferencedBut("referenziert@schule.de")(identifiers) : unreferencedBut("neu@schule.de")(identifiers);
     deleteOutcomes.set("fort@schule.de", "gone");
     deleteOutcomes.set("fehler@schule.de", "throws");
