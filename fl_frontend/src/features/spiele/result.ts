@@ -6,8 +6,8 @@ import type { FLSaisonPhase, FLSonderereignis, FLSpielSide } from "@/core/genera
 import type { ScoreOutcome } from "@/kit/ScoreRows";
 
 /**
- * The rules a match's result is read by, which the match editor, the referee's report and the public match page each
- * apply to what they show: one place, so the administrator's preview and the referee's never read a match apart.
+ * One place for the rules a match's result is read by, so the administrator's preview and the referee's never read a
+ * match apart.
  */
 
 /** The two no-shows, whose goals the league composes from the season's rules and which take no goal of their own. */
@@ -17,7 +17,6 @@ type NoShow = Extract<FLSonderereignis, "nichtantreten_team1" | "nichtantreten_t
 export const isNoShow = (sonderereignis: string | null): sonderereignis is NoShow =>
   sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
-/** The side a goal counts for: its row's own, and the other one for an own goal. */
 export const creditedSide = ({ side, eigentor }: { side: FLSpielSide; eigentor: boolean }): FLSpielSide =>
   eigentor ? (side === "team1" ? "team2" : "team1") : side;
 
@@ -26,9 +25,8 @@ type Side = { readonly tore: number | null } | null;
 
 /**
  * Whether a fixture takes a shoot-out: a knockout match whose two sides' goals are entered and level, and which no
- * no-show decided. The write keeps a shoot-out on exactly these and drops it anywhere else
- * (`fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel`), so the match editor and the referee's report
- * offer the pair where it would stand.
+ * no-show decided. The write keeps a shoot-out on exactly these and drops it anywhere else, so the match editor and the
+ * referee's report offer the pair where it would stand.
  */
 export function admitsShootOut(saisonPhase: FLSaisonPhase, team1: Side, team2: Side, sonderereignis: FLSonderereignis | null): boolean {
   if (saisonPhase === "gruppenphase") return false;
@@ -42,10 +40,6 @@ export function admitsShootOut(saisonPhase: FLSaisonPhase, team1: Side, team2: S
   return tore1 !== null && tore2 !== null && tore1 === tore2;
 }
 
-/**
- * What the goals decide, a shoot-out's goals added where one stands: who wins and by what, named as the form names
- * its sides, or a draw.
- */
 export function scoreOutcome(goals: Pair, added: Pair | null, names: readonly [Words, Words]): ScoreOutcome {
   const words = COPY.admin.spiel;
   const score = words.score(goals, added);
