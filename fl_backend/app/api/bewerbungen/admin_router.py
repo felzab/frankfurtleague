@@ -101,7 +101,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
@@ -526,7 +526,6 @@ async def decline_bewerbung(
                         saison_id=str(stored_raw["saison_id"]),
                         rollen=seats,
                         reason=decline_data.reason,
-                        deletion_days=DECLINED_RETENTION_DAYS,
                     ),
                 )
                 for email, seats in people_with_address(

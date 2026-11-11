@@ -311,8 +311,6 @@ class FLBewerbungAbsageData(BaseModel):
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     reason: str
-    # The days the mail says the application stands: the decline owes no deletion notice of its own.
-    deletion_days: int
 
 
 class FLBewerbungObjectionData(BaseModel):

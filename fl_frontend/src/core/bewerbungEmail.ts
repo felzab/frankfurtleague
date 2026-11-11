@@ -1,5 +1,6 @@
 import "server-only";
 
+import { DECLINED_RETENTION_DAYS } from "./bounds";
 import { COPY, rollenText } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
@@ -76,10 +77,7 @@ export function buildBewerbungZusageEmail(
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
-export function buildBewerbungAbsageEmail(
-  { team, saison_id, rollen, reason, deletion_days }: FLBewerbungAbsageData,
-  { origin }: MailOrigin,
-): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
@@ -88,7 +86,7 @@ export function buildBewerbungAbsageEmail(
       [
         [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
         WORDS.absage.decision,
-        WORDS.absage.deletion(deletion_days),
+        WORDS.absage.deletion(DECLINED_RETENTION_DAYS),
       ],
     ],
     block: {

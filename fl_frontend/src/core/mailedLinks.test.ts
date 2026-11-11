@@ -101,7 +101,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     team: "Lessing",
     trikot_farbe: null,
   },
-  bewerbung_absage: { kind: "bewerbung_absage", deletion_days: 14, reason: "Zu spät", rollen: ["trainer"], saison_id: "2627", team: "Lessing" },
+  bewerbung_absage: { kind: "bewerbung_absage", reason: "Zu spät", rollen: ["trainer"], saison_id: "2627", team: "Lessing" },
   deletion_notice: { kind: "deletion_notice", saison_id: null },
   bewerbung_objection: {
     kind: "bewerbung_objection",
