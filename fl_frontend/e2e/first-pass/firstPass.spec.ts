@@ -7,10 +7,10 @@
  */
 import { expect } from "@playwright/test";
 
-import { chooseWho } from "./support/actionLog";
-import { SAISON, SUBJECT } from "./support/application";
-import { ADMINISTRATOR_STATE, test } from "./support/journey";
-import { MAIL_WAIT_MS, mailedMessage } from "./support/mailSink";
+import { chooseWho } from "../support/actionLog";
+import { SAISON, SUBJECT } from "../support/application";
+import { ADMINISTRATOR_STATE, test } from "../support/journey";
+import { MAIL_WAIT_MS, mailedMessage } from "../support/mailSink";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 

@@ -27,7 +27,9 @@ import type { JourneyOptions } from "./e2e/support/journey";
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 /**
- * The journeys every viewport runs, at the top of `e2e/`; each project's own directory holds the rest.
+ * The journeys every viewport runs: each spec at the top of `e2e/`, and each project's own folder holds the rest.
+ * Playwright matches a string pattern against the whole path, any folders allowed before it, so `*.spec.ts` alone would
+ * reach every folder below; the folder's name anchors it.
  *
  * The passkey ceremonies are desktop's alone. Playwright's WebKit has no WebAuthn of its own and
  * supplies `PublicKeyCredential` as a plain object, which `@simplewebauthn/browser`'s support check
@@ -35,18 +37,7 @@ const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
  * rather than WebKit. The phone follows an administrator's mailed code as far as the passkey card, and
  * reads the Verwaltung under the session the `administrator` project below sets up in Chromium.
  */
-const EVERY_PROJECT = [
-  "signin.spec.ts",
-  "spielplan.spec.ts",
-  "accountActs.spec.ts",
-  "legal.spec.ts",
-  "applicant.spec.ts",
-  "austritt.spec.ts",
-  "administration.spec.ts",
-  "teamArea.spec.ts",
-  "pupilArea.spec.ts",
-  "refereeArea.spec.ts",
-];
+const EVERY_PROJECT = "e2e/*.spec.ts";
 
 export default defineConfig<JourneyOptions>({
   testDir: "./e2e",
@@ -77,7 +68,7 @@ export default defineConfig<JourneyOptions>({
     {
       name: "desktop",
       dependencies: ["administrator"],
-      testMatch: [...EVERY_PROJECT, "desktop/**/*.spec.ts"],
+      testMatch: [EVERY_PROJECT, "desktop/**/*.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
         administrator: "admin.desktop@example.com",
@@ -96,7 +87,7 @@ export default defineConfig<JourneyOptions>({
     {
       name: "phone",
       dependencies: ["administrator"],
-      testMatch: [...EVERY_PROJECT, "phone/**/*.spec.ts"],
+      testMatch: [EVERY_PROJECT, "phone/**/*.spec.ts"],
       // The profile `playwright open --mobile` takes in WebKit, Playwright's newest iPhone.
       use: {
         ...devices["iPhone 17"],
@@ -117,7 +108,7 @@ export default defineConfig<JourneyOptions>({
     {
       name: "first-pass",
       dependencies: ["administrator"],
-      testMatch: "firstPass.spec.ts",
+      testMatch: "first-pass/**/*.spec.ts",
       use: devices["Desktop Chrome"],
     },
   ],
