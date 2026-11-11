@@ -1,24 +1,18 @@
 /**
- * E2E · the `test` every journey imports: Playwright's own, with the options a project sets and the
- * address each journey visits from.
+ * E2E · the `test` every journey imports: Playwright's own, with the options a project sets.
  *
  * Options rather than constants per file, so one journey runs under both projects as each project's
  * own people (https://playwright.dev/docs/test-parameterize#parameterized-projects). Each is a
  * record of `scripts/ops/seed/seed.js`, and no two projects share one: a passkey or a code one
  * project made is never the other's to find.
  */
-import { once } from "node:events";
-import { Agent, createServer, request } from "node:http";
 import path from "node:path";
-import { pipeline } from "node:stream";
 
 import { test as base } from "@playwright/test";
 
-import { accessLogEnd, expectEdgeSawVisitor } from "./edgeLog";
 import { standInForTurnstile } from "./turnstileStandIn";
 
 import type { Page, Request } from "@playwright/test";
-import type { IncomingHttpHeaders, OutgoingHttpHeaders, ServerResponse } from "node:http";
 
 export type JourneyOptions = {
   /** An administrator's grant. */
@@ -53,29 +47,9 @@ export type JourneyOptions = {
 };
 
 type JourneyFixtures = {
-  /** The address this journey visits from, which the stack's edge reads as the visitor's. */
-  visitor: string;
   /** The administrator's device, beside the one the journey's own person holds, already signed in. */
   administration: Page;
 };
-
-type WorkerFixtures = {
-  /** The next address of this worker's own block, a new one on every call. */
-  nextVisitor: () => string;
-};
-
-/**
- * The address of journey `started` in worker `workerIndex`, from RFC 2544's benchmarking range 198.18.0.0/15, which
- * no real visitor holds: a /24 for each worker, its 254 host addresses one per journey, spelled
- * `198.18.<worker>.<journey + 1>` for the first 256 workers. A worker replacing a failed one has the next `workerIndex`
- * and so the next block, never an address a journey before it spent. The range is 512 such blocks, so running out is a
- * suite of hundreds of journeys, where this throws rather than hand out an address twice.
- */
-function visitorAddress(workerIndex: number, started: number): string {
-  if (started > 253 || workerIndex > 511)
-    throw new Error(`198.18.0.0/15 holds no address for journey ${String(started)} of worker ${String(workerIndex)}`);
-  return `198.${String(18 + Math.floor(workerIndex / 256))}.${String(workerIndex % 256)}.${String(started + 1)}`;
-}
 
 /**
  * The session `./administrator.setup.ts` saves, which every administration journey opens with
@@ -83,105 +57,6 @@ function visitorAddress(workerIndex: number, started: number): string {
  * failed run uploads: it holds a live session of that stack.
  */
 export const ADMINISTRATOR_STATE = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "administrator.json");
-
-/** The header Cloudflare names the visitor in, and the one `nginx/e2e/e2e.conf` trusts from the host. */
-const VISITOR_HEADER = "cf-connecting-ip";
-
-/**
- * What this proxy consumes rather than forwards, beside any header `Connection` names: `Connection`
- * itself and the five fields RFC 9110 section 7.6.1 lists; `Proxy-Authorization`, credentials meant for a
- * proxy (section 11.7.2), which no target of this one is, and `Proxy-Authenticate`, a challenge meant for
- * the next client on the response chain (section 11.7.1), which is this proxy and not the browser; and
- * `Trailer`, which would announce trailer fields this proxy never passes on.
- */
-const HOP_BY_HOP = new Set([
-  "connection",
-  "proxy-connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
-]);
-
-function endToEnd(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
-  const named = new Set((headers.connection ?? "").split(",").map((token) => token.trim().toLowerCase()));
-  return Object.fromEntries(Object.entries(headers).filter(([name]) => !HOP_BY_HOP.has(name) && !named.has(name)));
-}
-
-/**
- * A piped stream ended early: the browser left mid-request, as an outgoing document does when a
- * navigation commits, or the stack dropped an answer it had begun. `pipeline` has destroyed every
- * stream of the pair, which ends the browser's connection as a direct one would have ended, so nothing
- * more is answered. A target the proxy never reached is answered apart, by `unanswered`.
- */
-function endedEarly(): void {
-  // Nothing to answer; see above.
-}
-
-/**
- * The request to the target failed. No stream of the browser's was piped from it, so nothing else ends
- * the browser's request, which would wait out the journey's timeout and name no cause: before any answer
- * it is answered 502, as a gateway answers for a target it cannot reach, and once an answer has begun,
- * its connection ends, as a direct one would.
- */
-function unanswered(outgoing: ServerResponse): void {
-  if (outgoing.headersSent || outgoing.destroyed) outgoing.destroy();
-  else outgoing.writeHead(502).end();
-}
-
-/**
- * The forward proxy one journey's browser context reaches the network through, standing where
- * Cloudflare stands in production: it names `visitor` on every request to the stack's `origin`, and
- * passes every other request on as it came. It listens on loopback alone, on a port the system picks.
- *
- * It opens no tunnel: an HTTP server without a `connect` listener closes such a connection, so nothing over TLS leaves
- * a journey for a third party. Playwright's own request client (`page.request`, `route.fetch()`) tunnels to every
- * target of a proxied context, so no journey uses it.
- */
-async function startVisitorProxy(origin: string, visitor: string): Promise<{ server: string; close: () => Promise<void> }> {
-  // Its own pool to the stack, so the journey's teardown ends those connections with the rest.
-  const agent = new Agent({ keepAlive: true });
-
-  const server = createServer((incoming, outgoing) => {
-    // A request to a proxy names its target in absolute form.
-    const target = URL.parse(incoming.url ?? "");
-    if (target === null) {
-      outgoing.writeHead(400).end();
-      return;
-    }
-    // A header the browser sent of its own never names the visitor: Cloudflare overwrites it too.
-    const { [VISITOR_HEADER]: _sent, ...headers } = endToEnd(incoming.headers);
-    if (target.origin === origin) headers[VISITOR_HEADER] = visitor;
-    const upstream = request(target, { method: incoming.method, headers, agent }, (answer) => {
-      outgoing.writeHead(answer.statusCode ?? 502, answer.statusMessage, endToEnd(answer.headers));
-      pipeline(answer, outgoing, endedEarly);
-    });
-    // The request ends with the browser's, so no answer arrives for a response already destroyed.
-    outgoing.once("close", () => {
-      if (!outgoing.writableFinished) upstream.destroy();
-    });
-    upstream.on("error", () => unanswered(outgoing));
-    pipeline(incoming, upstream, endedEarly);
-  });
-
-  await once(server.listen(0, "127.0.0.1"), "listening");
-  const address = server.address();
-  if (address === null || typeof address === "string") throw new Error(`the visitor's proxy listens on no port: ${String(address)}`);
-
-  return {
-    server: `http://127.0.0.1:${String(address.port)}`,
-    close: async () => {
-      const closed = once(server, "close");
-      server.close();
-      server.closeAllConnections();
-      agent.destroy();
-      await closed;
-    },
-  };
-}
 
 /**
  * Waits for Next's prefetch of a match link of the made-up seed's running season, a request carrying the `_rsc`
@@ -197,7 +72,7 @@ export function hydrated(page: Page): Promise<Request> {
   });
 }
 
-export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures>({
+export const test = base.extend<JourneyFixtures & JourneyOptions>({
   // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
   administrator: ["", { option: true }],
   twoDevices: ["", { option: true }],
@@ -211,63 +86,17 @@ export const test = base.extend<JourneyFixtures & JourneyOptions, WorkerFixtures
   registering: [{ club: "", token: "", admitter: "" }, { option: true }],
   booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
-  // `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it as.
-  // Worker-scoped, so the count lives as long as the worker and a replacement worker starts its own block
-  // (https://playwright.dev/docs/test-fixtures#worker-scoped-fixtures).
-  nextVisitor: [
-    async ({}, provide, workerInfo) => {
-      let started = 0;
-      await provide(() => visitorAddress(workerInfo.workerIndex, started++));
-    },
-    { scope: "worker" },
-  ],
-
-  // Each journey is one visitor, as each person on the site is: the edge's rate limits are per visitor,
-  // and every journey shares one address with the others unless it names its own
-  // (`nginx/e2e/e2e.conf`). Per journey rather than per project, so no journey spends another's
-  // budget.
-  visitor: [
-    async ({ nextVisitor }, provide) => {
-      const address = nextVisitor();
-
-      const logged = await accessLogEnd();
-      await provide(address);
-      // That the edge took the address is what makes each journey a visitor of its own; where it did not, a
-      // journey's sign-in meets another's spent budget as a 429 that names nothing of the cause. Read once
-      // the browser context and the proxy beneath it have closed, so every request the journey sent is in.
-      await expectEdgeSawVisitor(address, logged);
-    },
-    { auto: true },
-  ],
-
-  // The address goes on where a request leaves the browser for the network, as Cloudflare adds it on the
-  // way in. Neither `context.route` nor `extraHTTPHeaders` covers every request: a document a navigation
-  // replaces still sends while the next commits, and Chromium sends those past both, with the browser's
-  // own user agent (https://github.com/microsoft/playwright/issues/43278). A per-context proxy
-  // (https://playwright.dev/docs/network#http-proxy) takes every request the context sends, to loopback too:
-  // Playwright lifts Chromium's loopback bypass for it, and WebKit sends loopback through it as it is. Built on
-  // the journey's address, so the browser context, which is built on this, closes before it, and it before the
-  // edge is read.
-  proxy: async ({ visitor, baseURL }, provide) => {
-    const proxy = await startVisitorProxy(new URL(String(baseURL)).origin, visitor);
-    try {
-      await provide({ server: proxy.server });
-    } finally {
-      await proxy.close();
-    }
-  },
-
-  // The test's own context; a context a journey builds beside it takes the stand-in itself.
+  // The test's own context; a context a journey builds beside it takes the stand-in itself. `provide` is the
+  // fixture's `use`, named apart from React's hook, which a lint rule reads it as.
   context: async ({ context }, provide) => {
     await standInForTurnstile(context);
     await provide(context);
   },
 
   // A second context as a fixture, as Playwright's guide builds one for a second role
-  // (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), on the proxy for the reason
-  // `../accountActs.spec.ts`'s second device is.
-  administration: async ({ browser, proxy }, provide) => {
-    const device = await browser.newContext({ proxy, storageState: ADMINISTRATOR_STATE });
+  // (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures).
+  administration: async ({ browser }, provide) => {
+    const device = await browser.newContext({ storageState: ADMINISTRATOR_STATE });
     await standInForTurnstile(device);
     await provide(await device.newPage());
     await device.close();

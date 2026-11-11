@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useId, useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -17,7 +17,6 @@ import { Facts } from "./Facts";
 import { FieldStack } from "./FieldStack";
 import { statusLine } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
-import { RowName } from "./RowActs";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
@@ -126,31 +125,24 @@ const dangerRow = tv({
  */
 function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
   const { confirm } = danger;
-  const nameId = useId();
   return (
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
-        <span
-          id={nameId}
-          className="font-semibold">
-          {danger.name}
-        </span>
+        <span className="font-semibold">{danger.name}</span>
         <p className={statusLine({ placement: "column", tone: "resting" })}>{danger.consequence}</p>
       </div>
       {/* Its button says the verb alone, as an editor's danger row's does, so the part's name says what it acts on. */}
-      <RowName value={nameId}>
-        <ConfirmDialog
-          {...confirm}
-          onConfirm={async () => {
-            // An act answering nothing is done, as the question reads it.
-            const answered = (await confirm.onConfirm()) ?? DONE;
-            // An update after the `await` commits outside the question's transition unless it opens one of its own.
-            if (answered.ok) startTransition(onDone);
-            return answered;
-          }}
-          trigger={{ label: COPY.shared.verb[confirm.verb], isDisabled: isClosed }}
-        />
-      </RowName>
+      <ConfirmDialog
+        {...confirm}
+        onConfirm={async () => {
+          // An act answering nothing is done, as the question reads it.
+          const answered = (await confirm.onConfirm()) ?? DONE;
+          // An update after the `await` commits outside the question's transition unless it opens one of its own.
+          if (answered.ok) startTransition(onDone);
+          return answered;
+        }}
+        trigger={{ label: COPY.shared.verb[confirm.verb], isDisabled: isClosed }}
+      />
     </div>
   );
 }

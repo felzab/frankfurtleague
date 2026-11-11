@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useId, useRef } from "react";
+import { useId, useRef } from "react";
 
 import { Button as AriaButton } from "react-aria-components/Button";
 import { ProgressBar } from "react-aria-components/ProgressBar";
@@ -10,7 +10,6 @@ import { COPY } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
 import { Icon } from "./Icon";
-import { RowName } from "./RowActs";
 import { Tooltip } from "./Tooltip";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
@@ -44,16 +43,12 @@ type ButtonProps =
       /** A glyph before the label, such as the filter's; the spinner takes its place while busy. */
       leadingIcon?: IconName;
       icon?: never;
-      /**
-       * One repeated on every row of a list, such as a squad row's „Aufstellen“, is described by its row's name, as an
-       * icon is; inside a row's acts (`RowActs`) the row's name is the default.
-       */
+      /** The id of the words that describe the act, such as the notice a form's send rests on (`OneShotForm`). */
       "aria-describedby"?: string;
     })
   /**
    * An icon alone: `label` is its name, which the tooltip shows. One folding a region, such as the rail,
-   * says whether that region stands open and names it by its id; one repeated on every row of a list, such as a
-   * row's removal, is described by its row's name, since every row's button carries the same name. It closes by
+   * says whether that region stands open and names it by its id. It closes by
    * `locked` alone: a disabled trigger's tooltip never opens, React Aria's `useFocusable` dropping what the trigger
    * hands it, and an icon without its tooltip says nothing.
    */
@@ -65,7 +60,6 @@ type ButtonProps =
       isDisabled?: never;
       "aria-expanded"?: boolean;
       "aria-controls"?: string;
-      "aria-describedby"?: string;
     });
 
 function Spinner() {
@@ -142,8 +136,6 @@ function LockedReason({
 export function Button(props: ButtonProps) {
   const { onPress, type = "button", isDisabled = false, isBusy = false, label, slot, locked, lockedEdge = "end" } = props;
   const reasonId = useId();
-  // A button among a row's acts is described by the row's name unless it names what describes it.
-  const rowName = useContext(RowName);
   const isLocked = locked !== undefined;
   // `aria-disabled` rather than `isDisabled`: a native `disabled` takes the focus and the hover the reason opens on. A
   // submit button is a plain one while locked, or the form's Enter and the press would send it.
@@ -155,10 +147,7 @@ export function Button(props: ButtonProps) {
     isPending: isBusy,
     "aria-disabled": isLocked || undefined,
   } as const;
-  const described = (given?: string) => {
-    const own = given ?? rowName;
-    return isLocked ? [own, reasonId].filter((id) => id !== undefined).join(" ") : own;
-  };
+  const described = (given?: string) => (isLocked ? [given, reasonId].filter((id) => id !== undefined).join(" ") : given);
 
   const draw = (press?: ReasonPress) =>
     props.icon !== undefined ? (
@@ -169,7 +158,7 @@ export function Button(props: ButtonProps) {
         aria-label={label}
         aria-expanded={props["aria-expanded"]}
         aria-controls={props["aria-controls"]}
-        aria-describedby={described(props["aria-describedby"])}
+        aria-describedby={described()}
         className={buttonLook({ look: "icon", host: "aria", locked: isLocked })}>
         {isBusy ? (
           <Spinner />

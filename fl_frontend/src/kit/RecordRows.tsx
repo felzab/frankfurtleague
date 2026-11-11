@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-
-import { FocusScope, useFocusManager } from "react-aria/FocusScope";
+import { useId, useState } from "react";
 
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
@@ -11,7 +9,6 @@ import { CheckboxPlaceholder } from "./Checkbox";
 import { messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
-import { useFocusHome } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -113,24 +110,8 @@ const FIELD_LINE_CLASSES = "col-span-full h-8 rounded-lg pointer-coarse:h-10";
 
 type Slots = ReturnType<typeof recordRows>;
 
-/** The keys of the rows as they stand, the next key to give, and the key of the row the add control just made. */
-type Keys = { keys: readonly number[]; next: number; added: number | null };
-
-/**
- * Hands the keys to the first control of the row it stands in, once, as the row the add control made mounts: moved in
- * an effect, as the code field's focus is (`./CodeField.tsx`), through React Aria's focus manager, which knows what a
- * Tab reaches. Once, because Next shows a kept page again by running its effects again, the keys elsewhere by then.
- */
-function FirstControlFocus() {
-  const manager = useFocusManager();
-  const isDone = useRef(false);
-  useEffect(() => {
-    if (isDone.current) return;
-    isDone.current = true;
-    manager?.focusFirst({ tabbable: true });
-  }, [manager]);
-  return null;
-}
+/** The keys of the rows as they stand, and the next key to give. */
+type Keys = { keys: readonly number[]; next: number };
 
 function RecordRow<Row extends EditorRow>({
   slots,
@@ -141,7 +122,6 @@ function RecordRow<Row extends EditorRow>({
   errors,
   change,
   removal,
-  takesFocus,
 }: {
   slots: Slots;
   cells: RowCells<Row>;
@@ -154,19 +134,14 @@ function RecordRow<Row extends EditorRow>({
   change: (patch: Partial<Row>) => void;
   /** The remove control's name and its act; absent in a form closed read-only. */
   removal: { label: Copy; act: () => void } | undefined;
-  takesFocus: boolean;
 }) {
   const labelId = useId();
-  const element = useRef<HTMLDivElement>(null);
-  // A removed row hands the keys to the row after it, or before it, or to the list.
-  useFocusHome(element);
   const control = (cell: RowCell<Row>) => {
     const field = `${box}.${cell.field}`;
     return cell.control({ row, name: field, label: cell.label, error: errors?.[field], change });
   };
   return (
     <div
-      ref={element}
       data-kit-row
       role="group"
       aria-labelledby={labelId}
@@ -176,35 +151,31 @@ function RecordRow<Row extends EditorRow>({
         className={slots.label()}>
         {label}
       </div>
-      <FocusScope>
-        {takesFocus && <FirstControlFocus />}
-        <div className={slots.lead()}>{control(cells.lead)}</div>
-        <div className={slots.figure()}>{control(cells.figure)}</div>
-        <div className={slots.second()}>
-          <div className={slots.main()}>{control(cells.main)}</div>
-          {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
-          {cells.room !== undefined && (
-            // The other list's box as its wait draws it, unseen, unread and unreached: it holds the room the box takes.
-            <div
-              aria-hidden
-              inert
-              className={slots.beside({ class: "invisible" })}>
-              <CheckboxPlaceholder label={cells.room} />
-            </div>
-          )}
-        </div>
-        {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
-        {removal !== undefined && (
-          <div className={slots.remove()}>
-            <Button
-              icon="close"
-              label={removal.label}
-              aria-describedby={labelId}
-              onPress={removal.act}
-            />
+      <div className={slots.lead()}>{control(cells.lead)}</div>
+      <div className={slots.figure()}>{control(cells.figure)}</div>
+      <div className={slots.second()}>
+        <div className={slots.main()}>{control(cells.main)}</div>
+        {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
+        {cells.room !== undefined && (
+          // The other list's box as its wait draws it, unseen, unread and unreached: it holds the room the box takes.
+          <div
+            aria-hidden
+            inert
+            className={slots.beside({ class: "invisible" })}>
+            <CheckboxPlaceholder label={cells.room} />
           </div>
         )}
-      </FocusScope>
+      </div>
+      {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
+      {removal !== undefined && (
+        <div className={slots.remove()}>
+          <Button
+            icon="close"
+            label={removal.label}
+            onPress={removal.act}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -223,9 +194,7 @@ function RecordRow<Row extends EditorRow>({
  * carries no description, so the line under a field is its refusal's alone.
  * The list's own refusal, such as too many rows, stands under the add control.
  *
- * The add control appends `blank` and hands the keys to the new row's first control. A removed row hands them to the
- * row after it, else the row before it, else the list, as every row the kit lets leave does (`./RowActs.tsx`), so a
- * row's first control is one a press reaches, a button or a link. A form closed read-only draws neither control.
+ * The add control appends `blank`. A form closed read-only draws neither control.
  */
 export function RecordRows<Row extends EditorRow>({
   label,
@@ -249,7 +218,7 @@ export function RecordRows<Row extends EditorRow>({
   /** A new row as the add control makes it. */
   blank: Row;
   cells: RowCells<Row>;
-  /** The label over a row by its number, from 1, such as „Tor 3“: it names the row and describes its remove control. */
+  /** The label over a row by its number, from 1, such as „Tor 3“, which names the row. */
   rowLabel: (number: number) => Copy;
   /** The add control's label, such as „Tor eintragen“. */
   add: Copy;
@@ -266,14 +235,14 @@ export function RecordRows<Row extends EditorRow>({
   const slots = recordRows({ beside: cells.beside !== undefined || cells.room !== undefined });
   const isClosed = useDisabled(false);
   const lineId = useId();
-  const [held, setHeld] = useState<Keys>(() => ({ keys: rows.map((_, index) => index), next: rows.length, added: null }));
+  const [held, setHeld] = useState<Keys>(() => ({ keys: rows.map((_, index) => index), next: rows.length }));
 
   // A row keeps its key while the add and the remove control change the list. A list of another length was reset or
-  // served anew: its rows keep their places' keys, and none of them was just made here.
+  // served anew: its rows keep their places' keys.
   let current = held;
   if (held.keys.length !== rows.length) {
     const more = Array.from({ length: Math.max(0, rows.length - held.keys.length) }, (_, index) => held.next + index);
-    current = { keys: [...held.keys.slice(0, rows.length), ...more], next: held.next + more.length, added: null };
+    current = { keys: [...held.keys.slice(0, rows.length), ...more], next: held.next + more.length };
     setHeld(current);
   }
 
@@ -284,7 +253,6 @@ export function RecordRows<Row extends EditorRow>({
       role="group"
       aria-label={label}
       aria-describedby={listError === undefined ? undefined : lineId}
-      data-kit-focus="home"
       className={slots.root()}>
       {/* An empty list is its foot alone, which then stands first and draws no hairline over itself. */}
       {rows.length > 0 && (
@@ -310,7 +278,6 @@ export function RecordRows<Row extends EditorRow>({
                       },
                     }
               }
-              takesFocus={current.keys[index] === current.added}
             />
           ))}
         </div>
@@ -324,7 +291,7 @@ export function RecordRows<Row extends EditorRow>({
             locked={locked}
             lockedEdge="start"
             onPress={() => {
-              setHeld((state) => ({ keys: [...state.keys, state.next], next: state.next + 1, added: state.next }));
+              setHeld((state) => ({ keys: [...state.keys, state.next], next: state.next + 1 }));
               onChange([...rows, blank]);
             }}
           />

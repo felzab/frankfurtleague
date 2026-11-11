@@ -1352,7 +1352,7 @@ for (const name of db.getCollectionNames()) {
 // whose saves match on the version their editor was served, and none matches a document without one.
 // The first of each collection `fl_backend/app/core/crud.py :: anchor_in_db` writes carries the count an
 // anchor advances, as a document of the league's soon does, so the read-back judges that its record model declares it.
-const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "grants", "saisons", "saison_teams"]);
+const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "grants", "saisons", "saison_teams", "spieler", "spiele"]);
 for (const [name, documents] of Object.entries(DOCUMENTS)) {
   const versioned = documents.map((document, index) => ({
     ...document,

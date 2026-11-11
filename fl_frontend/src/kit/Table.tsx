@@ -1,4 +1,4 @@
-import { Fragment, useId } from "react";
+import { Fragment } from "react";
 
 import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
@@ -11,7 +11,6 @@ import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { Link } from "./Link";
 import { RoleMark } from "./RoleMark";
-import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
@@ -698,7 +697,6 @@ function NameCell({
   stacks,
   plaqueAlone,
   chipsOnLine,
-  nameId,
 }: {
   row: TableRow;
   barred: TableRow["qualifies"];
@@ -708,8 +706,6 @@ function NameCell({
   stacks: Stacks;
   plaqueAlone: boolean;
   chipsOnLine: ChipsOnLine;
-  /** The name's id, which the row's acts are described by. */
-  nameId: string | undefined;
 }) {
   const s = table({ qualifies: barred, compact, prose, stack, stacks, chipsOnLine: chipsOnLine === "never" ? undefined : chipsOnLine });
   const { plaque } = row;
@@ -735,7 +731,6 @@ function NameCell({
         <span className={held.line({ class: parts.line() })}>
           <span className={held.head({ class: parts.group() })}>
             <CutText
-              id={nameId}
               text={name}
               className={parts.words({ class: address ? addressWords({ class: s.whole() }) : s.whole() })}>
               {row.href === undefined ? (
@@ -825,8 +820,6 @@ export function Table({
   chevronOnPhone = true,
   plaqueAlone = false,
 }: TableProps) {
-  // A row's name's id is the table's and the row's, for the row's acts to be described by.
-  const tableId = useId();
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose, stack });
@@ -853,9 +846,7 @@ export function Table({
   );
   return (
     // `w-full`: a Section's grid starts its children, which would shrink the table and cut its cells.
-    <div
-      data-kit-focus="home"
-      className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
+    <div className={bare ? "@container w-full overflow-x-auto" : cardSurface({ class: "@container w-full overflow-x-auto" })}>
       {rows.some((row) => row.anchor !== undefined) && <TargetMark />}
       {rows.length === 0 ? (
         <EmptyState {...empty} />
@@ -922,7 +913,6 @@ export function Table({
           </thead>
           <tbody className={parts.part()}>
             {rows.map((row) => {
-              const nameId = row.acts === undefined ? undefined : `${tableId}-${row.id}`;
               // A row its name's link or press stretches over: the cut words under the pointer, in any cell, are the
               // tooltip the stretched name carries (`CutRow`).
               const Stretched = leadsOn(row) ? CutRow : Fragment;
@@ -950,7 +940,6 @@ export function Table({
                       stacks={stacks}
                       plaqueAlone={plaqueAlone}
                       chipsOnLine={chipsOnLineOf(state, stacks)}
-                      nameId={nameId}
                     />
                     {state !== undefined && (
                       <td
@@ -1004,11 +993,9 @@ export function Table({
                         role="cell"
                         className={parts.acts()}>
                         {row.acts !== undefined && (
-                          <RowActs
-                            className={parts.actsLine()}
-                            describedBy={nameId}>
+                          <div className={parts.actsLine()}>
                             <SideActsScope folds={folds}>{row.acts}</SideActsScope>
-                          </RowActs>
+                          </div>
                         )}
                       </td>
                     )}

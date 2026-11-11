@@ -10,7 +10,6 @@ import { Card, CardActRow } from "./Card";
 import { isEdgeRefusal } from "./edgeRefusal";
 import { EmptyBox, EmptyState } from "./EmptyState";
 import { StatusLine } from "./FieldParts";
-import { RowActs } from "./RowActs";
 import { SearchField } from "./SearchField";
 import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
@@ -274,19 +273,14 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
         empty={isSearching ? { ...table.empty, kind: "search" } : table.empty}
       />
       {more !== undefined && (
-        // What stands where the button stood once the last page took it: past the rows it brought, where the keys go on.
-        <div
-          data-kit-focus="home"
-          className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {current.cursor !== null && (
-            <RowActs className="contents">
-              <Button
-                variant="secondary"
-                label={COPY.shared.loadMore}
-                isBusy={isLoading}
-                onPress={loadMore}
-              />
-            </RowActs>
+            <Button
+              variant="secondary"
+              label={COPY.shared.loadMore}
+              isBusy={isLoading}
+              onPress={loadMore}
+            />
           )}
           {/* Standing with no button too: a search over the last page fails as any read does. */}
           <StatusLine

@@ -20,7 +20,7 @@ const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 let drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
 
 /** The restore's hold the boot reads, off unless a case sets it. */
-const settings = { APP_ENV: "production", APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
+const settings = { APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
 
 /** Each ping, as the monitor received it. */
 const pings: { url: string; method: string; body: string | undefined }[] = [];
@@ -32,11 +32,6 @@ const job = (name: string) => () => {
 };
 
 vi.doMock("@/core/config.ts", () => ({
-  // Each boot runs in-process with no preflight naming a deployment.
-  bootCheck: () => undefined,
-  refuseInvalidEnvironment: (): never => {
-    throw new Error("the doubled config refuses no environment");
-  },
   frontend_config: settings,
   heartbeatUrl: () => heartbeat,
 }));

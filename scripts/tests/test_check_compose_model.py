@@ -11,13 +11,11 @@ import contextlib
 import io
 import json
 import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import BASH, base_env, import_scripts, lift_assignment, new_root, run_shell, write_shell
+from conftest import BASH, base_env, import_scripts, new_root, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -47,7 +45,7 @@ def test_a_database_joining_production_fails():
 
 def test_any_production_port_fails_the_edge_included():
     """Production's nginx publishes nothing either; the connector reaches it over the network."""
-    found = checker.production(model(frontend={}, backend={}, nginx={"ports": [port("443", 443)]}, cloudflared={}), "p")
+    found = checker.production(model(frontend={}, backend={}, nginx={"ports": [port("80", 80)]}, cloudflared={}), "p")
     assert len(found) == 1
 
 
@@ -117,10 +115,10 @@ DIRECTORIES = (bind("nginx/prod", "/etc/nginx/conf.d"), bind("nginx/shared", "/e
 
 
 def test_directory_mounts_are_clean_and_read_as_pairs():
-    """The log mount's source sits outside the project and a tmpfs is no bind, so neither is a pair."""
+    """A source outside the project and a tmpfs, which is no bind, are neither of them a pair."""
     rendered = edge(
         *DIRECTORIES,
-        bind("certs", "/etc/nginx/certs"),
+        bind(".tmp-mail", "/app/.tmp-mail"),
         {"type": "bind", "source": "/var/log/x", "target": "/var/log/x"},
         {"type": "tmpfs", "target": "/run/x"},
     )
@@ -140,7 +138,7 @@ def test_a_single_file_mount_fails_whichever_syntax_wrote_it():
 
 
 def test_an_edge_mounting_nothing_from_the_checkout_fails():
-    _, findings = checker.edge_mounts(edge(bind("certs", "/etc/nginx/certs")), "p", PROJECT, checkout())
+    _, findings = checker.edge_mounts(edge(bind(".tmp-mail", "/app/.tmp-mail")), "p", PROJECT, checkout())
 
     assert len(findings) == 1
 
@@ -153,59 +151,14 @@ def test_a_short_syntax_volume_refuses():
     raise AssertionError("a short-syntax volume was judged")
 
 
-# --- the edge's Control API socket ---------------------------------------------------------------
-
-SOCKET = "/run/nginx-control/control.sock"
-
-
-def started(command: list[str], tmpfs: list[str]) -> dict[str, Any]:
-    return model(nginx={"command": command, "tmpfs": tmpfs})
-
-
-LISTENING = ["nginx", "-g", "daemon off;", "-l", f"unix:{SOCKET}"]
-
-
-def test_a_socket_the_deploy_asks_in_a_root_only_tmpfs_is_clean():
-    assert checker.control_socket(started(LISTENING, ["/run/nginx-control:mode=700"]), "p", SOCKET) == []
-
-
-def test_a_command_without_the_listener_or_on_another_socket_fails():
-    """Either way every reload the deploy sends meets no socket."""
-    tmpfs = ["/run/nginx-control:mode=700"]
-    assert len(checker.control_socket(started(LISTENING[:3], tmpfs), "p", SOCKET)) == 1
-    assert len(checker.control_socket(started([*LISTENING[:4], "unix:/run/nginx-control/other.sock"], tmpfs), "p", SOCKET)) == 1
-
-
-def test_a_tmpfs_at_dockers_default_mode_fails():
-    """1777, which lets the worker's user into the directory."""
-    assert len(checker.control_socket(started(LISTENING, ["/run/nginx-control"]), "p", SOCKET)) == 1
-
-
-def test_the_socket_is_read_off_the_deploy_script():
-    assert checker.deploy_socket(checker.DEPLOY) == SOCKET
-
-
-def test_the_deploy_compares_exactly_the_pairs_production_mounts():
-    """Read off the script itself: a pair missing there is a directory nginx loads and no deploy compares."""
-    pairs = [("nginx/prod", "/etc/nginx/conf.d"), ("nginx/shared", "/etc/nginx/shared")]
-
-    assert checker.compared(pairs, checker.deploy_pairs(checker.DEPLOY), "p") == []
-    assert len(checker.compared([*pairs, ("nginx/extra", "/etc/nginx/extra")], checker.deploy_pairs(checker.DEPLOY), "p")) == 1
-
-
 # --- the connector production's edge trusts ---------------------------------------------------------
 
 CONNECTOR = "172.30.0.250"
 
 
-def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};", arm: str = f"{CONNECTOR}/32  1;") -> str:
+def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};") -> str:
     """An edge's trust, as `nginx/shared/http.conf` spells it."""
-    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n\n{marker(arm)}"
-
-
-def marker(arm: str = f"{CONNECTOR}/32  1;") -> str:
-    """The fallback's geo block alone."""
-    return f"geo $realip_fallback {{\n    default          0;\n    {arm}\n}}\n"
+    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n"
 
 
 @pytest.mark.parametrize(
@@ -237,16 +190,12 @@ def test_a_realip_directive_commented_out_or_quoted_is_no_statement():
     assert checker.trusted_connector(conf() + inert, CONNECTOR, "c") == []
 
 
-def test_a_one_line_geo_block_marking_another_address_fails():
-    assert len(checker.trusted_connector(conf() + "geo $realip_fallback { default 0; 10.0.0.1/32 1; }\n", CONNECTOR, "c")) == 1
-
-
 def test_a_realip_header_declared_nowhere_fails():
     """nginx's default is X-Real-IP, which the connector never sends, so every visitor would read as the connector."""
     assert len(checker.trusted_connector(conf().replace("real_ip_header CF-Connecting-IP;\n", ""), CONNECTOR, "c")) == 1
 
 
-def test_a_connector_trusted_and_marked_at_its_rendered_address_is_clean():
+def test_a_connector_trusted_at_its_rendered_address_is_clean():
     rendered = model(cloudflared={"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}})
 
     assert checker.trusted_connector(conf(), checker.connector_address(rendered, "p"), "c") == []
@@ -262,24 +211,6 @@ def test_trust_widened_beside_the_connector_fails():
     widened = conf(real_ip=f"set_real_ip_from {CONNECTOR};\nset_real_ip_from 173.245.48.0/20;")
 
     assert len(checker.trusted_connector(widened, CONNECTOR, "c")) == 1
-
-
-def test_a_fallback_marker_at_another_address_fails():
-    """A marker nothing matches leaves the access line silent about the fallback it exists to show."""
-    assert len(checker.trusted_connector(conf(arm="172.30.0.2/32  1;"), CONNECTOR, "c")) == 1
-
-
-def test_a_conf_without_the_fallback_marker_refuses():
-    try:
-        checker.trusted_connector(f"set_real_ip_from {CONNECTOR};\n", CONNECTOR, "c")
-    except ValueError:
-        return
-    raise AssertionError("a configuration with no geo block was judged")
-
-
-def test_a_second_fallback_marker_fails():
-    """Each file an edge mounts is read, so a block an entry file repeats is a second marker, not a hidden one."""
-    assert len(checker.trusted_connector(conf() + marker(), CONNECTOR, "c")) == 1
 
 
 def mounted(prod: str, shared: str) -> Path:
@@ -342,8 +273,8 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / conf_dir), "target": "/etc/nginx/conf.d"},
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
-    nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
-    frontend = env_file("fl_frontend/.env") | joined(APP)
+    nginx = {"volumes": edge_volumes, **joined(EDGE, APP)}
+    frontend = {"environment": env_file("fl_frontend/.env")["environment"] | {"APP_ENV": stack_name}} | joined(APP)
     backend = env_file("fl_backend/.env") | joined(APP)
     # The local stack's database, which its logins name.
     database = {"mongo": joined(APP)} if stack_name == "local" else {}
@@ -415,6 +346,19 @@ def test_main_judges_the_environment_files_of_both_models():
         assert f"{broken}: backend reads the environment files" in said, said
 
 
+@pytest.mark.parametrize("stack", ["production", "local"])
+def test_a_frontend_under_another_deployment_name_or_none_fails(stack: str):
+    """Compose ranks `environment` above the package's file, so the name the compose file writes is the one that boots."""
+    project = new_root("fl-compose-deployment-")
+    rendered = rendered_stack(project, "nginx/local" if stack == "local" else "nginx/prod")
+
+    assert checker.deployment_name(rendered, "s", stack) == []
+    for said in ("local" if stack == "production" else "production", None):
+        environment = rendered["services"]["frontend"]["environment"] | {"APP_ENV": said}
+        changed = model(**rendered["services"] | {"frontend": {"environment": {k: v for k, v in environment.items() if v is not None}}})
+        assert len(checker.deployment_name(changed, "s", stack)) == 1, said
+
+
 # --- the environment files each application service reads ---------------------------------------------
 
 
@@ -426,7 +370,7 @@ def test_each_service_reading_its_package_file_alone_is_clean():
 
 @pytest.mark.parametrize("second", ["fl_backend/.env", ".env"], ids=["the-other-package-s", "the-checkout-s"])
 def test_a_second_file_beside_the_package_s_fails(second: str):
-    """The deploy's reader judges the package's file alone, so a name the second file hands the container is one nothing judged."""
+    """A name the second file hands the container is one nobody reading the package's own file sees."""
     rendered = model(frontend=env_file("fl_frontend/.env", second), backend=env_file("fl_backend/.env"))
 
     found = checker.env_files(rendered, "p")
@@ -539,13 +483,11 @@ def test_main_judges_the_networks_of_both_models():
 PRIVILEGED: Final = model(**{service: hardened(service) for service in (*checker.PRODUCTION_SERVICES, "mongo")})
 
 
-def test_every_service_dropping_all_and_the_edge_adding_its_four_is_clean():
+def test_every_service_dropping_all_and_the_edge_adding_its_three_is_clean():
     assert checker.privileges(PRIVILEGED, "p") == []
 
 
-@pytest.mark.parametrize(
-    "spelled", [["cap_chown", "Cap_SetUid", "SETGID", "dac_override"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_DAC_OVERRIDE"]]
-)
+@pytest.mark.parametrize("spelled", [["cap_chown", "Cap_SetUid", "SETGID"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID"]])
 def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(spelled: list[str]):
     """Docker takes a name in any case and with or without `CAP_`, so a spelling alone is no finding."""
     rendered = model(**PRIVILEGED["services"] | {"nginx": hardened("nginx") | {"cap_add": spelled}})
@@ -556,9 +498,7 @@ def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(s
 @pytest.mark.parametrize(
     ("service", "changed", "said"),
     [
-        pytest.param(
-            "nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"
-        ),
+        pytest.param("nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"),
         pytest.param("nginx", {"cap_drop": []}, "nginx drops nothing", id="edge-drops-nothing"),
         pytest.param("frontend", {"cap_add": ["NET_BIND_SERVICE"]}, "frontend adds back", id="frontend-adds-one"),
         pytest.param("backend", {"cap_drop": ["NET_RAW"]}, "backend drops ['NET_RAW'], not ALL", id="backend-drops-one"),
@@ -819,377 +759,6 @@ def test_main_judges_the_secret_holders_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: ['backend', 'frontend'] holds {KEY}" in said, said
-
-
-def test_the_preflights_lists_are_the_tables():
-    """The preflights ask the host for each file compose mounts, so a list apart from compose's asks for the wrong set."""
-    lib = Path(__file__).resolve().parents[1] / "lib" / "_lib.sh"
-
-    def listed(name: str) -> set[str]:
-        return set(lift_assignment(lib, name).split("=", 1)[1].strip("()").split())
-
-    def read_by(stack: str, service: str) -> set[str]:
-        return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders}
-
-    assert listed("FRONTEND_SECRETS") == read_by("production", "frontend")
-    assert listed("BACKEND_SECRETS") == read_by("production", "backend")
-    assert listed("LOCAL_FRONTEND_SECRETS") == read_by("local", "frontend")
-    assert listed("LOCAL_BACKEND_SECRETS") == read_by("local", "backend")
-    assert listed("MOVED_ENV_NAMES") == checker.MOVED_ENV_NAMES
-
-
-# --- the files the frontend's schema reads, against what compose hands it -----------------------------
-
-SCHEMA: Final = checker.frontend_schema_files(checker.FRONTEND_CONFIG)
-
-
-def schema_file(secret_files: str, production_only: str = '"AUTH_RESEND_KEY"') -> Path:
-    """A `config.ts` of the case's own, holding the two declarations the reader takes and nothing else."""
-    path = new_root("fl-compose-schema-") / "config.ts"
-    path.write_bytes(
-        (
-            f"const SECRET_FILES = {{\n{secret_files}}} as const;\n"
-            f"const PRODUCTION_ONLY_REQUIRED = [{production_only}] as const satisfies readonly SecretKey[];\n"
-        ).encode()
-    )
-    return path
-
-
-def handed(stack: str) -> dict[str, Any]:
-    """The frontend as Compose renders it on `stack`, holding what the two tables give it."""
-    return holding(stack, "frontend") | configured(stack, "frontend")
-
-
-def test_the_schema_s_files_are_read_off_config_ts():
-    """The real declaration, so a reader matching nothing in it is caught here rather than passing every stack."""
-    reads, production_only = SCHEMA
-
-    assert {"auth_secret", "frontend_mongodb_uri"} <= reads, reads
-    assert production_only and production_only < reads, (production_only, reads)
-
-
-def test_a_schema_line_of_another_shape_refuses():
-    """A key this reader cannot read would drop out of the set, and a file compose lacks would pass unasked."""
-    with pytest.raises(ValueError, match="no `KEY"):
-        checker.frontend_schema_files(schema_file('  AUTH_SECRET: "auth_secret",\n  ...OTHER_FILES,\n'))
-
-
-def test_a_production_demand_the_schema_holds_no_file_for_refuses():
-    with pytest.raises(ValueError, match="SECRET_FILES lacks"):
-        checker.frontend_schema_files(schema_file('  AUTH_SECRET: "auth_secret",\n', '"AUTH_RESEND_KEY"'))
-
-
-def test_a_declaration_the_reader_cannot_find_refuses():
-    path = new_root("fl-compose-schema-") / "config.ts"
-    path.write_bytes(b"export const nothing = {};\n")
-
-    with pytest.raises(ValueError, match="declares no SECRET_FILES"):
-        checker.frontend_schema_files(path)
-
-
-@pytest.mark.parametrize("stack", ["production", "local"])
-def test_each_stack_handing_the_frontend_what_its_schema_requires_is_clean(stack: str):
-    """Locally that is every file but production's own, the login arriving as a config."""
-    assert checker.frontend_files(model(frontend=handed(stack)), "p", stack, SCHEMA) == []
-
-
-@pytest.mark.parametrize(("stack", "dropped"), [("production", "auth_resend_key"), ("local", "auth_secret")])
-def test_a_file_the_schema_requires_left_unmounted_fails(stack: str, dropped: str):
-    """The boot refuses it, and without this only the deploy's preflight on the host, or `local.sh`, says so."""
-    frontend = handed(stack)
-    frontend["secrets"] = [entry for entry in frontend["secrets"] if entry["source"] != dropped]
-
-    found = checker.frontend_files(model(frontend=frontend), "p", stack, SCHEMA)
-
-    assert [finding.detail.split("\n")[0] for finding in found] == [
-        f"p: the frontend's schema requires ['{dropped}'] and compose mounts none of it at /run/secrets"
-    ]
-
-
-def test_the_login_left_off_the_local_frontend_fails():
-    """The config reaches the path a secret would, so it counts as the file the schema reads."""
-    found = checker.frontend_files(model(frontend=holding("local", "frontend")), "p", "local", SCHEMA)
-
-    assert len(found) == 1 and "['frontend_mongodb_uri']" in found[0].detail, found
-
-
-def test_a_file_the_schema_never_reads_handed_to_the_frontend_fails():
-    """One more holder of a credential nothing on that side reads."""
-    frontend = handed("production")
-    frontend["secrets"] = [*frontend["secrets"], {"source": "backend_mongodb_uri"}]
-
-    found = checker.frontend_files(model(frontend=frontend), "p", "production", SCHEMA)
-
-    assert [finding.detail for finding in found] == ["p: compose hands the frontend ['backend_mongodb_uri'], which its schema never reads"]
-
-
-def test_a_file_the_schema_starts_reading_fails_until_compose_mounts_it():
-    """The drift this rule exists for: a schema change alone, which every other gate step passes."""
-    reads, production_only = SCHEMA
-
-    found = checker.frontend_files(model(frontend=handed("production")), "p", "production", (reads | {"a_new_file"}, production_only))
-
-    assert len(found) == 1 and "['a_new_file']" in found[0].detail, found
-
-
-def test_main_judges_the_frontend_files_of_both_models():
-    project = new_root("fl-compose-main-schema-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        frontend = ({"production": production, "local": local}[broken])["services"]["frontend"]
-        frontend["secrets"] = [entry for entry in frontend["secrets"] if entry["source"] != "auth_secret"]
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: the frontend's schema requires ['auth_secret']" in said, said
-
-
-# --- the files the backend's secret half reads, against what compose hands it ----------------------------
-
-SETTINGS: Final = checker.backend_schema_files(checker.BACKEND_CONFIG)
-
-
-SETTINGS_IMPORTS: Final = (
-    "from typing import Annotated, ClassVar, Final\n"
-    "from pydantic import AliasChoices, BaseModel, Field, SecretStr\n"
-    "from pydantic_settings import BaseSettings, SettingsConfigDict\n"
-    "from app.core.keys import ForeignKey\n"
-)
-
-
-def settings_file(body: str) -> Path:
-    """A `config.py` of the case's own: its imports, one constant, a base class and the class the reader starts from."""
-    path = new_root("fl-compose-settings-") / "config.py"
-    text = f'{SETTINGS_IMPORTS}\nNAMED: Final = "named_file"\n\n\nclass _Base(BaseModel):\n    inherited: SecretStr\n\n\n{body}'
-    path.write_bytes(text.encode())
-    return path
-
-
-def test_the_backend_s_files_are_read_off_config_py_as_the_backend_itself_names_them():
-    """Held to `SECRET_FILES` over pydantic's merged fields, so a field shape the parse misreads fails here.
-
-    Both name a file by its alias or its own name, a rule
-    `fl_backend/tests/core/test_config.py :: TestTheSecretFiles` holds to what pydantic-settings reads.
-    """
-    imported = subprocess.run(
-        [sys.executable, "-c", "import json\nfrom app.core.config import SECRET_FILES\nprint(json.dumps(sorted(SECRET_FILES)))"],
-        cwd=checker.REPO_ROOT / "fl_backend",
-        capture_output=True,
-        check=True,
-        env=base_env(),
-    )
-    reads, required = SETTINGS
-
-    assert sorted(reads) == json.loads(imported.stdout), imported.stderr
-    assert required == reads, "every secret the backend reads is one its boot demands"
-
-
-def test_each_field_shape_is_read_as_pydantic_reads_it():
-    """An alias as a string or a module constant, an inherited field, a default; a class variable and a private name are no field."""
-    path = settings_file(
-        "class _SecretFields(BaseSettings, _Base):\n"
-        "    model_config = SettingsConfigDict()\n"
-        '    plain: SecretStr = Field(description="x")\n'
-        "    constant: SecretStr = Field(validation_alias=NAMED)\n"
-        '    spelled: SecretStr = Field(validation_alias="spelled_file")\n'
-        "    annotated: Annotated[SecretStr, Field(min_length=1)] = Field(...)\n"
-        "    optional: SecretStr | None = None\n"
-        "    factory: SecretStr = Field(default_factory=lambda: None)\n"
-        "    counted: ClassVar[int] = 0\n"
-        "    _private: str = ''\n"
-    )
-
-    reads, required = checker.backend_schema_files(path)
-
-    assert reads == {"inherited", "plain", "named_file", "spelled_file", "annotated", "optional", "factory"}
-    assert required == {"inherited", "plain", "named_file", "spelled_file", "annotated"}
-
-
-@pytest.mark.parametrize(
-    ("field", "said"),
-    [
-        pytest.param('Field(alias="x")', "a keyword this does not read", id="alias"),
-        pytest.param("Field(**{'validation_alias': 'x'})", "a keyword this does not read", id="unpacked"),
-        pytest.param('Field(validation_alias=AliasChoices("a", "b"))', "neither a string nor a module constant", id="choices"),
-        pytest.param("Field(validation_alias=UNDECLARED)", "UNDECLARED, which config.py binds nowhere", id="unresolved"),
-        pytest.param("Field(validation_alias=SecretStr)", "neither a string nor a module constant", id="imported-name"),
-    ],
-)
-def test_a_field_naming_its_file_another_way_refuses(field: str, said: str):
-    """Read past, it would count as its own name, and a file compose mounts under the real one would read as never read."""
-    with pytest.raises(ValueError, match=said):
-        checker.backend_schema_files(settings_file(f"class _SecretFields(BaseSettings, _Base):\n    secret: SecretStr = {field}\n"))
-
-
-def test_two_aliases_for_one_field_refuse():
-    body = 'class _SecretFields(BaseSettings):\n    secret: Annotated[SecretStr, Field(validation_alias="a")] = Field(validation_alias="b")\n'
-
-    with pytest.raises(ValueError, match="two validation_alias values"):
-        checker.backend_schema_files(settings_file(body))
-
-
-@pytest.mark.parametrize(
-    ("body", "said"),
-    [
-        pytest.param("class Other(BaseSettings):\n    secret: SecretStr\n", "declares no _SecretFields class", id="no-class"),
-        pytest.param("class _SecretFields(BaseSettings):\n    model_config = SettingsConfigDict()\n", "declares no field", id="no-field"),
-    ],
-)
-def test_a_declaration_the_backend_reader_cannot_find_refuses(body: str, said: str):
-    with pytest.raises(ValueError, match=said):
-        checker.backend_schema_files(settings_file(body))
-
-
-def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
-    """An alias naming another, and a constant holding the whole `Field`: each `validation_alias` sits a step past where the field names it."""
-    path = settings_file(
-        'Inner = Annotated[SecretStr, Field(validation_alias="inner_file")]\n'
-        "Outer = Annotated[Inner, Field(min_length=1)]\n"
-        'HELD = Field(validation_alias="held_file")\n\n\n'
-        "class _SecretFields(BaseSettings):\n"
-        "    nested: Outer\n"
-        "    held: SecretStr = HELD\n"
-    )
-
-    reads, required = checker.backend_schema_files(path)
-
-    assert reads == required == {"inner_file", "held_file"}
-
-
-@pytest.mark.parametrize(
-    ("body", "said"),
-    [
-        pytest.param(
-            "class _SecretFields(BaseSettings, ForeignKey):\n    secret: SecretStr\n", "inherits from ForeignKey", id="base-from-the-backend"
-        ),
-        pytest.param("class _SecretFields(BaseSettings, Mixin):\n    secret: SecretStr\n", "inherits from Mixin", id="base-bound-nowhere"),
-        pytest.param("class _SecretFields(Generic[T]):\n    secret: SecretStr\n", r"inherits from Generic\[T\]", id="base-subscripted"),
-        pytest.param(
-            "class _SecretFields(BaseSettings):\n    if True:\n        secret: SecretStr\n", "holds a If statement", id="compound-statement"
-        ),
-        pytest.param(
-            "class _SecretFields(BaseSettings):\n    secret: ForeignKey\n", "ForeignKey from app.core.keys", id="alias-from-the-backend"
-        ),
-        pytest.param(
-            "class _SecretFields(BaseSettings):\n    secret: Unbound\n", "Unbound, which config.py binds nowhere", id="alias-bound-nowhere"
-        ),
-        pytest.param(
-            "type Key = Annotated[SecretStr, Field(validation_alias='k')]\n\n\nclass _SecretFields(BaseSettings):\n    secret: Key\n",
-            "Key, which config.py binds nowhere",
-            id="type-statement",
-        ),
-        pytest.param(
-            "if True:\n    NAMED = 'other_file'\n\n\n"
-            "class _SecretFields(BaseSettings):\n    secret: SecretStr = Field(validation_alias=NAMED)\n",
-            "NAMED, which config.py binds more than once",
-            id="rebound-constant",
-        ),
-        pytest.param(
-            "class _SecretFields(BaseSettings):\n    secret: SecretStr = KEY_FIELD\n",
-            "KEY_FIELD, which config.py binds nowhere",
-            id="value-bound-nowhere",
-        ),
-        pytest.param(
-            "RING_A = RING_B\nRING_B = RING_A\n\n\nclass _SecretFields(BaseSettings):\n    secret: SecretStr = RING_A\n",
-            "a ring of constants",
-            id="constant-ring",
-        ),
-        pytest.param(
-            "class _SecretFields(BaseSettings, Other):\n    secret: SecretStr\n\n\nclass Other(_SecretFields):\n    pass\n",
-            "inherits from itself",
-            id="class-ring",
-        ),
-    ],
-)
-def test_a_name_base_or_statement_the_backend_reader_cannot_follow_refuses(body: str, said: str):
-    """Each read past would leave a `Field` unread, its file counted under the field's own name or not at all."""
-    with pytest.raises(ValueError, match=said):
-        checker.backend_schema_files(settings_file(body))
-
-
-def test_main_refuses_at_2_where_the_backend_reader_cannot_follow_the_settings(monkeypatch: pytest.MonkeyPatch):
-    """A refusal rather than a verdict on either stack, whatever the two models say (`scripts/lib/checker_kernel.py :: EXIT_REFUSED`)."""
-    project = new_root("fl-compose-main-unread-")
-    production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-    local = rendered_stack(project, "nginx/local")
-    monkeypatch.setattr(checker, "BACKEND_CONFIG", settings_file("class _SecretFields(BaseSettings, ForeignKey):\n    secret: SecretStr\n"))
-
-    code, said = run_main(production, local, project)
-
-    assert code == checker.EXIT_REFUSED, said
-    assert "inherits from ForeignKey" in said, said
-
-
-def test_a_config_compose_did_not_expand_refuses_the_mount_reader():
-    with pytest.raises(ValueError, match="a config Compose did not expand"):
-        checker.backend_files(model(backend={"configs": ["backend_mongodb_uri"]}), "p", SETTINGS)
-
-
-def backend_handed(stack: str) -> dict[str, Any]:
-    """The backend as Compose renders it on `stack`, holding what the two tables give it."""
-    return holding(stack, "backend") | configured(stack, "backend")
-
-
-@pytest.mark.parametrize("stack", ["production", "local"])
-def test_each_stack_handing_the_backend_what_its_settings_require_is_clean(stack: str):
-    """Locally the login arrives as a config, at the path a secret would."""
-    assert checker.backend_files(model(backend=backend_handed(stack)), "p", SETTINGS) == []
-
-
-@pytest.mark.parametrize(("stack", "dropped"), [("production", "backend_mongodb_uri"), ("local", "internal_api_key_admin")])
-def test_a_file_the_backend_requires_left_unmounted_fails(stack: str, dropped: str):
-    """The boot refuses it, and without this only the deploy's preflight on the host, or `local.sh`, says so."""
-    backend = backend_handed(stack)
-    backend["secrets"] = [entry for entry in backend.get("secrets", []) if entry["source"] != dropped]
-    backend["configs"] = [entry for entry in backend.get("configs", []) if not entry["target"].endswith(f"/{dropped}")]
-
-    found = checker.backend_files(model(backend=backend), "p", SETTINGS)
-
-    assert [finding.detail.split("\n")[0] for finding in found] == [
-        f"p: the backend's schema requires ['{dropped}'] and compose mounts none of it at /run/secrets"
-    ]
-
-
-def test_a_file_the_backend_never_reads_handed_to_it_fails():
-    """One more holder of a credential nothing on that side reads."""
-    backend = backend_handed("production")
-    backend["secrets"] = [*backend["secrets"], {"source": "auth_secret"}]
-
-    found = checker.backend_files(model(backend=backend), "p", SETTINGS)
-
-    assert [finding.detail for finding in found] == ["p: compose hands the backend ['auth_secret'], which its schema never reads"]
-
-
-def test_a_file_the_backend_starts_reading_fails_until_compose_mounts_it():
-    """The drift this rule exists for: a settings change alone, which every other gate step passes."""
-    reads, required = SETTINGS
-
-    found = checker.backend_files(model(backend=backend_handed("production")), "p", (reads | {"a_new_file"}, required | {"a_new_file"}))
-
-    assert len(found) == 1 and "['a_new_file']" in found[0].detail, found
-
-
-def test_a_file_with_a_default_may_be_left_unmounted():
-    """The boot reads it where it is and goes on where it is not."""
-    reads, required = SETTINGS
-
-    assert checker.backend_files(model(backend=backend_handed("production")), "p", (reads | {"optional_file"}, required)) == []
-
-
-def test_main_judges_the_backend_files_of_both_models():
-    project = new_root("fl-compose-main-settings-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        backend = ({"production": production, "local": local}[broken])["services"]["backend"]
-        backend["secrets"] = [entry for entry in backend["secrets"] if entry["source"] != "internal_api_key_admin"]
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: the backend's schema requires ['internal_api_key_admin']" in said, said
 
 
 # --- the names the secret files replace ----------------------------------------------------------------

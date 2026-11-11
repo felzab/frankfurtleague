@@ -405,8 +405,7 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
 # --- ops -------------------------------------------------------------------------------------------
 
 OPS_SCRATCH=""
-NGINX_CHECK="${REPO_ROOT}/.tmp-nginx-check"
-cleanup_ops() { rm -rf "$NGINX_CHECK" || true; if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
+cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
 # zizmor answers 11 to 14 for findings and 1 for its own failure. Installed at the release and the
 # file hashes scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves
@@ -457,15 +456,7 @@ findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
-  # `nginx -t` loads the certificates, hence the throwaway pair under the repository root, a path MSYS
-  # leaves alone; `log/` because it opens every log the file declares, a bind mount in production.
   step "ops · nginx accepts prod.conf"
-  rm -rf "$NGINX_CHECK"
-  mkdir -p "${NGINX_CHECK}/log"
-  # Relative output paths, which a Windows openssl can open; the exclusion protects the subject alone.
-  MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
-    -keyout .tmp-nginx-check/key.pem -out .tmp-nginx-check/cert.pem \
-    || die "could not generate a throwaway certificate for the nginx check."
   # The image production's model names, so the nginx accepting prod.conf is the one that serves it.
   # `write`, not `print`: a Windows stdout would end the name in a carriage return.
   local nginx_image
@@ -482,8 +473,6 @@ findings above name the service and the rule." \
     docker run --rm --pull never \
     -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
     -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-    -v "/${NGINX_CHECK}:/etc/nginx/certs:ro" \
-    -v "/${NGINX_CHECK}/log:/var/log/frankfurtleague/nginx" \
     "$nginx_image" nginx -t \
     && ok "${nginx_image} accepts prod.conf"
 
