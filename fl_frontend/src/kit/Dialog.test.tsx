@@ -300,26 +300,6 @@ describe("the kit's dialog", () => {
     expect(screen.queryByText(reason)).toBeNull();
   });
 
-  // The harm: a ban that stands with its mail unsent reads as a clean save, or as a ban that failed and needs pressing again.
-  it("reads a done act's note in the warn tone where the answer marks it, the dialog open and its act closed", async () => {
-    const note = COPY.admin.banList.partial.notice;
-    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note, warn: true })} />);
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(screen.getByText(note).closest("p")?.className).toContain("text-warn"));
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
-  });
-
-  it("reads a done act's note unmarked as ever, in the saved tone", async () => {
-    const note = COPY.admin.spiel.alsoChanged([5, 7]);
-    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(screen.getByText(note).closest("p")?.className).toContain("text-success"));
-  });
-
   // The harm: a refused create closing its dialog, the refusal shown nowhere.
   it.each([
     ["a field's message", { ok: false, fieldErrors: { created: COPY.shared.field.taken } }, COPY.shared.field.taken],

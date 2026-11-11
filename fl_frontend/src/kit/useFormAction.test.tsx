@@ -15,6 +15,7 @@ import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
+import type { FormStatus } from "./useFormAction";
 
 // The hook reads the page again through Next's router, which no test mounts.
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
@@ -57,13 +58,28 @@ describe("a form's action through the one wrapper", () => {
   });
 });
 
-describe("a form's status line for a refusal", () => {
+describe("a form's status line", () => {
   it("points at the fields rather than repeat a reason they already carry", () => {
     const postcode = COPY.shared.field.required;
     expect(statusOf({ ok: false, fieldErrors: { postcode }, reason: postcode }, false, false)).toStrictEqual({
       tone: "error",
       text: COPY.template.checkFields,
     });
+  });
+
+  // The harm: an act that partly happened, such as a ban whose mail went unsent, read as a clean save or as a refusal
+  // to press again. `Dialog`, `AccountBox`, `OneShot`, `QuestionForm` and `SectionAct` each read their line here.
+  it.each<[string, ActionAnswer, FormStatus]>([
+    ["done", { ok: true, value: undefined }, { tone: "saved", text: COPY.shared.saved }],
+    [
+      "partly done",
+      { ok: true, value: undefined, note: COPY.admin.banList.partial.notice, warn: true },
+      { tone: "warn", text: COPY.admin.banList.partial.notice },
+    ],
+    ["refused", { ok: false, reason: COPY.shared.failure.stale }, { tone: "error", text: COPY.shared.failure.stale }],
+    ["partly refused", { ok: false, reason: COPY.shared.failure.stale, warn: true }, { tone: "warn", text: COPY.shared.failure.stale }],
+  ])("reads a %s act in its own tone", (_case, answer, line) => {
+    expect(statusOf(answer, false, false)).toStrictEqual(line);
   });
 
   // A boxed refusal and a sentence in one answer: the sentence is said nowhere else, so the line says it.
