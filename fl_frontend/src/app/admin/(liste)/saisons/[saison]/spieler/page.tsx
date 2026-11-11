@@ -97,6 +97,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
 /** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [
     { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone", cut: true },
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },

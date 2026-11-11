@@ -285,7 +285,7 @@ describe("open work beside its record's seats", () => {
   });
 
   // The harm: a row's acts read in another order than the page gave them, or apart from the words they act on. Where they
-  // stand, beside the words or under them by the row's own width, is the drive's to measure: jsdom lays nothing out.
+  // stand, beside the words or under them by the card's width, is the drive's to measure: jsdom lays nothing out.
   it("sets a row's acts after its words, in the order the page gave them", async () => {
     const { landed } = await drawn();
     const [words, acts] = [...(landed.querySelector("[data-kit-row]")?.firstElementChild?.children ?? [])] as [Element, Element];
@@ -301,7 +301,8 @@ describe("open work beside its record's seats", () => {
 
     expect(declined?.textContent).toContain(COPY.admin.spiel.declined);
     expect(declined?.querySelectorAll("button")).toHaveLength(0);
-    expect(declined?.firstElementChild?.childElementCount).toBe(1);
+    // Its words, then the chevron, which holds no words: nothing stands between them.
+    expect([...(declined?.firstElementChild?.children ?? [])].map((part) => part.textContent === "")).toStrictEqual([false, true]);
   });
 });
 

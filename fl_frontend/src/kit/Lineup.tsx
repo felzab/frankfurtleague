@@ -11,7 +11,7 @@ import { card, columnHead, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
-import { EmptyState, EmptyStatePlaceholder } from "./EmptyState";
+import { EmptyState } from "./EmptyState";
 import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
@@ -24,10 +24,11 @@ import type { EmptyStateProps } from "./EmptyState";
 import type { RoleMarkProps } from "./RoleMark";
 
 /**
- * The block's look, which `Lineup` and its placeholder draw from: two cards, each a table of one-line rows at every
- * width, a phone's included, where the kit's `Table` stacks a row's acts under its words. The cards, the column heads
- * and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px padding and rows 56 px high on a phone
- * and 52 on desktop, so a line-up reads as every other list of the kit.
+ * The block's look, which `Lineup` and its placeholder draw from: two cards, each a table of one row a pupil at every
+ * width, its tick and its act in the row, a phone's included, where the kit's `Table` stacks a row's acts under its
+ * words. The cards, the column heads and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px
+ * padding and rows 56 px high on a phone and 52 on desktop, so a line-up reads as every other list of the kit. Each
+ * table's box is the container its rows read, at a list's width, 42 rem (`Table.tsx :: table`).
  */
 const lineup = tv({
   slots: {
@@ -37,22 +38,25 @@ const lineup = tv({
     title: card().title(),
     count: card().count(),
     // `w-full`: the name's column takes the room the others leave; `overflow-x-auto` as every kit table's box.
-    box: card().body({ class: "w-full overflow-x-auto" }),
+    box: card().body({ class: "@container w-full overflow-x-auto" }),
     sheet: "w-full border-collapse text-sm",
     headRow: columnHead().rule(),
     head: columnHead().text(),
     row: `relative h-14 ${stacked()} lg:h-13`,
-    // The name takes the room the facts leave and is cut with „…“ where it is longer.
-    name: "w-full px-3 py-2",
-    // A wrapping row, as `Table`'s name line: the name and its mark at the name's least width, 5 rem, grown to the
-    // name and no further, so the chip stands after a short name, a long one is cut beside it down to that least, and
-    // the chip takes the next line where the line's own room holds not both. The line's least is the name's, so the
-    // facts beside it narrow the column to no less.
-    nameLine: "flex min-w-20 flex-wrap items-center gap-2",
-    // The name's track stops at the room the group has and counts nothing towards its least width; the mark keeps its
-    // size after it.
-    nameHead: "grid max-w-max min-w-0 grow basis-20 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)] items-center gap-2",
+    // The name takes the room the facts leave and is cut with „…“ where it is longer. On a phone a name over its chip
+    // is 42 px, which 6 px of padding keep inside the row's 56, so a row with a chip stands as tall as one without.
+    name: "w-full px-3 py-2 @max-2xl:py-1.5",
+    // The name with its mark, then the chip, which the box's width places for every row alike: after the name on its
+    // line from 42 rem, and on the line under the name in a narrower box, where a phone's line holds a name's least
+    // width and „Nachnominiert“ only one over the other. What parts them there is the chip's own basis, the whole
+    // line, never what a row holds. The line's least width is the name's, 5 rem, so the facts beside it narrow the
+    // column to no less. No status column: a row's tick and act stand taller than its name's line, which a row of
+    // several lines cannot centre against them.
+    nameLine: "flex min-w-20 flex-wrap items-center gap-x-2 gap-y-0.5 @2xl:flex-nowrap",
+    // The name and its mark, which never part: the mark keeps its size after the name, which is cut before it.
+    nameHead: "flex max-w-full min-w-0 items-center gap-2",
     nameWords: "min-w-0 truncate",
+    chips: "flex basis-full items-center gap-2 @2xl:shrink-0 @2xl:basis-auto",
     // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
     // since a touch reaches no tooltip, and a word breaks anywhere, so the line never widens the name's column.
     line: "block text-xs wrap-anywhere",
@@ -70,8 +74,8 @@ const lineup = tv({
     figures: { true: { cell: "font-numeric" } },
     // A shirt number's column: two figures and its padding at the least, as `Table`'s `count` width.
     count: { true: { head: "min-w-12" } },
-    // Left out on a phone, whose row is the name, the number and the row's controls.
-    desktop: { true: { head: "max-lg:hidden", cell: "max-lg:hidden" } },
+    // Left out of a phone's box, whose row is the name, the number and the row's controls.
+    desktop: { true: { head: "@max-2xl:hidden", cell: "@max-2xl:hidden" } },
     // A pupil the squad no longer holds.
     muted: { true: { row: "text-fg-muted" } },
     tone: {
@@ -117,7 +121,7 @@ export type LineupPlayer = {
   name: Words;
   /** The shirt number, which orders both lists; a pupil with none stands after the numbered ones. */
   nummer: number | null;
-  /** From `lg` alone: a phone's row is the name, the number and the row's controls. */
+  /** In a box from 42 rem alone: a phone's row is the name, the number and the row's controls. */
   position?: Words;
   /** The role the pupil holds in the squad, the boxed letter after the name, which the block draws as `Table` does. */
   mark?: RoleMarkProps;
@@ -212,7 +216,11 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
           />
           {player.mark !== undefined && <RoleMark {...player.mark} />}
         </span>
-        {player.chip !== undefined && <Chip {...player.chip} />}
+        {player.chip !== undefined && (
+          <span className={s.chips()}>
+            <Chip {...player.chip} />
+          </span>
+        )}
       </span>
       {line !== null && (
         <span
@@ -225,7 +233,7 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
   );
 }
 
-/** The cells every row of either list holds after its name: the number, and from `lg` the position. */
+/** The cells every row of either list holds after its name: the number, and in a box from 42 rem the position. */
 function FactCells({ player }: { player: LineupPlayer }) {
   return (
     <>
@@ -260,7 +268,8 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
 /**
  * A match's line-up as its club names it: everyone named in one list in shirt-number order, a tick alone in the
  * column headed by `words.starts` saying who starts and a cross taking the row out, over the squad's other pupils,
- * each row ending in the word that names its pupil. One line a row at every width, the name cut with „…“.
+ * each row ending in the word that names its pupil. One row a pupil at every width, the name cut with „…“ and its chip
+ * after it, or under it in a phone's box.
  *
  * At most `startersMax` start. Once they do, the open ticks dim and stay pressable: a press changes nothing, and
  * `words.startersFull` stands on that row's own line, inside the row's height, until the next change, as a refused
@@ -534,8 +543,7 @@ function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; start
 /**
  * The block while the line-up is read: its two cards with their titles and column heads, a bar where each count will
  * stand, and as many rows at the rows' height as the page states for each list, the tick, the cross and the squad
- * rows' word as bars of their size. A picked list of none draws its blank slate's placeholder, and a squad
- * list of none its head alone, as the block does.
+ * rows' word as bars of their size. A squad list of none draws its head alone, as the block does.
  */
 export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
   const s = lineup();
@@ -553,16 +561,12 @@ export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; p
           {count}
         </div>
         <div className={s.box()}>
-          {picked === 0 ? (
-            <EmptyStatePlaceholder />
-          ) : (
-            <RowsPlaceholder
-              words={words}
-              starts={words.starts}
-              rows={picked}
-              end={<span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />}
-            />
-          )}
+          <RowsPlaceholder
+            words={words}
+            starts={words.starts}
+            rows={picked}
+            end={<span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />}
+          />
         </div>
       </div>
       <div className={s.card()}>

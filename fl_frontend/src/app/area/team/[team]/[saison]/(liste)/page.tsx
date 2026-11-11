@@ -226,9 +226,9 @@ export default function TeamOverviewPage({ params }: Props) {
           team: true,
           rows: 2,
           cards: [
-            { title: TITLES.termine, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline] },
-            { title: TITLES.aufstellungen },
-            { title: TITLES.registrierungen },
+            { title: TITLES.termine, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline], chip: true },
+            { title: TITLES.aufstellungen, chip: true },
+            { title: TITLES.registrierungen, chip: true },
           ],
           seats: TITLES.seats,
         },

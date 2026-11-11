@@ -185,6 +185,7 @@ export function BulkAccept({
       table={{
         label: TITLE,
         nameLabel: COPY.shared.facts.school,
+        state: { label: COPY.admin.schiedsrichter.state },
         columns: [
           { key: "gruppe", label: COPY.team.gruppe, narrow: true },
           { key: "farbe", label: COPY.team.trikotFarbe, hideOnPhone: true },

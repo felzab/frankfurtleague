@@ -15,11 +15,14 @@ type LinkRow = { glyph?: IconName; label: Copy; value: Words; href: Route };
 
 /**
  * The ways to reach the league, one row each in one box, each row one link through its name, the address or
- * the profile it reaches at the right and the chevron at its end, as a card's rows stand: Kontakt's page.
+ * the profile it reaches and the chevron at its end, as a card's rows stand: Kontakt's page. The box is the container
+ * its rows read, at a card's rows' width (`cardStyles.ts :: nameWithChips`): from 32 rem what a way reaches stands at
+ * the right of its name's line, and in a narrower box, a phone's, on the line under the name, where the league's own
+ * address stands whole at 360 px.
  */
 export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
   return (
-    <div className={cardSurface({ class: "overflow-hidden" })}>
+    <div className={cardSurface({ class: "@container overflow-hidden" })}>
       {rows.map((row) => (
         <div
           key={row.href}
@@ -35,19 +38,21 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
                 size={16}
               />
             )}
-            {/* The way's own short name keeps its line and its width; the address beside it takes the rest of
-                the row and is cut with „…“ where it is longer. */}
-            <CutHost className="shrink-0 font-medium whitespace-nowrap">
-              <Link
-                href={row.href}
-                placement="row"
-                label={row.label}
+            <span className="flex min-w-0 flex-1 flex-col @lg:flex-row @lg:items-center @lg:gap-3">
+              {/* The way's own short name keeps its line and its width; the address takes the rest of its own
+                  line and is cut with „…“ where it is longer. */}
+              <CutHost className="shrink-0 font-medium whitespace-nowrap">
+                <Link
+                  href={row.href}
+                  placement="row"
+                  label={row.label}
+                />
+              </CutHost>
+              <CutText
+                text={textOf(row.value)}
+                className="min-w-0 truncate text-fg-muted @lg:flex-1 @lg:text-end"
               />
-            </CutHost>
-            <CutText
-              text={textOf(row.value)}
-              className="min-w-0 flex-1 truncate text-end text-fg-muted"
-            />
+            </span>
             <RowEnd />
           </CutRow>
         </div>

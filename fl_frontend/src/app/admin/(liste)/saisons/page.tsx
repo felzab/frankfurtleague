@@ -89,6 +89,7 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
 /** The table's head, drawn while the seasons are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [
     { key: "start", label: WORDS.start, narrow: true, width: "date" },
     { key: "end", label: WORDS.end, hideOnPhone: true, width: "date" },

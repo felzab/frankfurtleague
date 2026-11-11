@@ -209,6 +209,7 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
 /** The head of the list of who holds access, as every role's wait draws it: rows to read, no act on any, opening nothing. */
 const HEAD = {
   nameLabel: ADDRESS,
+  state: { label: COPY.admin.schiedsrichter.state },
   linked: false,
   columns: [{ key: "since", label: WORDS.since, narrow: true, width: "date" }],
 } as const satisfies TableHead;
@@ -216,10 +217,10 @@ const HEAD = {
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
 
 /** A table of the page's cards, carrying nothing of `HEAD` a read table has no use for. */
-const tableOf = (label: Copy, columns: TableProps["columns"], rows: readonly TableRow[]): TableProps => ({
+const tableOf = (label: Copy, head: Pick<TableProps, "columns" | "state">, rows: readonly TableRow[]): TableProps => ({
   label,
   nameLabel: ADDRESS,
-  columns,
+  ...head,
   rows,
   empty: EMPTY,
 });
@@ -239,14 +240,14 @@ async function foldsOf(access: Promise<Access>) {
           tables: [
             tableOf(
               ROUTES.adminAdministrators.title,
-              HEAD.columns,
+              { columns: HEAD.columns, state: HEAD.state },
               read.active.map((grant) => activeRow(grant, read.actor)),
             ),
           ],
         },
         ...(waiting.length === 0
           ? []
-          : [{ title: WORDS.pending, count: waiting.length, tables: [tableOf(WORDS.pending, [], waiting)] as const }]),
+          : [{ title: WORDS.pending, count: waiting.length, tables: [tableOf(WORDS.pending, { columns: [] }, waiting)] as const }]),
       ]}
     />
   );

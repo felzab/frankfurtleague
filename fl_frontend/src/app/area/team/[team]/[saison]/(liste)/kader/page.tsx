@@ -36,6 +36,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
     { key: "position", label: WORDS.position, hideOnPhone: true },

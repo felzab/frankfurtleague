@@ -3,14 +3,13 @@ import { useId } from "react";
 import { textOf } from "@/core/copy";
 
 import { buttonPlaceholder } from "./buttonStyles";
-import { card, cardHover, stacked } from "./cardStyles";
+import { actRow, card, cardHover, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
-import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -124,24 +123,31 @@ export function CardPlaceholder({
 }
 
 /**
- * A card's rows while they are read: `rows` of `CardActRow`'s rows at its height, each its name over the line a row may
- * add as bars, its `acts` as buttons' placeholders by their labels where the card's rows carry acts, which stand under
- * the words, the row taller, where the row's width holds no name of a common length beside them, and the chevron at its
- * end where a row leads on.
+ * A card's rows while they are read: `rows` of `CardActRow`'s rows, drawn from its recipe inside its container, so each
+ * takes the form the card's width gives the rows: its name over the line a row may add as bars, the chip's bar where
+ * the card's rows carry a chip (`chip`), after the name or under it as the rows' will stand, its `acts` as buttons'
+ * placeholders by their labels where the card's rows carry acts, and the chevron at its end where a row leads on.
  */
-export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: ReadonlyArray<Copy> }) {
-  const s = actRow();
+export function CardRowsPlaceholder({ rows, acts, chip = false }: { rows: number; acts?: ReadonlyArray<Copy>; chip?: boolean }) {
+  const s = actRow({ opens: true });
+  const words = nameWithChips();
   return Array.from({ length: rows }, (_, index) => (
     <div
       key={index}
-      className={s.root()}>
-      <span className={s.body()}>
+      className={CARD_ROW_CLASSES}>
+      <span className={s.frame()}>
         <span className={s.words()}>
-          {/* A name and its chip of a common length, 10 rem, which decides where the acts stand as a row's does. */}
-          <PlaceholderLine
-            textClass="text-sm"
-            widthClass="w-40 max-w-full"
-          />
+          <span className={words.line()}>
+            <PlaceholderLine
+              textClass="w-1/2 text-sm"
+              widthClass="w-full"
+            />
+            {chip && (
+              <span className={words.chips()}>
+                <span className={placeholderBar("h-5 w-16")} />
+              </span>
+            )}
+          </span>
           <PlaceholderLine
             textClass={s.line()}
             widthClass="w-1/3"
@@ -158,9 +164,9 @@ export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: Reado
             ))}
           </span>
         )}
-      </span>
-      <span className={s.end()}>
-        <RowEnd />
+        <span className={s.end()}>
+          <RowEnd />
+        </span>
       </span>
     </div>
   ));
@@ -191,27 +197,9 @@ export function CardLink({ href, title, line }: CardLinkProps) {
   );
 }
 
-// The chevron is the row's own end column at every width, right and centred on the row's height, 12 px after what
-// stands before it: the words, or the acts.
-const actRow = tv({
-  slots: {
-    root: `relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 ${stacked()} px-4 py-3 text-sm lg:min-h-13 ${cardHover()}`,
-    // The words and the acts in one wrapping row, which the row's own width decides, the room its card has, never the
-    // viewport: a row is broken into lines by its items' sizes at their basis (CSS Flexible Box Layout 1, 9.3), the
-    // words' basis their whole name and chip, so the acts stand beside the words, at the row's end, only where the
-    // whole name stands beside them, and take the line under the words otherwise, the name then cut at the row's
-    // width alone.
-    body: "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2",
-    words: "grid min-w-0 grow gap-0.5",
-    name: "flex min-w-0 items-center gap-2",
-    // Its inline size contained, so a long line wraps under the name rather than counting towards the words' basis,
-    // which is the name's and its chip's alone.
-    line: "text-xs text-fg-muted contain-inline-size",
-    // Positioned above the row's stretched link, so a press on an act does the act rather than open the record.
-    acts: "relative z-10 flex shrink-0 items-center gap-2",
-    end: "flex self-stretch",
-  },
-});
+// A card's act row is the container its parts read (`cardStyles.ts :: actRow`, `:: nameWithChips`): it spans its card,
+// so its width is the card's and every row of one card takes one form.
+const CARD_ROW_CLASSES = `@container relative ${stacked()} text-sm ${cardHover()}`;
 
 /** One record in a card's rows: where it opens, its name with its chip, its line where it has one, and its acts. */
 export type CardActRowProps = {
@@ -224,36 +212,42 @@ export type CardActRowProps = {
 };
 
 /**
- * One record in a card's rows whose open work is done where it shows: its name with its chip, a line saying
- * what is open where the name and the chip leave something to say, and its acts, one or two kit buttons, before the
- * chevron where the whole name stands beside them and under the words otherwise, so the name keeps the row's whole
- * width where it needs it. The whole row opens the record through its name, as every
- * card row does, and ends in the chevron, with acts or none; under the pointer the row takes the one hover layer
- * and an act's own stacks on it. A name too long for its line is cut with „…“, so
- * the chip keeps its place beside it; the full name stays the link's accessible name and shows as its title while it is cut.
+ * One record in a card's rows whose open work is done where it shows: its name with its chip, a line saying what is
+ * open where the name and the chip leave something to say, and its acts, one or two kit buttons. The card's width picks
+ * the row's form, for every row of the card alike: on a card from 32 rem the chip stands after the name and the acts
+ * beside the words, before the chevron; on a narrower one, a phone's and each of two beside the rail, the chip takes
+ * the line under the name and the acts one line under the words. The whole row opens the record through its name, as
+ * every card row does, and ends in the chevron, with acts or none; under the pointer the row takes the one hover layer
+ * and an act's own stacks on it. A name too long for its line is cut with „…“; the full name stays the link's
+ * accessible name and shows as its title while it is cut.
  */
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
-  const s = actRow();
+  const s = actRow({ opens: true });
+  const words = nameWithChips();
   // What the row's acts are described by, since every row's carry the same labels.
   const nameId = useId();
   return (
     <div
       data-kit-row
-      className={s.root()}>
-      <span className={s.body()}>
+      className={CARD_ROW_CLASSES}>
+      <span className={s.frame()}>
         <span className={s.words()}>
-          <span className={s.name()}>
+          <span className={words.line()}>
             <CutText
               id={nameId}
               text={textOf(name)}
-              className="min-w-0 truncate font-medium">
+              className={words.name({ class: "max-w-full" })}>
               <Link
                 href={href}
                 placement="row"
                 label={name}
               />
             </CutText>
-            {chip !== undefined && <Chip {...chip} />}
+            {chip !== undefined && (
+              <span className={words.chips()}>
+                <Chip {...chip} />
+              </span>
+            )}
           </span>
           {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
         </span>
@@ -264,9 +258,9 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
             {acts}
           </RowActs>
         )}
-      </span>
-      <span className={s.end()}>
-        <RowEnd />
+        <span className={s.end()}>
+          <RowEnd />
+        </span>
       </span>
     </div>
   );

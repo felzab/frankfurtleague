@@ -6,7 +6,19 @@
  */
 import { expect } from "@playwright/test";
 
-import { apply, choose, confirmSeat, fillSeat, openApplication, personOf, SAISON, SEATS, SUBJECT, typeInto } from "./support/application";
+import {
+  apply,
+  choose,
+  confirmSeat,
+  fillSeat,
+  openApplication,
+  personOf,
+  pressRowAct,
+  SAISON,
+  SEATS,
+  SUBJECT,
+  typeInto,
+} from "./support/application";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
 
@@ -92,7 +104,7 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   await openApplication(administration, school);
   const seats = administration.getByRole("list", { name: "Kontaktpersonen" }).getByRole("listitem");
   const replaced = await filedMessages();
-  await seats.filter({ hasText: "Niemand" }).getByRole("button", { name: "Sitz bearbeiten" }).click();
+  await pressRowAct(seats.filter({ hasText: "Niemand" }), "Sitz bearbeiten");
   const dialog = administration.getByRole("dialog", { name: "Sitz bearbeiten" });
   const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
   await fillSeat(dialog, replacement);

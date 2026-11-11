@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 
 import type { TableProps } from "./Table";
@@ -38,6 +39,64 @@ describe("a table's rank column", () => {
       .slice(1)
       .map((row) => row.firstElementChild?.textContent);
     expect(ranks).toStrictEqual(["1", "1", "3", "–"]);
+  });
+});
+
+describe("a list's status column", () => {
+  // The harm: a list that names its status column draws a row's chips nowhere, or leaves them in the name's cell, where
+  // the name is cut for them. Where the column stands on the screen is the drive's to measure: jsdom lays nothing out.
+  it("holds a row's chips in a cell of its own after the name's, the state's before the delivery's", () => {
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "anna@example.org" },
+            chip: { tone: "warn", label: COPY.admin.expired },
+            delivery: { tone: "danger", label: COPY.admin.delivery.undeliverable },
+            cells: { district: { record: "Nordend" } },
+          },
+          { id: "2", name: { record: "berta@example.org" }, cells: { district: { record: "Westend" } } },
+        ])}
+        state={{ label: COPY.admin.schiedsrichter.state, delivery: true }}
+      />,
+    );
+    expect(screen.getAllByRole("columnheader").map((head) => head.textContent)).toStrictEqual([
+      COPY.shared.saison,
+      COPY.admin.schiedsrichter.state,
+      COPY.shared.startelf,
+    ]);
+    const cellsOf = (row: HTMLElement) => [...row.querySelectorAll('[role="cell"]')].map((cell) => cell.textContent);
+    const [, held, bare] = screen.getAllByRole("row") as [HTMLElement, HTMLElement, HTMLElement];
+    expect(cellsOf(held)).toStrictEqual(["anna@example.org", `${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`, "Nordend"]);
+    // A row with no chip keeps the column's cell, empty, so every row's cells stand under the same heads.
+    expect(cellsOf(bare)).toStrictEqual(["berta@example.org", "", "Westend"]);
+  });
+});
+
+describe("a list that folds its rows' side acts", () => {
+  // The harm: the list keeps the „⋯“'s place at a stacked row's end and its rows' acts never hear of it, so their
+  // buttons stand in a place a button's width does not fit. Which of the two shows at which width is the drive's.
+  it("hands its rows' acts the fold, which draws the „⋯“ beside their buttons", () => {
+    const row = (folds: boolean) => (
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "anna@example.org" },
+            cells: {},
+            acts: <SideActs acts={[{ label: COPY.shared.verb.discard, tone: "danger", onPress: () => undefined }]} />,
+          },
+        ])}
+        folds={folds}
+      />
+    );
+    const { unmount } = render(row(false));
+    expect(screen.queryByRole("button", { name: COPY.template.more })).toBeNull();
+    unmount();
+
+    render(row(true));
+    expect(screen.getAllByRole("button", { name: COPY.template.more })).toHaveLength(1);
   });
 });
 

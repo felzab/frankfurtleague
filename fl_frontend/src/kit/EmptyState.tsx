@@ -3,7 +3,6 @@ import { COPY } from "@/core/copy";
 import { cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -50,7 +49,7 @@ export type EmptyStateProps = {
  */
 type Clear = { kind: "clear" };
 
-/** The blank slate's parts, which it and its placeholder draw from. */
+/** The blank slate's parts. */
 const slate = tv({
   slots: {
     root: "grid justify-items-center gap-3 px-4 py-8 text-center",
@@ -121,23 +120,6 @@ export function EmptyBox(props: EmptyStateProps) {
   return (
     <div className={cardSurface({ class: "overflow-hidden" })}>
       <EmptyState {...props} />
-    </div>
-  );
-}
-
-/**
- * The blank slate while its list is read, for a block whose wait draws it: its mark and its sentence's line as bars, at
- * their sizes, a list's sentence being short enough for one line at every width.
- */
-export function EmptyStatePlaceholder() {
-  const s = slate();
-  return (
-    <div className={s.root()}>
-      <span className={placeholderBar("block size-4.5")} />
-      <PlaceholderLine
-        textClass={s.sentence({ class: "w-full justify-center" })}
-        widthClass="w-1/2"
-      />
     </div>
   );
 }

@@ -45,10 +45,17 @@ export type MenuLink = {
   replace?: boolean;
 };
 
-/** One entry of a menu: a link, an action, or a second list of links. */
+/** One entry of a menu: a link, an action, an action that cannot run now, or a second list of links. */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
   | { kind: "action"; label: Copy; icon?: IconName; onAction: () => void }
+  /**
+   * An action that cannot run on the record as it stands, as a button's `locked` (`Button`): muted but reached by the
+   * keys as every entry is, its reason the line under its label and its description to a screen reader. A press does
+   * nothing and leaves the menu open, the reason still to read. Never React Aria's disabled entry, which the keys pass
+   * over, so nobody would hear why.
+   */
+  | { kind: "locked"; label: Copy; icon?: IconName; reason: Copy }
   /** A second list, beside the menu on desktop and as a second sheet with „Zurück“ on a phone. */
   | { kind: "submenu"; label: Copy; icon?: IconName; links: ReadonlyArray<MenuLink> };
 
@@ -103,12 +110,15 @@ function Entry({
   icon,
   hasMore,
   isChosen = false,
+  wraps = false,
 }: {
   label: string;
   detail?: string;
   icon?: IconName;
   hasMore?: boolean;
   isChosen?: boolean;
+  /** The detail is a sentence to read whole, a locked entry's reason: it wraps where every other detail is cut. */
+  wraps?: boolean;
 }) {
   return (
     <>
@@ -132,7 +142,7 @@ function Entry({
           </Text>
           <Text
             slot="description"
-            className="truncate text-xs font-normal text-fg-muted">
+            className={wraps ? "text-xs font-normal text-fg-muted" : "truncate text-xs font-normal text-fg-muted"}>
             {detail}
           </Text>
         </span>
@@ -271,6 +281,24 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               <Entry
                 label={entry.label}
                 icon={entry.icon}
+              />
+            </MenuItem>
+          );
+        }
+        if (entry.kind === "locked") {
+          return (
+            <MenuItem
+              key={entry.label}
+              textValue={entry.label}
+              shouldCloseOnSelect={false}
+              data-kit-focus="option"
+              // Grows past the one line's height by its reason, and shows no pointing hand: it does nothing.
+              className={item({ size, class: "h-auto cursor-default text-fg-muted" })}>
+              <Entry
+                label={entry.label}
+                detail={entry.reason}
+                icon={entry.icon}
+                wraps
               />
             </MenuItem>
           );

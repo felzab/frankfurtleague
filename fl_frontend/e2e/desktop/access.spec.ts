@@ -8,7 +8,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { typeInto } from "../support/application";
+import { pressRowAct, typeInto } from "../support/application";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
@@ -47,7 +47,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(row.getByText("Neue offen", { exact: true })).toBeVisible();
   await mailedMessage(newAddress, "Neue E-Mail-Adresse bestätigen", before);
 
-  await row.getByRole("button", { name: "Verwerfen" }).click();
+  await pressRowAct(row, "Verwerfen");
   const discard = page.getByRole("alertdialog");
   await discard.getByRole("button", { name: "Verwerfen" }).click();
   await expect(discard).toBeHidden();
