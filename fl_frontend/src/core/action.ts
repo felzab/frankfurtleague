@@ -258,7 +258,7 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A registration's stored person named or renamed since the list offering its admission was read.
   "registrierung_person_not_named",
   // A referee's report whose fixture moved since the form was read: booked to another referee, struck out or called
-  // off, or moved to a day still to come; and a pupil a row names who left the side's squad since. The reloaded page
+  // off, or moved to a kick-off still to come; and a pupil a row names who left the side's squad since. The reloaded page
   // shows the status card or the squad as they stand.
   "bericht_not_officiated",
   "bericht_cancelled",
