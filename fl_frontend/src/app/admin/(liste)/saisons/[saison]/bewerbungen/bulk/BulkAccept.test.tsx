@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { getDefaultNormalizer, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -77,7 +77,9 @@ describe("walking a Sammel-Zusage's cards", () => {
     rerender(run());
 
     expect(screen.getByText("Goethe-Gymnasium")).toBeTruthy();
-    expect(screen.getByText(COPY.admin.bewerbung.cardOf(1, 2))).toBeTruthy();
+    expect(
+      screen.getByText(COPY.admin.bewerbung.cardOf(1, 2), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) }),
+    ).toBeTruthy();
   });
 });
 

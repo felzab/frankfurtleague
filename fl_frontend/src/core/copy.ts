@@ -164,7 +164,7 @@ const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 // A line-up's starters of the most that may start, alone in the save bar and after the count of everyone it names.
-const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} von ${formatNumber(max)}`;
+const startelfCount = (count: number, max: number) => `Startelf ${formatNumber(count)} ${boundBy("von", formatNumber(max))}`;
 // The owner tier's one word: its chip, its acts and every sentence naming it, the server's among them, read this line.
 const OWNER_TIER = "Leitung";
 // The plurals a page's title and the action log's count of a pass say alike.
@@ -197,15 +197,17 @@ export type Wait = { readonly hours: 24 } | { readonly days: 7 };
  */
 export const waitWords = (wait: Wait) =>
   "hours" in wait
-    ? { span: `${formatNumber(wait.hours)} Stunden`, after: `nach ${formatNumber(wait.hours)} Stunden` }
-    : { span: `${formatNumber(wait.days)} Tage`, after: `nach ${formatNumber(wait.days)} Tagen` };
+    ? { span: boundBy(formatNumber(wait.hours), "Stunden"), after: boundBy("nach", formatNumber(wait.hours), "Stunden") }
+    : { span: boundBy(formatNumber(wait.days), "Tage"), after: boundBy("nach", formatNumber(wait.days), "Tagen") };
 
 /**
- * „bis 12.11.2026, 17:54“, „Erst ab 16 Jahren“: words ending on „bis“ or „ab“ and the value it bounds, joined by a
- * no-break space, so a line never ends on the preposition apart from its value. Every „bis“ and „ab“ before a value in
- * the catalogue and in `serverCopy.ts` is joined here; one before words, „bis zum Ende“, breaks as any word does.
+ * „bis 12.11.2026, 17:54“, „nach 15 Tagen“, „für die Saison 2027“, „Erst ab 16 Jahren“: the words of a phrase joined by
+ * no-break spaces, so a line never ends on a preposition or an article apart from its value, nor on a number apart from
+ * its unit. Every preposition before a value and every count before its noun in the catalogue and in `serverCopy.ts`
+ * is joined here, and a phrase of several words takes each as a part: `boundBy("für", "die", saison)`. Prose before words
+ * with no value, „bis zum Ende der Saison“, breaks as any words do.
  */
-export const boundBy = (lead: string, value: string) => `${lead}\u00A0${value}`;
+export const boundBy = (...parts: string[]) => parts.join("\u00A0");
 
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
@@ -223,8 +225,8 @@ export const COPY = catalogue({
     /** A field's one message line: what is expected, never the field's name. */
     field: {
       required: "Pflichtfeld",
-      maxChars: (count: number) => `Höchstens ${formatNumber(count)} Zeichen`,
-      minChars: (count: number) => `Mindestens ${formatNumber(count)} Zeichen`,
+      maxChars: (count: number) => `Höchstens ${boundBy(formatNumber(count), "Zeichen")}`,
+      minChars: (count: number) => `Mindestens ${boundBy(formatNumber(count), "Zeichen")}`,
       format: (example: Copy) => `Format: ${example}`,
       // A reserved domain, so no reader takes the example for the address the league expects.
       exampleAddress: "name@example.com",
@@ -242,7 +244,7 @@ export const COPY = catalogue({
       max: (count: number) => `Höchstens ${formatNumber(count)}`,
       min: (count: number) => `Mindestens ${formatNumber(count)}`,
       /** „Ohne E-Mail-Adresse“: what a text must not hold, by the catalogue's own name for it. */
-      without: (thing: Copy) => `Ohne ${thing}`,
+      without: (thing: Copy) => boundBy("Ohne", thing),
       earliest: (day: CalendarDay) => `Frühestens ${formatDate(day)}`,
       latest: (day: CalendarDay) => `Spätestens ${formatDate(day)}`,
       // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
@@ -303,7 +305,7 @@ export const COPY = catalogue({
     /** The status cards' titles and ways on: a mailed page's ends, and the frames' own. */
     end: {
       /** A mailed page's link opened again, titled with what the person did and the day: „Eintrag bestätigt am 12. November 2026“. */
-      doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
+      doneOn: (done: Copy, day: CalendarDay) => `${done} ${boundBy("am", formatDateLong(day))}`,
       /** An area with no season yet, where a page shows a season's work. */
       noSaison: "Noch keine Saison",
       toHome: "Zur Startseite",
@@ -357,7 +359,7 @@ export const COPY = catalogue({
       rueckzug: { label: "Rückzug", state: "Zurückgezogen", shorthand: "RZ" },
     },
     /** The head of a club's exit note, „Disqualifiziert seit 14.03.2026“: its route's `state` and the day it took effect. */
-    austrittSince: (state: Copy, day: CalendarDay) => `${state} seit ${formatDate(day)}`,
+    austrittSince: (state: Copy, day: CalendarDay) => `${state} ${boundBy("seit", formatDate(day))}`,
     startelf: "Startelf",
     bank: "Bank",
     /**
@@ -387,7 +389,7 @@ export const COPY = catalogue({
       /** A group by its letter, „Gruppe A“: the Tabelle's cards, a club's group, the season editor's pickers. */
       gruppe: GRUPPE,
       /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
-      cancelled: (count: number) => (count === 1 ? "1 Spiel abgesagt" : `${formatNumber(count)} Spiele abgesagt`),
+      cancelled: (count: number) => (count === 1 ? "1\u00A0Spiel abgesagt" : `${boundBy(formatNumber(count), "Spiele")} abgesagt`),
       /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
       cancelledMark: (count: number) => `+${formatNumber(count)}`,
     },
@@ -469,13 +471,13 @@ export const COPY = catalogue({
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
     /** Under the address: the promise `docs/datenschutz.md` section 4 records the form makes. */
     addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
-    trikotSetDescription: "Zum Beispiel 15 rote Trikots",
+    trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: "Für den ersten Spieltag",
     /** The name of the combo's arrow. */
     suggestions: "Vorschläge anzeigen",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its link. */
-    notice: { before: "Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter ", after: "." },
+    notice: { before: "Jede Kontaktperson bestätigt ihren Eintrag per E-Mail, mehr unter\u00A0", after: "." },
   },
 
   /** The public registration form's own words; its squad fields read the labels `admin.spieler` gives them. */
@@ -487,7 +489,7 @@ export const COPY = catalogue({
     /** The number box's label, the shirt's own word, which a pupil reads where the squad's lists say „Nummer“. */
     nummer: "Trikotnummer",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, as `bewerbung.notice`. */
-    notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter ", after: "." },
+    notice: { before: "Du bestätigst deine Registrierung per E-Mail, mehr unter\u00A0", after: "." },
   },
 
   /**
@@ -597,7 +599,7 @@ export const COPY = catalogue({
        */
       consequence: {
         notScored: "Das Spiel wird nicht gewertet.",
-        nichtAngetreten: (opponent: Words) => `Das Spiel wird für ${textOf(opponent)} gewertet.`,
+        nichtAngetreten: (opponent: Words) => `Das Spiel wird ${boundBy("für", textOf(opponent))} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
       },
@@ -646,8 +648,9 @@ export const COPY = catalogue({
 
     /** An editor's changes not yet saved: the status line names their count, the discard dialog asks before they go. */
     changes: "Änderungen",
-    changesPending: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
-    changesLost: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
+    changesPending: (count: number) => (count === 1 ? "1\u00A0Änderung" : boundBy(formatNumber(count), "Änderungen")),
+    changesLost: (count: number) =>
+      count === 1 ? "1\u00A0Änderung geht verloren." : `${boundBy(formatNumber(count), "Änderungen")} gehen verloren.`,
     /** In an editor's act's own line while its draft holds unsaved changes, which close every act of it. */
     draftUnsaved: "Gesperrt, solange Änderungen ungespeichert sind",
     /** The chip after an editor's title while its record is closed read-only, its season finished. */
@@ -754,8 +757,8 @@ export const COPY = catalogue({
       /** A row's line under its name, in a list's date form: when it was set up, and when it last signed in where it has. */
       dates: (created: Date, lastUsed: Date | null) =>
         lastUsed === null
-          ? `Eingerichtet am ${formatDate(created)}`
-          : `Eingerichtet am ${formatDate(created)} · Zuletzt verwendet am ${formatDate(lastUsed)}`,
+          ? `Eingerichtet ${boundBy("am", formatDate(created))}`
+          : `Eingerichtet ${boundBy("am", formatDate(created))} · Zuletzt verwendet ${boundBy("am", formatDate(lastUsed))}`,
       /**
        * The deletion's consequence, which the question words before the passkey touch: the devices the passkey signed
        * in, and this one where the page's session was made by it or it is the person's only passkey, which the touch
@@ -765,7 +768,7 @@ export const COPY = catalogue({
       endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
       /** An administrator's last passkey, their only way into the administration. */
       lastKept: "Der letzte Passkey lässt sich nicht löschen.",
-      limit: (count: number) => `Mehr als ${formatNumber(count)} Passkeys sind nicht möglich.`,
+      limit: (count: number) => `Mehr ${boundBy("als", formatNumber(count), "Passkeys")} sind nicht möglich.`,
       /** A first passkey set up past the sign-in library's `freshAge`. */
       signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
       /** A further passkey set up on an authenticator holding one of the person's already. */
@@ -774,7 +777,7 @@ export const COPY = catalogue({
     devices: {
       title: "Geräte",
       description: (count: number) =>
-        count === 1 ? "Du bist auf 1 Gerät angemeldet." : `Du bist auf ${formatNumber(count)} Geräten angemeldet.`,
+        count === 1 ? "Du bist auf\u00A01\u00A0Gerät angemeldet." : `Du bist ${boundBy("auf", formatNumber(count), "Geräten")} angemeldet.`,
       /** The act's noun, „Alle anderen abmelden“. */
       allOthers: "Alle anderen",
       consequence: "Nur dieses Gerät bleibt angemeldet.",
@@ -802,10 +805,10 @@ export const COPY = catalogue({
         registrierung: "Deine Registrierung als Spielerin oder Spieler und was davon öffentlich ist.",
         schiedsrichter: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter und was davon öffentlich ist.",
         /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag als ${rollenText(rollen)} und wie wir dich erreichen.`,
+        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag ${boundBy("als", rollenText(rollen))} und wie wir dich erreichen.`,
       },
       /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
-      mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age))} Jahren`,
+      mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
       /**
@@ -815,12 +818,12 @@ export const COPY = catalogue({
       spieler: "Als Spielerin oder Spieler",
       schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
       /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */
-      seats: (rollen: readonly FLKontaktRolle[]) => `Als ${rollenText(rollen)}`,
+      seats: (rollen: readonly FLKontaktRolle[]) => boundBy("Als", rollenText(rollen)),
       /** An application not yet decided, by the season it applies for. */
-      bewerbung: (saison: Copy) => `Bewerbung für die ${saison}`,
+      bewerbung: (saison: Copy) => `Bewerbung ${boundBy("für", "die", saison)}`,
       /** A pupil's registration, by its team where the team still stands. */
       registrierung: (team: Words | null, saison: Copy) =>
-        team === null ? `Registrierung für die ${saison}` : `Registrierung für ${teamSeason(team, saison)}`,
+        team === null ? `Registrierung ${boundBy("für", "die", saison)}` : `Registrierung ${boundBy("für", teamSeason(team, saison))}`,
       /** One label's records, where an address holds several under it. */
       several: (records: readonly Words[]) => formatList(records.map(textOf)),
     },
@@ -870,11 +873,11 @@ export const COPY = catalogue({
          * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
          * filling a shortage alone: the bound the backend publishes, never a typed figure.
          */
-        nomineeLocked: (max: number) => `Nur, wenn weniger als ${formatNumber(max)} aufgestellt sind`,
+        nomineeLocked: (max: number) => `Nur, wenn weniger ${boundBy("als", formatNumber(max))} aufgestellt sind`,
         needsSlot: "Erst mit Datum und Uhrzeit",
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
         dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
-        overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
+        overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
         /**
          * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
          * Übersicht whose answer is past its deadline; on a Spiele card the chip names what is overdue.
@@ -892,7 +895,7 @@ export const COPY = catalogue({
          * The page's one standing line above the list, filled or empty, in the two parts around the league's address,
          * which the page sets as its link: only the league mints and mails a team's link.
          */
-        linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter ", after: "." },
+        linkFromLeague: { before: "Den Registrierungslink schickt die Liga, erreichbar unter\u00A0", after: "." },
         /** Muted in the line under a row's name: the registration's address is a stored person's. */
         returning: "War schon in der Liga",
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
@@ -906,7 +909,7 @@ export const COPY = catalogue({
          * no address, so the line names the person alone.
          */
         earlierEntry: (name: Words) => `Ein früherer Eintrag nennt ${textOf(name)}.`,
-        admitAs: (name: Words) => `Als ${textOf(name)} aufnehmen`,
+        admitAs: (name: Words) => `${boundBy("Als", textOf(name))} aufnehmen`,
         otherPerson: "Andere Person, ablehnen",
       },
     },
@@ -1006,7 +1009,7 @@ export const COPY = catalogue({
     expired: "Abgelaufen",
     erased: "Gelöscht",
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
-    seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} von ${formatNumber(seats)}`,
+    seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
     seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) =>
       [rollenText(rollen), address, day].filter((part) => part !== null).join(" · "),
@@ -1055,11 +1058,11 @@ export const COPY = catalogue({
       /** The fact saying where the referee's confirmation stands, one of the four lines below. */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
-      sentTo: (address: string) => `An ${address} gesendet`,
-      confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
+      sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
+      confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
       openUntil: (day: CalendarDay) => `Offen ${boundBy("bis", formatDate(day))}`,
-      expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
-      objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDate(day)}`,
+      expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
+      objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
       phoneExample: "069 90009123",
       retireConsequence: "Die Person steht für neue Spiele nicht mehr zur Auswahl.",
@@ -1157,7 +1160,7 @@ export const COPY = catalogue({
       incoming: "Nachrückendes Team",
       /** What the replacement does: the incoming club takes the outgoing one's group and every match of it. */
       replaceConsequence: (incoming: Words, outgoing: Words, gruppe: string) =>
-        `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele von ${textOf(outgoing)}.`,
+        `${textOf(incoming)} übernimmt ${GRUPPE(gruppe)} und alle Spiele ${boundBy("von", textOf(outgoing))}.`,
 
       /**
        * Why the draw cannot be redrawn or removed now: reports stand, the season went live, or a match holds something
@@ -1168,20 +1171,22 @@ export const COPY = catalogue({
       entriesHold: "Spiele sind schon bearbeitet",
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
-      linkSentOn: (day: CalendarDay) => `Gesendet am ${formatDate(day)}`,
+      linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
       linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",
       addressBarred: "Adresse auf der Sperrliste",
       /** The registration links' done line, the rows saying the rest. */
-      sentTo: (count: number) => (count === 1 ? "An 1 Team gesendet" : `An ${formatNumber(count)} Teams gesendet`),
+      sentTo: (count: number) => (count === 1 ? "An\u00A01\u00A0Team gesendet" : `${boundBy("An", formatNumber(count), "Teams")} gesendet`),
       /** The registration links' send: how many teams it mails. */
       dispatchConsequence: (count: number) =>
-        count === 1 ? "1 Team bekommt seinen Link per E-Mail." : `${formatNumber(count)} Teams bekommen ihren Link per E-Mail.`,
+        count === 1
+          ? "1\u00A0Team bekommt seinen Link per E-Mail."
+          : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
       isCurrent: "Die Website zeigt diese Saison.",
-      onto: (saison: string) => `Auf ${saisonName(saison)}`,
+      onto: (saison: string) => boundBy("Auf", saisonName(saison)),
       activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${saisonName(saison)}.`,
       /** The activation's question, over the season the site leaves and the one it takes. */
       activateQuestion: "Die Website wechselt die Saison.",
@@ -1300,16 +1305,16 @@ export const COPY = catalogue({
       /** „E-Mail an“'s value in the decline: a seat past the mailbox bound has heard of no application, so it hears of no decline. */
       mailedSeats: "Angeschriebene Kontaktpersonen",
       /** The bulk card's line over the record's name. */
-      cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} von ${formatNumber(total)}`,
+      cardOf: (position: number, total: number) => `Bewerbung ${formatNumber(position)} ${boundBy("von", formatNumber(total))}`,
       /** The object of the bulk's button and of its question. */
-      count: (count: number) => (count === 1 ? "1 Bewerbung" : `${formatNumber(count)} Bewerbungen`),
+      count: (count: number) => (count === 1 ? "1\u00A0Bewerbung" : boundBy(formatNumber(count), "Bewerbungen")),
       acceptManyConsequence: (saison: string) => `Die Teams werden endgültig Teil der ${saisonName(saison)}.`,
       /** „E-Mail an“'s value in the bulk's question. An application names at least two people, so the count is never 1. */
-      kontaktCount: (count: number) => `${formatNumber(count)} Kontaktpersonen`,
+      kontaktCount: (count: number) => boundBy(formatNumber(count), "Kontaktpersonen"),
       /** The chip of a row the check page's confirm refused. */
       shorthandTaken: "Kürzel vergeben",
       /** The title of the bulk's end card. */
-      acceptedCount: (count: number) => (count === 1 ? "1 Team aufgenommen" : `${formatNumber(count)} Teams aufgenommen`),
+      acceptedCount: (count: number) => (count === 1 ? "1\u00A0Team aufgenommen" : `${boundBy(formatNumber(count), "Teams")} aufgenommen`),
       /** The review page's facts of a decided application. */
       acceptedOn: "Angenommen am",
       declinedOn: "Abgelehnt am",
@@ -1328,7 +1333,7 @@ export const COPY = catalogue({
       active: "Aktiv",
       enterDescription: "Ein bekanntes Team oder eine neue Schule",
       /** The field group over the season's fields in „Team eintragen“. */
-      inSaison: (saison: string) => `In der ${saisonName(saison)}`,
+      inSaison: (saison: string) => boundBy("In", "der", saisonName(saison)),
       /** Under Name and Kürzel once changed: a finished season keeps the name it was played under. */
       renameReach: "Gilt für laufende und geplante Saisons.",
       /** The public text on the club's page. */
@@ -1444,7 +1449,7 @@ export const COPY = catalogue({
       duration: "Dauer",
       /** The column naming the day a ban ends. */
       until: VALID_UNTIL,
-      durationSaisons: (count: number) => (count === 1 ? "1 Saison" : `${formatNumber(count)} Saisons`),
+      durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
       /** The dialog's line once the ban stands, by what did not follow it. */
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
@@ -1507,7 +1512,7 @@ export const COPY = catalogue({
       automatic: "Automatisch",
       /** „Zeitraum“'s presets. */
       time: {
-        days: (count: number) => `Letzte ${formatNumber(count)} Tage`,
+        days: (count: number) => `Letzte ${boundBy(formatNumber(count), "Tage")}`,
       },
       /** „Wer“ of a team's representative. */
       actor: { contact: (team: Words) => `Kontaktperson · ${textOf(team)}`, contactNoTeam: "Kontaktperson" },
@@ -1609,6 +1614,6 @@ export const COPY = catalogue({
     name: "Frankfurt League",
     shortName: "FL",
     description:
-      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11 gegen 11 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
+      "Die Frankfurt League ist die Fußballliga der Frankfurter Oberstufen. Abi-Jahrgänge spielen 11\u00A0gegen\u00A011 um den Titel. Jedes Spiel bringt Geld für den Abiball.",
   },
 });

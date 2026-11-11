@@ -1818,7 +1818,7 @@ describe("what the code costs an address holding nothing", () => {
     const message = sent.at(-1);
     const otp = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(message && otp !== null);
-    assert.ok(message.text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
+    assert.ok(message.text.includes(`${String(CODE_VALIDITY_MINUTES)}\u00A0Minuten`));
     for (const url of `${message.text} ${message.html}`.match(/https?:\/\/[^\s"<]+/g) ?? []) {
       assert.ok(!url.includes(otp), `the message carries the code inside a link: ${url}`);
     }
