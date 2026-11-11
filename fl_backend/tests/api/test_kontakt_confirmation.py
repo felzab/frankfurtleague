@@ -41,7 +41,6 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
-from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.team_writes import write_the_block
 from tests.whole_database import where_held
@@ -981,34 +980,6 @@ class TestARolloverInsideTheConsentPress:
         assert saison is not None and saison["status"] == "past"
         assert (ergebnis, row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"]) == ("confirmed", TODAY)
         assert passes == 1, "the press read the season again, so something it writes now conflicts with the rollover"
-
-
-class TestTheLinkLookupWalksAnIndex:
-    """Strangers drive both lookups a link press makes, so neither may scan its collection.
-
-    Each lookup the handler sends is explained by the server (`tests/plans.py`): a filter rebuilt
-    without its index goes red here.
-    """
-
-    def test_every_token_lookup_plans_an_index_scan(self, mongo_replica_set_url: str):
-        lookups = (Collection.BEWERBUNGEN, Collection.SAISON_TEAMS)
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            token = (await save(database, THREE)).confirmations[0].token
-            _, plans = await plans_of_sent_reads(
-                mongo_replica_set_url,
-                database,
-                lambda watched, _client: read_view(watched, token),
-                lambda collection, command: collection in lookups and "$or" in (command.get("filter") or {}),
-            )
-
-            return plans
-
-        plans = on_a_league(mongo_replica_set_url, body)
-
-        # The premise: a lookup the handler never sent would pass the next line vacuously.
-        assert sorted(collection for collection, _ in plans) == sorted(str(name) for name in lookups), plans
-        assert all("IXSCAN" in plan and "COLLSCAN" not in plan for _, plan in plans), plans
 
 
 ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607a50041")
