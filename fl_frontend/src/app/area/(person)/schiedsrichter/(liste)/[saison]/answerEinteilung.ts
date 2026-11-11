@@ -32,6 +32,8 @@ export const declineEinteilung = action({
   lane: "person",
   claim: "record",
   name: "declineEinteilung",
+  // A reason of spaces alone passes the box and meets the backend's rule, which words it on the reason's box.
+  ownWords: ["decline_without_reason"],
   input: z.object({ id: ID, reason: SpielbestaetigungenPostSchiedsrichterAnswerBody.shape.reason }),
   run: async ({ id, reason }) => {
     await spielbestaetigungenPostSchiedsrichterAnswer(id, { answer: "declined", reason });
