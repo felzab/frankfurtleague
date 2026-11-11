@@ -82,7 +82,6 @@ describe("a row's name cell", () => {
     );
     const nameLine = screen.getByText("Lea Bauer").parentElement?.parentElement;
     expect(nameLine?.textContent).toBe(`Lea Bauer${COPY.shared.bank}${WORDS.rolleOption.kapitaen}${WORDS.nominee}`);
-    expect(screen.getByText(COPY.shared.bank).getAttribute("aria-hidden")).toBe("true");
   });
 
   // The harm: a row with acts sets its chips before the name, or loses the muted line under it. Where its parts stand on

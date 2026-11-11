@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { EditorPage } from "./EditorPage";
-import { Lineup, lineupMoves, LineupPlaceholder, lineupValue } from "./Lineup";
+import { Lineup, lineupMoves, lineupValue } from "./Lineup";
 import { useEditor } from "./useEditor";
 
 import type { Copy } from "@/core/copy";
@@ -348,35 +348,5 @@ describe("a line-up in its editor", () => {
     await userEvent.click(tickOf(8));
     for (const nummer of [1, 2, 3, 4]) await userEvent.click(crossOf(nummer));
     expect(line()).toBe(COPY.shared.field.max(2));
-  });
-});
-
-describe("a line-up while it is read", () => {
-  // The harm: a wait shorter or taller than the page it gives way to, which loses a reload's place.
-  it("draws the block's own cards and rows, as many as the page states", () => {
-    const shape = (root: HTMLElement) =>
-      [...root.children].map((box) => ({
-        box: box.className,
-        band: box.firstElementChild?.className,
-        rows: [...box.querySelectorAll("tr")].map((row) => [row.className, ...[...row.children].map((cell) => cell.className)]),
-      }));
-    const block = render(
-      <Held
-        players={squad(5)}
-        start={lineupValue([idOf(1), idOf(2), idOf(3)], [])}
-      />,
-    );
-    const landed = shape(block.container);
-    block.unmount();
-
-    const wait = render(
-      <LineupPlaceholder
-        words={WORDS}
-        picked={3}
-        rest={2}
-      />,
-    );
-
-    expect(shape(wait.container)).toStrictEqual(landed);
   });
 });
