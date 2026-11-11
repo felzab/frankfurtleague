@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { wholeText } from "@/test-support/wholeText";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -57,8 +57,8 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText(COPY.admin.expired).parentElement?.parentElement;
-    expect(nameLine?.textContent).toContain(COPY.admin.delivery.undeliverable);
+    const nameLine = screen.getByText(COPY.admin.expired).parentElement;
+    expect(nameLine?.textContent).toBe(`anna@example.org${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`);
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });
 
@@ -80,15 +80,13 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText("Lea Bauer").parentElement;
+    const nameLine = screen.getByText("Lea Bauer").parentElement?.parentElement;
     expect(nameLine?.textContent).toBe(`Lea Bauer${COPY.shared.bank}${WORDS.rolleOption.kapitaen}${WORDS.nominee}`);
     expect(screen.getByText(COPY.shared.bank).getAttribute("aria-hidden")).toBe("true");
   });
 
-  // The harm: on a phone a row with acts drops its chip to a line of its own or wraps a long name over several, where
-  // every other list cuts the name with „…“ and keeps the chip beside it. jsdom lays nothing out, so each case holds what
-  // the cut rests on: one line holding the name and then its chips in tracks of their own size, the name's track
-  // shrinking to nothing, and the name cut at every width.
+  // The harm: a row with acts sets its chips before the name, or loses the muted line under it. Where its parts stand on
+  // the screen is the drive's to measure: jsdom lays nothing out.
   const actRow = (name: string, delivered: boolean, address = false) => (
     <Table
       {...props([
@@ -116,45 +114,55 @@ describe("a row's name cell", () => {
     ["a name and two chips", "Anna Berg", true],
     // A club's name may hold an „@“ and a „.“, and is cut as every name is: only a row its list marks is an address.
     ["a club's name holding an „@“", "Team @ Goethe.Schule", false],
-  ])("sets %s on one line of a row with acts, the name first and cut on a phone too", (_case, name, delivered) => {
+  ])("sets %s in a row with acts, the name first and the muted line under it", (_case, name, delivered) => {
     render(actRow(name, delivered));
-    const words = screen.getByText(name);
-    const nameLine = words.parentElement;
+    const nameLine = screen.getByText(name).parentElement?.parentElement;
     expect(nameLine?.textContent).toBe(`${name}${COPY.admin.expired}${delivered ? COPY.admin.delivery.undeliverable : ""}`);
-    expect(nameLine?.className.split(" ")).toContain("grid-cols-[minmax(0,max-content)]");
-    expect(nameLine?.className.split(" ")).not.toContain("max-lg:flex-wrap");
-    expect(words.className.split(" ")).toContain("truncate");
-    expect(words.className.split(" ")).not.toContain("max-lg:whitespace-normal");
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
   });
 
   // The harm: two rows told apart by their addresses alone read alike once both are cut, and a touch reaches no tooltip.
-  // The layout is the phone journey's (`e2e/phone/access.spec.ts`); this holds what the wrap rests on.
-  it("wraps an address rather than cutting it, after its „@“ first, its chip beside its first line", () => {
+  // The layout is the phone journey's (`e2e/phone/access.spec.ts`); this holds where a line may break: after the „@“, and
+  // before a „.“ inside a part, never between „example“ and „.com“ unless the part itself is wider than its line.
+  it("breaks an address after its „@“ first, its chip after it", () => {
     const address = "gesperrte.person@example.com";
     render(actRow(address, false, true));
     const words = screen.getByText(wholeText(address));
-    const nameLine = words.parentElement;
-    expect(words.className.split(" ")).not.toContain("truncate");
-    // Each part a block a line takes whole while it fits, so „.com“ never stands alone under „example“.
-    expect(words.innerHTML).toBe(
-      '<span class="inline-block">gesperrte<wbr>.person@</span><wbr><span class="inline-block">example<wbr>.com</span>',
-    );
-    expect(nameLine?.className.split(" ")).toContain("items-start");
-    expect(nameLine?.textContent).toBe(`${address}${COPY.admin.expired}`);
+    expect(words.innerHTML.replaceAll(/ class="[^"]*"/gu, "")).toBe("<span>gesperrte<wbr>.person@</span><wbr><span>example<wbr>.com</span>");
+    expect(words.parentElement?.parentElement?.textContent).toBe(`${address}${COPY.admin.expired}`);
   });
 
-  // The harm: a phone row loses a player's position and Stufe, which only its desktop columns hold, or a desktop row
-  // says them twice, in the line and in the columns.
-  it("sets a phone's line under the name and leaves it out from `lg`, where the columns say it", () => {
+  // The harm: on a row that opens a page, its name's link stretches over the whole row, so the pointer never reaches a
+  // cut cell's words and their whole never shows. jsdom lays nothing out, so the cell's box and its cut are given by hand.
+  it("shows a cut cell's whole words under the pointer on a row whose link stretches over it", () => {
+    const address = "schiedsrichterin.mit.einer.sehr.langen.adresse@example.com";
+    render(
+      <Table
+        {...props([{ id: "1", name: { record: "Elif Engin" }, href: "/admin/schiedsrichter", cells: { email: { record: address } } }])}
+        columns={[{ key: "email", label: COPY.signIn.address, width: "line", cut: true }]}
+      />,
+    );
+    const cell = screen.getByText(address);
+    Object.defineProperties(cell, { scrollWidth: { value: 631 }, clientWidth: { value: 264 } });
+    cell.getBoundingClientRect = () => new DOMRect(500, 100, 264, 20);
+    const link = screen.getByRole("link", { name: "Elif Engin" });
+    const host = link.parentElement;
+    fireEvent.pointerMove(link, { clientX: 600, clientY: 110 });
+    expect(host?.getAttribute("title")).toBe(address);
+    // Past the cell, over a part of the row holding nothing cut, no tooltip stands.
+    fireEvent.pointerMove(link, { clientX: 900, clientY: 110 });
+    expect(host?.hasAttribute("title")).toBe(false);
+  });
+
+  // The harm: a phone row loses a player's position and Stufe, which only its desktop columns hold.
+  it("sets a phone's line under the name", () => {
     render(
       <Table
         {...props([{ id: "1", name: { record: "Lea Bauer" }, phoneLine: { record: "Abwehr · Q2" }, cells: {} }])}
         columns={[{ key: "position", label: COPY.admin.spieler.position, hideOnPhone: true }]}
       />,
     );
-    const line = screen.getByText("Lea Bauer").parentElement?.nextElementSibling;
+    const line = screen.getByText("Lea Bauer").parentElement?.parentElement?.nextElementSibling;
     expect(line?.textContent).toBe("Abwehr · Q2");
-    expect(line?.className.split(" ")).toContain("lg:hidden");
   });
 });

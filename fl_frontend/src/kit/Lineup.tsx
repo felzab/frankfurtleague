@@ -42,9 +42,14 @@ const lineup = tv({
     row: `relative h-14 ${stacked()} lg:h-13`,
     // The name takes the room the facts leave and is cut with „…“ where it is longer.
     name: "w-full px-3 py-2",
-    // Its one growing track stops at the room the line has and counts nothing towards the column's least width, the
-    // mark and the chip in tracks of their own size after it, as `Table`'s name line.
-    nameLine: "grid min-w-0 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)] items-center gap-2",
+    // A wrapping row, as `Table`'s name line: the name and its mark at the name's least width, 5 rem, grown to the
+    // name and no further, so the chip stands after a short name, a long one is cut beside it down to that least, and
+    // the chip takes the next line where the line's own room holds not both. The line's least is the name's, so the
+    // facts beside it narrow the column to no less.
+    nameLine: "flex min-w-20 flex-wrap items-center gap-2",
+    // The name's track stops at the room the group has and counts nothing towards its least width; the mark keeps its
+    // size after it.
+    nameHead: "grid max-w-max min-w-0 grow basis-20 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)] items-center gap-2",
     nameWords: "min-w-0 truncate",
     // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
     // since a touch reaches no tooltip, and a word breaks anywhere, so the line never widens the name's column.
@@ -199,12 +204,14 @@ function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlaye
   return (
     <td className={s.name()}>
       <span className={s.nameLine()}>
-        <CutText
-          id={nameId}
-          text={textOf(player.name)}
-          className={s.nameWords()}
-        />
-        {player.mark !== undefined && <RoleMark {...player.mark} />}
+        <span className={s.nameHead()}>
+          <CutText
+            id={nameId}
+            text={textOf(player.name)}
+            className={s.nameWords()}
+          />
+          {player.mark !== undefined && <RoleMark {...player.mark} />}
+        </span>
         {player.chip !== undefined && <Chip {...player.chip} />}
       </span>
       {line !== null && (

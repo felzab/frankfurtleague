@@ -173,10 +173,15 @@ describe("a registration's row", () => {
       </>,
     );
 
-    // The words under a row's name: the name's own line, then the muted line where there is one.
-    const words = [...container.querySelectorAll("[data-kit-row]")].map((row) =>
-      [...(row.firstElementChild?.children ?? [])].map(({ textContent }) => textContent),
-    );
-    expect(words).toStrictEqual([[`Ole Sommer${COPY.admin.confirmed}`], [`Ole Sommer${COPY.admin.confirmed}`, COPY.admin.saison.stufe.Q2]]);
+    // What each row reads, and no element of either standing empty, which is what a blank line's slot would be: read by
+    // the rows' words rather than their places in the markup, which a row's layout moves.
+    const rows = [...container.querySelectorAll("[data-kit-row]")];
+    const blanks = (row: Element) =>
+      [...row.querySelectorAll("*")].filter((part) => part instanceof HTMLElement && part.childElementCount === 0 && part.textContent === "");
+    expect(rows.map(({ textContent }) => textContent)).toStrictEqual([
+      `Ole Sommer${COPY.admin.confirmed}`,
+      `Ole Sommer${COPY.admin.confirmed}${COPY.admin.saison.stufe.Q2}`,
+    ]);
+    expect(rows.map((row) => blanks(row).length)).toStrictEqual([0, 0]);
   });
 });

@@ -1,7 +1,7 @@
 import { textOf } from "@/core/copy";
 
 import { cardHover, cardSurface, stacked } from "./cardStyles";
-import { CutText } from "./CutText";
+import { CutHost, CutRow, CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
@@ -26,26 +26,30 @@ export function LinkRows({ rows }: { rows: readonly LinkRow[] }) {
           className={cardHover({
             class: `relative flex min-h-14 items-center gap-3 ${stacked()} px-4 py-2 text-base lg:min-h-13 lg:text-sm`,
           })}>
-          {row.glyph !== undefined && (
-            <Icon
-              glyph={row.glyph}
-              size={16}
+          {/* The link stretches over the row, so the address's whole, while it is cut, is the tooltip the link's
+              holder carries under the pointer (`CutRow`). */}
+          <CutRow>
+            {row.glyph !== undefined && (
+              <Icon
+                glyph={row.glyph}
+                size={16}
+              />
+            )}
+            {/* The way's own short name keeps its line and its width; the address beside it takes the rest of
+                the row and is cut with „…“ where it is longer. */}
+            <CutHost className="shrink-0 font-medium whitespace-nowrap">
+              <Link
+                href={row.href}
+                placement="row"
+                label={row.label}
+              />
+            </CutHost>
+            <CutText
+              text={textOf(row.value)}
+              className="min-w-0 flex-1 truncate text-end text-fg-muted"
             />
-          )}
-          {/* The way's own short name keeps its line and its width; the address beside it takes the rest of
-              the row and is cut with „…“ where it is longer, whole in its `title` while it is cut. */}
-          <span className="shrink-0 font-medium whitespace-nowrap">
-            <Link
-              href={row.href}
-              placement="row"
-              label={row.label}
-            />
-          </span>
-          <CutText
-            text={textOf(row.value)}
-            className="min-w-0 flex-1 truncate text-end text-fg-muted"
-          />
-          <RowEnd />
+            <RowEnd />
+          </CutRow>
         </div>
       ))}
     </div>
