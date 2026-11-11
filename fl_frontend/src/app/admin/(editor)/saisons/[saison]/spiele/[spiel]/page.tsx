@@ -131,7 +131,7 @@ export default function SpielEditorPage({ params }: Props) {
       wait={{
         lead: true,
         // A public season's match, the editor's state most days, links its page from the strip.
-        link: COPY.shared.end.toSpiel,
+        link: COPY.shared.toSpiel,
         sections: [
           ["pair", <BookingPlaceholder key="spielort" />, <BookingPlaceholder key="schiedsrichter" />],
           [

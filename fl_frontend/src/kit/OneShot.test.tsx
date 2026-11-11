@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -10,7 +11,7 @@ import { TextField } from "./TextField";
 
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
-import type { EndState } from "./OneShot";
+import type { EndState, OneShotActs } from "./OneShot";
 
 const check = vi.hoisted(() => ({ take: vi.fn() }));
 
@@ -94,5 +95,60 @@ describe("a form anybody may send", () => {
     expect(retry?.get("replay")).toBe(first?.get("replay"));
     expect(edited?.get("replay")).toBeTruthy();
     expect(edited?.get("replay")).not.toBe(first?.get("replay"));
+  });
+});
+
+const REFUSAL = { verb: "oppose", subject: COPY.shared.entry, consequence: COPY.admin.addressChange.previousStays } as const;
+const QUESTION = COPY.shared.question(REFUSAL.subject, REFUSAL.verb);
+const OPPOSE = COPY.shared.verb.oppose;
+
+const refusalForm = (action: (formData: FormData) => Promise<ActionAnswer<EndState>>, acts: OneShotActs) => (
+  <OneShotForm
+    head={<h1>{COPY.shared.help}</h1>}
+    action={action}
+    acts={acts}
+  />
+);
+
+/** The question's own press, the red one inside it. */
+const confirmIn = async () => within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: OPPOSE });
+
+// The harm: a refusal ends what the link offered, the entry deleted, on one stray press; or a question closed without
+// its answer drops the keyboard's place on `body`, which no reading of the page shows.
+describe("a mailed page's refusal", () => {
+  it("asks before it posts, and hands the focus back to its press when the question closes unanswered", async () => {
+    const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
+    render(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }));
+    const refusal = screen.getByRole("button", { name: OPPOSE });
+
+    refusal.focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: COPY.shared.back }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBe(null));
+    await waitFor(() => expect(document.activeElement).toBe(refusal));
+
+    await userEvent.keyboard("{Enter}");
+    await screen.findByRole("alertdialog", { name: QUESTION });
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBe(null));
+    await waitFor(() => expect(document.activeElement).toBe(refusal));
+    expect(action).not.toHaveBeenCalled();
+
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(await confirmIn());
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    expect(action.mock.calls[0]?.[0].get("act")).toBe("secondary");
+  });
+
+  it("asks as the page's one act too, and posts as its main act", async () => {
+    const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
+    render(refusalForm(action, { refusal: REFUSAL }));
+
+    await userEvent.click(screen.getByRole("button", { name: OPPOSE }));
+    expect(action).not.toHaveBeenCalled();
+    await userEvent.click(await confirmIn());
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    expect(action.mock.calls[0]?.[0].get("act")).toBe("primary");
   });
 });

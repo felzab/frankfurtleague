@@ -4,7 +4,7 @@ import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDateWithWeekdayAndYear, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -19,6 +19,7 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import type { Copy, Words } from "@/core/copy";
+import type { CalendarDay } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
@@ -120,7 +121,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * The match's five facts, a tile each, an absent one a dash: its matchday, a group matchday by its number over its
- * phase; its date and its time; its referee where the referee's name is public; its venue.
+ * phase; its date, as a match row writes it, over its year; its time; its referee where the referee's name is public;
+ * its venue.
  */
 function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
@@ -129,7 +131,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
     group
       ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
-    { label: fact.date, value: spiel.date === null ? COPY.shared.noValue : { record: formatDateWithWeekdayAndYear(dayOf(spiel.date)) } },
+    dateTileOf(spiel.date === null ? null : dayOf(spiel.date)),
     { label: fact.time, value: spiel.time === null ? COPY.shared.noValue : { record: formatTime(timeOf(spiel.time)) } },
     {
       label: fact.schiedsrichter,
@@ -140,6 +142,18 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
       ? { label: fact.spielort, value: COPY.shared.noValue, words: true }
       : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_link) },
   ];
+}
+
+/**
+ * The date's tile: the day as a match row writes it, „Mi., 28.10.“, over its year, so the tile is no wider than a fifth
+ * of the column (`kit/StatTiles.tsx`'s `five`), as the Spieltag's number stands over its phase.
+ */
+function dateTileOf(day: CalendarDay | null): StatTile {
+  const { date } = COPY.spielplan.fact;
+  // A stored day's first four characters are its year, as a German date writes it.
+  return day === null
+    ? { label: date, value: COPY.shared.noValue }
+    : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: day.slice(0, 4) } };
 }
 
 /** A pupil as the public read names them: a name the consent publishes, else „anonym“; a goal nobody was named for, „unbekannt“. */

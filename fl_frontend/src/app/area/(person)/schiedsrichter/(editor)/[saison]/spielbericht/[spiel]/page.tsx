@@ -98,7 +98,7 @@ export default function SpielberichtPage({ params }: Props) {
       wait={{
         lead: true,
         // A public season's match, the report's state most days, links its page from the strip.
-        link: COPY.shared.end.toSpiel,
+        link: COPY.shared.toSpiel,
         sections: [
           ["score", "rule", "field"],
           {

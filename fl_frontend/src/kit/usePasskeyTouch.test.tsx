@@ -165,7 +165,10 @@ describe("an act pressed where it stands", () => {
       <OneShotForm
         head={<h1>{COPY.shared.help}</h1>}
         action={action}
-        acts={{ primary: COPY.shared.verb.save, secondary: COPY.shared.verb.delete }}
+        acts={{
+          primary: COPY.shared.verb.save,
+          refusal: { verb: "delete", subject: COPY.shared.entry, consequence: COPY.admin.addressChange.previousStays },
+        }}
         carry={{ holder: HOLDER }}
         touch
       />,
@@ -176,6 +179,7 @@ describe("an act pressed where it stands", () => {
     expect(action).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.delete }));
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
     expect(passkey.prompt).toHaveBeenCalledTimes(1);
   });

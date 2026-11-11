@@ -12,9 +12,9 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
-import { AddressWords, addressWords } from "./AddressWords";
 import { GlyphChoices, GlyphChoicesPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CutText } from "./CutText";
 import { entryMark } from "./fieldStyles";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
@@ -550,15 +550,12 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
             {initials(name)}
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
-            {/* An address standing as the name wraps rather than being cut, as a list's row's does (`AddressWords`);
-                in the collapsed rail it keeps one line, clipped as every faded word is, rather than a line a part. */}
-            {account.name === undefined ? (
-              <span className={addressWords({ class: "font-semibold text-fg group-data-collapsed:whitespace-nowrap" })}>
-                <AddressWords address={name} />
-              </span>
-            ) : (
-              <span className="truncate font-semibold text-fg">{name}</span>
-            )}
+            {/* One line, an address standing as the name too, cut with „…“ and whole on hover, so the foot stands as
+                tall as the editor's bar beside it (`railStyles.ts :: editorBarLook`); Konto shows the whole address. */}
+            <CutText
+              text={name}
+              className="truncate font-semibold text-fg"
+            />
             {role !== undefined && <span className="truncate text-xs text-fg-muted">{role}</span>}
           </span>
         </AriaButton>

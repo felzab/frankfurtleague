@@ -172,7 +172,11 @@ function question({
     sentence,
     ...(waits === undefined ? {} : { sentenceAfter: waits }),
     action: answerAddressChange,
-    acts: { primary: title, secondary: COPY.shared.verb.decline },
+    acts: {
+      primary: title,
+      // Either side's decline ends the change, so the account keeps the address it has.
+      refusal: { verb: "decline", subject: WORDS.change, consequence: COPY.admin.addressChange.previousStays },
+    },
     carry: { token, side, way },
   };
 }

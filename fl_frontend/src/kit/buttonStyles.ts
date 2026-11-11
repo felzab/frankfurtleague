@@ -20,7 +20,8 @@ export const buttonLook = tv({
       // part ending its record, a Konto box and a section's footer alike, the control edge with words in the danger
       // hue, as GitHub Primer draws a danger zone's button, the red fill kept for the press that destroys.
       dangerOutline: "border-border-control bg-transparent px-3.5 text-danger",
-      // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“: words alone.
+      // The quiet act beside or beneath a primary one, such as the passkey offer's „Später“ and a mailed page's refusal
+      // (`OneShotForm`): words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
       icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
       // A labelled button while what it acts on is read (`buttonPlaceholder`): a placeholder's bar in the button's box, its
@@ -58,7 +59,7 @@ export const buttonLook = tv({
  * outlined danger look, any other the secondary one, since the fill belongs to the question's own button that does the
  * act. Every question's and dialog's trigger is drawn by it (`ConfirmDialog.tsx :: TriggerButton`), and so is the
  * locked button standing in a trigger's place and the question form's press, so one destroying act looks the same
- * wherever it stands.
+ * wherever it stands, a mailed page's refusal alone apart (`OneShotForm`).
  */
 export function askingLook(tone: "danger" | "primary") {
   return tone === "danger" ? "dangerOutline" : "secondary";

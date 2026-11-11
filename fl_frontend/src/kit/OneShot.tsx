@@ -2,10 +2,12 @@
 
 import { createContext, useContext, useRef, useState } from "react";
 
+import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
@@ -17,7 +19,7 @@ import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { StatusCardProps } from "./StatusPage";
 import type { FormStatus } from "./useFormAction";
@@ -27,6 +29,18 @@ export type EndState = StatusCardProps;
 
 /** Which of the form's acts was pressed: the main one, or the refusal before it. */
 export type Act = "primary" | "secondary";
+
+/**
+ * The refusal of what the link offers, an objection or a decline, by the question it asks before it sends: its verb,
+ * which names its button, the record it ends, and one sentence of what it does.
+ */
+type Refusal = { verb: Verb; subject: Copy; consequence: Copy };
+
+/**
+ * A one-shot form's acts: the main act and, where the link's offer can be refused, the refusal beside it; or the
+ * refusal alone, where the page offers nothing else.
+ */
+export type OneShotActs = { primary: Copy; refusal?: Refusal } | { primary?: never; refusal: Refusal };
 
 /** The field the pressed act posts under, beside the form's own, which the page's action reads by this name. */
 const ACT_FIELD = "act";
@@ -66,9 +80,12 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
  * replaces it. Done, the server's end state takes the page's place as the status template; refused, the
  * form stays with its input, each field's message under its field and the reason in the footer's line. The acts
  * stand in the form's footer (`FormFooter`), the main act at its right end and, before it, the refusal of what the link
- * offers, an objection or a decline, which sends without asking the fields, needing none of them, and in the outlined
- * danger look of every destroying act's button. It asks no question first: the page is itself the question the person
- * opened the link to answer. The end stands in `OneShotEnd`, which the form
+ * offers, an objection or a decline, which sends without asking the fields, needing none of them. The refusal stands in
+ * the quiet look beside the main act, and in the main act's own where it is the page's one act: the page is itself the
+ * question the person opened the link to answer, so it is the one destroying act on the site whose button is not
+ * outlined. It asks before it sends, the kit's question in the danger tone, whose own press is the red one; the form
+ * holds that question's open state, as `QuestionForm` does, since its button is the form's own rather than a
+ * question's trigger, which draws the outlined look alone. The end stands in `OneShotEnd`, which the form
  * stands inside, and outlives a visit elsewhere and the page's own re-render: what was done stays done. A form anybody
  * may send carries the bot check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the
  * column.
@@ -89,8 +106,7 @@ export function OneShotForm({
   /** What stands above the form: the page's title and what the person answers. */
   head: ReactElement;
   action: OneShotAction;
-  /** The main act's words and, where the link's offer can be refused, the refusal's. */
-  acts: { primary: Copy; secondary?: Copy };
+  acts: OneShotActs;
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
   /**
@@ -133,6 +149,9 @@ export function OneShotForm({
   const form = useRef<HTMLFormElement>(null);
   const [pressed, setPressed] = useState<Act>("primary");
   const [isChecking, setChecking] = useState(false);
+  // The refusal's question, and the press it waits on: the form's fields as the press left them, and the act it posts as.
+  const [asked, setAsked] = useState<{ formData: FormData; act: Act } | null>(null);
+  const [isAsking, setAsking] = useState(false);
   // The check's own refusal: the action never ran, so no answer of its says it.
   const [checkRefusal, setCheckRefusal] = useState<Copy | null>(null);
 
@@ -167,6 +186,12 @@ export function OneShotForm({
     return lastSent.current.key;
   };
 
+  /** The refusal asks first: its press opens the question, whose own press sends what the refusal's press left. */
+  const ask = (formData: FormData, act: Act) => {
+    setAsked({ formData, act });
+    setAsking(true);
+  };
+
   const send = (formData: FormData, act: Act) => {
     setPressed(act);
     for (const [name, value] of Object.entries(carry)) formData.set(name, value);
@@ -184,40 +209,56 @@ export function OneShotForm({
         validationErrors={refused?.fieldErrors}
         onInvalid={block}
         onSend={(formData) => {
-          if (!isBusy) send(formData, "primary");
+          if (isBusy) return;
+          // The refusal alone is the form's main act, and asks before it posts as one.
+          if (acts.primary === undefined) ask(formData, "primary");
+          else send(formData, "primary");
         }}
         className="grid gap-6">
         {children !== undefined && (boxes ? <div className={boxStack()}>{children}</div> : <FieldStack>{children}</FieldStack>)}
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="grid">
           {check.widget}
-          <FormFooter
-            status={status}
-            note={note}>
-            {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
-                so a screen reader hears what the press did. */}
-            <RowActs
-              className="contents"
-              describedBy={describedBy}>
-              {acts.secondary !== undefined && (
+          {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
+              so a screen reader hears what the press did. Around the whole footer, whose acts it reorders by layout. */}
+          <RowActs
+            className="contents"
+            describedBy={describedBy}>
+            <FormFooter
+              status={status}
+              note={note}>
+              {acts.primary !== undefined && acts.refusal !== undefined && (
                 <Button
-                  // The refusal destroys what the link offered, so it takes the one look of every destroying act's button.
-                  variant="dangerOutline"
-                  label={acts.secondary}
+                  variant="quiet"
+                  label={COPY.shared.verb[acts.refusal.verb]}
                   isBusy={isBusy && pressed === "secondary"}
                   onPress={() => {
-                    if (form.current !== null && !isBusy) send(new FormData(form.current), "secondary");
+                    if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
                   }}
                 />
               )}
               <Button
                 variant="primary"
                 type="submit"
-                label={acts.primary}
+                label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
                 isBusy={isBusy && pressed === "primary"}
               />
-            </RowActs>
-          </FormFooter>
+            </FormFooter>
+          </RowActs>
+          {/* Mounted closed from the first render, as a held question must be (`useOpenUntilHidden`). Closed, it hands the
+              focus back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`). */}
+          {acts.refusal !== undefined && (
+            <ConfirmDialog
+              verb={acts.refusal.verb}
+              subject={acts.refusal.subject}
+              consequence={acts.refusal.consequence}
+              tone="danger"
+              open={{ isOpen: isAsking, onOpenChange: setAsking }}
+              onConfirm={() => {
+                if (asked !== null && !isBusy) send(asked.formData, asked.act);
+              }}
+            />
+          )}
         </div>
       </HeldForm>
     </ClassicPage>
