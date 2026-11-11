@@ -16,7 +16,7 @@ from app.api.grants.crud import (
     stop_the_handover_in_session,
 )
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.grants.schemas import FLGrantRecord, FLGrantRow, FLGrantsListResponse, FLGrantWriteResponse, FLPostGrantPayload
+from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLGrantWriteResponse, FLPostGrantPayload
 from app.api.grants.services import (
     find_barred_refusal,
     find_exists_refusal,
@@ -56,16 +56,17 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
     Uncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
     """
 
-    rows = [FLGrantRecord.model_validate(row) for row in await read_grants(grants_collection=grants_collection)]
+    rows = await read_grants(grants_collection=grants_collection)
 
     return FLGrantsListResponse(
         grants=[
             FLGrantRow(
-                id=row.id,
-                address=row.address,
-                admin_tier=row.admin_tier,
-                effective_from=row.effective_from,
-                owner_from=row.owner_from,
+                id=row["_id"],
+                address=row["address"],
+                admin_tier=row["admin_tier"],
+                effective_from=row["effective_from"],
+                # Stored only while a handover to the row waits.
+                owner_from=row.get("owner_from"),
             )
             for row in rows
         ]
