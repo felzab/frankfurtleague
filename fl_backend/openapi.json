@@ -5785,7 +5785,7 @@
         "type": "object"
       },
       "FLInvitationDispatchResponse": {
-        "description": "How the press's teams came out: the season editor's rows then read what each team holds.",
+        "description": "How the season's press came out, counted in teams.",
         "properties": {
           "failed": {
             "minimum": 0.0,
@@ -5818,7 +5818,7 @@
         "type": "object"
       },
       "FLInvitationLinkRow": {
-        "description": "One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.",
+        "description": "One team's registration link, and what the season's press would do for the team today.",
         "properties": {
           "has_link": {
             "title": "Has Link",
@@ -5869,7 +5869,7 @@
       },
       "FLInvitationMailPayload": {
         "additionalProperties": false,
-        "description": "The one live link a team's panel shows, to be mailed to the team's confirmed seats.",
+        "description": "The team's live link, to be mailed to its confirmed seats.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -5899,7 +5899,7 @@
         "type": "object"
       },
       "FLInvitationMintResponse": {
-        "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash.",
+        "description": "A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6063,7 +6063,7 @@
         "type": "object"
       },
       "FLInvitationWriteResponse": {
-        "description": "The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere.",
+        "description": "The revoked link, which stays stored so a delivery event about it still lands.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16598,7 +16598,7 @@
         "type": "object"
       },
       "FLTeamLinkState": {
-        "description": "The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.",
+        "description": "A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team.",
         "properties": {
           "invitation": {
             "anyOf": [

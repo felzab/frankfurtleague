@@ -3645,7 +3645,7 @@ export const TeamsPostInvitationDispatchBody = zod
   .object({
     invitation_id: zod.string().regex(teamsPostInvitationDispatchBodyInvitationIdRegExp),
   })
-  .describe("The one live link a team's panel shows, to be mailed to the team's confirmed seats.");
+  .describe("The team's live link, to be mailed to its confirmed seats.");
 
 /**
  * „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.

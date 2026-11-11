@@ -2593,7 +2593,7 @@ export interface FLInvitationData {
 }
 
 /**
- * How the press's teams came out: the season editor's rows then read what each team holds.
+ * How the season's press came out, counted in teams.
  */
 export interface FLInvitationDispatchResponse {
   /** @minimum 0 */
@@ -2616,7 +2616,7 @@ export const FLInvitationSkipReason = {
 } as const;
 
 /**
- * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+ * One team's registration link, and what the season's press would do for the team today.
  */
 export interface FLInvitationLinkRow {
   has_link: boolean;
@@ -2629,7 +2629,7 @@ export interface FLInvitationLinkRow {
 }
 
 /**
- * The one live link a team's panel shows, to be mailed to the team's confirmed seats.
+ * The team's live link, to be mailed to its confirmed seats.
  */
 export interface FLInvitationMailPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2645,9 +2645,7 @@ export interface FLInvitationMailResponse {
 }
 
 /**
- * A freshly minted registration link, and the only answer that ever carries its raw value.
- *
- * Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
+ * A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it.
  */
 export interface FLInvitationMintResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2704,7 +2702,7 @@ export interface FLInvitationViewResponse {
 }
 
 /**
- * The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere.
+ * The revoked link, which stays stored so a delivery event about it still lands.
  */
 export interface FLInvitationWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5790,7 +5788,7 @@ export interface FLTeamEntryOffer {
 }
 
 /**
- * The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.
+ * A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team.
  */
 export interface FLTeamLinkState {
   invitation: FLInvitationRow | null;
