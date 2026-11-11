@@ -37,16 +37,21 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   ...overrides,
 });
 
-/** The confirmation row each row's answers post, `undefined` on a row carrying none. */
-async function answered(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<ReadonlyArray<string | undefined>> {
+type Row = { id: string; words?: string; acts?: ReactElement<{ id: string }> };
+
+/** The rows the page draws for these games. */
+async function rowsOf(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<readonly Row[]> {
   state.spiele = [...spiele];
   const page = SchiedsrichterOverviewPage({ params: Promise.resolve({ saison: "2027" }) } as Parameters<
     typeof SchiedsrichterOverviewPage
-  >[0]) as {
-    props: { list: { content: Promise<{ cards: ReadonlyArray<{ rows: ReadonlyArray<{ acts?: ReactElement<{ id: string }> }> }> }> } };
-  };
+  >[0]) as { props: { list: { content: Promise<{ cards: ReadonlyArray<{ rows: readonly Row[] }> }> } } };
   const { cards } = await page.props.list.content;
-  return (cards[0]?.rows ?? []).map(({ acts }) => acts?.props.id);
+  return cards[0]?.rows ?? [];
+}
+
+/** The confirmation row each row's answers post, `undefined` on a row carrying none. */
+async function answered(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<ReadonlyArray<string | undefined>> {
+  return (await rowsOf(...spiele)).map(({ acts }) => acts?.props.id);
 }
 
 describe("a game's answers", () => {
@@ -75,5 +80,25 @@ describe("a game's answers", () => {
         spiel({ state: "valid", past: true }),
       ),
     ).toStrictEqual([undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+  });
+});
+
+/* A row's words decide what the list's search keeps (`kit/ListTable.tsx :: ListCardRows`): words missing a club, the
+   ground or the date hide the game from the referee typing it, and the list only says it holds no such game. */
+describe("the list's search", () => {
+  it.each([
+    ["a club of either side", "eiche"],
+    ["the ground", "sportplatz nord"],
+    ["the date as a reader writes it", "17.11.2026"],
+  ])("finds a game by %s", async (_by, query) => {
+    const rows = await rowsOf(
+      spiel({
+        spiel_id: "5f0000000000000000000001",
+        spielort: { spielort_id: "5f00000000000000000000c1", name: "Sportplatz Nord", maps_link: "https://maps.example/nord" },
+      }),
+      spiel({ spiel_id: "5f0000000000000000000002", team1_name: "Linde", team2_name: "Buche", date: "2026-11-24" }),
+    );
+    // The kit's own rule: a row is kept where its words hold the text, upper and lower case alike.
+    expect(rows.filter((row) => row.words?.toLowerCase().includes(query)).map((row) => row.id)).toStrictEqual(["5f0000000000000000000001"]);
   });
 });

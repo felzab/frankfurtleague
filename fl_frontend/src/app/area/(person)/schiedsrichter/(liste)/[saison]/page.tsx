@@ -5,8 +5,8 @@ import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
-import { COPY } from "@/core/copy";
-import { dayOf, timeOf } from "@/core/format";
+import { COPY, textOf } from "@/core/copy";
+import { dayOf, formatDate, timeOf } from "@/core/format";
 import {
   SpielbestaetigungenPostSchiedsrichterAnswerBody,
   spielbestaetigungenPostSchiedsrichterAnswerBodyReasonOneMax,
@@ -22,7 +22,7 @@ import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { isOwnSaison } from "../../../ownSaison";
 import { EinteilungActs } from "./EinteilungActs";
 
-import type { Words } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ChipProps } from "@/kit/Chip";
@@ -88,21 +88,29 @@ function ReasonField() {
   );
 }
 
+/**
+ * What the typed text finds a game by, as the Spielsuche finds a match: both clubs, or that a side is still open; its
+ * ground; its date as its row shows it and as a reader writes it.
+ */
+function wordsOf(spiel: FLSchiedsrichterSpiel, name: Copy, when: Copy): string {
+  return [textOf(name), spiel.spielort?.name, textOf(when), spiel.date === null ? null : formatDate(dayOf(spiel.date))]
+    .filter((word) => word != null)
+    .join(" ");
+}
+
 /** One game's row: it opens the game's match report, and a booking still to answer carries the two answers. */
-function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string } {
+function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & { id: string; words: string } {
   const { chip, adds, open } = standingOf(spiel);
   const name = matchName(spiel.team1_name, spiel.team2_name);
+  const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
   const id = spiel.spielbestaetigung_id;
   return {
     id: spiel.spiel_id,
     href: ROUTES.schiedsrichterSpielbericht.path(saison, spiel.spiel_id),
     name,
+    words: wordsOf(spiel, name, when),
     ...(chip === undefined ? {} : { chip }),
-    line: SERVER_COPY.area.line([
-      COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
-      spiel.spielort === null ? null : { record: spiel.spielort.name },
-      adds ?? null,
-    ]),
+    line: SERVER_COPY.area.line([when, spiel.spielort === null ? null : { record: spiel.spielort.name }, adds ?? null]),
     ...(open === true && id !== null
       ? {
           acts: (
@@ -136,9 +144,9 @@ async function readSpiele(params: Props["params"]) {
 }
 
 /**
- * A referee's Übersicht of one season: one box „Spiele“, a row a game in the order the read gives, open work first,
- * then the games to come, then the finished. A booking is answered on its row, and every row opens its game's match
- * report.
+ * A referee's Übersicht of one season: one box „Spiele“, searched on the page, a row a game in the order the read gives,
+ * open work first, then the games to come, then the finished. A booking is answered on its row, and every row opens its
+ * game's match report.
  */
 export default function SchiedsrichterOverviewPage({ params }: Props) {
   return (
@@ -146,6 +154,7 @@ export default function SchiedsrichterOverviewPage({ params }: Props) {
       head={{ scope: "area", title: { route: "schiedsrichterOverview" } }}
       list={{
         kind: "cards",
+        search: { label: COPY.area.schiedsrichter.search },
         // A rail page's wait draws its taller state (`kit/Skeleton.tsx`): every row with its two acts' bars, which a
         // row without acts lands a line shorter than on a phone, collapsing unseen under `main`.
         wait: { rows: 5, cards: [{ title: TITLE, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline], count: false }] },
