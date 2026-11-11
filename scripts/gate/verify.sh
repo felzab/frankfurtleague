@@ -134,22 +134,39 @@ SCOPE="${SELECTED[0]}"
 # verdict. `--checker` adds the 2 a checker built on `scripts/lib/checker_kernel.py :: run` answers
 # for an input it could not judge. `--summary` is for a tool raising an annotation per finding itself
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
-check() { # [--checker] [--summary] $1 what to say on a finding · the command
-  local checker=0 said rc=0
+# `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
+check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
+  local checker=0 pytest=0 said rc=0
   local -a summary=()
   if [[ "$1" == --checker ]]; then checker=1; shift; fi
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
+  if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
   said="$1"; shift
   quietly "$@" || rc=$?
   case "$rc" in
     0) return 0 ;;
-    1) fail "${summary[@]}" "$said"; return 1 ;;
+    1) if (( pytest )) && annotate_cases; then summary=(--summary); fi
+       fail "${summary[@]}" "$said"; return 1 ;;
     130) on_interrupt ;;
     2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above."; fi
        on_error "$rc" "${BASH_LINENO[0]}" "$*" ;;
     *) on_error "$rc" "${BASH_LINENO[0]}" "$*" ;;
   esac
+}
+
+# pytest's short summary gives each case that failed or errored a line of its own, `FAILED <case>` or
+# `ERROR <case>` and any reason after it, at the end of a log the step's fold hides: each becomes an
+# annotation through `_annotate`, so the run page names the case. Answers 1 where no line names one.
+annotate_cases() {
+  local line found=1
+  while IFS= read -r line; do
+    if [[ "$line" == "FAILED "* || "$line" == "ERROR "* ]]; then
+      _annotate "${_STEP_LABEL}: ${line}"
+      found=0
+    fi
+  done <<< "$QUIETLY_OUTPUT"
+  return "$found"
 }
 
 # A command run from inside one of the repository's directories.
@@ -212,7 +229,7 @@ scope_scripts() {
     && ok "the gate's own types are clean"
 
   step "scripts · pytest"
-  check "pytest over scripts/tests failed; the failing test names which." \
+  check --pytest "pytest over scripts/tests failed; the failing test names which." \
     "$PY" -m pytest scripts/tests "${PYTEST_SPREAD[@]}" --maxprocesses 8 \
     && ok "the scripts' own tests pass"
   return 0
@@ -296,7 +313,7 @@ scope_backend() {
 
   # No worker starts a server (`fl_backend/tests/conftest.py :: pytest_configure_node`).
   step "backend · pytest  (default tier)"
-  check "fl_backend tests failed." in_dir fl_backend "$PY" -m pytest "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
+  check --pytest "fl_backend tests failed." in_dir fl_backend "$PY" -m pytest "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
     && ok "default-tier tests pass"
 
   # `app/` alone, deptry's default: `tests/` imports the dev group by design.
@@ -543,7 +560,7 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
   # `loadfile` for isolation too: `fl_backend/tests/api/test_commit_fail_points.py` sets the
   # server's one `failCommand`, so its cases run one after another on one worker.
   step "db · pytest -m db, distributed over the two shared mongods"
-  check "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
+  check --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
 own message above says which." \
     in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
     && ok "db-tier tests pass"
