@@ -12,23 +12,28 @@ const options = {
     strict: true,
     deprecationErrors: true,
   },
-  // Per operation, never per request: a session read is one aggregate, and a session a passkey made
-  // adds that passkey's lookup (`fl_frontend/src/core/auth/session.ts :: servedSessionOf`). An admin action reads
-  // the session in the proxy's slide, its guard and the render after it, so a slow store costs it
-  // several times this.
+  // One bound per stage, each taken again by every attempt the driver retries: a read the store never
+  // answers ends after its own socket bound and its retry's checkout. An admin action reads the
+  // session in the proxy's slide, its guard and the render after it, so a slow store costs it
+  // several times these.
 
-  // Shared inside a transaction, which the adapter runs through `withTransaction`: its operations,
-  // commit and retries draw on one budget, so a store slow at each step times the whole out. Its
-  // abort after a failed commit has its own.
-  timeoutMS: 3000,
-  // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
-  // server is met here. Tighter than `fl_backend/app/core/db.py :: SERVER_SELECTION_TIMEOUT_MS`,
+  // An unreachable store. Tighter than `fl_backend/app/core/db.py :: SERVER_SELECTION_TIMEOUT_MS`,
   // which only the backend's boot waits on, where no visitor does.
   serverSelectionTimeoutMS: 3000,
-  // The handshake of the reconnect's explicit `connect()`, which `timeoutMS` does not reach and the
-  // driver would wait 30 s for. Its monitor times its checks out on this too, so a store whose
-  // handshake takes longer reads as down.
+  // A checkout from the pool, which waits out the opening of the connection it hands over: a store
+  // that accepts and never answers a handshake.
+  waitQueueTimeoutMS: 3000,
+  // One connection's opening and handshake, which the checkout above stops waiting for but the pool
+  // does not: the opening holds one of its two `maxConnecting` slots until this ends. The monitor
+  // times its checks out on it too, so a store whose handshake takes longer reads as down.
   connectTimeoutMS: 3000,
+  // Each send and receive on an open connection: a read or a commit the store never answers, and
+  // the index build (`fl_frontend/src/core/authIndexes.ts`).
+  socketTimeoutMS: 3000,
+  // Nothing bounds a transaction whole. The adapter runs one through the driver's `withTransaction`,
+  // which retries a write conflict, and sends again a commit whose answer was lost, for up to 120 s:
+  // no per-stage option shortens that, and the `timeoutMS` the adapter's documentation offers for it
+  // has no effect in this driver. A store answering all but commits holds a sign-in that long.
 };
 
 let client: MongoClient | undefined;
