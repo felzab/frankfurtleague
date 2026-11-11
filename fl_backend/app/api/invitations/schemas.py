@@ -66,10 +66,7 @@ type FLInvitationSkipReason = Literal[
 
 
 class FLInvitationLinkRow(BaseModel):
-    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
-
-    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
-    """
+    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds."""
 
     team_id: CustomObjectId
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
@@ -94,14 +91,6 @@ class FLTeamLinkState(BaseModel):
     paused: bool
     # Why the season's press would pass this team over today, `None` where it would mail it.
     skipped: FLInvitationSkipReason | None
-
-
-class FLInvitationDispatchPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # False by default, so pressing twice mails nobody twice: a team whose live link already has a mail owed or sent is
-    # skipped unless this says otherwise.
-    resend: bool = False
 
 
 class FLInvitationMailPayload(BaseModel):

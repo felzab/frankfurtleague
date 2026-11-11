@@ -67,7 +67,6 @@ import type {
   FLGrantHandoverPassResponse,
   FLGrantsListResponse,
   FLGrantWriteResponse,
-  FLInvitationDispatchPayload,
   FLInvitationDispatchResponse,
   FLInvitationMailPayload,
   FLInvitationMailResponse,
@@ -2527,7 +2526,7 @@ export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
  *
  * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
  * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
- * the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
+ * the press decides each team by, beside each team's live link and the day it was last sent.
  * Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
  * season holds that id.
  * @summary One Saison for the admin editor
@@ -2590,9 +2589,9 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  * handed out; no link is answered. A team this skips is left exactly as it was.
  *
  * Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, or its live link was already sent and `resend` is false. **The fourth is read off the day the
- * live link was sent, stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails
- * nobody twice, and a link a club holds is replaced only by a deliberate resend. **The first is read off the junction row's
+ * has been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,
+ * stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and
+ * the team's own press is what mails a club its link again. **The first is read off the junction row's
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
@@ -2606,26 +2605,11 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
  */
 export const saisonsPostInvitationsDispatch = async (
   saisonId: string,
-  fLInvitationDispatchPayload: FLInvitationDispatchPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLInvitationDispatchResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
   return adminKeyTransport<FLInvitationDispatchResponse>(getSaisonsPostInvitationsDispatchUrl(saisonId), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLInvitationDispatchPayload),
   });
 };
 

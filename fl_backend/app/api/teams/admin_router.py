@@ -425,7 +425,6 @@ async def get_team_saison_admin(
                 austritt=row_raw.get("austritt"),
                 kontakte=row_raw.get("kontakte"),
                 invitation_raw=live[0] if live else None,
-                resend=False,
             ).skipped,
         )
 

@@ -382,7 +382,7 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
                 transport = ASGITransport(app=served, raise_app_exceptions=False)
                 async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
                     started = time.monotonic()
-                    response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS, json={"resend": False})
+                    response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS)
                     elapsed = time.monotonic() - started
             finally:
                 # The app outlives the case, so the stand-in goes with it.

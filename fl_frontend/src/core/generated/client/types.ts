@@ -2635,10 +2635,6 @@ export interface FLInvitationData {
   team: string;
 }
 
-export interface FLInvitationDispatchPayload {
-  resend?: boolean;
-}
-
 /**
  * How the press's teams came out: the season editor's rows then read what each team holds.
  */
@@ -2664,8 +2660,6 @@ export const FLInvitationSkipReason = {
 
 /**
  * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
- *
- * The preview is the press's own plan with `resend` left false, as the editor's press sends it.
  */
 export interface FLInvitationLinkRow {
   has_link: boolean;

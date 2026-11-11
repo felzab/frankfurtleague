@@ -15,7 +15,6 @@ from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
-    FLInvitationDispatchPayload,
     FLInvitationDispatchResponse,
     FLInvitationLinkRow,
 )
@@ -271,7 +270,7 @@ async def get_saison_admin(
 
     `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
     offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
-    the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
+    the press decides each team by, beside each team's live link and the day it was last sent.
     Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
     season holds that id.
     """
@@ -1283,8 +1282,7 @@ async def _plan_the_dispatch(
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
-    `resend` left false, as the editor's press sends it. Read outside any transaction, for the editor's read: the press
-    plans each team again in its own.
+    Read outside any transaction, for the editor's read: the press plans each team again in its own.
     """
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
@@ -1307,7 +1305,6 @@ async def _plan_the_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             invitation_raw=invitation_raw,
-            resend=False,
         )
         planned.append(_PlannedTeam(team=team, live=invitation_raw, plan=plan))
 
@@ -1325,7 +1322,6 @@ async def _mail_one_team(
     db: AsyncMongoClient,
     saison_id: str,
     team: Mapping[str, Any],
-    resend: bool,
     records_the_press: bool,
     today: str,
     now: datetime,
@@ -1355,7 +1351,6 @@ async def _mail_one_team(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             invitation_raw=live[0] if live else None,
-            resend=resend,
         )
 
         if plan.skipped is not None:
@@ -1423,7 +1418,6 @@ async def _mail_one_team(
 )
 async def post_invitations_dispatch(
     saison_id: str,
-    dispatch_data: Annotated[FLInvitationDispatchPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
@@ -1440,9 +1434,9 @@ async def post_invitations_dispatch(
     handed out; no link is answered. A team this skips is left exactly as it was.
 
     Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, or its live link was already sent and `resend` is false. **The fourth is read off the day the
-    live link was sent, stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails
-    nobody twice, and a link a club holds is replaced only by a deliberate resend. **The first is read off the junction row's
+    has been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,
+    stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and
+    the team's own press is what mails a club its link again. **The first is read off the junction row's
     `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
     being a deliberate act rather than a bulk one.
 
@@ -1470,10 +1464,9 @@ async def post_invitations_dispatch(
                 db=db,
                 saison_id=saison_id,
                 team=team,
-                resend=dispatch_data.resend,
                 # One press across a transaction per team is one act, its row in the first team's that mails: a write
                 # after the loop would meet the deadline the loop spent, and answer 500 over teams already mailed.
-                records_the_press=not dispatch_data.resend and "mailed" not in outcomes,
+                records_the_press="mailed" not in outcomes,
                 today=today,
                 now=germany_now,
             )
