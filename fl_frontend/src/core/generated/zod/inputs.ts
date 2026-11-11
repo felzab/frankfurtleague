@@ -1480,12 +1480,8 @@ export const RegistrierungenDeclineBody = zod
 /**
  * Create the next season, always `future`, from its two days, answering the id it minted.
  *
- * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
- * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
- * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
- * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
- * them. Making the season live is a separate step.
+ * Its id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league
+ * holds at most one planned season.
  * @summary Create a Saison
  */
 export const saisonsPostSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1507,13 +1503,10 @@ export const SaisonsGetSaisonParams = zod.object({
 });
 
 /**
- * Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.
+ * Save a season's dates and rules on the `version` it was read at, answering the version stored.
  *
- * `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
- * fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
- * (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
- * started too early is unlocked by one save moving its start and a second changing its rules.
+ * What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
+ * fixed once a fixture has taken place, and moves later only while no club's exit is stored.
  * @summary Update a Saison's dates and rules
  */
 export const SaisonsPatchSaisonParams = zod.object({
@@ -1570,7 +1563,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         open: zod.boolean(),
       })
       .describe(
-        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nPast `end` the link runs on until the season ends and an entry is a Nachnominierung; `open` pauses the link alone.",
       ),
     zod.null(),
   ]),
@@ -1583,7 +1576,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         verlierer_tore: zod.int().min(saisonsPatchSaisonBodyRulesForfeitErgebnisVerliererToreMin),
       })
       .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
+        "What a fixture is awarded when one side does not appear, as both sides' goals rather than a margin.\n\nA level award needs a season with no knockout round.",
       ),
     loss_points: zod.int().min(saisonsPatchSaisonBodyRulesLossPointsMin),
     max_kader_size: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKaderSizeExclusiveMin).max(saisonsPatchSaisonBodyRulesMaxKaderSizeMax),
@@ -1598,10 +1591,9 @@ export const SaisonsPatchSaisonBody = zod.object({
 });
 
 /**
- * Make this the active season, moving whichever holds `active` to `past` in one transaction.
+ * Make this the active season, moving whichever holds `active` to `past`.
  *
- * The only path to `status: "active"`. The outgoing season must be finished, a `past` target is
- * refused, and every matchday of the target carries a date.
+ * The outgoing season must be finished, and every matchday of the target dated.
  * @summary Make this the active Saison
  */
 export const SaisonsActivateSaisonParams = zod.object({
@@ -1609,21 +1601,10 @@ export const SaisonsActivateSaisonParams = zod.object({
 });
 
 /**
- * Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
+ * What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
  *
- * The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
- * fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
- *
- * Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
- * `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
- * both before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,
- * which is what the replacement admits.
- *
- * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
- * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
- * the press decides each team by, beside each team's live link and the day it was last sent.
- * Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
- * season holds that id.
+ * The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
+ * judges it, so an act is offered exactly where its write takes it.
  * @summary One Saison for the admin editor
  */
 export const SaisonsGetSaisonAdminParams = zod.object({
@@ -1633,8 +1614,8 @@ export const SaisonsGetSaisonAdminParams = zod.object({
 /**
  * Exchange the groups of two clubs entered in this season, as one write.
  *
- * Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
- * so each group stays a round robin. Neither `tore` nor `austritt` moves.
+ * Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
+ * `tore` nor `austritt` moves.
  * @summary Exchange two teams' groups
  */
 export const SaisonsSwapGruppenParams = zod.object({
@@ -1654,25 +1635,10 @@ export const SaisonsSwapGruppenBody = zod
   );
 
 /**
- * Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
+ * Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
  *
- * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
- * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
- * handed out; no link is answered. A team this skips is left exactly as it was.
- *
- * Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,
- * stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and
- * the team's own press is what mails a club its link again. **The first is read off the junction row's
- * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
- * being a deliberate act rather than a bulk one.
- *
- * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
- * counts.
- *
- * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
- * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
- * teams and reaches the rest.
+ * A team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it
+ * was, so pressing twice mails nobody twice.
  * @summary Mint every admitted team a link
  */
 export const SaisonsPostInvitationsDispatchParams = zod.object({
@@ -1690,15 +1656,10 @@ export const SaisonsGetKoRundeParams = zod.object({
 });
 
 /**
- * The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+ * The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
  *
- * In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
- * whose day has gone by without a result, and each report not adopted as it stands; `dates`, each club's open date
- * proposal, each fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source,
- * each referee's own decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`,
- * each undecided application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
- * needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
- * Answers 404 for a season that does not exist. Writes nothing.
+ * Every card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`
+ * among it.
  * @summary One Saison's open work, card by card
  */
 export const SaisonsGetSaisonOverviewParams = zod.object({
@@ -1720,13 +1681,9 @@ export const SaisonsGetSpielParams = zod.object({
 });
 
 /**
- * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+ * Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.
  *
- * Every fixture's confirmations go with it.
- *
- * The replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it
- * (`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
- * an entry.
+ * Undoing the draw reopens the shape rules to an edit and the groups to an entry.
  * @summary Undraw this Saison's Spielplan
  */
 export const SaisonsDeleteSpielplanParams = zod.object({
@@ -1744,12 +1701,10 @@ export const SaisonsGetSpielplanParams = zod.object({
 });
 
 /**
- * Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
+ * Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
  *
- * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
- * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
- * removed rows back.
+ * A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
+ * confirmations, reports and line-ups with it; nothing writes the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const SaisonsPostSpielplanParams = zod.object({
@@ -1790,7 +1745,7 @@ export const SaisonsPostSpielplanBody = zod
       .optional(),
   })
   .describe(
-    "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.",
+    "Whether this draw may replace what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission.",
   );
 
 /**

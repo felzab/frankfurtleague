@@ -5503,7 +5503,7 @@
       },
       "FLGenerateSpielplanPayload": {
         "additionalProperties": false,
-        "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.",
+        "description": "Whether this draw may replace what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission.",
         "properties": {
           "replace": {
             "default": false,
@@ -7673,7 +7673,7 @@
         "type": "object"
       },
       "FLOverviewCard": {
-        "description": "One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.",
+        "description": "One card and its rows, a fixture once, ordered by kind, then each fixture's day, undated last, then its number.",
         "properties": {
           "card": {
             "$ref": "#/components/schemas/FLOverviewCardName"
@@ -10235,7 +10235,7 @@
         "type": "object"
       },
       "FLSaisonAdminTeam": {
-        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\nrefusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so\na pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the\nreplacement handing the whole schedule over.",
+        "description": "One club's row of the season as the swap and the replacement list it, graded as each write judges it.\n\n`group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and\n`spiel_taken_place` closes its replacement, which hands the whole schedule over.",
         "properties": {
           "austritt": {
             "anyOf": [
@@ -10285,7 +10285,7 @@
         "type": "object"
       },
       "FLSaisonBewerbung": {
-        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\n`open` pauses the form alone, its dates untouched and the applications already received staying in triage, as\n`FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_takes_bewerbungen`).",
+        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\n`open` pauses the form alone, its dates untouched and the applications already received staying in triage.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10337,7 +10337,7 @@
         "type": "object"
       },
       "FLSaisonDrawn": {
-        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.\n\nCounted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,\n`spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where\nthose writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.",
+        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.\n\n`generated_at` is `null` on a season whose rows no draw dated.",
         "properties": {
           "generated_at": {
             "anyOf": [
@@ -10371,7 +10371,7 @@
         "type": "object"
       },
       "FLSaisonForfeitErgebnis": {
-        "description": "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
+        "description": "What a fixture is awarded when one side does not appear, as both sides' goals rather than a margin.\n\nA level award needs a season with no knockout round.",
         "properties": {
           "sieger_tore": {
             "minimum": 0.0,
@@ -10473,7 +10473,7 @@
         "type": "string"
       },
       "FLSaisonPhaseSchedule": {
-        "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order.",
+        "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is absent rather than present with zeroes, so the list is the\nphases the season plays, in playing order.",
         "properties": {
           "matches_per_spieltag": {
             "minimum": 0.0,
@@ -10498,7 +10498,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nPast `end` the link runs on until the season ends and an entry is a Nachnominierung; `open` pauses the link alone.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -23168,7 +23168,7 @@
     },
     "/api/v0/saisons": {
       "post": {
-        "description": "Create the next season, always `future`, from its two days, answering the id it minted.\n\nThe server names it: the year after the newest stored season's, or the league's first where none is stored, so a\nseason is never created out of turn. Its rules carry on from that newest season, or are the league's first season's\n(`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a\n`future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of\ntwo creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against\nthem. Making the season live is a separate step.",
+        "description": "Create the next season, always `future`, from its two days, answering the id it minted.\n\nIts id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league\nholds at most one planned season.",
         "operationId": "saisons_post_saison",
         "requestBody": {
           "content": {
@@ -23379,7 +23379,7 @@
     },
     "/api/v0/saisons/list/admin": {
       "get": {
-        "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, by its own judgement, or null.",
+        "description": "Every season, the `future` ones included, each with its start, play and decision states and its counts.\n\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, or null.",
         "operationId": "saisons_get_saisons_admin",
         "responses": {
           "200": {
@@ -23522,7 +23522,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.\n\n`status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a\nfixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored\n(`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season\nstarted too early is unlocked by one save moving its start and a second changing its rules.",
+        "description": "Save a season's dates and rules on the `version` it was read at, answering the version stored.\n\nWhat a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is\nfixed once a fixture has taken place, and moves later only while no club's exit is stored.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {
@@ -23610,7 +23610,7 @@
     },
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
-        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, a `past` target is\nrefused, and every matchday of the target carries a date.",
+        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe outgoing season must be finished, and every matchday of the target dated.",
         "operationId": "saisons_activate_saison",
         "parameters": [
           {
@@ -23688,7 +23688,7 @@
     },
     "/api/v0/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's\n`replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes\nboth before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,\nwhich is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
+        "description": "What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, and every flag and every refusal is judged as the write it stands for\njudges it, so an act is offered exactly where its write takes it.",
         "operationId": "saisons_get_saison_admin",
         "parameters": [
           {
@@ -23766,7 +23766,7 @@
     },
     "/api/v0/saisons/{saison_id}/gruppen/swap": {
       "post": {
-        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery Gruppenphase fixture fielding either club has that side rewritten in the same transaction,\nso each group stays a round robin. Neither `tore` nor `austritt` moves.",
+        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither\n`tore` nor `austritt` moves.",
         "operationId": "saisons_swap_gruppen",
         "parameters": [
           {
@@ -23854,7 +23854,7 @@
     },
     "/api/v0/saisons/{saison_id}/invitations/dispatch": {
       "post": {
-        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. A team this skips is left exactly as it was.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,\nstored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and\nthe team's own press is what mails a club its link again. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero\ncounts.\n\n**An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
+        "description": "Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.\n\nA team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it\nwas, so pressing twice mails nobody twice.",
         "operationId": "saisons_post_invitations_dispatch",
         "parameters": [
           {
@@ -24010,7 +24010,7 @@
     },
     "/api/v0/saisons/{saison_id}/overview": {
       "get": {
-        "description": "The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.\n\nIn order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture\nwhose day has gone by without a result, and each report not adopted as it stands; `dates`, each club's open date\nproposal, each fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source,\neach referee's own decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`,\neach undecided application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act\nneeds: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.\nAnswers 404 for a season that does not exist. Writes nothing.",
+        "description": "The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.\n\nEvery card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`\namong it.",
         "operationId": "saisons_get_saison_overview",
         "parameters": [
           {
@@ -24176,7 +24176,7 @@
     },
     "/api/v0/saisons/{saison_id}/spielplan": {
       "delete": {
-        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations go with it.\n\nThe replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it\n(`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to\nan entry.",
+        "description": "Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.\n\nUndoing the draw reopens the shape rules to an edit and the groups to an entry.",
         "operationId": "saisons_delete_spielplan",
         "parameters": [
           {
@@ -24328,7 +24328,7 @@
         ]
       },
       "post": {
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the\nremoved rows back.",
+        "description": "Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.\n\nA stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'\nconfirmations, reports and line-ups with it; nothing writes the removed rows back.",
         "operationId": "saisons_post_spielplan",
         "parameters": [
           {
