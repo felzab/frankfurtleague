@@ -125,7 +125,6 @@ select = [
     # A module or package name is snake_case (PEP 8), the one case `docs/writing.md` gives Python files.
     "N999",  # invalid-module-name
 ]
-ignore = ["B008"]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
 # passes unread without these names.
 logger-objects = ["app.core.logging.fl_logger"]
@@ -137,6 +136,11 @@ logger-objects = ["app.core.logging.fl_logger"]
 # Every entry guards the application, and a test reads both freely: it stages stored instants against
 # the wall clock it runs under, and it builds settings from the environment to judge them.
 "tests/**" = ["TID251"]
+
+# FastAPI reads a `Depends(...)` default as a declaration and calls the dependency per request, so the
+# one call evaluated at definition is the marker itself; every other call in a default stays a finding.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
 
 # A handler reading the environment's settings answers with those whatever the app was built with.
 # The ban reaches every spelling of a read, an import, an attribute through `app.core.config` and a

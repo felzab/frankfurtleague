@@ -131,19 +131,18 @@ class BackendConfig(BaseSettings, _SecretFields):
         return init_settings, file_secret_settings, env_settings, dotenv_settings
 
 
-def _refusal(issues: list[ErrorDetails], *, files: set[str], files_read: bool) -> EnvironmentValidationError:
+def _refusal(issues: list[ErrorDetails], *, files: set[str]) -> EnvironmentValidationError:
     """Each failing variable upper-cased as the environment spells it, a count of the undeclared, and each failing file by name.
 
-    A failing credential is its file where the build read the files, and otherwise the variable or
-    dotenv line that stood in for it. An issue's own message and its `input_value` each quote what
-    was rejected, so neither is read. An undeclared name is the file's own text, which a pasted key's
-    line keeping the dotenv shape would be, so it is counted and nothing names it. The first sentence
-    is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so one hint in
-    `scripts/ops/deploy.sh` covers both.
+    A failing credential is named by its file. An issue's own message and its `input_value` each quote
+    what was rejected, so neither is read. An undeclared name is the file's own text, which a pasted
+    key's line keeping the dotenv shape would be, so it is counted and nothing names it. The first
+    sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so an
+    operator reading either service's refusal reads one wording.
     """
     # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
     failing = {str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in issues if issue["type"] != UNDECLARED}
-    read_from_files = failing & set(SECRET_FILES) if files_read else set()
+    read_from_files = failing & set(SECRET_FILES)
     variables = sorted(failing - read_from_files)
     files = files | read_from_files
     undeclared = sum(issue["type"] == UNDECLARED for issue in issues)
@@ -154,29 +153,6 @@ def _refusal(issues: list[ErrorDetails], *, files: set[str], files_read: bool) -
     if files:
         sentences.append(f"Invalid secret files: {', '.join(sorted(files))}")
     return EnvironmentValidationError("; ".join(sentences))
-
-
-def read_environment() -> None:
-    """The deploy's preflight: the variables and the dotenv file, refused as the boot refuses them, opening no secret file.
-
-    Its caller's uid reads none, so the class is built with no secrets directory, and the credentials
-    that leaves missing are no question of this one.
-    """
-    try:
-        BackendConfig()
-    except ValidationError as error:
-        issues = [issue for issue in error.errors() if not (issue["type"] == "missing" and issue["loc"] and issue["loc"][0] in SECRET_FILES)]
-    except ValueError as error:
-        # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
-        # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
-        # names a field -- so the type alone leaves.
-        raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
-    else:
-        return
-    # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
-    # quotes each rejected value into the traceback uvicorn prints.
-    if issues:
-        raise _refusal(issues, files=set(), files_read=False) from None
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
@@ -235,13 +211,15 @@ def get_config() -> BackendConfig:
         with warnings.catch_warnings(action="error"):
             config = BackendConfig(_secrets_dir=directory)
     except ValidationError as error:
-        refused = _refusal(error.errors(), files=set(absent), files_read=True)
+        refused = _refusal(error.errors(), files=set(absent))
     except Warning, SettingsError:
         # A file that became unreadable after the question above was asked: asked again.
         unreadable, _ = _unusable_files(directory)
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
     except ValueError as error:
-        # For `read_environment`'s reason.
+        # Below `ValidationError`'s arm, which is a `ValueError` too: the dotenv read's
+        # `UnicodeDecodeError` lands here, chaining what it wrapped and naming no field, so the type
+        # alone leaves.
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
     else:
         if not absent:

@@ -27,9 +27,9 @@ HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "opti
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 
-# `/system/is_live` is the container healthcheck: one that needs a secret fails for the wrong reasons
-# (`app/core/security.py`).
-UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live"})
+# `/system/is_live` is the container healthcheck and `/system/is_ready` a monitor's: a probe that needs
+# a secret fails for the wrong reasons (`app/core/security.py`).
+UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live", "/api/v0/system/is_ready"})
 
 # FastAPI drops the convertor when it builds the document (`app/core/routing.py`), so
 # `{spiel_id:objectid}` publishes as `{spiel_id}` and the two spellings need bringing together.
