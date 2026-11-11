@@ -42,9 +42,9 @@ type TableColumn = {
    */
   width?: "count" | "pair" | "marked" | "date" | "instant" | "phone" | "line";
   /**
-   * Free text of any length, such as a ban's Grund: cut with „…“ at the column `width` sets, whole in its tooltip while
-   * it is cut, and wrapping on a stacked phone row, where a touch reaches no tooltip. Every other column widens to its
-   * longest value.
+   * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: cut with „…“ at the
+   * column `width` sets, whole in its tooltip while it is cut, and wrapping on a stacked phone row, where a touch reaches
+   * no tooltip. Every other column widens to its longest value, so only a value bounded to its column's width goes uncut.
    */
   cut?: true;
 } &
