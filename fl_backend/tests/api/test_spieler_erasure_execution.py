@@ -8,7 +8,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
     patch_spieler_saison,
@@ -157,13 +156,13 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     return document["_id"]
 
 
-async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLErasureResponse:
+async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> None:
     """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
 
     person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})
     assert person is not None, f"no pupil {spieler_id} to erase"
 
-    return await erased(database, client, person["email"], germany_now=NOW)
+    await erased(database, client, person["email"], germany_now=NOW)
 
 
 class TestARetiredPupilIsErasedWhole:
@@ -174,13 +173,14 @@ class TestARetiredPupilIsErasedWhole:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, first_name="Max", team_id=HOME_TEAM_OID)
-            response = await erase_the_pupil(database, client, spieler_id)
+            held = await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
+            await erase_the_pupil(database, client, spieler_id)
 
-            return response.saison_spieler, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
+            return held, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
 
-        removed, remaining = on_a_league(mongo_replica_set_url, body)
+        held, remaining = on_a_league(mongo_replica_set_url, body)
 
-        assert (removed, remaining) == (2, 0)
+        assert (held, remaining) == (2, 0)
 
     def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""

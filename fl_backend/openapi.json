@@ -5417,62 +5417,6 @@
         "title": "FLErasurePayload",
         "type": "object"
       },
-      "FLErasureResponse": {
-        "properties": {
-          "address_change": {
-            "minimum": 0.0,
-            "title": "Address Change",
-            "type": "integer"
-          },
-          "grants": {
-            "minimum": 0.0,
-            "title": "Grants",
-            "type": "integer"
-          },
-          "kontakt_seats": {
-            "minimum": 0.0,
-            "title": "Kontakt Seats",
-            "type": "integer"
-          },
-          "registrierungen": {
-            "minimum": 0.0,
-            "title": "Registrierungen",
-            "type": "integer"
-          },
-          "saison_spieler": {
-            "minimum": 0.0,
-            "title": "Saison Spieler",
-            "type": "integer"
-          },
-          "schiedsrichter": {
-            "minimum": 0.0,
-            "title": "Schiedsrichter",
-            "type": "integer"
-          },
-          "spiele": {
-            "minimum": 0.0,
-            "title": "Spiele",
-            "type": "integer"
-          },
-          "spieler": {
-            "minimum": 0.0,
-            "title": "Spieler",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spieler",
-          "saison_spieler",
-          "schiedsrichter",
-          "spiele",
-          "kontakt_seats",
-          "registrierungen",
-          "address_change",
-          "grants"
-        ],
-        "title": "FLErasureResponse",
-        "type": "object"
-      },
       "FLErasureSweepResponse": {
         "description": "One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.",
         "properties": {
@@ -21706,17 +21650,10 @@
     },
     "/api/v0/identity/account/erasure": {
       "post": {
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a\nperson holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a\npupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the\nperson's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals\nand cards and its entries on line-ups locked before their match moving to the one row that holds no person, and its\nentries on line-ups not yet locked going; the referee record,\nevery fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every\nconfirmation it was asked for, answered or not; every registration at the address, pending or declined; another\naddress's pending change naming this one as its new address, every record it would move standing at its own; every\ngrant the address holds, every administrator being told it ended.\nEmptied: every contact seat the address holds on a team's season row and on an application of any status, the row\nand its other seats standing.\nEvery reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer\nstanding. Every match report stands, its remarks and entries included, and names no referee. Every record the\nperson made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a\nregistration's decision -- and every log row naming their address name a fixed marker in their place.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write.\n\nPERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a\nperson holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a\npupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the\nperson's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals\nand cards and its entries on line-ups locked before their match moving to the one row that holds no person, and its\nentries on line-ups not yet locked going; the referee record,\nevery fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every\nconfirmation it was asked for, answered or not; every registration at the address, pending or declined; another\naddress's pending change naming this one as its new address, every record it would move standing at its own; every\ngrant the address holds, every administrator being told it ended.\nEmptied: every contact seat the address holds on a team's season row and on an application of any status, the row\nand its other seats standing.\nEvery reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer\nstanding. Every match report stands, its remarks and entries included, and names no referee. Every record the\nperson made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a\nregistration's decision -- and every log row naming their address name a fixed marker in their place.\n\nAn address holding nothing is no refusal. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
         "operationId": "identity_post_account_erasure",
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLErasureResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -21840,7 +21777,7 @@
     },
     "/api/v0/identity/erasure": {
       "post": {
-        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own\nstate: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three\nrefusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,\nor the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),\njudged inside the write. An address another address's pending change would move to is refused, judged inside the write,\nwhere that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the\nchange, a discard only the owner makes of it.\n\n`reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count\nzero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not touched\nhere: deleting it is the caller's, once this has answered.",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write.\n\nADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own\nstate: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three\nrefusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,\nor the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),\njudged inside the write. An address another address's pending change would move to is refused, judged inside the write,\nwhere that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the\nchange, a discard only the owner makes of it.\n\n`reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the\n409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
         "operationId": "identity_post_erasure",
         "requestBody": {
           "content": {
@@ -21853,14 +21790,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLErasureResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {

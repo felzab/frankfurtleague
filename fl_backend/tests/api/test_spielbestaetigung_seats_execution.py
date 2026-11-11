@@ -134,7 +134,7 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
         rows = await aggregate_many_from_db(
             collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
         )
-        return await erase_kontaktperson_in_session(
+        await erase_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],

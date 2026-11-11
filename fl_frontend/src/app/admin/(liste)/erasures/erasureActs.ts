@@ -79,7 +79,7 @@ async function accountCleared(email: string): Promise<boolean> {
  * Erases every league record of the address, then its sign-in account, for good. The records go first, as an account
  * deleted ahead of a refused erasure leaves a person whose data stands and who cannot sign in to ask again. An account
  * left standing, or left unknown by a failed commit, answers as not done, so the question stays open and its press
- * repeats the erasure, which the backend answers with zeros and which reaches the account again.
+ * repeats the erasure, which finds nothing left to erase and reaches the account again.
  */
 export const eraseAddress = action({
   lane: "admin",

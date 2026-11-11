@@ -2421,25 +2421,6 @@ export interface FLErasurePayload {
   reason: string;
 }
 
-export interface FLErasureResponse {
-  /** @minimum 0 */
-  address_change: number;
-  /** @minimum 0 */
-  grants: number;
-  /** @minimum 0 */
-  kontakt_seats: number;
-  /** @minimum 0 */
-  registrierungen: number;
-  /** @minimum 0 */
-  saison_spieler: number;
-  /** @minimum 0 */
-  schiedsrichter: number;
-  /** @minimum 0 */
-  spiele: number;
-  /** @minimum 0 */
-  spieler: number;
-}
-
 /**
  * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
  */

@@ -8,7 +8,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
@@ -297,12 +296,10 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def erase_the_referee(
-    database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
-) -> FLErasureResponse:
+async def erase_the_referee(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID) -> None:
     """The registry's erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
 
-    return await erased(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
+    await erased(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
 
 
 async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> Any:

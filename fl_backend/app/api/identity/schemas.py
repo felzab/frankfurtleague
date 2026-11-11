@@ -110,24 +110,11 @@ class FLSignInResponse(FLSignIn, BaseAPIResponse):
 
 
 class FLErasure(BaseModel):
-    """How many of each kind of record one erasure removed or emptied, zero for a kind the address held none of."""
+    """How many of each kind of a pupil's records one erasure removed, as the season-after sweep totals them."""
 
     spieler: int = Field(ge=0)
     saison_spieler: int = Field(ge=0)
-    schiedsrichter: int = Field(ge=0)
-    # The fixtures moved onto the ghost, which stay as the league's record of the match.
-    spiele: int = Field(ge=0)
-    # Per seat and never per row, as both reveals name them: one row seats one person twice.
-    kontakt_seats: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    # Another address's pending change naming this one, ended alone: the records it would move stay that address's.
-    address_change: int = Field(ge=0)
-    # The person's own grants, a dead spelling of their address among them.
-    grants: int = Field(ge=0)
-
-
-class FLErasureResponse(FLErasure, BaseAPIResponse):
-    pass
 
 
 class FLAccountErasureSpieler(BaseModel):
@@ -251,7 +238,7 @@ class FLErasureViewResponse(BaseAPIResponse):
 
     spieler: int = Field(ge=0)
     schiedsrichter: int = Field(ge=0)
-    # Per seat, as `FLErasure` counts one.
+    # Per seat and never per row: one row seats one person twice.
     kontakt_seats: int = Field(ge=0)
     bewerbung_seats: int = Field(ge=0)
     registrierungen: int = Field(ge=0)

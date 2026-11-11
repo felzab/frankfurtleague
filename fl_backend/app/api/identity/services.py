@@ -242,7 +242,7 @@ def compose_erasure_view(
     grant_rows: Sequence[Mapping[str, Any]],
     spiele: int,
 ) -> FLErasureViewResponse:
-    """The administrator's counts, from the rows the erasure's own subject read holds: per seat, as `FLErasure` counts one."""
+    """The administrator's counts, from the rows the erasure's own subject read holds, a contact counted per seat."""
 
     return FLErasureViewResponse(
         spieler=len(pupil_rows),

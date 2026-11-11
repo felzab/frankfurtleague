@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
-from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureResponse, FLErasureViewResponse
+from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureViewResponse
 from app.api.identity.services import (
     address_change_viewable_denied,
     build_unplayed_count_pipeline,
@@ -140,7 +140,7 @@ async def get_erasure_view(
 
 @router.post(
     "/erasure",
-    response_model=FLErasureResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Erase every record an address holds, on that person's request",
 )
 async def post_erasure(
@@ -162,9 +162,9 @@ async def post_erasure(
     db: DBClient,
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLErasureResponse:
+) -> None:
     """
-    Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
+    Erase every record an address holds, on a request that person made by mail, at once and as one write.
 
     ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
     state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
@@ -174,9 +174,9 @@ async def post_erasure(
     where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
     change, a discard only the owner makes of it.
 
-    `reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count
-    zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not touched
-    here: deleting it is the caller's, once this has answered.
+    `reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the
+    409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+    the caller's, once this has answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
@@ -186,7 +186,7 @@ async def post_erasure(
     journal = Journal()
 
     @journal.attempted
-    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+    async def erase_the_address(session: AsyncClientSession) -> None:
         grants = await read_grants(grants_collection=grants_collection, session=session)
         refuse(find_admin_address_refusal(identifier=identifier, actor=operator, grants=grants))
 
@@ -234,7 +234,5 @@ async def post_erasure(
         await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-        return FLErasureResponse(**erasure.counts.model_dump())
-
     async with journal, transaction_session(db) as session:
-        return await session.with_transaction(erase_the_address)
+        await session.with_transaction(erase_the_address)

@@ -266,17 +266,16 @@ class TestAnErasureLeavesTheListStanding:
 
             # Seeded rather than admitted: this case needs a stored pupil at the barred address, not a
             # route that made one.
-            await database[Collection.SPIELER].insert_one(
-                spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, birth_date="2009-05-09")
-            )
-            gone = await erased(database, client, BANNED, germany_now=NOW)
+            pupil = spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, birth_date="2009-05-09")
+            await database[Collection.SPIELER].insert_one(pupil)
+            await erased(database, client, BANNED, germany_now=NOW)
 
-            return gone.spieler, before, await rows_of(database)
+            return await database[Collection.SPIELER].count_documents({"_id": pupil["_id"]}), before, await rows_of(database)
 
-        erased_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
+        pupils_left, before, after = on_a_clean_list(mongo_replica_set_url, body)
 
         # The premise: an erasure reaching nobody leaves the list standing too.
-        assert erased_pupils == 1
+        assert pupils_left == 0
         # Non-empty first: two empty lists compare equal, and an erasure that emptied the collection
         # would then read as one that left it alone.
         assert before

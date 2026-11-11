@@ -59,7 +59,6 @@ import type {
   FLDeclineBewerbungResponse,
   FLErasureAddressPayload,
   FLErasurePayload,
-  FLErasureResponse,
   FLErasureSweepResponse,
   FLErasureViewResponse,
   FLGenerateSpielplanPayload,
@@ -1521,7 +1520,7 @@ export const getIdentityPostAccountErasureUrl = () => {
 };
 
 /**
- * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
+ * Erase every record the signed-in address holds, at once and as one write.
  *
  * PERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a
  * person holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a
@@ -1542,14 +1541,14 @@ export const getIdentityPostAccountErasureUrl = () => {
  * person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
  * registration's decision -- and every log row naming their address name a fixed marker in their place.
  *
- * An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
+ * An address holding nothing is no refusal. The 409 answers only a database
  * changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
  * id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
  * touched here: deleting it is the caller's, once this has answered.
  * @summary Erase every record the signed-in address holds
  */
-export const identityPostAccountErasure = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
-  return adminKeyTransport<FLErasureResponse>(getIdentityPostAccountErasureUrl(), {
+export const identityPostAccountErasure = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getIdentityPostAccountErasureUrl(), {
     ...options,
     method: "POST",
   });
@@ -1590,7 +1589,7 @@ export const getIdentityPostErasureUrl = () => {
 };
 
 /**
- * Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
+ * Erase every record an address holds, on a request that person made by mail, at once and as one write.
  *
  * ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
  * state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
@@ -1600,15 +1599,15 @@ export const getIdentityPostErasureUrl = () => {
  * where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
  * change, a discard only the owner makes of it.
  *
- * `reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count
- * zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not touched
- * here: deleting it is the caller's, once this has answered.
+ * `reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the
+ * 409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+ * the caller's, once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identityPostErasure = async (
   fLErasurePayload: FLErasurePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLErasureResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1621,7 +1620,7 @@ export const identityPostErasure = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureResponse>(getIdentityPostErasureUrl(), {
+  return adminKeyTransport<void>(getIdentityPostErasureUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

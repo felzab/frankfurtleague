@@ -13,7 +13,6 @@ from app.api.address_change.crud import (
     build_erasure_address_change_pipeline,
     end_an_emptied_change_in_session,
     end_the_address_changes_in_session,
-    known_to_the_new_mailbox,
     others_naming,
 )
 from app.api.address_change.services import build_owed_carry_filter, masked_address
@@ -478,7 +477,10 @@ async def log_rows_naming(*, action_log_collection: ReadCollection, identifier: 
 
 @dataclass(frozen=True)
 class Erasure:
-    """What one erasure took: the counts its route answers, and where the person stood for its lines, by id, all empty in a narrower scope."""
+    """What one erasure took: the pupil's counts the sweep totals, and where the person stood for its lines, by id.
+
+    The places are all empty in a narrower scope.
+    """
 
     counts: FLErasure
     records: list[str]
@@ -559,10 +561,6 @@ async def erase_everything(
     now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none.
     session: AsyncClientSession,
-    # The person's own request, whose answer counts no change whose link has not reached this mailbox, as their preview
-    # names none (`app/api/identity/person_router.py :: get_account_erasure_view`): it would tell them that somebody
-    # typed their address. Every change naming it ends all the same.
-    for_the_person: bool = False,
 ) -> Erasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
@@ -590,9 +588,8 @@ async def erase_everything(
     if _runs(erase_person_in_session, scope) and subject.spieler:
         await ensure_ghost_spieler(spieler_collection=spieler_collection, session=session)
 
-    kontakt_seats = 0
     if _runs(erase_kontaktperson_in_session, scope):
-        kontakt_seats = await erase_kontaktperson_in_session(
+        await erase_kontaktperson_in_session(
             saison_teams_collection=saison_teams_collection,
             bewerbungen_collection=bewerbungen_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
@@ -602,9 +599,8 @@ async def erase_everything(
             session=session,
         )
 
-    address_change = 0
     if _runs(end_the_address_changes_in_session, scope):
-        address_change = await end_the_address_changes_in_session(
+        await end_the_address_changes_in_session(
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
@@ -613,9 +609,6 @@ async def erase_everything(
             now=now,
             session=session,
         )
-        if for_the_person:
-            others = others_naming(subject.address_change, identifier)
-            address_change -= len(others) - len(known_to_the_new_mailbox(others))
 
     if _runs(erase_referee_confirmations_in_session, scope):
         await erase_referee_confirmations_in_session(
@@ -624,10 +617,9 @@ async def erase_everything(
             session=session,
         )
 
-    spiele = 0
     if _runs(erase_referee_in_session, scope):
         for row in subject.schiedsrichter:
-            spiele += await erase_referee_in_session(
+            await erase_referee_in_session(
                 schiedsrichter_collection=schiedsrichter_collection,
                 spiele_collection=spiele_collection,
                 schiedsrichter_id=row["_id"],
@@ -658,7 +650,7 @@ async def erase_everything(
             saison_spieler += erased.saison_spieler
 
     if _runs(end_an_emptied_change_in_session, scope):
-        address_change += await end_an_emptied_change_in_session(
+        await end_an_emptied_change_in_session(
             address_changes_collection=address_changes_collection,
             grants_collection=grants_collection,
             records=RecordCollections(
@@ -673,10 +665,9 @@ async def erase_everything(
             session=session,
         )
 
-    grants = 0
     named: list[str] = []
     if _runs(erase_grants_in_session, scope):
-        grants = await erase_grants_in_session(
+        await erase_grants_in_session(
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
             identifier=identifier,
@@ -695,16 +686,7 @@ async def erase_everything(
         )
 
     return Erasure(
-        counts=FLErasure(
-            spieler=spieler,
-            saison_spieler=saison_spieler,
-            schiedsrichter=len(subject.schiedsrichter) if _runs(erase_referee_in_session, scope) else 0,
-            spiele=spiele,
-            kontakt_seats=kontakt_seats,
-            registrierungen=registrierungen,
-            address_change=address_change,
-            grants=grants,
-        ),
+        counts=FLErasure(spieler=spieler, saison_spieler=saison_spieler, registrierungen=registrierungen),
         records=subject.records() if scope == EACH_PERSON_GROUP else [],
         seats=subject.seats() if scope == EACH_PERSON_GROUP else [],
         rows=named,

@@ -1040,7 +1040,7 @@ export const GrantsPostHandoverParams = zod.object({
 });
 
 /**
- * Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
+ * Erase every record an address holds, on a request that person made by mail, at once and as one write.
  *
  * ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
  * state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
@@ -1050,9 +1050,9 @@ export const GrantsPostHandoverParams = zod.object({
  * where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
  * change, a discard only the owner makes of it.
  *
- * `reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count
- * zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not touched
- * here: deleting it is the caller's, once this has answered.
+ * `reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the
+ * 409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+ * the caller's, once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identityPostErasureBodyEmailMax = 254;

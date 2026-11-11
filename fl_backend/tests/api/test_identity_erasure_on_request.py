@@ -21,21 +21,20 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.admin_router import post_erasure
-from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureResponse
+from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.recording import actor_var
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import address_change_document, spieler_document
-from tests.erasure import erasure_collections
+from tests.erasure import erasure_collections, what_the_erasure_took
 from tests.isolation import InterleavedCollection
 from tests.session_headers import StampedHeaders
 from tests.whole_database import where_held
@@ -138,12 +137,12 @@ def view_of(email: str = TYPED) -> dict[str, str]:
 
 async def erased_by_the_handler(
     database: AsyncDatabase, client: AsyncMongoClient, *, email: str = TYPED, reason: str = REASON, **replaced: Any
-) -> FLErasureResponse:
+) -> None:
     """The route's own function outside a request, as `OPERATOR`, for a case driving the driver itself."""
 
     token = actor_var.set(OPERATOR)
     try:
-        return await post_erasure(
+        await post_erasure(
             erasure_data=FLErasurePayload(email=email, reason=reason),
             **erasure_collections(database, **replaced),
             db=client,
@@ -197,23 +196,25 @@ class TestTheRegistryRunsWhole:
             live = {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "inactive_since": None}
             pupil = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
             before = (await where_held(database, *THEIR_VALUES), await database[Collection.SAISON_SPIELER].count_documents(live))
+            stored = await everything_in(database)
             response = await posted(mongo_replica_set_url, PATH, erasure_of())
+            taken = what_the_erasure_took(stored, await everything_in(database))
             after = (await where_held(database, *THEIR_VALUES), await database[Collection.SAISON_SPIELER].count_documents(live))
 
-            return pupil, before, response, after
+            return pupil, before, response, taken, after
 
-        pupil, (held, squad), response, (left, squad_left) = on_a_league(mongo_replica_set_url, body)
+        pupil, (held, squad), response, taken, (left, squad_left) = on_a_league(mongo_replica_set_url, body)
 
         assert pupil is not None
         assert all(held[value] for value in THEIR_VALUES), held
-        assert response.status_code == 200, response.json()
-        assert response.json() == {
+        assert response.status_code == 204, response.text
+        assert taken == {
             "spieler": 1,
-            "saison_spieler": 1,
             "schiedsrichter": 1,
-            "spiele": 1,
-            "kontakt_seats": 3,
+            "kontakt_seats": 1,
+            "bewerbung_seats": 2,
             "registrierungen": 2,
+            "spiele": 1,
             "address_change": 2,
             "grants": 0,
         }
@@ -235,7 +236,7 @@ class TestTheRegistryRunsWhole:
         by_the_administrator = after(lambda http: http.post(PATH, json=erasure_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY)))
         by_the_person = after(lambda http: http.post(OWN_ERASURE_PATH, headers=as_person(TYPED)))
 
-        assert (by_the_administrator[0], by_the_person[0]) == (200, 200)
+        assert (by_the_administrator[0], by_the_person[0]) == (204, 204)
         assert by_the_administrator[1] == by_the_person[1]
 
 
@@ -346,12 +347,12 @@ class TestAGrantHoldersAddress:
 class TestTheCounts:
     """What the person's erasure removes or empties, by its own selections, counted, named nowhere and stored nowhere."""
 
-    def test_they_count_the_erasures_own_answer_and_name_nobody(self, mongo_replica_set_url: str):
-        """Read against the erasure's own answer, so a kind counted short is caught whatever the seed holds."""
+    def test_they_count_what_the_erasure_then_takes_and_name_nobody(self, mongo_replica_set_url: str):
+        """Read against the stored data the erasure takes, so a kind counted short is caught whatever the seed holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            # A change still asking its address on file, which the person's own answer leaves uncounted and this one counts.
+            # A change still asking its address on file, which the person's own preview leaves uncounted and this one counts.
             await database[Collection.ADDRESS_CHANGES].insert_one(
                 address_change_document(address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
@@ -360,25 +361,17 @@ class TestTheCounts:
             before = await everything_in(database)
             view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=OWNER)
             untouched = before == await everything_in(database)
+            erasure = await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)
 
-            return view, untouched, (await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)).json()
+            return view, untouched, erasure.status_code, what_the_erasure_took(before, await everything_in(database))
 
-        view, untouched, erased = on_a_league(mongo_replica_set_url, body)
+        view, untouched, status, taken = on_a_league(mongo_replica_set_url, body)
         counts = view.json()
 
         assert view.status_code == 200, counts
-        assert untouched
-        assert counts == {
-            "spieler": erased["spieler"],
-            "schiedsrichter": erased["schiedsrichter"],
-            "kontakt_seats": 1,
-            "bewerbung_seats": 2,
-            "registrierungen": erased["registrierungen"],
-            "spiele": 1,
-            "address_change": erased["address_change"],
-            "grants": erased["grants"],
-        }
-        assert counts["kontakt_seats"] + counts["bewerbung_seats"] == erased["kontakt_seats"]
+        assert (untouched, status) == (True, 204)
+        # The seed's one booked fixture is the one made unplayed above, so every fixture moved is one the preview counts.
+        assert counts == taken
         # The premise: an address holding nothing would agree on zeros.
         assert all(counts.values())
 
@@ -409,14 +402,14 @@ class TestAGrantHoldersPendingChange:
             before = await everything_in(database)
             by_operator = await posted(mongo_replica_set_url, PATH, erasure_of())
             untouched = before == await everything_in(database)
-            by_owner = by_operator if by_operator.status_code == 200 else await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)
+            by_owner = by_operator if by_operator.status_code == 204 else await posted(mongo_replica_set_url, PATH, erasure_of(), by=OWNER)
             ended = await database[Collection.ADDRESS_CHANGES].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
             return by_operator, untouched, by_owner.status_code, ended
 
         by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
 
         assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, Code.FOREIGN_ADDRESS_CHANGE, True)
-        assert owners_status == 200
+        assert owners_status == 204
         assert ended is not None and ended["ended"]["kind"] == "discarded"
 
 
@@ -432,7 +425,7 @@ class TestTheReference:
 
         status, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert status == 200
+        assert status == 204
         assert [(row["by"], row["label"], row["record_id"]) for row in rows] == [(OPERATOR, REASON, None)]
 
 
@@ -458,6 +451,7 @@ class TestAnotherAdministratorsAddress:
         """Only an owner presses here (`admin_address`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            held = await database[Collection.GRANTS].count_documents({"address": ANOTHER_ADMINISTRATOR})
             response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)
             # One row per administrator a notice is owed to: the owner's copy, which every notice has.
             notices = [
@@ -467,11 +461,11 @@ class TestAnotherAdministratorsAddress:
                 )
             ]
 
-            return response, await database[Collection.GRANTS].count_documents({"address": ANOTHER_ADMINISTRATOR}), notices
+            return response, held, await database[Collection.GRANTS].count_documents({"address": ANOTHER_ADMINISTRATOR}), notices
 
-        response, left, notices = on_a_league(mongo_replica_set_url, body)
+        response, held, left, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json()["grants"], left) == (200, 1, 0)
+        assert (response.status_code, held, left) == (204, 1, 0)
         assert [notice["change"] for notice in notices] == ["revoked"]
 
 
@@ -486,18 +480,16 @@ class TestRowsNoMailboxNames:
             ghost = documents.ghost_schiedsrichter_document()
             await database[Collection.SCHIEDSRICHTER].insert_one({**ghost, "kontakt": {**ghost["kontakt"], "email": SENTINEL_ADDRESS}})
             view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(SENTINEL_ADDRESS))
+            before = await everything_in(database)
             erasure = await posted(mongo_replica_set_url, PATH, erasure_of(SENTINEL_ADDRESS))
 
-            return (
-                view.json(),
-                erasure.json(),
-                await database[Collection.SCHIEDSRICHTER].count_documents({"_id": GHOST_SCHIEDSRICHTER_ID}),
-            )
+            return view.json(), erasure.status_code, before[Collection.SCHIEDSRICHTER], await everything_in(database)
 
-        view, erased, referees = on_a_league_of_its_own(mongo_replica_set_url, body)
+        view, status, referees, after = on_a_league_of_its_own(mongo_replica_set_url, body)
 
         assert view["schiedsrichter"] == 0
-        assert (erased["schiedsrichter"], referees) == (0, 1)
+        # The sentinel stands as it stood, its hand-given address included.
+        assert (status, after[Collection.SCHIEDSRICHTER]) == (204, referees)
 
 
 # --- Refused by the payload, which the route validates before any read.
