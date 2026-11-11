@@ -16,23 +16,30 @@
 # See:
 # - docs/ops/spec.md -- the service table and invariants
 
-# Capped so a chatty container cannot fill the server's disk: 30 MB per service, worst case.
+# The host's journal, which bounds every line's age (`docs/ops/runbooks.md`), each line tagged with its
+# container's name, so `journalctl CONTAINER_NAME=<name>` finds a service across recreates and
+# `docker compose logs` reads it still (https://docs.docker.com/engine/logging/drivers/journald/).
 x-logging: &default-logging
-  driver: "json-file"
+  driver: journald
   options:
-    max-size: "10m"
-    max-file: "3"
+    tag: "{{.Name}}"
 
 services:
   frontend:
-    # The package's file alone, the one the deploy's readers judge as the container is handed it
-    # (`scripts/checks/check_compose_model.py :: env_files`).
+    # The package's file alone (`scripts/checks/check_compose_model.py :: env_files`).
     env_file: ./fl_frontend/.env
-    # A moving tag, on each package's image below: `deploy.sh` with no argument means the newest
-    # published image. A rollback pins the immutable `:sha-<commit>` instead. Both packages are
-    # public, so neither pull needs credentials.
-    image: ghcr.io/felzab/frankfurtleague-frontend:latest
+    # One tag for both packages' images, the immutable `sha-<commit>` the publish job pushes: the two
+    # images of one commit run together or not at all. Compose refuses to parse this file without it,
+    # so no command reaches a stack of some other build. Both packages are public, so neither pull
+    # needs credentials.
+    image: ghcr.io/felzab/frankfurtleague-frontend:${TAG:?deploy through scripts/ops/deploy.sh, which sets TAG}
     restart: unless-stopped
+    # Above the package's file, which Compose ranks below `environment`
+    # (https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/): with
+    # another name there, the server would boot as a stack that mails no one and demands none of
+    # production's files. The local stack's override names its own.
+    environment:
+      APP_ENV: production
     # Past a request's bound and the 30-second work behind its answer, both of which Next's server waits
     # out on a stop: killed sooner, a write or a mail already sent answers as a dropped connection. The
     # Postausgang's drain behind an answer has no such bound: a stop cuts it here, and the rows it held go
@@ -92,7 +99,7 @@ services:
   backend:
     # The frontend's reason.
     env_file: ./fl_backend/.env
-    image: ghcr.io/felzab/frankfurtleague-backend:latest
+    image: ghcr.io/felzab/frankfurtleague-backend:${TAG:?deploy through scripts/ops/deploy.sh, which sets TAG}
     restart: unless-stopped
     # Past uvicorn's own graceful wait (`fl_backend/Dockerfile :: CMD`), which the engine's 10 s
     # default falls short of: killed sooner, a request still inside its bound sends no abort.
@@ -139,29 +146,15 @@ services:
     # `scripts/gate/verify.sh`'s `nginx -t` read this line.
     image: nginx:1.31.8-alpine@sha256:1ef7ca94d7879df82421428ce13bd1eaa412404953859cf7a5b6512c25e67a60
     restart: unless-stopped
-    # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
-    # (https://nginx.org/en/docs/switches.html, `-l`, from 1.31.5). A socket, never a port: a port
-    # answers on every interface of this network, reloads included.
-    command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
-    # A tmpfs: a socket a killed master leaves on disk makes the next start refuse to bind and
-    # exit. Mode 700, so no user but root reaches the socket, whatever mode nginx gives it.
-    tmpfs:
-      - /run/nginx-control:mode=700
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
-    # then serves none of this stack's edge or refuses its includes. `deploy.sh` checks each file.
-
-    # The access and error logs are host-side so they outlive this container and `logrotate` can
-    # bound their age (`docs/ops/runbooks.md` §7). Host and container paths are spelled alike, so
-    # the stanza and `nginx/prod/prod.conf` name one string.
+    # then serves none of this stack's edge or refuses its includes.
     volumes:
       # Directories, never a file: a file mount holds the inode it was created with, and a pull
-      # replaces a changed file with a new one, so the reload `deploy.sh` sends would re-read the
-      # old file.
+      # replaces a changed file with a new one, so the `nginx -s reload` the deploy sends would
+      # re-read the old file.
       - ./nginx/prod:/etc/nginx/conf.d:ro
       # What both edges share, which prod.conf includes by this container path.
       - ./nginx/shared:/etc/nginx/shared:ro
-      - ./certs:/etc/nginx/certs:ro
-      - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
     # The one service on both: it takes the connector's requests on the first and proxies them on
     # the second.
     networks:
@@ -180,8 +173,6 @@ services:
       # Becoming the workers' user.
       - SETUID
       - SETGID
-      # Opening its logs: the deploying user owns their directory, and root is no owner there.
-      - DAC_OVERRIDE
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
     # traffic before both upstreams answer. A deploy does not pass through here, recreating the
     # application pair alone, so this governs a cold start.

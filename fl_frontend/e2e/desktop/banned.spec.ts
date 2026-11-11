@@ -20,10 +20,10 @@ const PERSON = "paula.paul@example.com";
 /** The administrator who bans them, whom no other journey signs in as. */
 const ADMINISTRATOR = "admin.sperre@example.com";
 
-/** The administrator's device beside the person's, on the journey's proxy for the reason `../accountActs.spec.ts`'s second device is. */
+/** The administrator's device beside the person's, built as `../accountActs.spec.ts`'s second device is. */
 const test = journey.extend<{ desk: Page }>({
-  desk: async ({ browser, proxy }, provide) => {
-    const device = await browser.newContext({ proxy });
+  desk: async ({ browser }, provide) => {
+    const device = await browser.newContext();
     await standInForTurnstile(device);
     await provide(await device.newPage());
     await device.close();

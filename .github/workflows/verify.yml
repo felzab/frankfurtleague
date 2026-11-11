@@ -23,8 +23,8 @@ defaults:
 env:
   # How long a cache restore waits on a stuck download before the job goes on without the cache, in
   # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 6, which a stuck
-  # restore would cancel instead; every job's `timeout-minutes` stays above it
-  # (`scripts/tests/test_ci_timeouts.py`). A warm restore takes seconds.
+  # restore would cancel instead; every job's `timeout-minutes` stays above it. A warm restore takes
+  # seconds.
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
 
 concurrency:
@@ -45,11 +45,9 @@ jobs:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-      # The application too: the deploy's preflight snippets run for real in
-      # `scripts/tests/test_deploy_streams.py`, and one imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: true
+          application: false
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 
@@ -213,7 +211,8 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
-      # `sha-<commit>` beside the scope's own tag, and the OCI labels `scripts/ops/deploy.sh` reads.
+      # `sha-<commit>` beside the scope's own tag, the tag a deploy pins, and the version the build
+      # stamps into each image.
       - id: meta-frontend
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -312,10 +311,12 @@ jobs:
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
+      # The tag docker-compose.yml's two images read, which Compose demands before it merges the files
+      # that replace both with this stack's own; no image here is pulled by it.
+      TAG: e2e
       # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
       # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
-      # no other release finds (`scripts/tests/test_image_pins.py`), and no Dependabot ecosystem reads
-      # this string, so a bump is by hand.
+      # no other release finds, and no Dependabot ecosystem reads this string, so a bump is by hand.
       PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -329,8 +330,8 @@ jobs:
         # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
         # which the runner's user is not. Nothing is printed.
         run: |
-          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail .tmp-e2e/nginx-log
-          chmod 777 .tmp-e2e/mail .tmp-e2e/nginx-log
+          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail
+          chmod 777 .tmp-e2e/mail
           for name in auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin; do
             openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
           done
@@ -382,8 +383,7 @@ jobs:
       # One step in the image, never a job-level `container:`: that job's steps would hold no docker to
       # raise the stack with, and its `options` refuse `--network`. The runner's network, because the
       # journeys' origin is `localhost`, the passkeys' relying party. The runner's user, so the mail
-      # sink and the edge log read as they read on the runner, and the report steps read what the run
-      # writes. The checkout's own path, because the install's links are absolute and the `github`
+      # sink reads as it reads on the runner, and the report steps read what the run writes. The checkout's own path, because the install's links are absolute and the `github`
       # reporter's annotations name files relative to it. The install's own launcher, because the
       # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
@@ -400,13 +400,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: journeys-report
-          # The report and the e2e edge's own logs, the only record of the address it judged each
-          # request by (`nginx/e2e/e2e.conf`).
-          path: |
-            .tmp-playwright/
-            .tmp-e2e/nginx-log/
-          # Both directories are dot directories, which the action leaves out by default: without
-          # this a failed run uploads nothing and says so in a warning alone.
+          path: .tmp-playwright/
+          # A dot directory, which the action leaves out by default: without this a failed run
+          # uploads nothing and says so in a warning alone.
           include-hidden-files: true
           retention-days: 7
       - name: The stack's logs, on a failure
@@ -494,7 +490,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The one reference the images job recorded for each, never `--all-tags`: a tarball may name
-      # any tag, `:latest` included, which a bare `scripts/ops/deploy.sh` pulls.
+      # any tag, and only the one the images job checked is published.
       - name: Push both images
         env:
           FRONTEND_TAG: ${{ needs.images.outputs.frontend-tag }}

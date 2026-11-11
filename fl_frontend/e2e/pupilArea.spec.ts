@@ -4,7 +4,7 @@
  *
  * The pupil is new to the league, so the journey makes them, as an applicant's journey makes its school: one of the
  * project's own, registering through the project's `registering` club, whose confirmed contact seat admits them on a
- * second device of the journey's own visitor. Nothing is seeded for the pupil, so no other journey reads them.
+ * second device. Nothing is seeded for the pupil, so no other journey reads them.
  */
 import { expect } from "@playwright/test";
 
@@ -53,13 +53,10 @@ function valueOf(scope: Locator, term: string): Locator {
     .locator("xpath=following-sibling::dd[1]");
 }
 
-/**
- * The team contact's device beside the pupil's, as `accountActs.spec.ts` builds its second device: on the journey's
- * proxy, so it is the same visitor and closes before the edge is read.
- */
+/** The team contact's device beside the pupil's, as `accountActs.spec.ts` builds its second device. */
 const test = journey.extend<{ team: Page }>({
-  team: async ({ browser, proxy }, provide) => {
-    const device = await browser.newContext({ proxy });
+  team: async ({ browser }, provide) => {
+    const device = await browser.newContext();
     await standInForTurnstile(device);
     await provide(await device.newPage());
     await device.close();
