@@ -8,11 +8,11 @@
  */
 import path from "node:path";
 
-import { test as base } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
 
 import { standInForTurnstile } from "./turnstileStandIn";
 
-import type { Browser, BrowserContextOptions, Page, Request } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Page, Request } from "@playwright/test";
 
 export type JourneyOptions = {
   /** An administrator's grant. */
@@ -81,6 +81,37 @@ export function hydrated(page: Page): Promise<Request> {
   });
 }
 
+/** The function a page's refusals reach the journey through, on every frame's `window`: a name no page of the site uses. */
+const REFUSAL_BINDING = "journeyMeetsRefusal";
+
+/**
+ * Readies a context as every journey meets the site: Turnstile's stand-in, and each Content-Security-Policy refusal a
+ * page of it meets, by its directive and the address refused, which the fixture that made the context then asserts
+ * none of. A refusal that breaks no locator, such as of a stylesheet React Aria injects, passes every other assertion.
+ * The browser fires `securitypolicyviolation` for each, bubbling to the document
+ * (https://developer.mozilla.org/en-US/docs/Web/API/SecurityPolicyViolationEvent), and an init script, which runs in
+ * every frame before any of the page's own scripts, forwards it to a binding.
+ */
+async function readyForJourney(context: BrowserContext): Promise<readonly string[]> {
+  await standInForTurnstile(context);
+
+  const refusals: string[] = [];
+  await context.exposeBinding(REFUSAL_BINDING, (_source, refusal: string) => {
+    refusals.push(refusal);
+  });
+  await context.addInitScript((binding) => {
+    document.addEventListener("securitypolicyviolation", (event) => {
+      const forward = Reflect.get(window, binding) as (refusal: string) => Promise<void>;
+      void forward(`${event.effectiveDirective} ${event.blockedURI}`);
+    });
+  }, REFUSAL_BINDING);
+  return refusals;
+}
+
+function expectNoRefusal(refusals: readonly string[]): void {
+  expect(refusals, "the edge's Content-Security-Policy refused what a page of the journey asked for").toEqual([]);
+}
+
 /**
  * A browser context beside the test's own, built and closed in a fixture as Playwright's guide builds one for a second
  * role (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), so a journey that fails closes it
@@ -89,9 +120,10 @@ export function hydrated(page: Page): Promise<Request> {
  */
 async function provideDevice(browser: Browser, options: BrowserContextOptions, provide: (page: Page) => Promise<void>): Promise<void> {
   const device = await browser.newContext(options);
-  await standInForTurnstile(device);
+  const refusals = await readyForJourney(device);
   await provide(await device.newPage());
   await device.close();
+  expectNoRefusal(refusals);
 }
 
 export const test = base.extend<JourneyFixtures & JourneyOptions>({
@@ -111,8 +143,9 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   // The test's own context. `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it
   // as.
   context: async ({ context }, provide) => {
-    await standInForTurnstile(context);
+    const refusals = await readyForJourney(context);
     await provide(context);
+    expectNoRefusal(refusals);
   },
 
   administration: async ({ browser }, provide) => {
