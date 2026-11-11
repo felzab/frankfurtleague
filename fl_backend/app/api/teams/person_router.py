@@ -182,8 +182,8 @@ async def patch_einwilligung(
             await session.with_transaction(write)
 
 
-# What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way,
-# proposal and reason, which the Übersicht states of the team's own row alone. Never who answered.
+# What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way and
+# proposal, which the Übersicht states of the team's own row alone. Never who answered.
 TERMIN_ROW_FIELDS: Final[Mapping[str, int]] = {
     "saison_id": 1,
     "spiel_id": 1,
@@ -192,7 +192,6 @@ TERMIN_ROW_FIELDS: Final[Mapping[str, int]] = {
     "deadline": 1,
     "answer.kind": 1,
     "answer.vorschlag": 1,
-    "answer.reason": 1,
     "closed": 1,
 }
 
@@ -326,7 +325,7 @@ async def get_team_overview(
 
     The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
     asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
-    date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
+    date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal until
     the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
     fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
     still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
@@ -384,7 +383,6 @@ async def get_team_overview(
                         "state": termin.state,
                         "deadline": termin.row["deadline"],
                         "vorschlag": answer.get("vorschlag") if declined else termin.vorschlag_open if termin.state == "vorschlag" else None,
-                        "reason": answer.get("reason") if declined else None,
                     }
                 )
             )

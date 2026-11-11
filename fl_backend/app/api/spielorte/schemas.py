@@ -1,12 +1,11 @@
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELORT_NAME_MAX_LENGTH
+from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
-from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -60,10 +59,6 @@ class FLSpielorteFilterParams(BaseModel):
     # A switch, not a value to match on: a caller wanting the retired venues wants them ALONGSIDE
     # the live ones.
     include_inactive: bool = False
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: Literal["name",] = Field(default="name")
-    order: FLSortOrder = Field(default="asc")
 
 
 class FLSpielorteListResponse(BaseAPIResponse):

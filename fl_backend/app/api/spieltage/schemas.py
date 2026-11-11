@@ -1,11 +1,9 @@
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSortOrder
+from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -35,26 +33,12 @@ class FLSpieltag(FLSpieltagRecord, BaseReadModel):
     count_spiele: int = Field(ge=0)
 
 
-FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
-
-
 class FLSpieltagAdmin(FLSpieltag):
     """A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs."""
 
     # DERIVED, on no document: the phase's matchdays as the season stores them, this one included. Named as the public
     # schemas name the same count.
     count_spieltage_in_phase: int = Field(ge=1)
-
-
-class FLSpieltageFilterParams(BaseModel):
-    saison_id: str | None = None
-    saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    # `natural` is the played order -- the phase, then `position`. `count_spiele` is absent because
-    # a Mongo sort cannot order by a value no document holds.
-    sort_by: Literal["natural", "start", "end"] = Field(default="natural")
-    order: FLSortOrder = Field(default="asc")
 
 
 class FLPatchSpieltagPayload(BaseModel):
@@ -82,10 +66,6 @@ class FLPatchSpieltagPayload(BaseModel):
             refuse_reversed_span(start=info.data["start"], end=end, kind="spieltag_ends_before_start")
 
         return end
-
-
-class FLSpieltageListResponse(BaseAPIResponse):
-    spieltage: list[FLSpieltag]
 
 
 class FLSpielplanSpieltag(FLSpieltag):

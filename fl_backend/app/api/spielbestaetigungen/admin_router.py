@@ -2,18 +2,15 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows, pull_named_spiele
+from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_named_spiele
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigung,
     FLSpielbestaetigungAppointment,
-    FLSpielbestaetigungenFilterParams,
-    FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungEnterPayload,
 )
 from app.api.spielbestaetigungen.services import (
@@ -49,7 +46,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
-    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -68,39 +64,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
-
-
-@router.get(
-    "",
-    response_model=FLSpielbestaetigungenListResponse,
-    summary="A season's fixture confirmations, or one fixture's",
-)
-async def get_spielbestaetigungen(
-    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
-    filters: FLSpielbestaetigungenFilters,
-) -> FLSpielbestaetigungenListResponse:
-    """
-    Every confirmation row of the season, or of its one fixture.
-
-    Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
-    served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
-    document has answers no rows rather than 404.
-    """
-
-    db_filter: dict[str, Any] = {"saison_id": filters.saison_id}
-    if filters.spiel_id is not None:
-        db_filter["spiel_id"] = filters.spiel_id
-
-    rows, complete = await pull_admin_rows(
-        spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
-    )
-
-    return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
-        complete=complete,
-    )
 
 
 @router.post(

@@ -280,17 +280,15 @@ class TestTheUebersicht:
         assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
         # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
         # their day.
-        assert [
-            (termin["spiel_id"], termin["state"], termin["side"], termin["vorschlag"], termin["reason"]) for termin in served["termine"]
-        ] == [
-            (str(EXPIRED["_id"]), "expired", "team1", None, None),
-            # The other club's proposed date and hour alone, never its reason.
-            (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}, None),
-            (str(DECLINED["_id"]), "declined", "team2", {"date": "2026-04-23", "time": "17:00:00"}, OWN_REASON),
-            (str(VALID["_id"]), "valid", "team1", None, None),
+        assert [(termin["spiel_id"], termin["state"], termin["side"], termin["vorschlag"]) for termin in served["termine"]] == [
+            (str(EXPIRED["_id"]), "expired", "team1", None),
+            # The other club's proposed date and hour.
+            (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}),
+            (str(DECLINED["_id"]), "declined", "team2", {"date": "2026-04-23", "time": "17:00:00"}),
+            (str(VALID["_id"]), "valid", "team1", None),
             # Inside their deadline: the opponent's exit by the fixture's day is what ends each.
-            (str(LEFT_HOME["_id"]), "expired", "team2", None, None),
-            (str(LEFT_AWAY["_id"]), "expired", "team1", None, None),
+            (str(LEFT_HOME["_id"]), "expired", "team2", None),
+            (str(LEFT_AWAY["_id"]), "expired", "team1", None),
         ]
         # Stored, locked within the hour, or undated, a fixture asks for no line-up; the overdue one comes first.
         assert [(entry["spiel_id"], entry["marks"]["phase"]) for entry in served["aufstellungen"]] == [

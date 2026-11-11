@@ -425,7 +425,6 @@ async def get_team_saison_admin(
                 austritt=row_raw.get("austritt"),
                 kontakte=row_raw.get("kontakte"),
                 invitation_raw=live[0] if live else None,
-                resend=False,
             ).skipped,
         )
 
@@ -1145,7 +1144,6 @@ async def post_invitation(
             saison_id=saison_id,
             team_id=team_id,
             token_hashes=[token_hash],
-            today=today,
             # Minted for copying: nothing is mailed until the team's own press owes it.
             sent_at=None,
         )
@@ -1166,7 +1164,6 @@ async def post_invitation(
         team_id=team_id,
         invitation_id=invitation_id,
         token=raw_token,
-        created_at=today,
     )
 
 

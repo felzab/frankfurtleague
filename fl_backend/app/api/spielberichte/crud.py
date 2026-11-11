@@ -8,20 +8,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.spielberichte.schemas import (
-    FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtSpieler,
-    FLSpielberichtStateEntry,
 )
 from app.api.spielberichte.services import (
     SIDES,
     SPIEL_FIELDS,
     BerichtContext,
-    bericht_state_of,
     bericht_unchanged,
     build_bericht_kader_pipeline,
     build_season_report_texts_filter,
-    build_state_pipeline,
     build_submitted_pipeline,
     compose_bericht_update,
     compose_new_bericht,
@@ -204,23 +200,6 @@ async def count_submitted_berichte(*, spielberichte_collection: ReadCollection, 
     )
 
     return counted[0]["berichte"] if counted else 0
-
-
-async def pull_states(*, spielberichte_collection: ReadCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
-    """Every report of one season, each with its state against its fixture as stored now."""
-
-    rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_state_pipeline(saison_id=saison_id))
-
-    entries = []
-    for row in rows:
-        bericht = FLSpielberichtBericht.model_validate(row["bericht"])
-        entries.append(
-            FLSpielberichtStateEntry(
-                spiel_id=row["spiel_id"], state=bericht_state_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
-            )
-        )
-
-    return entries
 
 
 async def strip_the_seasons_reports(

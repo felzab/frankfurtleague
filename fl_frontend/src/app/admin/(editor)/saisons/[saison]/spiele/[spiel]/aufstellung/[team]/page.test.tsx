@@ -54,7 +54,7 @@ doubleApiClient((): FLAufstellungResponse => ({
   spieler: [],
   erased: [],
   version: null,
-  marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z", locks_at: "2026-11-14T14:00:00Z" },
+  marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z" },
   saison_status: "active",
 }));
 

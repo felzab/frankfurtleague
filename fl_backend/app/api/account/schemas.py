@@ -35,8 +35,6 @@ class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     evidence_state: FLEinwilligungState
     media_offered: bool
-    # The media floor, which the page names where the record is short of it.
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
@@ -47,7 +45,6 @@ class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
     evidence_state: FLEinwilligungState
     givable: bool
     media_offered: bool
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountSeatEinwilligung(BaseModel):
@@ -69,8 +66,6 @@ class FLAccountSeatEinwilligung(BaseModel):
     evidence_state: FLEinwilligungState
     media_offered: bool
     givable: bool
-    # One per entry: the control's own words name the media floor every held seat shares.
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountBewerbungSeatEinwilligung(BaseModel):

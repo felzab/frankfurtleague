@@ -615,7 +615,6 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
 
     return FLSchiedsrichterSpiel(
         spiel_id=spiel["_id"],
-        schiedsrichter_id=spiel["schiedsrichter"]["schiedsrichter_id"],
         team1_name=team_name("team1"),
         team2_name=team_name("team2"),
         date=spiel.get("date"),

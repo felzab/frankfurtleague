@@ -404,12 +404,10 @@ export const SERVER_COPY = catalogue({
       status: "Stand der Bewerbung",
       /** The title of a seat's own facts. */
       entry: "Dein Eintrag",
-      /** A seat a Widerspruch or an erasure emptied, where a mail lists a person by first name and seats. */
-      unnamed: "Ohne Namen",
 
       /**
        * The Ansprechperson's link mail. It says an application came in, never that the reader sent it, and names no
-       * school: behind a mistyped address a stranger gets nothing to attach the names to.
+       * school and no person: behind a mistyped address a stranger learns nobody's name.
        */
       received: {
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
@@ -436,9 +434,6 @@ export const SERVER_COPY = catalogue({
         },
         fixed: "Gruppe und Trikotfarbe stehen fest.",
         fixedNoColour: "Die Gruppe steht fest. Die Trikotfarbe teilen wir dir noch mit.",
-        /** A wish answered as one: the Spielplan is drawn after the decision, so nothing here knows whether it can be met. */
-        wunschgegner: (opponent: string) =>
-          `Als Wunschgegner für den ersten Spieltag haben wir ${opponent} notiert. Über die Paarungen entscheidet der Spielplan.`,
         signIn: "Melde dich mit dieser Adresse an, dort findest du dein Team.",
       },
       absage: {
@@ -458,8 +453,8 @@ export const SERVER_COPY = catalogue({
       },
       objection: {
         subject: (saison: string) => `Widerspruch zum Eintrag: ${COPY.shared.saisonName(saison)}`,
-        lead: { after: " hat dem Eintrag als Kontaktperson widersprochen." },
-        // No pronoun: „Diese Angaben“ reads correctly for every name.
+        lead: { before: "Die Kontaktperson als\u00A0", after: " hat dem Eintrag widersprochen." },
+        // No pronoun: „Diese Angaben“ reads correctly for every seat.
         removed: "Diese Angaben haben wir aus der Bewerbung entfernt.",
         replace: "Soll eine andere Person übernehmen, antworte auf diese E-Mail.",
         /** Around the last day it stands, the deletion coming once that day has passed. */
@@ -939,7 +934,7 @@ export const SERVER_COPY = catalogue({
         heading: "Bewerbung einer Schule",
         form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${boundBy(formatNumber(otherAge), "Jahre")}, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${boundBy(formatNumber(otherAge), "Jahre")}, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, die Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
       },
       kader: {
         heading: "Im Kader",

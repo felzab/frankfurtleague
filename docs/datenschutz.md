@@ -129,8 +129,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     confirmation or Widerspruch, and each consent choice with its evidence. Beside them, the
     school's details, its address among them. The persons are named by whoever submits the
     application or by an administrator, so their data is taken from a third party (Art. 14).
-  - Recipients: administrators; an application's Ansprechperson, who is told the other seats' first
-    names and roles and who objected, at an address that may be unconfirmed.
+  - Recipients: administrators; an application's Ansprechperson, who is told which other seats are
+    still open and which objected, by role alone, at an address that may be unconfirmed.
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `invitations`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.

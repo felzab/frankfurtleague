@@ -52,7 +52,7 @@ MEDIA_WITHDRAWN: Final[Mapping[str, Any]] = {
 AS_PRESSED: Final[Mapping[str, Any]] = {key: value for key, value in CONFIRMED.items() if key != "evidence"}
 
 # A contact seat's record as the application seated its person, nobody having answered.
-SEATED: Final[Mapping[str, Any]] = compose_einwilligung(today="2026-03-20", entered_by="bewerbung")
+SEATED: Final[Mapping[str, Any]] = compose_einwilligung(today="2026-03-20")
 
 
 class TestWhichValueGrants:

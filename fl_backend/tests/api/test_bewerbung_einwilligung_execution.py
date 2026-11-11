@@ -286,8 +286,6 @@ class TestWhatAConfirmationWrites:
             "date": "2026-03-20",
             "confirmed_at": TODAY,
             "media": False,
-            # The seating's, which the answer leaves standing.
-            "entered_by": "bewerbung",
             # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
             # withholding.
             "evidence": {
@@ -521,8 +519,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                     "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
-                    # Off the read before the decline: nothing left in the record names whose entry was refused.
-                    "declined": {"first_name": "Bramblewick", "rollen": ["stellvertretung"]},
+                    "declined": ["stellvertretung"],
                     "deadline": "2026-04-03",
                 },
             }

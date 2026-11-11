@@ -40,7 +40,7 @@ def _at_kickoff_time(date: str, time: str, *, days_back: int) -> datetime:
 
 
 def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: datetime) -> FLAufstellungMarks | None:
-    """Whether a line-up is stored, the phase the clock puts it in at `now`, and the instants it is due and locks at.
+    """Whether a line-up is stored, the phase the clock puts it in at `now`, and the instant it is due at.
 
     None for a fixture holding no day or no hour, which owes no line-up and takes none. `open` runs up to the due mark,
     `overdue` from it up to the lock, `locked` from the lock on: each mark belongs to the phase it opens.
@@ -54,7 +54,7 @@ def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: 
     locks_at = _at_kickoff_time(date, time, days_back=0) - _LOCK_BEFORE
     phase: FLAufstellungPhase = "open" if now < due_at else "overdue" if now < locks_at else "locked"
 
-    return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at, locks_at=locks_at)
+    return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at)
 
 
 def keeps_erased(*, date: str | None, time: str | None, now: datetime) -> bool:

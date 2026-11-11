@@ -280,15 +280,14 @@ the match for third place. A level match with no shoot-out has neither.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpielQuelle`.\
 **See:** [`domain.md`](domain.md#the-competitions-own-rules).
 
-### `Herkunft` — one German word over four unrelated origins
+### `Herkunft` — one German word over three unrelated origins
 
-**Is:** the German for four origins sharing nothing but the word: what feeds a side of a knockout
-fixture, the kind of actor behind a logged act, whether an application names a new school, and who
-seated a contact person. Only the last is stored, as `entered_by`.\
+**Is:** the German for three origins sharing nothing but the word: what feeds a side of a knockout
+fixture, the kind of actor behind a logged act, and whether an application names a new school. None
+is a stored field of its own.\
 **In code:** `fl_frontend/src/features/spiele/blocks.ts :: quelleWords`;
 `fl_backend/app/api/action_log/schemas.py :: FLActionLogRecord`'s `by`;
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungListRow`'s `new_school`;
-`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme`'s `entered_by`.
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungListRow`'s `new_school`.
 
 ### `austritt` — out of one season, by which route and from when
 

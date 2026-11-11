@@ -31,11 +31,9 @@ class FLTeamPanelTermin(BaseModel):
     side: FLSpielSide
     state: FLSpielbestaetigungTeamState
     deadline: CustomDateString
-    # On `vorschlag` the other club's proposed date and hour, never its reason or which of its seats answered; on
+    # On `vorschlag` the other club's proposed date and hour, never which of its seats answered; on
     # `declined` the team's own; null otherwise.
     vorschlag: FLSpielbestaetigungAppointment | None
-    # The team's own reason on `declined`, null otherwise and where it gave none.
-    reason: CustomNonEmptyString | None
 
 
 class FLTeamPanelAufstellung(BaseModel):

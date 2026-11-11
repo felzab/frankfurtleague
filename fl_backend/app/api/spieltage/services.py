@@ -12,32 +12,11 @@ from app.api.spieltage.schemas import (
     FLSpielplanSpieltagAdminListAdapter,
     FLSpielplanSpieltagListAdapter,
     FLSpieltag,
-    FLSpieltageFilterParams,
 )
 from app.core.codes import Code
-from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSaisonStatus
-
-
-def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The Mongo sort, an APPROXIMATION of the natural order that `order_spieltage` refines.
-
-    The phase RANK is on no document, so no `find` separates the phases and `limit` may keep a
-    prefix of each. `position` leads, being exact inside one.
-    """
-
-    if sort_by == "natural":
-        # The chain follows `order` only here, this sort being a prefix SELECTOR: on a `position` tie
-        # straddling `limit`, a descending page needs the descending end of that tie.
-        direction = 1 if order == "asc" else -1
-
-        return build_sort(sort_by="position", order=order, chain=(("_id", direction),))
-
-    # Tie-broken by the two fields that make any ordering here reproducible. `position` and not a
-    # date: every matchday has one, and it is the order the season's schedule was drawn in.
-    return build_sort(sort_by=sort_by, order=order, chain=(("position", 1), ("_id", 1)))
 
 
 def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spieltag]:
@@ -48,14 +27,6 @@ def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spi
     """
 
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
-
-
-def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
-    return build_query(
-        filters,
-        terms={"saison_id", "saison_phase"},
-        compiled={"saison_phase": {"$ne": "gruppenphase"}} if filters.saison_phase == "playoffs" else None,
-    )
 
 
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:

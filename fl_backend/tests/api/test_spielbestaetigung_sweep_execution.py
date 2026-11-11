@@ -387,7 +387,8 @@ async def handed_out(
             continue
         if kind == "aufstellung_reminder":
             pass_.aufstellungen.append(
-                LineupReminder(spiel_id=str(data["spiel_id"]), team=data["team"], address=mail.to, due_at=data["due_at"])
+                # The fixture off the row's key (`aufstellung_reminder_key`), the mail's data naming none.
+                LineupReminder(spiel_id=stored[mail.id]["key"].split("/")[1], team=data["team"], address=mail.to, due_at=data["due_at"])
             )
             continue
         if kind == "spiel_einteilung":

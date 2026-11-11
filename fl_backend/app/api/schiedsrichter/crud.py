@@ -79,8 +79,8 @@ async def erase_referee_in_session(
     schiedsrichter_id: CustomObjectId,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
-) -> int:
-    """Delete the referee and repoint their fixtures at the ghost, answering how many fixtures moved.
+) -> None:
+    """Delete the referee and repoint their fixtures at the ghost.
 
     The ghost must stand already: `ensure_ghost_schiedsrichter` writes it once per transaction, ahead of every referee.
     """
@@ -95,7 +95,7 @@ async def erase_referee_in_session(
         session=session,
     )
 
-    repointed = await patch_many_in_db(
+    await patch_many_in_db(
         collection=spiele_collection,
         db_filter=build_assignment_filter(schiedsrichter_id),
         update=build_ghost_repoint(),
@@ -107,5 +107,3 @@ async def erase_referee_in_session(
         db_filter={"_id": schiedsrichter_id},
         session=session,
     )
-
-    return repointed.modified_count

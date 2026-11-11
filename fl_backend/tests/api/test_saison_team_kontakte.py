@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_einwilligung
-from app.api.identity.schemas import FLErasureResponse
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLKontaktSeatPayload
 from app.api.teams.services import compose_kontakte_origin, with_link_state
@@ -19,7 +18,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
-from tests.erasure import erased
+from tests.erasure import erased, seats_cleared
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW
 from tests.team_writes import BlockWritten, write_the_block
@@ -78,7 +77,7 @@ def person(first_name: str, *, email: str | None = None) -> dict[str, Any]:
         "last_name": "Musterfrau",
         "email": email or f"{first_name.lower()}@example.com",
         "phone": PHONE[first_name],
-        "einwilligung": compose_einwilligung(today=TODAY, entered_by="liga"),
+        "einwilligung": compose_einwilligung(today=TODAY),
     }
 
 
@@ -91,7 +90,6 @@ def stored_person(first_name: str, *, email: str | None = None, confirmed_at: st
         first_name,
         confirmed_at=confirmed_at,
         einwilligung={"date": "2026-03-01"},
-        entered_by="liga",
         last_name=sent["last_name"],
         email=sent["email"],
         phone=sent["phone"],
@@ -100,12 +98,12 @@ def stored_person(first_name: str, *, email: str | None = None, confirmed_at: st
 
 
 def born(sent: dict[str, Any]) -> dict[str, Any]:
-    """The record a person newly seated holds: theirs alone, naming the league as who seated them.
+    """The record a person newly seated holds: theirs alone.
 
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {"scope": "kontakt_data", "date": TODAY, "confirmed_at": None, "media": False, "entered_by": "liga"}
+    return {"scope": "kontakt_data", "date": TODAY, "confirmed_at": None, "media": False}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -217,10 +215,10 @@ async def write_kontakte(
     )
 
 
-async def erase_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
+async def erase_the_seats_person(database: AsyncDatabase) -> None:
     """The erasure of the person holding `ERASED_SEAT`, in a transaction of its own."""
 
-    return await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
+    await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
 
 
 class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
@@ -371,7 +369,9 @@ class TestAnErasureLandingMidSaveIsNotUndone:
             erasures: list[Any] = []
 
             async def erase_between() -> None:
-                erasures.append(await erase_the_seats_person(database))
+                before = await row_now(database)
+                await erase_the_seats_person(database)
+                erasures.append(seats_cleared([before], [await row_now(database)]))
 
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
             with pytest.raises(APIError) as refused:
@@ -381,9 +381,9 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
             return erasures[0], refused.value, await row_now(database)
 
-        erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
+        cleared, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert erasure.kontakt_seats == 1, "the interference emptied no seat, so the save had nothing to undo"
+        assert cleared == 1, "the interference emptied no seat, so the save had nothing to undo"
         assert refusal.error_code == Code.VERSION_STALE
         assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
@@ -565,7 +565,6 @@ class TestAKeptRecordKeepsItsEvidence:
             "date": "2026-03-01",
             "confirmed_at": CONFIRMED_ON,
             "media": True,
-            "entered_by": "bewerbung",
             "evidence": {
                 "scope": {"at": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["scope"]},
                 "media": {"at": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
@@ -584,21 +583,6 @@ class TestAKeptRecordKeepsItsEvidence:
 
         assert stored["kontakte"]["trainer"]["phone"] == OTHER_PHONE, "the edit itself did not land, so this case proves nothing"
         assert bson.encode(stored["kontakte"]["trainer"]["einwilligung"]) == bson.encode(confirmed)
-
-    def test_an_unconfirmed_seat_saved_unchanged_keeps_who_seated_its_person(self, mongo_replica_set_url: str):
-        """The commoner seat: who seated its person, the applicant or the league, is the seating's and no save's."""
-
-        held = PARTLY_CONFIRMED["ansprechperson"]
-        seeded = {**PARTLY_CONFIRMED, "ansprechperson": {**held, "einwilligung": {**held["einwilligung"], "entered_by": "bewerbung"}}}
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, RESAVED_AS_RENDERED)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body, seeded=seeded)
-
-        assert stored["kontakte"]["ansprechperson"]["einwilligung"]["entered_by"] == "bewerbung"
 
     def test_a_seat_handed_to_another_person_is_born_afresh_by_the_league(self, mongo_replica_set_url: str):
         """Nothing of the person who left travels: their evidence, scope and media answer go with their data."""

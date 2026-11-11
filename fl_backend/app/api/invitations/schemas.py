@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -13,7 +13,6 @@ class FLInvitation(BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
-    created_at: CustomDateString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
@@ -46,7 +45,6 @@ class FLInvitationMintResponse(BaseAPIResponse):
     team_id: CustomObjectId
     invitation_id: CustomObjectId
     token: CustomNonEmptyString
-    created_at: CustomDateString
 
 
 class FLInvitationWriteResponse(BaseAPIResponse):
@@ -66,10 +64,7 @@ type FLInvitationSkipReason = Literal[
 
 
 class FLInvitationLinkRow(BaseModel):
-    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
-
-    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
-    """
+    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds."""
 
     team_id: CustomObjectId
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
@@ -94,14 +89,6 @@ class FLTeamLinkState(BaseModel):
     paused: bool
     # Why the season's press would pass this team over today, `None` where it would mail it.
     skipped: FLInvitationSkipReason | None
-
-
-class FLInvitationDispatchPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # False by default, so pressing twice mails nobody twice: a team whose live link already has a mail owed or sent is
-    # skipped unless this says otherwise.
-    resend: bool = False
 
 
 class FLInvitationMailPayload(BaseModel):

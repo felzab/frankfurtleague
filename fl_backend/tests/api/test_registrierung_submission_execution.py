@@ -99,9 +99,7 @@ def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
 def invitation_document(
     invitation_id: ObjectId, team_id: ObjectId, token: str, *, revoked_at: str | None = None, saison_id: str = SAISON_ID
 ) -> dict[str, Any]:
-    return documents.invitation_document(
-        invitation_id, saison_id=saison_id, team_id=team_id, token=token, created_at="2126-03-15", revoked_at=revoked_at
-    )
+    return documents.invitation_document(invitation_id, saison_id=saison_id, team_id=team_id, token=token, revoked_at=revoked_at)
 
 
 def payload(**overrides: Any) -> dict[str, Any]:

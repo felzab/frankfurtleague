@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.admin_router import get_erasure_view
-from app.api.identity.schemas import FLErasureAddressPayload, FLErasureResponse, FLErasureViewResponse
+from app.api.identity.schemas import FLErasureAddressPayload, FLErasureViewResponse
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.services import (
@@ -27,7 +27,7 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import confirmed_kenntnisnahme, minted_confirmations
-from tests.erasure import erased
+from tests.erasure import erased, seats_cleared
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
@@ -206,8 +206,8 @@ UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure's 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
-# The counts and both collections keyed by `_id`: what most cases below read.
-Snapshot = tuple[FLErasureResponse, dict[Any, Mapping[str, Any]]]
+# Both collections keyed by `_id`, before the erasure and after: what most cases below read.
+Snapshot = tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]
 
 
 async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id: ObjectId) -> None:
@@ -281,8 +281,8 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False, stores_a_
     return on_the_seed_loop(_run())
 
 
-async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> FLErasureResponse:
-    return await erased(database, client, email, germany_now=NOW)
+async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> None:
+    await erased(database, client, email, germany_now=NOW)
 
 
 async def call_view(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> FLErasureViewResponse:
@@ -384,34 +384,37 @@ def after_erase_a_swapped_out_person(url: str) -> Snapshot:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await a_swap_moves_them_out(database)
-            response = await call_erasure(database, client)
+            before = await stored_rows(database)
+            await call_erasure(database, client)
 
-            return response, await stored_rows(database)
+            return before, await stored_rows(database)
 
     return on_the_seed_loop(_run())
 
 
-def after_erase_the_near_misses(url: str) -> tuple[FLErasureResponse, dict[Any, Mapping[str, Any]]]:
+def after_erase_the_near_misses(url: str) -> Snapshot:
     """The seeded league plus the stored mailbox and its near misses, erased with an unfolded spelling of the mailbox."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_many(
             [a_row_naming(row_id, email) for email, row_id in ((ERASED_EMAIL, MATCHED_ROW_OID), *NEAR_ROW_OIDS.items())]
         )
-        response = await call_erasure(database, client, VARIANT_REQUEST_EMAIL)
+        before = await stored_rows(database)
+        await call_erasure(database, client, VARIANT_REQUEST_EMAIL)
 
-        return response, await stored_rows(database)
+        return before, await stored_rows(database)
 
     return on_a_league(url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
 
 
 def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
-    """The counts and both collections together: one seeded database serves both."""
+    """Both collections before and after: one seeded database serves both."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        response = await call_erasure(database, client, email)
+        before = await stored_rows(database)
+        await call_erasure(database, client, email)
 
-        return response, await stored_rows(database)
+        return before, await stored_rows(database)
 
     return on_a_league(url, body)
 
@@ -554,7 +557,7 @@ def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
                 )
                 for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
             }
-            return await erase_kontaktperson_in_session(
+            await erase_kontaktperson_in_session(
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
@@ -564,8 +567,11 @@ def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
                 session=session,
             )
 
+        before = await stored_rows(database)
         async with transaction_session(client) as session:
-            return await session.with_transaction(in_session)
+            await session.with_transaction(in_session)
+
+        return seats_cleared(before.values(), (await stored_rows(database)).values())
 
     assert on_a_league(mongo_replica_set_url, body) == sum(EXPECTED_SLOTS.values())
 
@@ -586,11 +592,11 @@ def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
     """Kills an erasure overwriting what the fold never judged."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return await call_erasure(database, client, UNKNOWN_EMAIL), await stored_rows(database)
+        await call_erasure(database, client, UNKNOWN_EMAIL)
+        return await stored_rows(database)
 
-    response, rows = on_a_league(mongo_replica_set_url, body)
+    rows = on_a_league(mongo_replica_set_url, body)
 
-    assert response.kontakt_seats == 0
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
 
@@ -598,12 +604,12 @@ def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
 def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss(mongo_replica_set_url: str):
     """Another mailbox keeps its seat and adds nothing to the count; the asked spelling's fold is what meets the stored one."""
 
-    response, rows = after_erase_the_near_misses(mongo_replica_set_url)
+    before, rows = after_erase_the_near_misses(mongo_replica_set_url)
     cleared = [email for email, row_id in NEAR_ROW_OIDS.items() if rows[row_id]["kontakte"]["trainer"] is None]
 
     assert cleared == [], "the match reached an address that is not this person"
     assert rows[MATCHED_ROW_OID]["kontakte"]["trainer"] is None, "the unfolded request missed the stored fold"
-    assert response.kontakt_seats == sum(EXPECTED_SLOTS.values()) + 1, "the read reached a seat that is somebody else's"
+    assert seats_cleared(before.values(), rows.values()) == sum(EXPECTED_SLOTS.values()) + 1, "a seat that is somebody else's was cleared"
 
 
 # An identifier holding no `@`: the spellings the fold claims, and a value each anchor keeps out, the end two of them
@@ -774,11 +780,13 @@ def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replic
     """What one matcher buys: a confirmation naming a different set from the one the write reaches is worse than none."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return await call_view(database, client), await call_erasure(database, client)
+        view, before = await call_view(database, client), await stored_rows(database)
+        await call_erasure(database, client)
+        return view, seats_cleared(before.values(), (await stored_rows(database)).values())
 
-    view, response = on_a_league(mongo_replica_set_url, body)
+    view, cleared = on_a_league(mongo_replica_set_url, body)
     named = view.kontakt_seats + view.bewerbung_seats
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
     assert named == sum(EXPECTED_SLOTS.values())
-    assert named == response.kontakt_seats
+    assert named == cleared

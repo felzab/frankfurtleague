@@ -6,7 +6,7 @@ from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPubl
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.actor import FLByAdmin
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_REASON_MAX_LENGTH
+from app.shared.schemas.bounds import SPIELBESTAETIGUNG_REASON_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     CustomDateString,
@@ -138,22 +138,6 @@ class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
 
 
 # --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
-
-
-class FLSpielbestaetigungenFilterParams(BaseModel):
-    """A season's rows, or one fixture's among them. The season is required: rows of every season would answer for fixtures no list shows."""
-
-    saison_id: str
-    spiel_id: CustomObjectId | None = None
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-
-
-class FLSpielbestaetigungenListResponse(BaseAPIResponse):
-    """The rows newest first, closed ones included."""
-
-    spielbestaetigungen: list[FLSpielbestaetigung]
-    # False where the cut left out rows not holding their question, so a cut list is never read as the season whole.
-    complete: bool
 
 
 class FLSpielbestaetigungEnterPayload(BaseModel):

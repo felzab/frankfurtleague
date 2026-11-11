@@ -56,7 +56,6 @@ def stored(first_name: str) -> dict[str, Any]:
     return documents.kontaktperson_document(
         first_name,
         einwilligung={"date": "2026-03-01"},
-        entered_by="liga",
         last_name="Musterfrau",
         email=f"{first_name.lower()}@example.com",
         phone=PHONE[first_name],
@@ -134,7 +133,7 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
         rows = await aggregate_many_from_db(
             collection=database[Collection.SAISON_TEAMS], pipeline=build_erasure_seat_pipeline(identifier), session=session
         )
-        return await erase_kontaktperson_in_session(
+        await erase_kontaktperson_in_session(
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],

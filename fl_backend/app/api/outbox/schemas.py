@@ -201,10 +201,9 @@ class FLAufstellungReminderData(BaseModel):
     kind: Literal["aufstellung_reminder"]
     # The reader's own club, one of the two sides.
     team: str
-    # That club, the fixture's season and the fixture, which name the team's own pages: the reader enters it there, signed in.
+    # That club and the fixture's season, which name the team's own pages: the reader enters it there, signed in.
     team_id: CustomObjectId
     saison_id: str
-    spiel_id: CustomObjectId
     appointment: FLSpielMailAnsetzung
     # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_DAYS` before the kick-off:
     # carried, so the mail states it and no builder counts the days a second time.
@@ -279,20 +278,14 @@ class FLBewerbungLinkData(BaseModel):
     deadline: CustomDateString
 
 
-class FLBewerbungPerson(BaseModel):
-    """Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats."""
-
-    first_name: str | None
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-
-
 class FLBewerbungReceivedData(BaseModel):
-    """The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer."""
+    """The Ansprechperson's receipt, which carries their own link: their seats and every other seat still to answer."""
 
     kind: Literal["bewerbung_received"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    pending: list[FLBewerbungPerson]
+    # By role alone, so a mistyped address hands a stranger nobody's name.
+    pending: list[FLKontaktRolle]
     deadline: CustomDateString
 
 
@@ -308,8 +301,6 @@ class FLBewerbungZusageData(BaseModel):
     gruppe: FLGruppenNames
     # Null while no kit colour is assigned; the mail then says so rather than guessing one.
     trikot_farbe: FLTrikotFarbe | None
-    # As the school submitted it, null where it named none.
-    wunschgegner: str | None
 
 
 class FLBewerbungAbsageData(BaseModel):
@@ -320,17 +311,15 @@ class FLBewerbungAbsageData(BaseModel):
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
     reason: str
-    # The days the mail says the application stands: the decline owes no deletion notice of its own.
-    deletion_days: int
 
 
 class FLBewerbungObjectionData(BaseModel):
-    """A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too."""
+    """A contact's Widerspruch, to the Ansprechperson, naming the seats it emptied: it stands as the deletion notice too."""
 
     kind: Literal["bewerbung_objection"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    declined: FLBewerbungPerson
+    declined: list[FLKontaktRolle] = Field(min_length=1)
     deadline: CustomDateString
 
 

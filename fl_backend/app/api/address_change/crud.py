@@ -855,7 +855,7 @@ async def end_the_address_changes_in_session(
     now: datetime,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
-) -> int:
+) -> None:
     """End every change naming the erased address.
 
     Each change's mails go with it, owed or sent: its link went to the person's other mailbox, or to theirs from another's
@@ -902,8 +902,6 @@ async def end_the_address_changes_in_session(
         session=session,
     )
 
-    return len(rows)
-
 
 async def end_an_emptied_change_in_session(
     *,
@@ -913,7 +911,7 @@ async def end_an_emptied_change_in_session(
     identifier: str,
     now: datetime,
     session: AsyncClientSession,
-) -> int:
+) -> None:
     """End the address's live change where the pupil's erasure left the address holding nothing for it to move.
 
     The season's erasure takes the pupil alone, so a change standing for the address's other records stays.
@@ -921,11 +919,11 @@ async def end_an_emptied_change_in_session(
 
     live = await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
     if live is None:
-        return 0
+        return
 
     holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
     if not holdings.empty:
-        return 0
+        return
 
     await end_the_change_in_session(
         address_changes_collection=address_changes_collection,
@@ -934,5 +932,3 @@ async def end_an_emptied_change_in_session(
         now=now,
         session=session,
     )
-
-    return 1

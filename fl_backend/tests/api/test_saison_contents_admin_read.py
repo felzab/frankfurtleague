@@ -6,7 +6,7 @@ from bson import ObjectId
 from fastapi.routing import APIRoute
 
 from app.api.spiele.admin_router import get_spiel_admin
-from app.api.spieltage.admin_router import get_spieltag_admin, get_spieltage_admin
+from app.api.spieltage.admin_router import get_spieltag_admin
 from app.api.teams.admin_router import get_team_saison_admin, get_teams_admin
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
@@ -36,7 +36,6 @@ ROUTES = list(api_routes(application()))
 ADMIN_TIER_ROUTES: list[tuple[str, Callable[..., Any]]] = [
     ("/api/v0/teams/list/admin", get_teams_admin),
     (f"/api/v0/teams/{an_id('1', PLANNED)}/saisons/{PLANNED}/admin", get_team_saison_admin),
-    ("/api/v0/spieltage/list/admin", get_spieltage_admin),
     (f"/api/v0/spieltage/{an_id('3', PLANNED)}/admin", get_spieltag_admin),
     (f"/api/v0/spiele/{an_id('2', PLANNED)}/admin", get_spiel_admin),
 ]

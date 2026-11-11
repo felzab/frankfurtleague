@@ -111,10 +111,8 @@ TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
 SAISON_ID_LENGTH: Final = 4
 
-# Two names for one number, deliberately: one answers what a client may ask for, the other what it
-# gets by asking for nothing. Collapsing them would let a raised ceiling raise every page as well.
+# The most rows one list read takes: no request names a page size, so every list is cut here alone.
 LIST_LIMIT_DEFAULT: Final = 1024
-LIST_LIMIT_MAX: Final = 1024
 
 # The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
 # over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside

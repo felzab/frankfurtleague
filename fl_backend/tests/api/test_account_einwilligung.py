@@ -28,7 +28,6 @@ from app.core.recording import actor_var
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
@@ -552,7 +551,6 @@ class TestTheAccountPagesRead:
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
         ]
         assert all(seat["media_offered"] for seat in body["seats"])
-        assert {entry["media_minimum_age"] for entry in [body["spieler"], *body["schiedsrichter"], *body["seats"]]} == {MEDIA_MIN_AGE_YEARS}
 
 
 # A seated grant's withdrawal, naming the grant the seat's own confirmation gave.

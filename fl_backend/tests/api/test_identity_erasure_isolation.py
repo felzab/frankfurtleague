@@ -95,7 +95,6 @@ async def a_league(database: AsyncDatabase) -> None:
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "token_hashes": [hash_token(INVITATION_TOKEN)],
-            "created_at": "2026-03-15",
             "revoked_at": None,
             "sent_at": None,
         }

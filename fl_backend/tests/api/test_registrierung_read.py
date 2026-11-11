@@ -8,6 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.registrierungen.admin_router import get_registrierungen_admin
 from app.api.registrierungen.schemas import FLRegistrierungenAdminFilterParams
 from app.core.collections import Collection
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -99,12 +100,12 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def read(database: AsyncDatabase, saison_id: str = SAISON_ID, limit: int = 1024) -> Any:
+async def read(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Any:
     return await get_registrierungen_admin(
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        filters=FLRegistrierungenAdminFilterParams(saison_id=saison_id, limit=limit),
+        filters=FLRegistrierungenAdminFilterParams(saison_id=saison_id),
     )
 
 
@@ -138,11 +139,18 @@ class TestWhatTheReadServes:
         """Rows a passed-on link can write: served short rather than a 500, and saying so."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await read(database, limit=1)
+            # Beside the seed's two pending rows, one past the cap.
+            await database[Collection.REGISTRIERUNGEN].insert_many(
+                [
+                    {**registrierung_document(ObjectId(), first_name="Flut"), "email": f"flut{index}@beispielschule.de"}
+                    for index in range(LIST_LIMIT_DEFAULT - 1)
+                ]
+            )
+            return await read(database)
 
         answered = on_a_league(mongo_replica_set_url, body)
 
-        assert (len(answered.registrierungen), answered.complete) == (1, False)
+        assert (len(answered.registrierungen), answered.complete) == (LIST_LIMIT_DEFAULT, False)
 
     def test_no_token_hash_and_no_address_reaches_the_answer(self, mongo_replica_set_url: str):
         """The list shows neither, and what the read projects is what crosses the wire."""

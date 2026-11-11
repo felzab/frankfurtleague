@@ -425,8 +425,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
   evidence_state: FLEinwilligungState;
   givable: boolean;
   kontakt: FLKontakt;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   media_offered: boolean;
   /** @minLength 1 */
   name: string;
@@ -444,8 +442,6 @@ export interface FLAccountSeatEinwilligung {
   evidence_state: FLEinwilligungState;
   givable: boolean;
   media: boolean;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   media_offered: boolean;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -467,8 +463,6 @@ export interface FLAccountSpielerEinwilligung {
   /** @minLength 1 */
   first_name: string;
   last_name: string | null;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   media_offered: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -1079,12 +1073,11 @@ export const FLAufstellungPhase = {
 /**
  * What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.
  *
- * Two facts and two instants, never one combined state: a page calls a line-up due where it is `open` with none
- * stored, and overdue where the due mark has passed with none stored.
+ * Two facts and the instant it is due, never one combined state: a page calls a line-up due where it is `open` with
+ * none stored, and overdue where the due mark has passed with none stored.
  */
 export interface FLAufstellungMarks {
   due_at: string;
-  locks_at: string;
   phase: FLAufstellungPhase;
   stored: boolean;
 }
@@ -1126,8 +1119,6 @@ export interface FLAufstellungReminderData {
   due_at: string;
   kind: "aufstellung_reminder";
   saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
   team: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
@@ -1384,13 +1375,6 @@ export interface FLBewerbungKader {
   good_spieler: number;
 }
 
-export type FLKontaktEnteredBy = (typeof FLKontaktEnteredBy)[keyof typeof FLKontaktEnteredBy];
-
-export const FLKontaktEnteredBy = {
-  bewerbung: "bewerbung",
-  liga: "liga",
-} as const;
-
 export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
 
 export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
@@ -1434,7 +1418,6 @@ export interface FLKontaktKenntnisnahme {
   confirmed_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
-  entered_by: FLKontaktEnteredBy;
   evidence: FLEinwilligungEvidenceSet;
   media: boolean;
   scope: FLKontaktKenntnisnahmeScope;
@@ -1542,7 +1525,6 @@ export interface FLBewerbung {
  * A decline, to one person of the application, with the administrator's reason verbatim.
  */
 export interface FLBewerbungAbsageData {
-  deletion_days: number;
   kind: "bewerbung_absage";
   reason: string;
   /** @minItems 1 */
@@ -1688,8 +1670,6 @@ export interface FLBewerbungEinwilligungViewResponse {
   answered_at: string | null;
   deadline: string | null;
   maximum_age: number;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   minimum_age: number;
   quelle: FLBewerbungEinwilligungViewResponseQuelle;
   rolle: FLKontaktRolle;
@@ -1885,21 +1865,13 @@ export interface FLBewerbungListRow {
 }
 
 /**
- * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
- */
-export interface FLBewerbungPerson {
-  first_name: string | null;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.
+ * A contact's Widerspruch, to the Ansprechperson, naming the seats it emptied: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
-  declined: FLBewerbungPerson;
+  /** @minItems 1 */
+  declined: FLKontaktRolle[];
   kind: "bewerbung_objection";
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -1907,13 +1879,13 @@ export interface FLBewerbungObjectionData {
 }
 
 /**
- * The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.
+ * The Ansprechperson's receipt, which carries their own link: their seats and every other seat still to answer.
  */
 export interface FLBewerbungReceivedData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   kind: "bewerbung_received";
-  pending: FLBewerbungPerson[];
+  pending: FLKontaktRolle[];
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;
@@ -1995,7 +1967,6 @@ export interface FLBewerbungZusageData {
   shorthand: string;
   team: string;
   trikot_farbe: FLTrikotFarbe | null;
-  wunschgegner: string | null;
 }
 
 /**
@@ -2421,25 +2392,6 @@ export interface FLErasurePayload {
   reason: string;
 }
 
-export interface FLErasureResponse {
-  /** @minimum 0 */
-  address_change: number;
-  /** @minimum 0 */
-  grants: number;
-  /** @minimum 0 */
-  kontakt_seats: number;
-  /** @minimum 0 */
-  registrierungen: number;
-  /** @minimum 0 */
-  saison_spieler: number;
-  /** @minimum 0 */
-  schiedsrichter: number;
-  /** @minimum 0 */
-  spiele: number;
-  /** @minimum 0 */
-  spieler: number;
-}
-
 /**
  * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
  */
@@ -2635,10 +2587,6 @@ export interface FLInvitationData {
   team: string;
 }
 
-export interface FLInvitationDispatchPayload {
-  resend?: boolean;
-}
-
 /**
  * How the press's teams came out: the season editor's rows then read what each team holds.
  */
@@ -2664,8 +2612,6 @@ export const FLInvitationSkipReason = {
 
 /**
  * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
- *
- * The preview is the press's own plan with `resend` left false, as the editor's press sends it.
  */
 export interface FLInvitationLinkRow {
   has_link: boolean;
@@ -2699,8 +2645,6 @@ export interface FLInvitationMailResponse {
  * Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
  */
 export interface FLInvitationMintResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  created_at: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   invitation_id: string;
   /** @minLength 1 */
@@ -2715,8 +2659,6 @@ export interface FLInvitationMintResponse {
  * One live link as the team's read serves it.
  */
 export interface FLInvitationRow {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  created_at: string;
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -4302,8 +4244,6 @@ export interface FLRegistrierungConfirmationViewResponse {
   deadline: string;
   /** @exclusiveMinimum 0 */
   maximum_age: number;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   minimum_age: number;
   saison_id: string;
   /** @minLength 1 */
@@ -4712,8 +4652,6 @@ export interface FLSchiedsrichterConfirmationViewResponse {
   deadline: string;
   /** @exclusiveMinimum 0 */
   maximum_age: number;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   minimum_age: number;
   state: FLSchiedsrichterConfirmationState;
 }
@@ -4762,8 +4700,6 @@ export interface FLSchiedsrichterSpiel {
   past: boolean;
   reason: string | null;
   reportable: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   spielbestaetigung_id: string | null;
@@ -5156,23 +5092,6 @@ export interface FLSpielberichtSchiedsrichterResponse {
 }
 
 /**
- * One fixture's report as the triage reads it: its state and what it proposes.
- */
-export interface FLSpielberichtStateEntry {
-  ergebnis_vorschlag: FLSpielberichtVorschlag;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  state: FLSpielberichtState;
-}
-
-/**
- * Every report of one season that holds a block, each with its state.
- */
-export interface FLSpielberichteSaisonResponse {
-  spielberichte: FLSpielberichtStateEntry[];
-}
-
-/**
  * The Ansetzung a row answers about: every input of `digest`, stored beside it.
  *
  * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
@@ -5364,14 +5283,6 @@ export interface FLSpielbestaetigungViewAnsetzung {
   team2_name: string;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
   time: string;
-}
-
-/**
- * The rows newest first, closed ones included.
- */
-export interface FLSpielbestaetigungenListResponse {
-  complete: boolean;
-  spielbestaetigungen: FLSpielbestaetigung[];
 }
 
 /**
@@ -5675,10 +5586,6 @@ export interface FLSpieltagWriteResponse {
   version: number;
 }
 
-export interface FLSpieltageListResponse {
-  spieltage: FLSpieltag[];
-}
-
 export interface FLSpieltageSingleResponse {
   spieltag: FLSpieltag;
 }
@@ -5960,7 +5867,6 @@ export interface FLTeamPanelTermin {
   ansetzung: FLSpielbestaetigungViewAnsetzung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
-  reason: string | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -6327,79 +6233,10 @@ export type IdentitySweepErasureParams = {
 
 export type RegistrierungenGetRegistrierungenAdminParams = {
   saison_id: string;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
 };
-
-export type SaisonsGetSaisonsAdminParams = {
-  status?: FLSaisonStatus | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SaisonsGetSaisonsAdminSortBy;
-  order?: SaisonsGetSaisonsAdminOrder;
-};
-
-export type SaisonsGetSaisonsAdminSortBy = (typeof SaisonsGetSaisonsAdminSortBy)[keyof typeof SaisonsGetSaisonsAdminSortBy];
-
-export const SaisonsGetSaisonsAdminSortBy = {
-  _id: "_id",
-  start_date: "start_date",
-  end_date: "end_date",
-} as const;
-
-export type SaisonsGetSaisonsAdminOrder = (typeof SaisonsGetSaisonsAdminOrder)[keyof typeof SaisonsGetSaisonsAdminOrder];
-
-export const SaisonsGetSaisonsAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SchiedsrichterGetSchiedsrichterParams = {
-  default_payment?: number | null;
   include_inactive?: boolean;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SchiedsrichterGetSchiedsrichterSortBy;
-  order?: SchiedsrichterGetSchiedsrichterOrder;
-};
-
-export type SchiedsrichterGetSchiedsrichterSortBy =
-  (typeof SchiedsrichterGetSchiedsrichterSortBy)[keyof typeof SchiedsrichterGetSchiedsrichterSortBy];
-
-export const SchiedsrichterGetSchiedsrichterSortBy = {
-  name: "name",
-  default_payment: "default_payment",
-} as const;
-
-export type SchiedsrichterGetSchiedsrichterOrder =
-  (typeof SchiedsrichterGetSchiedsrichterOrder)[keyof typeof SchiedsrichterGetSchiedsrichterOrder];
-
-export const SchiedsrichterGetSchiedsrichterOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
-export type SpielberichteGetSpielberichteParams = {
-  saison_id?: string | null;
-};
-
-export type SpielbestaetigungenGetSpielbestaetigungenParams = {
-  saison_id: string;
-  spiel_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
 };
 
 export type SpieleGetSpieleSpielplanParams = {
@@ -6426,48 +6263,7 @@ export type SpielerGetSpielerAdminParams = {
 
 export type SpielorteGetSpielorteParams = {
   include_inactive?: boolean;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "name";
-  order?: SpielorteGetSpielorteOrder;
 };
-
-export type SpielorteGetSpielorteOrder = (typeof SpielorteGetSpielorteOrder)[keyof typeof SpielorteGetSpielorteOrder];
-
-export const SpielorteGetSpielorteOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
-export type SpieltageGetSpieltageAdminParams = {
-  saison_id?: string | null;
-  saison_phase?: "playoffs" | FLSaisonPhase | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpieltageGetSpieltageAdminSortBy;
-  order?: SpieltageGetSpieltageAdminOrder;
-};
-
-export type SpieltageGetSpieltageAdminSortBy = (typeof SpieltageGetSpieltageAdminSortBy)[keyof typeof SpieltageGetSpieltageAdminSortBy];
-
-export const SpieltageGetSpieltageAdminSortBy = {
-  natural: "natural",
-  start: "start",
-  end: "end",
-} as const;
-
-export type SpieltageGetSpieltageAdminOrder = (typeof SpieltageGetSpieltageAdminOrder)[keyof typeof SpieltageGetSpieltageAdminOrder];
-
-export const SpieltageGetSpieltageAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type TeamsGetTeamsAdminParams = {
   saison_id: string;

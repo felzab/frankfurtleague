@@ -16,7 +16,6 @@ const ZUSAGE: FLBewerbungZusageData = {
   rollen: ["ansprechperson"],
   gruppe: "A",
   trikot_farbe: "hellgruen",
-  wunschgegner: null,
 };
 
 const LINK: FLBewerbungLinkData = {

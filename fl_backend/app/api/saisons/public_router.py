@@ -73,7 +73,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -91,7 +91,7 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
         db_filter=base_tier_status_term(),
         sort_by=list(SAISON_FRAME_ORDER.items()),
         projection=["_id", *SAISON_FRAME_FIELDS, "status"],
-        limit=LIST_LIMIT_MAX,
+        limit=LIST_LIMIT_DEFAULT,
     )
 
     # The stored status alone: `uniq_saison_active` holds at most one, and activating the next

@@ -21,6 +21,7 @@ from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
 from app.core.security import bind_actor, verify_access_admin
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
 # their address and, once they have confirmed, their date of birth (`READ-CONTACT-001`).
@@ -59,7 +60,7 @@ async def get_registrierungen_admin(
         pull_many_from_db(
             collection=registrierungen_collection,
             db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},
-            limit=filters.limit + 1,
+            limit=LIST_LIMIT_DEFAULT + 1,
             sort_by=build_registrierungen_sort(),
             # An inclusion: no address, birthdate or token crosses the wire for a list showing none.
             projection=list(REGISTRIERUNG_LIST_FIELDS),
@@ -79,7 +80,7 @@ async def get_registrierungen_admin(
                 }
             )
             # Sliced before validation, so the probe row is never parsed and never reaches the wire.
-            for row in read[: filters.limit]
+            for row in read[:LIST_LIMIT_DEFAULT]
         ],
-        complete=len(read) <= filters.limit,
+        complete=len(read) <= LIST_LIMIT_DEFAULT,
     )

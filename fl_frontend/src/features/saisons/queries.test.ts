@@ -29,15 +29,6 @@ describe("the admin season list across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
   itOpensAScopeThatMemoizes();
 
-  /* Its readers take the newest season off its end, which a list on the backend's default order no longer holds once
-     that default moves, handing the next season an older season's days with nothing on screen saying so. */
-  it("asks for every season oldest first by id", async () => {
-    beginRenderPass();
-    await getAdminSaisons();
-
-    expect(new URL(listReads().at(-1)?.endpoint ?? "", "http://backend").searchParams.toString()).toBe("sort_by=_id&order=asc");
-  });
-
   it("is fetched once when the frame and the page both read it", async () => {
     beginRenderPass();
     const before = adminReads();

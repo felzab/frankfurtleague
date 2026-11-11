@@ -101,7 +101,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
@@ -445,8 +445,6 @@ async def accept_bewerbung(
                         rollen=seats,
                         gruppe=acceptance_data.gruppe,
                         trikot_farbe=acceptance_data.trikot_farbe,
-                        # As the school submitted it, which the acceptance's payload never carries.
-                        wunschgegner=bewerbung_raw.get("wunschgegner"),
                     ),
                     # To the season row's seats written above, so the hand-out drops it once its person left the seat.
                     club=FLOutboxClub(saison_id=saison_id, team_id=team_id),
@@ -528,7 +526,6 @@ async def decline_bewerbung(
                         saison_id=str(stored_raw["saison_id"]),
                         rollen=seats,
                         reason=decline_data.reason,
-                        deletion_days=DECLINED_RETENTION_DAYS,
                     ),
                 )
                 for email, seats in people_with_address(

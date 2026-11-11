@@ -3,7 +3,6 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -153,8 +152,6 @@ class FLRegistrierungenAdminFilterParams(BaseModel):
     """Which season's pending registrations the list reads, whole up to the cap: its page narrows them."""
 
     saison_id: str
-    # Bounded on both sides for `FLBewerbungenAdminFilterParams.limit`'s reason: a link reaches anybody it is passed to.
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
 
 
 class FLRegistrierungenAdminListResponse(BaseAPIResponse):
@@ -183,9 +180,6 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     minimum_age: int
     # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)
-    # The age the media answer is judged by, served for `minimum_age`'s reason: the page offers the
-    # switch only from it, and a copy of its own would offer it where the write refuses.
-    media_minimum_age: int = Field(gt=0)
     # The link's last day, stored at the mint: the page states it as the mail did.
     deadline: CustomDateString
     # The day of the pupil's own answer, so a reopened link says what they did and when; null on every state showing

@@ -17,16 +17,17 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.overview import FLOverviewSpielberichtRow
 from app.api.saisons.overview_router import get_saison_overview
-from app.api.spielberichte.admin_router import get_spielberichte
 from app.api.spielberichte.crud import count_submitted_berichte, repoint_pupil_entries_in_session
 from app.api.spielberichte.person_router import get_spielbericht_bericht, put_spielbericht_bericht
-from app.api.spielberichte.schemas import FLSpielberichtPayload
+from app.api.spielberichte.schemas import FLSpielberichtBericht, FLSpielberichtPayload
+from app.api.spielberichte.services import bericht_state_of, build_state_pipeline
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.crud import aggregate_many_from_db
 from app.core.sentinels import GHOST_SPIELER_ID
 from tests import documents
 from tests.acts import acts_of
@@ -628,27 +629,28 @@ async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> No
     )
 
 
+async def report_states(database: AsyncDatabase) -> list[tuple[ObjectId, str]]:
+    """Every report of the season with its state, read through the pipeline and the judgement the Übersicht reads it by."""
+
+    rows = await aggregate_many_from_db(collection=database[Collection.SPIELBERICHTE], pipeline=build_state_pipeline(saison_id=SAISON_ID))
+
+    return [(row["spiel_id"], bericht_state_of(FLSpielberichtBericht.model_validate(row["bericht"]), row["spiel"])) for row in rows]
+
+
 class TestTheAdministratorReadsTheStateAReportIsIn:
     def test_the_season_read_derives_it_against_the_result_saved(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            def states() -> Any:
-                return get_spielberichte(
-                    spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    saisons_collection=database[Collection.SAISONS],
-                    saison_id=SAISON_ID,
-                )
-
             await put(database, client, bericht())
-            proposed = await states()
+            proposed = await report_states(database)
             await save_the_result(database, 0, 1)
 
-            return proposed, await states()
+            return proposed, await report_states(database)
 
         proposed, differing = on_the_league(mongo_replica_set_url, body)
 
-        assert [(entry.spiel_id, entry.state) for entry in proposed.spielberichte] == [(SPIEL, "proposed")]
+        assert proposed == [(SPIEL, "proposed")]
         # The sides swapped: 1:0 proposed, 0:1 saved.
-        assert [(entry.spiel_id, entry.state) for entry in differing.spielberichte] == [(SPIEL, "differing")]
+        assert differing == [(SPIEL, "differing")]
 
     def test_the_season_read_judges_a_call_off_a_no_show_and_a_shoot_out_by_the_fixtures_own_fields(self, mongo_replica_set_url: str):
         """Each a report on a fixture holding an event or a shoot-out, which the state is judged against.
@@ -705,15 +707,11 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELE].insert_many([fixture for fixture, _ in held_rows])
             await database[Collection.SPIELBERICHTE].insert_many([report for _, report in held_rows])
-            return await get_spielberichte(
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                saisons_collection=database[Collection.SAISONS],
-                saison_id=SAISON_ID,
-            )
+            return await report_states(database)
 
         states = on_the_league(mongo_replica_set_url, body)
 
-        assert {entry.spiel_id: entry.state for entry in states.spielberichte} == {
+        assert dict(states) == {
             CALLED_OFF: "cancelled",
             NO_SHOW: "adopted",
             SHOOT_OUT: "adopted",
@@ -750,16 +748,12 @@ class TestEachReportReadKeepsToTheSpieleSeason:
             await seed_the_season_before(database)
             # Last season's trainer of Adler, nobody this fixture's people hold.
             written = await outcome_of(put(database, client, bericht(remarks="Frau Vogt sah von der Tribüne zu.")))
-            states = await get_spielberichte(
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                saisons_collection=database[Collection.SAISONS],
-                saison_id=SAISON_ID,
-            )
+            states = await report_states(database)
             counted = await count_submitted_berichte(
                 spielberichte_collection=database[Collection.SPIELBERICHTE], saison_id=SAISON_ID, session=None
             )
 
-            return written, [entry.spiel_id for entry in states.spielberichte], counted
+            return written, [spiel_id for spiel_id, _ in states], counted
 
         written, listed, counted = on_the_league(mongo_replica_set_url, body)
 
@@ -877,12 +871,7 @@ class TestAReportOutlivingItsSpieleClub:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def states() -> Any:
-                season = await get_spielberichte(
-                    spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    saisons_collection=database[Collection.SAISONS],
-                    saison_id=SAISON_ID,
-                )
-                return [entry.state for entry in season.spielberichte if entry.spiel_id == VIERTELFINALE]
+                return [state for spiel_id, state in await report_states(database) if spiel_id == VIERTELFINALE]
 
             await a_reported_quarter_final(database, client, None)
             moved = await states()
@@ -910,11 +899,7 @@ class TestAReportOutlivingItsSpieleClub:
 
 
 async def season_states(database: AsyncDatabase) -> list[str]:
-    season = await get_spielberichte(
-        spielberichte_collection=database[Collection.SPIELBERICHTE], saisons_collection=database[Collection.SAISONS], saison_id=SAISON_ID
-    )
-
-    return [entry.state for entry in season.spielberichte]
+    return [state for _, state in await report_states(database)]
 
 
 async def a_report_adopted(database: AsyncDatabase, client: AsyncMongoClient) -> int:

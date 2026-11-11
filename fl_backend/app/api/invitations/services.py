@@ -93,7 +93,7 @@ def find_live_invitation_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"token_hashes": token_hash, **LIVE_INVITATION}
 
 
-def compose_invitation(*, saison_id: str, team_id: Any, token_hashes: list[str], today: str, sent_at: str | None) -> dict[str, Any]:
+def compose_invitation(*, saison_id: str, team_id: Any, token_hashes: list[str], sent_at: str | None) -> dict[str, Any]:
     """One live row: the hash of the link a mint answers for copying, or none where the press's mails mint every link.
 
     `sent_at` is today where the same write owes the link's mails, as the season's press does, and null on a mint for copying.
@@ -103,7 +103,6 @@ def compose_invitation(*, saison_id: str, team_id: Any, token_hashes: list[str],
         "saison_id": saison_id,
         "team_id": team_id,
         "token_hashes": token_hashes,
-        "created_at": today,
         "revoked_at": None,
         "sent_at": sent_at,
     }
@@ -125,8 +124,8 @@ def invitation_is_sent(invitation_raw: Mapping[str, Any] | None) -> bool:
     """Whether this live link was mailed, by the day the season's press or the team's own stored on it.
 
     The stored day and never the Postausgang: its row is erased a retention after it settles, and a press judging it would
-    then mail the club again, replacing the link it holds. So a link is replaced only by a deliberate resend, whatever
-    became of its mail.
+    then mail the club again, replacing the link it holds. So the season's press never replaces a mailed link, whatever
+    became of its mail; the team's own press is what mails it again.
     """
 
     return invitation_raw is not None and invitation_raw.get("sent_at") is not None
@@ -178,7 +177,7 @@ class InvitationDispatchPlan(NamedTuple):
     skipped: FLInvitationSkipReason | None
 
 
-def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None, resend: bool) -> InvitationDispatchPlan:
+def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None) -> InvitationDispatchPlan:
     """Who this team's link goes to, or why it is skipped. The season editor's rows and the press both read it.
 
     `invitation_raw` is the team's live invite, `None` where it holds none.
@@ -198,7 +197,7 @@ def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Ma
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave sixteen links unsent for ever.
-    if invitation_is_sent(invitation_raw) and not resend:
+    if invitation_is_sent(invitation_raw):
         return InvitationDispatchPlan([], "already_sent")
 
     return InvitationDispatchPlan(recipients, None)

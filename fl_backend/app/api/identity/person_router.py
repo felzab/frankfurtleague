@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
 from app.api.grants.crud import read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
-from app.api.identity.schemas import FLAccountErasureViewResponse, FLErasureResponse
+from app.api.identity.schemas import FLAccountErasureViewResponse
 from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
@@ -49,7 +49,7 @@ router = APIRouter(
 
 @router.post(
     "/erasure",
-    response_model=FLErasureResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Erase every record the signed-in address holds",
 )
 async def post_account_erasure(
@@ -70,9 +70,9 @@ async def post_account_erasure(
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
-) -> FLErasureResponse:
+) -> None:
     """
-    Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
+    Erase every record the signed-in address holds, at once and as one write.
 
     PERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a
     person holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a
@@ -93,7 +93,7 @@ async def post_account_erasure(
     person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
     registration's decision -- and every log row naming their address name a fixed marker in their place.
 
-    An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
+    An address holding nothing is no refusal. The 409 answers only a database
     changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
     id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
     touched here: deleting it is the caller's, once this has answered.
@@ -102,7 +102,7 @@ async def post_account_erasure(
     journal = Journal()
 
     @journal.attempted
-    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+    async def erase_the_address(session: AsyncClientSession) -> None:
         grants = await read_grants(grants_collection=grants_collection, session=session)
         # Before any write. A handover finishing meanwhile writes the row this erasure deletes, so the two conflict and the
         # retry reads the new owner.
@@ -125,17 +125,14 @@ async def post_account_erasure(
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
             address_changes_collection=address_changes_collection,
-            for_the_person=True,
             now=germany_now,
             session=session,
         )
         await record_act(collection=action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-        return FLErasureResponse(**erasure.counts.model_dump())
-
     async with journal, transaction_session(db) as session:
-        return await session.with_transaction(erase_the_address)
+        await session.with_transaction(erase_the_address)
 
 
 @router.get(

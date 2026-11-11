@@ -6,6 +6,7 @@ import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit
 import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { requires } from "@/core/action";
+import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SCHIEDSRICHTER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
@@ -127,7 +128,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
             // The range the write judges, as the link's view serves it.
             earliestBirth={bornAfter(today, view.maximum_age)}
             latestBirth={bornBy(today, view.minimum_age)}
-            mediaLatestBirth={bornBy(today, view.media_minimum_age)}
+            mediaLatestBirth={bornBy(today, MEDIA_MIN_AGE)}
             isBirthDateRequired={REQUIRED.birth_date}
           />
         ),

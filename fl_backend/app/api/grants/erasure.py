@@ -40,8 +40,8 @@ async def erase_grants_in_session(
     now: datetime,
     # REQUIRED: the grants and their notices go in one transaction or none.
     session: AsyncClientSession,
-) -> int:
-    """Removes an `owner` grant, refusing nothing, answering how many went.
+) -> None:
+    """Removes an `owner` grant, refusing nothing.
 
     Who may erase an owner is the caller's judgement, and so is any line once the transaction commits.
     """
@@ -68,5 +68,3 @@ async def erase_grants_in_session(
 
     # After the removal, so the person is no holder told: every holder who remains is.
     await owe_in_session(notices, outbox_collection=outbox_collection, grants_collection=grants_collection, now=now, session=session)
-
-    return len(grant_ids)

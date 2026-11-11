@@ -110,8 +110,8 @@ class FLAufstellungSpieler(BaseModel):
 class FLAufstellungMarks(BaseReadModel):
     """What a team's read serves about a line-up: whether one is stored, and where the clock stands against its fixture's kick-off.
 
-    Two facts and two instants, never one combined state: a page calls a line-up due where it is `open` with none
-    stored, and overdue where the due mark has passed with none stored.
+    Two facts and the instant it is due, never one combined state: a page calls a line-up due where it is `open` with
+    none stored, and overdue where the due mark has passed with none stored.
     """
 
     # Judged by `app/api/aufstellungen/services.py :: aufstellung_stands`: a line-up naming nobody, or only pupils erased
@@ -119,7 +119,6 @@ class FLAufstellungMarks(BaseReadModel):
     stored: bool
     phase: FLAufstellungPhase
     due_at: FLUtcInstant
-    locks_at: FLUtcInstant
 
 
 class FLAufstellungErased(BaseReadModel):

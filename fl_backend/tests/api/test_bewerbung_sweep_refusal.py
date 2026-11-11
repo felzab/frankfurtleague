@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import (
     decline_erasure_is_due,
     deletion_day,
     deletion_is_due,
-    first_name_of,
     group_seats_by_mailbox,
     lapsed_seats,
     owed_deletion_notices,
@@ -419,7 +418,3 @@ class TestWhatTheNoticesNeed:
         told = application(kontakte=confirmed, erasure_announced_at=YESTERDAY)
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=told, saison_id="2026")] == ["stellan@example.com"]
-
-    def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
-        assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"
-        assert first_name_of(kontakte=kontakte(stellvertretung=None), seat="stellvertretung") is None

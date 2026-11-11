@@ -217,19 +217,19 @@ class TestThePersonsOwnErasure:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await erased_by_the_person(refusing[database.name], refusing)
+                await erased_by_the_person(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            return commits.answered, answer.grants
+            return commits.answered, await database[Collection.GRANTS].count_documents({"_id": THEIR_GRANT_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, removed = on_their_league(mongo_replica_set_url, body)
+            refused, left = on_their_league(mongo_replica_set_url, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
-        assert (refused, removed) == ([WRITE_CONFLICT, None], 1)
+        assert (refused, left) == ([WRITE_CONFLICT, None], 0)
 
     def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(self, mongo_replica_set_url: str):
         """Catches any step writing off the erasure's session: that write would stand while the commit taking the rest failed.
@@ -297,19 +297,19 @@ class TestAnErasureOnRequest:
             }
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await erased_on_request(refusing[database.name], refusing)
+                await erased_on_request(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            return commits.answered, answer.spieler
+            return commits.answered, await database[Collection.SPIELER].count_documents({"_id": THEIR_PUPIL_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, erased_count = on_the_administrators_league(mongo_replica_set_url, body)
+            refused, left = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line above is the rerun's alone.
-        assert (refused, erased_count) == ([WRITE_CONFLICT, None], 1)
+        assert (refused, left) == ([WRITE_CONFLICT, None], 0)
 
     def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches a route journalling once its commit answers: this one landed and answered only that its time ran out."""

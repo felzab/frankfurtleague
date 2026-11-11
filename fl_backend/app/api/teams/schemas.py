@@ -47,7 +47,6 @@ from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, CustomSto
 from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
-    FLKontaktEnteredBy,
     FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
     FLSaisonStatus,
@@ -137,9 +136,6 @@ class FLKontaktKenntnisnahme(BaseReadModel):
     confirmed_at: CustomOptionalDateString
     # The one consent on this record, to photographs, video and interviews.
     media: bool
-    # Written once, by the write that seats the person, and moved by nothing else: who seated them,
-    # the applicant or the league.
-    entered_by: FLKontaktEnteredBy
     # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.evidence`'s reasons; a seat's
     # wordings alone.
     evidence: Annotated[FLEinwilligungEvidenceSet, AfterValidator(lambda evidence_set: cite_their_kind(evidence_set, FLSeatTextVersions))] = (

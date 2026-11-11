@@ -46,14 +46,6 @@ async def pull_create_state(*, saisons_collection: ReadCollection, session: Asyn
     )
 
 
-async def pull_active_saison_id(saisons_collection: ReadCollection) -> str:
-    """The current season's id; 404 where none is active, rather than degrading to an unfiltered query."""
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"])
-
-    return str(saison_raw["_id"])
-
-
 async def pull_governing_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
     """The season a count of seasons is reckoned from: the running one.
 
@@ -183,18 +175,3 @@ async def count_spiele_by_saison(*, spiele_collection: ReadCollection, saison_id
     )
 
     return {str(row["_id"]): int(row["spiele"]) for row in rows}
-
-
-async def pull_saison_id_and_rules(
-    saisons_collection: ReadCollection,
-    saison_id: str | None,
-) -> tuple[str, FLSaisonRules]:
-    """A season's id and its scoring rules.
-
-    `saison_id=None` means the current season; an explicit id naming none raises 404.
-    """
-
-    db_filter = CURRENT_SAISON_FILTER if saison_id is None else {"_id": saison_id}
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=["_id", "rules"])
-
-    return str(saison_raw["_id"]), FLSaisonRules.model_validate(saison_raw["rules"])

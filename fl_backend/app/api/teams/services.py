@@ -1102,7 +1102,7 @@ def compose_seat_block(
     seats = (seat,) if other is None else (seat, other)
     person = {field: value for field, value in sent.items() if field != "trainer_is_also"}
     # The record of a person newly seated; `compose_kontakte_origin` keeps the stored one of a person this write leaves.
-    slot = {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
+    slot = {**person, "einwilligung": compose_einwilligung(today=today)}
 
     return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
 

@@ -14,7 +14,6 @@ from app.api.bewerbungen.schemas import (
 from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLBewerbungLinkData,
-    FLBewerbungPerson,
     FLBewerbungReceivedData,
     FLDeletionNoticeData,
     FLOutboxLink,
@@ -36,11 +35,11 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
     DECLINED_RETENTION_DAYS,
-    LIST_LIMIT_MAX,
+    LIST_LIMIT_DEFAULT,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLTrikotFarbe
 
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
@@ -262,8 +261,8 @@ def build_key_filter(*, key: str) -> Mapping[str, Any]:
     return {"idempotency_key": {"$eq": key, "$type": "string"}}
 
 
-def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[str, Any]:
-    """The contact seat's record as the server writes it: who seated the person, and nothing they answered.
+def compose_einwilligung(*, today: str) -> dict[str, Any]:
+    """The contact seat's record as the server writes it at the seating: nothing its person answered.
 
     Named by no client, who could otherwise dress a transcription as a signature.
     """
@@ -275,7 +274,6 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
         "date": today,
         "confirmed_at": None,
         "media": False,
-        "entered_by": entered_by,
     }
 
 
@@ -309,7 +307,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
             # entered, and the confirmation fills it.
             "birth_date": None,
-            "einwilligung": compose_einwilligung(today=today, entered_by="bewerbung"),
+            "einwilligung": compose_einwilligung(today=today),
         }
         for seat in KONTAKT_ROLLEN
     }
@@ -809,8 +807,8 @@ def compose_confirmation_update(
     for seat in seats:
         path = f"kontakte.{seat}.einwilligung"
         written[f"kontakte.{seat}.birth_date"] = birth_date
-        # Field by field, never the block whole: `entered_by` and `date` are the seating's, and
-        # what it tells stands after the answer.
+        # Field by field, never the block whole: `date` is the seating's, and what it tells stands
+        # after the answer.
         written[f"{path}.confirmed_at"] = today
         written.update(
             compose_choices(
@@ -1120,7 +1118,7 @@ def compose_kontakt_seat_update(
     told = "ansprechperson" not in seats
     announced = {} if stands and not moved and told else {"erasure_announced_at": None}
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
-    einwilligung = compose_einwilligung(today=today, entered_by="liga")
+    einwilligung = compose_einwilligung(today=today)
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it.
     slot = {**person, "birth_date": None, "einwilligung": einwilligung}
@@ -1312,7 +1310,7 @@ def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
 
 # One read's ceiling, and one past it tells a full page from a truncated one
 # (which the registration sweep keeps the same way).
-SWEEP_PAGE: Final = LIST_LIMIT_MAX
+SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
 
 
 # The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat or a closed chase leaves the read.
@@ -1453,12 +1451,6 @@ def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, st
     return club_names.get(bewerbung_raw.get("team_id"), "")
 
 
-def first_name_of(*, kontakte: Any, seat: str) -> str | None:
-    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-
-    return str(slot.get("first_name") or "") or None if isinstance(slot, Mapping) else None
-
-
 # --- The MAILS an application owes, each to one person: an address is one person (one seat, or two the Trainer holds).
 
 
@@ -1487,24 +1479,6 @@ def state_undeliverable(state: FLOutboxStatus | None) -> bool:
     """`app/api/outbox/schemas.py :: FLOutboxStatus.undeliverable` of the last mail owed one seat, `False` where none was owed."""
 
     return state is not None and state.undeliverable
-
-
-def pending_people(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPerson]:
-    """These seats as the people holding them, the Trainer folded into the seat it mirrors: a mail names one person once.
-
-    An emptied seat counts, its first name `None`: the application cannot complete without it.
-    """
-
-    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    people: list[FLBewerbungPerson] = []
-
-    for seat in KONTAKT_ROLLEN:
-        if seat not in seats or (seat == "trainer" and also in seats):
-            continue
-        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == also and "trainer" in seats else [seat]
-        people.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=rollen))
-
-    return people
 
 
 def people_with_address(*, kontakte: Any, seats: Sequence[FLKontaktRolle] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
@@ -1566,7 +1540,7 @@ def owed_at_submission(
                 )
             )
             continue
-        others = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+        others: list[FLKontaktRolle] = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
         mails.append(
             OwedMail(
                 key=f"{stem}/received",
@@ -1575,7 +1549,7 @@ def owed_at_submission(
                     kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
-                    pending=pending_people(kontakte=kontakte, seats=others),
+                    pending=others,
                     deadline=deadline,
                 ),
                 reference=bewerbung_reference(bewerbung_id, seats),

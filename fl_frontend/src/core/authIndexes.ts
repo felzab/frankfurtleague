@@ -19,8 +19,7 @@ type AuthIndex = {
 };
 
 /**
- * One index per query the library and this application send, derived from the flows
- * `fl_frontend/src/core/authIndexes.db.test.ts` drives with table scans refused.
+ * One index per query the library and this application send to the sign-in store.
  * The library declares none of them at table level, so its adapter builds none.
  */
 const AUTH_INDEXES: readonly AuthIndex[] = [

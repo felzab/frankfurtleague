@@ -534,7 +534,7 @@ running.saison.registrierung = { open: true, end: day(-36) };
 let seatedPeople = 0;
 
 /** A person as the form or the league seats them, nobody having answered (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`). */
-function seated(firstName, lastName, enteredOn, enteredBy) {
+function seated(firstName, lastName, enteredOn) {
   seatedPeople += 1;
   return {
     first_name: firstName,
@@ -542,7 +542,7 @@ function seated(firstName, lastName, enteredOn, enteredBy) {
     email: `${firstName}.${lastName}@example.com`.toLowerCase(),
     phone: `+49 170 ${2000000 + seatedPeople}`,
     birth_date: null,
-    einwilligung: { scope: "kontakt_data", date: day(enteredOn), confirmed_at: null, media: false, entered_by: enteredBy },
+    einwilligung: { scope: "kontakt_data", date: day(enteredOn), confirmed_at: null, media: false },
   };
 }
 
@@ -582,9 +582,9 @@ function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn =
 // Each state a seat stands in, as the pair of its slot and its entry, built from the `mail` `seats` hands it.
 const openSeat =
   (firstName, lastName, { remindedOn } = {}) =>
-  (mail) => [seated(firstName, lastName, mail.sentOn, mail.enteredBy), seatLink(mail, { remindedOn })];
+  (mail) => [seated(firstName, lastName, mail.sentOn), seatLink(mail, { remindedOn })];
 const confirmedSeat = (firstName, lastName) => (mail) => [
-  confirmedPerson(seated(firstName, lastName, mail.sentOn, mail.enteredBy), mail.sentOn + 1),
+  confirmedPerson(seated(firstName, lastName, mail.sentOn), mail.sentOn + 1),
   seatLink(mail),
 ];
 // A Widerspruch empties the slot and keeps its day beside it.
@@ -602,7 +602,7 @@ function seats(mail, states, trainerIsAlso = null) {
 }
 
 function rowSeats(owner, sentOn, states) {
-  return seats({ owner, sentOn, enteredBy: "liga", reminded: false }, states);
+  return seats({ owner, sentOn, reminded: false }, states);
 }
 
 // --- A club out of the running season, and a report on its first match ---------------------------
@@ -904,7 +904,6 @@ function invitation(clubName) {
     saison_id: "2027",
     team_id: club[clubName]._id,
     token_hashes: [linkHash(`${clubName.toLowerCase()}-invitation`)],
-    created_at: day(-30),
     revoked_at: null,
     sent_at: null,
   };
@@ -1036,7 +1035,7 @@ function decided(madeOn, reason = null) {
  * submission. `outcome` is what the triage moved, `owner` the link labels' head where a club applied twice.
  */
 function application({ picked, school, owner, submittedOn, wunschfarbe, states, trainerIsAlso, wunschgegner = null, outcome = {} }) {
-  const links = { owner: owner ?? (picked ?? school.name).toLowerCase(), sentOn: submittedOn, enteredBy: "bewerbung", reminded: true };
+  const links = { owner: owner ?? (picked ?? school.name).toLowerCase(), sentOn: submittedOn, reminded: true };
   return {
     _id: ObjectId(),
     saison_id: PLANNED,

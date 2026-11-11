@@ -52,7 +52,6 @@ from app.api.bewerbungen.services import (
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
-    first_name_of,
     form_window_state,
     leaving_moves_the_deletion_day,
     mailbox_anchor_ids,
@@ -74,7 +73,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import remove_the_seats_reasons
-from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
+from app.api.outbox.schemas import FLBewerbungObjectionData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.services import kontakt_row_of
@@ -113,7 +112,7 @@ from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS
+from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
@@ -393,7 +392,6 @@ async def _saison_view(
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
-        media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
 
@@ -456,7 +454,6 @@ async def get_einwilligung_view(
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
-        media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
 
@@ -596,9 +593,6 @@ async def post_einwilligung(
         other = paired_seat(kontakte=kontakte, confirmations=confirmations, seat=seat)
         seats = (seat,) if other is None else (seat, other)
 
-        # Read before either branch writes: a decline empties this slot, and the message reporting
-        # it is the one thing that has to name the person who refused.
-        first_name = first_name_of(kontakte=kontakte, seat=seat)
         saison_id = str(bewerbung_raw["saison_id"])
 
         if answer_data.answer == "given":
@@ -667,8 +661,7 @@ async def post_einwilligung(
                             kind="bewerbung_objection",
                             saison_id=saison_id,
                             rollen=declined_rollen,
-                            # Named off the read before the decline: nothing left in the record can say whose entry was refused.
-                            declined=FLBewerbungPerson(first_name=first_name, rollen=list(seats)),
+                            declined=list(seats),
                             # The declining seat is outstanding now, so a day is there to name.
                             deadline=str(deletion_day(kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations"))),
                         ),

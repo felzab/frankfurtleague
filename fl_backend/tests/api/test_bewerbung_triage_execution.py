@@ -353,34 +353,6 @@ class TestAnAcceptanceEntersTheSchool:
         # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
         assert submitted == entered == KONTAKTE
 
-    def test_who_seated_each_person_reaches_the_junction_row_unchanged(self, mongo_replica_set_url: str):
-        """It decides which page a seat's link opens once the application is gone, so a stamped seat and an unstamped one carry it alike.
-
-        Lost here, an applicant-named seat would open the league's page after the application is erased.
-        """
-
-        seated = {"trainer": "bewerbung", "ansprechperson": "liga", "stellvertretung": "bewerbung"}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": PICKED_BEWERBUNG},
-                {
-                    "$set": {
-                        **{f"kontakte.{slot}.einwilligung.entered_by": by for slot, by in seated.items()},
-                        # The Trainer confirmed: entry carries a stamped seat whole, an unstamped one recomposed.
-                        "kontakte.trainer.einwilligung.confirmed_at": TODAY,
-                    }
-                },
-            )
-            await accept(database, client, PICKED_BEWERBUNG)
-
-            return (await junction_rows(database))[0]["kontakte"]
-
-        entered = on_a_league(mongo_replica_set_url, body)
-
-        assert {slot: entered[slot]["einwilligung"]["entered_by"] for slot in seated} == seated
-        assert entered["trainer"]["einwilligung"]["confirmed_at"] == TODAY, "the Trainer's seat entered unstamped, so this case proves nothing"
-
     def test_the_assigned_kit_colour_is_the_administrators_and_not_the_wish(self, mongo_replica_set_url: str):
         """A wish is not an assignment: two schools may wish for one colour, and the junction records what was given."""
 
@@ -1760,14 +1732,13 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert stored["kontakte"]["ansprechperson"] == {
             **RESEAT_PERSON,
             "birth_date": None,
-            # Born afresh, the league named as who seated them: nothing of the person who stepped out
-            # of the seat travels to the one seated, their evidence included.
+            # Born afresh: nothing of the person who stepped out of the seat travels to the one seated,
+            # their evidence included.
             "einwilligung": {
                 "scope": "kontakt_data",
                 "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
-                "entered_by": "liga",
             },
         }
         # The link is the mail's alone, minted at its hand-out to the person now seated.

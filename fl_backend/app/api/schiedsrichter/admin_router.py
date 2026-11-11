@@ -48,7 +48,6 @@ from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
     build_query,
-    build_sort,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
@@ -102,14 +101,8 @@ async def get_schiedsrichter(
 
     schiedsrichter_raw = await pull_many_from_db(
         collection=schiedsrichter_collection,
-        db_filter=build_query(
-            filters,
-            terms={"default_payment"},
-            include_inactive=filters.include_inactive,
-            compiled=build_real_referees_filter(),
-        ),
-        limit=filters.limit,
-        sort_by=build_sort(sort_by=filters.sort_by, order=filters.order),
+        db_filter=build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive, compiled=build_real_referees_filter()),
+        sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
 

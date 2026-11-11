@@ -148,9 +148,9 @@ def on_a_league(url: str, body: Body, *, stores_a_refused_shape: str | None = No
     return on_the_seed_loop(_run())
 
 
-async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ERIKA) -> int:
-    async def step(session: AsyncClientSession) -> int:
-        return await erase_grants_in_session(
+async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ERIKA) -> None:
+    async def step(session: AsyncClientSession) -> None:
+        await erase_grants_in_session(
             grants_collection=database[Collection.GRANTS],
             outbox_collection=database[Collection.OUTBOX],
             identifier=identifier,
@@ -159,7 +159,7 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier
         )
 
     async with client.start_session() as session:
-        return await session.with_transaction(step)
+        await session.with_transaction(step)
 
 
 async def erase_the_mails(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
@@ -199,15 +199,17 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
 
 class TestHerGrantsGo:
     def test_every_grant_her_address_holds_goes_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, set[ObjectId]]:
-            removed = await erase(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId]]:
+            before = await ids_in(database, Collection.GRANTS)
+            await erase(database, client)
 
-            return removed, await ids_in(database, Collection.GRANTS)
+            return before, await ids_in(database, Collection.GRANTS)
 
-        removed, grants = on_a_league(mongo_replica_set_url, body)
+        before, grants = on_a_league(mongo_replica_set_url, body)
 
         assert grants == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
-        assert removed == 2
+        # Hers and the dead spelling: two, and nobody else's beside them.
+        assert len(before - grants) == 2
 
     def test_a_grant_pasted_unfolded_goes(self, mongo_replica_set_url: str):
         """Catches a read asking the stored spelling alone, which leaves this grant standing."""
