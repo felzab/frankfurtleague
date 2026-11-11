@@ -122,3 +122,14 @@ class TestTheCreateMakesTheNextSeason:
         assert listed_refusal == Code.CREATE_SAISON_FUTURE_STANDS
         assert (refusal.status_code, refusal.error_code, refusal.fields) == (409, Code.CREATE_SAISON_FUTURE_STANDS, ())
         assert seasons == [("2026", "active"), ("2027", "future")]
+
+
+class TestTheListOrder:
+    def test_every_season_is_listed_oldest_first_by_id(self, mongo_replica_set_url: str):
+        """Its readers take the newest season off the list's end: served in another order, the next season takes an older one's days."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            return [saison.id for saison in (await _listed(database)).saisons]
+
+        # Stored out of order, so a list served in the order it was written fails here too.
+        assert _on(mongo_replica_set_url, [("2027", "future"), ("2025", "past"), ("2026", "active")], body) == ["2025", "2026", "2027"]
