@@ -143,11 +143,14 @@ function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }
 
 /**
  * Each side's pupils to pick from: its live squad, then any pupil a stored row names on that side outside it, kept so
- * the row shows its name and not to be picked anew, which the write refuses.
+ * the row shows its name and not to be picked anew, which the write refuses. A side fielding another club since the
+ * report was written offers its squad alone: its rows naming a pupil outside it have lost their player
+ * (`./berichtValues.ts :: valuesOf`), and the departed club's pupils are no deregistration of the club playing.
  */
 function squadsOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSide, Option[]> {
   const stored = read.bericht;
   const sideOf = (side: FLSpielSide): Option[] => {
+    if (read.sides_changed.includes(side)) return read.kader[side].map(optionOf);
     const named = new Set(
       [...(stored?.scorers ?? []), ...(stored?.cards ?? [])].filter((row) => row.side === side).map((row) => row.spieler_id),
     );

@@ -6,26 +6,27 @@ import { formatInstant } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
+import type { Copy } from "./copy";
 import type { Mail, Paragraph } from "./emailShell";
 
 const { passkeyAdded, passkeyRemoved } = SERVER_COPY.mail;
 
 /** The subject and the sentences of one event; nothing here names a row or a device. */
 interface PasskeyEvent {
-  readonly subject: string;
+  readonly subject: Copy;
   readonly paragraph: (time: string) => Paragraph;
 }
 
 const ADDED: PasskeyEvent = {
   subject: passkeyAdded.subject,
-  paragraph: (time) => [[`${passkeyAdded.lead.before} `, { strong: time }, ` ${passkeyAdded.lead.after}`]],
+  paragraph: (time) => [[passkeyAdded.lead.before, { strong: time }, passkeyAdded.lead.after]],
 };
 
 const ERASED: PasskeyEvent = {
   subject: passkeyRemoved.subject,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
   // leaves every other standing (`fl_frontend/src/core/auth/passkeys.ts :: removePasskey`).
-  paragraph: (time) => [[`${passkeyRemoved.lead.before} `, { strong: time }, ` ${passkeyRemoved.lead.after}`], passkeyRemoved.devices],
+  paragraph: (time) => [[passkeyRemoved.lead.before, { strong: time }, passkeyRemoved.lead.after], passkeyRemoved.devices],
 };
 
 /** What a builder is handed. */

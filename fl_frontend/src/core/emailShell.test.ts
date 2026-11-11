@@ -1,16 +1,24 @@
 import { assert, describe, it } from "vitest";
 
+import { COPY } from "./copy.ts";
 import { renderMail } from "./emailShell.ts";
+import { SERVER_COPY } from "./serverCopy.ts";
 
 import type { Mail } from "./emailShell.ts";
 
 const ORIGIN = "https://example.com";
 
+/**
+ * A catalogue entry carrying a value typed outside the league, the one way such a value reaches a slot taking the
+ * catalogue's words: a fixture named by its clubs.
+ */
+const naming = (typed: string) => COPY.page.spiel({ record: typed }, { record: "Eiche" });
+
 const MAIL: Mail = {
   kind: "notice",
-  subjectLine: "Spiel abgesagt",
+  subjectLine: naming("Ahorn"),
   origin: ORIGIN,
-  paragraphs: [["Das Spiel ist abgesagt."]],
+  paragraphs: [[SERVER_COPY.mail.bewerbung.confirmOrOppose]],
 };
 
 describe("renderMail", () => {
@@ -29,10 +37,10 @@ describe("renderMail", () => {
     const hostile = '<img src=x onerror="alert(1)">';
     const { html } = renderMail({
       ...MAIL,
-      subjectLine: hostile,
-      paragraphs: [[hostile, [{ strong: hostile }]]],
-      block: { title: hostile, facts: [{ label: hostile, value: hostile }] },
-      button: { label: hostile, href: `${ORIGIN}/"><script>` },
+      subjectLine: naming(hostile),
+      paragraphs: [[naming(hostile), [{ strong: hostile }]]],
+      block: { title: naming(hostile), facts: [{ label: naming(hostile), value: hostile }] },
+      button: { label: naming(hostile), href: `${ORIGIN}/"><script>` },
     });
 
     assert.notInclude(html, "<img src=x");
@@ -41,6 +49,6 @@ describe("renderMail", () => {
 
   // A break in a header ends it, and whatever follows is a header of its own.
   it("folds the subject to one line", () => {
-    assert.notMatch(renderMail({ ...MAIL, subjectLine: "Spiel abgesagt\r\nBcc: fremd@example.com" }).subject, /[\r\n]/);
+    assert.notMatch(renderMail({ ...MAIL, subjectLine: naming("Ahorn\r\nBcc: fremd@example.com") }).subject, /[\r\n]/);
   });
 });

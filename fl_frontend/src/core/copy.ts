@@ -904,6 +904,7 @@ export const COPY = catalogue({
 
     /** A referee's pages: the Übersicht's rows and the match report. */
     schiedsrichter: {
+      search: "Spiele suchen",
       /** What a referee answers, the object of „Einteilung ablehnen“. */
       einteilung: "Einteilung",
       /** A game's chip on the referee's list once their report is stored, apart from the action log's entry of the same words. */

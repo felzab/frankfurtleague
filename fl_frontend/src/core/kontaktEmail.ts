@@ -33,7 +33,7 @@ export function buildKontaktConfirmationEmail(
       ...shell,
       paragraphs: [
         [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
-        [[`${DEADLINE.before} `, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
+        [[DEADLINE.before, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
       ],
       button: { label: COPY.page.entryConfirmation, href },
     };

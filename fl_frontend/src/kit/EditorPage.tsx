@@ -131,6 +131,7 @@ function DangerRow({ act }: { act: DangerAct }) {
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
   chip,
+  flag,
   lead,
   link,
   editor,
@@ -142,6 +143,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /** What that status leaves unsaid, after it (`RailPage`). */
+  flag?: ChipProps;
   /**
    * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
    * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
@@ -169,6 +172,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
       scope="area"
       title={title}
       chip={closed === undefined ? chip : closedChip}
+      flag={flag}
       link={link}
       bar={
         closed === undefined ? (

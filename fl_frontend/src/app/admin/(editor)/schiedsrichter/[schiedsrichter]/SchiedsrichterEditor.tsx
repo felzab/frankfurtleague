@@ -39,6 +39,7 @@ type Address = { kind: "fixed"; confirmed: Copy } | { kind: "asks" };
 export function SchiedsrichterEditor({
   title,
   chip,
+  flag,
   record,
   save,
   rules,
@@ -49,6 +50,8 @@ export function SchiedsrichterEditor({
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /** What the last confirmation mail met, after the state's chip where one stands. */
+  flag?: ChipProps;
   record: EditorRecord<SchiedsrichterValues>;
   save: (change: EditorSave<SchiedsrichterValues>) => Promise<ActionAnswer<number>>;
   /** What the save asks of each box, read on the server. */
@@ -94,6 +97,7 @@ export function SchiedsrichterEditor({
     <EditorPage
       title={title}
       chip={chip}
+      flag={flag}
       editor={editor}
       danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
       sections={[

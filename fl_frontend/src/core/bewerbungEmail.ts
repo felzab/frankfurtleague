@@ -33,7 +33,7 @@ const toBewerbung = (origin: string, saisonId: string) => ({
 
 /** A seat's own last day set semibold, in the words of the page's `applicationDeadline`: each seat holds its own day. */
 const deadlineSentence = (deadline: string): Sentence => [
-  `${WORDS.deadline.before} `,
+  WORDS.deadline.before,
   { strong: formatDateLong(dayOf(deadline)) },
   WORDS.deadline.after,
 ];
