@@ -130,8 +130,9 @@ type Card = {
 const ELSEWHERE = /^https?:\/\//;
 
 /**
- * The one way to go somewhere: Next's link, prefetching on hover and in view, so a page of links loads
- * no React Aria. Its ring comes from `:focus-visible` in the focus file, hugging the words inside text.
+ * The one way to go somewhere: Next's link, prefetching on hover and in view. The icon placement alone names its glyph
+ * by React Aria's tooltip (`IconLink`), which every route loads with this module. Its ring comes from `:focus-visible`
+ * in the focus file, hugging the words inside text.
  */
 export function Link<T extends string>(
   props: {
