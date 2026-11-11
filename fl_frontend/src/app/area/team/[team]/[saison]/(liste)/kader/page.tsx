@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /**
  * The table's head, drawn while the squad is read and over it once it is: the shirt number beside the name on a phone
- * where the box holds it, position and Stufe from `lg`, which a phone row says in its line instead.
+ * where the box holds it, position and Stufe from 42 rem of the table's box, which a phone row says in its line instead.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,

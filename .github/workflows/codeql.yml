@@ -61,7 +61,7 @@ jobs:
           # .git/config exposes it to every later step.
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: javascript-typescript
           # CodeQL reads source, so this is the whole build and an install step ahead of it buys
@@ -71,7 +71,7 @@ jobs:
           # roughly equal measure, so start quiet and escalate on evidence. To escalate, add
           # `queries: security-extended` here.
       - name: Analyse
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
 
   analyze-python:
     runs-on: ubuntu-latest
@@ -87,10 +87,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: python
           build-mode: none
           # Same reasoning as the JavaScript job: default suite, escalate on evidence.
       - name: Analyse
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3

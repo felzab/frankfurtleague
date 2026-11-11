@@ -1,6 +1,7 @@
 import { cache } from "react";
 
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { COPY } from "@/core/copy";
@@ -11,7 +12,6 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { postAddressChangeView } from "@/features/address-change/mutations";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
 import { confirmedAgain, doneOnEnd, stoppedOn } from "./ends";
@@ -32,9 +32,7 @@ type Props = PageProps<"/confirm/address">;
 
 /** A row no crawler fetches, and no referrer: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.addressChangeConfirmation;
-  const title = mailedTitle(await readState(searchParams));
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState(searchParams));
 }
 
 const WORDS = SERVER_COPY.addressChange;

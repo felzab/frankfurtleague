@@ -1,4 +1,4 @@
-import { MAILED_PAGE_METADATA } from "@/kit/MailedPage";
+import { MAILED_PAGE_METADATA } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 
 import { ROUTES } from "@/core/routes";

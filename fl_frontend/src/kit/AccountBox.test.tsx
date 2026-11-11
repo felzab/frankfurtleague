@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined
 const PASSKEY = COPY.account.passkeys.title;
 const REFUSAL = COPY.shared.failure.stale;
 const NOTE = COPY.shared.toast.linkSent;
+const CONSEQUENCE = COPY.admin.spielort.retireConsequence;
 
 /** The question's own act button, beside „Zurück“. */
 const confirmIn = (question: HTMLElement, verb: keyof typeof COPY.shared.verb) =>
@@ -31,19 +32,19 @@ describe("a Konto box's act behind a question", () => {
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
-        act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: REFUSAL, tone: "danger" } } }}
+        act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
       />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
     await userEvent.click(confirmIn(screen.getByRole("alertdialog"), "delete"));
     const question = await screen.findByRole("alertdialog");
-    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(REFUSAL));
+    await within(question).findByText(REFUSAL);
 
     await userEvent.click(confirmIn(question, "delete"));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(run).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("status").textContent).toBe(NOTE);
+    expect(screen.getByText(NOTE)).toBeTruthy();
   });
 });
 
@@ -77,7 +78,7 @@ describe("a locked Konto box", () => {
         description={COPY.account.passkeys.description}
         act={{
           run: vi.fn(),
-          button: { confirm: { verb: "delete", subject: PASSKEY, consequence: REFUSAL, tone: "danger" } },
+          button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } },
           locked: reason,
         }}
       />,
@@ -103,7 +104,7 @@ describe("a Konto row's removal", () => {
             id: "passkey-1",
             name: { record: "Laptop" },
             detail: PASSKEY,
-            remove: { verb: "delete", subject: PASSKEY, consequence: REFUSAL, run },
+            remove: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, run },
           },
         ]}
       />,
@@ -113,7 +114,7 @@ describe("a Konto row's removal", () => {
     const question = await screen.findByRole("alertdialog");
     expect(run).not.toHaveBeenCalled();
     await userEvent.click(confirmIn(question, "delete"));
-    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(REFUSAL));
+    await within(question).findByText(REFUSAL);
 
     await userEvent.click(confirmIn(question, "delete"));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());

@@ -56,12 +56,12 @@ def test_a_list_with_no_owner_is_named(caplog):
     assert warned([ADMINISTRATOR], caplog) == [NO_OWNER]
 
 
-def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:
+def booted_over(grants: Sequence[Mapping[str, Any]], mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:
     """The lifespan entered and left over a database holding these grants; the grant warnings it logged."""
 
     name = worker_database("fl_boot_grants")
-    config = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_url), "db_base_name": name})
-    client: MongoClient = MongoClient(mongo_url)
+    config = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_replica_set_url), "db_base_name": name})
+    client: MongoClient = MongoClient(mongo_replica_set_url)
 
     async def enter() -> None:
         app = FastAPI()
@@ -87,5 +87,5 @@ def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pyt
 class TestTheBootWarnsAboutTheGrantsItFinds:
     """The lifespan's own call, over a real collection: a boot that stopped asking would leave the operator warned of nothing."""
 
-    def test_an_empty_list_is_named_at_boot(self, mongo_url: str, caplog: pytest.LogCaptureFixture):
-        assert booted_over([], mongo_url, caplog) == {NO_GRANT}
+    def test_an_empty_list_is_named_at_boot(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        assert booted_over([], mongo_replica_set_url, caplog) == {NO_GRANT}

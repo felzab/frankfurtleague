@@ -3,7 +3,8 @@ import { cache } from "react";
 import { CheckboxPlaceholder } from "@/kit/Checkbox";
 import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
 import { FieldPlaceholder } from "@/kit/FieldPair";
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
@@ -17,7 +18,6 @@ import { BewerbungenPostEinwilligungBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import { ConfirmationFields } from "../ConfirmationFields";
 import { linkViewOf } from "../linkView";
@@ -35,9 +35,7 @@ type Props = PageProps<"/confirm/kontakt">;
 
 /** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.kontaktConfirmation;
-  const title = mailedTitle(await readState(searchParams));
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.kontaktConfirmation, readState(searchParams));
 }
 
 const WORDS = SERVER_COPY.kontaktConfirmation;

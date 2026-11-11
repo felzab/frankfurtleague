@@ -22,6 +22,8 @@ Invariants:
   image file runs no module and stands outside the population.
 - An intercepted URL has one intercepting page, with no route group above its intercepting segment.
 - A link page's `linkpage` burst is the one the largest squad the backend publishes needs at that zone's rate.
+- A link page's location sends every error line it writes to `/dev/null`.
+- A link page's responses withhold the referrer, the map withholding it only as a link page's location matches.
 - No location names a burst above the catch-all's on a zone the catch-all meters.
 """
 
@@ -100,6 +102,20 @@ TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 # The zone `nginx/shared/http.conf` declares for the link pages, metering every request and method,
 # which a link page's own location must name.
 LINK_ZONES: Final = frozenset({"linkpage"})
+
+# Where a link page's location sends its error lines, each of which repeats the request line, the token's
+# query with it: nowhere. `error_log off` names a file called `off`, so the discard is this path.
+DISCARDED_LOG: Final = "/dev/null"
+
+# The http-level map naming each response's `Referrer-Policy` by its URI, and what it must name for a link page, whose
+# address carries the token. One entry per link page's location, spelled as that location matches: its path for an
+# exact match, an anchored regex for a prefix, so the map withholds the referrer exactly where a link page's block
+# answers.
+REFERRER_MAP: Final = "$referrer_policy"
+LINK_REFERRER_POLICY: Final = "no-referrer"
+ANCHORED: Final = "~^"
+# A prefix spelled into the anchored regex as written, which only a path free of regex syntax allows.
+PLAIN_PATH_RE: Final = re.compile(r"^[A-Za-z0-9/_-]+$")
 
 # The link pages' own zone is sized for a season's largest squad, every pupil of it behind one school's address in one
 # break, passing within `SIZING_MINUTES` at the zone's own rate (`nginx/shared/site.conf :: location /confirm/`): per
@@ -233,6 +249,8 @@ class Location:
     # The arguments of each `limit_req` line, whose zones a link page is judged by and every other
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
+    # The arguments of each `error_log` line, which replace the inherited log for this block alone.
+    error_logs: frozenset[tuple[str, ...]]
     line: int
 
     @property
@@ -372,6 +390,7 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "location" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location nested inside a location, whose match order this reader does not resolve")
     limits = frozenset(child.args for child in block if child.name == "limit_req")
+    error_logs = frozenset(child.args for child in block if child.name == "error_log")
     # Refused rather than read as a prefix: `@fallback` would cover every handler whose URL starts
     # with it, which is none of them, and reading it as coverage is the one direction this check
     # may not fail in.
@@ -384,15 +403,15 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "return" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return`, which forwards no route this reader can account for")
     if len(directive.args) == 1:
-        return Location(False, path, limits, directive.line)
+        return Location(False, path, limits, error_logs, directive.line)
     if len(directive.args) == 2:
         modifier, path = directive.args
         if modifier == "=":
-            return Location(True, path, limits, directive.line)
+            return Location(True, path, limits, error_logs, directive.line)
         # `^~` still matches a prefix; a regex matches on something this reader cannot compare a
         # directory tree against, so it refuses rather than calling the handler uncovered.
         if modifier == "^~":
-            return Location(False, path, limits, directive.line)
+            return Location(False, path, limits, error_logs, directive.line)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
     raise NginxSyntax(f"{source}:{directive.line}: a location taking {len(directive.args)} argument(s)")
 
@@ -407,6 +426,41 @@ def map_values(tree: tuple[Directive, ...]) -> dict[str, frozenset[str]]:
         for directive in tree
         if directive.name == "map" and directive.block is not None and directive.args
     }
+
+
+def map_entries(http_path: Path, variable: str) -> tuple[tuple[str, str], ...]:
+    """The entries of the http-level `map` setting `variable`, each its key and its value, in order; none where none sets it.
+
+    A key nginx reads as something other than a string or a regex, and an entry taking other than one value, refuse.
+    """
+    tree = parse(http_path.read_bytes().decode("utf-8"), http_path.name)
+    found = [directive for directive in tree if directive.name == "map" and directive.args[-1:] == (variable,)]
+    if not found:
+        return ()
+    entries: list[tuple[str, str]] = []
+    for entry in found[0].block or ():
+        if entry.name in {"hostnames", "include", "volatile"} or len(entry.args) != 1:
+            raise NginxSyntax(f"{http_path.name}:{entry.line}: the map entry {entry.name!r}, whose match this reader does not resolve")
+        entries.append((entry.name, entry.args[0]))
+    return tuple(entries)
+
+
+def mapped(entries: tuple[tuple[str, str], ...], uri: str, source: str) -> str:
+    """What a `map` of `entries` gives `uri`: its exact key, else its first matching regex, else its default."""
+    for key, value in entries:
+        if key == uri and key != "default" and not key.startswith("~"):
+            return value
+    for key, value in entries:
+        if not key.startswith("~"):
+            continue
+        caseless = key.startswith("~*")
+        try:
+            hit = re.search(key[2:] if caseless else key[1:], uri, re.IGNORECASE if caseless else 0)
+        except re.error as error:
+            raise NginxSyntax(f"{source}: the map key {key!r}, which this reader cannot compile: {error}") from error
+        if hit:
+            return value
+    return next((value for key, value in entries if key == "default"), "")
 
 
 def locations(tree: tuple[Directive, ...], source: str, maps: Mapping[str, frozenset[str]] | None = None) -> tuple[Location, ...]:
@@ -550,6 +604,8 @@ class Accounting:
     where: tuple[Location, ...]
     rates: Mapping[str, int]
     squad: int
+    # The entries of the map naming each response's `Referrer-Policy`, empty where the http level declares none.
+    referrer: tuple[tuple[str, str], ...]
     app_dir: Path
     root: Path
     conf: str
@@ -774,6 +830,77 @@ def unmetered_links(judged: Accounting) -> list[Finding]:
     return findings
 
 
+def unlogged_links(judged: Accounting) -> list[Finding]:
+    """Every link page whose URL reaches a location writing an error line anywhere but `DISCARDED_LOG`.
+
+    nginx's error line repeats the request line and the referrer whole, and the open-source build offers no switch over
+    what it carries, so the one way a link page's live token stays out of that log is a location whose every
+    `error_log` discards. A location declaring none inherits the server's log.
+    """
+    if not judged.linked:
+        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token or is opened by a minted link, so none was judged")
+    findings: list[Finding] = []
+    for page in judged.linked:
+        location = answering_location(page.url, judged.where)
+        if location is not None and location.error_logs and all(args[:1] == (DISCARDED_LOG,) for args in location.error_logs):
+            continue
+        reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
+        findings.append(
+            Finding(
+                "fail",
+                f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
+                f"whose error lines, each repeating the request line, are not all sent to {DISCARDED_LOG}\n"
+                f"{CONTINUATION}give that location `error_log {DISCARDED_LOG};` as its only error_log",
+            )
+        )
+    return findings
+
+
+def referring_links(judged: Accounting) -> list[Finding]:
+    """Every link page `REFERRER_MAP` sends a policy handing its address on, and every entry withholding it elsewhere.
+
+    The header binds from a response's first byte, so no request the page starts carries the token in a `Referer`,
+    which an error line about any location writes whole. An entry is held to a link page's location as it matches, so
+    a page outside every link page's block keeps the site's policy.
+    """
+    if not judged.linked:
+        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token or is opened by a minted link, so none was judged")
+    if not judged.referrer:
+        raise NothingJudged(f"{NGINX_HTTP_CONF} declares no map setting {REFERRER_MAP}, so no link page's referrer policy was judged")
+    findings: list[Finding] = []
+    for page in judged.linked:
+        policy = mapped(judged.referrer, page.url, NGINX_HTTP_CONF)
+        if policy == LINK_REFERRER_POLICY:
+            continue
+        findings.append(
+            Finding(
+                "fail",
+                f"{shown(page.path, judged.root)} reads a link's token, and {NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives "
+                f"{page.url} {policy or 'no value'}, which hands the address on in every request the page starts\n"
+                f"{CONTINUATION}give the page's location its entry, valued {LINK_REFERRER_POLICY}",
+            )
+        )
+    spelled: set[str] = set()
+    for one in judged.where:
+        if not LINK_ZONES <= one.zones:
+            continue
+        if not one.exact and not PLAIN_PATH_RE.match(one.path):
+            raise NginxSyntax(f"{judged.conf}:{one.line}: the link prefix {one.path!r}, which no anchored regex spells as written")
+        spelled.add(one.path if one.exact else ANCHORED + one.path)
+    for key, value in judged.referrer:
+        if value != LINK_REFERRER_POLICY or key in spelled:
+            continue
+        findings.append(
+            Finding(
+                "fail",
+                f"{NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives {key!r} {value}, a match no link page's location in "
+                f"{judged.conf} makes\n"
+                f"{CONTINUATION}spell the entry as the link page's location matches, or drop it: every other page keeps the site's policy",
+            )
+        )
+    return findings
+
+
 def metadata(app_dir: Path) -> tuple[Metadata, ...]:
     """Every code-generated metadata convention under the tree, in path order."""
     placed = {one.stem: one for one in METADATA}
@@ -875,7 +1002,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
 
 # Every rule `main` runs, each over the whole accounting: a rule written and left out of this table is
 # one nothing runs, which the table makes a reader's to see rather than a sequence of calls to miss.
-RULES: Final = (account, unmetered_links, unsized_links, raised_bursts, interceptions)
+RULES: Final = (account, unmetered_links, unlogged_links, referring_links, unsized_links, raised_bursts, interceptions)
 
 
 def main() -> int:
@@ -899,6 +1026,7 @@ def main() -> int:
         served = metadata(app_dir)
         where = edge_locations(conf_path)
         rates = zone_rates(conf_path.parent / NGINX_HTTP_CONF)
+        referrer = map_entries(conf_path.parent / NGINX_HTTP_CONF, REFERRER_MAP)
         linked = linked_pages(paged, mints)
     except (NginxSyntax, RouteShape) as error:
         print(f"      {error}", file=sys.stderr)
@@ -920,7 +1048,7 @@ def main() -> int:
         print(f"      Nothing was accounted for: {OPENAPI}'s squad bound has to be readable.", file=sys.stderr)
         return EXIT_REFUSED
 
-    judged = Accounting(found, paged, linked, where, rates, squad, app_dir, root, conf_path.name)
+    judged = Accounting(found, paged, linked, where, rates, squad, referrer, app_dir, root, conf_path.name)
     try:
         findings = [finding for rule in RULES for finding in rule(judged)]
     except NothingJudged as error:
@@ -934,17 +1062,18 @@ def main() -> int:
         print("      exact-match location carrying limit_req, a prefix location with a recorded reason, or")
         print("      recorded at check_public_routes.py :: UNMETERED, and a metadata convention is taken")
         print("      unmetered where :: METADATA says why. A page a link opens sits where :: LINK_ZONES meters")
-        print("      it, its burst sized for the largest squad :: OPENAPI publishes. No location names a burst")
-        print("      above location /'s on a zone it meters, every action's ceiling. The rule is docs/ops/spec.md,")
-        print("      section 1.3. An intercepted URL has one intercepting page, under no route group:")
-        print("      :: interceptions says why.")
+        print("      it, its burst sized for the largest squad :: OPENAPI publishes, every error line of its")
+        print("      location goes to :: DISCARDED_LOG, and :: REFERRER_MAP gives it :: LINK_REFERRER_POLICY,")
+        print("      spelled as its location matches. No location names a burst above location /'s on a")
+        print("      zone it meters, every action's ceiling. The rule is docs/ops/spec.md, section 1.3. An")
+        print("      intercepted URL has one intercepting page, under no route group: :: interceptions says why.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)
     print(
         f"      {len(found)} route handler(s) accounted for, {len(served)} metadata convention(s) taken unmetered, "
         f"{metered} metered exact-match location(s), {len(REASONS)} recorded reason(s), "
-        f"{len(linked)} link page(s) on the link pages' zone"
+        f"{len(linked)} link page(s) on the link pages' zone, none writing an error line or sending a referrer"
     )
     return code
 

@@ -445,12 +445,6 @@ class TestAnUndrawTakesTheSeasonsReports:
         assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
-class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
-    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.delete_many(*args, **kwargs)
-
-
 class TestASubmittedReportKeepsTheSpielplan:
     """`spielplan_berichte_submitted` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
 
@@ -472,7 +466,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database))
+            berichte = InterleavedCollection(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database), before="delete_many")
             outcome = await outcome_of(call_undraw(database, client, spielberichte_collection=berichte))
             berichte.assert_landed_inside(serially=0)
 

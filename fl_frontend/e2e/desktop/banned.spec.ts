@@ -9,7 +9,7 @@ import { expect } from "@playwright/test";
 import { typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
-import { assertionsSigned, declinePasskeyOffer, enrolPasskey, failureLine, PERSON_LANDING, signInWithCode } from "../support/signIn";
+import { assertionsSigned, declinePasskeyOffer, enrolPasskey, PERSON_LANDING, signInWithCode } from "../support/signIn";
 
 /** The person this journey bans (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
 const PERSON = "paula.paul@example.com";
@@ -47,7 +47,7 @@ test("a banned person is told, loses their session and cannot sign in, by the se
   await page.goto("/account/signin");
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
-  await expect(failureLine(page).filter({ hasText: "Mit dieser Adresse ist keine Anmeldung möglich." })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Mit dieser Adresse ist keine Anmeldung möglich.")).toBeVisible();
 
   // Lifted from its row, behind a touch of its own.
   await row.getByRole("button", { name: "Entfernen" }).click();

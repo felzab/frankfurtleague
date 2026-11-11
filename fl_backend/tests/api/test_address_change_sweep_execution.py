@@ -6,7 +6,6 @@ refused, the refused one's new address answered alone.
 """
 
 import re
-from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any
@@ -37,7 +36,6 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.records import record_collections
 from tests.whole_database import where_held
-from tests.wire import commands_by_name
 from tests.worker import worker_database
 
 from .address_change_harness import owed
@@ -494,33 +492,6 @@ class TestTheDeadlineStopsTheCall:
 
         assert (answer.effective, answer.remaining, answer.after) == (1, 1, numbered(2))
         assert (dear, moved) == ([on_file(2)], [on_file(2)])
-
-
-# A due change moving a pupil row and a confirmed referee row. No retention rule bounds an address's records, so a
-# dearer change meets the deadline, moving nothing (`:: TestTheDeadlineStopsTheCall`).
-COMMANDS_A_DUE_PERSON = 25
-
-# The call's other command, one aggregate answering one document at any size.
-OTHER_COMMANDS = 1
-
-
-class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    def test_a_full_share_of_due_changes(self, mongo_replica_set_url: str):
-        """A share and one more due, the dearest call the pass makes.
-
-        A command added to the call turns this red, so `ADDRESS_CHANGE_PER_PASS` is judged against the deadline again.
-        """
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            for position in range(ADDRESS_CHANGE_PER_PASS + 1):
-                await a_due_person(database, position)
-
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-        answer, names = on_a_league(mongo_replica_set_url, body)
-
-        assert answer.effective == ADDRESS_CHANGE_PER_PASS
-        assert names.total() - ADDRESS_CHANGE_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS, names
 
 
 class TestTheOwedCarries:

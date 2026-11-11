@@ -6218,20 +6218,14 @@ export type SchiedsrichterGetSchiedsrichterParams = {
 };
 
 export type SpieleGetSpieleSpielplanParams = {
-  /**
-   * The season whose matchdays and knockout rounds the list shows
-   */
+  /** The season whose matchdays and knockout rounds the list shows */
   saison_id: string;
 };
 
 export type SpielePatchSpielParams = {
-  /**
-   * The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted
-   */
+  /** The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted */
   adopts_bericht?: number | null;
-  /**
-   * Report what this payload would move and destroy, and write nothing
-   */
+  /** Report what this payload would move and destroy, and write nothing */
   dry_run?: boolean;
 };
 

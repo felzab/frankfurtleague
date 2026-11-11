@@ -106,7 +106,7 @@ describe("the kit's confirmation", () => {
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
 
     const question = await screen.findByRole("alertdialog");
-    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
+    await within(question).findByText(reason);
   });
 
   // The harm: an erasure that took the league's data and not the account reads as a refusal, or leaves no way to finish.
@@ -128,7 +128,7 @@ describe("the kit's confirmation", () => {
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
 
     const question = await screen.findByRole("alertdialog");
-    await waitFor(() => expect(within(question).getByRole("status").parentElement?.className).toContain(look));
+    expect((await within(question).findByText(COPY.shared.failure.stale)).className).toContain(look);
     expect(within(question).getByRole("button", { name: COPY.shared.verb.retire }).hasAttribute("disabled")).toBe(false);
   });
 
@@ -144,7 +144,7 @@ describe("the kit's confirmation", () => {
 
     await act(async () => answer.resolve({ ok: false, reason: COPY.shared.failure.stale }));
     const question = screen.getByRole("alertdialog");
-    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(COPY.shared.failure.stale));
+    await within(question).findByText(COPY.shared.failure.stale);
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
@@ -391,7 +391,7 @@ describe("a dialog's danger row", () => {
     const question = await askToEnd();
     await userEvent.click(within(question).getByRole("button", { name: END }));
 
-    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
+    await within(question).findByText(reason);
     expect(screen.getByRole("dialog", { hidden: true })).toBeTruthy();
   });
 

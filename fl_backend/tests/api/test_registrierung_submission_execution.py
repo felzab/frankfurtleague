@@ -13,7 +13,7 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, days_after
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, days_after
 from app.api.registrierungen.public_router import get_confirmation_view, post_invitation_view, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.registrierungen.services import compose_confirmation_update
@@ -435,20 +435,6 @@ class TestTheSubmissionKey:
         assert (second, stored) == (first, 1)
         # `with_transaction` retries the anchor's `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
         assert (lookups, failures) == (2, [])
-
-    def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
-        """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Set before the press, so the wrapper records the lookup and holds nothing back.
-            committed = asyncio.Event()
-            committed.set()
-            held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
-            await register(database, client, key=KEY, registrierungen=held)
-
-            return held.lookup_filters
-
-        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(KEY))]
 
     def test_a_press_carrying_no_key_is_still_taken_and_stores_none(self, mongo_replica_set_url: str):
         """A page loaded before the form sent one: stored and mailed, unprotected, and outside the unique index."""

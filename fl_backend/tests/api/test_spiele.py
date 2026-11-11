@@ -33,7 +33,7 @@ def test_rejects_a_malformed_result(spiel, ergebnis):
 
 
 @pytest.mark.db
-def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_url: str):
+def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_replica_set_url: str):
     """Every event, with a result and without: the retirements select with the filter, and the booking rule weighs with the predicate."""
 
     cases = [(ergebnis, sonderereignis) for ergebnis in (None, "1:0") for sonderereignis in (None, *get_args(FLSonderereignis.__value__))]
@@ -55,7 +55,7 @@ def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_url: str):
         )
 
     async def selected() -> set[int]:
-        async with a_clean_database(mongo_url, UNPLAYED_DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, UNPLAYED_DATABASE_NAME) as (_, database):
             spiele = database[Collection.SPIELE]
             await spiele.insert_many([stored(nr, ergebnis, event) for nr, (ergebnis, event) in enumerate(cases)])
 

@@ -11,7 +11,7 @@ import type { HeldOpen } from "./useOpenUntilHidden";
  * at its end for an entry of the collapsed rail, where one above would cover the entry before it. A sentence wraps at
  * 320 px. The first tooltip waits 500 ms, a third of React Aria's default, and the next ones open at once. It stands
  * in React Aria's portal, so a card's `overflow-hidden` never cuts it. Rendered by `Button` for an icon-only button and
- * a locked act, by `ChoiceButtons` for a glyph segment, by the rail for a collapsed entry and by `Link`'s icon placement
+ * a locked act, by `GlyphChoices` for a glyph segment, by the rail for a collapsed entry and by `Link`'s icon placement
  * for a glyph link, each from its required label; disabled while the control shows its own words.
  */
 export function Tooltip({

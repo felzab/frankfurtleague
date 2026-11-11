@@ -226,7 +226,7 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
     if (more === undefined) return;
     latest.current += 1;
     const asked = latest.current;
-    // Emptied first, as `statusOf` has it: the live region announces the same refusal twice only after an empty line.
+    // Emptied first, as `statusOf` has it: the last refusal is none to the read still running.
     setShown((state) => ({ ...state, failure: null }));
     startLoading(async () => {
       const answer = await pageOf(more, request);

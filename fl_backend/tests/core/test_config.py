@@ -288,17 +288,17 @@ def booted(config: BackendConfig) -> None:
 
 @pytest.mark.db
 class TestTheBootAppliesTheIndexesWhereTheApplicationServes:
-    def test_the_indexes_land_in_the_database_the_settings_name(self, monkeypatch, tmp_path, mongo_url: str):
+    def test_the_indexes_land_in_the_database_the_settings_name(self, monkeypatch, tmp_path, mongo_replica_set_url: str):
         """The environment names a second database on the same server, so a boot reading it applies there instead."""
         built_name, environment_name = worker_database("fl_boot_built"), worker_database("fl_boot_environment")
-        an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: mongo_url.encode()}, DB_BASE_NAME=environment_name)
+        an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: mongo_replica_set_url.encode()}, DB_BASE_NAME=environment_name)
 
-        client: MongoClient = MongoClient(mongo_url)
+        client: MongoClient = MongoClient(mongo_replica_set_url)
         try:
             for name in (built_name, environment_name):
                 client.drop_database(name)
 
-            booted(build(mongodb_uri=SecretStr(mongo_url), db_base_name=built_name))
+            booted(build(mongodb_uri=SecretStr(mongo_replica_set_url), db_base_name=built_name))
 
             declared = {(index.collection, index.name) for index in (*UNIQUE_INDEXES, *SUPPORT_INDEXES, *TTL_INDEXES)}
             database = client[built_name]

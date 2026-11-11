@@ -21,7 +21,6 @@ import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
 import { passkeyLastUse } from "../passkeyLastUse";
-import { USER_VERIFICATION_REFUSED } from "../passkeyRefusal";
 import { getRequestActor } from "../requestScope";
 import { ADMIN_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "../sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "../signInCode";
@@ -126,24 +125,8 @@ class SessionFromUnlistedPath extends Error {
   override name = "SessionFromUnlistedPath";
 }
 
-// The whole of the user-verification requirement, asked at both ceremonies and checked under them.
-// Set to "preferred" and both halves relax together, which is what WebAuthn Level 3 §7.2 conditions
-// the check on.
-
-// The plugin asks the enrolment through `authenticatorSelection` and hardcodes "preferred" into the
-// assertion's options, so the after hook below writes this into those; the check is ours either way,
-// both verifiers being called with `requireUserVerification` off.
-const USER_VERIFICATION: "required" | "preferred" = "required";
-
-/** The assertion's options, whose answer the after hook rewrites to carry `USER_VERIFICATION`. */
+/** The assertion's options, the first of the two calls a passkey sign-in makes. */
 const PASSKEY_ASSERTION_OPTIONS_PATH = "/passkey/generate-authenticate-options";
-
-/** Both ceremonies, at the point the plugin reaches before it writes a row or mints a session. */
-function refuseUnverified(userVerified: boolean): void {
-  if (USER_VERIFICATION !== "required" || userVerified) return;
-
-  throw new APIError("BAD_REQUEST", { code: USER_VERIFICATION_REFUSED, message: "The authenticator did not verify the user." });
-}
 
 /**
  * The edge's trace off the request a sign-in arrived on, whose access line holds the address it came from: a sign-in
@@ -633,11 +616,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
           }
         }
 
-        const offered: unknown = ctx.context.returned;
-        if (ctx.path === PASSKEY_ASSERTION_OPTIONS_PATH && !isAPIError(offered) && typeof offered === "object" && offered !== null) {
-          return ctx.json({ ...offered, userVerification: USER_VERIFICATION });
-        }
-
         if (!SESSION_ANSWER_PATHS.has(ctx.path)) return undefined;
 
         // Left standing where the sign-in was refused, or a refusal is answered as a success.
@@ -704,9 +682,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
       // library rather than this league.
 
-      // `authenticatorSelection` carries the ask into the enrolment's options, the after hook into the
-      // assertion's; the library verifies the flag on neither response, so `afterVerification` below is
-      // the whole of the check.
+      // `authenticatorSelection`'s user verification is the whole of that requirement: the plugin asks it
+      // in both ceremonies' options and refuses a response whose authenticator did not verify the user,
+      // before anything is written. Set to "preferred" and both halves relax together, which is what
+      // WebAuthn Level 3 §7.2 conditions the check on.
       passkey({
         rpName: BRAND_NAME,
         // Named rather than left to the plugin's own derivation, which answers this same host off
@@ -715,13 +694,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Unset, this is the caller's own `Origin` header -- a ceremony checked against the value its
         // own sender chose.
         origin: origin.origin,
-        authenticatorSelection: { userVerification: USER_VERIFICATION, residentKey: "required" },
-        // Both callbacks run before the plugin writes anything -- ahead of the passkey row, and ahead
-        // of the counter and the session -- so a refusal here leaves the store as it found it.
+        authenticatorSelection: { userVerification: "required", residentKey: "required" },
+        // The callback runs before the plugin writes the passkey row, so a refusal here leaves the store
+        // as it found it.
         registration: {
           afterVerification: async ({ ctx, verification, user }) => {
-            refuseUnverified(verification.registrationInfo?.userVerified === true);
-
             // The verifier holds the posted `id` to `rawId` and neither to the attested credential, so
             // a session this enrolment mints would otherwise name whichever passkey its caller chose.
             if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
@@ -749,7 +726,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
             );
           },
         },
-        authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
       }),
 
       passkeyLastUse(),

@@ -12,10 +12,10 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
-import { GlyphChoices, GlyphChoicesPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { entryMark } from "./fieldStyles";
+import { GlyphChoices, GlyphChoicesPlaceholder } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
@@ -32,7 +32,7 @@ import { tv } from "./tv";
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { GlyphChoice } from "./ChoiceButtons";
+import type { GlyphChoice } from "./GlyphChoices";
 import type { IconName } from "./Icon";
 import type { MenuEntry, MenuLink } from "./Menu";
 

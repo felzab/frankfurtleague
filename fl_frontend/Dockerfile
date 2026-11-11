@@ -5,7 +5,7 @@
 
 # The tag names the Node `package.json :: devEngines` pins, and
 # Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
-FROM node:26.12.0-trixie-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4 AS base
+FROM node:26.13.0-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS base
 
 # tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
 # handler for and reaps no orphaned child
@@ -21,7 +21,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # in a production process environment.
 FROM base AS toolchain
 # `package.json :: packageManager` names the same pnpm.
-ARG PNPM_VERSION=11.28.6
+ARG PNPM_VERSION=11.28.9
 
 # npm's cache is a mount, so none of it is written into the layer.
 RUN --mount=type=cache,id=npm,target=/root/.npm npm install -g pnpm@${PNPM_VERSION}
