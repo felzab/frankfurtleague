@@ -87,6 +87,12 @@ export type MenuProps = {
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
   /**
+   * Which of its trigger's edges the menu lines up with on desktop: its start, or its end for a trigger standing at the
+   * end of a row, such as a row's „⋯“, so the menu opens from the trigger into the row's box rather than past the
+   * viewport's edge, where it would be pushed back by however much the row's end leaves.
+   */
+  align?: "start" | "end";
+  /**
    * On desktop, the menu opens at its trigger's end instead, as a collapsed rail entry's tooltip does, and as
    * wide as its entries: its top level with the trigger's where it would open below, its foot where above.
    */
@@ -419,7 +425,7 @@ function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size:
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */
-export function Menu({ label, trigger, head, groups, placement, beside = false, width = "content", foot: row }: MenuProps) {
+export function Menu({ label, trigger, head, groups, placement, align = "start", beside = false, width = "content", foot: row }: MenuProps) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   // The submenu last opened stays mounted while its sheet leaves, so its exit can run.
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
@@ -437,7 +443,7 @@ export function Menu({ label, trigger, head, groups, placement, beside = false, 
       {trigger}
       {isDesktop ? (
         <Popover
-          placement={beside ? (placement === "above" ? "end bottom" : "end top") : placement === "above" ? "top start" : "bottom start"}
+          placement={beside ? (placement === "above" ? "end bottom" : "end top") : `${placement === "above" ? "top" : "bottom"} ${align}`}
           // 4 px from its trigger; beside a rail part, 4 px beyond the rail's 12-px inset and its edge, as the tooltip.
           offset={beside ? 16 : 4}
           data-kit-focus

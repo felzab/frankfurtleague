@@ -55,6 +55,7 @@ export function SideActs({ acts, children }: { acts: ReadonlyArray<SideAct>; chi
       <Menu
         label={COPY.template.more}
         placement="below"
+        align="end"
         trigger={
           <Button
             icon="more"
