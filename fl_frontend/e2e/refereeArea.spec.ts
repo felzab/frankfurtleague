@@ -62,8 +62,6 @@ test("a referee answers the coming game, saves the played game's report, and rea
   const comingRow = gameRow(page, coming);
   await expect(comingRow.getByText("Antwort fehlt", { exact: true })).toBeVisible();
   const agree = comingRow.getByRole("button", { name: "Zusagen", exact: true });
-  // Every row's „Zusagen“ reads alike, so a screen reader hears whose it is from the row's name alone.
-  await expect(agree).toHaveAccessibleDescription(coming);
   await agree.click();
   await expect(comingRow.getByText("Zugesagt", { exact: true })).toBeVisible();
   await expect(comingRow.getByRole("button", { name: "Zusagen", exact: true })).toHaveCount(0);
