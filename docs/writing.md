@@ -1,90 +1,91 @@
 # Writing
 
-How documents, code comments, commit messages and pull requests are written in this repository.
-Prettier formats every Markdown file, markdownlint holds the Markdown to one style, and lychee
-checks that every link inside the repository and every `#fragment` resolves; the gate runs all three. What no tool can
-check is on this page.
+How documents, names, comments, commit messages and pull requests are written here. Prettier formats
+every Markdown file, markdownlint holds it to one style, and lychee resolves every link and
+`#fragment` inside the repository; the gate runs all three. This page holds what no tool checks.
 
-## Documents and comments
+`docs/` describes the system. `.claude/` holds the working rules of the AI agents that build it, and
+nothing in the repository depends on it: deleting it leaves every check, CI job and build passing.
+No document outside `.claude/` addresses an agent, and only what [the map](README.md) lists names
+the folder.
 
-- **Describe the tree as it is now, in the present tense.** Name only files, functions and
-  behaviour that exist. Never narrate an edit ("was changed", "no longer", "now uses") and never
-  record that something is absent. A rejected alternative is written as a present constraint aimed
-  at whoever would propose it again: "The list is not cached, because …".
-- **Say why, not what.** The code says what it does. Write the reason a reader cannot get from the
-  code: why this shape was chosen, what breaks otherwise, what a caller may rely on.
+## Documents
+
+- **Describe the tree as it is, in the present tense**, naming only what exists. Never narrate an
+  edit ("was changed", "no longer", "now uses") or record what was removed. A present negative is a
+  fact like any other: "The list is not cached, because …".
+- **Say why, not what**: the reason a reader cannot get from the code, such as why this shape was
+  chosen, what breaks otherwise, or what a caller may rely on.
 - **Point to code by its file path.** A line number goes stale with the next edit above it.
-- **Spell every domain term as [the glossary](glossary.md) does**, and read a term's entry before
-  writing it for the first time. A new term gets an entry, which says what the word is and where it
-  lives in the code, and nothing more.
-- **A name takes the German word only for a thing of the league itself** — the competition and its
-  people, as the glossary's core entities and attributes list them. Everything the website does
-  with them (an account, a sign-in, a mail, a link, an erasure, a grant, a log), every verb,
-  adjective, predicate and state, and every generic noun is English, and so is every particle inside
-  a name holding an English word: `_at`, `_by`, `_until`, `_from`, `_since`, `_on`, `_after`. The
-  test: would the word stand in the league's printed rulebook if there were no website? The German
-  a visitor reads is not a name and keeps its words. A page address and a mailed link's address follow
-  this rule as a name does, each segment a league word or English, save `/impressum` and `/datenschutz`,
-  the words German law and a German visitor look for (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`,
-  which `fl_frontend/src/core/routes.test.ts` holds every address to). A stored or served name — a collection, a field, a value, an index — follows this rule
-  as a code name does: a core entity or attribute of the league keeps the glossary's German word
-  (`saison_phase`, `sonderereignis`, `mietpreis`), and every other data noun is English
-  (`first_name`, never `vorname`; `date`, never `datum`; `reason`, never `grund`). Each is renamed in
-  its area's switch paste, with its record model (`fl_backend/app/readback.py :: RECORD_MODELS`) and
-  the read-back in the same commit, and an index naming it is dropped in that paste so the boot
-  builds it under the new name. A name the production host or a deploy holds (a secret file, an environment variable, a
-  compose service or secret, a CI secret reference, a header) follows the rule like any other, and
-  its rename is an owner step; a Docker volume keeps its name, since a renamed volume is a new empty
-  one. A key of the copy catalogue is a name like any other, never the copy it keys: a page title's
-  key is its route key, and a title several routes share is one entry keyed by its noun
-  (`COPY.page.accountSecurity`, `COPY.page.spiele`, `COPY.shared.field.required`). An English twin of a glossary noun in
-  code takes the German noun, so one search finds every site.
-- **A file or folder is cased by its kind.** A React component's file is PascalCase after the
-  component it exports (`LinkRows.tsx`), every other TypeScript module camelCase after its main
-  export (`signInGate.ts`), a Python module or package and a shell script snake_case
-  (`check_public_routes.py`, `verify.sh`), and a Markdown file kebab-case (`glossary-entry.md`). Every
-  folder is lowercase kebab-case (`features/address-change/`), and a dynamic route segment is named
-  as its param (`[saison]`). A test file is named after the module it tests (`routes.test.ts`,
-  `test_recording.py`). A name a framework or a tool looks for keeps its spelling (`page.tsx`,
-  `README.md`). The lint's `check-file/folder-naming-convention` and
-  `check-file/filename-naming-convention` (`eslint-plugin-check-file`, `fl_frontend/eslint.config.mjs`)
-  and ruff's pep8-naming module rule `N999`, over the packages `namespace-packages` names
-  (`fl_backend/pyproject.toml`), hold it at build time.
-- **State a decision neutrally, with the date it was taken.** A decision no tool or comment can
-  hold is one line in [the decisions record](decisions.md), written in the commit that takes it;
-  the line carries no date, because that commit holds its date and its argument, and
-  `git log -S '<its words>' --reverse` finds the commit.
-- **Start a new document from [its template](templates/)**: a folder README, an overview, or a
-  glossary entry.
+- **One idea per sentence.** A sentence listing several things becomes a list.
+- **A heading names one topic a reader would search for**, unique in its document.
+- **A table cell holds a phrase.** Data that needs sentences is a list.
+- **Bold only for a run-in heading**, as here, and never capitals for emphasis.
+- **Spell every domain term as [the glossary](glossary.md) does**, and check its entry before first
+  writing it. A new term's entry says what the word is and where it lives in the code, nothing more.
+- **A decision no tool or comment can hold is one line in [the decisions record](decisions.md)**,
+  added in the commit that takes it, whose body holds its date and argument; the line has no date.
+- **A route's or a published model's docstring is its published description**: one or two sentences
+  of what a caller may rely on. It names no source path, rule id or refusal list, and never says how
+  the code is built.
 
-**A comment is a plain sentence saying why**, placed at the line it explains, and only where that
-line is not obvious: the constraint, the trap, or the alternative that was rejected. It carries no
-citation, no header block and no history. A comment that restates the code is deleted.
+## Names
+
+- **German only for a thing of the league itself**, as the glossary's core entities and attributes
+  list them. The test: would the word stand in the league's rulebook if there were no website?
+- **Everything else is English**: what the website does (an account, a sign-in, a mail, a grant),
+  every verb, adjective, predicate and state, every generic noun, and every particle beside an
+  English word (`_at`, `_by`, `_until`, `_from`, `_since`, `_on`, `_after`). The German a visitor
+  reads is copy, not a name.
+- **A page's or a mailed link's address** follows the rule segment by segment, save `/impressum` and
+  `/datenschutz`, the words German law and a visitor look for
+  (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`, which `routes.test.ts` holds each address to).
+- **A stored or served name** follows it too: `saison_phase`, but `first_name`, never `vorname`. A
+  rename is a paste the owner runs before the deploy reading the new name, and the paste drops an
+  index naming it, so the boot builds it anew. The record model
+  (`fl_backend/app/readback.py :: RECORD_MODELS`) and the read-back change in the same commit.
+- **A name the production host or a deploy holds**, such as a secret or a header, follows it too,
+  and its rename is an owner step. A Docker volume keeps its name: renamed, it is a new, empty one.
+- **A copy catalogue key is a name, never the copy it keys.** A page title's key is its route key,
+  and a title several routes share is one entry keyed by its noun.
+- **An English twin of a glossary noun takes the German noun**, so one search finds every site.
+- **A file or folder is cased by its kind**, held by ESLint's `check-file` rules and ruff's `N999`.
+  A React component's file is PascalCase after its component (`LinkRows.tsx`), another TypeScript
+  module camelCase after its main export (`signInGate.ts`). Python and shell files are snake_case,
+  Markdown files and folders lowercase kebab-case, and a dynamic route segment its param
+  (`[saison]`). A test is named after its module; a name a tool looks for keeps it (`page.tsx`).
+
+## Comments
+
+**A comment is a plain sentence saying why**, at the line it explains, and only where that line is
+not obvious: the constraint, the trap, or the alternative that was rejected. Deleted on sight:
+
+- a comment restating the code
+- a citation of another file, or a rule id
+- a list of the code's callers ("Exported for …", "X and Y read it")
+- a "for X's reason" pointer, its reason written out in a few words instead
+- a header block, or any history
 
 ## Commit messages
 
-- **The subject is `Scope: what changed`**, in sentence case after the scope, with no trailing
-  period. It is declarative, saying what is true once the commit lands ("The list pages share one
-  loader"), not an imperative and not Conventional Commits. Two related changes may share a subject
-  joined by ", and".
-- **The scope is one of** `Frontend`, `Backend`, `Docs`, `Repo`, `Ops` (deployment, images, nginx),
-  `CI` (`.github/workflows/`), `Database` (the data or its constraints), `Frontend deps` and
-  `Backend deps`. A change reaching several combines them, as in `Backend + Frontend`. Dependabot's
-  commit prefixes in `.github/dependabot.yml` follow the same shape, adding `Frontend image` and
-  `Backend image` for each Dockerfile's base images.
-- **Keep the subject within 72 characters**, where GitHub truncates a title in a list.
-- **The body is prose wrapped at about 76 characters**, one paragraph per area, each led by its area.
-  It carries what the diff cannot: why the change was made, what was verified and how (with the exit
-  code, never the word "passing"), where an earlier assumption was wrong, and the alternative that
-  was rejected. No emoji.
-- **A pushed commit message is never rewritten.** A false claim in one is corrected in the pull
-  request body.
+- **The subject is `Scope: what changed`**, sentence case after the scope, no trailing period, at
+  most 72 characters, where GitHub truncates a title. It says what is true once the commit lands
+  ("The list pages share one loader"): no imperative, no Conventional Commits. Two related changes
+  may share a subject joined by ", and".
+- **The scope is one of** `Frontend`, `Backend`, `Docs`, `Repo` (the gate, the checks, their
+  configuration and `.claude/`), `Ops` (deployment, images, nginx), `CI` (`.github/workflows/`),
+  `Database` (the data or its constraints), `Frontend deps` and `Backend deps`. A change reaching
+  several joins them (`Backend + Frontend`), and a rename takes its area's scope. Dependabot's
+  prefixes add `Frontend image` and `Backend image` for each Dockerfile's base images.
+- **The body is prose wrapped at about 76 characters**, one paragraph per area, led by its area. It
+  carries what the diff cannot: why, what was verified and how (with the exit code, never the word
+  "passing"), where an earlier assumption was wrong, and the alternative rejected. No emoji.
+- **A pushed commit message is never rewritten.** The pull request body corrects a false claim.
 
 ## Pull requests
 
-- **The title has the commit subject's shape.** A pull request with one commit uses that commit's
-  subject as it is.
-- **The body summarises the branch as a whole and never lists its commits.** A body covering
-  several commits opens with one sentence of orientation. `.github/pull_request_template.md` gives
-  its sections.
-- **The body stands alone.** It links nothing that a reader of the public repository cannot open.
+- **The title has the commit subject's shape.** With one commit, it is that commit's subject.
+- **The body summarises the branch as a whole and never lists its commits.** A body covering several
+  commits opens with one sentence of orientation; `.github/pull_request_template.md` gives its
+  sections.
+- **The body stands alone.** It links nothing a reader of the public repository cannot open.
