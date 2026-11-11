@@ -11,12 +11,11 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
-from pymongo.database import Database
 
 from app.core.recording import actor_var
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.tier import is_db_marked, refuse_server_fixtures
-from tests.worker import guard_every_database, release_every_database, worker_database
+from tests.worker import guard_every_database, release_every_database
 
 if TYPE_CHECKING:
     from testcontainers.core.container import DockerContainer
@@ -540,17 +539,3 @@ def mongo_url(mongo_replica_set_url: str) -> str:
     """The replica set's url, under a second name."""
 
     return mongo_replica_set_url
-
-
-@pytest.fixture(scope="session")
-def mongo_database(mongo_replica_set_url: str) -> Iterator[Database]:
-    """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumer is why.
-
-    `tests/api/conftest.py :: league` drops its collections, taking any validator with them.
-    """
-
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        yield client[worker_database("fl_test")]
-    finally:
-        client.close()

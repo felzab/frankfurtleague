@@ -27,43 +27,14 @@ from tests.documents import (
 )
 from tests.worker import worker_database
 
-from .conftest import PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
+from .conftest import AUSTRITT
 
 pytestmark = pytest.mark.db
 
-# Its own database: the verdict's cases write rows and move a fixture, and `league` is shared.
 VERDICT_DATABASE = worker_database("fl_spiele_verdict_test")
 
-
-def spiel(league: SeededLeague, spiel_nr: int, saison_id: str = SAISON) -> dict[str, Any]:
-    documents = list(league.database.spiele.aggregate(build_spiele_pipeline(db_filter={"spiel_nr": spiel_nr, "saison_id": saison_id})))
-
-    assert len(documents) == 1, f"expected exactly one match {spiel_nr} in {saison_id}, got {len(documents)}"
-    return documents[0]
-
-
-class TestTheJoinedDisqualification:
-    def test_the_season_is_the_spiele_own_and_not_a_resolved_one(self, league: SeededLeague) -> None:
-        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision.
-
-        And names it as the club is called now, where a past season keeps the name it was played under.
-        """
-
-        match_8 = spiel(league, 8, saison_id=PRIOR_SAISON)
-
-        assert match_8["team2"]["name"] == "Lessing 2025"
-        assert match_8["team2"]["austritt"] is None
-
-
-class TestWhatTheMergeMustNotBreak:
-    def test_the_stored_keys_survive_the_merge(self, league: SeededLeague) -> None:
-        """`$mergeObjects` adds one key; listing the stored ones instead would drop whatever it missed."""
-
-        team2 = spiel(league, 9)["team2"]
-
-        assert team2["team_id"] == TEAM_OIDS["Bock"]
-        assert team2["name"] == "Bock"
-        assert team2["tore"] is None
+SAISON = "2026"
+PRIOR_SAISON = "2025"
 
 
 VERDICT_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607250001")
@@ -153,6 +124,45 @@ async def joined(database: AsyncDatabase) -> dict[str, Any]:
 
 async def verdict(database: AsyncDatabase) -> bool | None:
     return (await joined(database))[ANSETZUNG_CONFIRMED]
+
+
+class TestTheJoinedDisqualification:
+    def test_the_season_is_the_spiele_own_and_not_a_resolved_one(self, mongo_replica_set_url: str) -> None:
+        """Every match read runs this pipeline, so keying on `team_id` alone badges a match played before the decision.
+
+        And names it as the club is called now, where a past season keeps the name it was played under.
+        """
+
+        async def body(database: AsyncDatabase) -> dict[str, Any]:
+            # The away club leaves this season, and was called otherwise the season before.
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"saison_id": SAISON, "team_id": VERDICT_AWAY}, {"$set": {"austritt": dict(AUSTRITT)}}
+            )
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    saison_team_document(PRIOR_SAISON, VERDICT_HOME, "Alpha", "ALX"),
+                    saison_team_document(PRIOR_SAISON, VERDICT_AWAY, "Beta 2025", "BEX"),
+                ]
+            )
+
+            return await joined(database)
+
+        team2 = on_a_spiel(mongo_replica_set_url, {**a_spiel(), "saison_id": PRIOR_SAISON}, [], body)["team2"]
+
+        assert (team2["name"], team2["austritt"]) == ("Beta 2025", None)
+
+
+class TestWhatTheMergeMustNotBreak:
+    def test_the_stored_keys_survive_the_merge(self, mongo_replica_set_url: str) -> None:
+        """`$mergeObjects` adds one key; listing the stored ones instead would drop whatever it missed.
+
+        Beside an unfilled bracket slot, so the join meets a null side too.
+        """
+
+        spiel = {**a_spiel(), "saison_phase": "viertelfinale", "team1": None}
+        team2 = on_a_spiel(mongo_replica_set_url, spiel, [], joined)["team2"]
+
+        assert (team2["team_id"], team2["name"], team2["tore"]) == (VERDICT_AWAY, "Beta", None)
 
 
 class TestASpielNamesItsVenueAsItIsCalledNow:
