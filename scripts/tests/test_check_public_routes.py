@@ -99,10 +99,10 @@ def test_a_recorded_reason_at_an_exact_match_path_declares_no_prefix_location(mo
 
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves all four extensions, so a walk seeing one of them accounts for part of the tree."""
-    findings, _ = judged(tree("/api/mail/delivery", file="route.tsx"), served(METERED, CATCH_ALL))
+    findings, _ = judged(tree("/api/beispiel", file="route.tsx"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/api/mail/delivery" in details(findings)
+    assert "/api/beispiel" in details(findings)
 
 
 def test_a_handler_filed_under_another_spelling_of_route_ts_is_not_accounted_for():
@@ -255,15 +255,15 @@ def test_an_exact_match_carrying_no_limit_req_is_a_finding():
 
 def test_a_handler_no_location_names_is_a_finding():
     """A route handler added with no edge change at all, which is how one ships unmetered."""
-    findings, _ = judged(tree("/api/mail/delivery"), served(METERED, CATCH_ALL))
+    findings, _ = judged(tree("/api/beispiel"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/api/mail/delivery" in details(findings)
+    assert "/api/beispiel" in details(findings)
 
 
 def test_the_catch_all_is_never_coverage():
     """`location /` matches every URI, so counting it would leave this check unable to fail."""
-    assert routes.covering_prefix("/api/mail/delivery", served(CATCH_ALL)) is None
+    assert routes.covering_prefix("/api/beispiel", served(CATCH_ALL)) is None
 
 
 def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
@@ -483,7 +483,7 @@ def test_a_recorded_answer_no_location_names_is_a_finding(monkeypatch):
 
 
 SERVER_READ = "export default async function Page(props) {\n  const { token } = await props.searchParams;\n}\n"
-LINK_PAIR = "        limit_req zone=linkpage burst=60 nodelay;\n        limit_req zone=linkpage48 burst=600 nodelay;\n"
+LINK_PAIR = "        limit_req zone=linkpage burst=60 nodelay;\n"
 
 
 def link_page(url: str, text: str = SERVER_READ) -> Path:
@@ -654,34 +654,32 @@ def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
 
 
 def test_a_link_burst_sized_for_another_squad_is_a_finding():
-    """A squad of 10 at 30 a minute needs 10 x 10 - 2 x 30 = 40 on the narrow zone and ten times that on the wide one."""
+    """A squad of 10 at 30 a minute needs 10 x 10 - 2 x 30 = 40."""
     rates = {"linkpage": 30}
-    sized = "        limit_req zone=linkpage burst=40 nodelay;\n        limit_req zone=linkpage48 burst=400 nodelay;\n"
+    sized = "        limit_req zone=linkpage burst=40 nodelay;\n"
     where = served(block("location = /neu", sized, PASS), block("location = /neu/", sized, PASS), CATCH_ALL)
 
     assert routes.unsized_links(where, SOURCE, 10, rates) == []
 
     findings = routes.unsized_links(where, SOURCE, 11, rates)
 
-    assert severities(findings) == ["fail"] * 4
+    assert severities(findings) == ["fail"] * 2
     assert "where a squad of 11 needs burst=50" in details(findings)
-    assert "where a squad of 11 needs burst=500" in details(findings)
 
 
-ACTION_PAIR = "        limit_req zone=action burst=30 nodelay;\n        limit_req zone=action48 burst=300 nodelay;\n"
+ACTION_PAIR = "        limit_req zone=action burst=30 nodelay;\n"
 ACTION_CATCH_ALL = block("location /", "        limit_conn conn 50;\n", ACTION_PAIR, PASS)
-RAISED_PAIR = ACTION_PAIR.replace("burst=30 ", "burst=31 ").replace("burst=300 ", "burst=301 ")
+RAISED_PAIR = ACTION_PAIR.replace("burst=30 ", "burst=31 ")
 
 
 def test_a_block_raising_the_catch_all_s_burst_is_a_finding():
-    """One above `/`'s on either zone of its pair, which a script posting any action at that path spends; at `/`'s, none."""
+    """One above `/`'s, which a script posting any action at that path spends; at `/`'s, none."""
     assert routes.raised_bursts(served(block("location = /neu", LINK_PAIR, ACTION_PAIR, PASS), ACTION_CATCH_ALL), SOURCE) == []
 
     findings = routes.raised_bursts(served(block("location = /neu", LINK_PAIR, RAISED_PAIR, PASS), ACTION_CATCH_ALL), SOURCE)
 
-    assert severities(findings) == ["fail", "fail"]
+    assert severities(findings) == ["fail"]
     assert "meters action with `limit_req zone=action burst=31 nodelay`, above `location /`'s burst=30" in details(findings)
-    assert "meters action48 with `limit_req zone=action48 burst=301 nodelay`, above `location /`'s burst=300" in details(findings)
 
 
 def test_the_repository_own_link_pages_are_on_the_link_pair():
@@ -707,7 +705,7 @@ def test_the_repository_own_link_pages_are_on_the_link_pair():
     assert routes.unsized_links(where, name, squad, rates) == []
     # The catch-all metering the action pair, so the rule judges the real bursts rather than finding no ceiling.
     [catch_all] = [one for one in where if not one.exact and one.path == routes.CATCH_ALL]
-    assert {"action", "action48"} <= catch_all.zones
+    assert "action" in catch_all.zones
     assert routes.raised_bursts(where, name) == []
 
 
@@ -1040,7 +1038,7 @@ def test_a_raised_action_burst_reaches_the_exit_contract(monkeypatch):
 
 def test_a_finding_exits_one(monkeypatch):
     """Held over `scripts/checks/check_public_routes.py :: main`, for `scripts/lib/checker_kernel.py :: EXIT_FINDINGS`'s reason."""
-    app = tree("/api/mail/delivery")
+    app = tree("/api/beispiel")
 
     assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == 1
 

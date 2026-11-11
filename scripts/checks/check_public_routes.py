@@ -98,21 +98,18 @@ RECORD_ENTRY_RE: Final = re.compile(r'\s*(?:[A-Za-z_$][\w$]*|"[^"]*")\s*:\s*"(?P
 # fixtures read as minters.
 TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 
-# The pair `nginx/shared/http.conf` declares for the link pages, metering every request and method,
+# The zone `nginx/shared/http.conf` declares for the link pages, metering every request and method,
 # which a link page's own location and its twin's must both name.
-LINK_ZONES: Final = frozenset({"linkpage", "linkpage48"})
+LINK_ZONES: Final = frozenset({"linkpage"})
 
-# The link pages' own pair is sized for a season's largest squad, every pupil of it behind one school's address in one
-# break, passing within `SIZING_MINUTES` at the narrow zone's own rate (`nginx/shared/site.conf :: location /confirm/`):
-# per pupil, the requests every link page's block meters on `linkpage`. The wide zone takes `WIDE_FACTOR` times its
-# narrow twin's burst (`nginx/shared/http.conf`'s paired zones). The squad is the largest `max_kader_size` the backend
-# publishes, read where it publishes it. The squad's sends ride the action pair at the catch-all's burst, which
+# The link pages' own zone is sized for a season's largest squad, every pupil of it behind one school's address in one
+# break, passing within `SIZING_MINUTES` at the zone's own rate (`nginx/shared/site.conf :: location /confirm/`): per
+# pupil, the requests every link page's block meters on `linkpage`. The squad is the largest `max_kader_size` the
+# backend publishes, read where it publishes it. The squad's sends ride the action zone at the catch-all's burst, which
 # `raised_bursts` holds every block to.
 OPENAPI: Final = "fl_backend/openapi.json"
 SIZED_PER_PUPIL: Final = {"linkpage": 10}
 SIZING_MINUTES: Final = 2
-WIDE_FACTOR: Final = 10
-WIDE_SUFFIX: Final = "48"
 
 # The prefix of a `limit_req` argument naming its zone.
 ZONE: Final = "zone="
@@ -146,6 +143,24 @@ class Reason:
 # handlers would be a second copy of the route tree, stale the day a directory is renamed.
 REASONS: Final[tuple[Reason, ...]] = (
     Reason("/api/auth", "the sign-in library's catch-all, every path of it metered by a prefix because a dynamic segment names no exact match"),
+)
+
+
+@dataclass(frozen=True)
+class Unmetered:
+    """One route handler the edge deliberately meters on no zone, and why."""
+
+    path: str
+    why: str
+
+
+# By URL rather than by file, as the edge names it.
+UNMETERED: Final[tuple[Unmetered, ...]] = (
+    Unmetered(
+        "/api/mail/delivery",
+        "the mail provider's webhook: a refusal starts its retry schedule and, sustained, disables the endpoint, and its "
+        "signature check is the gate",
+    ),
 )
 
 
@@ -747,7 +762,6 @@ def unsized_links(where: tuple[Location, ...], conf: str, squad: int, rates: Map
     for zone, per_pupil in SIZED_PER_PUPIL.items():
         if zone in rates:
             expected[zone] = per_pupil * squad - SIZING_MINUTES * rates[zone]
-            expected[zone + WIDE_SUFFIX] = WIDE_FACTOR * expected[zone]
     findings: list[Finding] = []
     for one in where:
         if not LINK_ZONES <= one.zones:
@@ -791,7 +805,7 @@ def unmetered_links(linked: tuple[Handler, ...], where: tuple[Location, ...], ro
                     "fail",
                     f"{shown(page.path, root)} reads a link's token, and {uri} reaches {reached} in {conf}, which does not meter it on "
                     f"{', '.join(sorted(LINK_ZONES))}\n"
-                    f"{CONTINUATION}put the page under a prefix carrying that pair, or give it an exact match and its twin carrying it",
+                    f"{CONTINUATION}put the page under a prefix carrying that zone, or give it an exact match and its twin carrying it",
                 )
             )
     return findings
@@ -851,7 +865,10 @@ def account(found: tuple[Handler, ...], where: tuple[Location, ...], root: Path,
     exact = {one.path: one for one in where if one.exact}
     findings: list[Finding] = []
     used: set[Reason] = set()
+    exempt = {one.path for one in UNMETERED}
     for handler in found:
+        if handler.url in exempt:
+            continue
         name = shown(handler.path, root)
         match = None if handler.dynamic else exact.get(handler.url)
         if match is not None:
