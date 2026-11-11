@@ -213,7 +213,8 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
-      # `sha-<commit>` beside the scope's own tag, and the OCI labels `scripts/ops/deploy.sh` reads.
+      # `sha-<commit>` beside the scope's own tag, the tag a deploy pins, and the version the build
+      # stamps into each image.
       - id: meta-frontend
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -492,7 +493,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The one reference the images job recorded for each, never `--all-tags`: a tarball may name
-      # any tag, `:latest` included, which a bare `scripts/ops/deploy.sh` pulls.
+      # any tag, and only the one the images job checked is published.
       - name: Push both images
         env:
           FRONTEND_TAG: ${{ needs.images.outputs.frontend-tag }}
