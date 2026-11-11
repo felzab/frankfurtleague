@@ -4365,8 +4365,8 @@ export interface FLSaison {
 /**
  * Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
  *
- * `activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the
- * stored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.
+ * `activate` and `undraw` are their writes' whole judgement, and `create` and `recreate` the draw's judgement of the
+ * stored rules over the clubs entered, `recreate` then the reports it would delete.
  */
 export interface FLSaisonActRefusals {
   activate: Code | null;
@@ -5640,7 +5640,7 @@ export interface FLSubjectResponse {
 }
 
 /**
- * The two clubs a group swap exchanges. Symmetric.
+ * The two clubs a group swap exchanges, in either order.
  *
  * Neither side carries a `gruppe`: reading one from the payload would let a stale form write a
  * group nobody stands in.

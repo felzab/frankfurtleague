@@ -1631,7 +1631,7 @@ export const SaisonsSwapGruppenBody = zod
     team2_id: zod.string().regex(saisonsSwapGruppenBodyTeam2IdRegExp),
   })
   .describe(
-    "The two clubs a group swap exchanges. Symmetric.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in.",
+    "The two clubs a group swap exchanges, in either order.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in.",
   );
 
 /**
