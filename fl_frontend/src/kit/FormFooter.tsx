@@ -88,7 +88,8 @@ export function FormFooter({
           {line}
         </div>
       )}
-      {/* Each act keeps its key from `toArray` as the order turns, so React moves it rather than mounting it anew. */}
+      {/* Each act keeps its key from `toArray` as the order turns, so React moves it rather than mounting it anew, and
+          React's commit gives a moved act back the focus the move took from it. */}
       <div className={slots.acts()}>{order === "stack" ? acts.reverse() : acts}</div>
     </div>
   );
