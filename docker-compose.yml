@@ -175,8 +175,9 @@ services:
       - SETUID
       - SETGID
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
-    # traffic before both upstreams answer. A deploy does not pass through here, recreating the
-    # application pair alone, so this governs a cold start.
+    # traffic before both upstreams answer. A deploy that moves only the application images recreates
+    # that pair alone and does not pass through here; one that also moves this image recreates nginx,
+    # which then waits here for both upstreams as a cold start does.
     depends_on:
       frontend:
         condition: service_healthy
