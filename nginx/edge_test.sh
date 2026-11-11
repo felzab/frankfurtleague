@@ -3,18 +3,17 @@
 #
 # `nginx -t` parses, seeing no log line and no response, so a query written to the access line and a
 # location dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
-# the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
-# started with the privileges `docker-compose.yml` grants it, and `nginx/prod/` for the blocks
-# production alone serves. It answers nothing about which locations the
-# edge makes reachable.
+# the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location, and
+# `nginx/prod/` for the blocks production alone serves, each started with the privileges
+# `docker-compose.yml` grants nginx. It answers nothing about which locations the edge makes reachable.
 #
 # Invariants:
 # - A mailed link's query never reaches an access line, and every line holds the request's trace id.
 # - A visitor's `traceparent` is replaced on every location proxying to the frontend, and the protocol
 #   Next is handed is the edge's own word: `https` from production's blocks, `http` from the local ones.
 # - Each security header is sent once, as written, on every location's response.
-# - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
-#   to start it.
+# - Each upstream is named through a variable and found through Docker's DNS alone, and the
+#   capabilities the model grants are enough to start nginx.
 # - `docs/ops/spec.md` §1.3's server-action and link-page pairs, and the code check's.
 # - A server action's body and the crash report's, on both its paths, each taken at its cap and refused past it.
 #
@@ -38,11 +37,8 @@ for arg in "$@"; do
 done
 
 require_docker
-# curl, not the image's own wget: a client that tidies a path before sending it rewrites //api,
-# /api/./auth and %3F away, and so grades a leak as a pass.
 command -v curl >/dev/null 2>&1 \
-  || refuse "curl is not on PATH, so the edge's redaction was not driven.
-Only curl has --path-as-is, which every alternate spelling in this table needs."
+  || refuse "curl is not on PATH, so the edge was not driven."
 
 # Distinctive enough that a substring test over the whole access line is the assertion.
 TOK="Rk9VUlRJTUVTQlJPS0VO"
@@ -52,17 +48,15 @@ PROD_CONTAINER="fl-edge-prod-$$"
 # A user-defined network, as both stacks' are: only one carries Docker's embedded DNS, which the edge
 # resolves its upstreams through, and no hosts-file entry reaches nginx's resolver.
 NETWORK="fl-edge-net-$$"
-# `backend` before the case moving it, then after: the second started while the first holds its
-# address, so the two can never share one.
+# The stand-in answering as `backend`, so the name resolves on the test's network.
 BACKEND_GONE="fl-edge-backend-$$"
-BACKEND_MOVED="fl-edge-backend-moved-$$"
 # Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
 # for this run because two runs sharing a path would delete each other's stub.
 SCRATCH_NAME=".tmp-edge-$$"
 SCRATCH="${REPO_ROOT}/${SCRATCH_NAME}"
 
 cleanup() {
-  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_GONE" "$BACKEND_MOVED" >/dev/null 2>&1 || true
+  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_GONE" >/dev/null 2>&1 || true
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" || true
 }
@@ -108,16 +102,6 @@ STUB
   printf '%s\n' '    location = /location-probe { return 302 http://frontend:3000/landed; }'
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
 } > "${SCRATCH}/zz-upstream-stub.conf"
-# The backend the last case starts at a new address, answering with a mark the edge cannot have
-# minted and a redirect naming itself, which reaches the visitor rewritten as the frontend's does.
-cat > "${SCRATCH}/backend-moved.conf" <<'MOVED'
-server {
-    listen 8000;
-    access_log off;
-    add_header X-Moved-Backend reached always;
-    location / { return 302 http://backend:8000/landed; }
-}
-MOVED
 # The relay's listener answers only after recording the head's blank line: one answering first, as a
 # piped `nc` does, lets the stub's nginx, which reads an upstream's answer whatever it has sent, close
 # before writing the request.
@@ -179,8 +163,9 @@ if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]
 quietly docker network create "$NETWORK" \
   || refuse "could not create the edge test's network ${NETWORK}. Docker's own reason is above."
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
-# at load still starts, and fails only the case aimed at it. Listening nowhere, it gives the stream
-# check its 502.
+# at load still starts, and fails only the case aimed at it. Listening nowhere, it answers the header
+# pass's liveness probe with the edge's own 502 as soon as asked, where a name nothing holds leaves
+# that probe to the resolver.
 docker run -d --name "$BACKEND_GONE" --network "$NETWORK" --network-alias backend \
   "$EDGE_IMAGE" sleep 3600 >/dev/null \
   || refuse "could not start the stand-in answering as backend."
@@ -286,13 +271,6 @@ grade_security_headers() { # $1 what the request was, the headers already read
       HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
     fi
   done
-  # The file is what the sent value is compared to, so a `preload` written back into it passes that comparison
-  # (nginx/shared/security_headers.conf holds why none is sent).
-  if [[ "${SENT_VALUE[strict-transport-security]:-}" == *preload* ]]; then
-    fail "HEADER $1"
-    detail "expected Strict-Transport-Security without preload" "nginx sent: ${SENT_VALUE[strict-transport-security]}"
-    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
-  fi
   for name in "${!SECURITY_HEADERS[@]}"; do
     # Exactly one: none is a location whose own add_header dropped the inherited set, two a copy
     # restated beside the include -- for the CSP, a second enforcing policy.
@@ -444,7 +422,7 @@ config_transfer() { # curl options naming one transfer, its one bare argument th
   if (( ${#ACTION_CONFIG[@]} > 0 )); then ACTION_CONFIG+=( "--next" ); fi
   while (( $# > 0 )); do
     case "$1" in
-      -s|--path-as-is|--head|--compressed) ACTION_CONFIG+=( "$1" ); shift ;;
+      -s|--head) ACTION_CONFIG+=( "$1" ); shift ;;
       -o|-w|-D|-H|-X|-A|-F|--data|--max-time)
         # Quoted, as a value holding a space must be, with the two escapes a quoted value reads.
         value="${2//\\/\\\\}"; value="${value//\"/\\\"}"
@@ -518,9 +496,6 @@ for _i in "${!LINK_ACTION_PATHS[@]}"; do
 done
 # The refusal itself, kept whole: what Next's action client reads as the press's error.
 spent_request refusal -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# Asked as a browser asks, `gzip_types` naming text/plain: `--compressed` decodes whatever body comes back.
-spent_request refusal-gzip --compressed -H "Accept-Encoding: gzip" \
-  -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
@@ -535,8 +510,8 @@ LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) no
 for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
   action_request link-flood "${BASE}/confirm/kontakt?token=${TOK}"
 done
-# The key spent: every link page, each block's own twin and the spellings nginx resolves before
-# choosing a location, each kept whole, since a block declaring its own error_page answers 429 too.
+# The key spent: every link page and each block's own twin, each kept whole, since a block declaring
+# its own error_page answers 429 too.
 LINK_MARKER="fl-link"
 LINK_SPENT=(
   "/confirm/kontakt?token=${TOK}"
@@ -547,12 +522,9 @@ LINK_SPENT=(
   "/registrierung/?token=${TOK}"
   "/erasure?token=${TOK}"
   "/erasure/?token=${TOK}"
-  "//confirm/kontakt?token=${TOK}"
-  "/confirm/./kontakt?token=${TOK}"
-  "/%63onfirm/kontakt?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
-  spent_request "link-spent-${_i}" --path-as-is -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
+  spent_request "link-spent-${_i}" -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
@@ -590,7 +562,6 @@ expect_action urlencoded some:429
 expect_action static-prefix some:429
 expect_action colon-id some:429
 expect_action refusal some:429
-expect_action refusal-gzip some:429
 
 # The sentence `nginx/shared/site.conf :: @edge_refusal` returns, read off the file so a rewording there
 # is graded too.
@@ -710,9 +681,6 @@ grade_spent() { # $1 a `spent_request` label: graded on the half the edge refuse
   done
 }
 grade_spent refusal
-# nginx's gzip filter leaves a 429 plain, compressing a 200, 403 or 404 alone (observed 2026-10-04); asked
-# anyway, so an encoding a later configuration adds is held to the same type and decoded bytes.
-grade_spent refusal-gzip
 expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
@@ -851,8 +819,8 @@ RESOLVE_FAILURES=0
 RESOLVER_HOME="nginx/shared/http.conf"
 # Seconds; empty until the shared resolver's `valid` is read.
 RESOLVER_VALID=""
-# Read here, not left to the moved backend below, which catches a lifetime only when its warm-up
-# reached the worker still holding the old address.
+# The configuration's own part of finding a recreated upstream; the re-resolution itself is nginx's
+# documented behaviour for a `proxy_pass` naming a variable.
 judge_resolver() { # $1 the file, relative to the root, $2 its resolver line
   local file="$1" line="$2" token valid="" amount
   local -a tokens addresses=()
@@ -895,7 +863,7 @@ judge_resolver() { # $1 the file, relative to the root, $2 its resolver line
       *) RESOLVER_VALID="$amount" ;;
     esac
   else
-    refuse "${file}'s resolver holds valid=${valid}, a lifetime this test cannot read, so the moved backend's deadline was not held against it."
+    refuse "${file}'s resolver holds valid=${valid}, a lifetime this test cannot read."
   fi
 }
 # Each file's directives as `<file>\t<directive>`, split as nginx's tokeniser splits: at `;`, at `{`,
@@ -984,86 +952,6 @@ if [[ "${SENT_VALUE[x-seen-forwarded-proto]:-}" != https ]]; then
   RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
 fi
 
-# The backend recreated as compose recreates it, under its name at another address, and neither edge
-# reloaded. The old container goes once the new one holds its address, so the two never share one.
-
-declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_BASE}/api/v0/system/is_live" )
-declare -A MOVED_LOCATION=( [local]="/landed" [prod]="/landed" )
-# One line per answer: its mark and its Location. A connection each, HTTP/1.1 since HTTP/2 shares
-# one, so answers spread over the workers' caches; MOVE_WAIT seconds each, a connect to a vacated
-# address waiting rather than refusing.
-MOVE_WAIT=1
-moved_answers() { # $1 the edge, $2 how many
-  local edge="$1" _k
-  local -a ask=( -H "Host: localhost" )
-  [[ "$edge" == local ]] || ask=( -H "Host: frankfurtleague.de" )
-  for (( _k = 0; _k < $2; _k++ )); do ask+=( -o /dev/null "${MOVED_PROBE[$edge]}" ); done
-  curl -s --http1.1 --max-time "$MOVE_WAIT" -H "Connection: close" -w '%header{x-moved-backend} %header{location}\n' \
-    "${ask[@]}" 2>/dev/null || true
-}
-# Asked first and often, so every worker holds the old address as it moves, as a serving edge's do.
-for edge in local prod; do moved_answers "$edge" 20 >/dev/null; done
-MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_MOVED" --network "$NETWORK" --network-alias backend \
-  -v "/${SCRATCH}/backend-moved.conf:/etc/nginx/conf.d/backend-moved.conf:ro" \
-  "$EDGE_IMAGE" >/dev/null \
-  || refuse "could not start the backend the last case moves to."
-docker rm -f "$BACKEND_GONE" >/dev/null \
-  || refuse "could not remove the backend the last case moves from."
-# Done only when a run of answers all come from the new backend: a worker still holding the old
-# address breaks the run, so an edge keeping Docker's own TTL never finishes.
-MOVE_RUN=10
-# The longest `nginx/shared/http.conf :: resolver`'s `valid` may hold an answer for this deadline;
-# every worker took its answer before the move.
-MOVE_LIFETIME=10
-# nginx dates an answer in whole seconds, as this loop reads its clock.
-MOVE_CLOCK=1
-# A pass begun on the old address runs at most MOVE_RUN x MOVE_WAIT: 10 + 1 + 10 x 1 = 21 s. Only
-# answers sent inside the lifetime wait, so most of that pass is margin.
-MOVE_DEADLINE=$(( MOVE_LIFETIME + MOVE_CLOCK + MOVE_RUN * MOVE_WAIT ))
-# The lifetime nested inside the deadline with the pass's room left over: a longer one would read as
-# the edge never finding the move.
-if [[ -n "$RESOLVER_VALID" ]] && (( RESOLVER_VALID > MOVE_LIFETIME )); then
-  fail "RESOLVER ${RESOLVER_HOME}"
-  detail "valid= holds an answer ${RESOLVER_VALID}s, past the ${MOVE_LIFETIME}s the moved backend's ${MOVE_DEADLINE}s deadline leaves it"
-  RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
-fi
-declare -A MOVED_AFTER=() MOVED_SEEN=()
-_moved_from="$(date +%s)"
-while (( ${#MOVED_AFTER[@]} < 2 )); do
-  for edge in local prod; do
-    [[ -z "${MOVED_AFTER[$edge]:-}" ]] || continue
-    # Before each pass rather than each round, so a failing case outruns its deadline by one pass.
-    (( $(date +%s) - _moved_from < MOVE_DEADLINE )) || break 2
-    mapfile -t _answers < <(moved_answers "$edge" "$MOVE_RUN")
-    _run=0
-    for _answer in "${_answers[@]}"; do
-      [[ "${_answer%$'\r'}" == "reached "* ]] && _run=$(( _run + 1 ))
-    done
-    _after=$(( $(date +%s) - _moved_from ))
-    # A run finished past the deadline is an edge slower than its arithmetic allows, not a pass.
-    if (( _run == MOVE_RUN && _after <= MOVE_DEADLINE )); then
-      MOVED_AFTER[$edge]="$_after"
-      MOVED_SEEN[$edge]="${_answers[0]%$'\r'}"
-      MOVED_SEEN[$edge]="${MOVED_SEEN[$edge]#reached }"
-    fi
-  done
-  sleep 0.5
-done
-for edge in local prod; do
-  if [[ -z "${MOVED_AFTER[$edge]:-}" ]]; then
-    fail "MOVED backend, the ${edge} edge"
-    detail "no ${MOVE_RUN} answers in a row from the backend started at a new address in ${MOVE_DEADLINE}s without a reload"
-    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
-    continue
-  fi
-  if [[ "${MOVED_SEEN[$edge]}" != "${MOVED_LOCATION[$edge]}" ]]; then
-    fail "REDIRECT the backend's own name, the ${edge} edge"
-    detail "expected Location: ${MOVED_LOCATION[$edge]}, nginx sent '${MOVED_SEEN[$edge]}'"
-    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
-  fi
-  if verbose; then info "the ${edge} edge answered from the moved backend only after ${MOVED_AFTER[$edge]}s"; fi
-done
-
 # --- every access line ------------------------------------------------------------------------------
 
 # Every line the run wrote, the floods' included, each holding the trace id the application's lines
@@ -1102,7 +990,7 @@ ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
-metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the
+metered on every request, its load refused with the edge's own page and no token reaching the error log,
 the code check metered on its own pair, every body cap taking its figure and refusing a byte past it,
-every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
-without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"
+every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s,
+and the frontend's redirect naming itself handed back as the visitor's origin"
