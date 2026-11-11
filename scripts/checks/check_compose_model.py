@@ -9,15 +9,10 @@ than parsing YAML again. Each rule states its invariant at its own function, bes
 from __future__ import annotations
 
 import argparse
-import ast
-import builtins
 import json
-import re
 import sys
-from collections import Counter
-from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Final, NamedTuple
+from typing import Any, Final
 from urllib.parse import urlsplit
 
 # Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
@@ -104,8 +99,7 @@ CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
 }
 
 # The environment names those files replace: one in a service's `environment:` is a second copy of a
-# credential beside its file. `scripts/lib/_lib.sh :: MOVED_ENV_NAMES` spells this set again
-# for the environment files' own check.
+# credential beside its file.
 MOVED_ENV_NAMES: Final = frozenset(
     {
         "MONGODB_URI",
@@ -337,319 +331,6 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
     return findings
 
 
-# The frontend's schema, the one declaration of the files it reads from `RUN_SECRETS`.
-FRONTEND_CONFIG: Final = REPO_ROOT / "fl_frontend" / "src" / "core" / "config.ts"
-FRONTEND_SERVICE: Final = "frontend"
-
-
-def frontend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
-    """Every file the schema reads, and those it demands of production alone.
-
-    Read off `fl_frontend/src/core/config.ts :: SECRET_FILES` and `:: PRODUCTION_ONLY_REQUIRED` as
-    spelled there, any other line shape refusing, so nothing here is a copy.
-    """
-    text = config.read_bytes().decode()
-    block = re.search(r"^const SECRET_FILES = \{\n(.*?)^\} as const;$", text, re.MULTILINE | re.DOTALL)
-    demanded = re.search(r"^const PRODUCTION_ONLY_REQUIRED = \[([^\]]*)\] as const", text, re.MULTILINE)
-    if block is None or demanded is None:
-        raise ValueError(f"{config.name} declares no SECRET_FILES or PRODUCTION_ONLY_REQUIRED this reads")
-    lines = [line.strip() for line in block.group(1).splitlines() if line.strip()]
-    pairs = [re.fullmatch(r'([A-Z_]+): "([a-z_]+)",', line) for line in lines]
-    if not pairs or None in pairs:
-        raise ValueError(f'{config.name} :: SECRET_FILES holds a line that is no `KEY: "file",` pair, so its files were not read')
-    files = {match.group(1): match.group(2) for match in pairs if match is not None}
-    production_only = re.findall(r'"([A-Z_]+)"', demanded.group(1))
-    if unknown := sorted(set(production_only) - set(files)):
-        raise ValueError(f"{config.name} :: PRODUCTION_ONLY_REQUIRED names {unknown}, which SECRET_FILES lacks")
-    return frozenset(files.values()), frozenset(files[key] for key in production_only)
-
-
-def _mounted_files(definition: dict[str, Any]) -> frozenset[str]:
-    """The files a service's secrets and configs place at `RUN_SECRETS`, by name."""
-    mounted: set[str] = set()
-    for entry in definition.get("secrets") or []:
-        source = str(entry.get("source") if isinstance(entry, dict) else entry)
-        target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
-        mounted.add(target if target.startswith("/") else f"{RUN_SECRETS}/{target}")
-    for entry in definition.get("configs") or []:
-        if not isinstance(entry, dict):
-            raise ValueError("a service has a config Compose did not expand, so this is not its rendered model")
-        mounted.add(str(entry.get("target") or f"/{entry.get('source')}"))
-    return frozenset(path.removeprefix(f"{RUN_SECRETS}/") for path in mounted if path.rpartition("/")[0] == RUN_SECRETS)
-
-
-def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
-    """The frontend is handed every file its schema requires on this stack and none it never reads.
-
-    Production is handed every file the schema reads; any other stack needs none it demands of production alone.
-    """
-    reads, production_only = schema
-    required = reads if stack == "production" else reads - production_only
-    mounted = _mounted_files(services(model, name).get(FRONTEND_SERVICE) or {})
-    findings: list[Finding] = []
-    if missing := sorted(required - mounted):
-        findings.append(
-            Finding(
-                "fail",
-                f"{name}: the frontend's schema requires {missing} and compose mounts none of it at {RUN_SECRETS}\n"
-                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so",
-            )
-        )
-    if extra := sorted(mounted - reads):
-        findings.append(Finding("fail", f"{name}: compose hands the frontend {extra}, which its schema never reads"))
-    return findings
-
-
-# The backend's settings, whose credential fields are the one declaration of the files it reads from `RUN_SECRETS`.
-BACKEND_CONFIG: Final = REPO_ROOT / "fl_backend" / "app" / "core" / "config.py"
-BACKEND_SERVICE: Final = "backend"
-BACKEND_SECRETS: Final = "_SecretFields"
-
-# The pydantic classes a settings class may inherit from, each declaring no field of its own.
-PYDANTIC_ROOTS: Final = frozenset({"BaseModel", "BaseSettings"})
-PYDANTIC_PACKAGES: Final = frozenset({"pydantic", "pydantic_settings"})
-
-# The backend's own package: a name imported from it may carry a `Field` this parse never opens.
-BACKEND_PACKAGE: Final = "app"
-
-# A class body holding any other statement runs it at class creation, so an annotation inside it is
-# a field this would read past.
-CLASS_STATEMENTS: Final = (ast.AnnAssign, ast.Assign, ast.Expr, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Pass)
-
-BUILTIN_NAMES: Final = frozenset(dir(builtins))
-
-
-class _Settings(NamedTuple):
-    """One parse of the settings module: its classes, and how each of its module-level names is bound."""
-
-    label: str
-    classes: dict[str, ast.ClassDef]
-    assigned: dict[str, ast.expr]
-    imported: dict[str, str]
-    defined: frozenset[str]
-    bindings: Counter[str]
-
-
-def _module_bindings(body: list[ast.stmt]) -> Counter[str]:
-    """How often each module-level name is bound, inside a compound statement too; a function or a class is its own scope."""
-    bound: Counter[str] = Counter()
-    for node in body:
-        targets: list[ast.expr] = []
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            bound[node.name] += 1
-            continue
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            bound.update(alias.asname or alias.name.partition(".")[0] for alias in node.names)
-        elif isinstance(node, ast.TypeAlias):
-            targets = [node.name]
-        elif isinstance(node, ast.Assign):
-            targets = node.targets
-        # An annotation without a value binds nothing.
-        elif isinstance(node, ast.AnnAssign) and node.value is not None or isinstance(node, (ast.AugAssign, ast.For, ast.AsyncFor)):
-            targets = [node.target]
-        elif isinstance(node, (ast.With, ast.AsyncWith)):
-            targets = [item.optional_vars for item in node.items if item.optional_vars is not None]
-        bound.update(name.id for target in targets for name in ast.walk(target) if isinstance(name, ast.Name))
-        for handler in getattr(node, "handlers", []):
-            bound.update([handler.name] if handler.name else [])
-            bound += _module_bindings(handler.body)
-        for block in ("body", "orelse", "finalbody"):
-            bound += _module_bindings(getattr(node, block, []))
-        for case in getattr(node, "cases", []):
-            bound += _module_bindings(case.body)
-    return bound
-
-
-def _settings(config: Path) -> _Settings:
-    module = ast.parse(config.read_bytes().decode(), filename=config.name)
-    imported: dict[str, str] = {}
-    for node in module.body:
-        if isinstance(node, ast.ImportFrom):
-            imported.update((alias.asname or alias.name, "." * node.level + (node.module or "")) for alias in node.names)
-        elif isinstance(node, ast.Import):
-            imported.update((alias.asname or alias.name.partition(".")[0], alias.name) for alias in node.names)
-    return _Settings(
-        label=config.name,
-        classes={node.name: node for node in module.body if isinstance(node, ast.ClassDef)},
-        assigned={
-            target.id: node.value
-            for node in module.body
-            if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
-            for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
-            if isinstance(target, ast.Name)
-        },
-        imported=imported,
-        defined=frozenset(node.name for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))),
-        bindings=_module_bindings(module.body),
-    )
-
-
-def _names(node: ast.AST) -> Iterator[ast.Name]:
-    """Every name `node` reads, never inside a lambda or a comprehension, whose own names no `Field` stands behind."""
-    if isinstance(node, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
-        return
-    if isinstance(node, ast.Name):
-        yield node
-    for child in ast.iter_child_nodes(node):
-        yield from _names(child)
-
-
-def _resolved(settings: _Settings, expression: ast.expr, where: str, followed: frozenset[str] = frozenset()) -> list[ast.expr]:
-    """`expression` and, transitively, the value of every module constant it names, so a `Field` behind an alias is read.
-
-    A name not followed to one plain module-level assignment, a definition, a library's import or a
-    builtin refuses.
-    """
-    parts = [expression]
-    for node in _names(expression):
-        # A ring adds no part; `_constant_behind` refuses one a value is read through. Recursive, as
-        # `_constant_behind` is, so this check gone overflows the stack rather than looping for good.
-        if node.id in followed:
-            continue
-        origin = settings.imported.get(node.id)
-        if settings.bindings[node.id] > 1:
-            raise ValueError(f"{where} names {node.id}, which {settings.label} binds more than once, and this reads one of them")
-        if node.id in settings.assigned:
-            parts += _resolved(settings, settings.assigned[node.id], where, followed | {node.id})
-        elif origin is not None:
-            if origin.startswith(".") or origin.partition(".")[0] == BACKEND_PACKAGE:
-                raise ValueError(f"{where} names {node.id} from {origin}, a module this does not read")
-        elif node.id not in settings.defined and node.id not in BUILTIN_NAMES:
-            raise ValueError(f"{where} names {node.id}, which {settings.label} binds nowhere this reads")
-    return parts
-
-
-def _constant_behind(settings: _Settings, expression: ast.expr, followed: frozenset[str] = frozenset()) -> ast.expr:
-    """What a module constant holds, followed through every constant naming another."""
-    if not (isinstance(expression, ast.Name) and expression.id in settings.assigned):
-        return expression
-    # Recursive rather than a loop over a visited set, as `_declared_fields` is: with this check gone a
-    # ring overflows the stack and fails the run, where a loop would hang it.
-    if expression.id in followed:
-        raise ValueError(f"{settings.label} binds {expression.id} through a ring of constants that holds no value")
-    return _constant_behind(settings, settings.assigned[expression.id], followed | {expression.id})
-
-
-def _callee(node: ast.expr) -> str | None:
-    """A call's function as its last name spells it, so `Field(...)` and `pydantic.Field(...)` read alike."""
-    if not isinstance(node, ast.Call):
-        return None
-    return node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else None
-
-
-def _is_class_var(annotation: ast.expr) -> bool:
-    """`ClassVar` or `ClassVar[...]`, which pydantic reads as no field."""
-    named = annotation.value if isinstance(annotation, ast.Subscript) else annotation
-    return (isinstance(named, ast.Name) and named.id == "ClassVar") or (isinstance(named, ast.Attribute) and named.attr == "ClassVar")
-
-
-def _is_pydantic_root(settings: _Settings, base: ast.expr) -> bool:
-    """`BaseModel` or `BaseSettings`, imported from pydantic by name or reached through its module."""
-    if isinstance(base, ast.Name):
-        name, module = base.id, settings.imported.get(base.id, "")
-    elif isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name):
-        name, module = base.attr, settings.imported.get(base.value.id, "")
-    else:
-        return False
-    return name in PYDANTIC_ROOTS and module.partition(".")[0] in PYDANTIC_PACKAGES
-
-
-def _declared_fields(settings: _Settings, name: str, below: frozenset[str] = frozenset()) -> dict[str, ast.AnnAssign]:
-    """The model fields `name` declares and inherits from this module's classes, its own winning, as pydantic merges them."""
-    if name in below:
-        raise ValueError(f"{settings.label} :: {name} inherits from itself through {', '.join(sorted(below))}")
-    fields: dict[str, ast.AnnAssign] = {}
-    for base in settings.classes[name].bases:
-        if isinstance(base, ast.Name) and base.id in settings.classes:
-            fields |= _declared_fields(settings, base.id, below | {name})
-        elif not _is_pydantic_root(settings, base):
-            raise ValueError(f"{settings.label} :: {name} inherits from {ast.unparse(base)}, whose fields this does not read")
-    for node in settings.classes[name].body:
-        if not isinstance(node, CLASS_STATEMENTS):
-            raise ValueError(f"{settings.label} :: {name} holds a {type(node).__name__} statement, which this does not read into")
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            # A leading underscore is a private attribute, never a field.
-            if not node.target.id.startswith("_") and node.target.id != "model_config" and not _is_class_var(node.annotation):
-                fields[node.target.id] = node
-    return fields
-
-
-def _field_file(settings: _Settings, field: ast.AnnAssign, where: str) -> tuple[str, bool]:
-    """The file a field is read from, its `validation_alias` or its own name, and whether a default spares the boot it."""
-    name = field.target.id if isinstance(field.target, ast.Name) else ""
-    # pydantic merges a `Field` in the annotation, or in a type alias the module declares, with the assigned one.
-    calls = [
-        node
-        for part in _resolved(settings, field.annotation, where)
-        for node in ast.walk(part)
-        if isinstance(node, ast.Call) and _callee(node) == "Field"
-    ]
-    value = None
-    if field.value is not None:
-        _resolved(settings, field.value, where)
-        # A constant holding a `Field` is that `Field` to pydantic.
-        value = _constant_behind(settings, field.value)
-    defaulted = value is not None
-    if isinstance(value, ast.Call) and _callee(value) == "Field":
-        calls.append(value)
-        # `Field(...)` is the one positional default that still demands a value.
-        defaulted = bool(value.args) and not (isinstance(value.args[0], ast.Constant) and value.args[0].value is Ellipsis)
-    files: set[str] = set()
-    for call in calls:
-        for keyword in call.keywords:
-            if keyword.arg in {"default", "default_factory"}:
-                defaulted = True
-            elif keyword.arg is None or keyword.arg == "alias":
-                raise ValueError(f"{where} may name its file by a keyword this does not read")
-            elif keyword.arg == "validation_alias":
-                alias = _constant_behind(settings, keyword.value)
-                if not (isinstance(alias, ast.Constant) and isinstance(alias.value, str)):
-                    raise ValueError(f"{where} has a validation_alias that is neither a string nor a module constant holding one")
-                files.add(alias.value)
-    if len(files) > 1:
-        raise ValueError(f"{where} declares two validation_alias values, {sorted(files)}, and pydantic reads one")
-    return (files.pop() if files else name), defaulted
-
-
-def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
-    """Every file the backend's credential fields read, and those it cannot boot without.
-
-    Parsed rather than imported from `fl_backend/app/core/config.py :: _SecretFields`, since the ops
-    scope's interpreter may lack pydantic; anything it cannot follow refuses.
-    """
-    settings = _settings(config)
-    if BACKEND_SECRETS not in settings.classes:
-        raise ValueError(f"{config.name} declares no {BACKEND_SECRETS} class, so the backend's files were not read")
-    reads: set[str] = set()
-    required: set[str] = set()
-    for field, node in sorted(_declared_fields(settings, BACKEND_SECRETS).items()):
-        file, defaulted = _field_file(settings, node, f"{config.name} :: {BACKEND_SECRETS}.{field}")
-        reads.add(file)
-        if not defaulted:
-            required.add(file)
-    if not reads:
-        raise ValueError(f"{config.name} :: {BACKEND_SECRETS} declares no field, so the backend's files were not read")
-    return frozenset(reads), frozenset(required)
-
-
-def backend_files(model: dict[str, Any], name: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
-    """The backend is handed every file its credential fields require and none they never read, on either stack."""
-    reads, required = schema
-    mounted = _mounted_files(services(model, name).get(BACKEND_SERVICE) or {})
-    findings: list[Finding] = []
-    if missing := sorted(required - mounted):
-        findings.append(
-            Finding(
-                "fail",
-                f"{name}: the backend's schema requires {missing} and compose mounts none of it at {RUN_SECRETS}\n"
-                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so",
-            )
-        )
-    if extra := sorted(mounted - reads):
-        findings.append(Finding("fail", f"{name}: compose hands the backend {extra}, which its schema never reads"))
-    return findings
-
-
 def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
     """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case.
 
@@ -861,8 +542,8 @@ STAND_IN_READ: Final = "FL_STAND_IN_READ_"
 def env_files(model: dict[str, Any], name: str) -> list[Finding]:
     """Each service reads its package's file and no other.
 
-    `scripts/ops/deploy.sh :: read_env_names` hands each reader that file alone, so any other list
-    passes the preflight and meets the boot gate after the recreate.
+    A second file hands the container settings nobody reading the package's own file sees, and the
+    other package's file hands it that package's settings.
     """
     findings: list[Finding] = []
     declared = services(model, name)
@@ -879,7 +560,7 @@ def env_files(model: dict[str, Any], name: str) -> list[Finding]:
                 Finding(
                     "fail",
                     f"{name}: {service} reads the environment files {read}, not {expected} alone\n"
-                    f"{CONTINUATION}the deploy judges the package's file as the whole of what the container is handed",
+                    f"{CONTINUATION}a service's settings are its own package's file and nothing beside it",
                 )
             )
     return findings
@@ -904,10 +585,6 @@ def main() -> int:
         findings += secret_holders(prod_model, "production", Path(args.production).resolve().parent, "production")
         findings += secret_holders(local_model, "local", Path(args.local).resolve().parent, "local")
         findings += config_holders(prod_model, "production", "production") + config_holders(local_model, "local", "local")
-        schema = frontend_schema_files(FRONTEND_CONFIG)
-        findings += frontend_files(prod_model, "production", "production", schema) + frontend_files(local_model, "local", "local", schema)
-        settings = backend_schema_files(BACKEND_CONFIG)
-        findings += backend_files(prod_model, "production", settings) + backend_files(local_model, "local", settings)
         findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
         findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
@@ -932,7 +609,6 @@ def main() -> int:
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
         print(f"      the local stack's logins are inline configs naming its own {LOCAL_DATABASE_SERVICE} service alone")
         print("      no service is handed a moved credential's name in its environment")
-        print("      each application service is handed every file its schema requires on each stack, and none it never reads")
         print(f"      no service mounts {SECRETS_PATH}/ but through a secret naming its file")
     return code
 
