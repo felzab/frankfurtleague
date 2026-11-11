@@ -1283,11 +1283,7 @@ const NAMED = [...new Set(BANS.flatMap(({ only = [], allow }) => [...only, ...al
 const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
-/**
- * Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. A
- * deleted file's counts in eslint-suppressions.json are the gate's to find, as a prune that changes the
- * file (`scripts/gate/verify.sh :: scope_frontend`): a throw here would read as a crash.
- */
+/** Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const GONE = [
   ...NAMED_FILES.filter((path) => !existsSync(join(HERE, path))),
@@ -1490,8 +1486,7 @@ const eslintConfig = defineConfig([
 
   // File and folder names by kind (`docs/writing.md`): every folder kebab-case, a route folder in the App Router's own
   // forms around it, a dynamic segment named as its param; every module camelCase and every component PascalCase,
-  // before its middle extensions. Next.js's kebab-case file conventions keep Next's names. A file or folder a later
-  // session deletes or rebuilds passes through the suppressions file until that session renames it.
+  // before its middle extensions. Next.js's kebab-case file conventions keep Next's names.
   {
     files: ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
     plugins: { "check-file": checkFile },
