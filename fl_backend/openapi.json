@@ -2990,7 +2990,7 @@
         "type": "object"
       },
       "FLBanListWriteResponse": {
-        "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo.",
+        "description": "The id of the ban lifted, whose row is gone.",
         "properties": {
           "ban_list_entry_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -19684,7 +19684,7 @@
     },
     "/api/v0/ban_list": {
       "get": {
-        "description": "List every ban, newest first: the address, why, on which day and the last season covered.\n\nRead whole: the list holds few rows, and a ban left out is one nobody can lift.",
+        "description": "Every ban, newest first, with the address, why, on which day and the last season it covers.",
         "operationId": "ban_list_get_ban_list_entries",
         "responses": {
           "200": {
@@ -19749,7 +19749,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the\nfifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives\nthat person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
+        "description": "Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.\n\nThe ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.",
         "operationId": "ban_list_post_ban_list_entry",
         "requestBody": {
           "content": {
@@ -19826,7 +19826,7 @@
     },
     "/api/v0/ban_list/{ban_list_entry_id}": {
       "delete": {
-        "description": "Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.",
+        "description": "Lift a ban before it lapses, deleting its row for good.",
         "operationId": "ban_list_delete_ban_list_entry",
         "parameters": [
           {

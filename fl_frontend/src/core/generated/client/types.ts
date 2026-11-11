@@ -1325,7 +1325,7 @@ export interface FLBanListResponse {
 }
 
 /**
- * The removal is hard, so the id is all there is to answer with: no document survives to echo.
+ * The id of the ban lifted, whose row is gone.
  */
 export interface FLBanListWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */

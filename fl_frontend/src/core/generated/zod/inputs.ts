@@ -434,15 +434,9 @@ export const AufstellungenPutAufstellungSelfBody = zod
   .describe("A club's whole line-up for one fixture, written wholesale.");
 
 /**
- * Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
+ * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
  *
- * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
- * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
- * a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
- * fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
- * that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
- *
- * `ban_reason` is served, mailed to the address and kept past that person's erasure.
+ * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
  * @summary Ban an email address
  */
 export const banListPostBanListEntryBodyBanReasonMax = 500;
@@ -457,7 +451,7 @@ export const BanListPostBanListEntryBody = zod.object({
 });
 
 /**
- * Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.
+ * Lift a ban before it lapses, deleting its row for good.
  * @summary Lift a ban
  */
 export const banListDeleteBanListEntryPathBanListEntryIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
