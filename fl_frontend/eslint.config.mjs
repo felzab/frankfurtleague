@@ -1337,7 +1337,10 @@ const eslintConfig = defineConfig([
       // from a server-only module does not pull the module in with it.
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
 
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      // The tree's one check of what is declared and never read, the compiler's flags left off. Every parameter, not only
+      // those after the last one read: a leading one a calling convention forces takes a `_`.
+      "@typescript-eslint/no-unused-vars": ["error", { args: "all", argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-private-class-members": "error",
 
       // A zero-width or line-separator character in code, a comment or a template reads as nothing and
       // changes what the line means. Plain strings stay free for the typography's no-break spaces.
