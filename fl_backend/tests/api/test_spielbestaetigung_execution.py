@@ -23,7 +23,6 @@ from app.api.spielbestaetigungen.admin_router import (
     discard_spielbestaetigung,
     enter_spielbestaetigung,
 )
-from app.api.spielbestaetigungen.crud import pull_admin_rows
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_answer, post_team_answer
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
@@ -42,7 +41,6 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.acts import acts_of
@@ -541,14 +539,6 @@ async def discard_row(database: AsyncDatabase, client: AsyncMongoClient, row_id:
     )
 
 
-async def read_admin_rows(database: AsyncDatabase, *, limit: int = LIST_LIMIT_DEFAULT) -> tuple[list[Mapping[str, Any]], bool]:
-    """The season's rows as the administrator's read takes them, newest first, and whether the cut left none out."""
-
-    return await pull_admin_rows(
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN], db_filter={"saison_id": SAISON_ID}, limit=limit
-    )
-
-
 class TestTheAdministratorsZusage:
     def test_it_names_nobody_and_a_seats_press_after_it_finds_the_row_answered(self, mongo_replica_set_url: str):
         """Key for key: a role or a holder on it would let a person's erasure reach the league's reason."""
@@ -784,28 +774,6 @@ class TestTheAdoption:
 
         assert (refusal.error_code, refusal.fields, refusal.bounds) == (code, (), {})
         assert slot == (DATE, TIME)
-
-
-class TestWhatTheAdministratorsReadServes:
-    def test_a_season_holding_more_rows_than_one_read_serves_says_so_and_keeps_every_open_one(self, mongo_replica_set_url: str):
-        """Cut by age alone, the read would drop the overdue row first, the oldest still open.
-
-        The page is the caller's, so two of three closed rows cut it, and `complete` says so.
-        """
-
-        closed = {"closed": {"reason": "ansetzung_changed"}}
-        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2126-04-30"}
-        rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, **closed) for index in range(1, 4))]
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], bool]:
-            return await read_admin_rows(database, limit=2)
-
-        served, complete = on_a_spiel(mongo_replica_set_url, body, rows=rows)
-
-        assert ([row["_id"] for row in served], complete) == (
-            [rows[3]["_id"], rows[2]["_id"], overdue["_id"]],
-            False,
-        )
 
 
 DECLINE = {

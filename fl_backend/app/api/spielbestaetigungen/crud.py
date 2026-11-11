@@ -12,7 +12,6 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     austritt_notices_of,
     build_austritt_spiele_filter,
-    build_holding_filter,
     build_referee_rows_filter,
     build_season_reasons_filter,
 )
@@ -112,29 +111,16 @@ ADMIN_ROW_FIELDS: Final[list[str]] = [
 ]
 
 
-async def pull_admin_rows(
-    *, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any], limit: int
-) -> tuple[list[Mapping[str, Any]], bool]:
-    """Every row still holding its question, whole, and the newest `limit` of the rest; and whether none was left out.
+async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """The rows `db_filter` selects, newest first, as an administrator reads them."""
 
-    A cut across all rows would drop the oldest open ones, the overdue, first.
-    """
-
-    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_ROW_FIELDS).to_list(length=None)
-    # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
-    # its closed image wins below.
-    rest = await pull_many_from_db(
+    return await pull_many_from_db(
         collection=spielbestaetigungen_collection,
-        db_filter={**db_filter, "$nor": [build_holding_filter()]},
-        # One row over what is served, and the extra never is: it answers whether the list is whole without a count.
-        limit=limit + 1,
+        db_filter=db_filter,
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
         projection=ADMIN_ROW_FIELDS,
     )
-    rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
-
-    return sorted(rows.values(), key=lambda row: row["_id"], reverse=True), len(rest) <= limit
 
 
 # --- A REFEREE'S OWN ROWS.

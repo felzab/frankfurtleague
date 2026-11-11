@@ -312,7 +312,6 @@ async def read_spiel_editor(
             pull_admin_rows(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 db_filter={"saison_id": spiel.saison_id, "spiel_id": spiel_id},
-                limit=LIST_LIMIT_DEFAULT,
             ),
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection),
@@ -330,6 +329,6 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in confirmations[0]],
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in confirmations],
         aufstellungen=aufstellungen,
     )
