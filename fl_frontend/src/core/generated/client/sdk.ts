@@ -4325,7 +4325,7 @@ export const getSystemCheckIsReadyUrl = () => {
 };
 
 /**
- * Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.
+ * Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
  *
  * Unauthenticated, for a monitor outside.
  * @summary Readiness probe

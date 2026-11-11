@@ -28587,7 +28587,7 @@
     },
     "/api/v0/system/is_ready": {
       "get": {
-        "description": "Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.\n\nUnauthenticated, for a monitor outside.",
+        "description": "Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.\n\nUnauthenticated, for a monitor outside.",
         "operationId": "system_check_is_ready",
         "responses": {
           "200": {
