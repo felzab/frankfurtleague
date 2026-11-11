@@ -46,41 +46,12 @@ Name one:  ./scripts/ops/deploy.sh sha-1a2b3c4"
 fi
 [[ "$tag" =~ $TAG_RE ]] || refuse "${tag} is not a tag CI publishes, which is sha- and seven hex digits, as sha-1a2b3c4."
 
-# The server is the one Linux host this runs on. On a development machine the base file alone is
-# production's stack, which `up --remove-orphans` would put in place of the local one's containers, so
-# a run there names the stack it acts on in COMPOSE_FILE.
-if [[ "$(uname -s)" != Linux && -z "${COMPOSE_FILE:-}" ]]; then
-  refuse "This is not the server, and COMPOSE_FILE names no stack, so compose would start production's stack here.
-Set COMPOSE_FILE to the stack this run is for. NOTHING has changed."
-fi
+# On a development machine the base file alone is production's stack, which `up --remove-orphans`
+# would put in place of the local one's containers.
+require_platform linux
 
-# Names no service reads, so no boot refuses them: the administrator list the stored grants replaced,
-# whose addresses `docker inspect` would print, the five job switches the hourly scheduler replaced,
-# which a line left standing would show as still set, and the ban list's two retired key names.
-# Matched in any case, and printed without the value.
-RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE SPERRLISTE_SCHLUESSEL SPERRLISTE_KEY)
-
-step "The environment files"
-# C, so `toupper` maps `i` to `I` whatever the host's locale.
-retired="$(LC_ALL=C awk -v names="$(printf '%s ' "${RETIRED_ENV_NAMES[@]}")" '
-  BEGIN { n = split(names, list, " "); for (i = 1; i <= n; i++) retired[list[i]] = 1 }
-  {
-    line = $0
-    sub(/^[ \t]*(export[ \t]+)?/, "", line)
-    if (!match(line, /^[A-Za-z_][A-Za-z0-9_]*/)) next
-    name = toupper(substr(line, 1, RLENGTH))
-    if (name in retired) print FILENAME ":" FNR " " name
-  }' fl_frontend/.env fl_backend/.env)" \
-  || refuse "fl_frontend/.env and fl_backend/.env could not both be read; awk's account is above. NOTHING has changed."
-if [[ -n "$retired" ]]; then
-  refuse "these lines name a setting no service reads any more:
-${retired}
-Delete each line (docs/ops/runbooks.md §16). NOTHING has changed."
-fi
-ok "no line names a retired setting"
-
-# The tag the stack runs, which only this script writes. A first run finds none and rolls nothing
-# back: the build it replaces is then the one from before this script, which never runs again.
+# The last build judged healthy, which only this script writes. A first run finds none and rolls
+# nothing back: the build it replaces is then the one from before this script, which never runs again.
 prev=""
 if [[ -f .env ]]; then prev="$(sed -n 's/^TAG=//p' .env | tail -n 1)"; fi
 # Any other shape was written by hand, and may name images from before this script.

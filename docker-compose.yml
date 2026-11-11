@@ -1,8 +1,8 @@
 # OPS · production stack
 #
 # One host behind a Cloudflare tunnel: the connector and nginx in front, the Next.js frontend and
-# the FastAPI backend behind them. Pulls published images and never builds -- `deploy.sh` enforces
-# that, because a server that builds is a server that can fail a build with the site down.
+# the FastAPI backend behind them. Pulls published images and never builds -- no service here has a
+# `build:` -- because a server that builds is a server that can fail a build with the site down.
 #
 # Invariants:
 # - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
@@ -16,9 +16,10 @@
 # See:
 # - docs/ops/spec.md -- the service table and invariants
 
-# The host's journal, which bounds every line's age (`docs/ops/runbooks.md`), each line tagged with its
-# container's name, so `journalctl CONTAINER_NAME=<name>` finds a service across recreates and
-# `docker compose logs` reads it still (https://docs.docker.com/engine/logging/drivers/journald/).
+# The host's journal, which bounds every line's age (`docs/ops/runbooks.md`) and which `docker compose
+# logs` reads still. The tag names each line's identifier after its container rather than the first
+# 12 characters of its id, so `journalctl -t <name>` finds a service across recreates
+# (https://docs.docker.com/engine/logging/drivers/journald/).
 x-logging: &default-logging
   driver: journald
   options:

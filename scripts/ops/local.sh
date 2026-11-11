@@ -21,8 +21,6 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
-# Windows' docker defaults to this separator, spelled so a reader need not know that default.
-export COMPOSE_PATH_SEPARATOR=";"
 # docker-compose.local.yml merged over docker-compose.yml, named for every call below by Compose's
 # own variable:
 # https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_file
