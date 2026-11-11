@@ -180,14 +180,31 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:
-    def test_only_the_day_and_the_hour_move(self):
+    @pytest.mark.parametrize(
+        "stored_raw",
+        [
+            pytest.param(spiel(), id="a group fixture"),
+            # Played before the hourly pass closed the decline, the shoot-out is the one field the plain fixture leaves null.
+            pytest.param(
+                spiel(
+                    saison_phase="achtelfinale",
+                    team1={"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": 1},
+                    team2={"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": 1},
+                    ergebnis="1:1",
+                    elfmeterschiessen={"team1": 4, "team2": 3},
+                ),
+                id="a knockout decided on penalties",
+            ),
+        ],
+    )
+    def test_only_the_day_and_the_hour_move(self, stored_raw: dict[str, Any]):
         """Every field the save writes is kept but the slot.
 
         A field dropped is a claim the judges weigh that the move does not make, and the adoption, saving this payload,
         would erase it, the note among them.
         """
 
-        stored = FLSpiel.model_validate(spiel())
+        stored = FLSpiel.model_validate(stored_raw)
         proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(date="2027-05-15", time="17:00:00"))
         kept = set(SPIEL_PATCH_WRITTEN_FIELDS - {"date", "time"})
 
