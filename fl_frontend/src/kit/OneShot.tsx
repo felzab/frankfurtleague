@@ -191,14 +191,14 @@ export function OneShotForm({
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="grid">
           {check.widget}
-          <FormFooter
-            status={status}
-            note={note}>
-            {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
-                so a screen reader hears what the press did. */}
-            <RowActs
-              className="contents"
-              describedBy={describedBy}>
+          {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
+              so a screen reader hears what the press did. Around the whole footer, whose acts it reorders by layout. */}
+          <RowActs
+            className="contents"
+            describedBy={describedBy}>
+            <FormFooter
+              status={status}
+              note={note}>
               {acts.secondary !== undefined && (
                 <Button
                   // The refusal destroys what the link offered, so it takes the one look of every destroying act's button.
@@ -216,8 +216,8 @@ export function OneShotForm({
                 label={acts.primary}
                 isBusy={isBusy && pressed === "primary"}
               />
-            </RowActs>
-          </FormFooter>
+            </FormFooter>
+          </RowActs>
         </div>
       </HeldForm>
     </ClassicPage>
