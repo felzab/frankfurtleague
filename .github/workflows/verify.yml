@@ -301,6 +301,20 @@ jobs:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
     timeout-minutes: 19
+    # Two legs, each on a runner and a stack of its own, by Playwright project
+    # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
+    # jobs"): a project's seeded people are its own, where a `--shard` would split the cases of one
+    # project across two databases. `fail-fast: false`, or a red leg cancels the other and its
+    # verdict is lost. `first-pass` depends on `administrator` alone, so it rides the desktop leg.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: desktop
+            projects: --project=desktop --project=first-pass
+          - leg: phone
+            projects: --project=phone
+    name: journeys (${{ matrix.leg }})
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
@@ -380,19 +394,24 @@ jobs:
       # reporter's annotations name files relative to it. The install's own launcher, because the
       # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
+        env:
+          PROJECTS: ${{ matrix.projects }}
         run: |
+          # The leg's flags, one word each.
+          read -r -a projects <<< "$PROJECTS"
           docker run --rm --init --ipc=host --network=host \
             --user "$(id -u):$(id -g)" \
             --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
             --workdir "${GITHUB_WORKSPACE}/fl_frontend" \
             --env CI --env GITHUB_WORKSPACE \
             "$PLAYWRIGHT_IMAGE" \
-            node_modules/.bin/playwright test
+            node_modules/.bin/playwright test "${projects[@]}"
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: journeys-report
+          # One name per leg: upload-artifact refuses a second artifact under a name the run holds.
+          name: journeys-report-${{ matrix.leg }}
           path: .tmp-playwright/
           # A dot directory, which the action leaves out by default: without this a failed run
           # uploads nothing and says so in a warning alone.
