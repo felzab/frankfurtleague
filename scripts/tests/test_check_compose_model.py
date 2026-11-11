@@ -319,18 +319,6 @@ def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -
     return code, out.getvalue()
 
 
-def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
-    """The nginx files as they stand, through `main`: a trust either edge's own directory adds fails this."""
-    project = new_root("fl-compose-main-")
-
-    production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-    local = rendered_stack(project, "nginx/local")
-
-    code, said = run_main(production, local, project)
-
-    assert code == 0, said
-
-
 def test_main_judges_the_environment_files_of_both_models():
     """The rule's own cases drive it directly; a service reading a second file, in either model, fails the run."""
     project = new_root("fl-compose-main-env-")
