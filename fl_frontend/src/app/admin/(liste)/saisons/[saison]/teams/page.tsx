@@ -66,7 +66,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
     ...(chip === undefined ? {} : { chip, muted: true }),
     cells: {
       gruppe: team.gruppe === null ? COPY.shared.noValue : COPY.shared.season.gruppe(team.gruppe),
-      trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : { record: trikotFarbeLabel(team.trikot_farbe) },
+      trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : trikotFarbeLabel(team.trikot_farbe),
     },
   };
 }

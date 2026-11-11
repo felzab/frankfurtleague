@@ -37,7 +37,8 @@ export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType 
   return exit === null ? undefined : { tone: "danger", label: austrittState(exit) };
 }
 
-export function trikotFarbeLabel(farbe: FLTrikotFarbe): string {
+/** A kit colour's name, as the catalogue words it. */
+export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {
   return COPY.team.trikotFarbeName[farbe];
 }
 
