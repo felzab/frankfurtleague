@@ -1,8 +1,8 @@
 # OPS · production stack
 #
 # One host behind a Cloudflare tunnel: the connector and nginx in front, the Next.js frontend and
-# the FastAPI backend behind them. Pulls published images and never builds -- `deploy.sh` enforces
-# that, because a server that builds is a server that can fail a build with the site down.
+# the FastAPI backend behind them. Pulls published images and never builds -- no service here has a
+# `build:` -- because a server that builds is a server that can fail a build with the site down.
 #
 # Invariants:
 # - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
@@ -16,9 +16,10 @@
 # See:
 # - docs/ops/spec.md -- the service table and invariants
 
-# The host's journal, which bounds every line's age (`docs/ops/runbooks.md`), each line tagged with its
-# container's name, so `journalctl CONTAINER_NAME=<name>` finds a service across recreates and
-# `docker compose logs` reads it still (https://docs.docker.com/engine/logging/drivers/journald/).
+# The host's journal, which bounds every line's age (`docs/ops/runbooks.md`) and which `docker compose
+# logs` reads still. The tag names each line's identifier after its container rather than the first
+# 12 characters of its id, so `journalctl -t <name>` finds a service across recreates
+# (https://docs.docker.com/engine/logging/drivers/journald/).
 x-logging: &default-logging
   driver: journald
   options:
@@ -144,7 +145,7 @@ services:
   nginx:
     # Tag and digest (`docs/ops/spec.md` §1.1). The local stack, `nginx/edge_test.sh` and
     # `scripts/gate/verify.sh`'s `nginx -t` read this line.
-    image: nginx:1.31.8-alpine@sha256:1ef7ca94d7879df82421428ce13bd1eaa412404953859cf7a5b6512c25e67a60
+    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
     restart: unless-stopped
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
     # then serves none of this stack's edge or refuses its includes.
@@ -174,8 +175,9 @@ services:
       - SETUID
       - SETGID
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
-    # traffic before both upstreams answer. A deploy does not pass through here, recreating the
-    # application pair alone, so this governs a cold start.
+    # traffic before both upstreams answer. A deploy that moves only the application images recreates
+    # that pair alone and does not pass through here; one that also moves this image recreates nginx,
+    # which then waits here for both upstreams as a cold start does.
     depends_on:
       frontend:
         condition: service_healthy
@@ -198,11 +200,12 @@ services:
     # Pinned by tag and digest (`docs/ops/spec.md` §1.1), against the vendor's own `:latest --pull
     # always` example: the component holding the site's one route in would otherwise drift per host,
     # silently.
-    image: cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
     restart: unless-stopped
-    # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
-    # own binary is the unpinned tag again, arrived at from inside the container.
-    command: tunnel --no-autoupdate run --token-file /run/secrets/tunnel_token
+    # The pin above is the version policy, and the image turns cloudflared's autoupdate off itself, so
+    # the connector never replaces its own binary. A bump reads the release's Dockerfile for it again.
+    # `--metrics` on loopback and one port: the check below asks it, and nothing on the network can.
+    command: tunnel --metrics 127.0.0.1:20241 run --token-file /run/secrets/tunnel_token
     # `--token-file` rather than `--token` or `TUNNEL_TOKEN`: an argument sits in every process
     # listing and an environment in `docker inspect`, and a mounted file sits in neither.
     secrets:
@@ -217,6 +220,17 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      # Healthy only while the connector holds a connection to Cloudflare's edge: `tunnel ready` asks
+      # the metrics server's /ready, which answers 200 for one or more. A running process alone can be
+      # a refused token restarting, which the deploy's wait would pass. The image has no shell.
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+      # The application pair's first-probe reason, and the same engine requirement.
+      start_interval: 3s
     # No `condition:` to give: nginx declares no healthcheck, so `service_started` is all there is.
     # It is enough, because nginx itself waits on both upstreams being healthy before it starts.
     depends_on:

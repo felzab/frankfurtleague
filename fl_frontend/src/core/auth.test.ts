@@ -976,9 +976,9 @@ describe("whose passkey may answer a signed-in page's challenge", () => {
   });
 });
 
+/* The plugin checks the flag the browser prompt sets only while `authenticatorSelection` asks for it, and answers
+   an unverified response with the refusal it gives any response that fails verification. */
 describe("what the passkey ceremony has to prove before it mints anything", () => {
-  /* 1.7.7 hardcodes `requireUserVerification: false` in both verifiers, so the flag the browser
-     prompt sets is checked here or nowhere. */
   it("refuses an assertion the authenticator did not verify, and mints no session for it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
@@ -987,20 +987,20 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     const refused = await assertPasskey(cookie, false);
 
     expect(refused.status).toBe(400);
-    expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
+    expect(((await refused.json()) as { code?: string }).code).toBe("AUTHENTICATION_FAILED");
     expect(store.session.length, "a refused assertion still minted a session").toBe(sessions);
     assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
   });
 
-  /* The registration half of the same requirement, which the card's first step runs: 1.7.7 hardcodes
-     the flag off in this verifier too, so a passkey with no PIN and no biometric enrols unjudged. */
+  /* The registration half of the same requirement, which the card's first step runs: a passkey with no PIN and no
+     biometric would otherwise enrol unjudged. */
   it("refuses an enrolment the authenticator did not verify, and writes no passkey for it", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     const refused = await enrolPasskey(cookie, {}, false);
 
     expect(refused.status).toBe(400);
-    expect(((await refused.json()) as { code?: string }).code).toBe("USER_VERIFICATION_REQUIRED");
+    expect(((await refused.json()) as { code?: string }).code).toBe("FAILED_TO_VERIFY_REGISTRATION");
     expect(store.passkey).toStrictEqual([]);
   });
 });

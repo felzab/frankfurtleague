@@ -94,12 +94,12 @@ def landing(url: str, database_name: str) -> Any:
 
 
 @pytest.mark.db
-def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_decided(mongo_url: str):
+def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_decided(mongo_replica_set_url: str):
     """Cara left the season the day before the match for third place, which it lost: fourth is in, and nobody's."""
 
     cara = ObjectId("6890a1b2c3d4e5f607440004")
     seeded(
-        mongo_url,
+        mongo_replica_set_url,
         VACATED_DATABASE_NAME,
         {
             Collection.SAISON_TEAMS: [
@@ -119,7 +119,7 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
         },
     )
 
-    saison = landing(mongo_url, VACATED_DATABASE_NAME).saison
+    saison = landing(mongo_replica_set_url, VACATED_DATABASE_NAME).saison
 
     assert type(saison) is FLLandingDecided
     assert [place and place.name for place in saison.podium] == ["Alpha", "Beta", "Dora", None]
