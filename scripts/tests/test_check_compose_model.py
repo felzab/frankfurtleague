@@ -153,46 +153,6 @@ def test_a_short_syntax_volume_refuses():
     raise AssertionError("a short-syntax volume was judged")
 
 
-# --- the edge's Control API socket ---------------------------------------------------------------
-
-SOCKET = "/run/nginx-control/control.sock"
-
-
-def started(command: list[str], tmpfs: list[str]) -> dict[str, Any]:
-    return model(nginx={"command": command, "tmpfs": tmpfs})
-
-
-LISTENING = ["nginx", "-g", "daemon off;", "-l", f"unix:{SOCKET}"]
-
-
-def test_a_socket_the_deploy_asks_in_a_root_only_tmpfs_is_clean():
-    assert checker.control_socket(started(LISTENING, ["/run/nginx-control:mode=700"]), "p", SOCKET) == []
-
-
-def test_a_command_without_the_listener_or_on_another_socket_fails():
-    """Either way every reload the deploy sends meets no socket."""
-    tmpfs = ["/run/nginx-control:mode=700"]
-    assert len(checker.control_socket(started(LISTENING[:3], tmpfs), "p", SOCKET)) == 1
-    assert len(checker.control_socket(started([*LISTENING[:4], "unix:/run/nginx-control/other.sock"], tmpfs), "p", SOCKET)) == 1
-
-
-def test_a_tmpfs_at_dockers_default_mode_fails():
-    """1777, which lets the worker's user into the directory."""
-    assert len(checker.control_socket(started(LISTENING, ["/run/nginx-control"]), "p", SOCKET)) == 1
-
-
-def test_the_socket_is_read_off_the_deploy_script():
-    assert checker.deploy_socket(checker.DEPLOY) == SOCKET
-
-
-def test_the_deploy_compares_exactly_the_pairs_production_mounts():
-    """Read off the script itself: a pair missing there is a directory nginx loads and no deploy compares."""
-    pairs = [("nginx/prod", "/etc/nginx/conf.d"), ("nginx/shared", "/etc/nginx/shared")]
-
-    assert checker.compared(pairs, checker.deploy_pairs(checker.DEPLOY), "p") == []
-    assert len(checker.compared([*pairs, ("nginx/extra", "/etc/nginx/extra")], checker.deploy_pairs(checker.DEPLOY), "p")) == 1
-
-
 # --- the connector production's edge trusts ---------------------------------------------------------
 
 CONNECTOR = "172.30.0.250"
@@ -315,7 +275,7 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / conf_dir), "target": "/etc/nginx/conf.d"},
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
-    nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
+    nginx = {"volumes": edge_volumes, **joined(EDGE, APP)}
     frontend = env_file("fl_frontend/.env") | joined(APP)
     backend = env_file("fl_backend/.env") | joined(APP)
     # The local stack's database, which its logins name.

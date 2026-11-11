@@ -43,10 +43,8 @@ EDGE_SERVICE: Final = "nginx"
 # The long form's `host_ip` as Compose renders a loopback binding, IPv6 unbracketed.
 LOOPBACK: Final = frozenset({"127.0.0.1", "::1"})
 
-# The checkout directory whose mounts the deploy compares with what nginx loaded.
+# The checkout directory the edge's configuration is mounted from.
 EDGE_CONFIG_ROOT: Final = "nginx"
-
-DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 
 # The one service whose requests production's edge takes the visitor's address from.
 CONNECTOR_SERVICE: Final = "cloudflared"
@@ -735,65 +733,6 @@ def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path)
     return pairs, findings
 
 
-def deploy_pairs(deploy: Path) -> list[tuple[str, str]]:
-    """`EDGE_CONFIG_DIRS` as the deploy script assigns it, on one line."""
-    found = re.search(r"^EDGE_CONFIG_DIRS=\((.*)\)$", deploy.read_bytes().decode(), re.MULTILINE)
-    if found is None:
-        raise ValueError(f"{deploy.name} assigns no EDGE_CONFIG_DIRS array on one line, so no pair was compared")
-    return [(source, target) for source, target in re.findall(r'"([^":]+):([^"]+)"', found.group(1))]
-
-
-def compared(pairs: list[tuple[str, str]], compared_pairs: list[tuple[str, str]], name: str) -> list[Finding]:
-    """A mount the deploy does not compare is configuration nginx loads unchecked, and a pair nothing mounts fails every deploy."""
-    if sorted(pairs) == sorted(compared_pairs):
-        return []
-    return [
-        Finding(
-            "fail",
-            f"{name}: {EDGE_SERVICE} mounts {sorted(pairs)}, and scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS compares {sorted(compared_pairs)}\n"
-            f"{CONTINUATION}the two move together",
-        )
-    ]
-
-
-def deploy_socket(deploy: Path) -> str:
-    """`EDGE_CONTROL_SOCKET` as the deploy script assigns it."""
-    found = re.search(r'^EDGE_CONTROL_SOCKET="([^"]+)"$', deploy.read_bytes().decode(), re.MULTILINE)
-    if found is None:
-        raise ValueError(f"{deploy.name} assigns no EDGE_CONTROL_SOCKET, so the edge's control socket was not compared")
-    return found.group(1)
-
-
-def control_socket(model: dict[str, Any], name: str, socket: str) -> list[Finding]:
-    """The edge opens its Control API where the deploy asks it, in a tmpfs only root can enter.
-
-    Any other socket refuses every reload; Docker's default mode lets the worker's user in.
-    """
-    edge = services(model, name).get(EDGE_SERVICE) or {}
-    command = [str(argument) for argument in edge.get("command") or []]
-    listens = [command[i + 1] for i, argument in enumerate(command[:-1]) if argument == "-l"]
-    findings: list[Finding] = []
-    if listens != [f"unix:{socket}"]:
-        findings.append(
-            Finding(
-                "fail",
-                f"{name}: {EDGE_SERVICE}'s command opens its Control API at {listens or 'nothing'}, and the deploy asks unix:{socket}\n"
-                f"{CONTINUATION}scripts/ops/deploy.sh :: EDGE_CONTROL_SOCKET and the command move together",
-            )
-        )
-    tmpfs = edge.get("tmpfs") or []
-    directory = socket.rsplit("/", 1)[0]
-    if f"{directory}:mode=700" not in ([tmpfs] if isinstance(tmpfs, str) else tmpfs):
-        findings.append(
-            Finding(
-                "fail",
-                f"{name}: {EDGE_SERVICE} mounts no tmpfs at {directory} with mode=700, among {tmpfs!r}\n"
-                f"{CONTINUATION}a socket left on disk refuses the next start, and any other mode lets the worker's user reload nginx",
-            )
-        )
-    return findings
-
-
 def connector_address(model: dict[str, Any], name: str) -> str:
     """The one static address the rendered model gives the connector."""
     connector = services(model, name).get(CONNECTOR_SERVICE)
@@ -935,7 +874,7 @@ def main() -> int:
         findings = production(prod_model, "production") + local(local_model, "local")
         prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
         local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
-        findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
+        findings += prod_mounts + local_mounts
         findings += env_files(prod_model, "production") + env_files(local_model, "local")
         findings += networks(prod_model, "production") + networks(local_model, "local")
         findings += privileges(prod_model, "production") + privileges(local_model, "local")
@@ -949,8 +888,6 @@ def main() -> int:
         findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
         findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
-        socket = deploy_socket(DEPLOY)
-        findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
         # Production's address for both: the local stack starts no connector, and an edge trusting
         # what the other does not is serving another edge's configuration.
         connector = connector_address(prod_model, "production")
@@ -963,8 +900,7 @@ def main() -> int:
     code = report_findings(findings)
     if not findings:
         print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally every port binds loopback")
-        print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
-        print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
+        print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone")
         print("      each application service reads its package's environment file alone")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")

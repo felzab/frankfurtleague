@@ -4,8 +4,8 @@
 # `nginx -t` parses, seeing no log line and no response, so a query written to the access line and a
 # location dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
 # the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
-# the Control API the deploy reloads through, started as `docker-compose.yml` starts it, and
-# `nginx/prod/` for the blocks production alone serves. It answers nothing about which locations the
+# started with the privileges `docker-compose.yml` grants it, and `nginx/prod/` for the blocks
+# production alone serves. It answers nothing about which locations the
 # edge makes reachable.
 #
 # Invariants:
@@ -126,8 +126,6 @@ cr="$(printf '\r')"
 while IFS= read -r line; do printf '%s\n' "$line"; [ "$line" = "$cr" ] && break; done > /tmp/relay-seen
 printf 'HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n'
 RECORD
-# Empty, and written below the redaction cases to drive a reload nginx refuses.
-: > "${SCRATCH}/zz-reload-probe.conf"
 
 # Each `*.conf` of `nginx/local/` mounted by name beside the stub, which a read-only directory
 # mount would refuse. The empty tmpfs under them hides the image's own `default.conf`, as the
@@ -139,34 +137,27 @@ for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
-# The edge's image, `command` and `tmpfs` off the model Compose renders for the local stack, by the
-# gate's own `scripts/lib/_lib.sh :: render_compose_model`: the Control API the deploy reloads through
-# exists only as that command starts that release.
+# The edge's image and privileges off the model Compose renders for the local stack, by the gate's
+# own `scripts/lib/_lib.sh :: render_compose_model`, so the release and the capabilities this serves
+# with are the ones the stacks start.
 EDGE_PY="$(any_python || true)"
 if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
-  refuse "no python at the checkers' floor, so the edge's command could not be read off its model."
+  refuse "no python at the checkers' floor, so the edge's image could not be read off its model."
 fi
 stage_compose_models "${SCRATCH}/model"
 render_compose_model "${SCRATCH}/model" local \
-  || refuse "compose could not render the local stack's model, so the edge's command is unknown."
+  || refuse "compose could not render the local stack's model, so the edge's image is unknown."
 EDGE_MODEL_READ='
 import json
 import sys
 
 nginx = json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]
 print("image", nginx.get("image") or "", sep="\t")
-for argument in nginx.get("command") or []:
-    print("command", argument, sep="\t")
-tmpfs = nginx.get("tmpfs") or []
-for entry in [tmpfs] if isinstance(tmpfs, str) else tmpfs:
-    print("tmpfs", entry, sep="\t")
 for key, flag in (("cap_drop", "--cap-drop"), ("cap_add", "--cap-add"), ("security_opt", "--security-opt")):
     for entry in nginx.get(key) or []:
         print("privilege", flag, entry, sep="\t")
 '
 EDGE_IMAGE=""
-EDGE_COMMAND=()
-EDGE_TMPFS=()
 # The capabilities and options the model starts nginx with, on both edges below: a master refused a
 # capability it needs never starts.
 EDGE_PRIVILEGES=()
@@ -176,26 +167,14 @@ for model_line in "${EDGE_MODEL[@]}"; do
   model_line="${model_line%$'\r'}"
   case "$model_line" in
     image$'\t'*) EDGE_IMAGE="${model_line#*$'\t'}" ;;
-    command$'\t'*) EDGE_COMMAND+=( "${model_line#*$'\t'}" ) ;;
-    tmpfs$'\t'*) EDGE_TMPFS+=( --tmpfs "${model_line#*$'\t'}" ) ;;
     privilege$'\t'*)
       model_line="${model_line#*$'\t'}"
       EDGE_PRIVILEGES+=( "${model_line%%$'\t'*}" "${model_line#*$'\t'}" ) ;;
     *) refuse "the local stack's model could not be read: ${model_line}" ;;
   esac
 done
-EDGE_SOCKET=""
-for _i in "${!EDGE_COMMAND[@]}"; do
-  if [[ "${EDGE_COMMAND[_i]}" == "-l" && "${EDGE_COMMAND[_i + 1]:-}" == unix:* ]]; then
-    EDGE_SOCKET="${EDGE_COMMAND[_i + 1]#unix:}"
-  fi
-done
-# A finding rather than a refusal: the command is the checkout's, and the deploy cannot reload an
-# edge started without it.
-[[ -n "$EDGE_SOCKET" ]] \
-  || die "the edge's command in docker-compose.yml opens no Control API socket (-l unix:...), which the deploy reloads through."
 [[ -n "$EDGE_IMAGE" ]] || refuse "the local stack's model names no image for nginx, so there is no release to serve."
-if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_COMMAND[*]} ${EDGE_TMPFS[*]}"; fi
+if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]}"; fi
 
 quietly docker network create "$NETWORK" \
   || refuse "could not create the edge test's network ${NETWORK}. Docker's own reason is above."
@@ -211,13 +190,11 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" --network-alias frontend \
   "${LOCAL_MOUNTS[@]}" \
-  "${EDGE_TMPFS[@]}" \
   "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
-  -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
   -v "/${SCRATCH}/relay-record.sh:/relay-record.sh:ro" \
-  "$EDGE_IMAGE" "${EDGE_COMMAND[@]}" >/dev/null \
+  "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
 
 # The container's two streams as Docker holds them, read whole into the scratch directory: nginx's
@@ -828,96 +805,6 @@ for _j in "${!BODY_LABELS[@]}"; do
   fi
 done
 
-# --- the Control API the deploy reloads through ----------------------------------------------------
-
-# Asked as `scripts/ops/deploy.sh :: edge_control` asks it, and its dump decoded by the deploy's own
-# `EDGE_LOADED_SUMS`, read off the script rather than restated.
-EDGE_LOADED_SUMS="$(sed -n "/^EDGE_LOADED_SUMS='\$/,/^'\$/p" scripts/ops/deploy.sh | sed '1d;$d')"
-[[ -n "$EDGE_LOADED_SUMS" ]] || refuse "scripts/ops/deploy.sh assigns no EDGE_LOADED_SUMS block to decode the dump with."
-CONTROL_URL="http://localhost/1/control/config"
-CONTROL_FAILURES=0
-control() { # $1 the reload's expected status; answers the status in CONTROL_STATUS, the body in CONTROL_BODY
-  local reply="" rc=0
-  reply="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" curl -sS --max-time 30 --unix-socket "$EDGE_SOCKET" -X PATCH -w '\n%{http_code}' "$CONTROL_URL" 2>&1)" || rc=$?
-  reply="${reply//$'\r'/}"
-  CONTROL_STATUS="${reply##*$'\n'}"
-  CONTROL_BODY="${reply%$'\n'*}"
-  if (( rc )) || [[ "$CONTROL_STATUS" != "$1" ]]; then
-    fail "CONTROL PATCH, expecting $1"
-    detail "curl exited ${rc}, the API answered '${CONTROL_STATUS}': ${CONTROL_BODY}"
-    CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
-  elif verbose; then
-    info "the reload answered ${CONTROL_STATUS}: ${CONTROL_BODY}"
-  fi
-}
-
-# Applied: 200, and the dump then holds exactly the checkout's files under the two directories.
-control 200
-CONTROL_RC=0
-CONTROL_DUMP="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" curl -sS --fail --max-time 30 --unix-socket "$EDGE_SOCKET" "$CONTROL_URL")" || CONTROL_RC=$?
-CONTROL_LISTED="$(printf '%s' "$CONTROL_DUMP" | "$EDGE_PY" -c "$EDGE_LOADED_SUMS")" || CONTROL_RC=$?
-declare -A LOADED=() CHECKED_OUT=()
-while IFS=' ' read -r loaded_sum loaded_path; do
-  loaded_path="${loaded_path%$'\r'}"
-  case "$loaded_path" in
-    # The stub and the reload probe are this test's own, and no checkout's.
-    /etc/nginx/conf.d/zz-upstream-stub.conf|/etc/nginx/conf.d/zz-reload-probe.conf) ;;
-    /etc/nginx/conf.d/*|/etc/nginx/shared/*) LOADED["$loaded_path"]="$loaded_sum" ;;
-  esac
-done <<< "$CONTROL_LISTED"
-for conf in nginx/local/*.conf nginx/shared/*; do
-  [[ -f "$conf" ]] || continue
-  checked_out_sum="$(sha256sum -- "$conf")"
-  case "$conf" in
-    nginx/local/*) CHECKED_OUT["/etc/nginx/conf.d/${conf##*/}"]="${checked_out_sum%% *}" ;;
-    *) CHECKED_OUT["/etc/nginx/shared/${conf##*/}"]="${checked_out_sum%% *}" ;;
-  esac
-done
-CONTROL_DIFFER=()
-for loaded_path in "${!CHECKED_OUT[@]}"; do
-  [[ "${LOADED[$loaded_path]:-}" == "${CHECKED_OUT[$loaded_path]}" ]] || CONTROL_DIFFER+=( "$loaded_path" )
-done
-for loaded_path in "${!LOADED[@]}"; do
-  [[ -n "${CHECKED_OUT[$loaded_path]:-}" ]] || CONTROL_DIFFER+=( "$loaded_path" )
-done
-if (( CONTROL_RC || ${#CONTROL_DIFFER[@]} || ${#LOADED[@]} == 0 )); then
-  fail "CONTROL GET"
-  detail "the dump (exit ${CONTROL_RC}) does not hold the checkout's files as they stand: ${CONTROL_DIFFER[*]:-none loaded}"
-  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
-elif verbose; then
-  info "the dump holds the checkout's ${#CHECKED_OUT[@]} files, byte for byte"
-  printf '%s\n' "${CONTROL_LISTED//$'\r'/}" | detail
-fi
-
-# Refused: 422 carrying nginx's own line, and the configuration it had still serving.
-printf 'fl_edge_probe_unknown_directive on;\n' > "${SCRATCH}/zz-reload-probe.conf"
-control 422
-if [[ "$CONTROL_STATUS" == 422 && "$CONTROL_BODY" != *fl_edge_probe_unknown_directive* ]]; then
-  fail "CONTROL PATCH, refused"
-  detail "the 422 does not name the directive nginx refused: ${CONTROL_BODY}"
-  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
-fi
-: > "${SCRATCH}/zz-reload-probe.conf"
-control 200
-
-# The worker's user may not reach the socket, and the directory holding it is root's alone
-# (`docker-compose.yml :: nginx`'s tmpfs mode).
-CONTROL_MODES="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" stat -c '%a %U %n' "${EDGE_SOCKET%/*}" "$EDGE_SOCKET" 2>&1 || true)"
-CONTROL_MODES="${CONTROL_MODES//$'\r'/}"
-if [[ "$CONTROL_MODES" != "700 root ${EDGE_SOCKET%/*}"$'\n'* ]]; then
-  fail "CONTROL directory mode"
-  detail "expected ${EDGE_SOCKET%/*} at 700, owned by root: ${CONTROL_MODES}"
-  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
-elif verbose; then
-  printf '%s\n' "$CONTROL_MODES" | detail
-fi
-CONTROL_WORKER="$(MSYS_NO_PATHCONV=1 docker exec -u nginx "$CONTAINER" curl -sS --max-time 5 --unix-socket "$EDGE_SOCKET" "$CONTROL_URL" 2>&1)" && {
-  fail "CONTROL as nginx"
-  detail "the worker's user reached the Control API at ${EDGE_SOCKET}"
-  CONTROL_FAILURES=$(( CONTROL_FAILURES + 1 ))
-}
-if verbose; then detail "as nginx: ${CONTROL_WORKER//$'\r'/}"; fi
-
 # --- the block production alone serves -----------------------------------------------------------
 
 # `nginx/prod/` mounted as production mounts it, on the plain port the connector dials: the www
@@ -1205,8 +1092,8 @@ if [[ -n "$TOKEN_LINES" ]]; then
   LINE_FAILURES=$(( LINE_FAILURES + 1 ))
 fi
 
-if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
-  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${BODY_FAILURES} body-cap, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
+if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + RESOLVE_FAILURES > 0 )); then
+  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${BODY_FAILURES} body-cap and ${RESOLVE_FAILURES} upstream cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
@@ -1216,6 +1103,6 @@ ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empt
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
 metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the
-the code check metered on its own pair, every body cap taking its figure and refusing a byte past it, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+the code check metered on its own pair, every body cap taking its figure and refusing a byte past it,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

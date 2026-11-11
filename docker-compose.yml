@@ -140,20 +140,12 @@ services:
     # `scripts/gate/verify.sh`'s `nginx -t` read this line.
     image: nginx:1.31.8-alpine@sha256:1ef7ca94d7879df82421428ce13bd1eaa412404953859cf7a5b6512c25e67a60
     restart: unless-stopped
-    # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
-    # (https://nginx.org/en/docs/switches.html, `-l`, from 1.31.5). A socket, never a port: a port
-    # answers on every interface of this network, reloads included.
-    command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
-    # A tmpfs: a socket a killed master leaves on disk makes the next start refuse to bind and
-    # exit. Mode 700, so no user but root reaches the socket, whatever mode nginx gives it.
-    tmpfs:
-      - /run/nginx-control:mode=700
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
-    # then serves none of this stack's edge or refuses its includes. `deploy.sh` checks each file.
+    # then serves none of this stack's edge or refuses its includes.
     volumes:
       # Directories, never a file: a file mount holds the inode it was created with, and a pull
-      # replaces a changed file with a new one, so the reload `deploy.sh` sends would re-read the
-      # old file.
+      # replaces a changed file with a new one, so the `nginx -s reload` the deploy sends would
+      # re-read the old file.
       - ./nginx/prod:/etc/nginx/conf.d:ro
       # What both edges share, which prod.conf includes by this container path.
       - ./nginx/shared:/etc/nginx/shared:ro
