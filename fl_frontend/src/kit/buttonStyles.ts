@@ -56,8 +56,9 @@ export const buttonLook = tv({
 /**
  * The look of a button opening the question an act asks first, by the question's tone: an act that destroys takes the
  * outlined danger look, any other the secondary one, since the fill belongs to the question's own button that does the
- * act. An editor's danger box, a dialog's part ending its record and a Konto box read it, so one destroying act looks
- * the same wherever it stands.
+ * act. Every question's and dialog's trigger is drawn by it (`ConfirmDialog.tsx :: TriggerButton`), and so is the
+ * locked button standing in a trigger's place and the question form's press, so one destroying act looks the same
+ * wherever it stands.
  */
 export function askingLook(tone: "danger" | "primary") {
   return tone === "danger" ? "dangerOutline" : "secondary";

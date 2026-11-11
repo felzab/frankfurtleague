@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { Button } from "@/kit/Button";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { Dialog } from "@/kit/Dialog";
 
@@ -53,12 +52,7 @@ export function ZusageDialog({
       title={TITLE}
       act={ACT}
       action={enter}
-      trigger={
-        <Button
-          variant="secondary"
-          label={TITLE}
-        />
-      }>
+      trigger={{ label: TITLE }}>
       <Segmented
         label={WORDS.zusageFrom}
         choices={parties.map((party) => ({ id: party.id, label: party.name }))}

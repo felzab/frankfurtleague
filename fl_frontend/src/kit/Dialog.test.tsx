@@ -37,12 +37,7 @@ function CreateDialog({ create, locked }: { create: (formData: FormData) => Prom
       act={{ verb: "create", object: NAME }}
       action={create}
       locked={locked}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.create}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.create }}>
       <TextField
         label={INPUT}
         name="created"
@@ -103,12 +98,7 @@ describe("the kit's confirmation", () => {
         subject={NAME}
         consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
-        trigger={
-          <Button
-            variant="danger"
-            label={COPY.shared.verb.retire}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
       />,
     );
@@ -130,12 +120,7 @@ describe("the kit's confirmation", () => {
         subject={NAME}
         consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
-        trigger={
-          <Button
-            variant="danger"
-            label={COPY.shared.verb.retire}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => answer}
       />,
     );
@@ -173,12 +158,7 @@ function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> 
       subject={NAME}
       consequence={COPY.admin.spielort.retireConsequence}
       tone="danger"
-      trigger={
-        <Button
-          variant="danger"
-          label={COPY.shared.verb.retire}
-        />
-      }
+      trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
     />
   );
@@ -399,12 +379,7 @@ function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<Act
         consequence: COPY.admin.spielort.retireConsequence,
         confirm: { verb: "deregister", subject: NAME, consequence: COPY.admin.spielort.retireConsequence, tone: "danger", onConfirm: end },
       }}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.edit}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.edit }}>
       <TextField
         label={INPUT}
         name="created"

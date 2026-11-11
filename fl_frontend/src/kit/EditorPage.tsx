@@ -21,7 +21,7 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
-import type { ConfirmDialogProps } from "./ConfirmDialog";
+import type { ConfirmQuestion } from "./ConfirmDialog";
 import type { DialogAct } from "./dialogAct";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
@@ -60,7 +60,7 @@ export type DangerAct = {
        * asks it from the question's own button: an editor is an administrator's page, and an administrator signs in by
        * passkey alone, so the person always holds one.
        */
-      confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
+      confirm: ConfirmQuestion;
       dialog?: never;
     }
   | {
@@ -74,13 +74,6 @@ export type DangerAct = {
 function DangerRow({ act }: { act: DangerAct }) {
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
-  const button = (
-    <Button
-      variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
-      label={label}
-      locked={locked}
-    />
-  );
   return (
     // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
     <div className={dangerRow()}>
@@ -89,16 +82,20 @@ function DangerRow({ act }: { act: DangerAct }) {
         <p className={statusLine({ placement: "column", tone: "resting" })}>{act.consequence}</p>
       </div>
       {locked !== undefined ? (
-        button
+        <Button
+          variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
+          label={label}
+          locked={locked}
+        />
       ) : act.dialog === undefined ? (
         <ConfirmDialog
           {...act.confirm}
-          trigger={button}
+          trigger={{ label }}
         />
       ) : (
         <Dialog
           {...act.dialog}
-          trigger={button}
+          trigger={{ label }}
         />
       )}
     </div>

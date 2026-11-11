@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/kit/Button";
 import { Dialog } from "@/kit/Dialog";
 import { PressAct } from "@/kit/PressAct";
 
@@ -46,12 +45,7 @@ export function EinteilungActs({
         lead={spiel}
         action={declineEinteilung}
         carry={{ id }}
-        trigger={
-          <Button
-            variant="secondary"
-            label={COPY.shared.verb.decline}
-          />
-        }>
+        trigger={{ label: COPY.shared.verb.decline }}>
         {children}
       </Dialog>
     </>

@@ -48,13 +48,7 @@ export function SeatActs<Key>({
   const unsaved = useLocked(undefined);
   const sendLocked = useLocked(link?.locked);
 
-  const edit = (
-    <Button
-      icon="rename"
-      label={EDIT}
-      locked={unsaved}
-    />
-  );
+  const edit = { icon: "rename", label: EDIT } as const;
 
   return (
     <>
@@ -69,7 +63,10 @@ export function SeatActs<Key>({
         />
       )}
       {unsaved !== undefined ? (
-        edit
+        <Button
+          {...edit}
+          locked={unsaved}
+        />
       ) : (
         <Dialog
           title={EDIT}

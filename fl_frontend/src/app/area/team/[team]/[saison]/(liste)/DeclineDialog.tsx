@@ -1,4 +1,3 @@
-import { Button } from "@/kit/Button";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldGroup } from "@/kit/FieldGroup";
@@ -51,12 +50,7 @@ export function DeclineDialog({
       action={declineTermin}
       carry={{ id }}
       consequence={COPY.area.team.declineConsequence}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.decline}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.decline }}>
       <FieldGroup name={COPY.admin.overview.vorschlag}>
         <FieldPair>
           <DateField

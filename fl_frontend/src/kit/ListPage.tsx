@@ -411,24 +411,24 @@ function CreatePlaceholder({ label }: { label: Copy }) {
  * act before it, a secondary button.
  */
 function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate; side?: boolean }) {
-  const button = (
-    <Button
-      variant={side ? "secondary" : "primary"}
-      {...(side ? {} : { leadingIcon: "create" as const })}
-      label={actLabel(act.act)}
-      locked={locked}
-    />
-  );
+  const face = {
+    variant: side ? "secondary" : "primary",
+    ...(side ? {} : { leadingIcon: "create" as const }),
+    label: actLabel(act.act),
+  } as const;
   return locked === undefined ? (
     // The act that locks it takes its trigger along: a handover's start, whose button stands again unbound to its dialog.
     <RowActs className="contents">
       <Dialog
         {...act}
-        trigger={button}
+        trigger={face}
       />
     </RowActs>
   ) : (
-    button
+    <Button
+      {...face}
+      locked={locked}
+    />
   );
 }
 

@@ -17,15 +17,20 @@ import type { ConfirmWords } from "./ConfirmDialog";
 /** One act of a section's footer. */
 export type SectionActItem = {
   label: Copy;
-  variant?: "primary" | "secondary";
-  /** The question it asks before it runs; its button then carries the question's verb and tone. */
-  confirm?: ConfirmWords;
   run: () => Promise<ActionAnswer>;
   /** Closed while the section's inputs are incomplete, its fields showing what is missing, or while the press would reach nobody. */
   isDisabled?: boolean;
   /** Why its write would refuse the record as it stands, which the page read, the button saying why (`Button`). */
   locked?: Copy;
-};
+} & (
+  | {
+      variant?: "primary" | "secondary";
+      /** The question it asks before it runs; its button then carries the question's verb and tone. */
+      confirm?: ConfirmWords & { tone: "primary" };
+    }
+  // An act that destroys takes the outlined danger look its question's trigger takes everywhere (`Trigger`).
+  | { variant?: never; confirm: ConfirmWords & { tone: "danger" } }
+);
 
 const NO_INPUTS: ReadonlyArray<unknown> = [];
 
@@ -50,18 +55,18 @@ function ActButton({
 }) {
   const reason = useLocked(act.locked);
   const { confirm } = act;
-  const button = (
-    <Button
-      // An act that destroys takes the one outlined danger look its question's trigger takes everywhere.
-      variant={confirm?.tone === "danger" ? askingLook(confirm.tone) : (act.variant ?? "secondary")}
-      label={act.label}
-      isBusy={confirm === undefined && isBusy}
-      isDisabled={act.isDisabled ?? false}
-      locked={reason}
-      onPress={confirm === undefined ? onPress : undefined}
-    />
-  );
-  if (confirm === undefined || reason !== undefined) return button;
+  if (confirm === undefined || reason !== undefined)
+    return (
+      <Button
+        // A locked act that destroys keeps the one outlined danger look its question's trigger takes everywhere.
+        variant={confirm?.tone === "danger" ? askingLook(confirm.tone) : (act.variant ?? "secondary")}
+        label={act.label}
+        isBusy={confirm === undefined && isBusy}
+        isDisabled={act.isDisabled ?? false}
+        locked={reason}
+        onPress={confirm === undefined ? onPress : undefined}
+      />
+    );
   return (
     <ConfirmDialog
       {...confirm}
@@ -71,7 +76,7 @@ function ActButton({
         if (answered.ok) onAnswered(answered);
         return answered;
       }}
-      trigger={button}
+      trigger={{ label: act.label, variant: act.variant, isDisabled: act.isDisabled ?? false }}
     />
   );
 }

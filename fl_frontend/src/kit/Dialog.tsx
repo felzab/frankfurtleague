@@ -10,8 +10,7 @@ import { COPY, textOf } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
-import { askingLook } from "./buttonStyles";
-import { ConfirmDialog } from "./ConfirmDialog";
+import { ConfirmDialog, TriggerButton } from "./ConfirmDialog";
 import { actLabel } from "./dialogAct";
 import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
@@ -27,6 +26,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
+import type { Tone, Trigger } from "./ConfirmDialog";
 import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
 
@@ -140,13 +140,7 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
           if (answered.ok) startTransition(onDone);
           return answered;
         }}
-        trigger={
-          <Button
-            variant={askingLook(confirm.tone)}
-            label={COPY.shared.verb[confirm.verb]}
-            isDisabled={isClosed}
-          />
-        }
+        trigger={{ label: COPY.shared.verb[confirm.verb], isDisabled: isClosed }}
       />
     </div>
   );
@@ -260,11 +254,10 @@ function ActDialog({
   );
 }
 
-/** What opens the dialog: its own trigger, or the open state another control holds; one of the two, always. */
-type Opening =
+/** What opens the dialog: its own trigger, which it draws by its tone (`Trigger`), or the open state another control holds. */
+type Opening<T extends Tone> =
   | {
-      /** The kit `Button` that opens the dialog. */
-      trigger: ReactElement;
+      trigger: Trigger<T>;
       open?: never;
     }
   | {
@@ -280,7 +273,7 @@ type Opening =
  * noting more than it was asked leaves it open on its note, in the warn tone where the answer marks it `warn`, and a
  * refused one leaves it open with the input kept and the refusal shown.
  */
-export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Opening) {
+export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, ...form }: DialogAct<T> & Opening<T>) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const label = actLabel(act);
@@ -308,7 +301,10 @@ export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Openi
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>
-      {trigger}
+      <TriggerButton
+        trigger={trigger}
+        tone={form.tone ?? "primary"}
+      />
       {overlay}
     </DialogTrigger>
   );

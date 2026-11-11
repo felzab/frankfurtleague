@@ -854,7 +854,7 @@ export function BackControl({ href }: { href: Route }) {
         guard.discard();
         router.push(href);
       }}
-      trigger={
+      control={
         <AriaButton
           data-kit-focus="ring"
           className={back({ host: "aria" })}>

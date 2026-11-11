@@ -294,11 +294,13 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   };
 
   const question = "confirm" in act.button ? act.button.confirm : undefined;
+  const label = "label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb);
   const button = (
     <Button
+      // A locked act asking a question keeps the look its question's trigger takes (`Trigger`).
       variant={question === undefined ? (act.saves === true ? "primary" : "secondary") : askingLook(question.tone)}
       type={question === undefined ? "submit" : "button"}
-      label={"label" in act.button ? act.button.label : COPY.shared.withObject(act.button.confirm.subject, act.button.confirm.verb)}
+      label={label}
       isBusy={isBusy}
       locked={locked}
     />
@@ -333,7 +335,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
             <ConfirmDialog
               {...question}
               onConfirm={confirmed}
-              trigger={button}
+              trigger={{ label, isBusy }}
             />
           )}
         </FormFooter>
@@ -435,28 +437,21 @@ function RenameAct({ rename, describedBy }: { rename: Rename; describedBy: strin
       title={rename.title}
       act={{ verb: "rename" }}
       action={rename.run}
-      trigger={
-        <Button
-          icon="rename"
-          label={COPY.shared.verb.rename}
-          aria-describedby={describedBy}
-        />
-      }>
+      trigger={{ icon: "rename", label: COPY.shared.verb.rename, "aria-describedby": describedBy }}>
       {rename.field}
     </Dialog>
   );
 }
 
 function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: string }) {
-  const button = (
-    <Button
-      icon="erasures"
-      label={COPY.shared.verb[remove.verb]}
-      aria-describedby={describedBy}
-      locked={remove.locked}
-    />
-  );
-  if (remove.locked !== undefined) return button;
+  const face = { icon: "erasures", label: COPY.shared.verb[remove.verb], "aria-describedby": describedBy } as const;
+  if (remove.locked !== undefined)
+    return (
+      <Button
+        {...face}
+        locked={remove.locked}
+      />
+    );
   return (
     <ConfirmDialog
       verb={remove.verb}
@@ -465,7 +460,7 @@ function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: strin
       tone="danger"
       onConfirm={remove.run}
       touch={remove.touch}
-      trigger={button}
+      trigger={face}
     />
   );
 }

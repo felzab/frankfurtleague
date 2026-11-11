@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { AccountBox } from "./AccountBox";
-import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { OneShotForm } from "./OneShot";
@@ -44,12 +43,7 @@ const question = (onConfirm: () => Promise<ActionAnswer>, touch?: { holder: stri
     consequence={COPY.shared.failure.stale}
     tone="danger"
     onConfirm={onConfirm}
-    trigger={
-      <Button
-        variant="secondary"
-        label={VERB}
-      />
-    }
+    trigger={{ label: VERB }}
     {...(touch === undefined ? {} : { touch })}
   />
 );
@@ -119,12 +113,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
         act={{ verb: "save" }}
         action={action}
         touch={{ holder: HOLDER }}
-        trigger={
-          <Button
-            variant="secondary"
-            label={COPY.shared.help}
-          />
-        }>
+        trigger={{ label: COPY.shared.help }}>
         <TextField
           label={COPY.shared.name}
           name="name"
