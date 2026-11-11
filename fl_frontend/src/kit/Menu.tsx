@@ -28,7 +28,6 @@ import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { IconName } from "./Icon";
 
 /**
  * A link in a menu; `isCurrent` marks the one in force as every list marks its chosen entry, in a list that has
@@ -37,7 +36,6 @@ import type { IconName } from "./Icon";
  */
 export type MenuLink = {
   href: Route;
-  icon?: IconName;
   isCurrent?: boolean;
   label: Words;
   detail?: Words;
@@ -45,15 +43,19 @@ export type MenuLink = {
   replace?: boolean;
 };
 
-/** One entry of a menu: a link, an action, an action that cannot run now, or a second list of links. */
+/**
+ * One entry of a menu: a link, an action, an action that cannot run now, or a second list of links. An entry is its
+ * words alone in every menu, no glyph before them: a menu holds a few entries, read by their words, as Carbon's menu
+ * draws them; Primer keeps a leading glyph for scanning a long list of a system's sections, which the rail is. A glyph
+ * after the words marks what the entry leads to, a submenu, or the entry chosen.
+ */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
   | {
       kind: "action";
       label: Copy;
-      icon?: IconName;
       /**
-       * An action that destroys: its words and its icon in the danger hue, as every destroying act's button words them
+       * An action that destroys: its words in the danger hue, as every destroying act's button words them
        * (`buttonStyles.ts`'s `dangerOutline`), so the entry reads as what it does before it is pressed. It stands after
        * the menu's other entries.
        */
@@ -66,9 +68,9 @@ export type MenuEntry =
    * nothing and leaves the menu open, the reason still to read. Never React Aria's disabled entry, which the keys pass
    * over, so nobody would hear why.
    */
-  | { kind: "locked"; label: Copy; icon?: IconName; reason: Copy }
+  | { kind: "locked"; label: Copy; reason: Copy }
   /** A second list, beside the menu on desktop and as a second sheet with „Zurück“ on a phone. */
-  | { kind: "submenu"; label: Copy; icon?: IconName; links: ReadonlyArray<MenuLink> };
+  | { kind: "submenu"; label: Copy; links: ReadonlyArray<MenuLink> };
 
 export type MenuProps = {
   /** The menu's name. */
@@ -125,28 +127,26 @@ const surface = (width: "content" | "trigger" = "content") => menuPopover({ fit:
 function Entry({
   label,
   detail,
-  icon,
+  back = false,
   hasMore,
   isChosen = false,
   wraps = false,
-  danger = false,
 }: {
   label: string;
   detail?: string;
-  icon?: IconName;
+  /** The phone's second sheet's „Zurück“, the one row a glyph leads: the way back, as the sheet's own control. */
+  back?: boolean;
   hasMore?: boolean;
   isChosen?: boolean;
   /** The detail is a sentence to read whole, a locked entry's reason: it wraps where every other detail is cut. */
   wraps?: boolean;
-  /** A destroying action's icon, in its words' danger hue rather than the muted grey of every other entry's. */
-  danger?: boolean;
 }) {
   return (
     <>
-      {icon !== undefined && (
-        <span className={danger ? "text-danger" : "text-fg-muted"}>
+      {back && (
+        <span className="text-fg-muted">
           <Icon
-            glyph={icon}
+            glyph="back"
             size={16}
           />
         </span>
@@ -226,7 +226,6 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
         <Entry
           label={textOf(link.label)}
           detail={detail}
-          icon={link.icon}
           isChosen={isSelected}
         />
       )}
@@ -252,7 +251,7 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
           className={item({ size })}>
           <Entry
             label={COPY.shared.back}
-            icon="back"
+            back
           />
         </MenuItem>
       )}
@@ -299,11 +298,7 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               onAction={entry.onAction}
               data-kit-focus="option"
               className={item({ size, tone: entry.tone })}>
-              <Entry
-                label={entry.label}
-                icon={entry.icon}
-                danger={entry.tone === "danger"}
-              />
+              <Entry label={entry.label} />
             </MenuItem>
           );
         }
@@ -319,7 +314,6 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               <Entry
                 label={entry.label}
                 detail={entry.reason}
-                icon={entry.icon}
                 wraps
               />
             </MenuItem>
@@ -336,7 +330,6 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
             className={item({ size })}>
             <Entry
               label={entry.label}
-              icon={entry.icon}
               hasMore
             />
           </MenuItem>

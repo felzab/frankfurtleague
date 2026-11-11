@@ -7,14 +7,11 @@ import { Menu } from "./Menu";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { IconName } from "./Icon";
 import type { MenuEntry } from "./Menu";
 
 /** One side act of a row: its menu entry's words, and what its press does. */
 export type SideAct = {
   label: Copy;
-  /** The glyph before the entry's words. */
-  icon?: IconName;
   /**
    * An act that destroys: its entry in the danger hue (`Menu`'s `tone`), as its button would stand in the outlined
    * danger look, while it can run; a locked one is muted as every locked entry is.
@@ -34,15 +31,16 @@ export type SideAct = {
   onPress: () => void;
 };
 
-const entryOf = ({ label, icon, tone, locked, onPress }: SideAct): MenuEntry =>
+const entryOf = ({ label, tone, locked, onPress }: SideAct): MenuEntry =>
   locked === undefined
-    ? { kind: "action", label, ...(icon === undefined ? {} : { icon }), ...(tone === undefined ? {} : { tone }), onAction: onPress }
-    : { kind: "locked", label, ...(icon === undefined ? {} : { icon }), reason: locked };
+    ? { kind: "action", label, ...(tone === undefined ? {} : { tone }), onAction: onPress }
+    : { kind: "locked", label, reason: locked };
 
 /**
  * A row's side acts, the ones beside what the row is for, such as a running change's fresh link and its ending or a
  * seat's link and its edit, in a list whose rows carry two or more: one „⋯“ at the row's end, at every width, which
- * opens the kit's menu on the acts in their order, a destroying one after the others. The list decides, never the row:
+ * opens the kit's menu on the acts in their order, a destroying one after the others, each entry its words alone, as
+ * every menu of the kit's holds them. The list decides, never the row:
  * every row of it that carries acts holds them in the „⋯“, one holding a single act too, so the rows of one list stand
  * alike. A list whose rows carry one side act at the most shows that act as its button, and a row's decision, such as
  * „Zusagen“ and „Ablehnen“, keeps its labelled buttons: neither is drawn here.

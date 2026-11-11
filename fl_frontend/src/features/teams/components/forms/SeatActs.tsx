@@ -61,7 +61,6 @@ export function SeatActs<Key>({
     link === null
       ? null
       : {
-          icon: "email",
           label: SEND,
           isBusy: isSending,
           ...(sendLocked === undefined ? {} : { locked: sendLocked }),
@@ -71,7 +70,6 @@ export function SeatActs<Key>({
             }),
         };
   const edit: SideAct = {
-    icon: "rename",
     label: EDIT,
     ...(unsaved === undefined ? {} : { locked: unsaved }),
     onPress: () => setEditing(true),
