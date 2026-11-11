@@ -625,7 +625,8 @@ class FLTeamSaisonFacts(BaseReadModel):
     start_date: CustomDateString
     # `app/api/saisons/services.py :: has_started`, which an exit is refused before.
     begun: bool
-    # The registration window's end, the whole of a link's expiry; null for a season storing no window.
+    # The registration window's end, past which an entry through the link is a nominee (`app/api/saisons/services.py ::
+    # entry_is_a_nominee`), the link opening on until the season ends; null for a season storing no window.
     registrierung_end: CustomOptionalDateString
 
 

@@ -38,6 +38,7 @@ export const mailInvitation = action({
   lane: "admin",
   name: "mailInvitation",
   input: Key.extend(TeamsPostInvitationDispatchBody.shape),
+  ownWords: ["saison_past"],
   run: async ({ team_id, saison_id, invitation_id }) => {
     const { mailed } = await teamsPostInvitationDispatch(team_id, saison_id, { invitation_id });
     return mailed === 0
