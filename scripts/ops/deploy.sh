@@ -82,6 +82,11 @@ ok "no line names a retired setting"
 # back: the build it replaces is then the one from before this script, which never runs again.
 prev=""
 if [[ -f .env ]]; then prev="$(sed -n 's/^TAG=//p' .env | tail -n 1)"; fi
+# Any other shape was written by hand, and may name images from before this script.
+if [[ -n "$prev" && ! "$prev" =~ $TAG_RE ]]; then
+  warn ".env pins TAG=${prev}, which is no build's tag, so no build is pinned to go back to."
+  prev=""
+fi
 
 # Every compose call below takes the tag from here, over any TAG the operator's shell exports.
 export TAG="$tag"
