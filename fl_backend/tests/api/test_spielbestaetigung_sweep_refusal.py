@@ -8,6 +8,8 @@ from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
     compose_ansetzung,
     deadline_of,
+    discard_owes_a_notice,
+    notice_owed,
     reason_to_close,
     request_is_due,
 )
@@ -120,3 +122,23 @@ class TestARowClosesAtItsKickOff:
         )
 
         assert (before, at) == (None, "spiel_past")
+
+
+A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF = (KICK_OFF - timedelta(minutes=1), KICK_OFF)
+
+
+class TestANoticeIsAboutASlotStillToCome:
+    """Judged by the day instead, a party would be told of a match already under way, or not, by the hour the next pass ran."""
+
+    def test_a_call_off_entered_after_the_kick_off_tells_nobody(self):
+        asked = row(TEAM, asked_at=TODAY)
+        called_off = spiel(sonderereignis="ausgefallen")
+
+        owed = [notice_owed(row=asked, reason="cancelled", spiel=called_off, now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
+
+        assert owed == [True, False]
+
+    def test_a_discard_after_the_kick_off_tells_the_club_nothing(self):
+        owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
+
+        assert owed == [True, False]
