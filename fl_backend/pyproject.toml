@@ -8,20 +8,20 @@ requires-python = ">=3.14"
 # nothing checks against the real one, and puts a row on the dependabot dashboard for code no
 # module in `app/` reaches. Each line below is either an import or a comment saying why it is not.
 dependencies = [
-    "anyio>=4.15.1",
+    "anyio>=4.16.0",
     "email-validator>=2.3.0",
-    "fastapi>=0.145.0",
-    "pydantic>=2.14.1",
-    "pydantic-core>=2.50.1",
-    "pydantic-settings>=2.16.0",
+    "fastapi>=0.162.4",
+    "pydantic>=2.14.3",
+    "pydantic-core>=2.50.4",
+    "pydantic-settings>=2.16.2",
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.19.0",
-    "starlette>=1.8.0",
+    "starlette>=1.10.0",
     # `ZoneInfo("Europe/Berlin")` in app/core/clock.py reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the
     # zone comes from; without it that call raises `ZoneInfoNotFoundError`.
-    "tzdata>=2026.5",
+    "tzdata>=2026.6",
     # The container's entrypoint -- fl_backend/Dockerfile's CMD runs uvicorn itself, so no module
     # imports it and nothing else would declare it.
     #
@@ -37,8 +37,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=9.1.1",
-    "ruff>=0.17.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
     # `fastapi dev app/asgi.py`, the source-with-reload run `docs/ops/spec.md` records as the dev
     # environment's backend entry point. A developer command, never the container's: the
     # Dockerfile's `uv sync --no-dev` leaves this group -- and the typer/rich console stack under
@@ -47,7 +47,7 @@ dev = [
     # `starlette.testclient` imports `httpx2` and reaches `httpx` only under
     # `StarletteDeprecationWarning`. The API tests import both that client and this package's own
     # `ASGITransport`, so they fail at collection without it. No module in app/ touches it.
-    "httpx2>=2.13.1",
+    "httpx2>=2.16.0",
     # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
     # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
     "pyright[nodejs]>=1.1.414",
