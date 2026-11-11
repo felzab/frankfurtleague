@@ -24,8 +24,8 @@ export type SeatRow = {
   acts?: ReactElement;
   /**
    * How many side acts `acts` draws, which the list reads to decide their form for all its rows: the acts reach it as an
-   * element, which says nothing of what it holds. Derived from the one value that decides the acts themselves, such as
-   * the seat's fresh link, never a second condition beside it.
+   * element, which says nothing of what it holds. Counted by the rule the acts' own module lists them by
+   * (`seatActKinds`), never a second condition beside it.
    */
   sideActs?: number;
   /** A seat nobody holds: its name muted. */
