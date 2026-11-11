@@ -11,12 +11,12 @@ import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
-import { EmptyState } from "./EmptyState";
+import { EmptyBox, EmptyState } from "./EmptyState";
 import { FieldPlaceholder } from "./FieldPair";
 import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { ListCardRows, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { RowActs } from "./RowActs";
@@ -87,8 +87,8 @@ type CardsContent = {
     /** `false` on a card holding a list rather than open work, such as a referee's games: a count says how much is open. */
     count?: false;
     /**
-     * Such a list's own empty state, which stands in the card's place while the list holds nothing; a card of open work
-     * stays and says „Nichts offen.“
+     * Such a list's own empty state, which stands in the card's place while the list holds nothing or a search finds
+     * nothing in it; a card of open work stays and says „Nichts offen.“
      */
     empty?: EmptyStateProps;
   }>;
@@ -312,15 +312,6 @@ function Cards({ boxes, children }: { boxes: number; children: ReactNode }) {
   return boxes === 1 ? children : <CardGrid>{children}</CardGrid>;
 }
 
-/** A list's empty state inside the list's box, as `Table` places its own. */
-function EmptyBox({ empty }: { empty: EmptyStateProps }) {
-  return (
-    <div className={cardSurface({ class: "overflow-hidden" })}>
-      <EmptyState {...empty} />
-    </div>
-  );
-}
-
 /** A group's own box, handing the list's columns on to its match; a container would stop them (`SpielCards`). */
 const SPIEL_CARD_CLASSES = cardSurface({ class: `overflow-hidden ${spielSubgrid()}` });
 
@@ -527,12 +518,12 @@ async function ListBody({ list }: { list: ListContent }) {
       return list.content;
     case "spieltage": {
       const { tabs, empty } = await list.content;
-      return tabs === null ? <EmptyBox empty={empty} /> : <Spieltage {...tabs} />;
+      return tabs === null ? <EmptyBox {...empty} /> : <Spieltage {...tabs} />;
     }
     case "groups": {
       const { groups, empty } = await list.content;
       return groups.length === 0 ? (
-        <EmptyBox empty={empty} />
+        <EmptyBox {...empty} />
       ) : (
         groups.map((group) => (
           <Card
@@ -555,10 +546,19 @@ async function ListBody({ list }: { list: ListContent }) {
           {team !== undefined && <TeamHead {...team} />}
           <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
             {cards.map((entry) =>
-              entry.rows.length === 0 && entry.empty !== undefined ? (
+              // A searched card is drawn where the search is held, since what it shows depends on the text typed.
+              list.search !== undefined ? (
+                <ListCard
+                  key={entry.id}
+                  title={entry.title}
+                  rows={entry.rows}
+                  {...(entry.count === false ? { count: false } : {})}
+                  {...(entry.empty === undefined ? {} : { empty: entry.empty })}
+                />
+              ) : entry.rows.length === 0 && entry.empty !== undefined ? (
                 <EmptyBox
                   key={entry.id}
-                  empty={entry.empty}
+                  {...entry.empty}
                 />
               ) : (
                 <Card
@@ -567,11 +567,6 @@ async function ListBody({ list }: { list: ListContent }) {
                   {...(entry.count === false ? {} : { count: entry.rows.length })}>
                   {entry.rows.length === 0 ? (
                     <EmptyState kind="clear" />
-                  ) : list.search !== undefined ? (
-                    <ListCardRows
-                      rows={entry.rows}
-                      {...(entry.empty === undefined ? {} : { empty: entry.empty })}
-                    />
                   ) : (
                     entry.rows.map(({ id, words: _words, ...row }) => (
                       <CardActRow
@@ -598,7 +593,7 @@ async function ListBody({ list }: { list: ListContent }) {
     }
     case "tree": {
       const { tree, empty } = await list.content;
-      return tree === null ? <EmptyBox empty={empty} /> : <BracketTree {...tree} />;
+      return tree === null ? <EmptyBox {...empty} /> : <BracketTree {...tree} />;
     }
     case "spiele": {
       const { matches, empty } = await list.content;
@@ -612,7 +607,7 @@ async function ListBody({ list }: { list: ListContent }) {
     case "spielGroups": {
       const { groups, empty } = await list.content;
       return groups.length === 0 ? (
-        <EmptyBox empty={empty} />
+        <EmptyBox {...empty} />
       ) : (
         <SpielCards>
           {groups.map((group) => (

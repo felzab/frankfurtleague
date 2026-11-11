@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
 
+import { cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
@@ -107,6 +108,19 @@ export function EmptyState(props: EmptyStateProps | Clear) {
     <div className="grid min-h-14 grid-cols-1 items-center gap-2 px-4 py-3 text-base text-fg-muted lg:min-h-13 lg:grid-cols-[minmax(0,1fr)_auto] lg:py-0 lg:text-sm">
       <p>{sentence}</p>
       {action !== undefined && <div className="justify-self-start lg:justify-self-end">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * The empty state in the list's own box, where nothing else draws the box: a list of cards, matches or tiles, a group or
+ * a season holding none, or a list card a search emptied, whose place the box takes as `Table`'s box stays when its rows
+ * go. Every page's empty list so stands in one box under its toolbar, whoever reads it.
+ */
+export function EmptyBox(props: EmptyStateProps) {
+  return (
+    <div className={cardSurface({ class: "overflow-hidden" })}>
+      <EmptyState {...props} />
     </div>
   );
 }
