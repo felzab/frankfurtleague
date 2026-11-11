@@ -5707,7 +5707,7 @@
         "type": "integer"
       },
       "FLGrantWriteResponse": {
-        "description": "The grant an act named: a removal is hard, so the id is all there is to answer with.",
+        "description": "The grant the act named.",
         "properties": {
           "grant_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -21005,7 +21005,7 @@
     },
     "/api/v0/grants": {
       "get": {
-        "description": "List every grant by address: its tier, when it holds, and when a handover to it completes.\n\nUncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
+        "description": "Every grant by address: its tier, when it holds, and when a handover to it completes.\n\nA future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
         "operationId": "grants_get_grants",
         "responses": {
           "200": {
@@ -21070,7 +21070,7 @@
         ]
       },
       "post": {
-        "description": "Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.\n\nOnly the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier\nrequest is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban\nlist holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant\nto an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date\nit holds from.",
+        "description": "Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.\n\nEvery holder in effect and the address named are told, with the date it holds from.",
         "operationId": "grants_post_grant",
         "requestBody": {
           "content": {
@@ -21214,7 +21214,7 @@
     },
     "/api/v0/grants/{grant_id}": {
       "delete": {
-        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
+        "description": "Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.\n\nOnly the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.",
         "operationId": "grants_delete_grant",
         "parameters": [
           {
@@ -21293,7 +21293,7 @@
     },
     "/api/v0/grants/{grant_id}/handover": {
       "delete": {
-        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on\nno handover. Every holder in effect is told in the same transaction.",
+        "description": "Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.",
         "operationId": "grants_delete_handover",
         "parameters": [
           {
@@ -21370,7 +21370,7 @@
         ]
       },
       "post": {
-        "description": "Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.\n\nOnly the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.\nRefused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait\nstill runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in\nthe same transaction, and told what date it completes on.",
+        "description": "Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.\n\nOnly the owner starts one, and every holder in effect is told the date it completes on.",
         "operationId": "grants_post_handover",
         "parameters": [
           {

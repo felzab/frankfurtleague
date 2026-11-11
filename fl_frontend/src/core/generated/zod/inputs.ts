@@ -968,13 +968,9 @@ export const BewerbungenPostKontaktSeatBody = zod
   .describe("The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.");
 
 /**
- * Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.
+ * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
- * Only the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier
- * request is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban
- * list holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant
- * to an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date
- * it holds from.
+ * Every holder in effect and the address named are told, with the date it holds from.
  * @summary Add an administrator
  */
 export const grantsPostGrantBodyEmailMax = 254;
@@ -984,13 +980,9 @@ export const GrantsPostGrantBody = zod.object({
 });
 
 /**
- * Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.
+ * Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
  *
- * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
- * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
- * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
- * transaction. An address change standing on the row is left to run, as a
- * change of an address holding no grant.
+ * Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
 export const grantsDeleteGrantPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1000,10 +992,7 @@ export const GrantsDeleteGrantParams = zod.object({
 });
 
 /**
- * Stop a waiting handover, the role staying with the owner.
- *
- * Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
- * no handover. Every holder in effect is told in the same transaction.
+ * Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.
  * @summary Stop a waiting handover
  */
 export const grantsDeleteHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1013,12 +1002,9 @@ export const GrantsDeleteHandoverParams = zod.object({
 });
 
 /**
- * Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.
+ * Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
  *
- * Only the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.
- * Refused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait
- * still runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in
- * the same transaction, and told what date it completes on.
+ * Only the owner starts one, and every holder in effect is told the date it completes on.
  * @summary Hand the owner role over to an administrator
  */
 export const grantsPostHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

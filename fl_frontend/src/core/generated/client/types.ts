@@ -2569,7 +2569,7 @@ export interface FLGrantRow {
 export type FLGrantWaitHours = 24;
 
 /**
- * The grant an act named: a removal is hard, so the id is all there is to answer with.
+ * The grant the act named.
  */
 export interface FLGrantWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
