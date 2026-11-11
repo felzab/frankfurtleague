@@ -104,8 +104,10 @@ def test_every_external_image_tag_names_an_exact_release() -> None:
 SCRIPT_IMAGES: Final = {
     "scripts/gate/selfcheck.sh:shellcheck": ("scripts/gate/selfcheck.sh", "koalaman/shellcheck"),
     "scripts/gate/selfcheck.sh:actionlint": ("scripts/gate/selfcheck.sh", "rhysd/actionlint"),
+    "scripts/gate/verify.sh:lychee": ("scripts/gate/verify.sh", "lycheeverse/lychee"),
     "fl_backend/tests/conftest.py:mongo": ("fl_backend/tests/conftest.py", "mongo"),
     ".github/workflows/verify.yml:playwright": (".github/workflows/verify.yml", "mcr.microsoft.com/playwright"),
+    ".github/workflows/verify.yml:buildkit": (".github/workflows/verify.yml", "moby/buildkit"),
 }
 ASSIGNMENT_RE: Final = re.compile(r'^([A-Z_]+)="([^"$]*)"$', re.MULTILINE)
 REFERENCE_RE: Final = r"(?<![\w/]){name}:[^\s\"']+"
