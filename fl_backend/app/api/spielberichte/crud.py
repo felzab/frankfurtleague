@@ -282,8 +282,8 @@ async def repoint_pupil_entries_in_session(
     spieler_id: CustomObjectId,
     # REQUIRED: the erasure's own, so a report never names the sentinel of an erasure that rolled back.
     session: AsyncClientSession,
-) -> int:
-    """Repoint every scorer and card entry naming this pupil at the sentinel, answering how many reports changed.
+) -> None:
+    """Repoint every scorer and card entry naming this pupil at the sentinel.
 
     The report stands as the league's record of the match, its adoption with it: this write raises the document's
     `version` and leaves `bericht.adopted` as it stands.
@@ -292,12 +292,10 @@ async def repoint_pupil_entries_in_session(
     # One update over both arrays, each through its own `$[<identifier>]` (the manual's
     # "$[<identifier>]" page). The filter selects only the reports holding an entry to change, since
     # an array-filtered update reaches `patch_many_in_db` unnarrowed.
-    repointed = await patch_many_in_db(
+    await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"$or": [{"bericht.scorers.spieler_id": spieler_id}, {"bericht.cards.spieler_id": spieler_id}]},
         update={"$set": {"bericht.scorers.$[goal].spieler_id": GHOST_SPIELER_ID, "bericht.cards.$[card].spieler_id": GHOST_SPIELER_ID}},
         array_filters=[{"goal.spieler_id": spieler_id}, {"card.spieler_id": spieler_id}],
         session=session,
     )
-
-    return repointed.modified_count
