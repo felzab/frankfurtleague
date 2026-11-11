@@ -1110,7 +1110,7 @@ call-off, or a club's line-up reminder, is a Postausgang row written in the tran
 its confirmation row or, for the line-up, under its own keys, so a row reads as asked exactly where
 its mail is owed; the drain after the pass sends them and retries
 each, and a mail it gives up is counted on the pass's line and reported to the
-heartbeat. A notice about a day gone by is owed nobody. A listing or a season's pass that fails
+heartbeat. A notice about a match already kicked off is owed nobody. A listing or a season's pass that fails
 ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
 that committed. No mail of the pass carries a link: a club answers on its Übersicht and a referee on
 theirs, signed in. The pass's lines:

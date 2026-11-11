@@ -273,8 +273,8 @@ class FLSchiedsrichterSpiel(BaseModel):
     reason: CustomNonEmptyString | None
     # Whether the league recorded the answer for them, so the list never shows it as their own.
     entered: bool
-    # Whether the fixture's day lies before today in Europe/Berlin, judged here so a page rendered around midnight
-    # agrees with the order the read answered.
+    # Whether the fixture has been played: from its kick-off, or from its day where it holds no time. Judged here, by the
+    # rule that closes the booking, so a page agrees with the order the read answered.
     past: bool
     # Whether the fixture takes a report now: played, not called off or struck out, its season running. Played from
     # the kick-off, or from the day where the fixture holds no time.

@@ -10,6 +10,7 @@ whose own reads are the ones no aggregation can fold in.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime
 from typing import Annotated, Any, Final, Literal, get_args
 
 from pydantic import BaseModel, Field
@@ -39,6 +40,7 @@ from app.api.spiele.schemas import (
     FLSpielRecipient,
 )
 from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
+from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -127,7 +129,7 @@ class FLOverviewVorschlagRow(BaseModel):
 
     Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
     names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
-    discard tells the date stands, none once its day has gone by.
+    discard tells the date stands, none once its kick-off has come.
     """
 
     kind: Literal["vorschlag_open"]
@@ -271,6 +273,8 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind
         team is None and quelle is None for team, quelle in ((spiel.team1, spiel.team1_quelle), (spiel.team2, spiel.team2_quelle))
     )
     checks: tuple[tuple[FLOverviewGapKind, bool], ...] = (
+        # From the day after the match, not from its kick-off as the report counts it: no result can stand while the match
+        # is being played, and its evening is the referee's to send the report the result comes from.
         ("ergebnis_missing", spiel.date is not None and spiel.date < today and spiel.ergebnis is None),
         ("appointment_missing", spiel.date is None or spiel.time is None),
         ("spielort_missing", spiel.spielort is None),
@@ -307,9 +311,11 @@ def overview_of(
     read: Mapping[str, Any],
     spiele: Sequence[FLSpielJoinedInternal],
     faults: Sequence[FLBracketFault],
-    today: str,
+    now: datetime,
 ) -> FLSaisonOverviewResponse:
     """The four cards from the season's one document, its fixtures validated, and their faults."""
+
+    today = clock.german_day(now)
 
     spiele_raw: dict[Any, Mapping[str, Any]] = {raw["_id"]: raw for raw in read[SPIELE_AS]}
     by_id: dict[Any, FLSpielJoinedInternal] = {spiel.id: spiel for spiel in spiele}
@@ -329,7 +335,7 @@ def overview_of(
     for row in read[QUEUE_ROWS_AS]:
         spiel_raw = spiele_raw.get(row["spiel_id"])
         # A row about an Ansetzung its fixture has left, or one the next pass ends, asks the administrator nothing.
-        if spiel_raw is None or reason_to_end(row=row, spiel=spiel_raw, austritte=austritte, today=today) is not None:
+        if spiel_raw is None or reason_to_end(row=row, spiel=spiel_raw, austritte=austritte, now=now) is not None:
             continue
         spiel = by_id[row["spiel_id"]]
         answer = row[ROW_ANSWER]
@@ -346,11 +352,11 @@ def overview_of(
                     vorschlag=vorschlag,
                     adoption_recipients=recipients_named(
                         parties_told_of_the_change(
-                            rows=held.get(spiel.id, []), stored=spiel_raw, changed=adopted, austritte=austritte, today=today
+                            rows=held.get(spiel.id, []), stored=spiel_raw, changed=adopted, austritte=austritte, now=now
                         ),
                         names=names,
                     ),
-                    discard_recipients=recipients_named([row[ROW_PARTY]] if discard_owes_a_notice(row=row, today=today) else [], names=names),
+                    discard_recipients=recipients_named([row[ROW_PARTY]] if discard_owes_a_notice(row=row, now=now) else [], names=names),
                 )
             )
             continue

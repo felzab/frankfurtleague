@@ -1,5 +1,6 @@
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
@@ -786,7 +787,7 @@ async def preview_spiel_save(
     payload: FLPatchSpielDataPayload,
     collections: SpielSaveCollections,
     spielbestaetigungen_collection: ReadCollection,
-    today: str,
+    now: datetime,
 ) -> FLPatchSpielDataResponse:
     """What this payload would move, destroy and have the confirmation pass mail, judged against the season as it stands, written nowhere.
 
@@ -807,7 +808,7 @@ async def preview_spiel_save(
         stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
         changed=judged.patched.model_dump(context={"keep_oid": True}),
         austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
-        today=today,
+        now=now,
     )
     names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)
     advanced_to, released_sides = await preview_bracket_after_patch(

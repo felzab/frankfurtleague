@@ -1,7 +1,7 @@
 import dataclasses
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Literal, cast
 from zoneinfo import ZoneInfo
 
@@ -67,6 +67,14 @@ PAST_SAISON_ID = "2025"
 # under a case reading it back.
 TODAY = "2126-04-01"
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+
+
+def clock_of(day: str) -> datetime:
+    """A pass's instant on `day`, at `NOW`'s hour: the close judges every kick-off by it, and its mails are owed and drained at it."""
+
+    return datetime.combine(date.fromisoformat(day), NOW.timetz())
+
+
 YESTERDAY = "2126-03-31"
 NEXT_WEEK = "2126-04-08"
 
@@ -325,7 +333,7 @@ async def handed_out(
     answer: FLSpielbestaetigungSweepResponse,
     *,
     kontakt_links: int = 0,
-    now: datetime = MAIL_NOW,
+    now: datetime,
 ) -> Pass:
     """Drains the Postausgang and sorts what it handed out into the lists of `Pass`, each row's mails in the order owed.
 
@@ -424,12 +432,12 @@ async def a_pass(
     *,
     saison_id: str = SAISON_ID,
     today: str = TODAY,
-    now: datetime = MAIL_NOW,
+    now: datetime | None = None,
     **collections: Any,
 ) -> FLSpielbestaetigungSweepResponse:
     """One pass as the endpoint runs it, the collections named handed through a stand-in, and nothing drained.
 
-    `now` is the instant the line-up's marks are counted from, `today` the day every other judgement reads.
+    `now` is the pass's instant, `clock_of(today)` unless a case names one, as the endpoint reads both off one clock.
     """
 
     return await sweep_spielbestaetigungen(
@@ -443,7 +451,7 @@ async def a_pass(
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         today=today,
-        now=now,
+        now=clock_of(today) if now is None else now,
     )
 
 
@@ -459,13 +467,13 @@ async def sweep(
     answer = await a_pass(database, client, saison_id=saison_id, today=today)
     assert answer.failed == passed_over, answer
 
-    return await handed_out(database, client, answer)
+    return await handed_out(database, client, answer, now=clock_of(today))
 
 
 async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, *, kontakt_links: int = 0, **collections: Any) -> Pass:
     """One pass, the collections named handed through a stand-in, and the drain after it; `kontakt_links` as `handed_out` takes it."""
 
-    return await handed_out(database, client, await a_pass(database, client, **collections), kontakt_links=kontakt_links)
+    return await handed_out(database, client, await a_pass(database, client, **collections), kontakt_links=kontakt_links, now=NOW)
 
 
 async def unstamp(database: AsyncDatabase) -> None:
@@ -499,7 +507,7 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: Obje
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-            today=TODAY,
+            now=NOW,
             dry_run=dry_run,
         )
 
@@ -520,7 +528,7 @@ async def press_answer(database: AsyncDatabase, client: AsyncMongoClient, row_id
         spieltage_collection=database[Collection.SPIELTAGE],
         records=record_collections(database),
         db=client,
-        today=TODAY,
+        now=NOW,
     )
 
 
@@ -1723,7 +1731,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
                 saisons_collection=database[Collection.SAISONS],
                 records=record_collections(database),
                 db=client,
-                today=TODAY,
+                now=NOW,
             )
             return await sweep(database, client)
 
@@ -1811,7 +1819,7 @@ async def as_the_referee(database: AsyncDatabase, client: AsyncMongoClient, answ
         saisons_collection=database[Collection.SAISONS],
         records=record_collections(database),
         db=client,
-        today=TODAY,
+        now=NOW,
     )
 
 

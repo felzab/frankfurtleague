@@ -16,7 +16,7 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
 from app.api.spieler.services import PUBLIC_PERSON
-from app.core import clock
+from app.api.teams.services import is_played
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
@@ -198,18 +198,6 @@ def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_id
         error_code=Code.BERICHT_NOT_OFFICIATED,
         status=HTTPStatus.FORBIDDEN,
     )
-
-
-def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
-    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
-
-    if date is None:
-        return False
-
-    if time is None:
-        return date <= clock.german_day(now)
-
-    return clock.german_instant(date, time) <= now
 
 
 def is_cancelled(*, sonderereignis: str | None) -> bool:
