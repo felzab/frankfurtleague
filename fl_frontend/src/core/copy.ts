@@ -1473,11 +1473,9 @@ export const COPY = catalogue({
         FLAddressChangeWaitsOn,
         string
       >,
-      /** The column of the moment a row's step ends. */
-      until: "Bis",
-      /** That column's value while a link is open, and in the wait. */
-      untilCell: (moment: string) => `bis ${formatInstantShort(moment)}`,
-      fromCell: (moment: string) => `ab ${formatInstantShort(moment)}`,
+      /** A row's muted line, the moment its step ends: while a link is open, and in the wait. */
+      until: (moment: string) => `bis ${formatInstantShort(moment)}`,
+      from: (moment: string) => `ab ${formatInstantShort(moment)}`,
       startConsequence: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span} nach ihrer Bestätigung.`,
       /** A callout, the typed address matching a listed row. */
       replaces: "Eine laufende Änderung wird ersetzt.",

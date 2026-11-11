@@ -50,10 +50,10 @@ const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>>
 const chipOf = ({ expired, waits_on }: FLAddressChangeAdminOpen): ChipProps =>
   expired ? { tone: "neutral", label: COPY.admin.expired } : { tone: WAITS_ON_TONE[waits_on], label: WORDS.waitsOn[waits_on] };
 
-/** The moment the row's step ends: the wait's, once it runs, else the open link's. */
+/** The moment the row's step ends, where it has one: the wait's, once it runs, else the open link's. */
 function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdminOpen) {
-  if (waits_on === "waiting_period" && effective_from !== null) return WORDS.fromCell(effective_from);
-  return valid_until === null ? COPY.shared.noValue : WORDS.untilCell(valid_until);
+  if (waits_on === "waiting_period" && effective_from !== null) return WORDS.from(effective_from);
+  return valid_until === null ? undefined : WORDS.until(valid_until);
 }
 
 /** The ending's facts: a holder's change in its wait has told every holder, who hear of its end; nothing else is mailed. */
@@ -67,15 +67,21 @@ function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddr
   ];
 }
 
-/** One running change, which opens no page: its address on file, its state, and whatever its last mail met. */
+/**
+ * One running change, which opens no page: its address on file, its state, and whatever its last mail met. When its
+ * step ends stands on the row's muted line, as a waiting change's does on Administratoren: a column for it would leave
+ * the two addresses too little of a 42-rem table beside the two chips.
+ */
 function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
   const delivery = deliveryChip(change.delivery);
+  const until = untilOf(change);
   return {
     id: change.id,
     name: { record: change.address, address: true },
     chip: chipOf(change),
     ...(delivery === null ? {} : { delivery }),
-    cells: { after: { record: change.email }, until: untilOf(change) },
+    ...(until === undefined ? {} : { line: until }),
+    cells: { after: { record: change.email } },
     acts: (
       <ChangeActs
         id={change.id}
@@ -88,15 +94,16 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
   };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
+/**
+ * The table's head, drawn while the rows are read and over them once they are. A row carries a fresh link and its
+ * ending, two side acts, so every row's stand in its „⋯“. The new address is a column holding an address, cut at an
+ * address's step as every list's is.
+ */
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   state: { label: COPY.admin.schiedsrichter.state, delivery: true },
   folds: true,
-  columns: [
-    { key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "excerpt", cut: true },
-    { key: "until", label: WORDS.until, width: "instant" },
-  ],
+  columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
 };
 
 const START_RULES: StartRules = {
