@@ -196,7 +196,7 @@ describe("a list past one read's cap", () => {
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.loadMore }));
 
-    expect((await screen.findByRole("status")).textContent).toBe(COPY.shared.failure.unexpected);
+    expect(await screen.findByText(COPY.shared.failure.unexpected)).toBeTruthy();
     expect(screen.getByText("Sportpark Ost")).toBeTruthy();
     expect(screen.getByRole("button", { name: COPY.shared.loadMore })).toBeTruthy();
   });

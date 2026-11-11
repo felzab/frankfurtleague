@@ -221,10 +221,7 @@ function Body(props: SignInView) {
       const { code, back } = props;
       return (
         <>
-          {/* A status: the view replaces the form a press sent, so its heading and sentence are announced. */}
-          <div
-            role="status"
-            className={slots.head()}>
+          <div className={slots.head()}>
             <ClassicTitle text={props.title} />
             <p className={slots.sentence()}>
               {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}

@@ -12,6 +12,8 @@ import { answering } from "@/kit/useFormAction";
 
 import { COPY, rollenText } from "@/core/copy";
 
+import { seatActKinds } from "./seatActKinds";
+
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FLKontaktperson, FLKontaktRolle } from "@/core/generated/client/types";
@@ -28,7 +30,8 @@ const ACT = { verb: "save" } as const;
  * bearbeiten“, whose dialog replaces the person, or fills a seat emptied, each box posting under the name both writes
  * read. An act inside an editor waits for an unsaved draft, since the write raises the count the draft's save sends.
  * Both are the row's side acts (`SideActs`), in the form the list decides: the entries of the „⋯“ at the row's end, or
- * the edit alone as its button, a locked one saying why either way. The row's `sideActs` counts what `link` adds here.
+ * the edit alone as its button, a locked one saying why either way. `seatActKinds` lists them from `link`, here and for
+ * the row's `sideActs`.
  */
 export function SeatActs<Key>({
   rollen,
@@ -77,7 +80,7 @@ export function SeatActs<Key>({
   };
 
   return (
-    <SideActs acts={send === null ? [edit] : [send, edit]}>
+    <SideActs acts={seatActKinds(link).flatMap((kind) => (kind === "edit" ? [edit] : send === null ? [] : [send]))}>
       {/* Held closed while the edit is locked: nothing opens it then. */}
       <Dialog
         title={EDIT}

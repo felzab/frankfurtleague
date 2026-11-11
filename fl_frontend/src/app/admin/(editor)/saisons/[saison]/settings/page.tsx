@@ -5,6 +5,7 @@ import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
 import { EditorShell } from "@/kit/EditorShell";
 import { FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
+import { SectionPlaceholder } from "@/kit/Section";
 import { TablePlaceholder } from "@/kit/Table";
 
 import { getAdminSession } from "@/core/auth/guards";
@@ -145,15 +146,20 @@ export default function SaisonSettingsPage({ params }: Props) {
           ],
           { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(WORDS.gruppen, "swap")] }] },
           { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(TEAM, "replace")] }] },
-          [
-            <TablePlaceholder
-              key="links"
-              head={LINKS_HEAD}
-              rows={24}
-              bare
-            />,
-            { acts: [COPY.shared.withObject(WORDS.registrierungslinks, "send")] },
-          ],
+          {
+            block: (
+              <SectionPlaceholder
+                list={
+                  <TablePlaceholder
+                    head={LINKS_HEAD}
+                    rows={24}
+                    bare
+                  />
+                }
+                rows={[{ acts: [COPY.shared.withObject(WORDS.registrierungslinks, "send")] }]}
+              />
+            ),
+          },
         ],
         danger: [
           {

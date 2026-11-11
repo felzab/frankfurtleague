@@ -957,10 +957,10 @@ const DESIGN_BANS = [
     {
       regex: kitModule("Tooltip"),
       message:
-        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `ChoiceButtons`, a link of the collapsed rail or `Link`'s icon-only placement, or says a locked act's reason, and nothing else.",
+        "The kit's `Tooltip` names an icon-only `Button`, a glyph segment of `GlyphChoices`, a link of the collapsed rail or `Link`'s icon-only placement, or says a locked act's reason, and nothing else.",
     },
     PRODUCTION,
-    { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
+    { allow: ["src/kit/Button.tsx", "src/kit/GlyphChoices.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
   ),
   importBan(
     {

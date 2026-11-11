@@ -122,23 +122,14 @@ export function Placeholder({ layoutClass = "", children }: { layoutClass?: stri
 
 /**
  * Waiting for a template's content: its blocks' placeholders, shown only once the wait outlasts `--loading-delay`
- * (`tokens.css`). Its status says „Lädt“ in its subtree, which a live region announces where its name alone is not,
- * and the box standing in the content's place is busy. A template places it as its one boundary's fallback; `layoutClass`
- * is the box the content will stand in, such as a column's gaps, and `status` is left out by every part but one where
- * a wait is drawn in several parts, so the wait is announced once.
+ * (`tokens.css`). The box standing in the content's place is busy. A template places it as its one boundary's fallback;
+ * `layoutClass` is the box the content will stand in, such as a column's gaps.
  */
-export function Waiting({ layoutClass = "", status = true, children }: { layoutClass?: string; status?: boolean; children: ReactNode }) {
+export function Waiting({ layoutClass = "", children }: { layoutClass?: string; children: ReactNode }) {
   return (
     <div
       aria-busy
       className={placeholder().root()}>
-      {status && (
-        <span
-          role="status"
-          className="sr-only">
-          {COPY.shared.loading}
-        </span>
-      )}
       <div
         aria-hidden
         className={layoutClass}>

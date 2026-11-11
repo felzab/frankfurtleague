@@ -636,7 +636,7 @@ async function ListBody({ list }: { list: ListContent }) {
  * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
  * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own under the team's head and
+ * as cards of rows, two a row from 42 rem of their grid, as the Übersicht sets its kinds, a team's own under the team's head and
  * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
  * filters left, which the search narrows, as the Spielsuche lists them; or one club's matches, each in its own box
  * under its matchday's head, as a team's Spiele lists them; or the

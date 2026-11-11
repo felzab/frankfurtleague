@@ -67,8 +67,6 @@ export const messageLine = tv({
  * a row it takes the room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the
  * whole width. A line can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`,
  * whose word still counts whole in the width of a grid track around the line and pushes the acts out of their box.
- * With nothing to say it takes no room (`quiet`), as a field's message line takes none, yet stays in the page, since it
- * is the live region an outcome is announced from, which must stand before the outcome does.
  */
 export const statusLine = tv({
   base: "text-sm wrap-anywhere",
@@ -77,12 +75,7 @@ export const statusLine = tv({
       row: "min-w-0 flex-1",
       column: "",
     },
-    quiet: {
-      true: "sr-only",
-      false: "",
-    },
     tone: {
-      none: "",
       changes: "text-fg",
       // A danger row's second line at rest, its act's consequence in the small muted face.
       resting: "text-xs text-fg-muted",
