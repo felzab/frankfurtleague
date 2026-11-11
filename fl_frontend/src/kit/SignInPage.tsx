@@ -10,6 +10,8 @@ import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
+import { FieldStack } from "./FieldStack";
+import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { Link } from "./Link";
 import { PlaceholderLine, Waiting } from "./Skeleton";
@@ -102,7 +104,8 @@ const look = tv({
     // Every address a view names: inside its sentence, or on its own line under a passkey sentence.
     marked: "font-semibold break-all",
     acts: "grid gap-3",
-    form: "grid gap-4 text-left",
+    // The address form's field, its bot check and its send in the form rule's rhythm (`FieldStack`, `FormFooter`).
+    form: "text-left",
     divider: "flex items-center gap-3 text-xs text-fg-muted",
     rule: "h-px flex-1 bg-border",
   },
@@ -179,10 +182,14 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             <ClassicTitle text={title} />
             <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
-                <FieldPlaceholder />
-                {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
-                <span />
-                <span className={buttonPlaceholder("w-full")} />
+                <FieldStack>
+                  <FieldPlaceholder />
+                  {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
+                  <span />
+                  <FormFooterPlaceholder place="column">
+                    <span className={buttonPlaceholder()} />
+                  </FormFooterPlaceholder>
+                </FieldStack>
               </div>
               <div className={slots.divider()}>
                 <span className={slots.rule()} />
@@ -322,22 +329,26 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         // The send's press is the form's submit, so `Enter` in the field sends too.
         onSend={(formData) => send(String(formData.get("email")))}
         className={slots.form()}>
-        <TextField
-          label={address.label}
-          name="email"
-          kind="email"
-          autofill="username"
-          // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
-          // its form in this line, as a malformed one meets the browser's.
-          value={address.value}
-          onChange={address.onChange}
-        />
-        {check}
-        <Button
-          variant="primary"
-          type="submit"
-          {...button}
-        />
+        <FieldStack>
+          <TextField
+            label={address.label}
+            name="email"
+            kind="email"
+            autofill="username"
+            // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
+            // its form in this line, as a malformed one meets the browser's.
+            value={address.value}
+            onChange={address.onChange}
+          />
+          {check}
+          <FormFooter place="column">
+            <Button
+              variant="primary"
+              type="submit"
+              {...button}
+            />
+          </FormFooter>
+        </FieldStack>
       </HeldForm>
       {/* Decoration: the passkey's button carries its own name. */}
       <div

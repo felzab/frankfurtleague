@@ -884,6 +884,7 @@ const DESIGN_BANS = [
         "src/kit/QuestionForm.tsx",
         "src/kit/Section.tsx",
         "src/kit/SectionAct.tsx",
+        "src/kit/SignInPage.tsx",
         "src/kit/StepCard.tsx",
       ],
     },

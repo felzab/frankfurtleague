@@ -26,11 +26,15 @@ const formFooter = tv({
       // The strip ending a section of an editor, standing last among its fields: out through the box's 16-px inset to
       // its edges and its bottom, its corners the box's.
       section: { root: `-mx-4 -mb-4 justify-self-stretch rounded-b-lg border-t border-border ${headGround()} px-4 py-3` },
+      // The sign-in's narrow centred column: across the column at every width, its acts filling it one under another,
+      // as every button of that column does. Its outcome stands in the column's one line under all of the page's acts,
+      // the passkey's included, so the footer draws no line of its own.
+      column: { root: "flex-col items-stretch justify-self-stretch" },
     },
   },
 });
 
-export type FooterPlace = "row" | "strip" | "section";
+export type FooterPlace = "row" | "strip" | "section" | "column";
 
 /**
  * A form's footer: `status` the outcome its acts' last press reached, `note` a sentence the press rests on, such as
@@ -42,16 +46,14 @@ export function FormFooter({
   status,
   note,
   children,
-}: {
-  place?: FooterPlace;
-  status: FormStatus;
+}: ({ place?: Exclude<FooterPlace, "column">; status: FormStatus } | { place: "column"; status?: never }) & {
   note?: ReactNode;
   children: ReactNode;
 }) {
   const slots = formFooter({ place });
-  const line = (
+  const line = place !== "column" && (
     <StatusLine
-      status={status}
+      status={status ?? null}
       placement="row"
     />
   );
