@@ -98,7 +98,6 @@ const LAYER = (layer) => (zone) => zone.layer === layer;
 
 const RULES = {
   "no-restricted-syntax": (entries) => ["error", ...entries],
-  "no-restricted-imports": (entries) => ["error", { patterns: entries }],
   "@typescript-eslint/no-restricted-imports": (entries) => ["error", { patterns: entries }],
   "no-restricted-properties": (entries) => ["error", ...entries],
   "no-restricted-globals": (entries) => ["error", { globals: entries, checkGlobalObject: true }],
@@ -156,7 +155,7 @@ const escaped = (specifiers) =>
 /** One of the package specifiers `specifiers` exactly. */
 const packageNamed = (...specifiers) => String.raw`^(?:${escaped(specifiers)})$`;
 
-/** One of the packages `specifiers` or a subpath under it, as a `no-restricted-imports` group reads a package. */
+/** One of the packages `specifiers` or a subpath under it, as an import ban's group reads a package. */
 const packageUnder = (...specifiers) => String.raw`^(?:${escaped(specifiers)})(?:\x2F.*)?$`;
 
 /**
@@ -268,7 +267,8 @@ const LOCALE_PROVIDER = {
   message: "The locale is pinned once, in fl_frontend/src/kit/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
 
-const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
+/** typescript-eslint's rule, which extends ESLint's with `allowTypeImports`, so a type alone may cross a ban. */
+const importBan = (entry, reach, options) => ban("@typescript-eslint/no-restricted-imports", entry, reach, options);
 
 // ---------------------------------------------------------------------------------------------------
 // The background passes. Each pass's generated sender is imported by its slice's wrapper and by the job
@@ -727,7 +727,6 @@ const PROPERTY_BANS = [
 // The design system's checks: one component and one layout per pattern, the second way refused.
 // ---------------------------------------------------------------------------------------------------
 
-const kitImport = (entry, reach, options) => ban("@typescript-eslint/no-restricted-imports", entry, reach, options);
 const classBan = (pattern, message, reach, options) => ban("better-tailwindcss/no-restricted-classes", { pattern, message }, reach, options);
 
 /** Any variant prefix, then the class; `!` is Tailwind's important flag. */
@@ -809,7 +808,7 @@ const DESIGN_BANS = [
   // A wait is the template's: each holds one boundary around the content it draws, its fallback the skeleton
   // of that content's box, so a page has no boundary of its own to leave without a loading state or to shape
   // wrongly.
-  kitImport(
+  importBan(
     {
       regex: packageUnder("react"),
       importNames: ["Suspense"],
@@ -820,7 +819,7 @@ const DESIGN_BANS = [
   ),
   // The cross-fade between pages is the kit's one `PageFade`, standing first in each page template: a fade of a
   // page's own is a second motion beside it, one the tokens' duration and reduced-motion rules do not reach.
-  kitImport(
+  importBan(
     {
       regex: packageUnder("react"),
       importNames: ["ViewTransition"],
@@ -834,10 +833,10 @@ const DESIGN_BANS = [
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
     ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
-  ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
+  ].map(([name, owners, message]) => importBan({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // A form's footer is its container's: each container of fields places the one footer where its acts stand, so a page
   // never draws a second footer, and every form's acts stand at the same end.
-  kitImport(
+  importBan(
     {
       regex: kitModule("FormFooter"),
       message: "A form's footer is its container's: hand the acts to the dialog, the box, the form or the section act that places it.",
@@ -858,7 +857,7 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  kitImport(
+  importBan(
     {
       regex: kitModule("FieldStack"),
       message: "Fields stand in their container's `FieldStack`: hand them to a `Section`, a `Dialog`, a `FieldGroup` or a form template.",
@@ -875,7 +874,7 @@ const DESIGN_BANS = [
   ),
   // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
   // file of a new one joins this list having done that (`.claude/rules/frontend.md`), and its field joins the hook's test.
-  kitImport(
+  importBan(
     {
       // The package's root is in the list too, since it exports every one of them.
       regex: String.raw`^react-aria-components(?:\x2F(?:Autocomplete|Checkbox|CheckboxGroup|ColorArea|ColorField|ColorSlider|ColorThumb|ColorWheel|ComboBox|Input|NumberField|RadioGroup|SearchField|Slider|Switch|TextArea|TextField|TokenField))?$`,
@@ -900,7 +899,7 @@ const DESIGN_BANS = [
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
-  ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
+  ].map(([regex, what]) => importBan({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[
@@ -942,7 +941,7 @@ const DESIGN_BANS = [
       "A date's segments are `Segments`' alone, which stand `inert` until the page's code runs: a digit typed sooner fails hydration.",
     ],
   ].map(([names, subpath, homes, message]) =>
-    kitImport(
+    importBan(
       {
         regex: String.raw`^react-aria-components(?:\x2F${subpath})?$`,
         importNamePattern: `^(?:${names.join("|")})$`,
@@ -954,7 +953,7 @@ const DESIGN_BANS = [
   ),
   // A segmented control's glyph segment, a link of the collapsed rail and an icon-only link are the other
   // icon-only controls: each one's name is its tooltip too.
-  kitImport(
+  importBan(
     {
       regex: kitModule("Tooltip"),
       message:
@@ -963,7 +962,7 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
   ),
-  kitImport(
+  importBan(
     {
       regex: kitModule("Chip"),
       allowTypeImports: true,
