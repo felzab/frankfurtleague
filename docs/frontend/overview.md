@@ -92,11 +92,9 @@ Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
 uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
-**The kit's components take every wording prop as `fl_frontend/src/core/copy.ts :: Words`**: the
-catalogue's `Copy`, or a record's own data as `{ record }`, which lint keeps free of literals, so a
-string typed into a page has no way into a text slot; a slot holding a block takes a kit element. A
-page formats every date, time and number through `fl_frontend/src/core/format.ts`.
-How a string is written is [`copy.md`](copy.md).
+**Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
+into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is
+written.
 
 ## Authentication and authorization
 
