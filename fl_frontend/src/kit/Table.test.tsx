@@ -41,6 +41,38 @@ describe("a table's rank column", () => {
   });
 });
 
+describe("a list's status column", () => {
+  // The harm: a list that names its status column draws a row's chips nowhere, or leaves them in the name's cell, where
+  // the name is cut for them. Where the column stands on the screen is the drive's to measure: jsdom lays nothing out.
+  it("holds a row's chips in a cell of its own after the name's, the state's before the delivery's", () => {
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "anna@example.org" },
+            chip: { tone: "warn", label: COPY.admin.expired },
+            delivery: { tone: "danger", label: COPY.admin.delivery.undeliverable },
+            cells: { district: { record: "Nordend" } },
+          },
+          { id: "2", name: { record: "berta@example.org" }, cells: { district: { record: "Westend" } } },
+        ])}
+        state={{ label: COPY.admin.schiedsrichter.state, delivery: true }}
+      />,
+    );
+    expect(screen.getAllByRole("columnheader").map((head) => head.textContent)).toStrictEqual([
+      COPY.shared.saison,
+      COPY.admin.schiedsrichter.state,
+      COPY.shared.startelf,
+    ]);
+    const cellsOf = (row: HTMLElement) => [...row.querySelectorAll('[role="cell"]')].map((cell) => cell.textContent);
+    const [, held, bare] = screen.getAllByRole("row") as [HTMLElement, HTMLElement, HTMLElement];
+    expect(cellsOf(held)).toStrictEqual(["anna@example.org", `${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`, "Nordend"]);
+    // A row with no chip keeps the column's cell, empty, so every row's cells stand under the same heads.
+    expect(cellsOf(bare)).toStrictEqual(["berta@example.org", "", "Westend"]);
+  });
+});
+
 describe("a row's name cell", () => {
   it("sets the line under the name, and the delivery's chip after the state's", () => {
     render(

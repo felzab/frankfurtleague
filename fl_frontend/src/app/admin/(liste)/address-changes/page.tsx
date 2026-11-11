@@ -91,6 +91,8 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 /** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
+  state: { label: COPY.admin.schiedsrichter.state, delivery: true },
+  crowded: true,
   columns: [
     { key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "excerpt", cut: true },
     { key: "until", label: WORDS.until, width: "instant" },

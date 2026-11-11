@@ -74,6 +74,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
 /** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: TEAM,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [
     { key: "gruppe", label: COPY.team.gruppe, narrow: true },
     { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true },

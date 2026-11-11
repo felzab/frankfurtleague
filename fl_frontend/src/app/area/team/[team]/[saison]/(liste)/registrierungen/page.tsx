@@ -85,6 +85,7 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [{ key: "received", label: COPY.admin.bewerbung.received, hideOnPhone: true, width: "date" }],
 };
 
