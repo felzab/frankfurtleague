@@ -24,23 +24,21 @@ import type {
 
 /**
  * A POST that reads: the token is the credential, and a GET would put it in a query string the backend's route template
- * does not redact. On the base tier, as the press is: the token in the body is the whole authorization.
+ * does not redact. The token in the body is the whole authorization.
  */
 export async function postAddressChangeView(payload: FLTokenPayload): Promise<FLAddressChangeViewResponse> {
   return addressChangeGetAddressChangeView(payload);
 }
 
-/** The new mailbox's own answer. */
 export async function postAddressChangeAnswer(payload: FLAddressChangeAnswerPayload): Promise<FLAddressChangeAnswerResponse> {
   return addressChangePostAddressChangeAnswer(payload);
 }
 
-/** The stop of the address on file, which hands nothing over. */
 export async function postAddressChangeStop(payload: FLTokenPayload): Promise<FLAddressChangeStopResponse> {
   return addressChangePostAddressChangeStop(payload);
 }
 
-/** The hourly pass's: a timer holds no session, and a lapsed change or a due one is the clock's. `after` is the previous call's answer. */
+/** A timer holds no session, and a lapsed change or a due one is the clock's. `after` is the previous call's answer. */
 export async function postAddressChangeSweep(after: string | null): Promise<FLAddressChangeSweepResponse> {
   // Left out on a pass's first call: the server takes `after` as an id wherever it is present.
   return addressChangeSweepAddressChange(after === null ? {} : { after });
@@ -51,7 +49,6 @@ export async function getAddressChangeMoves(): Promise<FLAddressChangeMovesRespo
   return addressChangeGetAddressChangeMoves();
 }
 
-/** Takes the carries done off their changes. */
 export async function postAddressChangeMovesDone(payload: FLAddressChangeMovesDonePayload): Promise<FLAddressChangeMovesDoneResponse> {
   return addressChangePostAddressChangeMovesDone(payload);
 }
