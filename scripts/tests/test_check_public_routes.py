@@ -655,7 +655,7 @@ def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
 
 def test_a_link_burst_sized_for_another_squad_is_a_finding():
     """A squad of 10 at 30 a minute needs 10 x 10 - 2 x 30 = 40 on the narrow zone and ten times that on the wide one."""
-    rates = {"linkpage": 30, "action": 60}
+    rates = {"linkpage": 30}
     sized = "        limit_req zone=linkpage burst=40 nodelay;\n        limit_req zone=linkpage48 burst=400 nodelay;\n"
     where = served(block("location = /neu", sized, PASS), block("location = /neu/", sized, PASS), CATCH_ALL)
 
@@ -666,6 +666,22 @@ def test_a_link_burst_sized_for_another_squad_is_a_finding():
     assert severities(findings) == ["fail"] * 4
     assert "where a squad of 11 needs burst=50" in details(findings)
     assert "where a squad of 11 needs burst=500" in details(findings)
+
+
+ACTION_PAIR = "        limit_req zone=action burst=30 nodelay;\n        limit_req zone=action48 burst=300 nodelay;\n"
+ACTION_CATCH_ALL = block("location /", "        limit_conn conn 50;\n", ACTION_PAIR, PASS)
+RAISED_PAIR = ACTION_PAIR.replace("burst=30 ", "burst=31 ").replace("burst=300 ", "burst=301 ")
+
+
+def test_a_block_raising_the_catch_all_s_burst_is_a_finding():
+    """One above `/`'s on either zone of its pair, which a script posting any action at that path spends; at `/`'s, none."""
+    assert routes.raised_bursts(served(block("location = /neu", LINK_PAIR, ACTION_PAIR, PASS), ACTION_CATCH_ALL), SOURCE) == []
+
+    findings = routes.raised_bursts(served(block("location = /neu", LINK_PAIR, RAISED_PAIR, PASS), ACTION_CATCH_ALL), SOURCE)
+
+    assert severities(findings) == ["fail", "fail"]
+    assert "meters action with `limit_req zone=action burst=31 nodelay`, above `location /`'s burst=30" in details(findings)
+    assert "meters action48 with `limit_req zone=action48 burst=301 nodelay`, above `location /`'s burst=300" in details(findings)
 
 
 def test_the_repository_own_link_pages_are_on_the_link_pair():
@@ -689,6 +705,10 @@ def test_the_repository_own_link_pages_are_on_the_link_pair():
     # Every sized zone declared, so the rule judges the real bursts rather than skipping them.
     assert {*routes.SIZED_PER_PUPIL} <= rates.keys()
     assert routes.unsized_links(where, name, squad, rates) == []
+    # The catch-all metering the action pair, so the rule judges the real bursts rather than finding no ceiling.
+    [catch_all] = [one for one in where if not one.exact and one.path == routes.CATCH_ALL]
+    assert {"action", "action48"} <= catch_all.zones
+    assert routes.raised_bursts(where, name) == []
 
 
 def test_the_repository_own_exact_matches_all_name_something():
@@ -1006,6 +1026,16 @@ def test_an_uneven_link_burst_reaches_the_exit_contract(monkeypatch):
 
     assert run_main(app, text, monkeypatch) == 1
     assert run_main(app, text.replace("burst=61 ", "burst=60 "), monkeypatch) == 0
+
+
+def test_a_raised_action_burst_reaches_the_exit_contract(monkeypatch):
+    """The raised-burst rule reaches a reader through `main` alone; every other rule passes this pair."""
+    app = link_page("/neu")
+    links = block("location = /neu", LINK_PAIR, RAISED_PAIR, PASS) + block("location = /neu/", LINK_PAIR, RAISED_PAIR, PASS)
+    raised = "server {\n" + links + ACTION_CATCH_ALL + "}\n"
+
+    assert run_main(app, raised, monkeypatch) == 1
+    assert run_main(app, raised.replace(RAISED_PAIR, ACTION_PAIR), monkeypatch) == 0
 
 
 def test_a_finding_exits_one(monkeypatch):
