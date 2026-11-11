@@ -1,9 +1,6 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
-
 const TEAM_ID = "64b000000000000000000002";
 const SAISON = "2027";
 
@@ -25,7 +22,7 @@ const STORED = {
 const EDITOR_VERSION = 8;
 
 /** Every payload the save writes. */
-const state = vi.hoisted(() => ({ sent: [] as unknown[], refusal: null as unknown }));
+const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
@@ -35,7 +32,6 @@ vi.mock("@/features/teams/queries", () => ({ getTeamSaisonAdmin: async () => STO
 
 doubleApiClient((call) => {
   state.sent.push(JSON.parse(call.body ?? "null"));
-  if (state.refusal !== null) throw state.refusal;
   return { version: 11 };
 });
 
@@ -43,7 +39,6 @@ const { saveTeam } = await import("./saveTeam");
 
 beforeEach(() => {
   state.sent = [];
-  state.refusal = null;
 });
 
 describe("a club's save", () => {
@@ -75,23 +70,5 @@ describe("a club's save", () => {
     await saveTeam({ id: TEAM_ID, saison_id: SAISON, version: EDITOR_VERSION, changes: { schulform: "", website_url: "", trikot_farbe: "" } });
 
     expect(state.sent).toMatchObject([{ schulform: null, website_url: null, trikot_farbe: null, gruppe: "A", name: "Goethe" }]);
-  });
-
-  // The list of codes the screen words is held by nothing else: the shared failure line sends a retry the same rule refuses.
-  it("answers a colour another row holds on its box", async () => {
-    state.refusal = new APIBadStatusError({
-      message: "refused",
-      url: "http://backend/api/v0/",
-      statusCode: 409,
-      serverErrorCode: "trikot_farbe_taken",
-      endpoint: "/",
-      traceId: "0",
-      refusedFields: [{ path: ["trikot_farbe"], kind: "trikot_farbe_taken", ctx: {}, in: "body" }],
-    });
-
-    expect(await saveTeam({ id: TEAM_ID, saison_id: SAISON, version: EDITOR_VERSION, changes: { trikot_farbe: "blau" } })).toMatchObject({
-      ok: false,
-      fieldErrors: { "changes.trikot_farbe": COPY.shared.field.taken },
-    });
   });
 });

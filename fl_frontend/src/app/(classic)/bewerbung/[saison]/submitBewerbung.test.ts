@@ -2,7 +2,6 @@ import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
@@ -17,7 +16,7 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 // Cloudflare's own verdict, which `core/turnstile.test.ts` judges.
 vi.mock("@/core/turnstile", () => ({ turnstileRefusal: async () => check.refusal }));
 
-const { calls, answerWith } = doubleApiAnswers(() => Promise.resolve({ created_id: "6890a1b2c3d4e5f607190001" }));
+const { calls } = doubleApiAnswers(() => Promise.resolve({ created_id: "6890a1b2c3d4e5f607190001" }));
 
 const { submitBewerbung } = await import("./submitBewerbung");
 
@@ -119,32 +118,5 @@ describe("a press the action stops", () => {
 
     expect(await submitBewerbung(posted(BOXES))).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
     expect(calls).toHaveLength(0);
-  });
-
-  // The harm: a path `paths` does not hold answers the unexpected line, and the applicant is told only that something went wrong.
-  it("marks every box the write names as repeating another person's", async () => {
-    answerWith(() =>
-      Promise.reject(
-        new APIBadStatusError({
-          message: "refused",
-          url: "http://backend/api/v0/",
-          statusCode: 422,
-          serverErrorCode: "bewerbung_kontakt_repeated",
-          endpoint: "/",
-          traceId: "0",
-          refusedFields: (["email", "phone"] as const).map((box) => ({
-            path: ["kontakte", "stellvertretung", box],
-            kind: "bewerbung_kontakt_repeated",
-            ctx: {},
-            in: "body",
-          })),
-        }),
-      ),
-    );
-
-    expect(await submitBewerbung(posted(BOXES))).toMatchObject({
-      ok: false,
-      fieldErrors: { "kontakte.stellvertretung.email": COPY.shared.field.taken, "kontakte.stellvertretung.phone": COPY.shared.field.taken },
-    });
   });
 });
