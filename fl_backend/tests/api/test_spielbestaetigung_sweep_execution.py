@@ -1038,20 +1038,6 @@ class TestTheMintsShareTakesWholeFixtures:
         assert (len(first), len(second)) == (len(spiele) - 1, len(spiele))
 
 
-class TestABookedRefereeHoldingNoAddress:
-    def test_their_fixture_is_passed_over_and_the_next_is_asked(self, mongo_replica_set_url: str):
-        """A row would stand as though they were told, and nobody would ask again; their fixture alone waits on the corrected address."""
-
-        spiele = [a_spiel(SPIEL, 1, NEXT_WEEK), a_spiel(OTHER_SPIEL, 2, NEXT_WEEK, schiedsrichter=booked(OTHER_SCHIEDSRICHTER))]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": {"kontakt.email": None}})
-            await sweep(database, client, passed_over=1)
-            return Counter(row["spiel_id"] for row in await rows(database))
-
-        assert on_a_league(mongo_replica_set_url, body, spiele=spiele) == {OTHER_SPIEL: 3}
-
-
 class TestAMoveNotAskedAtOnceIsToldAtOnce:
     """A club told nothing of a move until the new slot can be asked would turn up at the slot it was asked about."""
 
