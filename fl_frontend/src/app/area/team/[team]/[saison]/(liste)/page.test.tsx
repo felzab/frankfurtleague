@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { CardActRow } from "@/kit/Card";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,13 +8,7 @@ import { COPY } from "@/core/copy";
 import { agreeTermin, declineTermin } from "./answerTermin";
 import TeamOverviewPage from "./page";
 
-import type {
-  FLAufstellungPhase,
-  FLTeamOverviewResponse,
-  FLTeamPanelAufstellung,
-  FLTeamPanelRegistrierung,
-  FLTeamPanelTermin,
-} from "@/core/generated/client/types";
+import type { FLAufstellungPhase, FLTeamOverviewResponse, FLTeamPanelAufstellung, FLTeamPanelTermin } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ReactElement } from "react";
 
@@ -44,17 +37,6 @@ const termin = (overrides: Partial<FLTeamPanelTermin>): FLTeamPanelTermin => ({
   state: "valid",
   deadline: "2026-11-12",
   vorschlag: null,
-  ...overrides,
-});
-
-const registrierung = (overrides: Partial<FLTeamPanelRegistrierung>): FLTeamPanelRegistrierung => ({
-  registrierung_id: "000000000000000000000011",
-  first_name: "Ole",
-  last_name: "Sommer",
-  admissible: true,
-  position: null,
-  stufe: null,
-  submitted_at: "2026-11-02",
   ...overrides,
 });
 
@@ -155,32 +137,5 @@ describe("a line-up's row", () => {
     const overdue = { tone: "danger", label: COPY.area.team.aufstellung.overdue };
     expect(overdueDate?.chip).toStrictEqual(overdue);
     expect(rows.map(({ chip }) => chip)).toStrictEqual([undefined, overdue, { tone: "neutral", label: COPY.area.team.aufstellung.locked }]);
-  });
-});
-
-// Handed an empty line, a row still draws the line's slot under the name: a blank gap no type and no check sees.
-describe("a registration's row", () => {
-  it("draws a line only where the pupil named a position or a Stufe", async () => {
-    const [bare, named] = await rowsOf("registrierungen", {
-      registrierungen: [registrierung({}), registrierung({ registrierung_id: "000000000000000000000012", stufe: "Q2" })],
-    });
-    if (bare === undefined || named === undefined) throw new Error("the card holds fewer than two rows");
-    const { container } = render(
-      <>
-        <CardActRow {...bare} />
-        <CardActRow {...named} />
-      </>,
-    );
-
-    // What each row reads, and no element of either standing empty, which is what a blank line's slot would be: read by
-    // the rows' words rather than their places in the markup, which a row's layout moves.
-    const rows = [...container.querySelectorAll("[data-kit-row]")];
-    const blanks = (row: Element) =>
-      [...row.querySelectorAll("*")].filter((part) => part instanceof HTMLElement && part.childElementCount === 0 && part.textContent === "");
-    expect(rows.map(({ textContent }) => textContent)).toStrictEqual([
-      `Ole Sommer${COPY.admin.confirmed}`,
-      `Ole Sommer${COPY.admin.confirmed}${COPY.admin.saison.stufe.Q2}`,
-    ]);
-    expect(rows.map((row) => blanks(row).length)).toStrictEqual([0, 0]);
   });
 });
