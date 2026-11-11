@@ -72,8 +72,8 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=[Depends(verify_access_system)])
 
-# Both shares at one command a row beside the worst call's other 41: 100 commands at 36 ms plus 1.38 ms take 3.74 s
-# of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Sized with the blocks' share below, each row one command beside the worst call's others, so a pass ends well inside
+# `REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 36
 
 # Beside the reminders', which owe a deadline a block's deletion does not. A season at capacity takes more passes.
@@ -93,7 +93,7 @@ async def pull_the_season_after(
     *,
     saison_id: str,
     saisons_collection: SaisonsCollection,
-    # REQUIRED: judged inside the erasing transaction, the anchor below commits with its erasure.
+    # Required: judged inside the erasing transaction, the anchor below commits with its erasure.
     session: AsyncClientSession,
 ) -> Any:
     """`season_after_has_ended`'s input, judged in the erasing transaction: a later ended season's status, `None` while this one runs."""
@@ -150,10 +150,9 @@ async def sweep_saison(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
-    """Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+    """Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
 
-    The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
-    again by the next pass. 404 where no season has the id.
+    A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock too, and a
@@ -433,7 +432,7 @@ async def sweep_saison(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 # The links go with their people: each holds a token hash and the delivery record of the
-                # message it went out in (`docs/datenschutz.md :: "No delivery state has a clock of its own"`).
+                # message it went out in, and no delivery state has a clock of its own.
                 update={"$set": {"kontakte": None, "confirmations": None}},
                 session=session,
                 expected_version=None,
@@ -512,7 +511,7 @@ async def sweep_saison(
         )
 
     async def strip_the_reports(session: AsyncClientSession, batch: Batch) -> None:
-        """The season-and-one clock's report part, a transaction apart from the confirmations' strip, for that strip's reason."""
+        """The season-and-one clock's report part, a transaction apart from the confirmations' strip, so neither failure holds the other."""
 
         if not season_after_has_ended(
             later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
@@ -524,7 +523,7 @@ async def sweep_saison(
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
     undecided, failed = 0, 0
-    # AHEAD of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
+    # Ahead of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
         undecided, passed = await drain(

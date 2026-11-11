@@ -843,24 +843,9 @@ export const getBewerbungenPostBewerbungUrl = () => {
 };
 
 /**
- * Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
+ * Store one school's application to play one season, and mail each contact person their confirmation link, one per person.
  *
- * Everything the league decides -- `status`, `submitted_at`, `decision` and each consent's
- * scope, source and date -- is written here and never taken off the payload. One mail per person is owed in the
- * same transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming
- * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
- * is answered.
- *
- * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
- * since its last press sends a new key.
- *
- * Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
- * Trainer also holds being that one person.
- *
- * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
- * press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
- * either way, so it tells a stranger nothing about the address.
+ * A second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -892,12 +877,10 @@ export const getBewerbungenPostEinwilligungUrl = () => {
 };
 
 /**
- * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
+ * Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
  *
- * A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
- * naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's
- * season row `link_expired` and `kontakt_saison_past`.
+ * A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
+ * is the deletion notice too.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
@@ -931,8 +914,7 @@ export const getBewerbungenGetEinwilligungViewUrl = () => {
 /**
  * What the confirmation page renders for the seat this token opens, and nothing of the person.
  *
- * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token
- * no seat holds is refused (`link_invalid`).
+ * A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungView = async (
@@ -964,11 +946,9 @@ export const getBewerbungenGetFormUrl = (saisonId: string) => {
 };
 
 /**
- * One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+ * A season's application window, and while it runs the clubs a school may apply as and the colours taken.
  *
- * 404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
- * page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
- * nothing more (`READ-BEWERBUNG-001`).
+ * A closed or paused window and a season recording none are served too, and each club is served as its name alone.
  * @summary What one Saison's application form shows
  */
 export const bewerbungenGetForm = async (
@@ -988,13 +968,9 @@ export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewer
 };
 
 /**
- * One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
+ * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
  *
- * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
- * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
- * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
- * Every application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers
- * confirms nothing, and a sender confirming one seat at a time has to hold each mailbox.
+ * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdmin = async (
@@ -1027,10 +1003,9 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+ * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
- * again by the next pass. 404 where no season has the id.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -1048,10 +1023,7 @@ export const getBewerbungenGetBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * One application.
- *
- * Each seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open
- * application of the season, as the list takes it.
+ * One application, each seat's state judged today and `duplicate` taken over every open application of the season.
  * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbung = async (
@@ -1069,17 +1041,10 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.
+ * Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
  *
- * The bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:
- * one request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
- *
- * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
- * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
- * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
- * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
- * A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
- * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
+ * It cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed
+ * the acceptance.
  * @summary Accept a Bewerbung and enter the school into the season
  */
 export const bewerbungenAcceptBewerbung = async (
@@ -1112,10 +1077,7 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
- *
- * A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
- * `giving_not_allowed`.
+ * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligung = async (
@@ -1148,10 +1110,9 @@ export const getBewerbungenDeclineBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
+ * Decline an application with the reason given, mailed verbatim to each person the application mailed.
  *
- * The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
- * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
+ * What the school submitted stays as it was, the record the decision was taken against.
  * @summary Decline a Bewerbung
  */
 export const bewerbungenDeclineBewerbung = async (
@@ -1184,13 +1145,10 @@ export const getBewerbungenResendEinwilligungUrl = (bewerbungId: string, seat: s
 };
 
 /**
- * Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
+ * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
  *
- * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
- * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
- * That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
- * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
- * decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
+ * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
+ * seats as the write found them.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendEinwilligung = async (
@@ -1209,19 +1167,10 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
 };
 
 /**
- * „Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.
+ * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
- * One write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a
- * Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
- * and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
- * waits on the other two. Where one person holds two seats both are written from one press and one link answers
- * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
- * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
- *
- * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
- * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
- * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
- * `bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.
+ * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
+ * deadline starts again from today.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (

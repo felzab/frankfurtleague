@@ -1694,7 +1694,7 @@ export interface FLBewerbungGruppeOffer {
 }
 
 /**
- * What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.
+ * What an acceptance into one season would meet, so a caller offers what the write takes without deriving it.
  */
 export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
@@ -1840,7 +1840,7 @@ export interface FLBewerbungLinkData {
 }
 
 /**
- * One application as the season's list shows it, holding nothing of a person.
+ * One application of a season's list, holding nothing of a person.
  */
 export interface FLBewerbungListRow {
   duplicate: boolean;
@@ -1911,7 +1911,7 @@ export interface FLBewerbungSchulePayload {
 }
 
 /**
- * One application as its review page shows it.
+ * One application, with what an acceptance of it would meet.
  */
 export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;

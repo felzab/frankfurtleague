@@ -3612,7 +3612,7 @@
         "type": "object"
       },
       "FLBewerbungEntryOffer": {
-        "description": "What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.",
+        "description": "What an acceptance into one season would meet, so a caller offers what the write takes without deriving it.",
         "properties": {
           "gruppen": {
             "items": {
@@ -3939,7 +3939,7 @@
         "type": "object"
       },
       "FLBewerbungListRow": {
-        "description": "One application as the season's list shows it, holding nothing of a person.",
+        "description": "One application of a season's list, holding nothing of a person.",
         "properties": {
           "duplicate": {
             "title": "Duplicate",
@@ -4240,7 +4240,7 @@
         "type": "object"
       },
       "FLBewerbungSingleResponse": {
-        "description": "One application as its review page shows it.",
+        "description": "One application, with what an acceptance of it would meet.",
         "properties": {
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
@@ -19905,7 +19905,7 @@
     },
     "/api/v0/bewerbungen": {
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again, whatever its body says: a form whose details changed\nsince its last press sends a new key.\n\nTwo people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the\nTrainer also holds being that one person.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the\npress: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same\neither way, so it tells a stranger nothing about the address.",
+        "description": "Store one school's application to play one season, and mail each contact person their confirmation link, one per person.\n\nA second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -19994,7 +19994,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice\nnaming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's\nseason row `link_expired` and `kontakt_saison_past`.",
+        "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that\nis the deletion notice too.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -20101,7 +20101,7 @@
     },
     "/api/v0/bewerbungen/einwilligung/view": {
       "post": {
-        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token\nno seat holds is refused (`link_invalid`).",
+        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA confirmed, declined or expired link is served in that state; only a token no seat holds is refused.",
         "operationId": "bewerbungen_get_einwilligung_view",
         "requestBody": {
           "content": {
@@ -20179,7 +20179,7 @@
     },
     "/api/v0/bewerbungen/form/{saison_id}": {
       "get": {
-        "description": "One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.\n\n404 only where no season carries the id. A closed or paused window and a season recording none are served, for the\npage to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and\nnothing more (`READ-BEWERBUNG-001`).",
+        "description": "A season's application window, and while it runs the clubs a school may apply as and the colours taken.\n\nA closed or paused window and a season recording none are served too, and each club is served as its name alone.",
         "operationId": "bewerbungen_get_form",
         "parameters": [
           {
@@ -20257,7 +20257,7 @@
     },
     "/api/v0/bewerbungen/list/admin": {
       "get": {
-        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.\nEvery application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers\nconfirms nothing, and a sender confirming one seat at a time has to hold each mailbox.",
+        "description": "The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.\n\nA long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.",
         "operationId": "bewerbungen_get_bewerbungen_admin",
         "parameters": [
           {
@@ -20402,7 +20402,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nThe drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met\nagain by the next pass. 404 where no season has the id.",
+        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -20480,7 +20480,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application.\n\nEach seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open\napplication of the season, as the list takes it.",
+        "description": "One application, each seat's state judged today and `duplicate` taken over every open application of the season.",
         "operationId": "bewerbungen_get_bewerbung",
         "parameters": [
           {
@@ -20559,7 +20559,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nA colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.\n\nIt cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed\nthe acceptance.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {
@@ -20648,7 +20648,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung": {
       "patch": {
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nA grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and\n`giving_not_allowed`.",
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.",
         "operationId": "bewerbungen_patch_einwilligung",
         "parameters": [
           {
@@ -20730,7 +20730,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/decline": {
       "post": {
-        "description": "Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.\n\nThe submission itself is untouched: a decline moves `status` and `decision` and nothing else,\nso what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.",
+        "description": "Decline an application with the reason given, mailed verbatim to each person the application mailed.\n\nWhat the school submitted stays as it was, the record the decision was taken against.",
         "operationId": "bewerbungen_decline_bewerbung",
         "parameters": [
           {
@@ -20819,7 +20819,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
       "post": {
-        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThat seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.",
+        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both, and the answer names the address and\nseats as the write found them.",
         "operationId": "bewerbungen_resend_einwilligung",
         "parameters": [
           {
@@ -20907,7 +20907,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,\n`bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.",
+        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
