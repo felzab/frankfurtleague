@@ -167,16 +167,6 @@ async def _expired_rows(database: AsyncDatabase) -> list[str]:
     return [message for message in await asyncio.gather(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
 
 
-def _expired_rows_sync(database: Database) -> list[str]:
-    found = (
-        _expired_message(
-            database.name, ttl.collection, ttl.key, list(database[ttl.collection].aggregate(_expired_pipeline(ttl.key, ttl.seconds)))
-        )
-        for ttl in TTL_INDEXES
-    )
-    return [message for message in found if message]
-
-
 async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:
     """Every document the read-back refuses, as it names them, through its own judgement rather than a copy of it."""
 
@@ -242,12 +232,6 @@ async def _schema(database: AsyncDatabase) -> tuple[Schema, list[str]]:
     specs = await asyncio.gather(*(_index_specs(database, info["name"]) for info in infos))
 
     return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}, _foreign(listed)
-
-
-def _schema_sync(database: Database) -> tuple[Schema, list[str]]:
-    listed = list(database.list_collections())
-
-    return {info["name"]: _enforcement(info, database[info["name"]].list_indexes()) for info in _data(listed)}, _foreign(listed)
 
 
 def _enforces(enforcement: Enforcement) -> bool:
@@ -366,32 +350,15 @@ def a_clean_database_sync(
     """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
 
     A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.
+    Entered and left on the seed loop, a step at a time, so both share one judgement of a clean database.
     """
 
-    key = _key(url, name)
-    database = client[name]
-    built = _BUILT.get(key)
-    _BUILT.pop(key, None)
-
-    if built is None or built[0] != constraints:
-        client.drop_database(name)
-        if constraints:
-            # Through the tier's own loop and its async client rather than a synchronous rebuild of
-            # the same work: `apply_constraints` is the one declaration of what a constrained
-            # database carries, and a second copy of it here could disagree with production.
-            on_the_seed_loop(apply_constraints(shared_client(url)[name]))
-        baseline, _ = _schema_sync(database)
-    else:
-        baseline = built[1]
-        for collection in baseline:
-            database[collection].delete_many({})
-
-    yield database
-
-    present, foreign = _schema_sync(database)
-    _guard(_DRIFT, name, baseline, present, foreign)
-    _BUILT[key] = (constraints, present)
-    if stores_a_refused_shape is None and (refused := on_the_seed_loop(_refused_records(shared_client(url), name))):
-        raise AssertionError(_REFUSED.format(database=name, lines=refused))
-    if constraints and (expired := _expired_rows_sync(database)):
-        raise AssertionError("\n".join(expired))
+    entered = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
+    on_the_seed_loop(entered.__aenter__())
+    try:
+        yield client[name]
+    except BaseException as failure:
+        # The failure the body raised, handed in as `async with` would, so the checks are skipped and it surfaces as itself.
+        on_the_seed_loop(entered.__aexit__(type(failure), failure, failure.__traceback__))
+        raise
+    on_the_seed_loop(entered.__aexit__(None, None, None))
