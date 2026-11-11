@@ -201,10 +201,9 @@ class FLAufstellungReminderData(BaseModel):
     kind: Literal["aufstellung_reminder"]
     # The reader's own club, one of the two sides.
     team: str
-    # That club, the fixture's season and the fixture, which name the team's own pages: the reader enters it there, signed in.
+    # That club and the fixture's season, which name the team's own pages: the reader enters it there, signed in.
     team_id: CustomObjectId
     saison_id: str
-    spiel_id: CustomObjectId
     appointment: FLSpielMailAnsetzung
     # The moment the line-up is due, `app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_DAYS` before the kick-off:
     # carried, so the mail states it and no builder counts the days a second time.

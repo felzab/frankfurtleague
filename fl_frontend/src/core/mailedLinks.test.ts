@@ -70,7 +70,6 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     appointment: ANSETZUNG,
     due_at: "2026-10-23T14:00:00Z",
     saison_id: "2627",
-    spiel_id: "6890a1b2c3d4e5f607250021",
     team: "Ahorn",
     team_id: "6890a1b2c3d4e5f607250011",
   },

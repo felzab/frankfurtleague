@@ -819,7 +819,6 @@ async def sweep_spielbestaetigungen(
                 team=junction["name"],
                 team_id=club,
                 saison_id=saison_id,
-                spiel_id=spiel["_id"],
                 # As the fixture's request states it, its ground among the rest.
                 appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
                 due_at=marks.due_at,

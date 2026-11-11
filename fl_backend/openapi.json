@@ -2472,11 +2472,6 @@
             "title": "Saison Id",
             "type": "string"
           },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
           "team": {
             "title": "Team",
             "type": "string"
@@ -2492,7 +2487,6 @@
           "team",
           "team_id",
           "saison_id",
-          "spiel_id",
           "appointment",
           "due_at"
         ],

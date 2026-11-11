@@ -1119,8 +1119,6 @@ export interface FLAufstellungReminderData {
   due_at: string;
   kind: "aufstellung_reminder";
   saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
   team: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
