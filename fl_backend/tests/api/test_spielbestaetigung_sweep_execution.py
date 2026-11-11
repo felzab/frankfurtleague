@@ -1614,6 +1614,22 @@ class TestTheLineupReminder:
 
         assert reminded.aufstellungen == []
 
+    def test_a_reminder_owed_to_a_seat_handed_on_before_its_hand_out_is_dropped(self, mongo_replica_set_url: str):
+        """The reminder names its club, so the hand-out judges the seat as it stands: sent, it asks a former Trainer for a line-up."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            answer = await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW)
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"saison_id": SAISON_ID, "team_id": BETA}, {"$set": {"kontakte.trainer": seated("Nachfolge")}}
+            )
+            return await handed_out(database, client, answer, now=LINEUP_NOW)
+
+        reminded = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])
+
+        assert sorted(reminder.address for reminder in reminded.aufstellungen if reminder.team == "Beta") == sorted(
+            address(BETA, seat) for seat in KONTAKT_ROLLEN if seat != "trainer"
+        )
+
     def test_a_reminder_still_owed_at_the_due_mark_is_never_sent(self, mongo_replica_set_url: str):
         """A drain running behind would otherwise ask for the line-up by a moment already gone by."""
 
