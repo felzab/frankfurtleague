@@ -11,7 +11,7 @@ import { SectionTitle } from "./Section";
 import { PlaceholderLine, Waiting } from "./Skeleton";
 import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
 import { SpielHead, SpielHeadPlaceholder } from "./SpielHead";
-import { SpielList } from "./SpielRow";
+import { SpielList, spielPairs } from "./SpielRow";
 import { StatTiles, StatTilesPlaceholder } from "./StatTiles";
 import { Table } from "./Table";
 import { Timeline, TimelinePlaceholder } from "./Timeline";
@@ -105,9 +105,6 @@ async function titled(named: Named): Promise<{ title: PageTitle; read: ReadConte
 /** The decision's acts under the first group: one under another on a phone, in a row from `lg`. */
 const readActs = tv({ base: "grid gap-3 lg:flex lg:flex-wrap lg:items-center" });
 
-/** The cards of `spiele` and of their wait: one under another on a phone, two a row from `lg`, as `SpielList`'s cards. */
-const spielCards = tv({ slots: { grid: "grid gap-3 lg:grid-cols-2", card: cardSurface({ class: "overflow-hidden" }) } });
-
 /**
  * The box the page's blocks stand in one under another: the editor's column, or the content's whole width, where a
  * page such as a person's own Übersicht sets its tiles four in a row from `lg` and its matches two in a row.
@@ -142,20 +139,22 @@ function GroupBody({ group }: { group: GroupContent }) {
         />
       );
     case "spiele": {
-      const slots = spielCards();
+      // One under another on a phone and a tablet, on one set of columns, and two a row from `lg`, as `SpielList`'s cards.
+      const pairs = spielPairs();
       return group.spiele.length === 0 ? (
         <div className={cardSurface({ class: "overflow-hidden" })}>
           <EmptyState {...group.empty} />
         </div>
       ) : (
-        <div className={slots.grid()}>
+        <div className={pairs.list()}>
           {group.spiele.map(({ head, spiel }) => (
             <div
               key={spiel.id}
-              className={slots.card()}>
+              className={pairs.box()}>
               <SpielGroup
                 head={head}
                 spiel={spiel}
+                columns="outer"
               />
             </div>
           ))}
@@ -355,14 +354,14 @@ function GroupPlaceholder({ group }: { group: ReadWait["groups"][number] }) {
         />
       );
     case "spiele": {
-      const slots = spielCards();
+      const pairs = spielPairs();
       return (
-        <div className={slots.grid()}>
+        <div className={pairs.list()}>
           {Array.from({ length: group.count }, (_, index) => (
             <div
               key={index}
-              className={slots.card()}>
-              <SpielGroupPlaceholder />
+              className={pairs.box()}>
+              <SpielGroupPlaceholder columns="outer" />
             </div>
           ))}
         </div>

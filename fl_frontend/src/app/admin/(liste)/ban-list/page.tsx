@@ -61,7 +61,7 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
       subject={WORDS.object}
       consequence={WORDS.liftConsequence}
       facts={[
-        { label: COPY.signIn.address, value: { record: ban.address } },
+        { label: COPY.signIn.address, value: { record: ban.address, address: true } },
         { label: COPY.admin.spiel.reason, value: { record: ban.ban_reason } },
       ]}
       act={liftBan}

@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { ClubHead, ClubHeadPlaceholder } from "@/kit/ClubHead";
 import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
-import { SpielList } from "@/kit/SpielRow";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
@@ -160,7 +159,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
           counts: true,
           outcome: outcomeFor(spiel, team.id),
           title: headedMatchOf(spiel).head,
-          children: <SpielList matches={[headedMatchOf(spiel).spiel]} />,
+          spiel: headedMatchOf(spiel).spiel,
         })),
         empty: { kind: "none", plural: COPY.page.spiele },
       },

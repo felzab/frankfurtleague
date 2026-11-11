@@ -40,15 +40,39 @@ function takeFocus(home: HTMLElement) {
  * A dialog holding the focus as the node leaves, such as a row's dialog whose act leaves the row opening nothing, hands it
  * back only as it closes, later than that frame, and its restore finds the node gone then. The home waits for each dialog
  * the focus stands in to leave the page, then judges the frame after it as above.
+ *
+ * The handover acts later than the node leaves, by a frame or by a dialog's life, so it is bound to what the node left.
+ * Only a node leaving with the focus hands it on, the focus inside it or in a dialog it handed the focus to, judged as it
+ * leaves, since by the frame after the focus stands on `body` either way: a row leaving while the focus stood nowhere
+ * would pull it onto the row beside it. And it lands only in the page it left, which a page torn down whole, its root
+ * unmounted, takes along: else its frame, arriving after another page stands, would take that page's focus to that
+ * page's title, ahead of the handover of that page's own.
  */
 export function useFocusHome(held: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
     const node = held.current;
+    if (node === null) return;
+    // The dialog the focus last left the node for: a dialog opened from a press takes the focus straight from it, so
+    // the press's `focusout` names the dialog as the focus's new place.
+    let opened: Element | null = null;
+    const leave = (event: FocusEvent) => {
+      opened = event.relatedTarget instanceof Element ? event.relatedTarget.closest(DIALOG) : null;
+    };
+    node.addEventListener("focusout", leave);
     return () => {
+      node.removeEventListener("focusout", leave);
+      const focused = document.activeElement;
+      // The focus in the dialog the node opened, or in one standing over it, such as a danger row's question over a
+      // row's dialog, which hands it back to that dialog as it closes.
+      const standing = focused?.closest(DIALOG) ?? null;
+      if (!node.contains(focused) && !(opened?.isConnected === true && standing !== null)) return;
       // Read here, while the row still has its neighbours: the frame after, it has none.
-      const row = node?.closest(ROW);
+      const row = node.closest(ROW);
       const neighbours = [row?.nextElementSibling, row?.previousElementSibling].map((other) => other?.querySelector<HTMLElement>(PRESSABLE));
-      const around = node?.closest<HTMLElement>(HOME);
+      const around = node.closest<HTMLElement>(HOME);
+      // The page the node stood in: its outermost part under `body`, which stands as long as the page's root is mounted.
+      let page: Element = node;
+      while (page.parentElement !== null && page.parentElement !== document.body) page = page.parentElement;
       const land = () => {
         // A row the answer kept, such as a booking turned „Zugesagt“ whose acts left with the answer: its own first link,
         // so the keys stay on the record and its new state is heard there, rather than on the next record's.
@@ -59,7 +83,8 @@ export function useFocusHome(held: RefObject<HTMLElement | null>) {
           return;
         }
         // The page's title as it stands by then: a one-shot form's end takes the whole page's place, its title included.
-        const home = [around, document.querySelector<HTMLElement>("h1")].find((candidate) => candidate?.isConnected === true);
+        const title = page.isConnected ? page.querySelector<HTMLElement>("h1") : null;
+        const home = [around, title].find((candidate) => candidate?.isConnected === true);
         if (home !== undefined && home !== null) takeFocus(home);
       };
       const settle = () => {
@@ -79,7 +104,7 @@ export function useFocusHome(held: RefObject<HTMLElement | null>) {
         watch.observe(document.body, { childList: true, subtree: true });
       };
       requestAnimationFrame(() => {
-        if (node?.isConnected === false) settle();
+        if (!node.isConnected) settle();
       });
     };
   }, [held]);

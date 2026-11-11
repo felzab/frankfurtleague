@@ -60,8 +60,8 @@ function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdmin
 function endFactsOf({ address, email, effective_from, holder, waits_on }: FLAddressChangeAdminOpen): ReadonlyArray<Fact> {
   const toldHolders = holder !== null && waits_on === "waiting_period";
   return [
-    { label: COPY.admin.facts.before, value: { record: address } },
-    { label: COPY.admin.facts.after, value: { record: email } },
+    { label: COPY.admin.facts.before, value: { record: address, address: true } },
+    { label: COPY.admin.facts.after, value: { record: email, address: true } },
     ...(effective_from === null ? [] : [{ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effective_from) } }]),
     { label: COPY.admin.facts.mailTo, value: toldHolders ? COPY.admin.mailTo.holders : COPY.admin.seatEmpty },
   ];

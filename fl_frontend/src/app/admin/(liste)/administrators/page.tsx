@@ -99,7 +99,7 @@ function activeRow(grant: FLGrantRow, actor: string | null): TableRow {
               subject={WORDS.object}
               consequence={WORDS.removeConsequence}
               facts={[
-                { label: ADDRESS, value: { record: grant.address } },
+                { label: ADDRESS, value: { record: grant.address, address: true } },
                 { label: WORDS.since, value: dayOf(grant.effective_from) },
                 { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
               ]}
@@ -163,7 +163,7 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
         actor,
         consequence: WORDS.withdrawConsequence.addition,
         facts: [
-          { label: ADDRESS, value: { record: grant.address } },
+          { label: ADDRESS, value: { record: grant.address, address: true } },
           { label: FACTS.effectiveFrom, value: instantOf(grant.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
         ],
@@ -180,7 +180,7 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
             actor,
             consequence: WORDS.withdrawConsequence.handover,
             facts: [
-              { label: FACTS.after, value: { record: handover.address } },
+              { label: FACTS.after, value: { record: handover.address, address: true } },
               { label: FACTS.effectiveFrom, value: instantOf(handover.owner_from) },
               { label: FACTS.mailTo, value: MAIL_TO.holders },
             ],
@@ -195,8 +195,8 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
         actor,
         consequence: COPY.admin.addressChange.previousStays,
         facts: [
-          { label: FACTS.before, value: { record: change.address } },
-          { label: FACTS.after, value: { record: change.email } },
+          { label: FACTS.before, value: { record: change.address, address: true } },
+          { label: FACTS.after, value: { record: change.email, address: true } },
           { label: FACTS.effectiveFrom, value: instantOf(change.effective_from) },
           { label: FACTS.mailTo, value: MAIL_TO.holders },
         ],
@@ -287,7 +287,7 @@ function handoverOf({ actor, active, handover }: Access): ListCreate | null {
     ...(handover === undefined ? {} : { locked: WORDS.handoverRunning }),
     consequence: WORDS.handoverConsequence(OWNER_WAIT),
     facts: [
-      { label: FACTS.before, value: { record: owner.address } },
+      { label: FACTS.before, value: { record: owner.address, address: true } },
       // Counted from this read: the press sets the date itself, and the row and the mail then state it.
       { label: FACTS.effectiveFrom, value: instantOf(new Date(now().getTime() + OWNER_WAIT.days * DAY_MS).toISOString()) },
       { label: FACTS.mailTo, value: MAIL_TO.holders },

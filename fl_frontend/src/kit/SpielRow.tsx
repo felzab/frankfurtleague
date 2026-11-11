@@ -42,15 +42,36 @@ export type SpielRowProps = {
 };
 
 /**
- * The one-line row's columns, held by the box of a list's rows, or by the list of boxes a page's groups of matches stand
- * in, and taken by every row as a subgrid, as a table's rows take its columns: so the score and the sides stand at one x
- * down the whole list. The when column holds the date with the chip beside it, „Sa., 21.11.2026 · 16:00 [Antwort fehlt]“,
- * as the owner ruled for every list's match row on a wide screen: at least a date's width, and as wide as the widest
- * date and chip of the list, the sides taking what is left. The score's 6 rem is its column's most, which a wide box
- * always leaves it, so a narrow box, whose rows stand as cards across the columns, holds the date's least width alone.
+ * The one-line row's columns, named once as `--spiel-columns` on what holds them and read by every grid taking them
+ * there, a pair's box from `lg` among them. The when column holds the date with the chip beside it, „Sa., 21.11.2026 ·
+ * 16:00 [Antwort fehlt]“, as the owner ruled for every list's match row on a wide screen: at least a date's width, and
+ * as wide as the widest date and chip of the list, the sides taking what is left. The score's 6 rem is its column's
+ * most, which a wide box always leaves it, so a narrow box, whose rows stand as cards across the columns, holds the
+ * date's least width alone.
  */
-export const spielColumns = tv({
-  base: "grid grid-cols-[minmax(min(9.5rem,100%),max-content)_minmax(0,1fr)_minmax(0,6rem)_minmax(0,1fr)_auto] gap-x-3",
+export const SPIEL_COLUMNS_CLASSES = "[--spiel-columns:minmax(min(9.5rem,100%),max-content)_minmax(0,1fr)_minmax(0,6rem)_minmax(0,1fr)_auto]";
+
+/**
+ * The holder of a list's match columns, every row taking them as a subgrid, as a table's rows take its columns: so the
+ * score and the sides stand at one x down the whole list, however many boxes it sets them in. The box of a list's rows
+ * holds them, or the list of boxes a page's groups of matches stand in.
+ */
+export const spielColumns = tv({ base: `${SPIEL_COLUMNS_CLASSES} grid grid-cols-(--spiel-columns) gap-x-3` });
+
+/**
+ * Boxes of matches one under another on a phone and a tablet and two a row from `lg`, as the Spielplan sets a
+ * matchday's. Below `lg` the list holds the columns and is the container picking the rows' form, so a tablet's wide
+ * boxes stand their scores at one x down the page, each box handing the columns on; a container is never a subgrid,
+ * which drops the columns. From `lg` each box of a pair is its own container holding its own columns, so its width
+ * alone picks its row's form, the two-line card at a pair's width.
+ */
+export const spielPairs = tv({
+  slots: {
+    list: `${SPIEL_COLUMNS_CLASSES} @container grid gap-3 max-lg:grid-cols-(--spiel-columns) lg:grid-cols-2`,
+    box: cardSurface({
+      class: "grid overflow-hidden max-lg:col-span-full max-lg:grid-cols-subgrid lg:@container lg:grid-cols-(--spiel-columns) lg:gap-x-3",
+    }),
+  },
 });
 
 /** A part standing between the box holding the columns and a row, which hands the columns on to the row. */
@@ -355,11 +376,13 @@ function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; lin
 
 /**
  * The box of a list's rows: the card's surface, or none where it stands `bare` inside a card's body; the holder of the
- * rows' columns, or, `outer`, a part handing on the columns of the list of groups it stands in (`SpielGroup`).
+ * rows' columns and the container whose width picks their form, or, `outer`, a part handing on the columns of the list
+ * of groups it stands in (`SpielGroup`), which is the container instead. A part handing columns on is never a container:
+ * a container establishes an independent formatting context, and a grid that does is no subgrid and drops the columns.
  */
 function rowsBox(bare: boolean, columns: "own" | "outer") {
-  const grid = columns === "own" ? spielColumns() : spielSubgrid();
-  return bare ? `@container ${grid}` : cardSurface({ class: `@container overflow-hidden ${grid}` });
+  const grid = columns === "own" ? `@container ${spielColumns()}` : spielSubgrid();
+  return bare ? grid : cardSurface({ class: `overflow-hidden ${grid}` });
 }
 
 /**
@@ -382,12 +405,13 @@ export function SpielListPlaceholder({
 }) {
   const rows = Array.from({ length: count }, (_, index) => index);
   if (layout === "cards") {
+    const pairs = spielPairs();
     return (
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className={pairs.list()}>
         {rows.map((index) => (
           <div
             key={index}
-            className={rowsBox(false, "own")}>
+            className={pairs.box()}>
             <SpielRowPlaceholder
               layout="cards"
               linked={linked}
@@ -413,13 +437,13 @@ export function SpielListPlaceholder({
 /**
  * Matches one under another in one box with the card corners and the hairline, the rows parted by lines:
  * a matchday's matches, the matches a read page lists, or the landing's last and next in its season card.
- * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, Tailwind's
- * `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
+ * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, or on the list of
+ * groups holding its columns, Tailwind's `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
  * and below it the two-line card a phone shows and the landing's narrower card holds on any screen.
  *
  * `cards` sets each match in a box of its own instead, one under another on a phone and two a row from `lg`, as
- * the Spielplan shows a matchday: each box its own container, so a phone's box and every box of a pair takes
- * the two-line card, and only a lone box wider than 42 rem below `lg`, a tablet's, the one-line row.
+ * the Spielplan shows a matchday (`spielPairs`): a phone's box and every box of a pair takes the two-line card, and
+ * only a box wider than 42 rem below `lg`, a tablet's, the one-line row, on the list's columns.
  *
  * `bare` sets the rows without the box's own surface, inside a card's body, whose box already holds them, as a
  * table's `bare` does: the season card's matches. The box holds the rows' columns (`spielColumns`), so every row of
@@ -435,12 +459,13 @@ export function SpielList({
   { layout?: "rows"; bare?: boolean; columns?: "own" | "outer" } | { layout: "cards"; bare?: never; columns?: never }
 )) {
   if (layout === "cards") {
+    const pairs = spielPairs();
     return (
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className={pairs.list()}>
         {matches.map(({ id, ...spiel }) => (
           <div
             key={id}
-            className={rowsBox(false, "own")}>
+            className={pairs.box()}>
             <SpielRow {...spiel} />
           </div>
         ))}

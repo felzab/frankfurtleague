@@ -11,6 +11,7 @@ import { AccountBox, AccountRows } from "./AccountBox";
 import { Button } from "./Button";
 import { CardActRow } from "./Card";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { Dialog } from "./Dialog";
 import { Table } from "./Table";
 
 import type { ComponentProps } from "react";
@@ -116,6 +117,52 @@ describe("a row removed by its own act", () => {
     await new Promise(requestAnimationFrame);
 
     expect(document.activeElement).toBe(elsewhere);
+  });
+
+  // The harm: a row a page read again takes away while the person reads with a pointer pulling the focus onto the row
+  // beside it, where a screen reader announces a record nobody chose.
+  it("leaves alone a focus standing nowhere", async () => {
+    const list = (addresses: readonly string[]) => (
+      <Table
+        label={COPY.page.teams}
+        nameLabel={COPY.signIn.address}
+        columns={[]}
+        empty={EMPTY}
+        rows={addresses.map((address) => ({
+          id: address,
+          name: { record: address },
+          cells: {},
+          acts: (
+            <Button
+              variant="secondary"
+              label={VERB}
+            />
+          ),
+        }))}
+      />
+    );
+    const { rerender } = render(list(["pia@example.org", "ben@example.org"]));
+
+    rerender(list(["ben@example.org"]));
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  // The harm: a page torn down whole with the focus in a row, its handover arriving once another page stands and taking
+  // that page's focus to its title, ahead of whatever that page's own act hands it to.
+  it("hands nothing to a page standing after its own left whole", async () => {
+    const left = render(<Listing leaves="row" />);
+    screen.getByRole("button", { name: VERB }).focus();
+    left.unmount();
+    left.container.remove();
+    render(<h1>{COPY.page.teams}</h1>);
+
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("lands a Konto row's removal on its box", async () => {
@@ -246,11 +293,26 @@ const SQUAD = ["pia@example.org", "ben@example.org", "tom@example.org"];
 
 /**
  * A list whose rows each open one question held beside the list, whose act leaves the row standing but opening nothing,
- * as a squad row taken out does. The page read again arrives while the question still stands, as an action's does.
+ * as a squad row taken out does: asked straight, or, as the squad's own page asks it, from the danger row of the row's
+ * dialog. The page read again arrives while the question still stands, as an action's does.
  */
-function Squad() {
+function Squad({ asked }: { asked: "straight" | "fromDialog" }) {
   const [live, setLive] = useState(SQUAD);
   const [opened, setOpened] = useState<string | null>(null);
+  const open = { isOpen: opened !== null, onOpenChange: (isOpen: boolean) => setOpened(isOpen ? opened : null) };
+  const question = {
+    verb: "remove",
+    subject: COPY.page.teams,
+    consequence: COPY.page.teams,
+    tone: "danger",
+    onConfirm: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setLive((addresses) => addresses.filter((address) => address !== opened));
+      // A frame with the row's press gone and the question still standing over the page.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    },
+  } as const;
   return (
     <>
       <h1>{COPY.page.teams}</h1>
@@ -267,31 +329,34 @@ function Squad() {
           ...(live.includes(address) ? { onOpen: () => setOpened(address) } : {}),
         }))}
       />
-      <ConfirmDialog
-        verb="remove"
-        subject={COPY.page.teams}
-        consequence={COPY.page.teams}
-        tone="danger"
-        open={{ isOpen: opened !== null, onOpenChange: (isOpen) => setOpened(isOpen ? opened : null) }}
-        onConfirm={async () => {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-          setLive((addresses) => addresses.filter((address) => address !== opened));
-          // A frame with the row's press gone and the question still standing over the page.
-          await new Promise(requestAnimationFrame);
-          await new Promise(requestAnimationFrame);
-        }}
-      />
+      {asked === "straight" ? (
+        <ConfirmDialog
+          {...question}
+          open={open}
+        />
+      ) : (
+        <Dialog
+          title={COPY.page.teams}
+          act={{ verb: "save" }}
+          action={async () => ({ ok: true, value: undefined })}
+          open={open}
+          danger={{ name: COPY.page.teams, consequence: COPY.page.teams, confirm: question }}>
+          {null}
+        </Dialog>
+      )}
     </>
   );
 }
 
-// The harm: the question hands the focus back to the row's press it opened from, which is gone by then, so the focus
-// drops on `body` and a keyboard's next Tab starts at the top of the document.
+// The harm: the question hands the focus back to the row's press it opened from, or to the row's dialog leaving with
+// the act, each gone by then, so the focus drops on `body` and a keyboard's next Tab starts at the top of the document.
 describe("a row its own question's act leaves opening nothing", () => {
-  it("hands the focus to the row after it once the question closes", async () => {
-    render(<Squad />);
+  /** Opens the first row's question and presses its act, as a keyboard's user does; the row after it takes the focus. */
+  it.each([["straight"], ["fromDialog"]] as const)("hands the focus to the row after it once the question closes, asked %s", async (asked) => {
+    render(<Squad asked={asked} />);
     await userEvent.tab();
     await userEvent.keyboard("{Enter}");
+    if (asked === "fromDialog") await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: VERB }));
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 

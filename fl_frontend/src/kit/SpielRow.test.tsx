@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { spielColumnsHolder } from "@/test-support/spielColumns.ts";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -24,5 +25,23 @@ describe("a match's row", () => {
     rerender(<SpielList matches={[SPIEL]} />);
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getAllByText("Ahorn").length).toBeGreaterThan(0);
+  });
+});
+
+// The harm: one box's chip widening its when column, so on a tablet, where the boxes stand one under another, its score
+// and sides stand apart from the next box's, or a box dropping the columns and printing its cells over each other.
+describe("a matchday's boxes", () => {
+  it("line every match up on one set of columns", () => {
+    const { container } = render(
+      <SpielList
+        layout="cards"
+        matches={[
+          { ...SPIEL, chip: { tone: "warn", label: COPY.shared.saved } },
+          { ...SPIEL, id: "spiel-2" },
+        ]}
+      />,
+    );
+
+    expect(spielColumnsHolder(container)).toBe(container.firstElementChild);
   });
 });

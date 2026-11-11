@@ -1,5 +1,6 @@
 import { textOf } from "@/core/copy";
 
+import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -10,6 +11,7 @@ import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
+import type { AddressText } from "./AddressWords";
 import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
 
@@ -24,7 +26,8 @@ export type Fact = {
   glyph?: IconName;
 } & (
   | {
-      value: Words;
+      /** An address its page marks as one wraps after its „@“, as a row's name does (`AddressWords`). */
+      value: Words | AddressText;
       /** Figures, set in Inter with columns that line up. */ figures?: boolean;
       link?: never;
       elsewhere?: never;
@@ -55,14 +58,18 @@ const facts = tv({
         // included, takes the row's whole width, so no empty cell stands beside it.
         row: `${stacked()} px-3 py-2 @lg:odd:not-last:border-e @lg:odd:last:col-span-2 @lg:nth-2:border-t-0`,
       },
-      // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams.
+      // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams. A lone pair
+      // takes the row's whole width, so its value never wraps in half a phone's column beside nothing.
       free: {
         list: "grid grid-cols-2 gap-x-4 gap-y-3",
-        row: "min-w-0",
+        row: "min-w-0 only:col-span-2",
       },
     },
     figures: {
       true: { detail: "font-numeric" },
+    },
+    address: {
+      true: { detail: addressWords() },
     },
   },
 });
@@ -158,7 +165,8 @@ export function Facts({
       )}
       <dl className={list()}>
         {rows.map((fact) => {
-          const { row, term, detail } = facts({ look, figures: fact.figures === true });
+          const address = fact.value !== undefined && isAddress(fact.value);
+          const { row, term, detail } = facts({ look, figures: fact.figures === true, address });
           const to = fact.link ?? fact.elsewhere;
           const nth = above.get(fact.label) ?? 0;
           above.set(fact.label, nth + 1);
@@ -176,15 +184,21 @@ export function Facts({
                 {fact.label}
               </dt>
               <dd className={detail()}>
-                {fact.value !== undefined
-                  ? textOf(fact.value)
-                  : to !== undefined && (
-                      <Link
-                        href={to.href}
-                        placement="standalone"
-                        label={to.label}
-                      />
-                    )}
+                {fact.value !== undefined ? (
+                  isAddress(fact.value) ? (
+                    <AddressWords address={textOf(fact.value)} />
+                  ) : (
+                    textOf(fact.value)
+                  )
+                ) : (
+                  to !== undefined && (
+                    <Link
+                      href={to.href}
+                      placement="standalone"
+                      label={to.label}
+                    />
+                  )
+                )}
               </dd>
             </div>
           );
