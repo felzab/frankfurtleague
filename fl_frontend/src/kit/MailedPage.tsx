@@ -10,34 +10,19 @@ import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
 import { FormFooterPlaceholder } from "./FormFooter";
 import { Link } from "./Link";
+import { linkInvalid } from "./mailedLinkState";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
 import { ClassicStatusPage, StatusPagePlaceholder } from "./StatusCard";
 
 import type { Copy } from "@/core/copy";
-import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { EndState, OneShotAction, OneShotActs } from "./OneShot";
 import type { StatusCardProps } from "./StatusCard";
 
-/**
- * A page a mail opens carries its link's token in its address, the first request of one in
- * `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES` included: no outbound request may send that address on
- * as its referrer. Each such page spreads this into the metadata it answers, or sets the same referrer itself.
- */
-export const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;
-
 // The end a mailed page's answer reaches, handed on from the one-shot submit, which no page imports but this template.
 export type { EndState } from "./OneShot";
-
-/**
- * The link no longer valid, one message for an expired, mistyped or tampered link alike, as the page opens on it
- * and as a press ends on it where the link stopped holding since the page opened.
- */
-export function linkInvalid(next: StatusCardProps["next"]): EndState {
-  return { tone: "warn", title: COPY.template.linkInvalid, next };
-}
 
 /**
  * The way on from a mailed page to Konto's Anmeldung, where a change is started again and the deletion asked for:
@@ -90,21 +75,6 @@ export type MailedState =
   | { state: "alreadyDone"; title: Copy; next: StatusCardProps["next"]; declined?: boolean }
   | { state: "invalid"; next: StatusCardProps["next"] }
   | ({ state: "end" } & EndState);
-
-/**
- * A mailed page's tab title, its state's own heading, so the tab never asks a question the page has closed. Read off the
- * same read as the page, which the page memoizes with React's `cache`, since a link's state decides its heading.
- */
-export function mailedTitle(state: MailedState): Copy {
-  switch (state.state) {
-    case "invalid":
-      return COPY.template.linkInvalid;
-    case "question":
-    case "alreadyDone":
-    case "end":
-      return state.title;
-  }
-}
 
 /** The page once its link is read, in the boundary's place. */
 async function MailedBody({ page }: { page: Promise<MailedState> }) {

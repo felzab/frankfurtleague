@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
@@ -16,7 +17,6 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { eraseAccount } from "@/features/account/personActions";
 import { getErasureView } from "@/features/account/queries";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
@@ -26,9 +26,7 @@ import type { Metadata, ResolvingMetadata, Route } from "next";
 
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.accountErasure;
-  const title = mailedTitle(await readState());
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.accountErasure, readState());
 }
 
 const WORDS = SERVER_COPY.accountErasure;

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { linkInvalid } from "@/kit/MailedPage";
+import { linkInvalid } from "@/kit/mailedLinkState";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
