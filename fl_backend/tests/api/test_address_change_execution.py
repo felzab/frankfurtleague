@@ -601,6 +601,8 @@ class TestTheConfirmation:
                     "move": {"old": FOREIGN_EMAIL, "new": EMAIL},
                 }
             )
+            # The pending registration's club in the season, so the move judges the new mailbox and owes it a fresh link.
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX"))
             minted = await start(database, client)
             # A client of this case's own, so the spy sees the effect's commands rather than the seeding's.
             watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[spy])
@@ -619,6 +621,8 @@ class TestTheConfirmation:
         assert owed_carries == [(FOREIGN_EMAIL, NEW_EMAIL), (EMAIL, NEW_EMAIL)]
         written = {collection for name, collection, _ in sent if name in ("findAndModify", "update", "insert", "delete")}
         assert {Collection.SPIELER, Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.ADDRESS_CHANGES} <= written
+        # The mailbox anchored and the fresh link owed: the registration's mailed path ran.
+        assert {Collection.MAILBOX_ANCHORS, Collection.OUTBOX} <= written
 
         assert [(name, collection) for name, collection, in_transaction in sent if not in_transaction] == []
 
@@ -654,7 +658,10 @@ class TestTheConfirmation:
         assert after["confirmation"] == before["confirmation"]
         assert after["pending application"]["kontakte"]["trainer"]["email"] == NEW_EMAIL
         assert after["accepted application"]["kontakte"]["ansprechperson"]["email"] == NEW_EMAIL
-        assert (after["confirmed registration"]["email"], after["unconfirmed registration"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
+        assert after["unconfirmed registration"]["email"] == NEW_EMAIL
+        # Its address alone, a registration counting no version: a pupil who confirmed is owed no fresh link, and the
+        # block of the link they answered stays.
+        assert after["confirmed registration"] == {**before["confirmed registration"], "email": NEW_EMAIL}
         # The tombstone holds no address and answers how the change ended.
         assert (record["address"], record["email"], record["ended"]["kind"]) == (None, None, "effective")
         assert record["token_hashes"] == [hash_token(minted.token)]
@@ -1616,6 +1623,11 @@ DECLINED_REG_OID = ObjectId("6890a1b2c3d4e5f607850053")
 ANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850063")
 # The day before `TODAY`: its link died at that midnight, and the hourly sweep has not yet taken the row.
 LAPSED_DEADLINE = "2126-03-31"
+# The address on file's own mailbox, plus-tagged: a move there, and two siblings' open links already in it.
+SAME_MAILBOX = "lenore.quastenbach+neu@schule.example"
+SIBLINGS = [f"lenore.quastenbach+{index}@schule.example" for index in range(2)]
+# The registration's club leaving the season before the move.
+DEPARTURE = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": "2126-03-25"}
 
 
 async def confirmed_and_moved(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -1645,7 +1657,15 @@ class TestWhatTheEffectLeavesTheErasure:
         assert (before.state, after) == ("valid", Code.LINK_INVALID)
 
     @pytest.mark.parametrize(
-        "case", ["room", "full", "lapsed"], ids=("a mailbox with room", "a mailbox holding its three open links", "a row past its deadline")
+        "case",
+        ["room", "full", "lapsed", "departed", "same-mailbox"],
+        ids=(
+            "a mailbox with room",
+            "a mailbox holding its three open links",
+            "a row past its deadline",
+            "a row of a club gone from the season",
+            "a move within the row's own mailbox",
+        ),
     )
     def test_a_pending_registration_is_owed_a_fresh_link_at_the_new_mailbox(self, mongo_replica_set_url: str, case: str):
         """Its old link died with the move, so without a new one it could never be confirmed, yet held one of three places.
@@ -1653,7 +1673,9 @@ class TestWhatTheEffectLeavesTheErasure:
         The mail states its days, so the deadline is this move's; the old address's unsent mail goes rather than a second.
         A mailbox already holding three unanswered links is owed nothing, as a submission is, and the row then holds no
         place and keeps its stored deadline: a move owing no mail keeps a row nobody can confirm no day longer. A row whose
-        deadline is behind it is decided, as its link is: nothing is owed, and the sweep takes it.
+        deadline is behind it is decided, as its link is: nothing is owed, and the sweep takes it; so is a row whose club
+        left the season. A move to a plus-tagged form of the row's own mailbox counts the row's own link no place there:
+        two other links beside it leave room for its fresh one.
         """
 
         reference = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=UNCONFIRMED_REG_OID, seat=None)
@@ -1662,8 +1684,14 @@ class TestWhatTheEffectLeavesTheErasure:
         # Plus-tagged, so the mailbox is the new address's and no entry names the address itself, which refuses the change.
         tagged = [f"lenore.q+{index}@neupost.example.org" for index in range(3)]
 
+        new_address = SAME_MAILBOX if case == "same-mailbox" else NEW_EMAIL
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX"))
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(
+                    SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX", austritt=dict(DEPARTURE) if case == "departed" else None
+                )
+            )
             unsent = row_of(
                 OwedMail(key="registrierung/unsent", to=EMAIL, data=data, reference=reference, link=link),
                 now=NOW,
@@ -1692,7 +1720,25 @@ class TestWhatTheEffectLeavesTheErasure:
                         for address in tagged
                     ]
                 )
-            await confirmed_and_moved(database, client)
+            if case == "same-mailbox":
+                await database[Collection.REGISTRIERUNGEN].insert_many(
+                    [
+                        documents.registrierung_document(
+                            ObjectId(),
+                            address,
+                            saison_id=SAISON_ID,
+                            team_id=TEAM_OID,
+                            first_name="Geschwister",
+                            last_name="Quastenbach",
+                            token=f"a-siblings-link-{address}",
+                            submitted_at=TODAY,
+                            deadline="2126-04-15",
+                        )
+                        for address in SIBLINGS
+                    ]
+                )
+            minted = await start(database, client, email=new_address)
+            await answer(database, client, minted.token)
             owed = (
                 await database[Collection.OUTBOX]
                 .find({"kind": "registrierung_confirmation", "state": "open", "reference.id": UNCONFIRMED_REG_OID})
@@ -1714,9 +1760,14 @@ class TestWhatTheEffectLeavesTheErasure:
                 # `registration`'s stored deadline.
                 "full": {"token_hashes": [], "sent_at": None, "deadline": "2126-04-06"},
                 "lapsed": {"token_hashes": [], "sent_at": None, "deadline": LAPSED_DEADLINE},
+                "departed": {"token_hashes": [], "sent_at": None, "deadline": "2126-04-06"},
+                "same-mailbox": {"token_hashes": [], "sent_at": TODAY, "deadline": "2126-04-15"},
             }[case]
         )
-        assert [mail["to"] for mail in owed] == ([NEW_EMAIL] if case == "room" else [])
+        # Mailed or not, the row moves to the new address, which a fresh link's mail is addressed to.
+        assert moved["email"] == new_address
+        mailed = case in ("room", "same-mailbox")
+        assert [(mail["to"], mail["data"]["team"]) for mail in owed] == ([(new_address, "Quellbrunn")] if mailed else [])
         assert (old["state"], old["to"]) == ("dropped", None)
 
     def test_a_declined_registration_moves_too(self, mongo_replica_set_url: str):
