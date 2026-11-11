@@ -71,32 +71,34 @@ test("a list's row shows its whole address at a phone's width", async ({ page })
   }
 });
 
-test("the Protokoll narrows to each who", async ({ page }) => {
+// One who is enough: „Wer“ offers every one the log holds and reads the chosen back to one value its read filters on
+// (`fl_frontend/src/features/action-log/filters.ts :: byOf`), so another option walks the same path; the desktop's
+// journeys choose an address and „Automatisch“.
+test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");
-  const seeded = [
-    ["inhaber@example.com", "Administrator eingetragen · admin.wartet@example.com", "inhaber@example.com"],
-    ["Teams", "Termin beantwortet · 2026", "Kontaktperson · Birke"],
-    ["Schiedsrichter", "Spielbericht eingetragen · 2026 / 1", "Schiedsrichter"],
-    ["Automatisch", "Nach Frist gelöscht · Kontaktpersonen: 2", "Automatisch"],
-    ["Person", "Konto gelöscht", "Person"],
-  ] as const;
+  // A row of each kind of who the seed wrote, and the one the sheet chooses.
+  const chosen = { option: "Teams", what: "Termin beantwortet · 2026", who: "Kontaktperson · Birke" };
+  const others = [
+    "Administrator eingetragen · admin.wartet@example.com",
+    "Spielbericht eingetragen · 2026 / 1",
+    "Nach Frist gelöscht · Kontaktpersonen: 2",
+    "Konto gelöscht",
+  ];
 
-  for (const [option, what, who] of seeded) {
-    await page.goto("/admin/log");
-    await main.getByRole("button", { name: "Filter" }).click();
-    // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
-    const sheet = page.getByRole("dialog", { name: "Filter" });
-    // It takes the focus once it has risen. Playwright retries a press on a moving button behind a `scrollIntoView`, which
-    // carries the sheet back down its scroller and the page under it, and React Aria closes a sheet the viewport has lost.
-    await expect(sheet).toBeFocused();
-    await chooseWho(page, sheet, option);
-    await sheet.getByRole("button", { name: "Fertig" }).click();
-    await expect(sheet).toBeHidden();
+  await page.goto("/admin/log");
+  await main.getByRole("button", { name: "Filter" }).click();
+  // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
+  const sheet = page.getByRole("dialog", { name: "Filter" });
+  // It takes the focus once it has risen. Playwright retries a press on a moving button behind a `scrollIntoView`, which
+  // carries the sheet back down its scroller and the page under it, and React Aria closes a sheet the viewport has lost.
+  await expect(sheet).toBeFocused();
+  await chooseWho(page, sheet, chosen.option);
+  await sheet.getByRole("button", { name: "Fertig" }).click();
+  await expect(sheet).toBeHidden();
 
-    await expect(rows.filter({ hasText: what }).filter({ hasText: who }).first()).toBeVisible();
+  await expect(rows.filter({ hasText: chosen.what }).filter({ hasText: chosen.who }).first()).toBeVisible();
 
-    // Every other who's row is left out: unfiltered, the page would hold them all among its newest 50.
-    for (const [, other] of seeded.filter(([, seen]) => seen !== what)) await expect(rows.filter({ hasText: other })).toHaveCount(0);
-  }
+  // Every other who's row is left out: unfiltered, the page would hold them all among its newest 50.
+  for (const other of others) await expect(rows.filter({ hasText: other })).toHaveCount(0);
 });
