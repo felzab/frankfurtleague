@@ -20,8 +20,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 import type { JourneyOptions } from "./e2e/support/journey";
 
-/** The local `AUTH_URL` (`docker-compose.local.yml`), which is also the passkeys' relying party, `localhost`. */
-const BASE_URL = "http://localhost:3000";
+/**
+ * The local `AUTH_URL` (`docker-compose.local.yml`), which is also the passkeys' relying party, `localhost`, unless
+ * `E2E_BASE_URL` names the origin a stack serves at.
+ */
+const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 /**
  * The journeys every viewport runs, at the top of `e2e/`; each project's own directory holds the rest.

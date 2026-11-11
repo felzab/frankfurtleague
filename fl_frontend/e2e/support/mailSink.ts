@@ -2,17 +2,18 @@
  * E2E · the sign-in code, read where the stack files the mail it does not send.
  *
  * `APP_ENV=local` writes every message to the frontend's sink instead of sending it
- * (`fl_frontend/src/core/mail.ts :: writeToSink`), and docker-compose.e2e.yml mounts that sink at
- * `.tmp-e2e/mail` in the checkout, so a journey reads its code as a person reads theirs: from the
- * message. No route, flag or store exists for the journeys alone.
+ * (`fl_frontend/src/core/mail.ts :: writeToSink`), and docker-compose.e2e.yml mounts that sink in the stack's folder,
+ * so a journey reads its code as a person reads theirs: from the message. No route, flag or store exists for the
+ * journeys alone.
  */
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { expect } from "@playwright/test";
 
-/** In the checkout's root, three levels above `fl_frontend/e2e/support/`. */
-const MAIL_SINK = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "mail");
+import { E2E_DIR } from "./journey";
+
+const MAIL_SINK = path.join(E2E_DIR, "mail");
 
 /** `fl_frontend/src/core/authEmail.ts :: buildCodeEmail`'s subject, up to the brand. */
 const CODE_SUBJECT = "Subject: Dein Anmeldecode";

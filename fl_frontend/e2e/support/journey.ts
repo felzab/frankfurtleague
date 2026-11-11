@@ -52,11 +52,18 @@ type JourneyFixtures = {
 };
 
 /**
- * The session `./administrator.setup.ts` saves, which every administration journey opens with
- * (https://playwright.dev/docs/auth). Beside the stack's keys in `.tmp-e2e/`, which goes when the stack goes and no
- * failed run uploads: it holds a live session of that stack.
+ * The end-to-end stack's own folder, where it files the mail it does not send and keeps its keys: by default the one
+ * in this checkout's root, which `./scripts/ops/local.sh --e2e` makes and `--e2e --down` deletes. `E2E_DIR` names
+ * another checkout's, so a run from a worktree reads the stack its primary checkout started.
  */
-export const ADMINISTRATOR_STATE = path.resolve(__dirname, "..", "..", "..", ".tmp-e2e", "administrator.json");
+export const E2E_DIR = path.resolve(process.env.E2E_DIR ?? path.join(__dirname, "..", "..", "..", ".tmp-e2e"));
+
+/**
+ * The session `./administrator.setup.ts` saves, which every administration journey opens with
+ * (https://playwright.dev/docs/auth). Beside the stack's keys, which go when the stack goes and no failed run uploads:
+ * it holds a live session of that stack.
+ */
+export const ADMINISTRATOR_STATE = path.join(E2E_DIR, "administrator.json");
 
 /**
  * Waits for Next's prefetch of a match link of the made-up seed's running season, a request carrying the `_rsc`
