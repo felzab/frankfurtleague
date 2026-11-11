@@ -86,8 +86,9 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
 
 
 # Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first request
-# waits on: here a request's shorter deadline governs, so only the boot waits this long. Bounded by the
-# window `scripts/ops/deploy.sh` waits for health in, so a failed ping's reason reaches its log excerpt.
+# waits on: here a request's shorter deadline governs, so only the boot waits this long. Kept well inside
+# the time a deploy waits for the stack's health, so a failed ping's reason is logged while the deploy
+# still waits, and the log lines it prints on a failure carry it.
 SERVER_SELECTION_TIMEOUT_MS = 15_000
 
 

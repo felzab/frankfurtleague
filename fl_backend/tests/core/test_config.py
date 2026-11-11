@@ -92,7 +92,7 @@ def an_environment(
     monkeypatch.chdir(working_directory)
     directory = working_directory / "run-secrets"
     directory.mkdir(exist_ok=True)
-    # Bytes (CLAUDE.md §6): a text-mode write would end every file in a carriage return on Windows.
+    # Bytes: a text-mode write would end every file in a carriage return on Windows.
     for name, content in {**{name: value.encode() for name, value in FILES.items()}, **(files or {})}.items():
         if content is not None:
             (directory / name).write_bytes(content)

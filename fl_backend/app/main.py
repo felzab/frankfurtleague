@@ -214,8 +214,8 @@ def mount_api(app: FastAPI) -> None:
     publish_document(app)
 
 
-# The exit a settings refusal ends the boot with, the code the frontend's boot refusal and
-# `scripts/lib/_lib.sh :: BACKEND_BOOT_CHECK` take, apart from a fault's 1.
+# The exit a settings refusal ends the boot with, apart from a fault's 1: the frontend's boot refusal
+# takes the same code, and `docker compose ps` shows it on the restarting container.
 BOOT_REFUSED: Final = 3
 
 
