@@ -163,10 +163,10 @@ async def _rewrite_the_outgoing_clubs_sides(
     spiele_collection: AsyncCollection,
     session: AsyncClientSession,
 ) -> int:
-    """Hand this club's sides to the incoming one by its `team_id` alone; returns how many FIXTURES moved.
+    """Hand this club's sides to the incoming one by its `team_id` alone; returns how many fixtures moved.
 
     Every read joins a side's name from its season row, so no name is written here. Named by `_id` off a snapshot
-    taken BEFORE any write, as `_rewrite_gruppenphase_sides` is.
+    taken before any write, as `_rewrite_gruppenphase_sides` is.
     """
 
     # One `update_many` writes one path with one value, so the passes split by slot.
@@ -298,14 +298,10 @@ async def get_teams_admin(
     saisons_collection: SaisonsReadCollection,
     filters: FLTeamsAdminFilterParams = Depends(),
 ) -> FLTeamsAdminListResponse:
-    """
-    The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
+    """One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
 
-    No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
-    the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
-    retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
-    each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
-    the colours the season's rows hold. 404 where no season holds that id.
+    `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
+    is true where the season, not being `future`, takes no entry.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
@@ -365,19 +361,13 @@ async def get_team_saison_admin(
     outbox_collection: OutboxReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLTeamSaisonAdminResponse:
-    """
-    Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
+    """What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
 
-    `version` is what the one save sends. `membership` serves the row with its seats' links, null for
-    a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
-    `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
-    `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
-    `retire_blocked` refuses over, by each write's own judgement.
-    `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
-    over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
-    season holds that id.
+    `version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are
+    null for a club holding no row of the season.
     """
 
+    # Outside a transaction: a write landing under this read is judged by its own write.
     saison_raw = await pull_one_from_db(
         collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "start_date", "rules", "registrierung"]
     )
@@ -463,13 +453,9 @@ async def post_team_entry(
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPostTeamEntryResponse:
-    """
-    Enter a club into a `future` season in a group and a colour, founding it first where it is new.
+    """Enter a club into a `future` season in a group and a colour, founding it first where it is new.
 
-    A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
-    naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
-    `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
-    season and the group as an entry is.
+    A club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.
     """
 
     async def found_and_enter(session: AsyncClientSession) -> Any:
@@ -512,11 +498,9 @@ async def delete_team(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """
-    Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
+    """Retire a club from the league, its rows of the seasons it played left as they are.
 
-    Refused while the club is entered in an `active` or `future` season. Its junction rows are left
-    alone: the seasons it played still happened.
+    Refused while the club is entered in an `active` or `future` season.
     """
 
     async def retire_the_club(session: AsyncClientSession) -> None:
@@ -543,8 +527,8 @@ async def delete_team(
         if retired is not None:
             await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
 
-    # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
-    # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
+    # Soft, since the seasons it played still happened. The stamp inside the judgement's transaction: an entry writes
+    # nothing read here, so the club it anchors (`pull_a_club_to_enter`) is the one document the two conflict on.
     async with transaction_session(db) as session:
         await session.with_transaction(retire_the_club)
 
@@ -587,15 +571,10 @@ async def patch_team_saison(
     spiele_collection: SpieleCollection,
     db: DBClient,
 ) -> FLPatchTeamSaisonResponse:
-    """
-    Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
+    """Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.
 
-    Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
-    part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
-    changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
-    included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
-    `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
-    `trikot_farbe`. 404 where the club holds no row of the season.
+    A `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour
+    are judged as an entry's.
     """
 
     row_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -616,6 +595,8 @@ async def patch_team_saison(
 
         row_part = {"gruppe": team_data.gruppe, "trikot_farbe": team_data.trikot_farbe}
         moves_the_row = any(row_raw.get(field) != value for field, value in row_part.items())
+        # Judged per part: a finished season's table and podium are read off its rows, so only a save moving the row is
+        # refused there.
         if moves_the_row:
             refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
@@ -692,12 +673,10 @@ async def put_austritt(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Record how a team left the season, once: an exit is never lifted and never replaced.
+    """Record how a team left the season, once: an exit is never lifted and never replaced.
 
-    Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
-    `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
-    the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+    An exit is taken from the season's start date on, before which the replacement takes a club out, and never on a
+    finished season.
     """
 
     row_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -764,21 +743,10 @@ async def put_kontakt_seat(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontaktSeatResponse:
-    """
-    „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+    """Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
 
-    The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
-    `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
-    in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
-    last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
-    stay correctable, and such a link takes the person's Widerspruch alone.
-
-    Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
-    on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
-    claim, and the seat it named keeps its person. Left out, the claim stands.
-
-    Refused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another
-    seat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.
+    The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
+    a write on either seat writes both under one link.
     """
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
@@ -844,12 +812,9 @@ async def replace_saison_team(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLReplaceSaisonTeamResponse:
-    """
-    Hand this season's junction row, and every fixture on it, to another club.
+    """Hand this season's row, and every fixture on it, to another club, keeping the schedule.
 
-    Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
-    their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
-    the schedule survives.
+    The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
     """
 
     # Before any read, as the group swap judges its pair: this one is refused whatever the season holds.
@@ -862,7 +827,7 @@ async def replace_saison_team(
     async def hand_the_row_over(session: AsyncClientSession) -> FLReplaceSaisonTeamResponse:
         """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
 
-        # For the 404 and the people leaving with the row, and deliberately NOT a read of the club it
+        # For the 404 and the people leaving with the row, and deliberately not a read of the club it
         # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
         # here may require one.
         outgoing_raw = await pull_one_from_db(
@@ -889,7 +854,7 @@ async def replace_saison_team(
         # judgement conflicts and the retry judges the season it left.
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # The ONE read of the incoming club, and it earns its place three times over: an id naming
+        # The one read of the incoming club, and it earns its place three times over: an id naming
         # nothing 404s here, the row's name is reseeded from it as `enter_a_club` seeds one at
         # entry, and every rewritten fixture side takes the same two values.
         incoming_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
@@ -938,9 +903,9 @@ async def replace_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
+            # `austritt` cleared: left standing it marks the incoming club withdrawn to
             # `find_eligibility_refusal` and `_may_hold_a_platz`. The colour, the contacts and their links
-            # leave with the OUTGOING school.
+            # leave with the outgoing school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
             expected_version=None,
@@ -953,7 +918,7 @@ async def replace_saison_team(
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
         # season its club now holds no junction row in -- what `kader_team_not_in_saison` refuses to create.
-        # LIVE rows alone, so an earlier exit keeps its own date.
+        # Live rows alone, so an earlier exit keeps its own date.
         retired_squad = await patch_many_in_db(
             collection=saison_spieler_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
@@ -968,7 +933,7 @@ async def replace_saison_team(
             collection=saison_teams_collection, action="team.replaced", record_id=team_id, label=str(updated_raw["name"]), session=session
         )
 
-        # Built from the AFTER image, so the echo cannot describe a row this write did not land; a
+        # Built from the after image, so the echo cannot describe a row this write did not land; a
         # stored `gruppe` outside the closed set raises here and aborts the transaction rather than answering.
         return FLReplaceSaisonTeamResponse(
             saison_id=saison_id,
@@ -1006,16 +971,10 @@ async def invite_kontakt(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontaktInviteResponse:
-    """
-    Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
+    """Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
 
-    It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
-    the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
-    the address the mail is owed to, never the link.
-
-    Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its
-    person has already confirmed it (`kontakt_seat_without_confirmation`).
-    404 for a team and season holding no row, and for a path naming no seat.
+    The previous link opens nothing from this write on, the deadline restarts from today, and the answer names the
+    address the mail is owed to, never the link.
     """
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -1095,22 +1054,10 @@ async def post_invitation(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationMintResponse:
-    """
-    Mint the link a team's players register through, revoking whatever link that team held for this season.
+    """Mint the link a team's players register through, revoking whatever link that team held for this season.
 
-    **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
-    this response is lost and the repair is another mint. Mailing the team's link is a separate press
-    (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
-
-    The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
-    holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
-    every time somebody opens it, so a window moved after the mint moves this link with it.
-
-    Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
-    (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
-
-    A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
-    opens nothing, whoever holds it.
+    The raw link is in this answer and in no other, the row storing only its hash, and it opens for as long as the season's
+    registration window does, judged afresh at each opening.
     """
 
     # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
@@ -1180,11 +1127,9 @@ async def delete_invitation(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationWriteResponse:
-    """
-    Stamp this team's live registration link revoked, so it opens nothing from here on.
+    """Stamp this team's live registration link revoked, so it opens nothing from here on.
 
-    The row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says
-    which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
+    The row stays, so a delivery event about a mail carrying the link still has somewhere to land.
     """
 
     async def revoke_the_link(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -1229,20 +1174,10 @@ async def post_invitation_dispatch(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLInvitationMailResponse:
-    """
-    Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+    """Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.
 
-    The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
-    stays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a
-    seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
-    twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
-    is handed out.
-
-    Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
-    window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
-    as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
-    the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
-    as the mint refuses it.
+    Each mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on
+    one day owes nothing again.
     """
 
     async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:

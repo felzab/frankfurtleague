@@ -3103,13 +3103,10 @@ export const SpieltageGetSpieltagAdminParams = zod.object({
 });
 
 /**
- * The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
+ * One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
  *
- * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
- * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
- * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
- * each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
- * the colours the season's rows hold. 404 where no season holds that id.
+ * `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
+ * is true where the season, not being `future`, takes no entry.
  * @summary One season's Teams list and what its create dialog offers
  */
 export const TeamsGetTeamsAdminQueryParams = zod.object({
@@ -3121,10 +3118,7 @@ export const TeamsGetTeamsAdminQueryParams = zod.object({
 /**
  * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
  *
- * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
- * naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
- * `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
- * season and the group as an entry is.
+ * A club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.
  * @summary Enter a club into a season, one the league holds or a new one
  */
 export const TeamsPostTeamEntryParams = zod.object({
@@ -3234,10 +3228,9 @@ export const TeamsPostTeamEntryBody = zod
   .describe("One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.");
 
 /**
- * Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
+ * Retire a club from the league, its rows of the seasons it played left as they are.
  *
- * Refused while the club is entered in an `active` or `future` season. Its junction rows are left
- * alone: the seasons it played still happened.
+ * Refused while the club is entered in an `active` or `future` season.
  * @summary Retire a team (soft delete)
  */
 export const teamsDeleteTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3320,16 +3313,10 @@ export const TeamsPatchEinwilligungBody = zod
   );
 
 /**
- * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
+ * What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
  *
- * `version` is what the one save sends. `membership` serves the row with its seats' links, null for
- * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
- * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
- * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
- * `retire_blocked` refuses over, by each write's own judgement.
- * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
- * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
- * season holds that id.
+ * `version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are
+ * null for a club holding no row of the season.
  * @summary One team in one season for the admin editor
  */
 export const teamsGetTeamSaisonAdminPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3340,14 +3327,10 @@ export const TeamsGetTeamSaisonAdminParams = zod.object({
 });
 
 /**
- * Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
+ * Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.
  *
- * Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
- * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
- * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
- * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
- * `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
- * `trikot_farbe`. 404 where the club holds no row of the season.
+ * A `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour
+ * are judged as an entry's.
  * @summary Save the team editor: the club and its row of the season, in one transaction
  */
 export const teamsPatchTeamSaisonPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3438,15 +3421,14 @@ export const TeamsPatchTeamSaisonBody = zod
     website_url: zod.union([zod.string().max(teamsPatchTeamSaisonBodyWebsiteUrlOneMax), zod.null()]),
   })
   .describe(
-    "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the\ndanger box's own write, which owes mail.",
+    "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale, with no seat and no `austritt`: a seat is its own write's, and an exit is a write of its own,\nwhich owes mail.",
   );
 
 /**
  * Record how a team left the season, once: an exit is never lifted and never replaced.
  *
- * Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
- * `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
- * the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * An exit is taken from the season's start date on, before which the replacement takes a club out, and never on a
+ * finished season.
  * @summary Record a team's exit from a season
  */
 export const teamsPutAustrittPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3468,14 +3450,13 @@ export const TeamsPutAustrittBody = zod
     type: zod.enum(["disqualifikation", "rueckzug"]),
   })
   .describe(
-    "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
+    "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the write side alone, so a read model takes a stored blank or a longer reason as it stands.",
   );
 
 /**
  * Stamp this team's live registration link revoked, so it opens nothing from here on.
  *
- * The row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says
- * which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
+ * The row stays, so a delivery event about a mail carrying the link still has somewhere to land.
  * @summary Revoke this team's live registration link for a season
  */
 export const teamsDeleteInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3488,19 +3469,8 @@ export const TeamsDeleteInvitationParams = zod.object({
 /**
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
  *
- * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
- * this response is lost and the repair is another mint. Mailing the team's link is a separate press
- * (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
- *
- * The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
- * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
- * every time somebody opens it, so a window moved after the mint moves this link with it.
- *
- * Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
- * (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
- *
- * A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
- * opens nothing, whoever holds it.
+ * The raw link is in this answer and in no other, the row storing only its hash, and it opens for as long as the season's
+ * registration window does, judged afresh at each opening.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3511,19 +3481,10 @@ export const TeamsPostInvitationParams = zod.object({
 });
 
 /**
- * Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+ * Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.
  *
- * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
- * stays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a
- * seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
- * twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
- * is handed out.
- *
- * Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
- * window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
- * as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
- * the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
- * as the mint refuses it.
+ * Each mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on
+ * one day owes nothing again.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
 export const teamsPostInvitationDispatchPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3542,20 +3503,10 @@ export const TeamsPostInvitationDispatchBody = zod
   .describe("The one live link a team's panel shows, to be mailed to the team's confirmed seats.");
 
 /**
- * „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+ * Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
  *
- * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
- * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
- * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
- * last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
- * stay correctable, and such a link takes the person's Widerspruch alone.
- *
- * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
- * on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
- * claim, and the seat it named keeps its person. Left out, the claim stands.
- *
- * Refused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another
- * seat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.
+ * The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
+ * a write on either seat writes both under one link.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeatPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3589,15 +3540,10 @@ export const TeamsPutKontaktSeatBody = zod
   .describe("The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet.");
 
 /**
- * Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
+ * Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
  *
- * It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
- * the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
- * the address the mail is owed to, never the link.
- *
- * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its
- * person has already confirmed it (`kontakt_seat_without_confirmation`).
- * 404 for a team and season holding no row, and for a path naming no seat.
+ * The previous link opens nothing from this write on, the deadline restarts from today, and the answer names the
+ * address the mail is owed to, never the link.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsInviteKontaktPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3609,11 +3555,9 @@ export const TeamsInviteKontaktParams = zod.object({
 });
 
 /**
- * Hand this season's junction row, and every fixture on it, to another club.
+ * Hand this season's row, and every fixture on it, to another club, keeping the schedule.
  *
- * Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
- * their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
- * the schedule survives.
+ * The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3629,7 +3573,7 @@ export const TeamsReplaceSaisonTeamBody = zod
   .object({
     incoming_team_id: zod.string().regex(teamsReplaceSaisonTeamBodyIncomingTeamIdRegExp),
   })
-  .describe("Which club takes this season's row over. The path names the club going OUT.");
+  .describe("Which club takes this season's row over. The path names the club going out.");
 
 /**
  * Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.

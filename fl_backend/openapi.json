@@ -2810,7 +2810,7 @@
         "type": "object"
       },
       "FLAustritt": {
-        "description": "How a team came to be out of one season, why, and from when.\n\n`reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
+        "description": "How a team came to be out of one season, why, and from when.\n\n`reason` is free text and public -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -2870,7 +2870,7 @@
       },
       "FLAustrittPayload": {
         "additionalProperties": false,
-        "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
+        "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the write side alone, so a read model takes a stored blank or a longer reason as it stands.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6307,7 +6307,7 @@
         "type": "object"
       },
       "FLKontaktKenntnisnahme": {
-        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`).",
+        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
         "properties": {
           "confirmed_at": {
             "anyOf": [
@@ -8586,7 +8586,7 @@
       },
       "FLPatchTeamSaisonPayload": {
         "additionalProperties": false,
-        "description": "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the\ndanger box's own write, which owes mail.",
+        "description": "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale, with no seat and no `austritt`: a seat is its own write's, and an exit is a write of its own,\nwhich owes mail.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddressPayload"
@@ -9757,7 +9757,7 @@
       },
       "FLReplaceSaisonTeamPayload": {
         "additionalProperties": false,
-        "description": "Which club takes this season's row over. The path names the club going OUT.",
+        "description": "Which club takes this season's row over. The path names the club going out.",
         "properties": {
           "incoming_team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10777,7 +10777,7 @@
         "type": "object"
       },
       "FLSaisonTeamKontakte": {
-        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
+        "description": "The three people a team is reached through, for one season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
         "properties": {
           "ansprechperson": {
             "anyOf": [
@@ -17451,7 +17451,7 @@
         "type": "object"
       },
       "FLTeamPanelTermin": {
-        "description": "One date the league asked the team to confirm, while it still holds work for the team or waits on the league.\n\nAn agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or\ndiscards it.",
+        "description": "One date the league asked the team to confirm, while it still holds work for the team or waits on the league.\n\nAn agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or\ndiscards it.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungViewAnsetzung"
@@ -17501,7 +17501,7 @@
         "type": "object"
       },
       "FLTeamRecord": {
-        "description": "The club document as it is STORED, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
+        "description": "The club document as it is stored, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddress"
@@ -17706,7 +17706,7 @@
         "type": "object"
       },
       "FLTeamSeat": {
-        "description": "One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.\n\nA Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,\ntelephone number or birthdate: only administrators see those.",
+        "description": "One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.\n\nA Trainer holding a second seat is one entry naming both, and no address, telephone number or birthdate is served,\nonly administrators seeing those.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
@@ -28649,7 +28649,7 @@
     },
     "/api/v0/teams/list/admin": {
       "get": {
-        "description": "The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.\n\nNo base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state\nthe type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every\nretired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,\neach group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`\nthe colours the season's rows hold. 404 where no season holds that id.",
+        "description": "One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.\n\n`state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`\nis true where the season, not being `future`, takes no entry.",
         "operationId": "teams_get_teams_admin",
         "parameters": [
           {
@@ -28759,7 +28759,7 @@
     },
     "/api/v0/teams/saisons/{saison_id}/entry": {
       "post": {
-        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,\nnaming `shorthand`. A retired club is refused `team_retired`, a club the season already holds\n`bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the\nseason and the group as an entry is.",
+        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.",
         "operationId": "teams_post_team_entry",
         "parameters": [
           {
@@ -28847,7 +28847,7 @@
     },
     "/api/v0/teams/{team_id}": {
       "delete": {
-        "description": "Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.\n\nRefused while the club is entered in an `active` or `future` season. Its junction rows are left\nalone: the seasons it played still happened.",
+        "description": "Retire a club from the league, its rows of the seasons it played left as they are.\n\nRefused while the club is entered in an `active` or `future` season.",
         "operationId": "teams_delete_team",
         "parameters": [
           {
@@ -29189,7 +29189,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season\n`retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
+        "description": "What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.\n\n`version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are\nnull for a club holding no row of the season.",
         "operationId": "teams_get_team_saison_admin",
         "parameters": [
           {
@@ -29275,7 +29275,7 @@
         ]
       },
       "patch": {
-        "description": "Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.\n\nRefused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per\npart: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour\nchanges, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one\nincluded, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and\n`entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming\n`trikot_farbe`. 404 where the club holds no row of the season.",
+        "description": "Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.\n\nA `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour\nare judged as an entry's.",
         "operationId": "teams_patch_team_saison",
         "parameters": [
           {
@@ -29373,7 +29373,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
       "put": {
-        "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nRefused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;\n`saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`\nthe start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
+        "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nAn exit is taken from the season's start date on, before which the replacement takes a club out, and never on a\nfinished season.",
         "operationId": "teams_put_austritt",
         "parameters": [
           {
@@ -29464,7 +29464,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation": {
       "delete": {
-        "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says\nwhich link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.",
+        "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays, so a delivery event about a mail carrying the link still has somewhere to land.",
         "operationId": "teams_delete_invitation",
         "parameters": [
           {
@@ -29550,7 +29550,7 @@
         ]
       },
       "post": {
-        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing the team's link is a separate press\n(`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended\n(`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\nA row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link\nopens nothing, whoever holds it.",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\nThe raw link is in this answer and in no other, the row storing only its hash, and it opens for as long as the season's\nregistration window does, judged afresh at each opening.",
         "operationId": "teams_post_invitation",
         "parameters": [
           {
@@ -29638,7 +29638,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation/dispatch": {
       "post": {
-        "description": "Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.\n\nThe write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint\nstays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a\nseat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed\ntwice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail\nis handed out.\n\nRefused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A\nwindow shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on\nas a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since\nthe caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,\nas the mint refuses it.",
+        "description": "Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.\n\nEach mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on\none day owes nothing again.",
         "operationId": "teams_post_invitation_dispatch",
         "parameters": [
           {
@@ -29736,7 +29736,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
       "put": {
-        "description": "„Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.\n\nThe same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and\n`email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link\nin this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's\nlast holder answers the team's match confirmations no more. A `past` season's seats and a departed team's\nstay correctable, and such a link takes the person's Widerspruch alone.\n\nWhere the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read\non the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the\nclaim, and the seat it named keeps its person. Left out, the claim stands.\n\nRefused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another\nseat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.",
+        "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link.",
         "operationId": "teams_put_kontakt_seat",
         "parameters": [
           {
@@ -29843,7 +29843,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite": {
       "post": {
-        "description": "Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.\n\nIt replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:\nthe previous link stops opening anything from this write on, and the deadline restarts from today. The answer names\nthe address the mail is owed to, never the link.\n\nRefused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its\nperson has already confirmed it (`kontakt_seat_without_confirmation`).\n404 for a team and season holding no row, and for a path naming no seat.",
+        "description": "Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.\n\nThe previous link opens nothing from this write on, the deadline restarts from today, and the answer names the\naddress the mail is owed to, never the link.",
         "operationId": "teams_invite_kontakt",
         "parameters": [
           {
@@ -29940,7 +29940,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
-        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and\ntheir links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:\nthe schedule survives.",
+        "description": "Hand this season's row, and every fixture on it, to another club, keeping the schedule.\n\nThe row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.",
         "operationId": "teams_replace_saison_team",
         "parameters": [
           {

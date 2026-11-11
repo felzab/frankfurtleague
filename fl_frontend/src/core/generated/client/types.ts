@@ -1238,7 +1238,7 @@ export const FLAustrittType = {
 /**
  * How a team came to be out of one season, why, and from when.
  *
- * `reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+ * `reason` is free text and public -- it appears on the team's page, and this league publishes no
  * disciplinary code an enum could cite.
  */
 export interface FLAustritt {
@@ -1273,7 +1273,7 @@ export interface FLAustrittNoticeData {
 /**
  * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
  *
- * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
+ * On the write side alone, so a read model takes a stored blank or a longer reason as it stands.
  */
 export interface FLAustrittPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1415,9 +1415,8 @@ export interface FLEinwilligungEvidenceSet {
 /**
  * How this person's record came to be held, and what they answered.
  *
- * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
- * `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
- * (`docs/glossary.md :: Einwilligung`).
+ * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds
+ * other values entirely.
  */
 export interface FLKontaktKenntnisnahme {
   confirmed_at: string | null;
@@ -1450,7 +1449,7 @@ export const FLTrainerAlso = {
 } as const;
 
 /**
- * The three people a team is reached through, for ONE season.
+ * The three people a team is reached through, for one season.
  *
  * On the junction rather than the club: a school's staff turns over between seasons, and a
  * finished season keeps those who confirmed their seat.
@@ -3961,8 +3960,8 @@ export interface FLPatchSpieltagPayload {
 /**
  * The team editor's one save: the club, and its colour and group in the season the page stands under.
  *
- * Replaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the
- * danger box's own write, which owes mail.
+ * Replaced wholesale, with no seat and no `austritt`: a seat is its own write's, and an exit is a write of its own,
+ * which owes mail.
  */
 export interface FLPatchTeamSaisonPayload {
   address: FLAddressPayload;
@@ -4293,7 +4292,7 @@ export interface FLRegistrierungenAdminListResponse {
 }
 
 /**
- * Which club takes this season's row over. The path names the club going OUT.
+ * Which club takes this season's row over. The path names the club going out.
  */
 export interface FLReplaceSaisonTeamPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5839,8 +5838,8 @@ export interface FLTeamPanelRegistrierung {
 /**
  * One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.
  *
- * A Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,
- * telephone number or birthdate: only administrators see those.
+ * A Trainer holding a second seat is one entry naming both, and no address, telephone number or birthdate is served,
+ * only administrators seeing those.
  */
 export interface FLTeamSeat {
   confirmed: boolean;
@@ -5851,7 +5850,7 @@ export interface FLTeamSeat {
 /**
  * One date the league asked the team to confirm, while it still holds work for the team or waits on the league.
  *
- * An agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or
+ * An agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or
  * discards it.
  */
 export interface FLTeamPanelTermin {
@@ -6004,7 +6003,7 @@ export interface FLTeamPanelSpiel {
 }
 
 /**
- * The club document as it is STORED, and what the write endpoints echo.
+ * The club document as it is stored, and what the write endpoints echo.
  *
  * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
  * -- and a club being created holds no row yet.
