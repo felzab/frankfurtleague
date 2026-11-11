@@ -26,8 +26,8 @@ DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
 TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
-# 24 hex characters, what `str(ObjectId(...))` produces, and every string `parse_object_id` takes. Unanchored:
-# `app/core/routing.py :: ObjectIdConvertor` compiles it into a whole path, which carries its own anchors.
+# 24 hex characters, what `str(ObjectId(...))` produces, and every string `parse_object_id` takes. Unanchored: the
+# path convertor compiles it into a whole path, which carries its own anchors.
 OBJECT_ID_REGEX = "[0-9a-fA-F]{24}"
 
 
@@ -96,7 +96,7 @@ class CustomObjectIdAnnotation:
 CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
 
 
-# The path-parameter spelling, deliberately the SAME type. NEVER give it a converter declaring
+# The path-parameter spelling, deliberately the same type. Never give it a converter declaring
 # `Annotated[str, ...]` while returning an ObjectId: every endpoint's id would then type as `str`.
 CustomRouteObjectId = CustomObjectId
 
@@ -166,21 +166,20 @@ CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]
 # `version_stale`. One alias for every editor's save, so the published `minimum` is one.
 CustomVersion = Annotated[int, Field(ge=0)]
 
-# The WRITE-side floor: `min_length` counts CHARACTERS, so the alias above takes spaces alone -- a
-# value stored and served as empty. NEVER on a read model, where the strip runs first and a stored
+# The write-side floor: `min_length` counts characters, so the alias above takes spaces alone -- a
+# value stored and served as empty. Never on a read model, where the strip runs first and a stored
 # blank would refuse.
 CustomStrippedNonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
-# A LITERAL SPACE, never `\s`: the class sits INSIDE the anchors, so `\s` there would let the value
+# A literal space, never `\s`: the class sits inside the anchors, so `\s` there would let the value
 # carry the newlines and tabs they exclude.
-
 # The final digit sits outside the class, so no accepted value is punctuation and spaces alone: such
 # a value is stored and shown as a number, and nobody can ring it.
 PHONE_REGEX = r"^([+]?[ 0-9\-().]{2,19}[0-9])$"
 
 # Unicode letters and the separators a real name uses, because an ASCII rule would refuse `Körner`.
-# On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
+# On the write payloads only: a read model refusing a stored name 500s the response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
 # Judged on the text as it arrives, before `str.strip` takes the padding, so a line break is refused wherever it stands;
@@ -197,7 +196,7 @@ DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA
 EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
 
 # Every C0 control, which is what `urlsplit` discards before parsing -- the three WHATWG removes
-# anywhere, and the rest it takes off the front. What this module RETURNS has to be what it checked.
+# anywhere, and the rest it takes off the front. What this module returns has to be what it checked.
 URL_STRIPPED_CHARACTERS = str.maketrans("", "", "".join(chr(code) for code in range(0x20)))
 
 
@@ -224,7 +223,7 @@ CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=T
 
 
 def refuse_reversed_span(*, start: str, end: str, kind: Rule) -> None:
-    """From a PAYLOAD's validator alone: refusing a stored reversal on read would hide it from the edit that repairs it.
+    """From a payload's validator alone: refusing a stored reversal on read would hide it from the edit that repairs it.
 
     `kind` names the span, since one helper judges every span; a caller raising it from the end date's field validator
     places it on that date, a model validator's refusal sitting at the model, where no box shows it.
@@ -303,7 +302,7 @@ def validate_external_url(value: str) -> str:
 
 CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]
 
-# Absence spelled as NULL, as every other optional value here spells it, and the empty string
+# Absence spelled as null, as every other optional value here spells it, and the empty string
 # coerced to it first -- `validate_external_url` would reject `""`, and an empty `href` is a live
 # link to the current page rather than no link at all.
 CustomOptionalExternalUrl = Annotated[CustomExternalUrl | None, BeforeValidator(parse_empty_string_to_none)]

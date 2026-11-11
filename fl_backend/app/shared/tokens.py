@@ -5,7 +5,7 @@ import secrets
 def hash_token(raw: str) -> str:
     """The form the database holds a token in.
 
-    UNKEYED: 256 random bits have no dictionary to search, and a pepper would cost a backend
+    Unkeyed: 256 random bits have no dictionary to search, and a pepper would cost a backend
     environment name reaching the server, CI and the local stack.
     """
 
