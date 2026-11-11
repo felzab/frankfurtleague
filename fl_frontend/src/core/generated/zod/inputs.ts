@@ -3744,8 +3744,11 @@ export const TeamsPostInvitationParams = zod.object({
  * twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
  * is handed out.
  *
- * 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
- * them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.
+ * Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
+ * window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
+ * as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
+ * the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
+ * as the mint refuses it.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
 export const teamsPostInvitationDispatchPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

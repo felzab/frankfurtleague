@@ -1226,6 +1226,7 @@ async def post_invitation_dispatch(
     mail_data: Annotated[FLInvitationMailPayload, Body()],
     invitations_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -1240,11 +1241,18 @@ async def post_invitation_dispatch(
     twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
     is handed out.
 
-    404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
-    them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.
+    Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
+    window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
+    as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
+    the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
+    as the mint refuses it.
     """
 
     async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        # First, as the mint judges it: nothing done to the team's link or row repairs a season that has ended.
+        refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
         # The live row the caller read, never another: the filter is the judgement, and a miss is the 404.
         await pull_one_from_db(
             collection=invitations_collection,
