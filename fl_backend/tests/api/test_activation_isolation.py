@@ -643,20 +643,6 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
         assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
 
-class TeamsRunningOneHook(InterleavedCollection):
-    """A `teams` stand-in running one hook once, just after the rename's write to the club returns.
-
-    That write is the transaction's first operation and opens its snapshot, so a rival landing here commits after the
-    snapshot and before the rename reads which seasons are still open.
-    """
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        written = await self._collection.find_one_and_update(*args, **kwargs)
-        await self.run_the_rival()
-
-        return written
-
-
 RENAMED = "Umbenannt"
 
 
@@ -674,7 +660,9 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
             async def roll_over_between() -> None:
                 await call_activate(database, client, TARGET)
 
-            teams = TeamsRunningOneHook(database[Collection.TEAMS], roll_over_between)
+            # Just after the rename's write to the club: the transaction's first operation, which opens its snapshot, so the
+            # rival commits after the snapshot and before the rename reads which seasons are still open.
+            teams = InterleavedCollection(database[Collection.TEAMS], roll_over_between, after="find_one_and_update")
 
             # The writer rather than the save over it: the save anchors its own season first, so a rollover of that season
             # would wait on it inside this hook.

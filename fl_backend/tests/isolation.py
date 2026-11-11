@@ -34,20 +34,40 @@ async def outcome_of(call: Awaitable[Any]) -> str:
 
 
 class InterleavedCollection:
-    """A collection one write reaches through, running a rival write inside it once, at the operation a subclass names.
+    """A collection one write reaches through, running a rival write inside it once, at one operation.
 
-    Not a subclass of the driver's collection: the driver builds one off a database handle, so every
-    other call delegates.
+    `before` or `after` names that operation, one the driver awaits; a subclass placing the rival anywhere else
+    overrides the operation itself. Not a subclass of the driver's collection: the driver builds one off a
+    database handle, so every other call delegates.
     """
 
-    def __init__(self, collection: Any, rival: Rival) -> None:
+    def __init__(self, collection: Any, rival: Rival, *, before: str | None = None, after: str | None = None) -> None:
         self._collection = collection
+        self._before = before
+        self._after = after
         self._rival: Rival | None = rival
         # Every arrival at the rival's point, the rival's own included.
         self.passes = 0
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
+        operation = getattr(self._collection, name)
+        if name == self._before:
+
+            async def rival_first(*args: Any, **kwargs: Any) -> Any:
+                await self.run_the_rival()
+                return await operation(*args, **kwargs)
+
+            return rival_first
+        if name == self._after:
+
+            async def rival_after(*args: Any, **kwargs: Any) -> Any:
+                answered = await operation(*args, **kwargs)
+                await self.run_the_rival()
+                return answered
+
+            return rival_after
+
+        return operation
 
     def assert_landed_inside(self, *, serially: int) -> None:
         """`serially` is how often the write arrives at the rival's point with the rival committed before it.

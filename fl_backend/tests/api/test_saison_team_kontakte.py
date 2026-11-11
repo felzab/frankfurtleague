@@ -221,15 +221,6 @@ async def erase_the_seats_person(database: AsyncDatabase) -> None:
     await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
 
 
-class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
-    """The junction collection, running one hook immediately before the first update asked of it."""
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.find_one_and_update(*args, **kwargs)
-
-
 async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
     found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": saison_id})
     assert found is not None, f"the seeded row for {saison_id} is gone"
@@ -373,7 +364,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
                 await erase_the_seats_person(database)
                 erasures.append(seats_cleared([before], [await row_now(database)]))
 
-            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
+            junction = InterleavedCollection(database[Collection.SAISON_TEAMS], erase_between, before="find_one_and_update")
             with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
             # An erasure committing first refuses the save at its read, before it reaches the write.
