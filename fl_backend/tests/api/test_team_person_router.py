@@ -12,13 +12,16 @@ ANNA = kontaktperson_document("Anna")
 
 
 def test_a_trainer_holding_a_second_seat_is_one_entry_naming_both():
-    """Listed per seat, the same person stood twice, where the league's own team editor lists them once."""
+    """Listed per seat, the same person stood twice, where the league's own team editor lists them once.
 
-    seats = _seats_of(kontakte_document(trainer=THEO, ansprechperson=THEO, trainer_is_also="ansprechperson"))
+    The third seat held, so its entry names its own seat alone rather than the Trainer's second too.
+    """
+
+    seats = _seats_of(kontakte_document(trainer=THEO, ansprechperson=THEO, stellvertretung=ANNA, trainer_is_also="ansprechperson"))
 
     assert [(seat.rollen, seat.name) for seat in seats] == [
         (["trainer", "ansprechperson"], "Theo Theo-Mustermann"),
-        (["stellvertretung"], None),
+        (["stellvertretung"], "Anna Anna-Mustermann"),
     ]
 
 
