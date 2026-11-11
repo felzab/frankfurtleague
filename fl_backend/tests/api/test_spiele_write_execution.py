@@ -37,6 +37,8 @@ from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.erasure import erased
+from tests.isolation import InterleavedCollection
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -450,6 +452,7 @@ async def call_patch(
     adopts_bericht: int | None = None,
     confirming: list[FLSpielVoidedResult] | None = None,
     now: datetime | None = None,
+    aufstellungen: Any = None,
 ) -> FLPatchSpielDataResponse:
     """The save as the editor sends it: confirming the later results its own dry run says it deletes, unless `confirming` names them."""
 
@@ -468,7 +471,7 @@ async def call_patch(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         adopts_bericht=adopts_bericht,
         now=ADOPTED_AT if now is None else now,
@@ -668,6 +671,47 @@ class TestARefereeAndLineUpEntriesNamingNobody:
         booking, line_up = on_a_seeded_season(mongo_replica_set_url, body, spiele=[held, {**filling, "schiedsrichter": assignment(None)}])
 
         assert (booking, line_up) == ((assignment(None), [None, named, None]) if kept else (None, [named]))
+
+    @pytest.mark.parametrize("first", [pytest.param("erasure", id="the-erasure-first"), pytest.param("save", id="the-save-first")])
+    def test_an_erasure_beside_a_re_timing_leaves_the_match_to_come_naming_nobody_neither_way(self, mongo_replica_set_url: str, first: str):
+        """Without a write in common both commit, and a match to come keeps a starter nobody can name.
+
+        The erasure judges the match played off a read of the fixture and writes the line-up alone; the save writes the
+        fixture.
+        """
+
+        pupil, named = ObjectId(), ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(documents.spieler_document(pupil, "Ida", "Ilg"))
+            filling = await database[Collection.SPIELE].find_one({"_id": GRUPPE_FILLING})
+            assert filling is not None
+            await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(filling, GAMMA, starters=[pupil, named]))
+            spiel_data = await payload_for(database, GRUPPE_FILLING, time="20:00:00")
+
+            async def erase() -> None:
+                await erased(database, client, f"{pupil}@schule.example", germany_now=AFTER_THE_GROUP_KICK_OFF)
+
+            async def save(aufstellungen: Any = None) -> None:
+                await call_patch(database, client, GRUPPE_FILLING, spiel_data, now=AFTER_THE_GROUP_KICK_OFF, aufstellungen=aufstellungen)
+
+            # Each lands inside the other at the other's first write to a line-up, after its snapshot read the fixture.
+            if first == "erasure":
+                interleaved = InterleavedCollection(database[Collection.AUFSTELLUNGEN], erase, before="update_many")
+                await save(interleaved)
+            else:
+                interleaved = InterleavedCollection(database[Collection.AUFSTELLUNGEN], save, before="update_many")
+                await erased(
+                    database, client, f"{pupil}@schule.example", germany_now=AFTER_THE_GROUP_KICK_OFF, aufstellungen_collection=interleaved
+                )
+            interleaved.assert_landed_inside(serially=1)
+
+            line_up = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": GRUPPE_FILLING})
+            assert line_up is not None
+            return (await spiele_now(database))[GRUPPE_FILLING_NR]["time"], [entry["spieler_id"] for entry in line_up["spieler"]]
+
+        held, filling = an_unbooked_spieltag()
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=[held, filling]) == ("20:00:00", [named])
 
 
 class TestTheStateRefusalIsReachedThroughTheRoute:

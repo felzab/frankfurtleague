@@ -170,6 +170,9 @@ async def drop_nameless_entries(
     A match to come holds no entry naming nobody, so its clubs pick again.
     """
 
+    # Every line-up of the fixture written, not only those this snapshot finds an entry naming nobody in: a pupil's erasure
+    # judging the match played beside this save then conflicts with it, and whichever commits second judges it to come.
+    await anchor_in_db(collection=aufstellungen_collection, db_filter={"spiel_id": spiel_id}, session=session)
     # `$type`, never a null equality, which also matches an entry lacking the key.
     await patch_many_in_db(
         collection=aufstellungen_collection,

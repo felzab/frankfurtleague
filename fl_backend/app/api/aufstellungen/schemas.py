@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.api.spielberichte.schemas import FLSpielberichtTeam
 from app.api.spieler.schemas import FLSpielerRolle
+from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, FLUtcInstant
@@ -32,7 +33,7 @@ class FLAufstellungEntry(BaseModel):
     starts: bool
 
 
-class FLAufstellung(BaseModel):
+class FLAufstellung(Anchored):
     """One club's line-up for one fixture, as `aufstellungen` stores it: created by the club's first save, one per club per fixture.
 
     Keyed by the club and never by a side: a knockout correction re-fielding a side leaves the replaced club's line-up
