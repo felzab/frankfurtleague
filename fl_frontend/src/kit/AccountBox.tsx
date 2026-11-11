@@ -379,7 +379,8 @@ const rowLook = tv({
     row: `flex min-h-14 items-center gap-3 ${stacked()} py-2 lg:min-h-13`,
     words: "grid min-w-0 flex-1 text-sm",
     name: "truncate font-semibold",
-    detail: "truncate text-xs text-fg-muted",
+    // The grey line wraps, as every row's grey line does (the kit's row rule): cut, it hid a passkey's last use on a phone.
+    detail: "text-xs text-pretty text-fg-muted",
   },
 });
 
