@@ -9,13 +9,13 @@ them.
 | Read                                                                     | For                                                                                                                       |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | [`../../docs/backend/overview.md`](../../docs/backend/overview.md#tests) | The two tiers and the `db` marker                                                                                         |
-| `conftest.py`                                                            | The factory fixtures, and the session-scoped `mongod` servers, each yielded as a url                                      |
+| `conftest.py`                                                            | The factory fixtures, and the session-scoped `mongod` replica set, yielded as a url                                       |
 | `config.py`                                                              | The settings an application under test is built with                                                                      |
 | `app_client.py`                                                          | The application under test, served in process to an HTTP client of the test's own                                         |
 | `session_headers.py`                                                     | The actor's session headers as the frontend's server sends them (`fl_backend/tests/session_headers.py :: StampedHeaders`) |
 | `database.py`                                                            | The database a db test opens for itself: built once, emptied per call, every document it leaves read back                 |
 | `worker.py`                                                              | The per-worker database naming, and the guard that holds every open to it                                                 |
-| `tier.py`                                                                | The refusal of a test that uses a database without `@pytest.mark.db`                                                      |
+| `tier.py`                                                                | The refusal of a test that asks for a server without `@pytest.mark.db`                                                    |
 | `documents.py`                                                           | The stored shapes both tiers build from: seeds, and the rules and consent payload fixtures and rules models take          |
 | `payloads.py`                                                            | The request bodies a test submits, built from a stored document                                                           |
 | `team_writes.py`                                                         | The team editor's save and a seat's block written as the routes write them, outside a request                             |

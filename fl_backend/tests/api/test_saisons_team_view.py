@@ -47,13 +47,13 @@ def pupil(first_name: str) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """One group of three this season, the second disqualified; a fourth club entered last season alone."""
 
     maxim, nadja = pupil("Maxim"), pupil("Nadja")
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_many(
                 [documents.saison_document(SAISON, "active"), documents.saison_document(EARLIER, "past")]
             )
@@ -82,8 +82,8 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 def on_a_league(url: str, body: Callable[[AsyncDatabase], Awaitable[Any]]) -> Any:

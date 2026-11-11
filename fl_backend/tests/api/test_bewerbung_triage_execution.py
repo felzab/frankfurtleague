@@ -930,14 +930,6 @@ class TestADecisionIsNotTakenTwice:
 OTHER_DECISION_REASON = "Die Anmeldefrist für diese Saison ist verstrichen."
 
 
-class ApplicationsRunningARivalBeforeTheirWrite(InterleavedCollection):
-    """The applications a decline reaches, a rival run once ahead of its write: after the attempt's judged read, before the write."""
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.find_one_and_update(*args, **kwargs)
-
-
 @pytest.mark.db
 class TestTwoDeclinesAtOnce:
     """The loser of the race mails the applicants nothing, and the winner's `reason` and name stand.
@@ -959,7 +951,7 @@ class TestTwoDeclinesAtOnce:
                 await decline(database, PICKED_BEWERBUNG)
                 first.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
-            racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_first_decline)
+            racing = InterleavedCollection(database[Collection.BEWERBUNGEN], the_first_decline, before="find_one_and_update")
             with pytest.raises(APIError) as conflict:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
@@ -1119,7 +1111,7 @@ class TestADeclineLandingInsideAnAcceptance:
                 await decline(database, PICKED_BEWERBUNG)
                 declined.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
-            racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_decline)
+            racing = InterleavedCollection(database[Collection.BEWERBUNGEN], the_decline, before="find_one_and_update")
             with pytest.raises(APIError) as refused:
                 await accept_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,

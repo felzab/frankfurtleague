@@ -61,24 +61,19 @@ class HeldCollection:
 
 
 class HoldsAfterItsLookup(HeldCollection):
-    """A second press held between its real key lookup and its insert until the first press has committed.
-
-    Records each lookup's filter as well: what the endpoint asked for.
-    """
+    """A second press held between its real key lookup and its insert until the first press has committed."""
 
     MISSED = "the second press answered without looking its key up, so nothing held it across the first press's commit"
 
     def __init__(self, collection: Any, committed: asyncio.Event) -> None:
         super().__init__(collection, committed)
         self.lookups = 0
-        self.lookup_filters: list[Any] = []
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         found = await self._collection.find_one(*args, **kwargs)
         query = kwargs.get("filter", args[0] if args else {})
         if "idempotency_key" in query:
             self.lookups += 1
-            self.lookup_filters.append(query)
             await self.hold()
 
         return found

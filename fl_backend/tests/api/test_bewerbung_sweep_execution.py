@@ -44,7 +44,7 @@ from tests import documents
 from tests.acts import deletions_of
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import SEED_BOUND_S, a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
     SEAT_TEXT_VERSIONS,
@@ -1099,8 +1099,9 @@ class ActivatedAfterTheClocksRead(InterleavedCollection):
         return _ThenTheRival(cursor, self.run_the_rival)
 
 
-# Far past the call's few seconds over two pages, and far short of a job's own budget.
-DRAIN_BOUND_S = 60.0
+# Far past the call's few seconds over two pages, far short of a job's own budget, and inside the seed's own bound, so a
+# drain that never ends fails as one rather than as a seed cancelled for a deadlock.
+DRAIN_BOUND_S = SEED_BOUND_S / 2
 
 
 class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
