@@ -11,6 +11,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlsplit
@@ -566,6 +568,54 @@ def env_files(model: dict[str, Any], name: str) -> list[Finding]:
     return findings
 
 
+@dataclass(frozen=True)
+class Stack:
+    """One rendered model as every rule reads it.
+
+    `name` is the stack's, which the tables key by and every finding opens with; `project` is the directory Compose
+    resolved the model's paths against; `connector` is production's connector address, which either edge trusts
+    alone, since the local stack starts no connector and an edge trusting what the other does not serves another
+    edge's configuration.
+    """
+
+    model: dict[str, Any]
+    name: str
+    project: Path
+    connector: str
+
+
+# How each stack's edge names itself in a finding about its trust.
+EDGE_NAMES: Final = {"production": "production's edge", "local": "the local edge"}
+
+
+def exposure(stack: Stack) -> list[Finding]:
+    """What a stack publishes: production nothing, the local stack loopback alone."""
+    return production(stack.model, stack.name) if stack.name == "production" else local(stack.model, stack.name)
+
+
+def edge(stack: Stack) -> list[Finding]:
+    """The edge's mounts, and the trust the configuration those mounts carry places in the connector."""
+    pairs, findings = edge_mounts(stack.model, stack.name, stack.project, REPO_ROOT)
+    return findings + trusted_connector(edge_configuration(pairs, REPO_ROOT), stack.connector, EDGE_NAMES[stack.name])
+
+
+# Every rule `main` runs, each over both stacks: a rule written and left out of this table is one nothing runs,
+# which the table makes a reader's to see rather than a sequence of calls to miss. A rule refuses a model that is
+# not one Compose rendered by raising `ValueError`.
+RULES: Final[tuple[Callable[[Stack], list[Finding]], ...]] = (
+    exposure,
+    edge,
+    lambda stack: env_files(stack.model, stack.name),
+    lambda stack: deployment_name(stack.model, stack.name, stack.name),
+    lambda stack: networks(stack.model, stack.name),
+    lambda stack: privileges(stack.model, stack.name),
+    lambda stack: secret_holders(stack.model, stack.name, stack.project, stack.name),
+    lambda stack: config_holders(stack.model, stack.name, stack.name),
+    lambda stack: moved_names(stack.model, stack.name),
+    lambda stack: secrets_directory(stack.model, stack.name, stack.project),
+)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
@@ -574,25 +624,12 @@ def main() -> int:
     try:
         prod_model = json.loads(Path(args.production).read_bytes())
         local_model = json.loads(Path(args.local).read_bytes())
-        findings = production(prod_model, "production") + local(local_model, "local")
-        prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
-        local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
-        findings += prod_mounts + local_mounts
-        findings += env_files(prod_model, "production") + env_files(local_model, "local")
-        findings += deployment_name(prod_model, "production", "production") + deployment_name(local_model, "local", "local")
-        findings += networks(prod_model, "production") + networks(local_model, "local")
-        findings += privileges(prod_model, "production") + privileges(local_model, "local")
-        findings += secret_holders(prod_model, "production", Path(args.production).resolve().parent, "production")
-        findings += secret_holders(local_model, "local", Path(args.local).resolve().parent, "local")
-        findings += config_holders(prod_model, "production", "production") + config_holders(local_model, "local", "local")
-        findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
-        findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
-        findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
-        # Production's address for both: the local stack starts no connector, and an edge trusting
-        # what the other does not is serving another edge's configuration.
         connector = connector_address(prod_model, "production")
-        for pairs, name in ((prod_pairs, "production's edge"), (local_pairs, "the local edge")):
-            findings += trusted_connector(edge_configuration(pairs, REPO_ROOT), connector, name)
+        stacks = (
+            Stack(prod_model, "production", Path(args.production).resolve().parent, connector),
+            Stack(local_model, "local", Path(args.local).resolve().parent, connector),
+        )
+        findings = [finding for rule in RULES for stack in stacks for finding in rule(stack)]
     except (*UNREADABLE, ValueError) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)

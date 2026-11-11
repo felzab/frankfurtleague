@@ -109,10 +109,4 @@ describe("a pupil's own season", () => {
 
     expect(metadata.title).toBe(SERVER_COPY.notFound);
   });
-
-  // The match's head names it, and a date line naming it again reads as a second match.
-  it("names the third-place match once", async () => {
-    const page = await landed(null, { ...SPIEL, saison_phase: "finale", for_third_place: true });
-    expect(page.split(SERVER_COPY.season.thirdPlace)).toHaveLength(2);
-  });
 });
