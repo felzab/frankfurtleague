@@ -114,7 +114,8 @@ export function EmptyState(props: EmptyStateProps | Clear) {
 /**
  * The empty state in the list's own box, where nothing else draws the box: a list of cards, matches or tiles, a group or
  * a season holding none, or a list card a search emptied, whose place the box takes as `Table`'s box stays when its rows
- * go. Every page's empty list so stands in one box under its toolbar, whoever reads it.
+ * go. Every page's empty list so stands in its list's box, or its section's where an editor section holds the list, whoever
+ * reads it.
  */
 export function EmptyBox(props: EmptyStateProps) {
   return (
