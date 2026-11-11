@@ -78,8 +78,8 @@ def tree(*urls: str, file: str = "route.ts") -> Path:
     return app
 
 
-def accounting(app: Path | None = None, where: tuple = (), *, rates: dict | None = None, squad: int = 10):
-    """What every rule reads, over a planted tree and a planted set of locations."""
+def accounting(app: Path | None = None, where: tuple = (), *, rates: dict | None = None, squad: int = 10, referrer: tuple = ()):
+    """What every rule reads, over a planted tree, a planted set of locations and a planted referrer map's entries."""
     app = tree() if app is None else app
     paged = routes.pages(app)
     return routes.Accounting(
@@ -89,6 +89,7 @@ def accounting(app: Path | None = None, where: tuple = (), *, rates: dict | None
         where=where,
         rates={"linkpage": 30} if rates is None else rates,
         squad=squad,
+        referrer=referrer,
         app_dir=app,
         root=app.parent,
         conf=SOURCE,
@@ -484,6 +485,98 @@ def test_a_link_zone_the_http_level_does_not_declare_refuses():
         routes.unsized_links(accounting(where=served(CATCH_ALL), rates={}))
 
 
+DISCARDED = "        error_log /dev/null;\n"
+
+
+def unlogged(*lines: str) -> list:
+    """What the error-log rule says about a link page at `/neu` whose exact location carries `lines`."""
+    return routes.unlogged_links(accounting(link_page("/neu"), served(block("location = /neu", LINK_ZONE, *lines, PASS), CATCH_ALL)))
+
+
+def test_a_link_page_s_location_discarding_its_error_lines_is_no_finding():
+    """The control for the two below."""
+    assert unlogged(DISCARDED) == []
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [(), (DISCARDED, "        error_log stderr;\n"), ("        error_log stderr crit;\n",)],
+    ids=["inherited", "a-second-log-beside-it", "a-raised-level"],
+)
+def test_a_link_page_s_location_writing_an_error_line_anywhere_is_a_finding(lines):
+    """nginx writes to every log a level names, so a second beside the discard writes the token; a full disk's line is crit."""
+    findings = unlogged(*lines)
+
+    assert severities(findings) == ["fail"]
+    assert "/neu reaches `location = /neu`" in details(findings)
+
+
+NEU_REFERRER = (("/neu", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
+
+
+def referring(where: tuple, referrer: tuple, url: str = "/neu") -> list:
+    """What the referrer rule says about a link page at `url`, the locations and the map's entries given."""
+    return routes.referring_links(accounting(link_page(url), where, referrer=referrer))
+
+
+def test_a_link_page_its_location_s_entry_withholds_the_referrer_from_is_no_finding():
+    """The control, an exact match and a prefix each spelled as they match."""
+    assert referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), NEU_REFERRER) == []
+    prefixed = (("~^/neu/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
+    assert referring(served(block("location /neu/", LINK_ZONE, PASS), CATCH_ALL), prefixed, "/neu/seite") == []
+
+
+def test_a_link_page_the_map_hands_the_site_s_policy_is_a_finding():
+    """A link page added with its block and no entry, which is how one ships handing its address on."""
+    findings = referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), (("default", "strict-origin-when-cross-origin"),))
+
+    assert severities(findings) == ["fail"]
+    assert "gives /neu strict-origin-when-cross-origin" in details(findings)
+
+
+def test_an_exact_entry_answers_before_a_regex_withholding_the_referrer():
+    """nginx's own order: the exact key wins, so a regex covering the page does not."""
+    entries = (("/neu/seite", "strict-origin-when-cross-origin"), ("~^/neu/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
+    findings = referring(served(block("location /neu/", LINK_ZONE, PASS), CATCH_ALL), entries, "/neu/seite")
+
+    assert severities(findings) == ["fail"]
+    assert "gives /neu/seite strict-origin-when-cross-origin" in details(findings)
+
+
+@pytest.mark.parametrize("key", ["/andere", "~^/ne", "~*^/neu"], ids=["another-page", "a-wider-regex", "a-caseless-regex"])
+def test_an_entry_withholding_the_referrer_where_no_link_page_s_location_matches_is_a_finding(key):
+    """Every other page keeps the site's policy, so an entry matching more, or elsewhere, is one."""
+    findings = referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), (*NEU_REFERRER, (key, "no-referrer")))
+
+    assert severities(findings) == ["fail"]
+    assert f"gives {key!r} no-referrer, a match no link page's location" in details(findings)
+
+
+def test_no_referrer_map_at_all_refuses():
+    """The rule judged nothing, which would otherwise read as every link page withholding it."""
+    with pytest.raises(routes.NothingJudged, match="no map setting"):
+        referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), ())
+
+
+def test_the_referrer_map_is_read_off_the_http_level_in_order():
+    """Its entries as nginx reads them, a quoted key unquoted, the map's other variables left out."""
+    root = new_root("check-public-routes-")
+    other = "map $uri $other {\n    default x;\n}\n"
+    write(root, "http.conf", other + 'map $uri $referrer_policy {\n    "~^/neu/" no-referrer;\n    /neu no-referrer;\n    default y;\n}\n')
+
+    assert routes.map_entries(root / "http.conf", "$referrer_policy") == (("~^/neu/", "no-referrer"), ("/neu", "no-referrer"), ("default", "y"))
+    assert routes.map_entries(root / "http.conf", "$absent") == ()
+
+
+def test_a_referrer_map_entry_this_reader_cannot_resolve_refuses():
+    """`hostnames` changes how every key matches, and an included file holds entries unread."""
+    root = new_root("check-public-routes-")
+    write(root, "http.conf", "map $uri $referrer_policy {\n    hostnames;\n    default y;\n}\n")
+
+    with pytest.raises(routes.NginxSyntax, match="hostnames"):
+        routes.map_entries(root / "http.conf", "$referrer_policy")
+
+
 ACTION_ZONE = "        limit_req zone=action burst=30 nodelay;\n"
 ACTION_CATCH_ALL = block("location /", "        limit_conn conn 50;\n", ACTION_ZONE, PASS)
 RAISED_ZONE = ACTION_ZONE.replace("burst=30 ", "burst=31 ")
@@ -660,14 +753,17 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
 
 
 # The http level and the link block a clean run needs, every rule having something to judge: the
-# link zone declared at 30 a minute, a link page's block sized for the squad the backend publishes,
-# and the catch-all metering server actions.
-HTTP_CONF = "limit_req_zone $client_net zone=linkpage:10m rate=30r/m;\n"
+# link zone declared at 30 a minute, a link page's block sized for the squad the backend publishes and
+# discarding its error lines, the referrer withheld from it, and the catch-all metering server actions.
+HTTP_CONF = (
+    "limit_req_zone $client_net zone=linkpage:10m rate=30r/m;\n"
+    "map $uri $referrer_policy {\n    /neu no-referrer;\n    default strict-origin-when-cross-origin;\n}\n"
+)
 LINK_BURST = 10 * routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI) - 2 * 30
 CLEAN = (
     "server {\n"
     + METERED
-    + block("location = /neu", f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, PASS)
+    + block("location = /neu", f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
     + ACTION_CATCH_ALL
     + "}\n"
 )
