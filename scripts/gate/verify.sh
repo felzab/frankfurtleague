@@ -224,7 +224,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --checker --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
