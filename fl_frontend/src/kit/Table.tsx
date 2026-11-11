@@ -485,7 +485,7 @@ const table = tv({
       },
     },
     // A prose or a stacked row on a phone stands its cells in one column and its chevron in a column of its own at its
-    // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
+    // end, spanning every cell's line so it is centred on the row's height (`phoneEndStyle`).
     { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
     { stack: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
   ],
