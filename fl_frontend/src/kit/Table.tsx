@@ -55,9 +55,11 @@ type TableColumn = {
     | { phoneOnly: true; hideOnPhone?: never; narrow?: never }
     /**
      * The fact short enough to stand beside a name and its chip on a phone, left out of a box too narrow to hold the
-     * three. A list marks at most one column so and leaves its others out.
+     * three. A list marks at most one column so and leaves its others out. At most a date's width: the `narrow` variant's
+     * 20-rem box leaves a name its least width beside a date and a chip, and a wider column, a team's name or a phone
+     * number, leaves it a letter or two at 360 px.
      */
-    | { narrow: true; hideOnPhone?: never; phoneOnly?: never }
+    | { narrow: true; hideOnPhone?: never; phoneOnly?: never; width?: "count" | "pair" | "marked" | "date" }
   );
 
 /** A club's won, drawn and lost counts. */
