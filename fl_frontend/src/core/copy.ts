@@ -1327,7 +1327,8 @@ export const COPY = catalogue({
       austrittFrom: "Wirksam ab",
       registrierungLink: "Registrierungslink",
       linkValidUntil: VALID_UNTIL,
-      registrierungEnd: (day: CalendarDay) => `Ende der Registrierung, ${formatDate(day)}`,
+      /** The link box's day from which an entry through the link is a Nachnominierung, the link opening on until the season ends. */
+      nomineeFrom: "Nachnominierung ab",
       /** The one copy button's name, over a link shown once. */
       copyLink: "Link kopieren",
       linkOnce: "Der Link ist nur jetzt zu sehen.",

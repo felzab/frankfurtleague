@@ -18,12 +18,12 @@ import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
+import { linkFactsOf } from "./linkFacts";
 import { saveTeam } from "./saveTeam";
 import { seatsOf } from "./seats";
 import { TeamEditor } from "./TeamEditor";
 import { valuesOf } from "./teamValues";
 
-import type { Copy } from "@/core/copy";
 import type { FLTeamLinkState, FLTeamMembership, FLTeamSaisonAdminResponse } from "@/core/generated/client/types";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { TeamRow } from "./TeamEditor";
@@ -111,20 +111,11 @@ export default function TeamEditorPage({ params }: Props) {
   );
 }
 
-/** Where the link stands, by the season's press and the live link: a club the press passes over, none yet, or its mail. */
-function linkStateOf({ skipped, invitation, paused }: FLTeamLinkState): Copy {
-  if (skipped === "no_kontakt_block" || skipped === "no_confirmed_kontaktperson") return LINK_WORDS.noConfirmedAddress;
-  if (invitation === null) return LINK_WORDS.noLinkYet;
-  if (paused) return LINK_WORDS.registrierungPaused;
-  return invitation.sent_at === null ? LINK_WORDS.linkNotSent : LINK_WORDS.linkSentOn(dayOf(invitation.sent_at));
-}
-
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */
 function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, link: FLTeamLinkState): TeamRow {
   const { saison, gruppen, gruppe_locked: drawn, taken_trikot_farben: taken } = read;
   const austritt = membership.austritt;
   const departed = austritt === null ? undefined : COPY.admin.spiel.departed;
-  const end = saison.registrierung_end;
   const stands = austritt === null ? null : COPY.shared.austritt[austritt.type];
   const note =
     austritt !== null && stands !== null
@@ -151,10 +142,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
     version: membership.version,
     seats: seatsOf(membership),
     invitation: {
-      facts: [
-        { label: COPY.admin.schiedsrichter.state, value: linkStateOf(link) },
-        { label: WORDS.linkValidUntil, value: end === null ? COPY.shared.noValue : WORDS.registrierungEnd(dayOf(end)) },
-      ],
+      facts: linkFactsOf(link, saison),
       live: link.invitation?.id ?? null,
       ...(departed === undefined ? {} : { locked: departed }),
     },
