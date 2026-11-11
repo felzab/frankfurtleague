@@ -1,5 +1,6 @@
 import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
+import { Table } from "@/kit/Table";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
@@ -90,37 +91,39 @@ export default function PrivacyNoticePage() {
     heading(retention.heading),
     {
       kind: "table",
-      table: {
-        label: retention.heading,
-        nameLabel: retention.nameLabel,
-        columns: [
-          { key: "content", label: retention.content },
-          { key: "period", label: retention.period },
-        ],
-        rows: retention.rows.map((row) => ({
-          id: row.name,
-          name: row.name,
-          cells: {
-            content: row.content,
-            period:
-              typeof row.period === "string"
-                ? row.period
-                : row.period({
-                    bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
-                    registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
-                    declinedDays: DECLINED_RETENTION_DAYS,
-                    schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
-                    addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
-                    code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
-                    person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
-                    admin: { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
-                  }),
-          },
-        })),
-        // Its rows are fixed, so this state never shows; every table names one.
-        empty: { kind: "none", plural: retention.nameLabel },
-        prose: true,
-      },
+      table: (
+        <Table
+          label={retention.heading}
+          nameLabel={retention.nameLabel}
+          columns={[
+            { key: "content", label: retention.content },
+            { key: "period", label: retention.period },
+          ]}
+          rows={retention.rows.map((row) => ({
+            id: row.name,
+            name: row.name,
+            cells: {
+              content: row.content,
+              period:
+                typeof row.period === "string"
+                  ? row.period
+                  : row.period({
+                      bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
+                      registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+                      declinedDays: DECLINED_RETENTION_DAYS,
+                      schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
+                      addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
+                      code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
+                      person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
+                      admin: { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
+                    }),
+            },
+          }))}
+          // Its rows are fixed, so this state never shows; every table names one.
+          empty={{ kind: "none", plural: retention.nameLabel }}
+          prose
+        />
+      ),
     },
     heading(words.erasure.heading),
     paragraph(words.erasure.text),
