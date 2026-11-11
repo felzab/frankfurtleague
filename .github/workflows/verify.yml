@@ -329,10 +329,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Left running, so the pull of 26 to 41 s overlaps the install, the images and the stack's start
+      # rather than waiting alone; a step's background process lives until the job ends. Its output
+      # is dropped, since the step's own streams would otherwise stay open: where it failed, the
+      # journeys' `docker run` pulls the image itself and says why it cannot.
+      - name: Start pulling the image holding the browsers
+        run: docker pull "$PLAYWRIGHT_IMAGE" > /dev/null 2>&1 &
       # The image holds no Playwright package, so the journeys run from this install.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Pull the image holding the browsers
-        run: docker pull "$PLAYWRIGHT_IMAGE"
       - name: Generate the stack's throwaway keys
         # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
         # which the runner's user is not. Nothing is printed.
@@ -374,8 +378,11 @@ jobs:
           docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
           docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
           docker compose exec -T backend python -m app.readback
+      # The database and the backend stay as started above, the seed in them, and only the services not
+      # yet running are created: without `--force-recreate`, `up` recreates a container only for a
+      # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
       - name: Start the stack
-        run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
+        run: docker compose up -d --no-build --wait --wait-timeout 240
       # A runner image or an engine that gives a veth its address after all would otherwise surface as a
       # journey failing now and then on a chunk, naming nothing of this.
       - name: Judge that no veth holds an IPv6 address
