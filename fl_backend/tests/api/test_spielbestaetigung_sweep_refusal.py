@@ -10,6 +10,7 @@ from app.api.spielbestaetigungen.services import (
     deadline_of,
     discard_owes_a_notice,
     notice_owed,
+    parties_told_of_the_change,
     reason_to_close,
     request_is_due,
 )
@@ -156,3 +157,21 @@ class TestANoticeIsAboutASlotStillToCome:
         owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
 
         assert owed == [True, False]
+
+
+class TestASaveNamesOnlyThoseItsOwnChangeTells:
+    def test_a_second_move_before_the_pass_names_nobody_the_first_already_tells(self):
+        """A row the first move already closes is that move's mail: named again, the editor's question would promise a second one.
+
+        The pass sends one notice per row, at the close, whichever save left the fixture where it stands.
+        """
+
+        asked = [row(TEAM, asked_at=TODAY)]
+        first, second = spiel(time="19:00:00"), spiel(time="20:00:00")
+
+        told = [
+            parties_told_of_the_change(rows=asked, stored=stored, changed=changed, austritte={}, now=NOW)
+            for stored, changed in ((spiel(), first), (first, second))
+        ]
+
+        assert told == [[TEAM], []]
