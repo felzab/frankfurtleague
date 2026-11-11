@@ -12,7 +12,6 @@ from app.api.spiele.schemas import (
     FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPublic,
     FLSpielTeamFieldJoined,
-    public_referee_name,
 )
 from app.api.spieltage.schemas import FLSpielplanSpieltag
 from tests.core.app_source import application
@@ -286,12 +285,8 @@ class TestTheSurnameReduction:
     """
 
     @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
-    def test_the_rule_answers_a_forename_and_one_initial(self, stored: str, served: str):
-        assert public_referee_name(stored) == served
-
-    @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
     def test_the_base_tier_shape_applies_it(self, stored: str, served: str):
-        """The rule reaches a caller through the model, so a reducer nothing calls would pass the case above."""
+        """Through the model, which is how the rule reaches a caller: a reducer nothing calls would pass a case on the rule alone."""
 
         published = {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": stored, "name_is_public": True}
 

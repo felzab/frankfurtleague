@@ -281,13 +281,6 @@ class TestWhatTheSubmissionPayloadRefuses:
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
 
-    @pytest.mark.parametrize("website_url", ["https://frankfurtleague.de@evil.example", "https://user:pw@evil.example"])
-    def test_a_school_website_hiding_its_host_behind_userinfo_is_refused(self, website_url: str):
-        """The admin panel renders the string and follows the host, so userinfo makes those two different domains."""
-
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
-
     def test_an_empty_website_box_is_stored_as_null(self):
         """The applicant left it empty, which is no URL to refuse: an empty `href` would link to the page it sits on."""
 

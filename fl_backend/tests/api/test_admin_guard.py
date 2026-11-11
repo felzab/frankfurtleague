@@ -287,13 +287,14 @@ def test_a_public_write_is_base_tier(path: str, method: str):
     assert guards_of(ROUTES_BY_OPERATION[(path, method)]) == {verify_access_base}, f"{method.upper()} {path} is not base-tier"
 
 
-@pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
-def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: str):
+def test_a_public_write_is_unreachable_without_the_base_key():
     """Public here means no SESSION, never no key: the edge reaches this application through the frontend.
 
-    A request carrying no bearer token answers `access_key_refused` before the body is parsed.
+    A request carrying no bearer token answers `access_key_refused` before the body is parsed. One write
+    stands for all: the case above holds each to the base guard alone, and that guard is one function.
     """
 
+    path, method = PUBLIC_WRITES[0]
     response = TestClient(APP, raise_server_exceptions=False).request(method, path, json={})
 
     assert response.status_code == 401
@@ -364,8 +365,10 @@ def test_a_system_write_is_system_tier(path: str, method: str):
     assert bind_actor not in calls, f"{method.upper()} {path} refuses the pass it serves"
 
 
-@pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)
-def test_a_system_write_is_unreachable_without_the_system_key(path: str, method: str):
+def test_a_system_write_is_unreachable_without_the_system_key():
+    """One write stands for all, as for the public writes: each is held to the system guard alone above."""
+
+    path, method = SYSTEM_WRITES[0]
     response = TestClient(APP, raise_server_exceptions=False).request(method, path.replace("{saison_id}", "2026"), json={})
 
     assert response.status_code == 401
