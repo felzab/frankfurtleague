@@ -25,6 +25,12 @@ def german_day(instant: datetime) -> str:
     return instant.astimezone(GERMANY).strftime("%Y-%m-%d")
 
 
+def german_instant(day: str, wall_time: str) -> datetime:
+    """The instant a German day and clock time name, as a fixture stores its kick-off in `date` and `time`."""
+
+    return datetime.fromisoformat(f"{day}T{wall_time}").replace(tzinfo=GERMANY)
+
+
 def utc_stamp(moment: datetime) -> str:
     """The instant a person's evidence is stamped with, spelled one way everywhere.
 

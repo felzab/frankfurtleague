@@ -138,16 +138,17 @@ async def get_self_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSpieleResponse:
     """
     Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
 
     Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
-    their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
-    today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
-    Open work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days
-    gone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.
+    their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now
+    (from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is
+    served, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the
+    fixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,
+    or none at all, answers an empty list.
 
     Refuses an address holding no live, confirmed referee record (`role_not_held`).
     """
@@ -166,7 +167,7 @@ async def get_self_spiele(
         )
 
     return FLSchiedsrichterSpieleResponse(
-        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, today=today) for spiel in spiele])
+        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=now) for spiel in spiele])
     )
 
 

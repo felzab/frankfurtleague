@@ -13682,6 +13682,10 @@
             "title": "Named",
             "type": "array"
           },
+          "reportable": {
+            "title": "Reportable",
+            "type": "boolean"
+          },
           "sides_changed": {
             "items": {
               "$ref": "#/components/schemas/FLSpielSide"
@@ -13711,7 +13715,8 @@
           "bericht",
           "sides_changed",
           "version",
-          "completed"
+          "completed",
+          "reportable"
         ],
         "title": "FLSpielberichtSchiedsrichterResponse",
         "type": "object"
@@ -25602,7 +25607,7 @@
     },
     "/api/v0/schiedsrichter/self/spiele/{saison_id}": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report\ntoday, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.\nOpen work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days\ngone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
+        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now\n(from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is\nserved, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the\nfixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,\nor none at all, answers an empty list.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {
@@ -26226,7 +26231,7 @@
     },
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
-        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks included, or null.\n\nServed for a fixture still to come or called off too, whose page says why it takes no report, with both squads\nempty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,\n`completed` is true and the read is the report alone, both squads empty, which its referee writes no more.\nRefused\n`role_not_held` where the address holds no confirmed, live referee record, and `bericht_not_officiated` where the fixture\nis booked to none of its records; `document_not_found` for a fixture that does not exist.",
+        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks included, or null.\n\n`reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it\nholds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose\npage says why it takes no report, with both squads empty: the pupils the stored report names are then all in\n`named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads\nempty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee\nrecord, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a\nfixture that does not exist.",
         "operationId": "spielberichte_get_spielbericht_bericht",
         "parameters": [
           {
@@ -26303,7 +26308,7 @@
         ]
       },
       "put": {
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are\nthe entries credited to each side, an own goal crediting the other one, and no form sends them. The first write\ncreates it and answers 201; every write changing it clears its adoption in the same update, so a report the\nadministrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes\nnothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side\nunder reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.\n\n`version` is the report document's as the form was served it, null where the form showed no report: a write composed\non another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form\nread before an adoption saves stale once.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`version` other than the document's now, or than null where none stands (`version_stale`); one undated\nor whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out\nproposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil the write newly names on a side\noutside that side's live squad of the season, a pupil the report already named on that side staying while the side\nfields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale` is asked again outside the\ntransaction just before answering, the referee's records included, so a write landing on what was judged before\nthat second asking refuses the report rather than letting it stand, and one landing after it stands beside the\nreport; a write of the report itself landing mid-press conflicts with this one, whose retry meets `version_stale`.\nTwo first writes at once are two forms opened on no report: the later is refused.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are\nthe entries credited to each side, an own goal crediting the other one, and no form sends them. The first write\ncreates it and answers 201; every write changing it clears its adoption in the same update, so a report the\nadministrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes\nnothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side\nunder reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.\n\n`version` is the report document's as the form was served it, null where the form showed no report: a write composed\non another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form\nread before an adoption saves stale once.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`version` other than the document's now, or than null where none stands (`version_stale`); one undated, or whose\nkick-off is still to come, its day where it holds no time (`bericht_not_played`); one called off or struck out\n(`bericht_cancelled`); a shoot-out proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil\nthe write newly names on a side outside that side's live squad of the season, a pupil the report already named on\nthat side staying while the side fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale`\nis asked again outside the transaction just before answering, the referee's records included, so a write landing on\nwhat was judged before that second asking refuses the report rather than letting it stand, and one landing after it\nstands beside the report; a write of the report itself landing mid-press conflicts with this one, whose retry meets\n`version_stale`. Two first writes at once are two forms opened on no report: the later is refused.",
         "operationId": "spielberichte_put_spielbericht_bericht",
         "parameters": [
           {

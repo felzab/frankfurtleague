@@ -730,10 +730,17 @@ ACTION_CONFIG=()
 # Each burst off its own block, so a figure moved there is driven as written.
 ACTION_BURST="$(sed -n '/^location \/ {$/,/^}$/s/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
 [[ -n "$ACTION_BURST" ]] || refuse "nginx/shared/site.conf declares no action burst on location / this test can read."
-LINK_ACTION_BURST="$(sed -n '/^location \/confirm\/ {$/,/^}$/s/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
-[[ -n "$LINK_ACTION_BURST" ]] || refuse "nginx/shared/site.conf declares no action burst on location /confirm/ this test can read."
-(( LINK_ACTION_BURST > ACTION_BURST + 10 )) \
-  || refuse "the link pages' action burst, ${LINK_ACTION_BURST}, leaves no room above location /'s ${ACTION_BURST} for this test's link-rhythm case."
+# Every block's action burst, none above location /'s: Next runs an action at whatever path it is posted to, so a
+# block raising it raises every action's ceiling, which the spent link pages below might still answer inside.
+mapfile -t ACTION_BURSTS < <(sed -n 's/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")
+(( ${#ACTION_BURSTS[@]} > 1 )) || refuse "nginx/shared/site.conf declares no action burst outside location / this test can read."
+for _burst in "${ACTION_BURSTS[@]}"; do
+  if (( _burst > ACTION_BURST )); then
+    fail "ACTION a raised burst"
+    detail "nginx/shared/site.conf declares limit_req zone=action burst=${_burst}, above location /'s ${ACTION_BURST}"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  fi
+done
 # Twenty saves at once, under the burst of thirty.
 for _ in $(seq 1 20); do
   action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
@@ -750,20 +757,15 @@ spent_request urlencoded -X POST --data "probe=1" "${BASE}/"
 spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# Each link page's block restates the action pair at a burst above location /'s, for a squad's sends:
-# with the key spent past `/`'s burst, sends spread over every block still pass, ten short of the
-# link pages' burst, which a block restating `/`'s figure would refuse. Then a flood past it.
+# Each link page's block restates the action pair at location /'s burst: with the key spent past it, a
+# flood landing on a link page is refused as one landing anywhere else is.
 LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /registrierung/ /erasure /erasure/ )
-for _i in $(seq 0 $(( LINK_ACTION_BURST - ACTION_BURST - 11 ))); do
-  action_request link-rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
-    "${BASE}${LINK_ACTION_PATHS[_i % ${#LINK_ACTION_PATHS[@]}]}"
-done
 for _ in $(seq 1 30); do
   action_request link-action-flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}/confirm/kontakt"
 done
 # Each link page's block, whose link pair has room left here, so only its restated action pair refuses,
-# and only at the link pages' own burst: a block restating it higher passes these.
+# at location /'s burst: a block restating it higher may pass these.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
@@ -969,7 +971,6 @@ expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
-expect_action link-rhythm 200
 expect_action link-action-flood some:429
 # A link page's action still reads the sentence: the page is its load's alone.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do

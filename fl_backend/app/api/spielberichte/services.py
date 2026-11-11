@@ -16,6 +16,7 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
 from app.api.spieler.services import PUBLIC_PERSON
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
@@ -199,18 +200,26 @@ def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_id
     )
 
 
-def is_played(*, date: str | None, today: str) -> bool:
-    return date is not None and date <= today
+def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
+
+    if date is None:
+        return False
+
+    if time is None:
+        return date <= clock.german_day(now)
+
+    return clock.german_instant(date, time) <= now
 
 
 def is_cancelled(*, sonderereignis: str | None) -> bool:
     return sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT
 
 
-def find_not_played_refusal(*, date: str | None, today: str) -> WriteRefusal | None:
-    """`bericht_not_played`: a report follows the match day; the day arriving, or a date corrected, lifts it."""
+def find_not_played_refusal(*, date: str | None, time: str | None, now: datetime) -> WriteRefusal | None:
+    """`bericht_not_played`: a report follows the kick-off; the kick-off passing, or a date or time corrected, lifts it."""
 
-    if is_played(date=date, today=today):
+    if is_played(date=date, time=time, now=now):
         return None
 
     return WriteRefusal(
@@ -261,16 +270,18 @@ def find_elfmeter_in_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FL
     )
 
 
-def takes_a_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
-    """Whether the fixture takes a report today, as `bericht_not_played` and `bericht_cancelled` judge a write, refusing nothing."""
+def takes_a_bericht(spiel_raw: Mapping[str, Any], *, now: datetime) -> bool:
+    """Whether the fixture takes a report at `now`, as `bericht_not_played` and `bericht_cancelled` judge a write, refusing nothing."""
 
-    return is_played(date=spiel_raw.get("date"), today=today) and not is_cancelled(sonderereignis=spiel_raw.get("sonderereignis"))
+    return is_played(date=spiel_raw.get("date"), time=spiel_raw.get("time"), now=now) and not is_cancelled(
+        sonderereignis=spiel_raw.get("sonderereignis")
+    )
 
 
-def kader_is_open(context: BerichtContext, *, today: str) -> bool:
+def kader_is_open(context: BerichtContext, *, now: datetime) -> bool:
     """Whether the referee's form serves both squads to pick from: while the fixture takes a report and its season runs."""
 
-    return takes_a_bericht(context.spiel, today=today) and not is_concluded(context)
+    return takes_a_bericht(context.spiel, now=now) and not is_concluded(context)
 
 
 def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> WriteRefusal | None:
@@ -296,11 +307,11 @@ def judge_bericht(
     context: BerichtContext,
     payload: FLSpielberichtBerichtPayload,
     new: Mapping[FLSpielSide, set[ObjectId]],
-    today: str,
+    now: datetime,
 ) -> None:
     """Every refusal the report's write asks inside its transaction and again outside it, in order."""
 
-    refuse(find_not_played_refusal(date=context.spiel.get("date"), today=today))
+    refuse(find_not_played_refusal(date=context.spiel.get("date"), time=context.spiel.get("time"), now=now))
     refuse(find_cancelled_refusal(sonderereignis=context.spiel.get("sonderereignis")))
     refuse(find_elfmeter_in_gruppe_refusal(spiel_raw=context.spiel, payload=payload))
     refuse(find_not_in_kader_refusal(context=context, new=new))

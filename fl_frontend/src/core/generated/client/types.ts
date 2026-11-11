@@ -5149,6 +5149,7 @@ export interface FLSpielberichtSchiedsrichterResponse {
   completed: boolean;
   kader: FLSpielberichtKader;
   named: FLSpielberichtSpieler[];
+  reportable: boolean;
   sides_changed: FLSpielSide[];
   spiel: FLSpielberichtSpiel;
   version: number | null;

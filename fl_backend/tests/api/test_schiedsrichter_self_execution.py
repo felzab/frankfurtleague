@@ -5,6 +5,7 @@ One row a fixture booked to the address's records, each judged by the newest row
 open work first.
 """
 
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -13,6 +14,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.person_router import get_self_saisons, get_self_spiele
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
@@ -28,6 +30,8 @@ DATABASE_NAME = worker_database("fl_schiedsrichter_self_test")
 SAISON_ID = "2027"
 EARLIER_SAISON = "2026"
 TODAY = "2027-05-10"
+# Noon on `TODAY`, ahead of its fixture's 18:30 kick-off.
+NOW = datetime(2027, 5, 10, 12, tzinfo=clock.GERMANY)
 
 TEAM1 = ObjectId("6890a1b2c3d4e5f607e50001")
 TEAM2 = ObjectId("6890a1b2c3d4e5f607e50002")
@@ -154,7 +158,7 @@ def own_spiele(identifier: str = OTTO) -> Any:
             spiele_collection=database[Collection.SPIELE],
             records=record_collections(database),
             db=client,
-            today=TODAY,
+            now=NOW,
         )
 
     return call

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -138,10 +138,35 @@ class TestTheProposalsCountsAreItsEntries:
             FLSpielberichtBerichtPayload.model_validate(payload([tor("team1"), tor("team1"), tor("team2")], elfmeterschiessen=shoot_out))
 
 
-class TestAReportFollowsTheMatchDay:
-    @pytest.mark.parametrize("date", [None, "2027-05-15"], ids=["undated", "tomorrow"])
-    def test_an_undated_or_coming_spiel_is_refused(self, date: str | None):
-        assert refused_with(Code.BERICHT_NOT_PLAYED, find_not_played_refusal(date=date, today=TODAY))
+# `spiel`'s kick-off, 18:00 in Berlin on a summer day.
+KICK_OFF = datetime(2027, 5, 14, 16, tzinfo=UTC)
+# The first instant of `TODAY` in Berlin, the day before in UTC.
+TODAYS_FIRST_MINUTE = datetime(2027, 5, 13, 22, tzinfo=UTC)
+
+
+class TestAReportFollowsTheKickOff:
+    """Played from the kick-off on Germany's clock, never from the morning of its day; from its day where no time is set."""
+
+    @pytest.mark.parametrize(
+        ("date", "time", "now"),
+        [
+            pytest.param(None, None, NOW, id="undated"),
+            pytest.param("2027-05-15", None, NOW, id="an untimed day to come"),
+            pytest.param(TODAY, "18:00:00", KICK_OFF - timedelta(minutes=1), id="before the kick-off on its day"),
+        ],
+    )
+    def test_a_spiel_not_yet_played_is_refused(self, date: str | None, time: str | None, now: datetime):
+        assert refused_with(Code.BERICHT_NOT_PLAYED, find_not_played_refusal(date=date, time=time, now=now))
+
+    @pytest.mark.parametrize(
+        ("time", "now"),
+        [
+            pytest.param("18:00:00", KICK_OFF, id="from the kick-off"),
+            pytest.param(None, TODAYS_FIRST_MINUTE, id="an untimed spiel from its day"),
+        ],
+    )
+    def test_a_spiel_played_is_taken(self, time: str | None, now: datetime):
+        assert find_not_played_refusal(date=TODAY, time=time, now=now) is None
 
 
 class TestACalledOffSpielTakesNoReport:
@@ -152,10 +177,10 @@ class TestACalledOffSpielTakesNoReport:
     def test_its_form_serves_no_squads(self):
         """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report.
 
-        Played today in a running season, so the call-off alone decides.
+        Played before `NOW` in a running season, so the call-off alone decides.
         """
 
-        assert kader_is_open(context(sonderereignis="ausgefallen"), today=TODAY) is False
+        assert kader_is_open(context(sonderereignis="ausgefallen"), now=NOW) is False
 
 
 class TestANewlyNamedPupilIsInTheSquad:
@@ -278,8 +303,8 @@ class TestAGroupSpielTakesNoShootOut:
 
         # Through the judgement the write asks twice, so the rule is held where it is called as well as where it is written.
         with pytest.raises(APIError) as refused:
-            judge_bericht(context=context(), payload=vorschlag, new=keine, today=TODAY)
-        judge_bericht(context=context(saison_phase="achtelfinale"), payload=vorschlag, new=keine, today=TODAY)
+            judge_bericht(context=context(), payload=vorschlag, new=keine, now=NOW)
+        judge_bericht(context=context(saison_phase="achtelfinale"), payload=vorschlag, new=keine, now=NOW)
 
         assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_THE_GRUPPE
 

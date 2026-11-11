@@ -218,7 +218,6 @@ async def put(
         identifier=email,
         records=record_collections(database),
         db=client,
-        today=TODAY,
         now=NOW,
         **handles(database, **replaced),
     )
@@ -226,7 +225,7 @@ async def put(
 
 async def form_read(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = REFEREE_EMAIL) -> Any:
     return await get_spielbericht_bericht(
-        spiel_id=SPIEL, identifier=email, records=record_collections(database), db=client, today=TODAY, **handles(database)
+        spiel_id=SPIEL, identifier=email, records=record_collections(database), db=client, now=NOW, **handles(database)
     )
 
 
@@ -576,11 +575,13 @@ class TestTheReads:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())
+            played = await form_read(database, client)
             await move_to_tomorrow(database)
-            return await form_read(database, client)
+            return played, await form_read(database, client)
 
-        form = on_the_league(mongo_replica_set_url, body)
+        played, form = on_the_league(mongo_replica_set_url, body)
 
+        assert (played.reportable, form.reportable) == (True, False)
         assert (form.kader.team1, form.kader.team2) == ([], [])
         assert form.bericht is not None
         assert sorted((spieler.spieler_id, spieler.last_name) for spieler in form.named) == [(LINA, "Krause"), (MIA, "Westphal")]

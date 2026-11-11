@@ -7,10 +7,9 @@ import { SectionPlaceholder } from "@/kit/Section";
 import { StatusPage } from "@/kit/StatusPage";
 
 import { requires } from "@/core/action";
-import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import { dayIn, dayOf, timeOf } from "@/core/format";
+import { dayOf, timeOf } from "@/core/format";
 import {
   spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax,
   spielberichtePutSpielberichtBerichtBodyBerichtScorersItemMinuteRegExp,
@@ -188,7 +187,10 @@ async function readPage(params: Props["params"]) {
     }
     const day = dayOf(spiel.date);
     if (day === null) return card(title, "info", COPY.spielplan.when(null, null), saison);
-    if (day > dayIn(now())) return card(title, "info", SERVER_COPY.area.schiedsrichter.spielberichtFrom(day), saison);
+    // The backend judges the kick-off on Germany's clock, as the write's `bericht_not_played` does.
+    if (!found.reportable) {
+      return card(title, "info", SERVER_COPY.area.schiedsrichter.spielberichtFrom(COPY.spielplan.when(day, timeOf(spiel.time))), saison);
+    }
   }
 
   // The form tells its two sides apart, so a side the knockout has not settled goes by its place, never „Noch offen“ twice.

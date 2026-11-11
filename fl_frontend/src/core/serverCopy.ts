@@ -809,8 +809,8 @@ export const SERVER_COPY = catalogue({
         .join(" · "),
     /** The match report's status cards, each a title. */
     schiedsrichter: {
-      /** Before the match's day, named by that day. */
-      spielberichtFrom: (day: CalendarDay) => `Spielbericht ab ${formatDateLong(day)}`,
+      /** Before the kick-off, named by its day and time as the match's row names them (`COPY.spielplan.when`). */
+      spielberichtFrom: (when: Copy) => `Spielbericht ab ${when}`,
       /** A fixture another referee is booked onto. */
       unbooked: "Nicht mehr eingeteilt",
     },

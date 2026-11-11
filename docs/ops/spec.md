@@ -223,20 +223,20 @@ never publishes its port, which ends that scope refused.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location                            | Upstream        | Notes                                                                                                                                                                                                      |
-| ----------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth`                         | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin                   |
-| `= /api/auth/sign-in/email-otp`     | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`                         |
-| `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30`, and `client_max_body_size 32k` ([`docs/logging/overview.md`](../logging/overview.md))                   |
-| `= /api/mail/delivery`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=delivery burst=300` and `zone=delivery48 burst=3000`, and `client_max_body_size 8k`                                    |
-| the `/` twins                       | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                                |
-| `= /api/v0/system/is_live`          | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                                        |
-| `= /signin`                         | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                                    |
-| `= /signin/continue`                | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                                 |
-| `/_next/static/`                    | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                      |
-| `/confirm/`                         | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkpage burst=440` and `zone=linkpage48 burst=4400` on every request, beside `/`'s ceiling and its action pair at `burst=80` and `burst=800` |
-| `= /registrierung` and `= /erasure` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/confirm/`'s lines, each with its twin                                                                                    |
-| `/`                                 | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                                    |
+| Location                            | Upstream        | Notes                                                                                                                                                                                            |
+| ----------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/api/auth`                         | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin         |
+| `= /api/auth/sign-in/email-otp`     | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`               |
+| `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30`, and `client_max_body_size 32k` ([`docs/logging/overview.md`](../logging/overview.md))         |
+| `= /api/mail/delivery`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=delivery burst=300` and `zone=delivery48 burst=3000`, and `client_max_body_size 8k`                          |
+| the `/` twins                       | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                      |
+| `= /api/v0/system/is_live`          | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                              |
+| `= /signin`                         | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                          |
+| `= /signin/continue`                | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                       |
+| `/_next/static/`                    | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                            |
+| `/confirm/`                         | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkpage burst=440` and `zone=linkpage48 burst=4400` on every request, beside `/`'s ceiling and its action pair at `/`'s own bursts |
+| `= /registrierung` and `= /erasure` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/confirm/`'s lines, each with its twin                                                                          |
+| `/`                                 | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                          |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at
 load**. A container compose recreates or starts again comes back under its name at another
@@ -338,18 +338,22 @@ the one request on the path the client chose. The answers six link pages take th
 action — a pupil's registration on `/registrierung` and the pupil's answer on `/confirm/spieler`, the
 referee's on `/confirm/schiedsrichter`, a contact seat's on `/confirm/kontakt`, an address link's on
 `/confirm/address` and the deletion link's on `/erasure` — are bounded by the action pair, 60 a
-minute per network, 30 at once where a browser posts from a page outside the link pages and 80 at
-once where the post lands on a link page, and by the link pages' pair besides only there. A script
-chooses the path it posts to, so 80 at once is the per-network ceiling of every server action, the
-sign-in's and the application's included; the registration's send stays bounded by its Turnstile
-check and the confirmation's by its single-use token. **Both figures at a link page are sized for the
-largest squad a season may set**, `max_kader_size`'s published maximum of 50
+minute per network and 30 at once wherever the post lands, and by the link pages' pair besides
+where it lands on a link page. **No location raises the action burst**: a script chooses the path it
+posts to, so a block declaring a higher one would raise the per-network ceiling of every server
+action, the sign-in's and the application's included, and
+`scripts/checks/check_public_routes.py :: raised_bursts` finds any block naming a burst above
+`location /`'s on a zone `/` meters. The registration's send stays bounded by its Turnstile check
+and the confirmation's by its single-use token. **The link pages' own pair is sized for the largest
+squad a season may set**, `max_kader_size`'s published maximum of 50
 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one school's address in one
 break, each pupil opening the team's invite and their own link and sending each page's form, a retry
-each, passing within two minutes at the unchanged rates — 10N requests on the link pages' key, a
-burst of 10N - 60, and 4N sends on the action key, a burst of 4N - 120
-(`nginx/shared/site.conf :: location /confirm/`), which
-`scripts/checks/check_public_routes.py :: unsized_links` holds to that maximum. The public application's submission is such an action too, on `/bewerbung/<saison>`:
+each, passing within two minutes at the unchanged rate — 10N requests on the link pages' key, a burst
+of 10N - 60 (`nginx/shared/site.conf :: location /confirm/`), which
+`scripts/checks/check_public_routes.py :: unsized_links` holds to that maximum. The same squad's 4N
+sends on the action key, 200 for fifty, pass at `location /`'s burst and rate in about three
+minutes, a send past the burst refused with the edge's `429` and sent again by its pupil.
+The public application's submission is such an action too, on `/bewerbung/<saison>`:
 the action pair is its only meter, the bot check its gate. A pair for one action would key on its id, which Next recalculates between builds
 (`next/dist/docs/01-app/02-guides/data-security.md`).
 
@@ -379,15 +383,14 @@ block naming it**: a link page is one whose own module reads `token` from its se
 through the proxy's mailed-link reader (`fl_frontend/src/core/mailedLink.ts :: mailedLinkToken`), or
 one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
 another module is found by its minter, and a `?token=` the checker cannot place refuses the run. Each block restates
-`location /`'s ceiling and action pair, the action pair at the link pages' own burst on the same key,
+`location /`'s ceiling and action pair, the action pair at `location /`'s own burst on the same key,
 sets `$link_page`, and declares no `proxy_set_header`, `add_header` or `error_page`, each of which
 would replace an inherited set. `nginx/edge_test.sh` floods one link page past the burst, then fails
 any link page, twin, double slash, dot segment, percent-encoded letter, `HEAD` or JSON post that is
 not refused with the edge's own `429`, any refused load of a link page not answered with the edge's
-page, any link block refusing a server action `location /`'s burst already refuses but its own does
-not, and any whose action pair lets one past its own burst or answers it otherwise than with the
-sentence. It sends that pass to one curl as a config read from stdin (`curl -K -`), a pass growing
-with every burst it floods past and Windows capping one command line at 32,767 characters.
+page, any block declaring an action burst above `location /`'s, and any link block whose action pair
+lets a server action past `location /`'s burst or answers it otherwise than with the sentence. It
+sends that pass to one curl as a config read from stdin (`curl -K -`), a pass growing with every burst it floods past and Windows capping one command line at 32,767 characters.
 
 **The server block's `client_max_body_size 1m` is Next's own bound on a server action's body**,
 `serverActions.bodySizeLimit` at its 1 MB default, which `fl_frontend/next.config.ts` leaves

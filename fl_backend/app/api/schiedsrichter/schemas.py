@@ -276,7 +276,8 @@ class FLSchiedsrichterSpiel(BaseModel):
     # Whether the fixture's day lies before today in Europe/Berlin, judged here so a page rendered around midnight
     # agrees with the order the read answered.
     past: bool
-    # Whether the fixture takes a report today: played, not called off or struck out, its season running.
+    # Whether the fixture takes a report now: played, not called off or struck out, its season running. Played from
+    # the kick-off, or from the day where the fixture holds no time.
     reportable: bool
     # When its report was first sent, whoever wrote it; null where none stands.
     submitted_at: FLUtcInstant | None
