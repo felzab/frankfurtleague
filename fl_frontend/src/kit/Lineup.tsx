@@ -11,6 +11,7 @@ import { card, columnHead, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
+import { EmptyState, EmptyStatePlaceholder } from "./EmptyState";
 import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
@@ -19,6 +20,7 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
+import type { EmptyStateProps } from "./EmptyState";
 import type { RoleMarkProps } from "./RoleMark";
 
 /**
@@ -58,8 +60,6 @@ const lineup = tv({
     // The last cell, as narrow as the act it holds.
     end: "w-0 pe-3",
     acts: "flex items-center justify-end",
-    // Nobody named yet: one muted sentence in a row of the list's height.
-    empty: "flex min-h-14 items-center px-4 py-3 text-base text-fg-muted lg:min-h-13 lg:py-0 lg:text-sm",
   },
   variants: {
     align: {
@@ -149,10 +149,10 @@ export type LineupWords = {
   pick: Copy;
   /** The cross's name, which its tooltip shows. */
   remove: Copy;
-  /** In the picked list's place while it names nobody. */
-  none: Copy;
-  /** In the other list's place where the team has no squad. */
-  noSquad: Copy;
+  /** In the picked list's place while it names nobody: its blank slate, as an editor's every list with nothing in it yet. */
+  none: EmptyStateProps;
+  /** In the other list's place where the team has no squad, alike. */
+  noSquad: EmptyStateProps;
   /** On the row of a tick pressed while `startersMax` pupils already start. */
   startersFull: Copy;
   /** Why a nominee cannot be named, and on a named nominee's row once the regular pupils leave no gap for them. */
@@ -320,7 +320,7 @@ export function Lineup({ players, value, erased, onChange, startersMax, words, l
         </div>
         <div className={s.box()}>
           {picked.length + erased.length === 0 ? (
-            <p className={s.empty()}>{words.none}</p>
+            <EmptyState {...words.none} />
           ) : (
             <table
               aria-label={words.picked}
@@ -429,7 +429,7 @@ export function Lineup({ players, value, erased, onChange, startersMax, words, l
         </div>
         {!hasSquad && (
           <div className={s.box()}>
-            <p className={s.empty()}>{words.noSquad}</p>
+            <EmptyState {...words.noSquad} />
           </div>
         )}
         {rest.length > 0 && (
@@ -534,7 +534,7 @@ function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; start
 /**
  * The block while the line-up is read: its two cards with their titles and column heads, a bar where each count will
  * stand, and as many rows at the rows' height as the page states for each list, the tick, the cross and the squad
- * rows' word as bars of their size. A picked list of none draws the row its sentence will stand in, and a squad
+ * rows' word as bars of their size. A picked list of none draws its blank slate's placeholder, and a squad
  * list of none its head alone, as the block does.
  */
 export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
@@ -554,12 +554,7 @@ export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; p
         </div>
         <div className={s.box()}>
           {picked === 0 ? (
-            <div className={s.empty()}>
-              <PlaceholderLine
-                textClass=""
-                widthClass="w-1/2"
-              />
-            </div>
+            <EmptyStatePlaceholder />
           ) : (
             <RowsPlaceholder
               words={words}

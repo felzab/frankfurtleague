@@ -2,6 +2,8 @@ import { COPY } from "@/core/copy";
 
 import { Icon } from "./Icon";
 import { Link } from "./Link";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -47,6 +49,15 @@ export type EmptyStateProps = {
  */
 type Clear = { kind: "clear" };
 
+/** The blank slate's parts, which it and its placeholder draw from. */
+const slate = tv({
+  slots: {
+    root: "grid justify-items-center gap-3 px-4 py-8 text-center",
+    mark: "text-fg-muted",
+    sentence: "text-base text-fg-muted",
+  },
+});
+
 /**
  * The empty state, standing inside the list's box, which its caller draws. A list with nothing in it yet
  * shows the blank slate: its muted mark over the sentence over the one button, centred. A list a search or
@@ -55,17 +66,16 @@ type Clear = { kind: "clear" };
  */
 export function EmptyState(props: EmptyStateProps | Clear) {
   if (props.kind === "none") {
+    const s = slate();
     return (
-      <div className="grid justify-items-center gap-3 px-4 py-8 text-center">
-        <span className="text-fg-muted">
+      <div className={s.root()}>
+        <span className={s.mark()}>
           <Icon
             glyph={props.glyph ?? "info"}
             size={18}
           />
         </span>
-        <p className="text-base text-fg-muted">
-          {props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}
-        </p>
+        <p className={s.sentence()}>{props.one === true ? COPY.shared.empty.noneOne(props.plural) : COPY.shared.empty.none(props.plural)}</p>
         {props.line !== undefined && (
           <p className="text-sm text-fg-muted">
             {typeof props.line === "string" ? (
@@ -97,6 +107,23 @@ export function EmptyState(props: EmptyStateProps | Clear) {
     <div className="grid min-h-14 grid-cols-1 items-center gap-2 px-4 py-3 text-base text-fg-muted lg:min-h-13 lg:grid-cols-[minmax(0,1fr)_auto] lg:py-0 lg:text-sm">
       <p>{sentence}</p>
       {action !== undefined && <div className="justify-self-start lg:justify-self-end">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * The blank slate while its list is read, for a block whose wait draws it: its mark and its sentence's line as bars, at
+ * their sizes, a list's sentence being short enough for one line at every width.
+ */
+export function EmptyStatePlaceholder() {
+  const s = slate();
+  return (
+    <div className={s.root()}>
+      <span className={placeholderBar("block size-4.5")} />
+      <PlaceholderLine
+        textClass={s.sentence({ class: "w-full justify-center" })}
+        widthClass="w-1/2"
+      />
     </div>
   );
 }
