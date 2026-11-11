@@ -6,12 +6,14 @@
 #   ./scripts/ops/deploy.sh sha-1a2b3c4      deploy one published build, or go back to one
 #   ./scripts/ops/deploy.sh --no-rollback    on a failure, stop and leave the stack as it stands, for a
 #                                            build the one before must never run after, such as one
-#                                            whose migration has already changed the data
+#                                            whose migration has already changed the data; it is
+#                                            pinned before it starts, so no later run goes back past it
 #   ./scripts/ops/deploy.sh --help
 #
 # Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
-# nothing changed. The tag is pinned as TAG= in the .env beside the compose file, which compose reads
-# for every command, so `docker compose ps` and `logs` typed by hand reach the stack as it runs.
+# nothing changed. The last build judged healthy is pinned as TAG= in the .env beside the compose
+# file, which compose reads for every command, so `docker compose ps` and `logs` typed by hand reach
+# the stack, and a later run that fails goes back to it.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
@@ -112,8 +114,12 @@ show_failure() {
 # `--remove-orphans`, so a service deleted from the compose file leaves no container running.
 up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orphans; }
 
+# Moved by a healthy verdict alone, so a run ending without one, an interrupt included, leaves it on
+# the last build that came up. --no-rollback's build retires the one before as it starts.
+if (( ! ROLLBACK )); then
+  pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. NOTHING has changed."
+fi
 step "Starting ${tag}"
-pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. NOTHING has changed."
 failure="${tag} did not come up"
 if up; then
   ok "every service is running and healthy"
@@ -123,6 +129,8 @@ if up; then
   failure="nginx did not take this checkout's configuration and still runs the one it had"
   if quietly docker compose exec -T nginx nginx -t && quietly docker compose exec -T nginx nginx -s reload; then
     ok "tested and reloaded"
+    pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
+Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
     # After the start rather than before, so the build a rollback needs is still here when it runs.
     step "Images nothing runs any more"
     if quietly docker image prune -af; then
@@ -150,7 +158,6 @@ fi
 # before this run.
 step "Going back to ${prev}"
 export TAG="$prev"
-pin "$prev" || die "${failure}, and the .env could not be written to go back to ${prev}, so the stack stands as it is."
 if up; then
   die "${failure}, so the stack went back to ${prev}, which is live."
 fi
