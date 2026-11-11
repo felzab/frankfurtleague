@@ -43,7 +43,7 @@ export function SignInBoxes({
   const address = (
     <Facts
       look="free"
-      facts={[{ label: COPY.account.address.current, value: { record: email } }]}
+      facts={[{ label: COPY.account.address.current, value: { record: email, address: true } }]}
     />
   );
   return (

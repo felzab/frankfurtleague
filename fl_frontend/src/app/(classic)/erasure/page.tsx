@@ -114,7 +114,7 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
     figure === 0 ? [] : [{ label, value: { record: formatNumber(figure) }, figures: true }];
 
   return [
-    { label: COPY.signIn.address, value: { record: email } },
+    { label: COPY.signIn.address, value: { record: email, address: true } },
     ...count(WORDS.passkeys, passkeys),
     ...[...records].map(([label, held]): Fact => ({
       label,
