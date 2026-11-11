@@ -12,7 +12,6 @@ import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { RowActs } from "./RowActs";
 import { StatusPage } from "./StatusPage";
 import { useBotCheck } from "./useBotCheck";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -219,32 +218,28 @@ export function OneShotForm({
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="grid">
           {check.widget}
-          {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
-              so a screen reader hears what the press did. Around the whole footer, whose acts it reorders by layout. */}
-          <RowActs
-            className="contents"
-            describedBy={describedBy}>
-            <FormFooter
-              status={status}
-              note={note}>
-              {acts.primary !== undefined && acts.refusal !== undefined && (
-                <Button
-                  variant="quiet"
-                  label={COPY.shared.verb[acts.refusal.verb]}
-                  isBusy={isBusy && pressed === "secondary"}
-                  onPress={() => {
-                    if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
-                  }}
-                />
-              )}
+          <FormFooter
+            status={status}
+            note={note}>
+            {acts.primary !== undefined && acts.refusal !== undefined && (
               <Button
-                variant="primary"
-                type="submit"
-                label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
-                isBusy={isBusy && pressed === "primary"}
+                variant="quiet"
+                label={COPY.shared.verb[acts.refusal.verb]}
+                aria-describedby={describedBy}
+                isBusy={isBusy && pressed === "secondary"}
+                onPress={() => {
+                  if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
+                }}
               />
-            </FormFooter>
-          </RowActs>
+            )}
+            <Button
+              variant="primary"
+              type="submit"
+              label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
+              aria-describedby={describedBy}
+              isBusy={isBusy && pressed === "primary"}
+            />
+          </FormFooter>
           {/* Mounted closed from the first render, as a held question must be (`useOpenUntilHidden`). Closed, it hands the
               focus back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`). */}
           {acts.refusal !== undefined && (

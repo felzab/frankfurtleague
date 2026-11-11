@@ -312,11 +312,7 @@ export function RailPage({
             />
           </Placeholder>
         ) : (
-          <h1
-            data-kit-focus="home"
-            className={heading()}>
-            {titleOf(title)}
-          </h1>
+          <h1 className={heading()}>{titleOf(title)}</h1>
         )}
         {chip !== undefined && (
           <span className="flex shrink-0 items-center gap-2">

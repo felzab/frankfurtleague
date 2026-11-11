@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { spielColumnsHolder } from "@/test-support/spielColumns.ts";
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream, renderToString } from "react-dom/server";
 import { prerender } from "react-dom/static";
@@ -79,26 +79,6 @@ describe("the frames' `main`", () => {
 });
 
 describe("the list's create act", () => {
-  // The harm: a handover's start swaps its trigger for the locked button, and the keyboard's place falls to `body`.
-  it("keeps the keys in the toolbar when the act it just ran locks it", async () => {
-    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
-    const page = (locked?: typeof COPY.template.draftUnsaved) => (
-      <ListPage
-        head={{ scope: "saison", title: { route: "spielplan" } }}
-        create={{ title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null, locked }}
-        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
-      />
-    );
-    const { rerender } = render(page());
-    const trigger = screen.getByRole("button", { name });
-    const place = trigger.closest('[data-kit-focus="home"]');
-    trigger.focus();
-
-    rerender(page(COPY.template.draftUnsaved));
-
-    await waitFor(() => expect(document.activeElement).toBe(place));
-  });
-
   // The harm: a dialog's trigger around the locked button would open the create form behind the reason.
   it("answers a press with its reason while locked, never its form", async () => {
     const reason = COPY.template.draftUnsaved;

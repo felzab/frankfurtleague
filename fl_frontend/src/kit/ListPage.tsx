@@ -19,7 +19,6 @@ import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { RowActs } from "./RowActs";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
@@ -415,13 +414,10 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
     label: actLabel(act.act),
   } as const;
   return locked === undefined ? (
-    // The act that locks it takes its trigger along: a handover's start, whose button stands again unbound to its dialog.
-    <RowActs className="contents">
-      <Dialog
-        {...act}
-        trigger={face}
-      />
-    </RowActs>
+    <Dialog
+      {...act}
+      trigger={face}
+    />
   ) : (
     <Button
       {...face}
@@ -438,15 +434,9 @@ async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
 /** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
 const TOOLBAR_CLASSES = "flex flex-wrap items-center gap-3";
 
-/** The acts at the toolbar row's end, where focus lands when an act takes the control it was on with it. */
+/** The acts at the toolbar row's end. */
 function ToolbarActs({ children }: { children: ReactNode }) {
-  return (
-    <div
-      data-kit-focus="home"
-      className="ms-auto flex flex-wrap items-center justify-end gap-3">
-      {children}
-    </div>
-  );
+  return <div className="ms-auto flex flex-wrap items-center justify-end gap-3">{children}</div>;
 }
 
 /** The toolbar of a reader the role's acts reach, and no row for any other, whose empty row would hold the page's gap. */

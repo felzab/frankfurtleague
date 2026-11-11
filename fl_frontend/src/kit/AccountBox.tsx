@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useId, useRef, useState } from "react";
+import { startTransition, useRef, useState } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -14,7 +14,6 @@ import { useLocked } from "./draftUnsaved";
 import { FieldStack } from "./FieldStack";
 import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { useFocusHome } from "./RowActs";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
@@ -244,9 +243,7 @@ export function AccountBox(
   if (props.act === undefined) {
     const held = boxHead({ ruled: props.children !== undefined });
     return (
-      <section
-        data-kit-focus="home"
-        className={slots.root()}>
+      <section className={slots.root()}>
         <div className={held.head()}>{words}</div>
         {props.children !== undefined && (
           <div className={held.content()}>
@@ -307,9 +304,7 @@ function ActBox({ act, words, danger, children }: { act: AccountAct; words: Reac
   );
 
   return (
-    <section
-      data-kit-focus="home"
-      className={slots.root(danger ? { class: dangerEdge() } : {})}>
+    <section className={slots.root(danger ? { class: dangerEdge() } : {})}>
       <HeldForm
         ref={form}
         validationErrors={answer !== null && !answer.ok ? answer.fieldErrors : undefined}
@@ -399,53 +394,40 @@ export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow>
   );
 }
 
-/** One row: its icon buttons share one name each across the rows, so each is described by its row's name. */
+/** One row: its name over its line, and its icon buttons. */
 function Row({ record }: { record: AccountRow }) {
   const slots = rowLook();
-  const nameId = useId();
-  const row = useRef<HTMLDivElement>(null);
-  useFocusHome(row);
   return (
     <div
-      ref={row}
       data-kit-row
       className={slots.row()}>
       <div className={slots.words()}>
         <CutText
-          id={nameId}
           text={record.name.record}
           className={slots.name()}
         />
         <span className={slots.detail()}>{record.detail}</span>
       </div>
-      {record.rename !== undefined && (
-        <RenameAct
-          rename={record.rename}
-          describedBy={nameId}
-        />
-      )}
-      <RemoveAct
-        remove={record.remove}
-        describedBy={nameId}
-      />
+      {record.rename !== undefined && <RenameAct rename={record.rename} />}
+      <RemoveAct remove={record.remove} />
     </div>
   );
 }
 
-function RenameAct({ rename, describedBy }: { rename: Rename; describedBy: string }) {
+function RenameAct({ rename }: { rename: Rename }) {
   return (
     <Dialog
       title={rename.title}
       act={{ verb: "rename" }}
       action={rename.run}
-      trigger={{ icon: "rename", label: COPY.shared.verb.rename, "aria-describedby": describedBy }}>
+      trigger={{ icon: "rename", label: COPY.shared.verb.rename }}>
       {rename.field}
     </Dialog>
   );
 }
 
-function RemoveAct({ remove, describedBy }: { remove: Remove; describedBy: string }) {
-  const face = { icon: "erasures", label: COPY.shared.verb[remove.verb], "aria-describedby": describedBy } as const;
+function RemoveAct({ remove }: { remove: Remove }) {
+  const face = { icon: "erasures", label: COPY.shared.verb[remove.verb] } as const;
   if (remove.locked !== undefined)
     return (
       <Button

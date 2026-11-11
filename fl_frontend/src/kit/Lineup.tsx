@@ -13,7 +13,6 @@ import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { RoleMark } from "./RoleMark";
-import { RowActs } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -197,7 +196,7 @@ const TICK = { align: "centre" } as const;
 /** A row's own line under its name: something to put right, or what the row is. */
 type RowLine = { tone: "danger" | "muted"; text: Copy };
 
-function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlayer; nameId: string; line?: RowLine | null; lineId?: string }) {
+function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlayer; nameId?: string; line?: RowLine | null; lineId?: string }) {
   const s = lineup({ tone: line?.tone });
   const words = nameWithChips();
   return (
@@ -274,8 +273,7 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
  *
  * The value is the caller's, two of `useEditor`'s array values (`LineupValue`), so the editor's unsaved state, its
  * reset and its save hold a line-up as they hold any field; an entry whose pupil was erased stands outside it, read-only
- * under `words.anonymous`, its tick saying whether it started (`erased`). A row that leaves hands the focus to the row after it,
- * else the one before, else its card (`RowActs`).
+ * under `words.anonymous`, its tick saying whether it started (`erased`).
  */
 export function Lineup({ players, value, erased, onChange, startersMax, words, locked, refusals = {} }: LineupProps) {
   const id = useId();
@@ -315,9 +313,7 @@ export function Lineup({ players, value, erased, onChange, startersMax, words, l
   const fullId = `${id}-full`;
   return (
     <>
-      <section
-        data-kit-focus="home"
-        className={s.card()}>
+      <section className={s.card()}>
         <div className={s.band()}>
           <h2 className={s.title()}>{words.picked}</h2>
           <span className={s.count()}>{picked.length + erased.length}</span>
@@ -373,15 +369,14 @@ export function Lineup({ players, value, erased, onChange, startersMax, words, l
                         />
                       </td>
                       <td className={s.end()}>
-                        <RowActs className={s.acts()}>
+                        <div className={s.acts()}>
                           <Button
                             icon="close"
                             label={words.remove}
-                            aria-describedby={nameId}
                             locked={locked}
                             onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
                           />
-                        </RowActs>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -424,9 +419,7 @@ export function Lineup({ players, value, erased, onChange, startersMax, words, l
           </span>
         )}
       </section>
-      <section
-        data-kit-focus="home"
-        className={s.card()}>
+      <section className={s.card()}>
         <div className={s.band()}>
           <h2 className={s.title()}>{words.rest}</h2>
           <span className={s.count()}>{rest.length}</span>
@@ -448,32 +441,25 @@ export function Lineup({ players, value, erased, onChange, startersMax, words, l
                 </tr>
               </thead>
               <tbody>
-                {rest.map((player) => {
-                  const nameId = `${id}-${player.id}`;
-                  return (
-                    <tr
-                      key={player.id}
-                      data-kit-row
-                      className={s.row()}>
-                      <NameCell
-                        player={player}
-                        nameId={nameId}
-                      />
-                      <FactCells player={player} />
-                      <td className={s.end()}>
-                        <RowActs className={s.acts()}>
-                          <Button
-                            variant="secondary"
-                            label={words.pick}
-                            aria-describedby={nameId}
-                            locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
-                            onPress={() => change([...value.picked, player.id], value.starters)}
-                          />
-                        </RowActs>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {rest.map((player) => (
+                  <tr
+                    key={player.id}
+                    data-kit-row
+                    className={s.row()}>
+                    <NameCell player={player} />
+                    <FactCells player={player} />
+                    <td className={s.end()}>
+                      <div className={s.acts()}>
+                        <Button
+                          variant="secondary"
+                          label={words.pick}
+                          locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
+                          onPress={() => change([...value.picked, player.id], value.starters)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

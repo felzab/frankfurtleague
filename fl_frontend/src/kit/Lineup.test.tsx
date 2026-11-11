@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -90,13 +90,13 @@ function Held({
   );
 }
 
-/** A pupil's name at the start of what names its row or describes its word or its cross, with whatever follows it there. */
+/** A pupil's name at the start of what names its row, with whatever follows it there. */
 const named = (nummer: number) => new RegExp(`^${nameOf(nummer)}(?!\\d)`);
 const rowOf = (nummer: number) => screen.getByRole("row", { name: named(nummer) });
-// Found by its description, as a screen reader tells one row's word from the next: every row's word has the same name.
-const pick = (nummer: number) => userEvent.click(screen.getByRole("button", { name: WORDS.pick, description: named(nummer) }));
+// Found in its row: every row's word and cross have the same name.
+const pick = (nummer: number) => userEvent.click(within(rowOf(nummer)).getByRole("button", { name: WORDS.pick }));
 const tickOf = (nummer: number) => screen.getByRole<HTMLInputElement>("checkbox", { name: `${WORDS.starts} ${nameOf(nummer)}` });
-const crossOf = (nummer: number) => screen.getByRole("button", { name: WORDS.remove, description: named(nummer) });
+const crossOf = (nummer: number) => within(rowOf(nummer)).getByRole("button", { name: WORDS.remove });
 
 /** The names a list shows, in its rows' order. */
 const namesIn = (list: Copy) =>
@@ -151,25 +151,6 @@ describe("a line-up", () => {
       starters: ids(1, 2, 4, 6, 7, 8, 9, 10, 11, 12),
     });
     expect(namesIn(WORDS.rest)).toStrictEqual([nameOf(5), nameOf(13)]);
-  });
-
-  // The harm: a keyboard's focus dropped on `body` with each row named or taken out, back at the page's top every time.
-  it("hands the focus to the row after the one that left, in either list", async () => {
-    render(
-      <Held
-        players={squad(4)}
-        start={lineupValue([idOf(1), idOf(2)], [])}
-      />,
-    );
-
-    crossOf(1).focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(document.activeElement).toBe(crossOf(2)));
-
-    const word = (nummer: number) => within(rowOf(nummer)).getByRole("button", { name: WORDS.pick });
-    word(3).focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(document.activeElement).toBe(word(4)));
   });
 });
 
@@ -283,7 +264,7 @@ describe("a line-up keeping erased pupils' entries", () => {
 
     // Ten named and the kept start make eleven: an eleventh named regular leaves a nominee no gap, and no twelfth starts.
     await pick(11);
-    expect(screen.getByRole("button", { name: WORDS.pick, description: new RegExp(nameOf(20)) }).getAttribute("aria-disabled")).toBe("true");
+    expect(within(rowOf(20)).getByRole("button", { name: WORDS.pick }).getAttribute("aria-disabled")).toBe("true");
     await userEvent.click(tickOf(11));
     expect(tickOf(11).checked).toBe(false);
     expect(seen.mock.calls.at(-1)?.[0]).toStrictEqual(lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
