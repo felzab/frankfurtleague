@@ -53,8 +53,11 @@ const lineup = tv({
     // column to no less. No status column: a row's tick and act stand taller than its name's line, which a row of
     // several lines cannot centre against them.
     nameLine: "flex min-w-20 flex-wrap items-center gap-x-2 gap-y-0.5 @2xl:flex-nowrap",
-    // The name and its mark, which never part: the mark keeps its size after the name, which is cut before it.
-    nameHead: "flex max-w-full min-w-0 items-center gap-2",
+    // The name and its mark, which never part: the mark keeps its size after the name, which is cut before it. The name
+    // stands in a track that grows to its words and may shrink to nothing, so its words count nothing towards the
+    // column's least width, which the line's own sets, as `Table`'s name does (`Table.tsx :: nameHead`): a flex row
+    // would count a cut name's whole words, and a long name would push the table past its box.
+    nameHead: "grid max-w-full min-w-0 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)] items-center gap-2",
     nameWords: "min-w-0 truncate",
     chips: "flex basis-full items-center gap-2 @2xl:shrink-0 @2xl:basis-auto",
     // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
