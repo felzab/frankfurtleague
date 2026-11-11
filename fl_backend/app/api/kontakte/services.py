@@ -12,8 +12,8 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     """A case-blind pre-filter, the sign-in fold deciding.
 
     For a grant's rows alone, which an erasure and an address change's effect read: a grant is pasted through the Playground,
-    folded by the runbook's hand and checked folded only at a deploy's preflight; every other record stores the fold its
-    write made.
+    folded by the runbook's hand and checked folded only by the read-back an operator runs (`python -m app.readback`);
+    every other record stores the fold its write made.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
