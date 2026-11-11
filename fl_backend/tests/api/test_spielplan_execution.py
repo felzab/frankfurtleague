@@ -826,12 +826,6 @@ class TestAReplaceTakesTheSeasonsReports:
         assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
-class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
-    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.delete_many(*args, **kwargs)
-
-
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
 
@@ -851,7 +845,7 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
-            berichte = BerichteRunningARivalBeforeTheirRemoval(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database))
+            berichte = InterleavedCollection(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database), before="delete_many")
             outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY, spielberichte_collection=berichte))
             berichte.assert_landed_inside(serially=0)
 

@@ -473,7 +473,7 @@ class TestTheCaptaincy:
             async def the_rival_takes_the_armband() -> None:
                 await give_the_armband(database, client, ZERO_SEVEN, database[Collection.SAISONS])
 
-            seasons = SeasonsRunningARivalAtTheAnchor(database[Collection.SAISONS], the_rival_takes_the_armband)
+            seasons = InterleavedCollection(database[Collection.SAISONS], the_rival_takes_the_armband, before="update_many")
             squad_rows = SquadRowsRunningTheSameRival(database[Collection.SAISON_SPIELER], seasons)
             outcome = await outcome_of(give_the_armband(database, client, SHARES_THE_SEVEN, seasons, squad_rows))
             holders = await database[Collection.SAISON_SPIELER].count_documents(
@@ -490,22 +490,13 @@ class TestTheCaptaincy:
         )
 
 
-class SeasonsRunningARivalAtTheAnchor(InterleavedCollection):
-    """A `saisons` stand-in running one rival just before the captaincy's anchor write."""
-
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.update_many(*args, **kwargs)
-
-
 class SquadRowsRunningTheSameRival:
     """A `saison_spieler` stand-in handing the captaincy's count to the season stand-in's one-shot rival.
 
     So a write taking no anchor still meets the rival inside its transaction, where it can only miss it.
     """
 
-    def __init__(self, collection: Any, seasons: SeasonsRunningARivalAtTheAnchor) -> None:
+    def __init__(self, collection: Any, seasons: InterleavedCollection) -> None:
         self._collection = collection
         self._seasons = seasons
 

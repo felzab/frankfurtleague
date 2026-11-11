@@ -147,12 +147,12 @@ def _spiel_oid_for(case: EinwilligungCase) -> ObjectId:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """One person per row of the table, each holding a name and a live squad row in one team's season; one referee per row, booked."""
 
     async def _seed() -> None:
         async with a_clean_database(
-            mongo_url,
+            mongo_replica_set_url,
             DATABASE_NAME,
             constraints=False,
             stores_a_refused_shape="consent records of every shape the mirror tables judge, ones no model reads among them",
@@ -194,5 +194,5 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
