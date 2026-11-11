@@ -537,7 +537,6 @@ async def discard_row(database: AsyncDatabase, client: AsyncMongoClient, row_id:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
-        today=TODAY,
         now=NOW,
     )
 
@@ -610,7 +609,7 @@ class TestTheDiscard:
 
         declined, row, owed = on_a_spiel(mongo_replica_set_url, body)
 
-        assert (row["answer"], row["closed"]) == (declined, {"at": TODAY, "reason": "discarded"})
+        assert (row["answer"], row["closed"]) == (declined, {"reason": "discarded"})
         # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
         assert sorted((mail["to"], mail["kind"], mail["reference"]["seat"]) for mail in owed) == sorted(
             (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
@@ -636,9 +635,7 @@ class TestTheDiscard:
             await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
 
             async def the_pass_closes_it() -> None:
-                await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                    {"_id": ROW1}, {"$set": {"closed": {"at": TODAY, "reason": "ansetzung_changed"}}}
-                )
+                await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": ROW1}, {"$set": {"closed": {"reason": "ansetzung_changed"}}})
 
             confirmations = ConfirmationsCountingTheJudgements(database[Collection.SPIELBESTAETIGUNGEN], the_pass_closes_it)
             outcome = await outcome_of(discard_row(database, client, ROW1, spielbestaetigungen=confirmations))
@@ -796,7 +793,7 @@ class TestWhatTheAdministratorsReadServes:
         The page is the caller's, so two of three closed rows cut it, and `complete` says so.
         """
 
-        closed = {"closed": {"at": TODAY, "reason": "ansetzung_changed"}}
+        closed = {"closed": {"reason": "ansetzung_changed"}}
         overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2126-04-30"}
         rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, **closed) for index in range(1, 4))]
 
@@ -833,7 +830,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
             pytest.param({"asked_at": None}, DEADLINE, False, True, id="due-today-and-never-asked"),
             pytest.param({}, DEADLINE, False, False, id="due-today-and-asked-days-ago"),
             pytest.param({"answer": DECLINE}, TODAY, True, False, id="a-proposal-about-an-ansetzung-left"),
-            pytest.param({"answer": DECLINE, "closed": {"at": TODAY, "reason": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
+            pytest.param({"answer": DECLINE, "closed": {"reason": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
         ],
     )
     def test_the_spiel_is_listed_where_a_clubs_row_asks_for_the_administrator(
@@ -1092,7 +1089,7 @@ class TestARefereesDeclineReturnsTheSpiel:
             "vorschlag": None,
             "reason": DECLINE_REASON,
         }
-        assert row["closed"] == {"at": TODAY, "reason": "schiedsrichter_declined"}
+        assert row["closed"] == {"reason": "schiedsrichter_declined"}
 
     def test_booking_the_same_referee_again_leaves_them_unheld(self, mongo_replica_set_url: str):
         """Held, the declined row would keep the next pass from asking them about the booking at all."""

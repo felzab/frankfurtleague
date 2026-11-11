@@ -172,7 +172,7 @@ def declined(team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, reason: st
         deadline="2026-04-11",
         asked_at=TODAY,
         answer=documents.kontakt_answer_document(rolle, reason=reason),
-        closed={"at": TODAY, "reason": "ansetzung_changed"},
+        closed={"reason": "ansetzung_changed"},
     )
 
 

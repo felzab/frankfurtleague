@@ -103,7 +103,6 @@ class FLSpielbestaetigungAnswer(BaseModel):
 
 
 class FLSpielbestaetigungClosed(BaseModel):
-    at: CustomDateString
     reason: FLSpielbestaetigungClosedReason
 
 

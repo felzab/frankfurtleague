@@ -117,7 +117,7 @@ ROWS = [
     row(VORSCHLAG, OTHER, answer=declined("trainer", OTHERS_REASON, "2026-04-16")),
     row(DECLINED, TEAM, answer=declined("ansprechperson", OWN_REASON, "2026-04-23")),
     row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}),
-    row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"at": TODAY, "reason": "discarded"}),
+    row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"reason": "discarded"}),
     {**row(MOVED, TEAM), "ansetzung": {**row(MOVED, TEAM)["ansetzung"], "time": "16:00:00", "digest": "a-slot-left"}},
     row(VALID, TEAM),
     row(LEFT_HOME, TEAM),

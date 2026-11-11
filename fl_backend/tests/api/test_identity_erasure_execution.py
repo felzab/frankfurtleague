@@ -270,7 +270,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
             {
                 **a_confirmation(THEIR_CONFIRMATION_OID, a_referee(REFEREE_OID), spiel_id=THEIR_SPIEL_OID),
                 "answer": declined(THEIR_REASON),
-                "closed": {"at": "2126-03-04", "reason": "schiedsrichter_switched"},
+                "closed": {"reason": "schiedsrichter_switched"},
             },
             {
                 **a_confirmation(OTHER_CONFIRMATION_OID, a_referee(OTHER_REFEREE_OID), spiel_id=OTHER_SPIEL_OID),

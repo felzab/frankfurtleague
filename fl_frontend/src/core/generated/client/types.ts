@@ -5175,8 +5175,6 @@ export const FLSpielbestaetigungClosedReason = {
 } as const;
 
 export interface FLSpielbestaetigungClosed {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  at: string;
   reason: FLSpielbestaetigungClosedReason;
 }
 
