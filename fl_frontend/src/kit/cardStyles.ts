@@ -170,7 +170,9 @@ export const card = tv({
         root: "group/fold",
         head: `w-full cursor-pointer border-b-0 text-left ${hoverLook({ host: "aria" })}`,
         title: "flex items-center gap-2",
-        body: "border-t border-border",
+        // A folded body stays in the box as `hidden="until-found"`, which hides its content alone and draws its border,
+        // so the line is drawn only while the body shows.
+        body: "border-t border-border [&[hidden]]:border-t-0",
         chevron: "flex shrink-0 text-fg-muted transition-transform duration-(--motion-state) group-data-expanded/fold:rotate-90",
       },
     },
