@@ -48,7 +48,18 @@ export type MenuLink = {
 /** One entry of a menu: a link, an action, an action that cannot run now, or a second list of links. */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
-  | { kind: "action"; label: Copy; icon?: IconName; onAction: () => void }
+  | {
+      kind: "action";
+      label: Copy;
+      icon?: IconName;
+      /**
+       * An action that destroys: its words and its icon in the danger hue, as every destroying act's button words them
+       * (`buttonStyles.ts`'s `dangerOutline`), so the entry reads as what it does before it is pressed. It stands after
+       * the menu's other entries.
+       */
+      tone?: "danger";
+      onAction: () => void;
+    }
   /**
    * An action that cannot run on the record as it stands, as a button's `locked` (`Button`): muted but reached by the
    * keys as every entry is, its reason the line under its label and its description to a screen reader. A press does
@@ -88,7 +99,14 @@ type Size = "desktop" | "phone";
 
 // An entry that acts shows the pointing hand, as every control does; an entry with an address renders an `a`, which
 // shows it as every link does, so it takes `menuEntry` alone.
-const item = tv({ extend: menuEntry, base: "cursor-pointer" });
+const item = tv({
+  extend: menuEntry,
+  base: "cursor-pointer",
+  variants: {
+    // A destroying action's words, in the hue its button's take.
+    tone: { danger: "text-danger" },
+  },
+});
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
@@ -111,6 +129,7 @@ function Entry({
   hasMore,
   isChosen = false,
   wraps = false,
+  danger = false,
 }: {
   label: string;
   detail?: string;
@@ -119,11 +138,13 @@ function Entry({
   isChosen?: boolean;
   /** The detail is a sentence to read whole, a locked entry's reason: it wraps where every other detail is cut. */
   wraps?: boolean;
+  /** A destroying action's icon, in its words' danger hue rather than the muted grey of every other entry's. */
+  danger?: boolean;
 }) {
   return (
     <>
       {icon !== undefined && (
-        <span className="text-fg-muted">
+        <span className={danger ? "text-danger" : "text-fg-muted"}>
           <Icon
             glyph={icon}
             size={16}
@@ -277,10 +298,11 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               textValue={entry.label}
               onAction={entry.onAction}
               data-kit-focus="option"
-              className={item({ size })}>
+              className={item({ size, tone: entry.tone })}>
               <Entry
                 label={entry.label}
                 icon={entry.icon}
+                danger={entry.tone === "danger"}
               />
             </MenuItem>
           );
