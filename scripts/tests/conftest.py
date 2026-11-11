@@ -43,7 +43,7 @@ def write(root: Path, rel: str, text: str) -> None:
     """One corpus file under a fixture repository, its parents made as needed."""
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Bytes (CLAUDE.md §6).
+    # Bytes, so Windows writes no carriage return.
     path.write_bytes(text.encode("utf-8"))
 
 

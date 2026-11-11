@@ -232,7 +232,12 @@ fi
 section "start"
 
 step "Starting the stack"
-if quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 240; then
+# The local stack recreates every service, so a frontend left running from an earlier start drops
+# what it cached of a database `--seed-made-up` has just replaced. The end-to-end stack's database
+# and backend are the ones just started and seeded, which a recreate would only restart.
+UP=(up -d --remove-orphans --wait --wait-timeout 240)
+if (( ! E2E )); then UP+=(--force-recreate); fi
+if quietly docker compose "${UP[@]}"; then
   ok "every service is healthy"
 
   end_section
