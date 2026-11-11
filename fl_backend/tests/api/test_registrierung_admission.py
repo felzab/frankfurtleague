@@ -13,8 +13,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.services import compose_person_move
 from app.api.outbox.services import row_of
-from app.api.registrierungen import crud as registrierungen_crud
 from app.api.registrierungen import person_router
+from app.api.registrierungen.crud import OPEN_REGISTRIERUNGEN_CAP
 from app.api.registrierungen.person_router import get_open_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.public_router import post_confirmation
@@ -1154,28 +1154,28 @@ class TestThePendingReadServesTheShirtNumbers:
 
 
 class TestThePendingReadsCap:
-    def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+    def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str):
         """Anybody holding the link types an unconfirmed row per press, newer than every row a pupil confirmed before.
 
-        The cap at two, so three unconfirmed rows past one confirmed row stand for a flood past the real cap.
+        A full cap of unconfirmed rows past one confirmed row: newest first alone, the confirmed row is the one cut.
         """
-
-        monkeypatch.setattr(registrierungen_crud, "OPEN_REGISTRIERUNGEN_CAP", 2)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             confirmed = await seed(database, registrierung_document())
+            # One insert, in order: each `ObjectId` is newer than the one before, which the read's sort breaks its tie on.
             flood = [
-                await seed(database, registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}"))
-                for index in range(3)
+                registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}")
+                for index in range(OPEN_REGISTRIERUNGEN_CAP)
             ]
+            await database[Collection.REGISTRIERUNGEN].insert_many(flood)
             answered = await read(database, client)
 
-            return confirmed, flood, [row.registrierung_id for row in answered.registrierungen], answered.complete
+            return confirmed, [row["_id"] for row in flood], [row.registrierung_id for row in answered.registrierungen], answered.complete
 
         confirmed, flood, served, complete = on_a_league(mongo_replica_set_url, body)
 
-        # The confirmed row kept, the room left taken by the newest unconfirmed one, the two newest first.
-        assert served == [flood[-1], confirmed]
+        # The confirmed row kept, the room left taken by the newest unconfirmed rows, newest first: the oldest is the one cut.
+        assert served == [*reversed(flood[1:]), confirmed]
         assert complete is False
 
     def test_a_list_inside_the_cap_is_complete(self, mongo_replica_set_url: str):
