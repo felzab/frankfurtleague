@@ -77,7 +77,7 @@ function passesButForItsGrant(served: ServedSession): boolean {
  */
 export function isAdminSession(served: ServedSession, { admin_tier, granted_since }: Grant): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
-  // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
+  // and a passkey the factor it asks, enrolled on the mailbox's own authority.
   return admin_tier !== null && madeSince(served.session.createdAt, granted_since) && passesButForItsGrant(served);
 }
 
@@ -128,9 +128,6 @@ const readAdminRequest = cache(
   }),
 );
 
-/**
- * The administrator's guard with its reason.
- */
 export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> {
   const judged = await readAdminRequest();
   if ("refused" in judged) return judged;
@@ -142,7 +139,6 @@ export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSes
   return { session: judged.session };
 }
 
-/** The session the administrator's guard admits, `null` for any it refuses, whatever the reason. */
 export async function getAdminSession(): Promise<JudgedSession | null> {
   const judged = await judgeAdminRequest();
   return "session" in judged ? judged.session : null;

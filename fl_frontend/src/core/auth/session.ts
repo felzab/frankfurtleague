@@ -47,8 +47,7 @@ export async function readLibrarySession(requestHeaders: Headers, slide: boolean
     return read === null ? null : projected(read);
   } catch (failed) {
     // The library's word for a row ended between its read and its refresh, which is no session at all;
-    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged through the library's `logger`
-    // (`fl_frontend/src/core/auth/library.ts`).
+    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged through the library's `logger`.
     if (isAPIError(failed) && failed.status === "UNAUTHORIZED") return null;
     throw failed;
   }
@@ -62,9 +61,8 @@ export async function readServedSession(requestHeaders: Headers): Promise<Served
   return servedSessionOf(await readLibrarySession(requestHeaders, false));
 }
 
-// React's `cache`, never `"use cache"`, which would hand one request's session to another: the
-// account page's guard, the person guard and the administrator's guard of one render share one read.
-/** The session this request's cookie names, as every guard serves it. */
+// React's `cache`, never `"use cache"`, which would hand one request's session to another: every guard
+// of one render shares one read.
 export const readRequestSession = cache(async (): Promise<ServedSession | null> => {
   // A render's one wait for a real request, before the sign-in store: the image's build reaches no store, and a
   // prefetched shell must carry nothing a session decides.

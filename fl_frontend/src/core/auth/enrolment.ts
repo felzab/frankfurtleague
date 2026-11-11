@@ -36,7 +36,6 @@ export type EnrolmentRead = {
 /** The context key the carried read travels under; a string, the library merging no symbol key. */
 export const ENROLMENT_READ = "flEnrolmentRead";
 
-/** The read the before hook carried for `userId`, or `undefined` where it carried none for them. */
 export function carriedEnrolmentRead(ctx: object | undefined, userId: string): EnrolmentRead | undefined {
   const read: unknown = ctx === undefined ? undefined : Reflect.get(ctx, ENROLMENT_READ);
   if (typeof read !== "object" || read === null) return undefined;
@@ -82,7 +81,7 @@ export async function refuseEnrolment(
   if (held.length > 0 && !isPasskeyTouch(caller, touchAt)) throw APIError.fromStatus("NOT_FOUND");
   if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
 
-  // The plugin takes the rows already held for an `excludeCredentials` hint, which the BROWSER
+  // The plugin takes the rows already held for an `excludeCredentials` hint, which the browser
   // honours and no server checks: the same authenticator enrolled twice leaves the administrator two
   // rows nothing on the page tells apart.
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
