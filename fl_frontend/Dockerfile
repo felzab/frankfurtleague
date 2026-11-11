@@ -52,7 +52,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 FROM deps AS builder
 
 # This stage has no .env, so the startup gate would reject every variable and the build would die on
-# the first module that reads config. The schema is still enforced by local.sh and on every deploy.
+# the first module that reads config. The schema is still enforced where the image boots, on every
+# deploy and every local stack.
 ENV SKIP_ENV_VALIDATION=true
 
 # Everything but what `deps` installed from: a `deps` layer restored from the cache ran its install

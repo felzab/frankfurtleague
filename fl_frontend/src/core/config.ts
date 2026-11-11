@@ -99,7 +99,7 @@ function refuse(refusals: readonly Refusal[]): never {
   throw new BootRefusal(refusals.map(({ sentence, names }) => `${sentence}: ${names.join(", ")}`).join("; "));
 }
 
-export function refuseInvalidEnvironment(names: readonly string[]): never {
+function refuseInvalidEnvironment(names: readonly string[]): never {
   const variables = names.filter((name) => !isSecretKey(name));
   // By the file's name, the one an operator goes and fixes.
   const files = names.filter(isSecretKey).map((name) => SECRET_FILES[name]);
@@ -130,8 +130,8 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
 // The credentials `production` demands and no other deployment holds, refused at boot on the
-// production host alone. Files only: the deploy asks production for them by file, never by a
-// variable.
+// production host alone. Files only: `docker-compose.yml` hands production each as a file secret,
+// never a variable.
 const PRODUCTION_ONLY_REQUIRED = [
   "AUTH_RESEND_KEY",
   "RESEND_WEBHOOK_SECRET",
@@ -149,9 +149,9 @@ const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
  */
 const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
-// A name without a default refuses the boot where it is misspelled or missing, and the deploy's preflight
-// boots before anything is recreated, so no shipped value serves in its place. Bound to a name rather
-// than written inside the call: the validation reads each variable off its keys.
+// A name without a default refuses the boot where it is misspelled or missing, which fails the deploy, so
+// no shipped value serves in its place. Bound to a name rather than written inside the call: the
+// validation reads each variable off its keys.
 const environment = {
   // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
   // production host too, and an origin test would call a staging box production. `mail.ts` sends on
@@ -188,8 +188,7 @@ const environment = {
     .pipe(z.enum(["on", "off"]))
     .default("off"),
 
-  // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
-  // is refused before the recreate rather than at the boot.
+  // Public: the bot check's widget prints it into the page.
   TURNSTILE_SITE_KEY: z.string().min(1),
 };
 
@@ -286,6 +285,3 @@ export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYS
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
 export const heartbeatUrl = (): string | undefined => validated.BETTERSTACK_HEARTBEAT_URL;
-
-/** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
-export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;
