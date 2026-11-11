@@ -736,7 +736,7 @@ export interface FLOutboxStatus {
 }
 
 /**
- * One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.
+ * One live change, with both its addresses.
  */
 export interface FLAddressChangeAdminOpen {
   address: string;

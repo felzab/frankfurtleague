@@ -1546,7 +1546,7 @@
         "type": "object"
       },
       "FLAddressChangeAdminOpen": {
-        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.",
+        "description": "One live change, with both its addresses.",
         "properties": {
           "address": {
             "title": "Address",
@@ -18452,7 +18452,7 @@
     },
     "/api/v0/address_change": {
       "get": {
-        "description": "Answer every running change, newest first: its two addresses and the step it waits on.\n\nADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which\ntheir account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:\neach lasts days at most, and an ended one holds no address.",
+        "description": "Every running change this administrator may act on, newest first, with its two addresses and the step it waits on.",
         "operationId": "address_change_get_address_changes",
         "responses": {
           "200": {
@@ -18517,7 +18517,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The\nnew mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is\nanswered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),\nthe address on file typed again (`address_change_unchanged`), an address holding nothing a change moves\n(`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil\n(`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new\naddress is refused nothing: its link stops at the hand-out.",
+        "description": "Start a change of the typed address for a person who says they cannot sign in.\n\nThe new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after\nthe new mailbox confirms, the old address working until then.",
         "operationId": "address_change_post_address_change_admin",
         "requestBody": {
           "content": {
@@ -18594,7 +18594,7 @@
     },
     "/api/v0/address_change/address": {
       "post": {
-        "description": "Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.\n\nFor the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's\nview or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,\nended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no\nerror. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the\naddress only in the answer.",
+        "description": "The new address, folded, of the live change a new-mailbox link token or a change id names.\n\nA token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.",
         "operationId": "address_change_get_address_change_address",
         "requestBody": {
           "content": {
@@ -18672,7 +18672,7 @@
     },
     "/api/v0/address_change/confirmation": {
       "post": {
-        "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\n**The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,\nand nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`\npast that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a\ndecline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the\naddress on file was mailed answers no confirmation (`link_invalid`).\n\nThe new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox\nway, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,\nconfirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing\nnone, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's\ncarry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass\nmoves it; a holder's tells every holder in effect, in this transaction.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`link_invalid`), a link already answered or a change ended\n(`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline\n(`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a\ngrant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed\nor not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused\nnone of these**: it removes an address nobody proved.\n\nA confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and\nthe change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps\nalike; only the edge keeps them from the link's holder.",
+        "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\nThe new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and\n`effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.",
         "operationId": "address_change_post_address_change_answer",
         "requestBody": {
           "content": {
@@ -18749,7 +18749,7 @@
     },
     "/api/v0/address_change/confirmation/stop": {
       "post": {
-        "description": "Stop the change the address on file was mailed about: its new address goes.\n\n**Refused nothing but a token no change holds, a change ended, and the person's own change before its address on\nfile confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no\nchange holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this\nlink no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page\noffering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.\nFrom that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells\nevery holder.",
+        "description": "Stop the change the address on file was mailed about, its new address going, at any time until the change ends.\n\nThe person's own change offers this link no stop until its address on file confirmed it.",
         "operationId": "address_change_post_address_change_stop",
         "requestBody": {
           "content": {
@@ -18826,7 +18826,7 @@
     },
     "/api/v0/address_change/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by\nit, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.\nA POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever\nthe press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on,\n`release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,\nnever whether the new mailbox could confirm, and the day it confirmed once it has.",
+        "description": "What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\nEach side is served in the state its press would meet, and an ended change's links answer for as long as its record\nis kept.",
         "operationId": "address_change_get_address_change_view",
         "requestBody": {
           "content": {
@@ -18904,7 +18904,7 @@
     },
     "/api/v0/address_change/sweep": {
       "post": {
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:\nits address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged\nagain as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or\nnothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take\neffect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts\nit, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an\napplication nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is\nowed in the Postausgang in its change's own transaction, so none rides on this answer.\n\nA page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of\nits own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.\n**A pass is a run of calls, each handing the next the `after` the last\nanswered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the\nchanges after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.\n\nA pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`\nnull; `remaining` is no stopping condition.",
         "operationId": "address_change_sweep_address_change",
         "parameters": [
           {
@@ -18990,7 +18990,7 @@
     },
     "/api/v0/address_change/sweep/moves": {
       "get": {
-        "description": "List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.\n\nEach effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and\nhands the ids it moved to `POST /address_change/sweep/moves/done`; one it could not move is listed again by the\nnext call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names\naddresses.",
+        "description": "The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.\n\nThe caller reports the ones it moved to `POST /address_change/sweep/moves/done`, and the next call lists the rest again.",
         "operationId": "address_change_get_address_change_moves",
         "responses": {
           "200": {
@@ -19134,7 +19134,7 @@
     },
     "/api/v0/address_change/{address_change_id}": {
       "delete": {
-        "description": "Discard the change this id names: its links open nothing to press, and the address on file stays.\n\nA holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page\nshowing a change since replaced discards nothing.\n\nRefused as the start is about who asks (`own_address`, `admin_address`), and where the change ended\n(`address_change_ended`); 404 for an id naming no change.",
+        "description": "Discard the change this id names, the address on file staying.\n\nA holder's change in its wait tells every holder, and nobody else is mailed.",
         "operationId": "address_change_delete_address_change",
         "parameters": [
           {
@@ -19213,7 +19213,7 @@
     },
     "/api/v0/address_change/{address_change_id}/invite": {
       "post": {
-        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the\npending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change\nended (`address_change_ended`). 404 for an id naming no change, and\nunless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to\nre-send.",
+        "description": "Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.\n\nThe previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a\nlink to re-send.",
         "operationId": "address_change_invite_address_change",
         "parameters": [
           {

@@ -63,13 +63,13 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system)],
 )
 
-# A call's share, each due change a transaction of its own inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`; a dearer
+# A call's share, each due change a transaction of its own inside the request's deadline, `REQUEST_DEADLINE_S`; a dearer
 # one meets the deadline, and the call answers where the next begins.
 ADDRESS_CHANGE_PER_PASS: Final = 4
 
 
 def _pipeline(*, now: datetime, after: Any, size: int) -> list[dict[str, Any]]:
-    """Every lapsed and due change after `after`, in `_id` order, at most `size`, with the count, as ONE document.
+    """Every lapsed and due change after `after`, in `_id` order, at most `size`, with the count, as one document.
 
     No index serves the instants: the collection holds live changes and recent tombstones alone.
     """
@@ -216,26 +216,10 @@ async def sweep_address_change(
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeSweepResponse:
-    """
-    End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
+    """End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
 
-    **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
-    its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
-    again as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or
-    nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
-    effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
-    it, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an
-    application nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is
-    owed in the Postausgang in its change's own transaction, so none rides on this answer.
-
-    A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
-    its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
-    **A pass is a run of calls, each handing the next the `after` the last
-    answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
-    changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
-    logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
-    request's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts
-    the changes standing due after the call, so it is no stopping condition.
+    A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
+    null; `remaining` is no stopping condition.
     """
 
     [read] = await aggregate_many_from_db(
@@ -339,15 +323,12 @@ async def sweep_address_change(
     )
 
 
+# Server to server alone: the answer names addresses. No claim holds a row, as moving an account twice finds none left.
 @router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
 async def get_address_change_moves(address_changes_collection: AddressChangeReadCollection) -> FLAddressChangeMovesResponse:
-    """
-    List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
+    """The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.
 
-    Each effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and
-    hands the ids it moved to `POST /address_change/sweep/moves/done`; one it could not move is listed again by the
-    next call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names
-    addresses.
+    The caller reports the ones it moved to `POST /address_change/sweep/moves/done`, and the next call lists the rest again.
     """
 
     owed = await pull_many_from_db(
@@ -383,6 +364,8 @@ async def post_address_change_moves_done(
     return FLAddressChangeMovesDoneResponse(done=result.modified_count)
 
 
+# Server to server alone, as the link's own view never serves the address; a POST that reads, so the token travels in
+# the body and the address only in the answer.
 @router.post(
     "/address",
     response_model=FLAddressChangeAddressResponse,
@@ -393,14 +376,9 @@ async def get_address_change_address(
     address_data: Annotated[FLAddressChangeAddressPayload, Body()],
     address_changes_collection: AddressChangeReadCollection,
 ) -> FLAddressChangeAddressResponse:
-    """
-    Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
+    """The new address, folded, of the live change a new-mailbox link token or a change id names.
 
-    For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
-    view or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,
-    ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
-    error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
-    address only in the answer.
+    A token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.
     """
 
     db_filter = (

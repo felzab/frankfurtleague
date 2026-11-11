@@ -1,12 +1,8 @@
-"""
-API · an address change's reads and writes: what the address holds, the start, the effect and every ending
+"""Every route, the hourly pass and the erasure start, judge, move and end a change through these functions.
 
-Every route, the hourly pass and the erasure start, judge, move and end a change through these functions, so no two of
-them part on what a change moves or what its end leaves behind.
-
-Invariants:
-- The effect moves everything the address holds in its caller's transaction, a grant included, and nothing else.
-- Every end takes the record's addresses and reason out of it.
+One set, so no two of them part on what a change moves or what its end leaves behind. The effect moves everything the
+address holds in its caller's transaction, a grant included, and nothing else; every end takes the record's addresses
+out of it.
 """
 
 from collections.abc import Mapping, Sequence
@@ -321,7 +317,7 @@ async def state_of_the_link(
 
 
 def _reference_filter(address_change_id: ObjectId) -> dict[str, Any]:
-    # Equality on the three keys of `outbox_reference` and its sort after them (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    # Equality on the three keys of the `outbox_reference` index and its sort after them.
     return {"reference.collection": str(Collection.ADDRESS_CHANGES), "reference.id": address_change_id, "reference.seat": None}
 
 
@@ -561,7 +557,10 @@ async def move_the_address_in_session(
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Move everything `holdings` holds to the change's address in the caller's transaction, then end it as taken effect."""
+    """Move everything `holdings` holds to the change's address in the caller's transaction, then end it as taken effect.
+
+    The person moves, not a record: nothing asks a consent, and nothing writes one.
+    """
 
     new_address = str(record["email"])
 
@@ -710,8 +709,6 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
 
 
 def _seat_move(slots: Sequence[str], new_address: str) -> dict[str, Any]:
-    """The seats' address."""
-
     return {"$set": {f"kontakte.{slot}.email": new_address for slot in slots}}
 
 
@@ -798,7 +795,7 @@ async def _move_the_registrierung_in_session(
 
 
 def _registrierung_reference_filter(registrierung_id: Any) -> dict[str, Any]:
-    # Equality on the three keys of `outbox_reference` (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    # Equality on the three keys of the `outbox_reference` index.
     return {"reference.collection": str(Collection.REGISTRIERUNGEN), "reference.id": registrierung_id, "reference.seat": None}
 
 
@@ -815,16 +812,13 @@ async def _patch_the_registrierung(
     )
 
 
-# --- The ERASURE's reach: a change naming the erased address ends, and an administrator it names takes the marker.
-
-
 def build_erasure_address_change_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every live change whose address on file, or whose new address, is this one, each stored folded."""
 
     folded = sign_in_identifier(identifier)
 
     # Each clause its index's, the live terms inside each: beside the `$or` they leave the planner no indexed plan, and it
-    # scans every tombstone. The key's type stated for `build_address_filter`'s reason.
+    # scans every tombstone. The key's type stated so the planner reads the clause as the partial index's subset.
     return [
         {"$match": {"$or": [build_address_filter(folded), {"email": folded, **LIVE_TERMS}]}},
         {"$project": {"address": 1, "email": 1, "way": 1, "released_at": 1, "confirmed_at": 1}},
@@ -853,7 +847,7 @@ async def end_the_address_changes_in_session(
     # The subject's rows, read before the erasure's first write.
     rows: Sequence[Mapping[str, Any]],
     now: datetime,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> None:
     """End every change naming the erased address.

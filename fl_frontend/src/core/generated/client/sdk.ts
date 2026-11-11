@@ -318,11 +318,7 @@ export const getAddressChangeGetAddressChangesUrl = () => {
 };
 
 /**
- * Answer every running change, newest first: its two addresses and the step it waits on.
- *
- * ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
- * their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
- * each lasts days at most, and an ended one holds no address.
+ * Every running change this administrator may act on, newest first, with its two addresses and the step it waits on.
  * @summary List the running address changes
  */
 export const addressChangeGetAddressChanges = async (
@@ -339,18 +335,10 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 };
 
 /**
- * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
+ * Start a change of the typed address for a person who says they cannot sign in.
  *
- * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
- * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
- * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
- * answered. The address's live change ends replaced.
- *
- * Refused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),
- * the address on file typed again (`address_change_unchanged`), an address holding nothing a change moves
- * (`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil
- * (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new
- * address is refused nothing: its link stops at the hand-out.
+ * The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
+ * the new mailbox confirms, the old address working until then.
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const addressChangePostAddressChangeAdmin = async (
@@ -382,13 +370,9 @@ export const getAddressChangeGetAddressChangeAddressUrl = () => {
 };
 
 /**
- * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
+ * The new address, folded, of the live change a new-mailbox link token or a change id names.
  *
- * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
- * view or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,
- * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
- * error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
- * address only in the answer.
+ * A token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.
  * @summary Say which address a live change would move to
  */
 export const addressChangeGetAddressChangeAddress = async (
@@ -422,30 +406,8 @@ export const getAddressChangePostAddressChangeAnswerUrl = () => {
 /**
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
- * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`
- * past that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
- * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
- * address on file was mailed answers no confirmation (`link_invalid`).
- *
- * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox
- * way, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,
- * confirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing
- * none, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's
- * carry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass
- * moves it; a holder's tells every holder in effect, in this transaction.
- * Either answer spends the link, which keeps answering what became of the change.
- *
- * Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
- * (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline
- * (`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a
- * grant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed
- * or not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused
- * none of these**: it removes an address nobody proved.
- *
- * A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and
- * the change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps
- * alike; only the edge keeps them from the link's holder.
+ * The new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and
+ * `effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.
  * @summary Confirm or decline a pending address
  */
 export const addressChangePostAddressChangeAnswer = async (
@@ -477,15 +439,9 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 };
 
 /**
- * Stop the change the address on file was mailed about: its new address goes.
+ * Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
  *
- * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on
- * file confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no
- * change holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this
- * link no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page
- * offering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.
- * From that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells
- * every holder.
+ * The person's own change offers this link no stop until its address on file confirmed it.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStop = async (
@@ -517,21 +473,10 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 };
 
 /**
- * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
+ * What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
- * **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
- * it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
- * A POST that reads,
- * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
- * links answer `ended`, how it ended and on which day, for as long as its record is kept.
- *
- * The new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever
- * the press would be refused for the address on file's sake or would
- * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
- * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
- * the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
- * `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
- * never whether the new mailbox could confirm, and the day it confirmed once it has.
+ * Each side is served in the state its press would meet, and an ended change's links answer for as long as its record
+ * is kept.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeView = async (
@@ -565,25 +510,10 @@ export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSwee
 };
 
 /**
- * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
+ * End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
  *
- * **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
- * its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
- * again as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or
- * nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
- * effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
- * it, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an
- * application nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is
- * owed in the Postausgang in its change's own transaction, so none rides on this answer.
- *
- * A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
- * its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
- * **A pass is a run of calls, each handing the next the `after` the last
- * answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
- * changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
- * logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
- * request's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts
- * the changes standing due after the call, so it is no stopping condition.
+ * A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
+ * null; `remaining` is no stopping condition.
  * @summary End the lapsed address changes, and make the due ones take effect
  */
 export const addressChangeSweepAddressChange = async (
@@ -601,12 +531,9 @@ export const getAddressChangeGetAddressChangeMovesUrl = () => {
 };
 
 /**
- * List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
+ * The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.
  *
- * Each effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and
- * hands the ids it moved to `POST /address_change/sweep/moves/done`; one it could not move is listed again by the
- * next call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names
- * addresses.
+ * The caller reports the ones it moved to `POST /address_change/sweep/moves/done`, and the next call lists the rest again.
  * @summary List the sign-in accounts the effects still owe to carry
  */
 export const addressChangeGetAddressChangeMoves = async (
@@ -655,13 +582,9 @@ export const getAddressChangeDeleteAddressChangeUrl = (addressChangeId: string) 
 };
 
 /**
- * Discard the change this id names: its links open nothing to press, and the address on file stays.
+ * Discard the change this id names, the address on file staying.
  *
- * A holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page
- * showing a change since replaced discards nothing.
- *
- * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
- * (`address_change_ended`); 404 for an id naming no change.
+ * A holder's change in its wait tells every holder, and nobody else is mailed.
  * @summary Discard a pending address change
  */
 export const addressChangeDeleteAddressChange = async (
@@ -679,18 +602,10 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
 };
 
 /**
- * Owe the new mailbox a fresh link for the change this id names, in the same transaction.
+ * Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
  *
- * The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
- * the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
- * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
- * nothing.
- *
- * Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
- * pending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change
- * ended (`address_change_ended`). 404 for an id naming no change, and
- * unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
- * re-send.
+ * The previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a
+ * link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChange = async (
