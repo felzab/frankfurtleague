@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -92,7 +92,13 @@ describe("the season's card before the start", () => {
         state={{ kind: "window", until: "2026-12-31", apply: "/bewerbung/2027" }}
       />,
     );
-    expect(screen.getByText(SERVER_COPY.landing.saison.windowUntil("2026-12-31"))).toBeTruthy();
+    // The default normalizer turns the line's no-break space into a plain one in the page's text and not in the
+    // catalogue's, so the query keeps the whitespace as it stands.
+    expect(
+      screen.getByText(SERVER_COPY.landing.saison.windowUntil("2026-12-31"), {
+        normalizer: getDefaultNormalizer({ collapseWhitespace: false }),
+      }),
+    ).toBeTruthy();
     expect(screen.getByRole("link", { name: SERVER_COPY.landing.toBewerbung }).getAttribute("href")).toBe("/bewerbung/2027");
     expect(screen.queryByRole("timer")).toBe(null);
   });

@@ -107,13 +107,15 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 /**
  * The table's head, drawn while the rows are read and over them once they are. A row carries its ending, and a fresh
  * link before it while the change waits on the new mailbox: where some row carries both, every row's stand in its „⋯“,
- * and else each row's ending is its button, which the wait draws, the taller of the two. The new address is a column
- * holding an address, cut at an address's step as every list's is.
+ * and else each row's ending is its button (`sideAct`). The new address is a column holding an address, cut at an
+ * address's step as every list's is. The muted line under a row's name is the moment its step ends in the table, where
+ * it has one, and the new address before it on a stacked row; the wait draws it at every width, the taller form.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   state: { label: COPY.admin.schiedsrichter.state, delivery: true },
-  acts: [COPY.shared.verb.discard],
+  sideAct: COPY.shared.verb.discard,
+  line: "always",
   columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
 };
 
