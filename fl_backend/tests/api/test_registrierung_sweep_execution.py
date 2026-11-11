@@ -161,7 +161,7 @@ async def standing(database: AsyncDatabase) -> list[ObjectId]:
 
 
 class TestTheDeadlineClock:
-    def test_it_loescht_the_day_after_the_deadline_and_not_on_it(self, mongo_replica_set_url: str):
+    def test_it_erases_the_day_after_the_deadline_and_not_on_it(self, mongo_replica_set_url: str):
         """The two rows part on one day: the link answers on its deadline, so the erasure waits.
 
         Both carry a null consent record, which is what says the page's consent term reads one.

@@ -75,7 +75,7 @@ from app.api.teams.services import (
     build_team_spiele_filter,
     compose_confirmations_with,
     compose_kontakt_confirmation,
-    compose_kontakte_herkunft,
+    compose_kontakte_origin,
     compose_seat_block,
     find_austritt_refusal,
     find_austritt_standing_refusal,
@@ -228,7 +228,7 @@ async def write_the_contact_block(
     entry, unconfirmed.
     """
 
-    kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
+    kontakte = compose_kontakte_origin(kontakte=proposed, stored=stored.get("kontakte"))
 
     # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
     # Widerspruch alone.

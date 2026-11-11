@@ -13,7 +13,7 @@ from app.api.bewerbungen.services import compose_einwilligung
 from app.api.identity.schemas import FLErasureResponse
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLKontaktSeatPayload
-from app.api.teams.services import compose_kontakte_herkunft, with_link_state
+from app.api.teams.services import compose_kontakte_origin, with_link_state
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -423,13 +423,13 @@ class TestTheCompositionDecidesFromItsArguments:
 
     @pytest.mark.parametrize("stored", [pytest.param(None, id="a row with no block"), pytest.param({}, id="an empty block")])
     def test_a_row_holding_no_block_yields_every_seat_unconfirmed(self, stored: Any):
-        assert compose_kontakte_herkunft(kontakte=NEW_KONTAKTE, stored=stored) == as_stored(NEW_KONTAKTE)
+        assert compose_kontakte_origin(kontakte=NEW_KONTAKTE, stored=stored) == as_stored(NEW_KONTAKTE)
 
     def test_the_address_is_matched_case_insensitively(self):
         """On the sign-in fold, which the erasure shares: a mailbox is one address however its local part is capitalised."""
 
         recased = {**PARTLY_CONFIRMED, "trainer": person("Ida", email="IDA@Example.com")}
-        composed = compose_kontakte_herkunft(kontakte=recased, stored=PARTLY_CONFIRMED)
+        composed = compose_kontakte_origin(kontakte=recased, stored=PARTLY_CONFIRMED)
 
         assert composed["trainer"]["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         assert composed["trainer"]["birth_date"] == BIRTH_DATE
@@ -439,7 +439,7 @@ class TestTheDateRidesWithThePerson:
     """The payload names no birthdate, so a save can only carry the row's own forward."""
 
     def test_the_stored_date_is_carried_forward_for_the_same_person(self):
-        composed = compose_kontakte_herkunft(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
+        composed = compose_kontakte_origin(kontakte=RESAVED_AS_RENDERED, stored=SEEDED_KONTAKTE)
 
         # The floor under the claim below: a date standing beside a stamp would prove a confirmation
         # survived rather than the identity match that carries the date.
@@ -448,7 +448,7 @@ class TestTheDateRidesWithThePerson:
 
     def test_a_seat_handed_to_another_address_holds_no_date(self):
         handed = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="another.ida@example.com")}
-        composed = compose_kontakte_herkunft(kontakte=handed, stored=SEEDED_KONTAKTE)
+        composed = compose_kontakte_origin(kontakte=handed, stored=SEEDED_KONTAKTE)
 
         assert composed["trainer"]["birth_date"] is None
 
@@ -464,7 +464,7 @@ class TestTheDateRidesWithThePerson:
         """The role mailbox handed on. The third case is the accepted false positive: a correction costs the same as a handover."""
 
         handed = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], **renamed}}
-        composed = compose_kontakte_herkunft(kontakte=handed, stored=SEEDED_KONTAKTE)
+        composed = compose_kontakte_origin(kontakte=handed, stored=SEEDED_KONTAKTE)
 
         assert composed["trainer"]["birth_date"] is None
 
@@ -483,7 +483,7 @@ class TestTheDateRidesWithThePerson:
 
         stored = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], **held}}
         respelt = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], **sent}}
-        composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
+        composed = compose_kontakte_origin(kontakte=respelt, stored=stored)
 
         assert composed["trainer"]["birth_date"] == BIRTH_DATE
 
@@ -492,7 +492,7 @@ class TestTheDateRidesWithThePerson:
 
         stored = {**SEEDED_KONTAKTE, "trainer": {**SEEDED_KONTAKTE["trainer"], "last_name": "Weiß"}}
         respelt = {**RESAVED_AS_RENDERED, "trainer": {**RESAVED_AS_RENDERED["trainer"], "last_name": "Weiss"}}
-        composed = compose_kontakte_herkunft(kontakte=respelt, stored=stored)
+        composed = compose_kontakte_origin(kontakte=respelt, stored=stored)
 
         assert composed["trainer"]["birth_date"] is None
 

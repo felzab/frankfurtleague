@@ -63,7 +63,7 @@ from .test_identity_erasure_execution import (
 )
 from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
 
-DATABASE_NAME = worker_database("fl_erasure_auf_anfrage_test")
+DATABASE_NAME = worker_database("fl_erasure_on_request_test")
 
 CONFIG = config_for(DATABASE_NAME)
 

@@ -77,7 +77,7 @@ from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_funktionen_erasure_test")
+DATABASE_NAME = worker_database("fl_roles_erasure_test")
 
 CONFIG = config_for(DATABASE_NAME)
 

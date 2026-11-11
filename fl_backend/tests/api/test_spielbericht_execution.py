@@ -59,7 +59,7 @@ REFIELDED = ObjectId("6890a1b2c3d4e5f607e50003")
 SPIELTAG = ObjectId("6890a1b2c3d4e5f607e50021")
 SPIELORT = ObjectId("6890a1b2c3d4e5f607e50031")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f607e50041")
-ANDERER = ObjectId("6890a1b2c3d4e5f607e50042")
+OTHER_REFEREE = ObjectId("6890a1b2c3d4e5f607e50042")
 LINA = ObjectId("6890a1b2c3d4e5f607e50051")
 OLE = ObjectId("6890a1b2c3d4e5f607e50052")
 MIA = ObjectId("6890a1b2c3d4e5f607e50053")
@@ -139,7 +139,7 @@ async def seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     await database[Collection.SCHIEDSRICHTER].insert_many(
-        [referee(SCHIEDSRICHTER, "Otto Gruber", REFEREE_EMAIL), referee(ANDERER, "Ella Engel", OTHER_REFEREE_EMAIL)]
+        [referee(SCHIEDSRICHTER, "Otto Gruber", REFEREE_EMAIL), referee(OTHER_REFEREE, "Ella Engel", OTHER_REFEREE_EMAIL)]
     )
     await database[Collection.SPIELE].insert_many(
         [
@@ -396,7 +396,9 @@ class BerichteRunningARivalBeforeTheirWrite(InterleavedCollection):
 
 
 async def take_the_referee_off(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": ANDERER, "payment": 20}}})
+    await database[Collection.SPIELE].update_one(
+        {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": OTHER_REFEREE, "payment": 20}}}
+    )
 
 
 async def take_lina_out_of_the_squad(database: AsyncDatabase) -> None:
@@ -445,8 +447,8 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
             await put(database, client, bericht())
             berichte = BerichteRunningARivalBeforeTheirCorrection(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
             saisons = SaisonsCountingTheAttempts(database[Collection.SAISONS])
-            korrektur = bericht([tor("team1", LINA, "24")], version=0)
-            outcome = await outcome_of(put(database, client, korrektur, spielberichte_collection=berichte, saisons_collection=saisons))
+            correction = bericht([tor("team1", LINA, "24")], version=0)
+            outcome = await outcome_of(put(database, client, correction, spielberichte_collection=berichte, saisons_collection=saisons))
             berichte.assert_landed_inside(serially=0)
 
             return outcome, [document["version"] for document in await stored(database)], saisons.attempts
@@ -735,9 +737,9 @@ async def seed_the_season_before(database: AsyncDatabase) -> None:
             ),
         )
     )
-    vorjahr = spiel(spiel_id=VORJAHRESSPIEL, saison_id=VORSAISON_ID, date="2026-05-14")
-    await database[Collection.SPIELE].insert_one(vorjahr)
-    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(vorjahr))
+    last_years = spiel(spiel_id=VORJAHRESSPIEL, saison_id=VORSAISON_ID, date="2026-05-14")
+    await database[Collection.SPIELE].insert_one(last_years)
+    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(last_years))
 
 
 class TestEachReportReadKeepsToTheSpieleSeason:
@@ -944,9 +946,9 @@ class TestTheAdoptionIsOneStoredAnswer:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             read = await a_report_adopted(database, client)
-            korrektur = [tor("team1", LINA, "24")]
-            before = await outcome_of(put(database, client, bericht(korrektur, version=read)))
-            after = await outcome_of(put(database, client, bericht(korrektur, version=read + 1)))
+            correction = [tor("team1", LINA, "24")]
+            before = await outcome_of(put(database, client, bericht(correction, version=read)))
+            after = await outcome_of(put(database, client, bericht(correction, version=read + 1)))
 
             return before, after, await season_states(database)
 
