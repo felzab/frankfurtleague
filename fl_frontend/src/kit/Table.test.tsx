@@ -88,12 +88,12 @@ describe("a row's name cell", () => {
   // every other list cuts the name with „…“ and keeps the chip beside it. jsdom lays nothing out, so each case holds what
   // the cut rests on: one line holding the name and then its chips in tracks of their own size, the name's track
   // shrinking to nothing, and the name cut at every width.
-  const actRow = (name: string, delivered: boolean) => (
+  const actRow = (name: string, delivered: boolean, address = false) => (
     <Table
       {...props([
         {
           id: "1",
-          name: { record: name },
+          name: address ? { record: name, address: true as const } : { record: name },
           chip: { tone: "warn", label: COPY.admin.expired },
           ...(delivered ? { delivery: { tone: "danger" as const, label: COPY.admin.delivery.undeliverable } } : {}),
           line: { record: "Neuer Administrator" },
@@ -113,6 +113,8 @@ describe("a row's name cell", () => {
     ["a short name and its chip", "Anna Berg", false],
     ["a long name and its chip", "Annemarie Konstanze Berg-Wolkenstein von Hohenlimburg", false],
     ["a name and two chips", "Anna Berg", true],
+    // A club's name may hold an „@“ and a „.“, and is cut as every name is: only a row its list marks is an address.
+    ["a club's name holding an „@“", "Team @ Goethe.Schule", false],
   ])("sets %s on one line of a row with acts, the name first and cut on a phone too", (_case, name, delivered) => {
     render(actRow(name, delivered));
     const words = screen.getByText(name);
@@ -129,7 +131,7 @@ describe("a row's name cell", () => {
   // The layout is the phone journey's (`e2e/phone/access.spec.ts`); this holds what the wrap rests on.
   it("wraps an address rather than cutting it, after its „@“ and before each „.“, its chip beside its first line", () => {
     const address = "gesperrte.person@example.com";
-    render(actRow(address, false));
+    render(actRow(address, false, true));
     const words = screen.getByText(address);
     const nameLine = words.parentElement;
     expect(words.className.split(" ")).not.toContain("truncate");

@@ -87,7 +87,7 @@ function activeRow(grant: FLGrantRow, actor: string | null): TableRow {
   const isOwner = grant.admin_tier === "owner";
   return {
     id: grant.id,
-    name: { record: grant.address },
+    name: { record: grant.address, address: true },
     ...(isOwner ? { chip: { tone: "neutral" as const, label: WORDS.owner } } : {}),
     cells: { since: dayOf(grant.effective_from) },
     ...(actor === null || isOwner
@@ -132,7 +132,7 @@ function waitingRow({
 }): TableRow {
   return {
     id,
-    name: { record: address },
+    name: { record: address, address: true },
     line,
     cells: {},
     ...(actor === null

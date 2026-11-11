@@ -22,6 +22,7 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
+import type { AddressText } from "./AddressWords";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
 import type { RoleMarkProps } from "./RoleMark";
@@ -71,8 +72,8 @@ type TableCell = Words | { value: Words; cancelled: number } | { counts: Counts 
 
 export type TableRow = {
   id: string;
-  /** The record's name; with `href` the whole row opens the record. */
-  name: Words;
+  /** The record's name, marked where it is an address (`AddressText`); with `href` the whole row opens the record. */
+  name: Words | AddressText;
   /** What a list read whole is searched by in the row's place, where a search reaches past the name; the name included. */
   words?: string;
   /** A club's plaque before its name, or before a name of the club's own, such as a scorer's. */
@@ -557,7 +558,7 @@ function NameCell({
   const { plaque } = row;
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
-  const address = isAddress(name);
+  const address = isAddress(row.name);
   const words = lonePlaque ? <span className={s.clubName()}>{name}</span> : address ? <AddressWords address={name} /> : name;
   const opens = row.onOpen === undefined ? words : <RowPress onPress={row.onOpen}>{words}</RowPress>;
   const shape = prose ? "wraps" : plaque === undefined ? "name" : "plaque";

@@ -12,7 +12,7 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
-import { AddressWords, addressWords, isAddress } from "./AddressWords";
+import { AddressWords, addressWords } from "./AddressWords";
 import { GlyphChoices, GlyphChoicesPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
@@ -552,7 +552,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             {/* An address standing as the name wraps rather than being cut, as a list's row's does (`AddressWords`);
                 in the collapsed rail it keeps one line, clipped as every faded word is, rather than a line a part. */}
-            {isAddress(name) ? (
+            {account.name === undefined ? (
               <span className={addressWords({ class: "font-semibold text-fg group-data-collapsed:whitespace-nowrap" })}>
                 <AddressWords address={name} />
               </span>

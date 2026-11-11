@@ -72,7 +72,7 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
   const delivery = deliveryChip(change.delivery);
   return {
     id: change.id,
-    name: { record: change.address },
+    name: { record: change.address, address: true },
     chip: chipOf(change),
     ...(delivery === null ? {} : { delivery }),
     cells: { after: { record: change.email }, until: untilOf(change) },

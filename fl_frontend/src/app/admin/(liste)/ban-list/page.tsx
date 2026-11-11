@@ -48,7 +48,7 @@ async function readHolder() {
 /** One ban's row, opening nothing: its address, the Grund cut at its column, the last season it covers, and its lift. */
 const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
   id: ban.id,
-  name: { record: ban.address },
+  name: { record: ban.address, address: true },
   words: `${ban.address} ${ban.ban_reason}`,
   cells: {
     reason: { record: ban.ban_reason },
