@@ -43,8 +43,6 @@ The site also supports the season's organisation:
 | **Everyone signed in** | Manage their address, passkeys, sign-ins and consents on their account's pages (_Konto_), or delete the account |
 | **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access                          |
 
-Sign-ups open with the coming season.
-
 A pupil's name appears on the public squad list only with their consent, and the surname only as an
 initial. Unconfirmed applications and registrations expire, and a pupil's data is deleted once no
 season the league keeps needs it. [`docs/datenschutz.md`](docs/datenschutz.md) has each decision and
