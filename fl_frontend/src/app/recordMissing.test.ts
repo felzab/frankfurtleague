@@ -1,6 +1,5 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { serveServerReact } from "@/test-support/cacheScope.ts";
 import { describe, expect, it } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors.ts";
@@ -17,21 +16,17 @@ doubleApiClient(() => {
   throw failure;
 });
 
-serveServerReact();
-
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
 const spiele = await import("@/features/spiele/queries.ts");
 
-// A fresh id per call: React's `cache` would answer a repeated one from the first case's result.
-let calls = 0;
-const freshId = (): string => (calls += 1).toString(16).padStart(24, "0");
+const ONE_ID = "0123456789abcdef01234567";
 
 /** Every read answering "none" off the API's record-missing refusal, each turned into its caller's `null`. */
 const READS: Readonly<Record<string, () => Promise<unknown>>> = {
-  getBewerbungById: () => bewerbungen.getBewerbungById(freshId()),
-  getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(freshId()),
-  getAdminSpiel: () => spiele.getAdminSpiel(freshId()),
+  getBewerbungById: () => bewerbungen.getBewerbungById(ONE_ID),
+  getSchiedsrichterById: () => schiedsrichter.getSchiedsrichterById(ONE_ID),
+  getAdminSpiel: () => spiele.getAdminSpiel(ONE_ID),
   getAdminSpielplan: () => spiele.getAdminSpielplan("2027"),
 };
 
