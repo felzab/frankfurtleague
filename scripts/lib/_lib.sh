@@ -450,7 +450,8 @@ refuse() {
   _annotate "$*"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
-  _closing refused
+  # As `die` and an interrupt: a script speaking the verbs plainly ends on its own sentence.
+  if (( _CHROME )); then _closing refused; fi
   # 2, not 1: a caller branching on the code has to tell "fix the change" from "the checker could
   # not judge it", and 1 is spoken for by findings.
   exit 2

@@ -11,9 +11,10 @@
 #   ./scripts/ops/deploy.sh --help
 #
 # Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
-# the stack unchanged. The last build judged healthy is pinned as TAG= in the .env beside the
-# compose file, which compose reads for every command, so `docker compose ps` and `logs` typed by
-# hand reach the stack, and a later run that fails goes back to it.
+# the stack unchanged; 130 interrupted, the stack as far as compose took it. The last build judged
+# healthy is pinned as TAG= in the .env beside the compose file, which compose reads for every
+# command, so `docker compose ps` and `logs` typed by hand reach the stack, and a later run that
+# fails goes back to it.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
@@ -102,7 +103,7 @@ if quietly docker image prune -af; then ok "removed"; else warn "the prune faile
 step "Pulling every image ${tag} runs with"
 quietly docker compose pull --policy missing \
   || refuse "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
-host's network. The stack has not changed.${prev:+ ${prev} is still live.}"
+host's network. The stack has not changed."
 ok "every image is on this host"
 
 # Through a second file and a rename, so the pin is never half written.
@@ -128,7 +129,7 @@ up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orp
 # Moved by a healthy verdict alone, so a run ending without one, an interrupt included, leaves it on
 # the last build that came up. --no-rollback's build retires the one before as it starts.
 if (( ! ROLLBACK )); then
-  pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. NOTHING has changed."
+  pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. The stack has not changed."
 fi
 step "Starting ${tag}"
 failure="${tag} did not come up"
@@ -138,11 +139,15 @@ if up; then
   # sent, so the configuration is tested first: nginx keeps its old one when a reload fails.
   step "nginx's configuration"
   failure="nginx did not take this checkout's configuration and still runs the one it had"
-  if quietly docker compose exec -T nginx nginx -t && quietly docker compose exec -T nginx nginx -s reload; then
+  if ! quietly docker compose exec -T nginx nginx -t; then
+    # Going back moves the images alone, and nginx reads the checkout's files at any restart.
+    warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
+reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
+  elif quietly docker compose exec -T nginx nginx -s reload; then
     ok "tested and reloaded"
     pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
 Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
-    ok "${tag} is live."
+    ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
     exit 0
   fi
 fi
