@@ -26,6 +26,7 @@ from app.api.outbox.schemas import (
     FLOutboxRowState,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
+from app.shared.folding import sign_in_identifier
 
 # The rows one claim hands out.
 PAGE: Final = 10
@@ -167,7 +168,10 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     return {
         "key": mail.key,
         "kind": mail.data.kind,
-        "to": mail.to,
+        # Folded here rather than trusted from each caller: a recipient read off a row the database holds unfolded, a grant
+        # pasted by hand among them, would store a `to` every lookup by address misses. The fold that never raises, so a
+        # mail to an address no rule takes today is still owed.
+        "to": sign_in_identifier(mail.to),
         # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
         "data": mail.data.model_dump(mode="json"),
         "secret": secret,

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from bson import ObjectId
@@ -84,3 +85,11 @@ def test_each_span_runs_its_whole_length_across_a_clock_change():
         "settled": RETENTION,
         "retried": REPETITION_AFTER,
     }
+
+
+def test_a_recipient_read_off_a_row_stored_unfolded_is_owed_in_the_fold():
+    """A grant pasted by hand in capitals owes its holder's notices: stored as read, every lookup by address misses the row."""
+
+    row = row_of(replace(MAIL, to=f" Nora.Neu@BeispielSchule.de{chr(0xA0)}"), now=BEFORE_THE_CLOCK_FALLS_BACK, secret=None, valid_until=None)
+
+    assert row["to"] == "nora.neu@beispielschule.de"
