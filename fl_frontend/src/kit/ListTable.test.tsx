@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
@@ -92,6 +92,22 @@ describe("a list's search", () => {
     await userEvent.type(screen.getByRole("searchbox"), "Riedberg");
     expect(screen.getByText(COPY.shared.empty.search(COPY.shared.saison))).toBeTruthy();
     expect(screen.queryByText(COPY.shared.empty.none(COPY.shared.saison))).toBe(null);
+  });
+
+  // The harm: a team's squad, one record by its own noun, reads „Keine Kader für diese Suche.“ where nobody matched.
+  it("names the rows a search missed where the list names itself by one noun", async () => {
+    const empty = { kind: "none", plural: COPY.shared.kader, one: true, searchPlural: COPY.shared.spieler } as const;
+    const { unmount } = render(
+      <Searched>
+        <ListTable table={{ ...TABLE, empty }} />
+      </Searched>,
+    );
+    await userEvent.type(screen.getByRole("searchbox"), "Zidane");
+    expect(screen.getByText(COPY.shared.empty.search(COPY.shared.spieler))).toBeTruthy();
+    unmount();
+
+    render(<ListTable table={{ ...TABLE, rows: [], empty }} />);
+    expect(screen.getByText(COPY.shared.empty.noneOne(COPY.shared.kader))).toBeTruthy();
   });
 
   // The field stands outside the boundary the rows wait in, so it takes text before there are rows to search.
@@ -296,5 +312,35 @@ describe("Teams' tiles", () => {
 
     await userEvent.type(screen.getByRole("searchbox"), "x");
     expect(screen.getByText(COPY.shared.empty.search(COPY.page.teams))).toBeTruthy();
+  });
+});
+
+describe("a card holding a list", () => {
+  // A referee booked to a season's twenty games finds one by its clubs or its ground, as the administration's long lists
+  // are searched; a search that empties the card says so, never that nothing is booked, and says it as every searched
+  // list of the site does: the sentence alone in the list's box, the card's head gone as a table's head goes.
+  it("finds a row by its name or its words, and says so in the list's words where none holds them", async () => {
+    render(
+      <Searched>
+        <ListCard
+          title={COPY.page.spiele}
+          count={false}
+          rows={[
+            { id: "1", href: "/", name: { record: "Ahorn vs. Eiche" }, words: "Ahorn vs. Eiche Riedberg" },
+            { id: "2", href: "/", name: { record: "Linde vs. Esche" } },
+          ]}
+          empty={{ kind: "none", plural: COPY.page.spiele }}
+        />
+      </Searched>,
+    );
+
+    await userEvent.type(screen.getByRole("searchbox"), "riedberg");
+    expect(screen.getByRole("link", { name: "Ahorn vs. Eiche" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Linde vs. Esche" })).toBe(null);
+    expect(screen.getByRole("heading", { name: COPY.page.spiele })).toBeTruthy();
+
+    await userEvent.type(screen.getByRole("searchbox"), "x");
+    expect(screen.getByText(COPY.shared.empty.search(COPY.page.spiele))).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: COPY.page.spiele })).toBe(null);
   });
 });

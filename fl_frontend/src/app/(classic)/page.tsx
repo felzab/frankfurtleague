@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 
 import { Doors, DoorsPlaceholder } from "@/kit/Doors";
-import { EmptyState } from "@/kit/EmptyState";
+import { EmptyBox } from "@/kit/EmptyState";
 import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
 import { LandingPage } from "@/kit/LandingPage";
@@ -66,7 +66,7 @@ async function readOnRequest(): Promise<FLLandingResponse> {
 function asideOf(saison: LandingSaison | null, window: FLBewerbungWindow | null): ReactElement {
   if (saison === null) {
     return window === null ? (
-      <EmptyState
+      <EmptyBox
         kind="none"
         plural={COPY.shared.saison}
       />

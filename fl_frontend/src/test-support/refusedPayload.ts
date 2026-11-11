@@ -22,8 +22,6 @@ export function refusedPayload(fields: readonly FLRefusedField[], endpoint = "/p
     serverErrorCode: "payload_refused",
     refusedFields: fields,
     endpoint,
-    method: "POST",
-    readOnly: false,
     traceId: "0",
   });
 }

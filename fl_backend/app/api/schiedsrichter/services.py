@@ -3,11 +3,19 @@ from datetime import date, datetime, time, timedelta
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import days_after
-from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState
-from app.api.spiele.schemas import unplayed_filter
+from app.api.bewerbungen.services import days_after, season_has_ended
+from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
+from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
+from app.api.spielberichte.services import takes_a_bericht
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
+from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
+from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
+from app.api.spiele.services import build_named_spiele_pipeline
+from app.api.teams.services import is_played
 from app.core import clock
 from app.core.codes import Code
+from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
@@ -16,7 +24,6 @@ from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    MEDIA_MIN_AGE_YEARS,
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
@@ -175,9 +182,9 @@ def erase_at_from(*, deadline: str) -> datetime:
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
-    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
+    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today."""
 
-    return {"token_hashes": [], "sent_at": today, "reminded_at": None, "deadline": confirmation_deadline_from(today=today)}
+    return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today)}
 
 
 def compose_mint_update(*, today: str) -> dict[str, Any]:
@@ -325,7 +332,7 @@ def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> Wr
     )
 
 
-def find_alter_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing.
 
     The bounds go with the refusal, so the field's message names the range the write judges.
@@ -339,23 +346,6 @@ def find_alter_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("birth_date",),),
         bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
-    )
-
-
-def find_media_refusal(*, birth_date: str, media: bool, today: str) -> WriteRefusal | None:
-    """Why this referee's media consent is refused, or `None`.
-
-    Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
-    page sends every referee below the floor.
-    """
-
-    if not media or whole_years_between(born=birth_date, today=today) >= MEDIA_MIN_AGE_YEARS:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.MEDIA_AGE,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("media",),),
     )
 
 
@@ -498,27 +488,174 @@ def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) 
     }
 
 
-# An INCLUSION, for `CONFIRMATION_VIEW_FIELDS`' reason: the link's hash stays off a person-tier read.
-# The fee is the referee's own data, which the confirmation page says they can always see.
-SELF_FIELDS: Mapping[str, int] = {
-    "name": 1,
-    "schule": 1,
-    "kontakt": 1,
-    "birth_date": 1,
-    "default_payment": 1,
-    "inactive_since": 1,
-    EINWILLIGUNG_FIELD: 1,
-}
-
-
-# The order a person's own pages list their referee rows in, which the account read ranks them by too.
+# The order the account read ranks a person's referee rows in.
 SELF_REFEREE_ORDER: Final[Mapping[str, int]] = {"_id": 1}
 
 
-def build_self_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The referee rows the referee's own page reads, each a candidate for `app/api/identity/services.py :: is_own_schiedsrichter`.
+def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
+    """Run on `spiele`: the seasons of every fixture booked to one of these referees, as a season button lists them, the newest first."""
 
-    Unbounded: a capped list reads as a person holding fewer records.
+    return [
+        {"$match": {"schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}},
+        {"$group": {"_id": "$saison_id"}},
+        {
+            "$lookup": {
+                "from": Collection.SAISONS,
+                "localField": "_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": dict.fromkeys(SAISON_FRAME_FIELDS, 1)}],
+                "as": "saison",
+            }
+        },
+        {"$unwind": "$saison"},
+        {"$replaceWith": "$saison"},
+        {"$sort": dict(SAISON_FRAME_ORDER)},
+    ]
+
+
+# Where `build_self_spiele_pipeline` puts what it joins onto each fixture.
+OWN_ROW_AS: Final = "spielbestaetigung"
+OWN_ROW_VEREINE_AS: Final = "vereine"
+BERICHT_AS: Final = "spielbericht"
+
+
+def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
+    """Run on `spiele`: the season's fixtures booked to one of these referees, each with what the referee's list judges it by.
+
+    Each fixture through the name join with the fields a confirmation row is judged against
+    (`app/api/spielbestaetigungen/crud.py :: JUDGED_SPIEL_FIELDS`); the newest row asking the booked referee about it,
+    with both clubs' season rows its Ansetzung names; when its report was first sent; and its season's status.
     """
 
-    return [{"$match": build_self_referee_filter(identifier)}, {"$project": dict(SELF_FIELDS)}, {"$sort": dict(SELF_REFEREE_ORDER)}]
+    return [
+        *build_named_spiele_pipeline(
+            {"saison_id": saison_id, "schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}},
+            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1},
+        ),
+        {
+            "$lookup": {
+                "from": Collection.SPIELBESTAETIGUNGEN,
+                "let": {"saison_id": "$saison_id", "spiel_id": "$_id", "schiedsrichter_id": "$schiedsrichter.schiedsrichter_id"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$saison_id", "$$saison_id"]},
+                                    {"$eq": ["$spiel_id", "$$spiel_id"]},
+                                    {"$eq": ["$party.kind", "schiedsrichter"]},
+                                    # The booked record's rows alone: a row of the address's other record asked about
+                                    # a booking the fixture no longer holds.
+                                    {"$eq": ["$party.schiedsrichter_id", "$$schiedsrichter_id"]},
+                                ]
+                            }
+                        }
+                    },
+                    # The newest by `_id`, which the pass mints in order.
+                    {"$sort": {"_id": -1}},
+                    {"$limit": 1},
+                    {"$project": dict(OWN_ROW_FIELDS)},
+                    {
+                        "$lookup": {
+                            "from": Collection.SAISON_TEAMS,
+                            "let": {"saison_id": "$saison_id", "team_ids": ["$ansetzung.team1_id", "$ansetzung.team2_id"]},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$in": ["$team_id", "$$team_ids"]}]}}},
+                                {"$project": dict(JUDGED_VEREIN_FIELDS)},
+                            ],
+                            "as": OWN_ROW_VEREINE_AS,
+                        }
+                    },
+                ],
+                "as": OWN_ROW_AS,
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SPIELBERICHTE,
+                "localField": "_id",
+                "foreignField": "spiel_id",
+                "pipeline": [{"$project": {"_id": 0, "submitted_at": "$bericht.submitted_at"}}],
+                "as": BERICHT_AS,
+            }
+        },
+        SAISON_LOOKUP,
+    ]
+
+
+def entered_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
+    """Whether an administrator recorded this row's answer.
+
+    `app/api/spielbestaetigungen/services.py :: compose_enter_update` stores theirs as `by: {kind: "admin"}`.
+    """
+
+    return bool(((spielbestaetigung_raw.get("answer") or {}).get("by") or {}).get("kind") == "admin")
+
+
+def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
+    """The reason on the referee's own decline alone: an administrator's entry on their row is the league's record, not theirs to read."""
+
+    answer = spielbestaetigung_raw.get("answer") or {}
+
+    return answer.get("reason") if (answer.get("by") or {}).get("kind") == "schiedsrichter" else None
+
+
+def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsrichterSpiel:
+    """One fixture of `build_self_spiele_pipeline`'s as the referee's list shows it: as it stands, never as a row asked about it."""
+
+    row = next(iter(spiel[OWN_ROW_AS]), None)
+    bericht = next(iter(spiel[BERICHT_AS]), None)
+    # One row: a fixture's season always stands, and the read joins it by its id.
+    [saison] = spiel[SAISON_AS]
+    spielort = spiel.get("spielort")
+
+    def team_name(side: str) -> str | None:
+        team = spiel.get(side)
+        return team.get("name") if isinstance(team, Mapping) else None
+
+    return FLSchiedsrichterSpiel(
+        spiel_id=spiel["_id"],
+        schiedsrichter_id=spiel["schiedsrichter"]["schiedsrichter_id"],
+        team1_name=team_name("team1"),
+        team2_name=team_name("team2"),
+        date=spiel.get("date"),
+        time=spiel.get("time"),
+        spielort=None
+        if not isinstance(spielort, Mapping)
+        else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_link=spielort["maps_link"]),
+        spielbestaetigung_id=None if row is None else row["_id"],
+        state=None
+        if row is None
+        else schiedsrichter_state_of(
+            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=row[OWN_ROW_VEREINE_AS]), now=now
+        ),
+        reason=None if row is None else own_reason_of(row),
+        entered=row is not None and entered_of(row),
+        past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
+        # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
+        reportable=takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"]),
+        submitted_at=None if bericht is None else bericht.get("submitted_at"),
+    )
+
+
+def is_open_work(spiel: FLSchiedsrichterSpiel) -> bool:
+    """Whether the fixture waits on the referee: a booking to answer, or a report owed."""
+
+    return spiel.state == "valid" or (spiel.reportable and spiel.submitted_at is None)
+
+
+def _by_day(spiel: FLSchiedsrichterSpiel) -> tuple[bool, str, str, str]:
+    # An undated fixture after every dated one; the id last, so no two rows tie.
+    return spiel.date is None, spiel.date or "", spiel.time or "", str(spiel.spiel_id)
+
+
+def order_self_spiele(spiele: Sequence[FLSchiedsrichterSpiel]) -> list[FLSchiedsrichterSpiel]:
+    """Open work first, then the fixtures to come, each by its day; then the days gone by, the latest first."""
+
+    rest = [spiel for spiel in spiele if not is_open_work(spiel)]
+
+    return [
+        *sorted(filter(is_open_work, spiele), key=_by_day),
+        *sorted((spiel for spiel in rest if not spiel.past), key=_by_day),
+        *sorted((spiel for spiel in rest if spiel.past), key=_by_day, reverse=True),
+    ]

@@ -36,7 +36,7 @@ Software stays with the holder named above.
      fl_frontend/src/app/apple-icon.png
      fl_frontend/src/app/share-image.png
      fl_frontend/public/icons/manifest/
-     fl_frontend/src/shared/components/ui/FLLogo.tsx
+     fl_frontend/src/kit/FLLogo.tsx
 
    The GitHub, Instagram and Threads logos in fl_frontend/public/icons/footer/
    and the sponsors' logos in fl_frontend/public/icons/sponsors/ are the marks

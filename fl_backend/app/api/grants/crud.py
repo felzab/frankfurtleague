@@ -109,20 +109,24 @@ async def owe_in_session(
     if not notices:
         return
     grants = await read_grants(grants_collection=grants_collection, session=session)
-    holders = {str(row["address"]) for row in grants if in_effect(row, now)}
+    # Each recipient is keyed by its own grant row, one per address (`uniq_grant_address`), and the one address a notice
+    # names beyond them by `named`: never by the address, which a key keeps past an address move and an erasure
+    # (`app/api/outbox/services.py :: TOMBSTONE_UPDATE`).
+    holders = {str(row["address"]): str(row["_id"]) for row in grants if in_effect(row, now)}
 
     mails: list[OwedMail] = []
     for notice in notices:
         data = FLGrantData.model_validate(notice.data)
+        recipients = {address: "named" for address in _named_recipients(data)} | holders
         mails.extend(
             OwedMail(
                 # The write's own instant keeps two notices about one record apart.
-                key=f"grant/{notice.grant_id}/{data.change}/{data.stage}/{now.isoformat()}/{address}",
+                key=f"grant/{notice.grant_id}/{data.change}/{data.stage}/{now.isoformat()}/{recipient}",
                 to=address,
                 data=data,
                 reference=None,
             )
-            for address in sorted(holders | _named_recipients(data))
+            for address, recipient in sorted(recipients.items())
         )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 

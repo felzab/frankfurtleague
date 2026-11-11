@@ -4,7 +4,7 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.teams.schemas import FLSaisonTeamKontakte, FLTrainerAlso, _KontaktpersonWritablePayload
+from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontakteRecord, FLTrainerAlso, _KontaktpersonWritablePayload
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.age import whole_years_between
@@ -180,11 +180,11 @@ class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):
 class FLBewerbungRecord(FLBewerbung):
     """One application as `bewerbungen` stores it: what no read serves beside what every read does."""
 
+    kontakte: FLSaisonTeamKontakteRecord
     confirmations: FLBewerbungConfirmationsRecord
-    # The retention sweep's announcement, and the submission's replay key and digest.
+    # The retention sweep's announcement, and the submission's replay key.
     erasure_announced_at: str | None = None
     idempotency_key: str | None = None
-    idempotency_fingerprint: str | None = None
 
 
 class FLMailboxAnchorRecord(Anchored):
@@ -557,7 +557,7 @@ FLBewerbungEinwilligungState = Literal[FLBewerbungSeatState, "saison_past"]
 FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 
 # What an answer on either kind of link did.
-type FLEinwilligungErgebnis = Literal["confirmed", "declined"]
+type FLEinwilligungOutcome = Literal["confirmed", "declined"]
 
 
 class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
@@ -629,7 +629,7 @@ class FLBewerbungEinwilligungAnswerResponse(BaseAPIResponse):
     """What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write."""
 
     quelle: Literal["bewerbung"] = "bewerbung"
-    ergebnis: FLEinwilligungErgebnis
+    outcome: FLEinwilligungOutcome
     birth_date: CustomOptionalDateString
     whatsapp: bool
     # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
@@ -641,7 +641,7 @@ class FLSaisonTeamEinwilligungAnswerResponse(BaseAPIResponse):
     """What an answer on a season row's link did; nobody is told, so nothing composes a message."""
 
     quelle: Literal["saison"] = "saison"
-    ergebnis: FLEinwilligungErgebnis
+    outcome: FLEinwilligungOutcome
     birth_date: CustomOptionalDateString
     whatsapp: bool
     # `FLBewerbungEinwilligungAnswerResponse.media`'s.

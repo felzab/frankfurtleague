@@ -1,8 +1,7 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -31,6 +30,7 @@ from app.api.spiele.services import (
     build_spiele_pipeline,
     judge_spieltag_occupancy,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
@@ -136,6 +136,7 @@ def spieltag_documents() -> list[dict[str, Any]]:
             "position": 1,
             "saison_id": SAISON_ID,
             "saison_phase": saison_phase,
+            "version": 0,
         }
         for spieltag_id, (saison_phase, start, end) in SPIELTAGE.items()
     ]
@@ -355,14 +356,7 @@ def venue_documents() -> list[dict[str, Any]]:
     """
 
     return [
-        {
-            "_id": spielort_id,
-            "name": name,
-            "address": dict(documents.ADDRESS),
-            "maps_link": f"{name}, Frankfurt",
-            "default_mietpreis": DEFAULT_MIETPREIS,
-            "inactive_since": inactive_since,
-        }
+        documents.spielort_document(spielort_id, name, default_mietpreis=DEFAULT_MIETPREIS, inactive_since=inactive_since)
         for spielort_id, (name, inactive_since) in VENUES.items()
     ]
 
@@ -382,6 +376,7 @@ def referee_documents() -> list[dict[str, Any]]:
                 if schiedsrichter_id in (SCHIEDSRICHTER_UNCONFIRMED, GHOST_SCHIEDSRICHTER_ID)
                 else documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20")
             ),
+            "version": 0,
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]
@@ -478,7 +473,6 @@ async def call_patch(
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         adopts_bericht=adopts_bericht,
         now=ADOPTED_AT,
-        today=ADOPTED_AT.date().isoformat(),
         dry_run=dry_run,
     )
 
@@ -1375,28 +1369,26 @@ class TestTheQueueReadsTheHoldersTheRefusalReads:
 
 # The adoption stamp: a save carrying `adopts_bericht` stamps the fixture's report, in its own transaction.
 
-# As `get_germany_now` answers, so the stored instant is compared as the moment it is rather than as a wall-clock reading.
-ADOPTED_AT = datetime(2026, 5, 2, 18, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-# Past the first write, so a stamp copying a constant rather than the seed cannot pass.
+# The instant the save runs at.
+ADOPTED_AT = datetime(2026, 5, 2, 12, tzinfo=clock.GERMANY)
+# Past the first write, so a stamp matching a constant rather than the version the editor read cannot pass.
 SEEDED_VERSION = 2
 
 
 def a_report_on(spiel: dict[str, Any], *, version: int) -> dict[str, Any]:
-    return documents.spielbericht_document(
-        spiel, bericht=documents.bericht_document(version=version, sides=documents.spielbericht_sides(spiel))
-    )
+    return documents.spielbericht_document(spiel, version=version)
 
 
 async def reports_now(database: AsyncDatabase) -> dict[ObjectId, dict[str, Any]]:
-    """Each report's block, keyed by its fixture."""
+    """Each report's document, keyed by its fixture."""
 
     rows = await database[Collection.SPIELBERICHTE].find({}).to_list(length=None)
 
-    return {row["spiel_id"]: row["bericht"] for row in rows}
+    return {row["spiel_id"]: row for row in rows}
 
 
 async def with_reports(database: AsyncDatabase, reports: list[dict[str, Any]]) -> dict[ObjectId, dict[str, Any]]:
-    """`reports` stored, and each block as read back: a stored instant returns without the zone it was written with."""
+    """`reports` stored, and each document as read back: a stored instant returns without the zone it was written with."""
 
     await database[Collection.SPIELBERICHTE].insert_many(reports)
 
@@ -1429,12 +1421,8 @@ class TestOnlyALandedSaveStamps:
 
         assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1"
         stamped = after[VIERTELFINALE]
-        assert (stamped["adopted_version"], stamped["version"], stamped["adopted_by"]) == (
-            SEEDED_VERSION,
-            SEEDED_VERSION,
-            {"kind": "admin"},
-        )
-        assert stamped["adopted_at"].replace(tzinfo=UTC) == ADOPTED_AT
+        # The stamp is a write of the document, so it raises the count it matched on.
+        assert (stamped["bericht"]["adopted"], stamped["version"]) == (True, SEEDED_VERSION + 1)
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
 
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])

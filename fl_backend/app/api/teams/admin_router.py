@@ -9,6 +9,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import invitation_reference, owed_invitation_mails
@@ -35,18 +36,16 @@ from app.api.kontakte.crud import clear_seats
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
 from app.api.outbox.crud import state_of, states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.registrierungen.services import saison_nimmt_registrierungen_an
+from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
-from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import (
     enter_a_club,
     found_a_club,
     pull_a_club_to_enter,
     refuse_a_gruppe_move,
     refuse_a_taken_colour,
-    void_moved_seats,
     write_the_club,
 )
 from app.api.teams.schemas import (
@@ -76,7 +75,7 @@ from app.api.teams.services import (
     build_team_spiele_filter,
     compose_confirmations_with,
     compose_kontakt_confirmation,
-    compose_kontakte_herkunft,
+    compose_kontakte_origin,
     compose_seat_block,
     find_austritt_refusal,
     find_austritt_standing_refusal,
@@ -118,20 +117,27 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AufstellungenCollection,
     BewerbungenCollection,
     DBClient,
     InvitationsCollection,
+    InvitationsReadCollection,
     OutboxCollection,
+    OutboxReadCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
-    SpielbestaetigungenCollection,
+    SaisonTeamsReadCollection,
     SpieleCollection,
+    SpieleReadCollection,
     TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import (
@@ -186,7 +192,7 @@ async def _rewrite_the_outgoing_clubs_sides(
 async def _with_seat_states(
     teams_raw: Sequence[Mapping[str, Any]],
     *,
-    outbox_collection: AsyncCollection,
+    outbox_collection: ReadCollection,
     today: str,
 ) -> list[dict[str, Any]]:
     """The memberships read with each seat's link state composed on."""
@@ -209,7 +215,6 @@ async def write_the_contact_block(
     saison_id: str,
     saison_teams_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     # Made outside the caller's callback, so a retried transaction owes this save's mails once and a second save its own.
     nonce: str,
@@ -220,10 +225,10 @@ async def write_the_contact_block(
     """Store a block over `stored`, read in this session, owing each person it newly seats their link; each link owed.
 
     Each seat keeping its person keeps its record and its link. A seat newly filled or handed on is stored as the league's
-    entry, unconfirmed, and a seat handed on loses its links on the team's open match confirmations.
+    entry, unconfirmed.
     """
 
-    kontakte = compose_kontakte_herkunft(kontakte=proposed, stored=stored.get("kontakte"))
+    kontakte = compose_kontakte_origin(kontakte=proposed, stored=stored.get("kontakte"))
 
     # A closed row's newcomer too: their link is how they learn of the entry, and it takes their
     # Widerspruch alone.
@@ -264,12 +269,6 @@ async def write_the_contact_block(
         session=session,
         return_document=ReturnDocument.BEFORE,
     )
-    # Judged on the block read in this transaction.
-    await void_moved_seats(
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
-        session=session,
-    )
     await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
     await record_act(
         collection=saison_teams_collection, action="team.seat_changed", record_id=team_id, label=str(stored["name"]), session=session
@@ -278,7 +277,7 @@ async def write_the_contact_block(
     return [mint for _, mint in links]
 
 
-async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: AsyncCollection) -> FLInvitationRow:
+async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: ReadCollection) -> FLInvitationRow:
     """One live link as a read serves it, with what became of its last mail."""
 
     state = await state_of(outbox_collection=outbox_collection, reference=invitation_reference(live["_id"]))
@@ -294,9 +293,9 @@ async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: Asyn
     summary="One season's Teams list and what its create dialog offers",
 )
 async def get_teams_admin(
-    teams_collection: TeamsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
+    teams_collection: TeamsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
     filters: FLTeamsAdminFilterParams = Depends(),
 ) -> FLTeamsAdminListResponse:
     """
@@ -358,12 +357,12 @@ async def get_teams_admin(
 async def get_team_saison_admin(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    teams_collection: TeamsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    invitations_collection: InvitationsCollection,
-    outbox_collection: OutboxCollection,
+    teams_collection: TeamsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    invitations_collection: InvitationsReadCollection,
+    outbox_collection: OutboxReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLTeamSaisonAdminResponse:
     """
@@ -420,7 +419,7 @@ async def get_team_saison_admin(
         registrierung = saison_raw.get("registrierung")
         link = FLTeamLinkState(
             invitation=await _served_invitation(live[0], outbox_collection=outbox_collection) if live else None,
-            running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=registrierung),
+            running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
             skipped=plan_invitation_dispatch(
                 austritt=row_raw.get("austritt"),
@@ -433,7 +432,7 @@ async def get_team_saison_admin(
     memberships = served[0]["memberships"]
 
     return FLTeamSaisonAdminResponse(
-        version=composite_version(team_raw, row_raw or {}),
+        version=composite_version(team_raw, *([] if row_raw is None else [row_raw])),
         team=FLTeamRecord.model_validate(team_raw),
         saison=FLTeamSaisonFacts(
             id=saison_id,
@@ -761,7 +760,6 @@ async def put_kontakt_seat(
     seat_data: Annotated[FLKontaktSeatPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -773,7 +771,7 @@ async def put_kontakt_seat(
     The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
     `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
     in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
-    last holder loses their links on the team's open match confirmations. A `past` season's seats and a departed team's
+    last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
     stay correctable, and such a link takes the person's Widerspruch alone.
 
     Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
@@ -814,7 +812,6 @@ async def put_kontakt_seat(
             saison_id=saison_id,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
             outbox_collection=outbox_collection,
             nonce=nonce,
             today=today,
@@ -844,7 +841,7 @@ async def replace_saison_team(
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLReplaceSaisonTeamResponse:
@@ -950,13 +947,6 @@ async def replace_saison_team(
             expected_version=None,
             return_document=ReturnDocument.AFTER,
         )
-        # The outgoing club's people, read in this transaction, leave their match links behind.
-        await void_moved_seats(
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=outgoing_raw.get("kontakte"), kontakte=None)],
-            session=session,
-        )
-
         # By address and by name, the application being reached by document:
         # it spells an address the editor corrected on the row the old
         # way. Its other people keep their seats.
@@ -970,6 +960,10 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
             update={"$set": {"inactive_since": today}},
             session=session,
+        )
+        # The outgoing club's line-ups go with its place: each names pupils of a squad the fixture no longer fields.
+        await remove_the_seasons_aufstellungen(
+            aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, team_id=team_id, session=session
         )
         await record_act(
             collection=saison_teams_collection, action="team.replaced", record_id=team_id, label=str(updated_raw["name"]), session=session
@@ -1232,6 +1226,7 @@ async def post_invitation_dispatch(
     mail_data: Annotated[FLInvitationMailPayload, Body()],
     invitations_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -1246,11 +1241,18 @@ async def post_invitation_dispatch(
     twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
     is handed out.
 
-    404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
-    them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`, as the mint refuses it.
+    Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
+    window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
+    as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
+    the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
+    as the mint refuses it.
     """
 
     async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+        # First, as the mint judges it: nothing done to the team's link or row repairs a season that has ended.
+        refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
         # The live row the caller read, never another: the filter is the judgement, and a miss is the 404.
         await pull_one_from_db(
             collection=invitations_collection,
@@ -1281,6 +1283,7 @@ async def post_invitation_dispatch(
             session=session,
             mails=owed_invitation_mails(
                 invitation_id=mail_data.invitation_id,
+                team_id=team_id,
                 team_name=str(row["name"]),
                 saison_id=saison_id,
                 recipient=recipients,

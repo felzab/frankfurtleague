@@ -20,7 +20,14 @@ from app.core.collections import Collection
 from app.core.recording import ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, actor_var, record_act
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, schiedsrichter_document, team_document
+from tests.documents import (
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spielort_document,
+    team_document,
+)
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -34,11 +41,13 @@ SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607600003")
 SPIELER_OID = ObjectId("6890a1b2c3d4e5f607600004")
 
 SAISON_ID = "2026"
-TODAY = "2026-03-15"
+# A century ahead of the real clock, as `AT` is: the TTL monitor deletes a log row a year after its act, under a case reading
+# it back.
+TODAY = "2126-03-15"
 
 SEEDED_NAME = "Lessing"
 
-AT = datetime(2026, 3, 15, 18, 0, tzinfo=UTC)
+AT = datetime(2126, 3, 15, 18, 0, tzinfo=UTC)
 
 ERASED_ADDRESS = "former@example.invalid"
 OTHER_ADDRESS = "other@example.invalid"
@@ -214,7 +223,7 @@ RETIRE_AND_REVIVE = {
         acts=("team.retired", "team.reactivated"),
     ),
     "spielort": RetireAndRevive(
-        seeds={Collection.SPIELORTE: [{"_id": SPIELORT_OID, "name": "Halle", "inactive_since": None}]},
+        seeds={Collection.SPIELORTE: [spielort_document(SPIELORT_OID, "Halle")]},
         retire=_retire_venue,
         revive=_revive_venue,
         acts=("spielort.retired", "spielort.reactivated"),

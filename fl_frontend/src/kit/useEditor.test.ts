@@ -98,6 +98,63 @@ describe("an editor's draft", () => {
     // The draft rests on version 2, so the server can refuse the save as stale.
     expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: 2, changes: { name: "SC Riedberg" } });
   });
+
+  // The harm: a second save still sent on `null`, which the write matches only while nothing is stored, so the
+  // person's next change after the first save is refused as stale.
+  it("saves a record not yet stored on `null`, and again on the version its first save stored", async () => {
+    const save = vi.fn(async (_change: EditorSave<Spielort, number | null>): Promise<ActionAnswer<number>> => ({ ok: true, value: 1 }));
+    const absent: EditorRecord<Spielort, number | null> = { ...STORED, version: null };
+    const { result } = renderHook(() => useEditor(absent, save));
+
+    act(() => result.current.set("postcode", "60439"));
+    await press(result.current.submit);
+    expect(save).toHaveBeenLastCalledWith({ id: "ort-1", version: null, changes: { postcode: "60439" } });
+
+    // Before the page serves the record the save made.
+    act(() => result.current.set("name", "SC Riedberg"));
+    await press(result.current.submit);
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ version: 1 }));
+  });
+});
+
+// The harm: a list whose rows a control builds anew on every edit reads as changed for good, so the frame's way back
+// asks about a draft that holds nothing and a save sends rows nobody changed.
+describe("an editor's list of records", () => {
+  type Goal = { side: string; minute: string; eigentor: boolean };
+  type Bericht = { scorers: ReadonlyArray<Goal> };
+
+  const OPENER: Goal = { side: "team1", minute: "12", eigentor: false };
+  const EQUALISER: Goal = { side: "team2", minute: "45+1", eigentor: true };
+  const GOALS: ReadonlyArray<Goal> = [OPENER, EQUALISER];
+  const REPORT: EditorRecord<Bericht> = { id: "bericht-1", version: 1, values: { scorers: GOALS } };
+
+  /** The stored rows as a control hands them back: each record a new object holding the same values. */
+  const typedBack = () => GOALS.map((goal) => ({ ...goal }));
+
+  it.each<[string, ReadonlyArray<Goal>]>([
+    ["added", [...GOALS, { side: "team1", minute: "", eigentor: false }]],
+    ["changed", [OPENER, { ...EQUALISER, minute: "46" }]],
+    ["removed", [OPENER]],
+  ])("is unsaved once a row is %s, sends the list whole, and is clean again typed back or reset", async (_edit, edited) => {
+    const save = vi.fn(async (_change: EditorSave<Bericht>): Promise<ActionAnswer<number>> => ({
+      ok: false,
+      reason: COPY.shared.failure.stale,
+    }));
+    const { result } = renderHook(() => useEditor(REPORT, save));
+
+    act(() => result.current.set("scorers", edited));
+    expect(result.current.count).toBe(1);
+    await press(result.current.submit);
+    expect(save).toHaveBeenCalledWith({ id: "bericht-1", version: 1, changes: { scorers: edited } });
+
+    act(() => result.current.set("scorers", typedBack()));
+    expect(result.current.count).toBe(0);
+
+    act(() => result.current.set("scorers", edited));
+    act(() => result.current.discard());
+    expect(result.current.draft.scorers).toBe(GOALS);
+    expect(result.current.count).toBe(0);
+  });
 });
 
 describe("an editor's refused save", () => {
@@ -108,6 +165,24 @@ describe("an editor's refused save", () => {
     await press(result.current.submit);
 
     expect(result.current.status).toStrictEqual({ tone: "error", text: COPY.shared.failure.stale });
+  });
+});
+
+// The harm: a line-up of six players moved reading „1 Änderung“, its one field, on the bar and in the way back's question.
+describe("an editor whose one field holds many things", () => {
+  it("counts what `countOf` counts while a field differs, and nothing once the draft is the stored record again", () => {
+    type Picked = { picked: ReadonlyArray<string> };
+    const stored: EditorRecord<Picked> = { id: "spiel-1", version: 1, values: { picked: ["a"] } };
+    const added = (was: Picked, now: Picked) => now.picked.filter((id) => !was.picked.includes(id)).length;
+    const { result } = renderHook(() => useEditor(stored, async () => ({ ok: true, value: 2 }), { countOf: added }));
+
+    act(() => result.current.set("picked", ["a", "b", "c"]));
+    expect(result.current.count).toBe(2);
+    expect(result.current.status).toStrictEqual({ tone: "changes", text: COPY.template.changesPending(2) });
+
+    act(() => result.current.set("picked", ["a"]));
+    expect(result.current.count).toBe(0);
+    expect(result.current.status).toBeNull();
   });
 });
 

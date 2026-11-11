@@ -78,15 +78,6 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one registration per submission key",
         partial_filter={"idempotency_key": {"$type": "string"}},
     ),
-    # The same key after its registration was admitted, so a replay finds it here once the row above
-    # is gone. Filtered for the reason above: a squad row an administrator wrote carries none.
-    UniqueIndex(
-        Collection.SAISON_SPIELER,
-        "uniq_saison_spieler_idempotency_key",
-        ("idempotency_key",),
-        "one admitted registration per submission key",
-        partial_filter={"idempotency_key": {"$type": "string"}},
-    ),
     # One stored person per address, firing where two admissions for one new address race. Filtered
     # on `$type`, so persons holding no address are not one null key; an equality reader carries the
     # term or scans.
@@ -107,18 +98,21 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Checked at each write rather than at the commit, so a handover demotes before it promotes
     # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
     UniqueIndex(Collection.GRANTS, "uniq_grant_owner", ("admin_tier",), "at most one owner", partial_filter={"admin_tier": "owner"}),
-    # What makes a pass run twice mint once, and a second decline need a new stand rather than a
+    # What makes a pass run twice mint once, and a second decline need a new digest rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
     # `uniq_invitation_live`'s reason.
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "uniq_spielbestaetigung_open",
-        ("spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
+        ("spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.digest"),
         "one open confirmation per party per Ansetzung",
         partial_filter={"answer": {"$type": "null"}, "closed": {"$type": "null"}},
     ),
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
+    # The same for two seats of one club saving its first line-up at once, and the key every read of a fixture's
+    # line-ups joins on. The club and never the side: a side re-fielded by a knockout correction keeps no other club's.
+    UniqueIndex(Collection.AUFSTELLUNGEN, "uniq_aufstellung_spiel_id_team_id", ("spiel_id", "team_id"), "one line-up per club per fixture"),
     # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
     # ending's null address out; a keyed read carries it too (`app/api/address_change/services.py :: build_address_filter`),
     # or the planner scans.
@@ -148,6 +142,9 @@ class SupportIndex:
     # The collation of the reads it serves, which must be the index's own: a read under another one walks none of its
     # string keys.
     collation: Mapping[str, Any] | None = None
+    # Which rows it holds, where a read asks for those alone among many others: the read states this filter's own
+    # predicate, or the planner may not take the index.
+    partial_filter: Mapping[str, Any] | None = None
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
@@ -221,22 +218,23 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING), ("team_id", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
     ),
+    # The confirmed rows alone, which the team's pending read takes first: on the queue index above it would fetch every
+    # unconfirmed row standing newer, and anybody holding the team's link writes one with every press. "To use the
+    # partial index, a query must contain the filter expression" (https://www.mongodb.com/docs/manual/core/index-partial/,
+    # read 2026-11-11), so the read states this filter whole (`app/api/registrierungen/services.py ::
+    # build_confirmed_open_filter`).
+    SupportIndex(
+        Collection.REGISTRIERUNGEN,
+        "registrierungen_saison_id_team_id_confirmed_queue",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING)),
+        "one team's pending registrations a pupil confirmed, newest first",
+        partial_filter={"status": "submitted", "einwilligung.confirmed_at": {"$type": "string"}},
+    ),
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "spielbestaetigungen_saison_id_spiel_id",
         (("saison_id", ASCENDING), ("spiel_id", ASCENDING)),
         "a season's or one fixture's confirmations, which the pass, the admin read and the verdict filter on",
-    ),
-    # One per clause of the token filter's `$or`, for the registration's pair's reason; each multikey,
-    # a seat keeping every link it was mailed.
-    *(
-        SupportIndex(
-            Collection.SPIELBESTAETIGUNGEN,
-            f"spielbestaetigungen_kontakte_{seat}_token_hashes",
-            ((f"kontakte.{seat}.token_hashes", ASCENDING),),
-            "a fixture confirmation link's lookup, driven by strangers",
-        )
-        for seat in KONTAKT_ROLLEN
     ),
     # Read on every load of a referee's own panel, and inside every referee erasure's transaction, neither stating a
     # fixture the season-leading index could narrow by.
@@ -246,20 +244,22 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("party.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
         "a referee's own rows, on their panel and at their erasure",
     ),
+    # Read on every render of a referee's pages, and by the referee's erasure and retirement, none stating a fixture the
+    # season-leading index could narrow by; the season second, for the list of one season's fixtures.
+    SupportIndex(
+        Collection.SPIELE,
+        "spiele_schiedsrichter_schiedsrichter_id_saison_id",
+        (("schiedsrichter.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        "a referee's own fixtures, on their pages and at their erasure",
+    ),
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
-    # The reports are kept with no retention bound, and this read names no season the season-leading index could narrow by.
-    SupportIndex(
-        Collection.SPIELBERICHTE,
-        "spielberichte_submitted_by_schiedsrichter_id",
-        (("bericht.submitted_by.schiedsrichter_id", ASCENDING),),
-        "the reports a leaving referee sent, read inside their erasure's transaction",
-    ),
-    # For the referee's reason, one per clause of the pupil repoint's `$or`, for the registration's pair's reason; each multikey.
+    # The reports are kept with no retention bound, and the pupil repoint names no season the season-leading index could
+    # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.
     *(
         SupportIndex(
             Collection.SPIELBERICHTE,
@@ -268,6 +268,19 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             "the reports naming a leaving pupil, read inside their erasure's transaction",
         )
         for entries in ("scorers", "cards")
+    ),
+    # Multikey, for the reports' reason: the line-ups are kept as long.
+    SupportIndex(
+        Collection.AUFSTELLUNGEN,
+        "aufstellungen_spieler_spieler_id",
+        (("spieler.spieler_id", ASCENDING),),
+        "the line-ups naming a pupil, read inside their erasure's transaction",
+    ),
+    SupportIndex(
+        Collection.AUFSTELLUNGEN,
+        "aufstellungen_saison_id_team_id",
+        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
+        "a season's line-ups, which a replace's or an undraw's removal filters on, and one club's among them",
     ),
     # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
     # on every write, the squad page on every read.
@@ -414,9 +427,10 @@ async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
 async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None:
     # Omitted rather than passed as `None`, for `_apply_unique_index`'s reason.
     collation_option: _CollationOption = {"collation": support.collation} if support.collation is not None else {}
+    partial_option: _PartialFilterOption = {"partialFilterExpression": support.partial_filter} if support.partial_filter is not None else {}
 
     try:
-        await db[support.collection].create_index(list(support.keys), name=support.name, **collation_option)
+        await db[support.collection].create_index(list(support.keys), name=support.name, **collation_option, **partial_option)
     except OperationFailure as failure:
         raise RuntimeError(f"Could not build support index '{support.collection}.{support.name}' ({support.rule}): {failure}") from failure
 

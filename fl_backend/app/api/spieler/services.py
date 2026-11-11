@@ -3,6 +3,9 @@ from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
+from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
+from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP
+from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -187,6 +190,9 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
                 "last_name": f"${AS_NAME}.last_name",
                 "position": 1,
                 "nummer": 1,
+                # The captaincy, for the mark beside the name, and null beside a withheld one: the mark would say
+                # which of the squad the nameless row is.
+                "rolle": {"$cond": {"if": {"$eq": [f"${AS_NAME}.first_name", None]}, "then": None, "else": "$rolle"}},
             }
         },
         # After the projection, so `first_name` orders by the name served, which the join masked.
@@ -232,20 +238,28 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     return None
 
 
-def find_squad_capacity_refusal(*, squad_size: int, max_kader_size: int) -> WriteRefusal | None:
-    """Why this squad has no room for another player, or `None`.
+class SquadRoom(NamedTuple):
+    """One squad's capped rows and its season's `max_kader_size`, as `app/api/spieler/crud.py :: pull_squad_room` reads them."""
 
-    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
-    alone.
+    size: int
+    cap: int
+
+
+def find_full_squad_refusal(*, room: SquadRoom, nominee: bool) -> WriteRefusal | None:
+    """`kader_full` where the squad takes no further entry, or `None`.
+
+    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
+    asking whether a squad takes an entry answers by. Its own function rather than a clause in `find_squad_refusal`,
+    which answers the club question alone.
     """
 
-    if squad_size >= max_kader_size:
-        return WriteRefusal(
-            error_code=Code.KADER_FULL,
-            status=HTTPStatus.CONFLICT,
-        )
+    if nominee or room.size < room.cap:
+        return None
 
-    return None
+    return WriteRefusal(
+        error_code=Code.KADER_FULL,
+        status=HTTPStatus.CONFLICT,
+    )
 
 
 def build_live_rolle_filter(
@@ -389,40 +403,124 @@ def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
     return {"email": {"$eq": identifier, "$type": "string"}}
 
 
-# The order the person's own pages list their pupil rows in, which the account read ranks them by too.
+# The order the account read ranks an address's pupil rows in.
 SELF_PUPIL_ORDER: Final[Mapping[str, int]] = {"_id": 1}
 
 
-def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """This address's pupil row with every squad row it holds and the name each club played that season under.
+def build_self_saisons_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row with every season it holds a squad row in, the newest first, each with its span.
 
-    An allow-list: the sign-in address is the caller's own and still not served back.
+    The consent block is read for the confirmation the caller judges, and no other field of the person.
     """
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "einwilligung": 1}},
+        {"$project": {"einwilligung": 1}},
+        {
+            "$lookup": {
+                "from": Collection.SAISON_SPIELER,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                "pipeline": [{"$project": {"_id": 0, "saison_id": 1}}],
+                "as": "kader",
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SAISONS,
+                "localField": "kader.saison_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": dict.fromkeys(SAISON_FRAME_FIELDS, 1)}, {"$sort": dict(SAISON_FRAME_ORDER)}],
+                "as": "saisons",
+            }
+        },
+        {"$project": {"einwilligung": 1, "saisons": 1}},
+    ]
+
+
+_AUFSTELLUNG_AS = "aufstellung"
+
+
+def _own_spiele_lookup(saison_id: str) -> Mapping[str, Any]:
+    """Run on the pupil's squad row: its club's fixtures of the season in the draw's order, each with its matchday and the pupil's `starts`.
+
+    `starts` is read off the club's own line-up, the one keyed by the squad row's club: true or false where it names
+    the pupil, null where it does not or none is stored.
+    """
+
+    # Both sides spelled out, never `$in` over an array of the two: a fixture's empty side leaves its path missing, and
+    # the club's id equals no missing value.
+    fields_the_club = {"$or": [{"$eq": ["$team1.team_id", "$$own_team_id"]}, {"$eq": ["$team2.team_id", "$$own_team_id"]}]}
+    own_entry = {
+        "$first": {
+            "$filter": {
+                "input": {"$ifNull": [{"$first": f"${_AUFSTELLUNG_AS}.spieler"}, []]},
+                "cond": {"$eq": ["$$this.spieler_id", "$$own_spieler_id"]},
+            }
+        }
+    }
+
+    return {
+        "$lookup": {
+            "from": Collection.SPIELE,
+            # Prefixed, so none of the fixture read's own lookups shadows them.
+            "let": {"own_team_id": "$team_id", "own_spieler_id": "$spieler_id"},
+            "pipeline": [
+                *build_spiele_pipeline(db_filter={"saison_id": saison_id, "$expr": fields_the_club}, sort_by=[("spiel_nr", 1)]),
+                SPIELTAG_POSITION_LOOKUP,
+                {
+                    "$lookup": {
+                        "from": Collection.AUFSTELLUNGEN,
+                        "localField": "_id",
+                        "foreignField": "spiel_id",
+                        "pipeline": [{"$match": {"$expr": {"$eq": ["$team_id", "$$own_team_id"]}}}, {"$project": {"_id": 0, "spieler": 1}}],
+                        "as": _AUFSTELLUNG_AS,
+                    }
+                },
+                # `$ifNull`, so an entry not found serves null rather than leaving the field out.
+                {"$set": {"starts": {"$let": {"vars": {"entry": own_entry}, "in": {"$ifNull": ["$$entry.starts", None]}}}}},
+                # The club's whole line-up names its other pupils, so it never leaves the read.
+                {"$unset": _AUFSTELLUNG_AS},
+            ],
+            "as": "spiele",
+        }
+    }
+
+
+def build_self_saison_pipeline(*, identifier: str, saison_id: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row with its squad row of one season, the name its club played the season under, and that club's fixtures.
+
+    `kader` holds that one row or none, `uniq_spieler_id_saison_id` allowing no second; its fixtures ride on it, so a
+    pupil holding no row of the season reads none. The consent block is read for the confirmation the caller judges.
+    """
+
+    return [
+        {"$match": build_self_pupil_filter(identifier)},
+        {"$project": {"einwilligung": 1}},
         {
             "$lookup": {
                 "from": Collection.SAISON_SPIELER,
                 "localField": "_id",
                 "foreignField": "spieler_id",
                 "pipeline": [
+                    {"$match": {"saison_id": saison_id}},
                     {
                         "$lookup": {
                             "from": Collection.SAISON_TEAMS,
-                            "let": {"team_id": "$team_id", "saison_id": "$saison_id"},
+                            "let": {"team_id": "$team_id"},
                             "pipeline": [
-                                {"$match": {"$expr": {"$and": [{"$eq": ["$team_id", "$$team_id"]}, {"$eq": ["$saison_id", "$$saison_id"]}]}}},
+                                {"$match": {"saison_id": saison_id, "$expr": {"$eq": ["$team_id", "$$team_id"]}}},
                                 {"$project": {"_id": 0, "name": 1}},
                             ],
                             "as": "saison_team",
                         }
                     },
+                    _own_spiele_lookup(saison_id),
                     {
                         "$project": {
                             "_id": 0,
                             "team_id": 1,
+                            # The season row's name, never the club's current one.
                             "team_name": {"$first": "$saison_team.name"},
                             "saison_id": 1,
                             "nummer": 1,
@@ -431,13 +529,11 @@ def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                             "rolle": 1,
                             "is_nachnominiert": 1,
                             "inactive_since": 1,
+                            "spiele": 1,
                         }
                     },
-                    # The season a person is playing first: the list is read for what they hold now.
-                    {"$sort": {"saison_id": -1, "team_name": 1}},
                 ],
                 "as": "kader",
             }
         },
-        {"$sort": dict(SELF_PUPIL_ORDER)},
     ]

@@ -103,10 +103,10 @@ export function CodeField({
         />
       </div>
       {/* An alert standing from the first render, so a refusal written into it is announced at once: it
-          answers the code just typed. Empty, the line holds its place. */}
+          answers the code just typed. Empty, it takes no room, as a field's silent line takes none. */}
       <div
         role="alert"
-        className={messageLine({ tone: "error" })}>
+        className={messageLine({ tone: "error", class: error === undefined ? "sr-only" : "" })}>
         {error !== undefined && <FieldError>{error}</FieldError>}
       </div>
     </TextField>

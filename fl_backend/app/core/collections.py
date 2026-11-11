@@ -34,10 +34,8 @@ class Collection(StrEnum):
     #: references and nothing references back (`fl_backend/app/core/recording.py`).
     ACTION_LOG = "action_log"
     #: One barred address per row, kept past the erasure of the person it bars, whom it goes on barring.
-    #: Its author's erasure leaves the marker.
     BAN_LIST = "ban_list"
-    #: One minted registration link per row. It names a team, a season and the administrator who
-    #: minted it, whose erasure leaves the row standing with the marker in their place.
+    #: One minted registration link per row, naming a team and a season.
     INVITATIONS = "invitations"
     #: One pupil's pending registration for a team's season. Erased by its own clocks, by the
     #: admission, which writes the person and the squad row in the transaction that deletes it, and by
@@ -52,6 +50,9 @@ class Collection(StrEnum):
     #: One fixture's report: the referee's proposed result, scorers, cards and remarks, which the fixture's
     #: result never reads. Created by its first writer, one per fixture.
     SPIELBERICHTE = "spielberichte"
+    #: One club's line-up for one fixture: the pupils it fields and who starts. Created by the club's first save, one
+    #: per club per fixture, and removed with the season's draw.
+    AUFSTELLUNGEN = "aufstellungen"
     #: One address's pending change of the address it signs in on, keyed by that address, one live change per address;
     #: ended, it keeps no address but a sign-in account's carry still owed, its links answering how it ended until its
     #: TTL index removes it.
@@ -64,13 +65,15 @@ class Collection(StrEnum):
     MAILBOX_ANCHORS = "mailbox_anchors"
 
 
-# The collections a person edits through a form, one member per line: every update of one raises its `version`, and a
-# save carrying the version its form was read at matches only while no other write has raised it
-# (`app/core/crud.py :: patch_one_in_db`).
+# The collections a person edits through a form, one member per line: every update of what a form of one shows and
+# saves raises its `version`, and a save carrying the version its form was read at matches only while no such write
+# has raised it (`app/core/crud.py :: patch_one_in_db`). A write to a field no form saves leaves the count standing
+# (`:: patch_past_the_version_in_db`).
 EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
     {
         Collection.SPIELE,
         Collection.SPIELBERICHTE,
+        Collection.AUFSTELLUNGEN,
         Collection.SAISONS,
         Collection.SAISON_TEAMS,
         Collection.SPIELTAGE,

@@ -81,8 +81,6 @@ CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
 
-A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "reason": "NoEmail", "at": "2126-03-21T10:00:00.000000+00:00"}
-
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
     seat = documents.kontaktperson_document("Lenore", confirmed_at="2126-03-21" if confirmed else None)
@@ -135,13 +133,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 einwilligung=documents.own_einwilligung_document(
                     text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02"
                 ),
-                confirmation={
-                    "token_hash": "c" * 64,
-                    "sent_at": "2126-03-01",
-                    "reminded_at": None,
-                    "deadline": "2126-03-15",
-                    "delivery": dict(A_BOUNCE),
-                },
+                confirmation={"token_hashes": ["c" * 64], "sent_at": "2126-03-01", "deadline": "2126-03-15", "declined_at": None},
             ),
             # Entered by an administrator under the same address and never confirmed: not this person's record yet.
             documents.schiedsrichter_document(UNCONFIRMED_REFEREE_OID, email=EMAIL, name="Lenore Q.", default_payment=20, einwilligung=None),
@@ -161,13 +153,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
             "_id": ROW_OID,
             "confirmations": {
                 "trainer": None,
-                "ansprechperson": {
-                    "token_hash": "a" * 64,
-                    "sent_at": "2126-03-20",
-                    "deadline": "2126-04-03",
-                    "declined_at": None,
-                    "delivery": dict(A_BOUNCE),
-                },
+                "ansprechperson": {"token_hashes": ["a" * 64], "sent_at": "2126-03-20", "deadline": "2126-04-03", "declined_at": None},
                 "stellvertretung": None,
             },
         }
@@ -176,11 +162,11 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
         spiel_id=SPIEL_OID,
         saison_id=SAISON_ID,
         spiel_nr=1,
-        spieltag_id=None,
+        spieltag_id=ObjectId(),
         date="2126-04-18",
         time="14:00:00",
-        team1={"team_id": TEAM_OID},
-        team2={"team_id": SECOND_TEAM_OID},
+        team1={"team_id": TEAM_OID, "tore": None},
+        team2={"team_id": SECOND_TEAM_OID, "tore": None},
     )
     await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
         documents.spielbestaetigung_document(
@@ -188,7 +174,6 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
             party={"kind": "team", "team_id": TEAM_OID},
             _id=CONFIRMATION_OID,
             asked_at="2126-03-30",
-            kontakte={seat: {"token_hashes": ["b" * 64], "delivery": None} for seat in ("trainer", "ansprechperson", "stellvertretung")},
         )
     )
     await database[Collection.BEWERBUNGEN].insert_many(
@@ -223,9 +208,11 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_person(url: str, database_name: str, body: Body, *, pupil: bool = True, records: bool = True) -> Any:
+def on_a_person(
+    url: str, database_name: str, body: Body, *, pupil: bool = True, records: bool = True, stores_a_refused_shape: str | None = None
+) -> Any:
     async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=True) as (client, database):
+        async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
             await _seed(database, pupil=pupil, records=records)
             return await body(database, client)
 

@@ -262,11 +262,10 @@ const SITE_ORIGIN = {
  * react-aria's locale provider, mounted once at the root: it reads the nearest one, so a second mount
  * formats a subtree's dates by whatever it pins. Tests mount their own.
  */
-// Session 8: retargeted from HeroUI's re-export to `react-aria-components` as the provider moves there.
 const LOCALE_PROVIDER = {
-  regex: packageUnder("@heroui/react/rac"),
+  regex: packageUnder("react-aria", "react-aria-components"),
   importNames: ["I18nProvider"],
-  message: "The locale is pinned once, in fl_frontend/src/core/providers/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
+  message: "The locale is pinned once, in fl_frontend/src/kit/RootProviders.tsx: a second I18nProvider re-pins a subtree.",
 };
 
 const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
@@ -320,8 +319,8 @@ const BACKGROUND_PASSES = [
   },
   {
     operations: ["identity_get_references"],
-    wrapper: { file: "src/features/funktionen/mutations.ts", names: ["postReferenzen"] },
-    runners: ["src/features/funktionen/sweep.ts"],
+    wrapper: { file: "src/features/roles/mutations.ts", names: ["postReferences"] },
+    runners: ["src/features/roles/sweep.ts"],
   },
   {
     operations: ["identity_sweep_erasure"],
@@ -386,7 +385,7 @@ const IMPORT_BANS = [
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
   // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
-  importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
+  importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/kit/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts", "src/core/auth/**"] }),
@@ -464,13 +463,42 @@ const CLASS_LIST_CONSTANT = {
   name: "^[A-Z][A-Z0-9_]*_CLASSES$",
   match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }],
 };
-const UNSUFFIXED_CONSTANT = "[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/])";
+/** The kit's placeholder builders, each taking a class list as its argument. */
+const CLASS_LIST_CALLEES = "^(?:placeholderBar|buttonPlaceholder)$";
+/** A kit component's prop holding a class list, suffixed as `className` is, so one selector reads every one. */
+const CLASS_LIST_PROP = "^[a-z][A-Za-z0-9]*Class$";
+/** The class a recipe's call adds to its own, `buttonLook({ class })`, under either of the two keys `tv` takes. */
+const RECIPE_CLASS_KEY = "^class(?:Name)?$";
+
+/** Where the kit writes a class list beyond the plugin's defaults, which read a `className` and a `tv` config alone. */
+const CLASS_LIST_SELECTORS = [
+  ...getDefaultSelectors(),
+  CLASS_LIST_CONSTANT,
+  { kind: SelectorKind.Callee, name: CLASS_LIST_CALLEES, match: [{ type: MatcherType.String }] },
+  { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP },
+];
+/**
+ * A recipe call's key, read in any call, since a recipe is any function a `tv` call returned, but an assertion's matcher
+ * (`toEqual`, `toMatchObject`), whose object is a value expected, never a recipe's options: the plugin reads a value under
+ * a computed key, `{ [name]: "settled" }`, as standing under every path, the recipe's key included.
+ */
+const RECIPE_CLASS = {
+  kind: SelectorKind.Callee,
+  name: "^(?!to[A-Z]).+$",
+  match: [{ type: MatcherType.ObjectValue, path: RECIPE_CLASS_KEY }],
+};
+
+/** An upper-case constant read as a value, never a key or a member's name, that is not named for a class list. */
+const UNSUFFIXED_CONSTANT =
+  "Identifier[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/]):not(Property > Identifier.key):not(MemberExpression > Identifier.property)";
+/** Each place a class list stands, as the plugin reads it: its defaults' and `CLASS_LIST_SELECTORS`'. */
 const CLASS_LIST_SITES = [
-  'JSXAttribute[name.name="className"] > JSXExpressionContainer',
-  'JSXAttribute[name.name="className"] > JSXExpressionContainer > TemplateLiteral',
-  "VariableDeclarator[id.name=/_CLASSES$/] > TemplateLiteral",
-  "VariableDeclarator[id.name=/_CLASSES$/] > ObjectExpression > Property > TemplateLiteral",
-].join(", ");
+  `JSXAttribute[name.name=/^className$|${CLASS_LIST_PROP}/] > JSXExpressionContainer`,
+  `CallExpression[callee.name=/${CLASS_LIST_CALLEES}/]`,
+  `Property[key.name=/${RECIPE_CLASS_KEY}/]`,
+  'CallExpression[callee.name="tv"]',
+  "VariableDeclarator[id.name=/_CLASSES$/]",
+];
 
 /**
  * `NODE_ENV` and `NEXT_RUNTIME` are Next's own, not the deployment's: Next assigns the first per command
@@ -493,28 +521,6 @@ const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
 const ACTION_STATE_BAN = syntax(
   [`ImportSpecifier[imported.name=${ACTION_STATE_HOOKS}]`, `MemberExpression[property.name=${ACTION_STATE_HOOKS}]`].join(", "),
   "Take `useActionState` through the kit's `useFormAction` in src/kit/useFormAction.ts, which answers every throw as the form's own failure line.",
-);
-
-/** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
-const handedOnError = (object) =>
-  [
-    `Property[key.name="description"] > MemberExpression.value[object.type="Identifier"][property.name="error"]${object}`,
-    `Property[key.name="description"] > LogicalExpression.value[operator="??"] > MemberExpression.left[object.type="Identifier"][property.name="error"]${object}`,
-  ].map((handed) => `CallExpression[callee.object.name="appToast"][callee.property.name="danger"] > ObjectExpression.arguments > ${handed}`);
-
-/**
- * `appToast.failure` titles a write of unknown outcome neutrally, where a danger titled at the site says
- * it did not happen. `sent` is a public form's transport answer, whose `error` is no action's, in a
- * module posting one.
- */
-// Redesign: `gesendet` goes with the confirmation pages sessions 7 and 8 delete, the last spelling it.
-const SENT = "/^(?:sent|gesendet)$/";
-const FAILURE_BY_HAND = syntax(
-  [
-    ...handedOnError(`:not([object.name=${SENT}])`),
-    ...handedOnError(`[object.name=${SENT}]`).map((site) => `Program:not(:has(ImportSpecifier[imported.name="postPublicForm"])) ${site}`),
-  ].join(", "),
-  "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there.",
 );
 
 /**
@@ -595,8 +601,7 @@ const SOURCE_BANS = [
       "A link opening a new tab is the kit's `Link`, which opens every other site's address in one: a target spelled here tells a screen reader nothing.",
     ),
     SOURCE,
-    // Redesign: goes with its last importer. `NewTabLink` is the old pages' new-tab link.
-    { allow: ["src/kit/Link.tsx", "src/shared/components/ui/NewTabLink.tsx"] },
+    { allow: ["src/kit/Link.tsx"] },
   ),
   syntaxBan(
     // Tailwind's `screen` height is 100vh, and lvh is by definition the chrome-hidden height; svh and
@@ -615,20 +620,12 @@ const SOURCE_BANS = [
     SOURCE,
   ),
   syntaxBan(TRANSITION_REWRAP, SOURCE),
-  syntaxBan(FAILURE_BY_HAND, SOURCE, {
-    allow: [
-      // A failure no FastAPI write words, so none carries an unknown outcome: Better Auth answers the sign-out.
-      "src/shared/hooks/useSignOut.ts",
-    ],
-  }),
   syntaxBan(
-    // A constant handed to a recipe, `labelBadge(TONE)`, is its argument rather than a class list, so
-    // only a constant the class list itself holds is refused.
-
-    // Two arms rather than one `site > :matches(…)`: a combinator inside that `:matches` asks the site to
-    // be the member's own parent, so its member arm can match nothing.
+    // A constant handed to a call inside a class list, `labelBadge(TONE)`, is that call's argument rather than a
+    // class list, so only a constant the class list itself holds is refused, a branch or an interpolation of it
+    // included.
     syntax(
-      `:matches(:matches(${CLASS_LIST_SITES}) > Identifier${UNSUFFIXED_CONSTANT}, :matches(${CLASS_LIST_SITES}) > MemberExpression > Identifier.object${UNSUFFIXED_CONSTANT})`,
+      CLASS_LIST_SITES.map((site) => `${site} ${UNSUFFIXED_CONSTANT}:not(${site} CallExpression *)`).join(", "),
       "A class list held in a constant is named `*_CLASSES`: `better-tailwindcss/no-unknown-classes` finds one by that name alone.",
     ),
     SOURCE,
@@ -638,19 +635,18 @@ const SOURCE_BANS = [
     // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "The save spines, fl_frontend/src/core/action.ts on its administrator's and person's lanes and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
+      "The save spine, fl_frontend/src/core/action.ts on its administrator's and person's lanes, clears the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
-    { allow: ["src/shared/utils/adminMutation.ts", "src/core/action.ts"] },
+    { allow: ["src/core/action.ts"] },
   ),
   syntaxBan(
     // A route handler's half of the same rule, Next refusing `updateTag` outside a server action.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-      "fl_frontend/src/shared/utils/publicRoute.ts clears the site's cache tag after a route's write: a route clears nothing itself.",
+      "A route handler clears no cache tag: every write a browser makes is a server action, whose spine in fl_frontend/src/core/action.ts clears the site's tag.",
     ),
     SOURCE,
-    { allow: ["src/shared/utils/publicRoute.ts"] },
   ),
   syntaxBan(
     // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
@@ -717,12 +713,9 @@ const SOURCE_BANS = [
         "address-change",
         "ban-list",
         "bewerbungen",
-        "funktionen",
         "grants",
         "registrierungen",
         "schiedsrichter",
-        "spielberichte",
-        "spielbestaetigungen",
         "spielorte",
       ].map((slice) => `src/features/${slice}/queries.ts`),
     },
@@ -739,7 +732,7 @@ const PROPERTY_BANS = [
   ...["history", "router"].map((object) =>
     ban(
       "no-restricted-properties",
-      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush` or `BackButton`." },
+      { object, property: "back", message: "A bare history back is a silent no-op on a cold entry. Use `goBackOrPush`." },
       SOURCE,
       { allow: ["src/core/goBackOrPush.ts"] },
     ),
@@ -791,16 +784,8 @@ const OFF_SCALE = (except) =>
 /** The one spacing class off the scale, and its one file: a checkbox's box and a switch's track sit 1 px down. */
 const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
-const TABLE_BLOCK = { allow: ["src/kit/Table.tsx"] };
+const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };
 const SIDES = "(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee)";
-const PALETTE =
-  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
-const COLOURED =
-  "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|decoration|divide|accent|caret|placeholder|from|via|to|shadow|inset-shadow";
-
-/** The three keyframes and their module that each old page loses with its rebuild. */
-// Session 8: goes with the last old page, with the two bans that read it.
-const OLD_KEYFRAMES = "loader-dot|admin-placeholder-hold|toast-timer";
 
 const DESIGN_BANS = [
   // Page bodies: page code places the kit's named blocks, so a second match row, empty state or chip
@@ -830,8 +815,8 @@ const DESIGN_BANS = [
       "react/forbid-elements",
       { element, message: "render the kit's control or block for it, built on React Aria." },
       KIT,
-      // The table block is the one that writes a table; the kit's link writes the one plain anchor, its
-      // full-document load, which neither Next's link nor React Aria's under the app's router makes.
+      // The table block writes a table, and the line-up's block its own, whose rows hold a control and stay one line
+      // on a phone; the kit's link writes the one plain anchor, its full-document load, which Next's link never makes.
       {
         a: { allow: ["src/kit/Link.tsx"] },
         table: TABLE_BLOCK,
@@ -881,6 +866,37 @@ const DESIGN_BANS = [
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
     ["AccountBox", ["src/app/account/**"], "An `AccountBox` is one box of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
+  // A form's footer is its container's: each container of fields places the one footer where its acts stand, so a page
+  // never draws a second footer, and every form's acts stand at the same end.
+  kitImport(
+    {
+      regex: kitModule("FormFooter"),
+      message: "A form's footer is its container's: hand the acts to the dialog, the box, the form or the section act that places it.",
+    },
+    PRODUCTION,
+    {
+      allow: [
+        "src/kit/AccountBox.tsx",
+        "src/kit/ConfirmDialog.tsx",
+        "src/kit/Dialog.tsx",
+        "src/kit/MailedPage.tsx",
+        "src/kit/OneShot.tsx",
+        "src/kit/QuestionForm.tsx",
+        "src/kit/Section.tsx",
+        "src/kit/SectionAct.tsx",
+        "src/kit/SignInPage.tsx",
+        "src/kit/StepCard.tsx",
+      ],
+    },
+  ),
+  // The fields' rhythm is the containers' to draw: a page hands its fields to a box, a dialog or a form.
+  kitImport(
+    {
+      regex: kitModule("FieldStack"),
+      message: "Fields stand in their container's `FieldStack`: hand them to a `Section`, a `Dialog`, a `FieldGroup` or a form template.",
+    },
+    OUTSIDE_KIT,
+  ),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(
     syntax(
@@ -903,6 +919,7 @@ const DESIGN_BANS = [
     {
       allow: [
         "src/kit/Checkbox.tsx",
+        "src/kit/ChoiceButtons.tsx",
         "src/kit/CodeField.tsx",
         "src/kit/ComboBox.tsx",
         "src/kit/RadioGroup.tsx",
@@ -918,33 +935,6 @@ const DESIGN_BANS = [
     [packageUnder("lucide-react"), "The icon set"],
     [packageNamed("next/link"), "Next's link"],
   ].map(([regex, what]) => kitImport({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
-  // Session 8: these two bans go with the last old page. HeroUI and its icon set leave with their last
-  // importer; the kit builds on neither.
-  kitImport(
-    {
-      regex: packageUnder("@heroui/react", "@heroui/styles"),
-      message: "The old component set goes with the last page importing it: build on the kit.",
-    },
-    PRODUCTION,
-  ),
-  kitImport(
-    {
-      regex: packageUnder("@gravity-ui/icons"),
-      message: "The old icon set goes with the last page importing it: draw a glyph with the kit's `Icon`.",
-    },
-    PRODUCTION,
-  ),
-  // Session 8: this ban goes with the last old page, and its allowance once the logo moves into the kit.
-  // The old shared components go the same way. The kit's `Brand` draws the old logo until the logo moves
-  // into the kit.
-  kitImport(
-    {
-      regex: String.raw`^(?:@\x2F|\.{1,2}\x2F(?:.*\x2F)?)shared\x2Fcomponents\x2F`,
-      message: "The old components go with the last page importing them: build on the kit.",
-    },
-    PRODUCTION,
-    { allow: ["src/kit/Brand.tsx"] },
-  ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[
@@ -969,8 +959,8 @@ const DESIGN_BANS = [
     [
       ["Modal", "ModalOverlay"],
       "Modal",
-      ["src/kit/Dialog.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
-      "The overlay is `Dialog`'s, `ConfirmDialog`'s and `Sheet`'s alone.",
+      ["src/kit/DialogOverlay.tsx", "src/kit/ConfirmDialog.tsx", "src/kit/Sheet.tsx"],
+      "The overlay is `DialogOverlay`'s, which `Dialog` and `ConfirmDialog` stand in, and `Sheet`'s alone.",
     ],
     [
       ["Form"],
@@ -1015,17 +1005,19 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The seven blocks carrying a name: a table row's, a card's and a card row's, a match's, a record's facts, the
-    // page header's title, a school's tile and a party's answer.
+    // The nine blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's, a
+    // record's facts, the page header's title, a school's tile, a figure's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
         "src/kit/Table.tsx",
         "src/kit/Card.tsx",
+        "src/kit/Lineup.tsx",
         "src/kit/SpielRow.tsx",
         "src/kit/Facts.tsx",
         "src/kit/RailFrame.tsx",
         "src/kit/TileGrid.tsx",
+        "src/kit/StatTiles.tsx",
       ],
     },
   ),
@@ -1049,11 +1041,10 @@ const DESIGN_BANS = [
     PRODUCTION,
   ),
 
-  // The scale: one spacing scale, six type sizes, four corners and a round shape, two shadows and
-  // the token colours. Tailwind's own scale stays defined while HeroUI's stylesheets read it, so the
-  // classes are held here.
-  // Session 8: once HeroUI's stylesheets go, the theme resets Tailwind's namespaces to `initial` and the
-  // bans the resets make redundant go.
+  // The scale: one spacing scale, seven type sizes, four corners and a round shape, two shadows and the token colours.
+  // The theme resets Tailwind's type sizes, corners, shadows and colours (`src/app/tokens.css`), so a class off those
+  // compiles to nothing and `no-unknown-classes` refuses it; what the reset leaves is held here. Spacing keeps
+  // Tailwind's steps, on which the widths and heights are drawn, and a value in brackets compiles in any namespace.
   classBan(OFF_SCALE(""), "Spacing is one scale: 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, 12 or 16.", PRODUCTION, {
     allow: [TOGGLE_OFFSET.home],
   }),
@@ -1072,26 +1063,17 @@ const DESIGN_BANS = [
     "A width cap or a letterfit is a token: max-w-form, max-w-panel and their kin, or tracking-display or tracking-caps.",
     KIT,
   ),
+  // A square corner is Tailwind's own `none` value, set by no theme name.
   classBan(
-    CLASS(String.raw`text-(?:lg|[4-9]xl)`),
-    "Type is seven sizes: text-2xs for a phone's compact table alone, then text-xs, text-sm, text-base, text-xl, text-2xl and text-3xl.",
-    PRODUCTION,
-  ),
-  classBan(
-    CLASS(String.raw`rounded(?:-${SIDES})?(?:-(?:none|xs|2xl|3xl|4xl))?`),
+    CLASS(String.raw`rounded(?:-${SIDES})?-none`),
     "A corner is rounded-sm (4 px), rounded-md (6 px), rounded-lg (8 px) or rounded-xl (12 px), or rounded-full for a shape round by nature.",
     PRODUCTION,
   ),
+  // These three families take a colour, `none` or a value in brackets beside their reset steps.
   classBan(
-    CLASS(String.raw`(?:shadow(?:-(?:2xs|xs|sm|md|lg|xl|2xl|inner))?|(?:inset-shadow|drop-shadow|text-shadow)(?:-.+)?)`),
+    CLASS(String.raw`(?:inset-shadow|drop-shadow|text-shadow)(?:-.+)?`),
     "Only menus and pop-ups cast a shadow: shadow-menu or shadow-dialog.",
     PRODUCTION,
-  ),
-  classBan(CLASS(String.raw`(?:${COLOURED})-(?:${PALETTE})-\d+(?:\x2F.+)?`), "A colour is one of the tokens.", PRODUCTION),
-  classBan(
-    CLASS(String.raw`(?:${COLOURED})-(?:black|white)(?:\x2F.+)?`),
-    "A colour is one of the tokens; the scrim is the kit's.",
-    OUTSIDE_KIT,
   ),
   classBan(
     String.raw`^.*(?:\[|\(--).*$`,
@@ -1101,17 +1083,11 @@ const DESIGN_BANS = [
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
   classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
 
-  // Motion: the token pair inside the kit, and nothing new from the old keyframes or their module.
+  // Motion: the token pair inside the kit.
   classBan(
     CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
     "Motion is the kit's, from the token pair under reduced motion.",
     OUTSIDE_KIT,
-  ),
-  // Session 8: the old keyframes' and the old motion module's bans go with the last old page.
-  classBan(String.raw`^.*(?:${OLD_KEYFRAMES}).*$`, "The old keyframes go with each page's rebuild: nothing new uses them.", PRODUCTION),
-  kitImport(
-    { regex: moduleNamed("motion"), message: "The old motion module goes with each page's rebuild: nothing new imports it." },
-    PRODUCTION,
   ),
 
   // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
@@ -1307,11 +1283,7 @@ const NAMED = [...new Set(BANS.flatMap(({ only = [], allow }) => [...only, ...al
 const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
-/**
- * Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. A
- * deleted file's counts in eslint-suppressions.json are the gate's to find, as a prune that changes the
- * file (`scripts/gate/verify.sh :: scope_frontend`): a throw here would read as a crash.
- */
+/** Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const GONE = [
   ...NAMED_FILES.filter((path) => !existsSync(join(HERE, path))),
@@ -1442,7 +1414,7 @@ const eslintConfig = defineConfig([
         detectComponentClasses: true,
         // The plugin reads a variable by its whole name and nothing else, so a class list held in a
         // module constant is reached through the suffix every such constant carries.
-        selectors: [...getDefaultSelectors(), CLASS_LIST_CONSTANT],
+        selectors: [...CLASS_LIST_SELECTORS, RECIPE_CLASS],
       },
     },
     rules: {
@@ -1462,7 +1434,7 @@ const eslintConfig = defineConfig([
           // The constants alone, which the Prettier plugin never sorts: a class list both tools sorted
           // would have two owners, and a version bump moving either order would set them fighting over it.
           selectors: [CLASS_LIST_CONSTANT],
-          // On, a HeroUI component class sorts ahead of `group` or `peer`, where the Prettier plugin
+          // On, a class of the components layer sorts ahead of `group` or `peer`, where the Prettier plugin
           // keeps both where they stand; off, the two orders agree.
           detectComponentClasses: false,
         },
@@ -1473,14 +1445,6 @@ const eslintConfig = defineConfig([
   // Syntax, import and class bans rather than test sweeps: a comment naming a spelling is no literal, so
   // prose never trips one.
   ...BAN_BLOCKS,
-
-  // A mailed link's confirmation answers a POST alone: a mail scanner opening the link sends a GET,
-  // and a GET handler here would confirm the seat in the scanner's name. Any upper-case export but
-  // `POST` is a method Next.js would route.
-  {
-    files: ["src/app/api/bestaetigung/**/route.ts"],
-    rules: { "no-restricted-exports": ["error", { restrictedNamedExportsPattern: "^(?!POST$)[A-Z]+$" }] },
-  },
 
   // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
   // route handlers no browser form posts to, the four that stay: three for callers that are not a browser, and the
@@ -1522,8 +1486,7 @@ const eslintConfig = defineConfig([
 
   // File and folder names by kind (`docs/writing.md`): every folder kebab-case, a route folder in the App Router's own
   // forms around it, a dynamic segment named as its param; every module camelCase and every component PascalCase,
-  // before its middle extensions. Next.js's kebab-case file conventions keep Next's names. A file or folder a later
-  // session deletes or rebuilds passes through the suppressions file until that session renames it.
+  // before its middle extensions. Next.js's kebab-case file conventions keep Next's names.
   {
     files: ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
     plugins: { "check-file": checkFile },
@@ -1544,6 +1507,10 @@ const eslintConfig = defineConfig([
   {
     files: ["src/app/tokens.css"],
     language: "css/css",
+    // A theme's namespace reset, `--color-*: initial`, is Tailwind's syntax rather than CSS's: the parser takes it only
+    // when tolerant, the mode @eslint/css documents for syntax outside CSS. Not the Tailwind syntax it also documents,
+    // `tailwind-csstree`, which refuses a class's opacity under `@apply`. Tailwind's own compile still refuses a real error.
+    languageOptions: { tolerant: true },
     plugins: { css, tokens: { rules: { contrast: tokenContrast } } },
     rules: { "tokens/contrast": "error" },
   },

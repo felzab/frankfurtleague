@@ -5,7 +5,9 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { spieltagLabel } from "@/features/spieltage/utils";
 
-import type { Copy } from "@/core/copy";
+import { isNoShow } from "./result";
+
+import type { Copy, Words } from "@/core/copy";
 import type { Pair } from "@/core/format";
 import type {
   FLSonderereignis,
@@ -17,6 +19,7 @@ import type {
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
+import type { PageTitle } from "@/kit/RailFrame";
 import type { SpielHeadProps } from "@/kit/SpielHead";
 import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 import type { Outcome } from "@/kit/Timeline";
@@ -91,6 +94,22 @@ function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | nul
     : { name: words.long, plaque: { quelle: words.short } };
 }
 
+/**
+ * A side as a page names it where a read serves its club's name alone: the club, or „Noch offen“ while the draw has
+ * not settled it, the word a list's row gives a side with no source to name.
+ */
+const sideName = (name: string | null): Words => (name === null ? COPY.spielplan.quelle.open : { record: name });
+
+/** A match by its two sides, as every page about one match is titled, its tab and a row leading to it alike. */
+export const matchName = (team1: string | null, team2: string | null): Copy => COPY.page.spiel(sideName(team1), sideName(team2));
+
+/** The strip's title of a page about one match, named as `matchName` names it. */
+export const matchTitle = (team1: string | null, team2: string | null): PageTitle => ({
+  route: "spiel",
+  team1: sideName(team1),
+  team2: sideName(team2),
+});
+
 /** The match's two sides, the first-listed side first. */
 export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
   return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
@@ -125,9 +144,7 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   const { sonderereignis } = spiel;
   if (sonderereignis === null) return {};
   const label = sonderereignisOf(sonderereignis, spiel);
-  if (sonderereignis !== "nichtantreten_team1" && sonderereignis !== "nichtantreten_team2") {
-    return { chip: { tone: "danger", label }, muted: true };
-  }
+  if (!isNoShow(sonderereignis)) return { chip: { tone: "danger", label }, muted: true };
   return {
     chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtAngetretenChip, spoken: label },
     muted: true,
@@ -135,20 +152,41 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   };
 }
 
-/**
- * A match as a row or a card of a match list, the whole of it a link to the match, which opens as the pop-up
- * over the page. The third-place match says so before its date, the one line every form of the row shows.
- */
-export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
-  const when = whenOf(spiel);
+/** A match's row with `when` as its date line, the whole of it a link to the match. */
+function rowOf(spiel: Listed, when: Copy, linked = true): SpielRowProps & { id: string } {
   return {
     id: spiel.id,
-    href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
-    when: spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when,
+    ...(linked ? { href: ROUTES.spiel.path(spiel.saison_id, spiel.id) } : {}),
+    when,
     ...sidesOf(spiel),
     ...resultOf(spiel),
     ...befellOf(spiel),
   };
+}
+
+/**
+ * A match as a row or a card of a match list, which opens as the pop-up over the page. The third-place match says
+ * so before its date, the one line every form of the row shows: such a list sets no head of its own over the match,
+ * and a matchday's tab holds the final beside it.
+ */
+export function matchRowOf(spiel: Listed): SpielRowProps & { id: string } {
+  const when = whenOf(spiel);
+  return rowOf(spiel, spiel.for_third_place ? SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when) : when);
+}
+
+/**
+ * A match under its own matchday's head, as a list giving every match one shows it. The head names the third-place
+ * match, so its row's date line names the day alone. `linked` false where the public may not read the season, whose
+ * match pages answer not found: the row then leads nowhere.
+ */
+export function headedMatchOf(
+  spiel: Listed & Pick<FLSpielJoined, "saison_phase"> & Matchday,
+  linked = true,
+): {
+  head: Copy;
+  spiel: SpielRowProps & { id: string };
+} {
+  return { head: matchdayOf(spiel, spiel), spiel: rowOf(spiel, whenOf(spiel), linked) };
 }
 
 /** Where a group side stands, a link to its row of the Tabelle; a knockout side's round, a link to the match's card in the tree. */

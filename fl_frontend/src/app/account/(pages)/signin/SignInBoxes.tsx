@@ -43,7 +43,7 @@ export function SignInBoxes({
   const address = (
     <Facts
       look="free"
-      facts={[{ label: COPY.account.address.current, value: { record: email } }]}
+      facts={[{ label: COPY.account.address.current, value: { record: email, address: true } }]}
     />
   );
   return (
@@ -63,7 +63,6 @@ export function SignInBoxes({
           <TextField
             label={COPY.account.address.new}
             name="email"
-            width="W3"
             kind="email"
             isRequired={addressRequired}
           />

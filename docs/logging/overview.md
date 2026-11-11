@@ -85,9 +85,7 @@ A client component cannot reach the server's logger. Every error boundary theref
 to `POST /api/client-error` (`fl_frontend/src/app/api/client-error/route.ts`), which writes one
 `client.crash_reported` line; the bot-check widget reports a failure the same way. The route is public, so
 nginx rate-limits it and the route caps every field. A failure rendered on the server is logged as
-`system.request_crashed` with a digest instead, and the error page's report link
-(`fl_frontend/src/shared/components/ui/CrashReportLink.tsx`) carries that digest, the route and the
-time, which together find the line.
+`system.request_crashed` with a digest instead.
 
 ## In development
 

@@ -186,7 +186,7 @@ class Mailed:
     confirmations: list[Link]
 
     @property
-    def bestaetigung(self) -> Link:
+    def confirmation(self) -> Link:
         [link] = self.confirmations
         return link
 
@@ -267,7 +267,7 @@ async def replace(database: AsyncDatabase) -> Any:
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=database.client,
         today=TODAY,
     )
@@ -384,6 +384,9 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         assert [mint.rollen for mint in response.confirmations] == [["trainer", "stellvertretung"], ["ansprechperson"]]
         assert row["confirmations"]["trainer"] == row["confirmations"]["stellvertretung"]
         assert (view.rolle, view.also_rolle) == ("trainer", "stellvertretung")
+        # The floor of both seats, the Stellvertretung's being the higher: the page judges the birthdate by it.
+        assert SEAT_MIN_AGE_YEARS["stellvertretung"] > SEAT_MIN_AGE_YEARS["trainer"]
+        assert view.minimum_age == SEAT_MIN_AGE_YEARS["stellvertretung"]
 
     def test_re_saving_the_same_confirmed_person_mints_nothing_and_keeps_the_stamp(self, mongo_replica_set_url: str):
         confirmed = {**STORED_UNCONFIRMED, "trainer": stored("Ida", confirmed_at="2026-03-20")}
@@ -437,16 +440,16 @@ class TestTheResend:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await resend(database, "ansprechperson")
 
-            return response, await row_now(database), await read_view(database, response.bestaetigung.token)
+            return response, await row_now(database), await read_view(database, response.confirmation.token)
 
         response, row, view = on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
 
-        assert (response.bestaetigung.rollen, response.bestaetigung.email, response.bestaetigung.deadline) == (
+        assert (response.confirmation.rollen, response.confirmation.email, response.confirmation.deadline) == (
             ["ansprechperson"],
             "jonas@example.com",
             DEADLINE,
         )
-        assert response.bestaetigung.schule == TEAM_NAME
+        assert response.confirmation.schule == TEAM_NAME
         assert (row["confirmations"]["trainer"], row["confirmations"]["stellvertretung"]) == (None, None)
         assert (view.rolle, view.state) == ("ansprechperson", "valid")
 
@@ -460,7 +463,7 @@ class TestTheResend:
         first, again, code, row = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.LINK_INVALID
-        assert row["confirmations"]["trainer"]["deadline"] == confirmation_deadline_from(today="2026-04-05") == again.bestaetigung.deadline
+        assert row["confirmations"]["trainer"]["deadline"] == confirmation_deadline_from(today="2026-04-05") == again.confirmation.deadline
         # The two seats the re-send did not name keep the links already in their inboxes.
         assert row["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(first.confirmations[1].token)]
 
@@ -474,7 +477,7 @@ class TestTheResend:
 
         response, row = on_a_league(mongo_replica_set_url, body, kontakte=paired)
 
-        assert response.bestaetigung.rollen == ["trainer", "stellvertretung"]
+        assert response.confirmation.rollen == ["trainer", "stellvertretung"]
         assert row["confirmations"]["trainer"] == row["confirmations"]["stellvertretung"] is not None
 
     @pytest.mark.parametrize(
@@ -564,7 +567,7 @@ class TestTheLinkConfirms:
         before, answered, row, after = on_a_league(mongo_replica_set_url, body)
 
         assert before == []
-        assert (answered.quelle, answered.ergebnis, answered.birth_date, answered.whatsapp) == (
+        assert (answered.quelle, answered.outcome, answered.birth_date, answered.whatsapp) == (
             "saison",
             "confirmed",
             AN_ADULTS_BIRTHDATE,
@@ -635,7 +638,7 @@ class TestTheLinkConfirms:
 
         answered, row, view = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered.quelle, answered.ergebnis, answered.birth_date) == ("saison", "declined", None)
+        assert (answered.quelle, answered.outcome, answered.birth_date) == ("saison", "declined", None)
         assert row["kontakte"]["stellvertretung"] is None
         assert row["confirmations"]["stellvertretung"]["declined_at"] == TODAY
         assert view.state == "declined"
@@ -702,9 +705,9 @@ class TestTheDeadline:
             await save(database, THREE)
             fresh = await resend(database, "trainer", today=AFTER_THE_DEADLINE)
 
-            return await answer(database, fresh.bestaetigung.token, today=AFTER_THE_DEADLINE)
+            return await answer(database, fresh.confirmation.token, today=AFTER_THE_DEADLINE)
 
-        assert on_a_league(mongo_replica_set_url, body).ergebnis == "confirmed"
+        assert on_a_league(mongo_replica_set_url, body).outcome == "confirmed"
 
 
 class TestARowsPeopleLeavingTakeTheirLinks:
@@ -785,7 +788,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
         view, answered = on_a_league(mongo_replica_set_url, body)
 
         assert (view.quelle, view.schule, view.rolle, view.row) == ("bewerbung", TEAM_NAME, "trainer", None)
-        assert (answered.quelle, answered.ergebnis) == ("bewerbung", "confirmed")
+        assert (answered.quelle, answered.outcome) == ("bewerbung", "confirmed")
 
 
 class TestARowNoLongerInTheSeason:
@@ -830,7 +833,7 @@ class TestARowNoLongerInTheSeason:
             (["ansprechperson"], kontakt_row),
             (["stellvertretung"], kontakt_row),
         ]
-        assert (view.state, consent, objection.ergebnis) == ("saison_past", Code.KONTAKT_SAISON_PAST, "declined")
+        assert (view.state, consent, objection.outcome) == ("saison_past", Code.KONTAKT_SAISON_PAST, "declined")
         assert row["kontakte"]["trainer"] is None
 
     @pytest.mark.parametrize(
@@ -923,7 +926,7 @@ class TestALinkOutlivingItsSeason:
 
         answered, row, reopened = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered.ergebnis, answered.media) == ("declined", False)
+        assert (answered.outcome, answered.media) == ("declined", False)
         assert row["kontakte"]["trainer"] is None
         # Its answer outranks the closed row, as `confirmed` does.
         assert reopened.state == "declined"
@@ -971,7 +974,7 @@ class TestARolloverInsideTheConsentPress:
             answered = await answer(database, token, saisons=cast(AsyncCollection, seasons))
             saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, projection={"status": 1})
 
-            return answered.ergebnis, seasons.passes, saison, await row_now(database)
+            return answered.outcome, seasons.passes, saison, await row_now(database)
 
         ergebnis, passes, saison, row = on_a_league(mongo_replica_set_url, body)
 

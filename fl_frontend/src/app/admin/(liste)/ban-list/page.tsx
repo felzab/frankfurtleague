@@ -33,8 +33,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 const HEAD: TableHead = {
   nameLabel: COPY.signIn.address,
   columns: [
-    { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "line", cut: true },
-    { key: "until", label: COPY.admin.team.linkValidUntil, narrow: true, width: "date" },
+    { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
+    { key: "until", label: COPY.admin.banList.until, narrow: true, width: "date" },
     { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],
   acts: [COPY.shared.verb.remove],
@@ -48,7 +48,7 @@ async function readHolder() {
 /** One ban's row, opening nothing: its address, the Grund cut at its column, the last season it covers, and its lift. */
 const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
   id: ban.id,
-  name: { record: ban.address },
+  name: { record: ban.address, address: true },
   words: `${ban.address} ${ban.ban_reason}`,
   cells: {
     reason: { record: ban.ban_reason },
@@ -61,7 +61,7 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
       subject={WORDS.object}
       consequence={WORDS.liftConsequence}
       facts={[
-        { label: COPY.signIn.address, value: { record: ban.address } },
+        { label: COPY.signIn.address, value: { record: ban.address, address: true } },
         { label: COPY.admin.spiel.reason, value: { record: ban.ban_reason } },
       ]}
       act={liftBan}

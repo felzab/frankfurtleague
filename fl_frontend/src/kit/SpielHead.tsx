@@ -154,12 +154,12 @@ function SidePlaceholder() {
     <span className={style.side()}>
       <span className={placeholderBar("h-6 w-10")} />
       <PlaceholderLine
-        text="text-sm"
-        width="w-24"
+        textClass="text-sm"
+        widthClass="w-24"
       />
       <PlaceholderLine
-        text={style.standing()}
-        width="w-20"
+        textClass={style.standing()}
+        widthClass="w-20"
       />
     </span>
   );
@@ -174,8 +174,8 @@ export function SpielHeadPlaceholder({ placement = "page" }: { placement?: "dial
   return (
     <div className={style.root()}>
       <PlaceholderLine
-        text={style.eyebrow()}
-        width="w-24"
+        textClass={style.eyebrow()}
+        widthClass="w-24"
       />
       <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
         <SidePlaceholder />
@@ -230,13 +230,13 @@ function PopupPlaceholder() {
     <RouteDialogBody
       title={COPY.shared.loading}
       act={
-        <Placeholder layout="grid">
+        <Placeholder layoutClass="grid">
           <span className={buttonPlaceholder("w-full")} />
         </Placeholder>
       }>
       {/* The dialog's name says the wait, so its status would say it twice. */}
       <Waiting
-        layout="grid gap-6"
+        layoutClass="grid gap-6"
         status={false}>
         <SpielHeadPlaceholder placement="dialog" />
         <FactsPlaceholder

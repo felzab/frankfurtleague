@@ -2,15 +2,15 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLSpielElfmeterschiessen, FLSpielElfmeterschiessenPayload, FLSpielortFieldPublic
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import SPIELBERICHT_ENTRIES_MAX, SPIELBERICHT_REMARKS_MAX_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
     CustomTimeString,
+    CustomVersion,
     FLUtcInstant,
     parse_empty_string_to_none,
 )
@@ -31,21 +31,6 @@ CustomSpielberichtRemarks = Annotated[
 
 type FLCardColour = Literal["gelb", "gelb_rot", "rot"]
 
-# Why a card was shown, from a closed list: a characterisation of a named pupil's conduct, so served on the
-# administrator's and the referee's reads alone.
-type FLCardReason = Literal[
-    "foulspiel",
-    "unsportlichkeit",
-    "handspiel",
-    "meckern",
-    "spielverzoegerung",
-    "wiederholtes_foulspiel",
-    "grobes_foulspiel",
-    "taetlichkeit",
-    "beleidigung",
-    "notbremse",
-]
-
 # The events a referee may propose: the three a match that took place can end in. A fixture called off or struck
 # out has no report.
 FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]
@@ -58,8 +43,8 @@ type FLSpielberichtState = Literal["proposed", "adopted", "differing", "cancelle
 class FLSpielberichtVorschlag(BaseModel):
     """The referee's proposed result, which only the administrator's own save applies.
 
-    Both counts null on a no-show alone: the save composes its goals from the season's forfeit, which typed goals
-    could never equal.
+    Each count is the entries credited to that side, written by the report's save and sent by no form. Both null on a
+    no-show alone: the save composes its goals from the season's forfeit, which counted goals could never equal.
     """
 
     team1_tore: Annotated[int, Field(ge=0)] | None
@@ -79,27 +64,28 @@ class FLSpielberichtScorer(BaseModel):
 
 
 class FLSpielberichtCard(BaseModel):
-    """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
+    """One card: who was shown it, when, and its colour.
+
+    A null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad
+    still takes cards.
+    """
 
     side: FLSpielSide
-    spieler_id: CustomObjectId
+    spieler_id: CustomObjectId | None
     minute: CustomSpielberichtMinute
     colour: FLCardColour
-    reason: FLCardReason | None
 
 
-class FLSpielberichtCardPayload(FLSpielberichtCard):
-    """One card as a write sends it: a caution names its reason (`find_card_reason_missing_refusal`)."""
+class FLSpielberichtScorerPayload(FLSpielberichtScorer):
+    """One goal as the referee's save sends it: a key the goal does not declare is refused, never dropped."""
 
     model_config = ConfigDict(extra="forbid")
 
 
-class FLSpielberichtBySchiedsrichter(BaseModel):
-    kind: Literal["schiedsrichter"]
-    schiedsrichter_id: CustomObjectId
+class FLSpielberichtCardPayload(FLSpielberichtCard):
+    """One card as the referee's save sends it: a key the card does not declare is refused, never dropped."""
 
-
-FLSpielberichtBy = Annotated[FLSpielberichtBySchiedsrichter | FLByAdmin, Field(discriminator="kind")]
+    model_config = ConfigDict(extra="forbid")
 
 
 class FLSpielberichtSides(BaseModel):
@@ -113,11 +99,7 @@ class FLSpielberichtSides(BaseModel):
 
 
 class FLSpielberichtBericht(BaseModel):
-    """The referee's account of one match, one proposal, a correction after its adoption reading `differing`.
-
-    `version` rises with each write of the content and the adoption records the one it took: adopted means equal, never
-    a clock.
-    """
+    """The referee's account of one match, one proposal, a correction after its adoption reading `differing`."""
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
     scorers: list[FLSpielberichtScorer]
@@ -126,21 +108,19 @@ class FLSpielberichtBericht(BaseModel):
     remarks: CustomNonEmptyString | None
     sides: FLSpielberichtSides
     submitted_at: FLUtcInstant
-    submitted_by: FLSpielberichtBy
-    changed_at: FLUtcInstant
-    version: int
-    adopted_at: FLUtcInstant | None
-    adopted_by: FLByAdmin | None
-    adopted_version: int | None
+    # Whether the administrator's save took this content over. The referee's every write clears it in the same update,
+    # so it never outlives the content it was given for; a job writing the document (an erased pupil's repoint, the
+    # season-end strip) leaves it alone.
+    adopted: bool
 
 
 class FLSpielbericht(BaseModel):
-    """One fixture's report document, as stored. A document with a null `bericht` holds no report, and every read says so."""
+    """One fixture's report document, as stored: created by the referee's first save, and the report's alone."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
     spiel_id: CustomObjectId
-    bericht: FLSpielberichtBericht | None
+    bericht: FLSpielberichtBericht
     # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
@@ -148,45 +128,57 @@ class FLSpielbericht(BaseModel):
 # --- The WRITE: the referee's PUT.
 
 
+class FLSpielberichtVorschlagPayload(BaseModel):
+    """What the referee proposes beside the goals: a shoot-out, or the event the match ended in."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Both required as KEYS and null where unused: an omitted key would read as a form that forgot it.
+    elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
+    sonderereignis: FLSpielberichtSonderereignis | None
+
+
 class FLSpielberichtBerichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    ergebnis_vorschlag: FLSpielberichtVorschlag
-    scorers: Annotated[list[FLSpielberichtScorer], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
+    ergebnis_vorschlag: FLSpielberichtVorschlagPayload
+    # The payload's own item models: a model's `extra` reaches none nested in it, and the stored ones stay lenient.
+    scorers: Annotated[list[FLSpielberichtScorerPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     cards: Annotated[list[FLSpielberichtCardPayload], Field(max_length=SPIELBERICHT_ENTRIES_MAX)]
     remarks: Annotated[CustomSpielberichtRemarks | None, BeforeValidator(parse_empty_string_to_none)]
 
-    @model_validator(mode="after")
-    def every_goal_has_one_entry(self) -> Self:
-        """Per side, the goals proposed equal the entries credited to it; an own goal credits the other side.
+    def proposed(self) -> FLSpielberichtVorschlag:
+        """The proposal as stored: each side's count is the entries credited to it, an own goal crediting the other side.
 
-        A no-show proposes the event alone: the league composes its goals, so it carries no count, no shoot-out and
-        no scorer.
+        Both counts null on a no-show, whose goals the league composes.
         """
 
         vorschlag = self.ergebnis_vorschlag
-
         if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
-            if vorschlag.team1_tore is not None or vorschlag.team2_tore is not None or vorschlag.elfmeterschiessen is not None:
-                raise rule_refusal("nichtantreten_with_tore", "a no-show proposes no goals: the league composes them")
+            return FLSpielberichtVorschlag(team1_tore=None, team2_tore=None, **vorschlag.model_dump())
+
+        credited = {"team1": 0, "team2": 0}
+        for tor in self.scorers:
+            # An own goal is scored by `side` and counts for the other side.
+            credited[("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side] += 1
+
+        return FLSpielberichtVorschlag(team1_tore=credited["team1"], team2_tore=credited["team2"], **vorschlag.model_dump())
+
+    @model_validator(mode="after")
+    def the_proposal_fits_its_entries(self) -> Self:
+        """A no-show proposes the event alone, with no shoot-out and no scorer; a shoot-out follows level goals alone."""
+
+        proposed = self.proposed()
+
+        if proposed.sonderereignis in SONDEREREIGNIS_NO_SHOW:
+            if proposed.elfmeterschiessen is not None:
+                raise rule_refusal("nichtantreten_with_elfmeterschiessen", "a no-show proposes no shoot-out")
             if self.scorers:
                 raise rule_refusal("nichtantreten_with_scorers", "a no-show credits no scorer")
             return self
 
-        if vorschlag.team1_tore is None or vorschlag.team2_tore is None:
-            raise rule_refusal("ergebnis_missing_tore", "a result names both sides' goals")
-
-        if vorschlag.elfmeterschiessen is not None and vorschlag.team1_tore != vorschlag.team2_tore:
+        if proposed.elfmeterschiessen is not None and proposed.team1_tore != proposed.team2_tore:
             raise rule_refusal("elfmeterschiessen_without_draw", "a shoot-out follows a draw alone")
-
-        gutgeschrieben = {"team1": 0, "team2": 0}
-        for tor in self.scorers:
-            # An own goal is scored by `side` and counts for the other side.
-            side = ("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side
-            gutgeschrieben[side] += 1
-
-        if (gutgeschrieben["team1"], gutgeschrieben["team2"]) != (vorschlag.team1_tore, vorschlag.team2_tore):
-            raise rule_refusal("scorers_not_matching_tore", "the scorers credit other goals than the result reads")
 
         return self
 
@@ -197,21 +189,19 @@ class FLSpielberichtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     bericht: FLSpielberichtBerichtPayload
-    # A precondition, written nowhere: the version of the report the form was served, null where none stood. Required
-    # with no default: an omitted one would judge nothing
-    # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`).
-    bericht_stand: int | None
-    # The document's `version` the form was served; absent, the save is checked against nothing.
-    version: int | None = None
+    # The document's `version` the form was served, null where it showed no report: required with no default, since an
+    # omitted one would check nothing (`app/core/crud.py :: find_stale_first_save_refusal`).
+    version: CustomVersion | None
 
 
-# --- The READS. The referee's form and the administrator's panel read one shape: the fixture, both live
-# squads to pick from, and the stored block.
+# --- The READ of the referee's form: the fixture, both live squads to pick from, and the stored block.
 
 
 class FLSpielberichtTeam(BaseModel):
     team_id: CustomObjectId
+    # Both as the club's row in the fixture's own season holds them.
     name: str
+    shorthand: str
 
 
 class FLSpielberichtSpiel(BaseModel):
@@ -224,6 +214,8 @@ class FLSpielberichtSpiel(BaseModel):
     time: CustomTimeString | None
     team1: FLSpielberichtTeam | None
     team2: FLSpielberichtTeam | None
+    # The ground the form's lead names beside the day and the hour, null where none is assigned.
+    spielort: FLSpielortFieldPublic | None
     sonderereignis: FLSonderereignis | None
 
 
@@ -243,8 +235,9 @@ class FLSpielberichtKader(BaseModel):
     team2: list[FLSpielberichtSpieler]
 
 
-# Private, so the two reads below publish their own components and none for the base.
-class _SpielberichtView(BaseAPIResponse):
+class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
+    """The booked referee's form, the stored remarks included."""
+
     spiel: FLSpielberichtSpiel
     kader: FLSpielberichtKader
     # Every pupil the stored block names outside the squads served -- one ausgetragen since the match, or of a club a
@@ -254,39 +247,13 @@ class _SpielberichtView(BaseAPIResponse):
     # The sides fielding another club than the report's last write found there, which reads `sides_changed`.
     sides_changed: list[FLSpielSide]
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
-    # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
+    # has raised it, the administrator's adoption among them.
     version: int | None
-
-
-class FLSpielberichtSchiedsrichterResponse(_SpielberichtView):
-    """The booked referee's form: the remarks and the card reasons included, and no `state`."""
-
     # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
     completed: bool
-
-
-class FLSpielberichtPersonEntry(BaseModel):
-    """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
-
-    spiel_id: CustomObjectId
-    date: CustomDateString
-    time: CustomTimeString | None
-    team1_name: str | None
-    team2_name: str | None
-    submitted_at: FLUtcInstant | None
-
-
-class FLSpielberichtPersonEarlierEntry(FLSpielberichtPersonEntry):
-    """One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."""
-
-    date: CustomDateString | None
-
-
-class FLSpielberichteSelfResponse(BaseAPIResponse):
-    """`spiele` of the running season, which the referee reports on; `earlier` of ended ones, each holding a report they only read."""
-
-    spiele: list[FLSpielberichtPersonEntry]
-    earlier: list[FLSpielberichtPersonEarlierEntry]
+    # Whether the referee writes the report now, as the referee's list judges it: played, not called off or struck out,
+    # its season running. Played from the kick-off, or from the day where the fixture holds no time.
+    reportable: bool
 
 
 class FLSpielberichtStateEntry(BaseModel):
@@ -335,7 +302,7 @@ class FLSpielberichtScorerPublic(BaseReadModel):
 
 
 class FLSpielberichtCardPublic(BaseReadModel):
-    """One card, `side` its player's club, its `reason` never served: a characterisation of a named pupil's conduct."""
+    """One card, `side` its player's club."""
 
     side: FLSpielSide
     minute: CustomSpielberichtMinute
@@ -343,30 +310,13 @@ class FLSpielberichtCardPublic(BaseReadModel):
     spieler: FLSpielberichtSpielerPublic
 
 
-class FLAufstellungEntryPublic(FLSpielberichtSpielerPublic):
-    starts: bool
-
-
-class FLAufstellungPublic(BaseReadModel):
-    """One club's line-up for the match, starters and substitutes in the order the club entered them."""
-
-    team_id: CustomObjectId
-    spieler: list[FLAufstellungEntryPublic]
-
-
-class FLAufstellungenPublic(BaseReadModel):
-    team1: FLAufstellungPublic | None
-    team2: FLAufstellungPublic | None
-
-
 class FLSpielberichtPublic(BaseReadModel):
     """What the public may read of one match's report.
 
-    The line-ups whenever a club entered one: they are the clubs' own submissions. The scorers and the cards only
-    while the referee's report reads `adopted` -- adopted, unchanged since, and matching the result -- each by minute;
-    null otherwise, which is "not official yet" where an empty list is "nobody scored".
+    The scorers and the cards only while the referee's report reads `adopted` -- adopted, unchanged since, and
+    matching the result -- each by minute; null otherwise, which is "not official yet" where an empty list is "nobody
+    scored".
     """
 
-    aufstellungen: FLAufstellungenPublic
     scorers: list[FLSpielberichtScorerPublic] | None
     cards: list[FLSpielberichtCardPublic] | None

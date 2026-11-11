@@ -21,10 +21,12 @@ export type FoldedCard = {
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
 
-const folds = (count: number) => (count > 1 ? "grid content-start items-start gap-3 lg:grid-cols-2" : "grid");
+/** Two cards to a row from `lg`, where there are several. */
+const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 lg:grid-cols-2";
+const folds = (count: number) => (count > 1 ? SPLIT_FOLDS_CLASSES : "grid");
 
 /** One card under another at every width, as the list template sets its cards. */
-const COLUMN = "grid gap-6";
+const COLUMN_CLASSES = "grid gap-6";
 
 /**
  * A fold head's count while it is read. The bar stands inline, so its line keeps the count's strut and with it a
@@ -53,8 +55,8 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
             <span className={s.title()}>
               <span className={placeholderBar("size-4")} />
               <PlaceholderLine
-                text="text-base"
-                width="w-32"
+                textClass="text-base"
+                widthClass="w-32"
               />
             </span>
             <FoldCountPlaceholder className={s.count()} />
@@ -65,26 +67,48 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
   );
 }
 
-/**
- * The open card of `ReadFolds`' `column` while it is read: its title, its chevron turned as an open card's, a bar where
- * its count stands, and its table's placeholder.
- */
-export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: TableHead; rows: number }) {
+/** A fold's head while it is read: its chevron, turned where the card opens, its title, and a bar where its count stands. */
+function FoldHeadPlaceholder({ title, open }: { title: Copy; open: boolean }) {
   const s = cardLook({ body: "rows", fold: true });
   return (
-    <div className={s.root()}>
-      <span className={s.head()}>
-        <span className={s.title()}>
-          <span className={s.chevron({ class: "rotate-90" })}>
-            <Icon
-              glyph="forward"
-              size={16}
-            />
-          </span>
-          <span className="min-w-0">{title}</span>
+    <span className={s.head()}>
+      <span className={s.title()}>
+        <span className={s.chevron({ class: open ? "rotate-90" : "" })}>
+          <Icon
+            glyph="forward"
+            size={16}
+          />
         </span>
-        <FoldCountPlaceholder className={s.count()} />
+        <span className="min-w-0">{title}</span>
       </span>
+      <FoldCountPlaceholder className={s.count()} />
+    </span>
+  );
+}
+
+/**
+ * The open card of `ReadFolds`' `column` while it is read: its head and its table's placeholder; and with `folded`, the
+ * cards folded under it, each its head alone, in the column `ReadFolds` sets them in. A folded card the page draws only
+ * while it holds something is drawn here all the same, the taller of the page's two forms.
+ */
+export function OpenFoldPlaceholder({
+  title,
+  head,
+  rows,
+  folded,
+}: {
+  title: Copy;
+  head: TableHead;
+  rows: number;
+  folded?: ReadonlyArray<Copy>;
+}) {
+  const s = cardLook({ body: "rows", fold: true });
+  const open = (
+    <div className={s.root()}>
+      <FoldHeadPlaceholder
+        title={title}
+        open
+      />
       <div className={s.body()}>
         <TablePlaceholder
           head={head}
@@ -92,6 +116,22 @@ export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: 
           bare
         />
       </div>
+    </div>
+  );
+  if (folded === undefined) return open;
+  return (
+    <div className={COLUMN_CLASSES}>
+      {open}
+      {folded.map((card) => (
+        <div
+          key={card}
+          className={s.root()}>
+          <FoldHeadPlaceholder
+            title={card}
+            open={false}
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -105,7 +145,7 @@ export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: 
  */
 export function ReadFolds({ cards, column = false }: { cards: ReadonlyArray<FoldedCard>; column?: boolean }) {
   return (
-    <div className={column ? COLUMN : folds(cards.length)}>
+    <div className={column ? COLUMN_CLASSES : folds(cards.length)}>
       {cards.map(({ tables, ...card }) => (
         <CardFold
           key={textOf(card.title)}

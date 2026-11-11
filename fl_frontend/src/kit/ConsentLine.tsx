@@ -12,7 +12,7 @@ const consentLine = tv({ base: "text-sm text-fg-muted" });
 export function ConsentLinePlaceholder({ line }: { line: Line }) {
   return (
     <PlaceholderSentence
-      text={consentLine()}
+      textClass={consentLine()}
       words={line.map((part) => (typeof part === "string" ? part : part.label)).join("")}
     />
   );
@@ -22,9 +22,9 @@ export function ConsentLinePlaceholder({ line }: { line: Line }) {
  * The line under a consent's control, in the description's grade: the wording's own words, which its records cite,
  * a link among them where it names a page, never the catalogue's, so no catalogue edit rewords a consent. The control
  * names the line by `id` in its `aria-describedby`, so a screen reader reading the control hears who receives what and
- * how to withdraw; the field's own description slot cannot carry the line's link.
+ * how to withdraw; the field's own description slot cannot carry the line's link. A line no control names takes no id.
  */
-export function ConsentLine({ id, line }: { id: string; line: Line }) {
+export function ConsentLine({ id, line }: { id?: string; line: Line }) {
   return (
     <p
       id={id}

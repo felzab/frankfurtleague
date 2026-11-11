@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import NextLink from "next/link";
 
 import {
   Menu as AriaMenu,
@@ -26,25 +27,50 @@ import { useOpenUntilHidden } from "./useOpenUntilHidden";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
-import type { ComponentProps, ReactElement, ReactNode } from "react";
-import type { IconName } from "./Icon";
+import type { ReactElement, ReactNode } from "react";
 
 /**
  * A link in a menu; `isCurrent` marks the one in force as every list marks its chosen entry, in a list that has
  * one. Its words are catalogue text, or a record's own name such as a season's, with a second line under them
  * where one name alone does not say which, as a team's season and seats under its name.
  */
-export type MenuLink = { href: Route; icon?: IconName; isCurrent?: boolean; label: Words; detail?: Words } & {
-  /** How the router goes there, `replace` for a step Back should skip (React Aria's `routerOptions`). */
-  routerOptions?: ComponentProps<typeof MenuItem>["routerOptions"];
+export type MenuLink = {
+  href: Route;
+  isCurrent?: boolean;
+  label: Words;
+  detail?: Words;
+  /** For a step the browser's Back should skip, such as a season switch: the address takes the current history entry's place. */
+  replace?: boolean;
 };
 
-/** One entry of a menu: a link, an action, or a second list of links. */
+/**
+ * One entry of a menu: a link, an action, an action that cannot run now, or a second list of links. An entry is its
+ * words alone in every menu, no glyph before them: a menu holds a few entries, read by their words, as Carbon's menu
+ * draws them; Primer keeps a leading glyph for scanning a long list of a system's sections, which the rail is. A glyph
+ * after the words marks what the entry leads to, a submenu, or the entry chosen.
+ */
 export type MenuEntry =
   | ({ kind: "link" } & MenuLink)
-  | { kind: "action"; label: Copy; icon?: IconName; onAction: () => void }
+  | {
+      kind: "action";
+      label: Copy;
+      /**
+       * An action that destroys: its words in the danger hue, as every destroying act's button words them
+       * (`buttonStyles.ts`'s `dangerOutline`), so the entry reads as what it does before it is pressed. It stands after
+       * the menu's other entries.
+       */
+      tone?: "danger";
+      onAction: () => void;
+    }
+  /**
+   * An action that cannot run on the record as it stands, as a button's `locked` (`Button`): muted but reached by the
+   * keys as every entry is, its reason the line under its label and its description to a screen reader. A press does
+   * nothing and leaves the menu open, the reason still to read. Never React Aria's disabled entry, which the keys pass
+   * over, so nobody would hear why.
+   */
+  | { kind: "locked"; label: Copy; reason: Copy }
   /** A second list, beside the menu on desktop and as a second sheet with „Zurück“ on a phone. */
-  | { kind: "submenu"; label: Copy; icon?: IconName; links: ReadonlyArray<MenuLink> };
+  | { kind: "submenu"; label: Copy; links: ReadonlyArray<MenuLink> };
 
 export type MenuProps = {
   /** The menu's name. */
@@ -61,6 +87,12 @@ export type MenuProps = {
   /** Where the menu opens on desktop: under its trigger, or above it for a trigger at the rail's foot. */
   placement: "below" | "above";
   /**
+   * Which of its trigger's edges the menu lines up with on desktop: its start, or its end for a trigger standing at the
+   * end of a row, such as a row's „⋯“, so the menu opens from the trigger into the row's box rather than past the
+   * viewport's edge, where it would be pushed back by however much the row's end leaves.
+   */
+  align?: "start" | "end";
+  /**
    * On desktop, the menu opens at its trigger's end instead, as a collapsed rail entry's tooltip does, and as
    * wide as its entries: its top level with the trigger's where it would open below, its foot where above.
    */
@@ -75,7 +107,14 @@ type Size = "desktop" | "phone";
 
 // An entry that acts shows the pointing hand, as every control does; an entry with an address renders an `a`, which
 // shows it as every link does, so it takes `menuEntry` alone.
-const item = tv({ extend: menuEntry, base: "cursor-pointer" });
+const item = tv({
+  extend: menuEntry,
+  base: "cursor-pointer",
+  variants: {
+    // A destroying action's words, in the hue its button's take.
+    tone: { danger: "text-danger" },
+  },
+});
 
 // The foot's row under its separator, at the entries' inset and grade.
 const foot = tv({
@@ -94,22 +133,26 @@ const surface = (width: "content" | "trigger" = "content") => menuPopover({ fit:
 function Entry({
   label,
   detail,
-  icon,
+  back = false,
   hasMore,
   isChosen = false,
+  wraps = false,
 }: {
   label: string;
   detail?: string;
-  icon?: IconName;
+  /** The phone's second sheet's „Zurück“, the one row a glyph leads: the way back, as the sheet's own control. */
+  back?: boolean;
   hasMore?: boolean;
   isChosen?: boolean;
+  /** The detail is a sentence to read whole, a locked entry's reason: it wraps where every other detail is cut. */
+  wraps?: boolean;
 }) {
   return (
     <>
-      {icon !== undefined && (
+      {back && (
         <span className="text-fg-muted">
           <Icon
-            glyph={icon}
+            glyph="back"
             size={16}
           />
         </span>
@@ -126,7 +169,7 @@ function Entry({
           </Text>
           <Text
             slot="description"
-            className="truncate text-xs font-normal text-fg-muted">
+            className={wraps ? "text-xs font-normal text-fg-muted" : "truncate text-xs font-normal text-fg-muted"}>
             {detail}
           </Text>
         </span>
@@ -166,8 +209,21 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
   return (
     <MenuItem
       id={link.href}
+      // The address tells React Aria the entry is a link; Next's link draws its anchor, so the entry navigates
+      // on the client and prefetches as the kit's other links do, where React Aria's own anchor loads a document.
       href={link.href}
-      routerOptions={link.routerOptions}
+      render={(props) =>
+        "href" in props ? (
+          <NextLink
+            {...props}
+            href={link.href}
+            replace={link.replace}
+          />
+        ) : (
+          // The other half of `render`'s type, an entry without an address, which this one never is.
+          <div {...props} />
+        )
+      }
       textValue={detail === undefined ? textOf(link.label) : `${textOf(link.label)} ${detail}`}
       data-kit-focus="option"
       // A two-line entry grows past the one line's height.
@@ -176,7 +232,6 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
         <Entry
           label={textOf(link.label)}
           detail={detail}
-          icon={link.icon}
           isChosen={isSelected}
         />
       )}
@@ -202,7 +257,7 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
           className={item({ size })}>
           <Entry
             label={COPY.shared.back}
-            icon="back"
+            back
           />
         </MenuItem>
       )}
@@ -248,10 +303,24 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
               textValue={entry.label}
               onAction={entry.onAction}
               data-kit-focus="option"
-              className={item({ size })}>
+              className={item({ size, tone: entry.tone })}>
+              <Entry label={entry.label} />
+            </MenuItem>
+          );
+        }
+        if (entry.kind === "locked") {
+          return (
+            <MenuItem
+              key={entry.label}
+              textValue={entry.label}
+              shouldCloseOnSelect={false}
+              data-kit-focus="option"
+              // Grows past the one line's height by its reason, and shows no pointing hand: it does nothing.
+              className={item({ size, class: "h-auto cursor-default text-fg-muted" })}>
               <Entry
                 label={entry.label}
-                icon={entry.icon}
+                detail={entry.reason}
+                wraps
               />
             </MenuItem>
           );
@@ -267,7 +336,6 @@ function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEn
             className={item({ size })}>
             <Entry
               label={entry.label}
-              icon={entry.icon}
               hasMore
             />
           </MenuItem>
@@ -357,7 +425,7 @@ function Foot({ foot: row, size }: { foot: NonNullable<MenuProps["foot"]>; size:
  * page, a submenu beside it; on a phone, below the rail's breakpoint, as a bottom sheet, a submenu as a
  * second sheet led by „Zurück“.
  */
-export function Menu({ label, trigger, head, groups, placement, beside = false, width = "content", foot: row }: MenuProps) {
+export function Menu({ label, trigger, head, groups, placement, align = "start", beside = false, width = "content", foot: row }: MenuProps) {
   const [isOpen, setOpen] = useOpenUntilHidden();
   // The submenu last opened stays mounted while its sheet leaves, so its exit can run.
   const [submenu, setSubmenu] = useState<{ group: number; entry: number } | null>(null);
@@ -375,7 +443,7 @@ export function Menu({ label, trigger, head, groups, placement, beside = false, 
       {trigger}
       {isDesktop ? (
         <Popover
-          placement={beside ? (placement === "above" ? "end bottom" : "end top") : placement === "above" ? "top start" : "bottom start"}
+          placement={beside ? (placement === "above" ? "end bottom" : "end top") : `${placement === "above" ? "top" : "bottom"} ${align}`}
           // 4 px from its trigger; beside a rail part, 4 px beyond the rail's 12-px inset and its edge, as the tooltip.
           offset={beside ? 16 : 4}
           data-kit-focus

@@ -1,92 +1,37 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
 import { Form, FormContext } from "react-aria-components/Form";
-import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
 import { COPY, textOf } from "@/core/copy";
 import { goBackOrPush } from "@/core/goBackOrPush";
 
 import { Button } from "./Button";
+import { ConfirmDialog, TriggerButton } from "./ConfirmDialog";
 import { actLabel } from "./dialogAct";
+import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
-import { StatusLine } from "./FieldParts";
+import { FieldStack } from "./FieldStack";
+import { statusLine } from "./fieldStyles";
+import { FormFooter } from "./FormFooter";
+import { RowName } from "./RowActs";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { ModalOverlayProps } from "react-aria-components/Modal";
-import type { DialogAct } from "./dialogAct";
+import type { Tone, Trigger } from "./ConfirmDialog";
+import type { DialogAct, DialogDanger } from "./dialogAct";
 import type { HeldOpen } from "./useOpenUntilHidden";
 
-/**
- * The dim behind a dialog: a 10 % black scrim and a 4-px blur, fading in and out on the overlay tokens. It
- * covers the whole page, as tall as React Aria's `ModalOverlay` measures the page (`--page-height`), and
- * the centring wrapper inside it stands in the visible part.
- */
-const dim = tv({
-  base: "absolute top-0 left-0 z-50 h-(--page-height) w-full bg-scrim backdrop-blur-scrim transition-opacity duration-(--motion-in) data-entering:opacity-0 data-exiting:opacity-0 data-exiting:duration-(--motion-out)",
-});
-
-/**
- * The centred box every dialog shares; `width` is the drawn measure of its kind. It is never taller than
- * the visible window less the 1-rem margin its centring wrapper keeps, and scrolls inside past that, so a
- * long form's act stays in reach: `--visual-viewport-height` is the height React Aria's `ModalOverlay`
- * writes for its modal to cap itself by. Its padding is declared once, as a variable, so a part running out to
- * the box's edges (a field group's line, the pop-up's band) takes back the same measure, as Radix Themes'
- * `Inset` reads its card's.
- */
-const dialogBox = tv({
-  base: "grid max-h-[calc(var(--visual-viewport-height)-2rem)] w-full gap-6 overflow-y-auto rounded-xl bg-bg-overlay p-(--dialog-padding) text-fg shadow-dialog [--dialog-padding:var(--spacing-6)]",
-  variants: {
-    width: {
-      question: "max-w-question",
-      form: "max-w-dialog",
-    },
-  },
-});
-
-/**
- * The overlay every dialog stands in, in React Aria's documented layout: the dim over the whole page, and
- * inside it a wrapper exactly as tall as the visible window, stuck to its top, which centres the box. A
- * phone's open keyboard shrinks the visible window and not the layout one, so the box is centred, and
- * capped, in the part of the screen the keyboard leaves.
- */
-export function DialogOverlay({
-  width,
-  children,
-  ...overlay
-}: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "isKeyboardDismissDisabled" | "onOpenChange"> & {
-  width: "question" | "form";
-  /** The React Aria `Dialog` the box holds. */
-  children: ReactNode;
-}) {
-  return (
-    <ModalOverlay
-      {...overlay}
-      className={dim()}>
-      <div className="sticky top-0 left-0 grid h-(--visual-viewport-height) w-full place-items-center p-4">
-        <Modal
-          data-kit-focus
-          className={dialogBox({ width })}>
-          {children}
-        </Modal>
-      </div>
-    </ModalOverlay>
-  );
-}
-
-/** The way back and the act: the act on the right, stacked on a phone with the act on top. */
-export function ActRow({ children }: { children: ReactNode }) {
-  return <div className="flex items-center justify-end gap-3 max-lg:flex-col-reverse max-lg:items-stretch">{children}</div>;
-}
+const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
 /**
  * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
@@ -164,12 +109,62 @@ export function RouteDialog({
 }
 
 /**
+ * A dialog's part ending its record, shaped as a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width:
+ * a part of its own between the fields and the footer, a hairline over it and under it running out to both of the
+ * dialog's edges through the padding the box declares, as a field group's does, and between them, 16 px from each, the
+ * act's name over its consequence at the left and its outlined button at the right.
+ */
+const dangerRow = tv({
+  base: "-mx-(--dialog-padding) flex items-center gap-3 justify-self-stretch border-y border-border px-(--dialog-padding) py-4",
+});
+
+/**
+ * The act ending the record a dialog edits, asked before it runs as every destructive act is: its button opens the
+ * question over the dialog, which React Aria's modal makes inert under it, so the dialog's own act cannot be sent while
+ * the question stands, and `isClosed` closes the button while the dialog's own act runs. The question shows its act's
+ * refusal and stays open with it; a done act closes it and, through `onDone`, the dialog.
+ */
+function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
+  const { confirm } = danger;
+  const nameId = useId();
+  return (
+    <div className={dangerRow()}>
+      <div className="grid min-w-0 flex-1 text-sm">
+        <span
+          id={nameId}
+          className="font-semibold">
+          {danger.name}
+        </span>
+        <p className={statusLine({ placement: "column", tone: "resting" })}>{danger.consequence}</p>
+      </div>
+      {/* Its button says the verb alone, as an editor's danger row's does, so the part's name says what it acts on. */}
+      <RowName value={nameId}>
+        <ConfirmDialog
+          {...confirm}
+          onConfirm={async () => {
+            // An act answering nothing is done, as the question reads it.
+            const answered = (await confirm.onConfirm()) ?? DONE;
+            // An update after the `await` commits outside the question's transition unless it opens one of its own.
+            if (answered.ok) startTransition(onDone);
+            return answered;
+          }}
+          trigger={{ label: COPY.shared.verb[confirm.verb], isDisabled: isClosed }}
+        />
+      </RowName>
+    </div>
+  );
+}
+
+/**
  * The dialog and its form, mounted anew at each opening, so a refusal it showed goes with the dialog and never greets
  * the next opening. A done act closes the dialog, but one whose answer notes what else the write moved, which stays open
  * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one, a
  * refused passkey touch among them, stays with its input kept, each field's message under its field and the reason in
  * the status line beside the acts, as a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the
- * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it.
+ * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it. The act
+ * ending the record, where the dialog has one, stands as its own part after the inputs and above the footer
+ * (`DangerRow`), apart from „Zurück“ and the save, and before the sentence and the facts of the dialog's own act, which
+ * stay directly over its two buttons.
  */
 function ActDialog({
   title,
@@ -182,8 +177,10 @@ function ActDialog({
   consequence,
   facts,
   tone = "primary",
+  locked,
+  danger,
   children,
-}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "children"> & {
+}: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
   label: Copy;
   opened: HeldOpen;
   touched: ReturnType<typeof usePasskeyTouch>;
@@ -230,17 +227,20 @@ function ActDialog({
               slot="title"
               level={2}
               className="text-xl font-semibold">
-              {title}
+              {textOf(title)}
             </Heading>
             {lead !== undefined && <p className="-mt-4 text-sm text-fg-muted">{textOf(lead)}</p>}
-            <div className="grid justify-items-start gap-4">{children}</div>
+            <FieldStack>{children}</FieldStack>
+            {danger !== undefined && (
+              <DangerRow
+                danger={danger}
+                isClosed={isPending}
+                onDone={close}
+              />
+            )}
             {consequence !== undefined && <p className="text-sm text-fg-muted">{consequence}</p>}
             {facts !== undefined && facts.length > 0 && <Facts facts={facts} />}
-            <ActRow>
-              <StatusLine
-                status={status}
-                placement="row"
-              />
+            <FormFooter status={status}>
               <Button
                 variant="secondary"
                 label={COPY.shared.back}
@@ -253,8 +253,9 @@ function ActDialog({
                 label={label}
                 isBusy={isPending}
                 isDisabled={noted !== null}
+                locked={locked}
               />
-            </ActRow>
+            </FormFooter>
           </Form>
         </FormContext.Provider>
       </AriaDialog>
@@ -262,11 +263,10 @@ function ActDialog({
   );
 }
 
-/** What opens the dialog: its own trigger, or the open state another control holds; one of the two, always. */
-type Opening =
+/** What opens the dialog: its own trigger, which it draws by its tone (`Trigger`), or the open state another control holds. */
+type Opening<T extends Tone> =
   | {
-      /** The kit `Button` that opens the dialog. */
-      trigger: ReactElement;
+      trigger: Trigger<T>;
       open?: never;
     }
   | {
@@ -282,7 +282,7 @@ type Opening =
  * noting more than it was asked leaves it open on its note, in the warn tone where the answer marks it `warn`, and a
  * refused one leaves it open with the input kept and the refusal shown.
  */
-export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Opening) {
+export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, ...form }: DialogAct<T> & Opening<T>) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   const label = actLabel(act);
@@ -310,7 +310,10 @@ export function Dialog({ act, trigger, open, touch, ...form }: DialogAct & Openi
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>
-      {trigger}
+      <TriggerButton
+        trigger={trigger}
+        tone={form.tone ?? "primary"}
+      />
       {overlay}
     </DialogTrigger>
   );

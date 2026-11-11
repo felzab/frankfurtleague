@@ -2,9 +2,9 @@
 
 A soccer league site: Next.js in front of FastAPI and MongoDB, deployed with Docker Compose behind
 nginx. Its pages are built from the component kit in `fl_frontend/src/kit/`, on React Aria
-Components, beside HeroUI on the pages not yet rebuilt. The corpus entry point is
-[`docs/README.md`](../docs/README.md). The domain vocabulary is German and load-bearing: **open a
-term's entry in [`docs/glossary.md`](../docs/glossary.md) before you first write that term** — in a
+Components. The corpus entry point is [`docs/README.md`](../docs/README.md). The domain vocabulary
+is German and load-bearing: **open a term's entry in [`docs/glossary.md`](../docs/glossary.md)
+before you first write that term** — in a
 name, a schema field, a commit message or a sentence.
 
 **Precedence, highest first:** §1 · §2 · the owner, whose instruction given this session outranks

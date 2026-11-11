@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -9,7 +9,7 @@ import { SectionPlaceholder } from "./Section";
 import { Placeholder, PlaceholderLine, Waiting } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { DangerRowWait, FieldRow } from "./Section";
 
 /** The editor once its record is read: the page's client editor, which places `EditorPage`. */
@@ -20,12 +20,16 @@ async function EditorBody({ editor }: { editor: Promise<ReactNode> }) {
 /**
  * What an editor is before its record is read: the Vorschau's line under the title where the editor has one, every
  * section it renders in their order, each its rows as the editor lays them out, with `note` where a state of the record
- * stands one under its title, and `danger`, the rows of its danger box, where it has one. The page states it beside the
- * editor it reads, each section in its taller state, since a rail page's wait must never stand shorter than the page.
+ * stands one under its title, a part drawing its own boxes (`EditorPage`'s `{ id, block }`) as `block`, that part's own
+ * placeholder set bare as the part is, and `danger`, the rows of its danger box, where it has one. The page states it
+ * beside the editor it reads, each section in its taller state, since a rail page's wait must never stand shorter than
+ * the page.
  */
 export type EditorWait = {
   lead?: true;
-  sections: ReadonlyArray<ReadonlyArray<FieldRow> | { note: Copy; rows: ReadonlyArray<FieldRow> }>;
+  /** The words of the strip's way to the record's public page, where the editor lands with one most days (`RailPage`). */
+  link?: Copy;
+  sections: ReadonlyArray<ReadonlyArray<FieldRow> | { note: Copy; rows: ReadonlyArray<FieldRow> } | { block: ReactElement }>;
   danger?: ReadonlyArray<DangerRowWait>;
 };
 
@@ -43,27 +47,31 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
         <RailPage
           scope="area"
           title={null}
+          {...(wait.link === undefined ? {} : { link: { waits: wait.link } })}
           bar={
-            <Placeholder layout={editorBarLook().bar()}>
+            <Placeholder layoutClass={editorBarLook().bar()}>
               <span className={editorBarLook().row()}>
-                <span className="min-w-0 flex-1" />
                 <span className={buttonPlaceholder()}>{COPY.shared.verb.save}</span>
               </span>
             </Placeholder>
           }>
-          <Waiting layout={formColumn()}>
+          <Waiting layoutClass={formColumn()}>
             {wait.lead === true && (
               <PlaceholderLine
-                text="text-sm"
-                width="w-2/3"
+                textClass="text-sm"
+                widthClass="w-2/3"
               />
             )}
-            {wait.sections.map((section, index) => (
-              <SectionPlaceholder
-                key={index}
-                {...("note" in section ? section : { rows: section })}
-              />
-            ))}
+            {wait.sections.map((section, index) =>
+              "block" in section ? (
+                <Fragment key={index}>{section.block}</Fragment>
+              ) : (
+                <SectionPlaceholder
+                  key={index}
+                  {...("note" in section ? section : { rows: section })}
+                />
+              ),
+            )}
             {wait.danger !== undefined && <SectionPlaceholder danger={wait.danger} />}
           </Waiting>
         </RailPage>

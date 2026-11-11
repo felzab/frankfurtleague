@@ -168,11 +168,15 @@ function question({
   return {
     state: "question",
     title,
-    facts: [{ label, value: { record: email } }],
+    facts: [{ label, value: { record: email, address: true } }],
     sentence,
     ...(waits === undefined ? {} : { sentenceAfter: waits }),
     action: answerAddressChange,
-    acts: { primary: title, secondary: COPY.shared.verb.decline },
+    acts: {
+      primary: title,
+      // Either side's decline ends the change, so the account keeps the address it has.
+      refusal: { verb: "decline", subject: WORDS.change, consequence: COPY.admin.addressChange.previousStays },
+    },
     carry: { token, side, way },
   };
 }
@@ -180,7 +184,7 @@ function question({
 /** The stop: where the change goes, as far as this link may know, and from when, once the wait runs. */
 function stop({ email, effective_from: effectiveFrom }: FLAddressChangeViewPrevious, token: string): MailedState {
   const facts: Fact[] = [];
-  if (email !== null) facts.push({ label: WORDS.newAddress, value: { record: email } });
+  if (email !== null) facts.push({ label: WORDS.newAddress, value: { record: email, address: true } });
   if (effectiveFrom !== null) facts.push({ label: COPY.admin.facts.effectiveFrom, value: { record: formatInstantShort(effectiveFrom) } });
   return {
     state: "question",

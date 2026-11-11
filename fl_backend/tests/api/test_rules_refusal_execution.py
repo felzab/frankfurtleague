@@ -60,6 +60,7 @@ def spieltag_document() -> dict[str, Any]:
         "position": 1,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON_ID,
+        "version": 0,
     }
 
 

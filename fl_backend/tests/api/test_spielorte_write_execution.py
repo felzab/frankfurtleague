@@ -97,11 +97,11 @@ def seeded_url(mongo_replica_set_url: str) -> str:
 
     client = MongoClient(mongo_replica_set_url)
     try:
-        database = a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)
-        database[Collection.GRANTS].insert_many(grants_for_the_suite())
-        database[Collection.SPIELORTE].insert_one(venue_document())
+        with a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME) as database:
+            database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            database[Collection.SPIELORTE].insert_one(venue_document())
 
-        return mongo_replica_set_url
+            return mongo_replica_set_url
     finally:
         client.close()
 

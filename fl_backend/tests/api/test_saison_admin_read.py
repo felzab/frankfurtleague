@@ -119,6 +119,7 @@ async def pressed(act: Act, database: AsyncDatabase, client: AsyncMongoClient) -
                 spieltage_collection=database[Collection.SPIELTAGE],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 spielberichte_collection=database[Collection.SPIELBERICHTE],
+                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                 db=client,
             )
         )
@@ -135,6 +136,7 @@ def drawn(database: AsyncDatabase, client: AsyncMongoClient, *, replace: bool) -
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace),
         today=TODAY,

@@ -5,6 +5,8 @@ import { COPY } from "./copy";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
+import type { Copy } from "./copy";
+
 /** The league's name as every message spells it. */
 export const BRAND_NAME: string = COPY.brand.name;
 
@@ -26,26 +28,27 @@ const SENDER: Readonly<Record<MailKind, MailSender>> = {
 };
 
 /**
- * One run of a sentence. Every run is folded to one line and escaped by the shell alone, so a value typed
- * outside the league reaches neither version as markup or as a line of its own.
+ * One run of a sentence: the catalogue's words, each holding its own spaces, or a record's value between them. Every
+ * run is folded to one line and escaped by the shell alone, so a value typed outside the league reaches neither
+ * version as markup or as a line of its own.
  */
-type Run = string | { readonly strong: string } | { readonly address: string } | { readonly url: string };
+type Run = Copy | { readonly strong: string } | { readonly address: string } | { readonly url: string };
 
-/** One sentence, a plain string or its runs. */
-export type Sentence = string | readonly Run[];
+/** One sentence, a catalogue entry or its runs. */
+export type Sentence = Copy | readonly Run[];
 
 /** One paragraph, its sentences in order. The first sentence of the first paragraph is the mail's hidden preview. */
 export type Paragraph = readonly [Sentence, ...Sentence[]];
 
 /** One row of the facts block. A value keeps its line breaks: a stated reason is a paragraph. */
 export interface Fact {
-  readonly label: string;
+  readonly label: Copy;
   readonly value: string;
 }
 
 /** The one button, its link printed below it. */
 interface Button {
-  readonly label: string;
+  readonly label: Copy;
   readonly href: string;
 }
 
@@ -53,7 +56,7 @@ interface Button {
 export interface Mail {
   readonly kind: MailKind;
   /** The subject, topic first, which the heading repeats. */
-  readonly subjectLine: string;
+  readonly subjectLine: Copy;
   /** Already through `mailOrigin`: the footer's links and the logo stand on it. */
   readonly origin: string;
   readonly paragraphs: readonly [Paragraph, ...Paragraph[]];
@@ -61,7 +64,7 @@ export interface Mail {
    * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
    * on, standing alone in its box.
    */
-  readonly block?: { readonly title: string; readonly facts: readonly Fact[] } | { readonly code: string } | { readonly link: string };
+  readonly block?: { readonly title: Copy; readonly facts: readonly Fact[] } | { readonly code: string } | { readonly link: string };
   readonly afterBlock?: readonly Paragraph[];
   readonly button?: Button;
 }
@@ -74,7 +77,7 @@ export interface RenderedMail {
   readonly sender: MailSender;
 }
 
-// The 2027 scheme's light palette: one light design, in colours that still read where a mail app darkens it.
+// The mail's own palette: one light design, in colours that still read where a mail app darkens it.
 const BRAND_COLOR = "#216c2d";
 const BRAND_SOLID_COLOR = "#033f11";
 const SURFACE_COLOR = "#f5f5f5";
@@ -198,11 +201,7 @@ function previewBy(mail: Mail): string {
 }
 
 /** The Art. 21 line, the address in it a link: a first contact's footer, and the ban-list mail's own last paragraph. */
-export const OBJECTION: Sentence = [
-  `${SERVER_COPY.mail.objection.before} `,
-  { address: KONTAKT_EMAIL },
-  ` ${SERVER_COPY.mail.objection.after}`,
-];
+export const OBJECTION: Sentence = [SERVER_COPY.mail.objection.before, { address: KONTAKT_EMAIL }, SERVER_COPY.mail.objection.after];
 
 function notYou(kind: MailKind): string | undefined {
   return kind === "notice" ? undefined : SERVER_COPY.mail.notYou[kind];

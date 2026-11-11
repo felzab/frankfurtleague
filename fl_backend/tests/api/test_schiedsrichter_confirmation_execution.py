@@ -34,7 +34,6 @@ from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
     EINWILLIGUNG_FIELD,
     ERASE_AT_FIELD,
-    compose_confirmation,
     confirmation_deadline_from,
     erase_at_from,
 )
@@ -342,7 +341,8 @@ class TestTheReSend:
         second, row, first_link = on_a_league(mongo_replica_set_url, body)
 
         assert second.token is not None
-        assert row[CONFIRMATION_FIELD] == {**compose_confirmation(today=TODAY), "token_hashes": [hash_token(second.token)]}
+        # Spelled out rather than composed: built by the composer the write calls, a key it misspelled would stand on both sides.
+        assert row[CONFIRMATION_FIELD] == {"token_hashes": [hash_token(second.token)], "sent_at": TODAY, "deadline": "2026-04-15"}
         assert first_link.error_code == Code.LINK_INVALID
 
     def test_an_address_moved_since_the_caller_read_it_is_the_one_answered(self, mongo_replica_set_url: str):

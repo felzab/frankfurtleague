@@ -1,11 +1,10 @@
 import "server-only";
 
-import { COPY } from "./copy";
+import { COPY, rollenText } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";
 import { SERVER_COPY } from "./serverCopy";
-import { rollenText } from "./teamVocabulary";
 
 import type { Mail } from "./emailShell";
 import type { FLKontaktLinkData } from "./generated/client/types";
@@ -34,7 +33,7 @@ export function buildKontaktConfirmationEmail(
       ...shell,
       paragraphs: [
         [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
-        [[`${DEADLINE.before} `, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
+        [[DEADLINE.before, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
       ],
       button: { label: COPY.page.entryConfirmation, href },
     };

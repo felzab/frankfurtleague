@@ -22,11 +22,14 @@ Invariants:
   image file runs no module and stands outside the population.
 - An intercepted URL has one intercepting page, with no route group above its intercepting segment.
 - A metered exact match and its trailing-slash twin are both metered and bound a body alike.
+- A link page's `linkpage` bursts are the ones the largest squad the backend publishes needs at that zone's rate.
+- No location names a burst above the catch-all's on a zone the catch-all meters.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from collections.abc import Mapping
@@ -98,6 +101,18 @@ TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 # The pair `nginx/shared/http.conf` declares for the link pages, metering every request and method,
 # which a link page's own location and its twin's must both name.
 LINK_ZONES: Final = frozenset({"linkpage", "linkpage48"})
+
+# The link pages' own pair is sized for a season's largest squad, every pupil of it behind one school's address in one
+# break, passing within `SIZING_MINUTES` at the narrow zone's own rate (`nginx/shared/site.conf :: location /confirm/`):
+# per pupil, the requests every link page's block meters on `linkpage`. The wide zone takes `WIDE_FACTOR` times its
+# narrow twin's burst (`nginx/shared/http.conf`'s paired zones). The squad is the largest `max_kader_size` the backend
+# publishes, read where it publishes it. The squad's sends ride the action pair at the catch-all's burst, which
+# `raised_bursts` holds every block to.
+OPENAPI: Final = "fl_backend/openapi.json"
+SIZED_PER_PUPIL: Final = {"linkpage": 10}
+SIZING_MINUTES: Final = 2
+WIDE_FACTOR: Final = 10
+WIDE_SUFFIX: Final = "48"
 
 # The prefix of a `limit_req` argument naming its zone.
 ZONE: Final = "zone="
@@ -668,6 +683,91 @@ def uneven_links(where: tuple[Location, ...], conf: str) -> list[Finding]:
     return findings
 
 
+def kader_size_max(openapi_path: Path) -> int:
+    """The largest `max_kader_size` a season may set, as `fl_backend/openapi.json` publishes it."""
+    document = json.loads(openapi_path.read_bytes().decode("utf-8"))
+    return int(document["components"]["schemas"]["FLSaisonRules"]["properties"]["max_kader_size"]["maximum"])
+
+
+def zone_rates(http_path: Path) -> dict[str, int]:
+    """Each `limit_req_zone` the http level declares, by name, at its rate in requests a minute."""
+    rates: dict[str, int] = {}
+    for directive in parse(http_path.read_bytes().decode("utf-8"), http_path.name):
+        if directive.name != "limit_req_zone":
+            continue
+        named = next((arg.removeprefix(ZONE).partition(":")[0] for arg in directive.args if arg.startswith(ZONE)), None)
+        rate = next((arg.removeprefix("rate=") for arg in directive.args if arg.startswith("rate=")), None)
+        if named is None or rate is None or not rate.endswith("r/m") or not rate.removesuffix("r/m").isdigit():
+            raise NginxSyntax(f"{http_path.name}:{directive.line}: a limit_req_zone this reader cannot read a per-minute rate from")
+        rates[named] = int(rate.removesuffix("r/m"))
+    return rates
+
+
+def raised_bursts(where: tuple[Location, ...], conf: str) -> list[Finding]:
+    """Every block naming a zone the catch-all meters on a burst above the catch-all's.
+
+    The catch-all's pair meters server actions alone, and Next runs an action by its `Next-Action` header at whatever
+    path it is posted to, so a block raising that burst raises every action's ceiling for a network. A burst nginx
+    cannot read refuses the configuration at load, so it is judged nowhere here.
+    """
+    catch_all = next((one for one in where if not one.exact and one.path == CATCH_ALL), None)
+    if catch_all is None:
+        return []
+    ceilings = {zone: burst for zone, burst in map(zone_and_burst, catch_all.limits) if zone is not None}
+    findings: list[Finding] = []
+    for one in where:
+        for args in sorted(one.limits):
+            zone, burst = zone_and_burst(args)
+            if zone not in ceilings or burst <= ceilings[zone]:
+                continue
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` meters {zone} with `limit_req {' '.join(args)}`, "
+                    f"above `location /`'s burst={ceilings[zone]}\n"
+                    f"{CONTINUATION}a server action runs at any path, so this raises every action's ceiling: declare `location /`'s burst",
+                )
+            )
+    return findings
+
+
+def zone_and_burst(args: tuple[str, ...]) -> tuple[str | None, int]:
+    """The zone one `limit_req` line names and its burst, nginx's default of none where it names none."""
+    zone = next((arg.removeprefix(ZONE) for arg in args if arg.startswith(ZONE)), None)
+    burst = next((arg.removeprefix("burst=") for arg in args if arg.startswith("burst=")), "0")
+    return zone, int(burst) if burst.isdigit() else 0
+
+
+def unsized_links(where: tuple[Location, ...], conf: str, squad: int, rates: Mapping[str, int]) -> list[Finding]:
+    """Every link page's burst on a sized zone that is not the one `squad` pupils need at that zone's rate.
+
+    A zone the http level does not declare is nginx's own refusal at load, so it is judged nowhere here.
+    """
+    expected: dict[str, int] = {}
+    for zone, per_pupil in SIZED_PER_PUPIL.items():
+        if zone in rates:
+            expected[zone] = per_pupil * squad - SIZING_MINUTES * rates[zone]
+            expected[zone + WIDE_SUFFIX] = WIDE_FACTOR * expected[zone]
+    findings: list[Finding] = []
+    for one in where:
+        if not LINK_ZONES <= one.zones:
+            continue
+        for args in sorted(one.limits):
+            zone = next((arg.removeprefix(ZONE) for arg in args if arg.startswith(ZONE)), None)
+            burst = next((arg.removeprefix("burst=") for arg in args if arg.startswith("burst=")), None)
+            if zone not in expected or burst == str(expected[zone]):
+                continue
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` meters {zone} with `limit_req {' '.join(args)}`, "
+                    f"where a squad of {squad} needs burst={expected[zone]}\n"
+                    f"{CONTINUATION}the link pages are sized for the largest squad {OPENAPI} publishes: size the burst for it",
+                )
+            )
+    return findings
+
+
 def answering_location(uri: str, where: tuple[Location, ...]) -> Location | None:
     """The location nginx chooses for `uri`: its exact match, else its longest prefix, the catch-all included."""
     for one in where:
@@ -976,6 +1076,7 @@ def main() -> int:
         mints = minted(app_dir.parent)
         served = metadata(app_dir)
         where = edge_locations(conf_path)
+        rates = zone_rates(conf_path.parent / NGINX_HTTP_CONF)
     except (NginxSyntax, RouteShape) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was accounted for, so this is a refusal rather than a verdict on the routes.", file=sys.stderr)
@@ -987,6 +1088,14 @@ def main() -> int:
         # Input the checker cannot judge, which the kernel's contract calls EXIT_REFUSED.
         # EXIT_CRASH would claim the environment is broken and send a reader to the wrong repair.
         return EXIT_REFUSED
+    # Apart from the reads above, so a programming error in them crashes as one rather than reading as an unreadable
+    # tree: here a `ValueError`, `KeyError` or `TypeError` can only be the published document's shape.
+    try:
+        squad = kader_size_max(REPO_ROOT / OPENAPI)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"      {error}", file=sys.stderr)
+        print(f"      Nothing was accounted for: {OPENAPI}'s squad bound has to be readable.", file=sys.stderr)
+        return EXIT_REFUSED
 
     findings, used = account(found, where, root, conf_path.name)
     findings += unused(used, where) + unclaimed(served) + twins(where)
@@ -994,6 +1103,7 @@ def main() -> int:
     opened, unopened = minted_pages(mints, paged, root)
     linked = tuple(sorted(set(link_pages(paged)) | set(opened), key=lambda one: one.path))
     findings += unopened + unmetered_links(linked, where, root, conf_path.name) + uneven_links(where, conf_path.name)
+    findings += unsized_links(where, conf_path.name, squad, rates) + raised_bursts(where, conf_path.name)
     findings += interceptions(paged, app_dir, root)
 
     code = report_findings(findings)
@@ -1002,7 +1112,8 @@ def main() -> int:
         print("      exact-match location carrying limit_req or a prefix location with a recorded reason,")
         print("      and a metadata convention is taken unmetered where check_public_routes.py :: METADATA")
         print("      says why. A page a link opens sits where :: LINK_ZONES meters it and its twin, each zone on")
-        print("      one line in every block naming it.")
+        print("      one line in every block naming it, its bursts sized for the largest squad :: OPENAPI publishes.")
+        print("      No location names a burst above location /'s on a zone it meters, every action's ceiling.")
         print("      The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
         print("      An intercepted URL has one intercepting page, under no route group: :: interceptions says why.")
         return code

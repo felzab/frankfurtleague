@@ -1,0 +1,74 @@
+// @vitest-environment jsdom
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { COPY } from "@/core/copy";
+
+import { PressAct } from "./PressAct";
+import { ToastRegion } from "./Toast";
+
+import type { ActionAnswer } from "@/core/action";
+
+const state = vi.hoisted(() => ({ refreshes: 0 }));
+
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<object>()),
+  useRouter: () => ({
+    refresh: () => {
+      state.refreshes += 1;
+    },
+  }),
+}));
+
+const LABEL = COPY.shared.withObject(COPY.account.address.link, "send");
+
+async function press(act: (seat: string) => Promise<ActionAnswer>) {
+  render(
+    <>
+      <ToastRegion frame="rail" />
+      <PressAct
+        icon="email"
+        label={LABEL}
+        act={act}
+        payload="trainer"
+        done={COPY.shared.toast.linkSent}
+      />
+    </>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: LABEL }));
+}
+
+beforeEach(() => {
+  state.refreshes = 0;
+});
+
+// The queue is the toast module's own: each toast runs out before the next test.
+afterEach(() => {
+  vi.useFakeTimers();
+  act(() => vi.runAllTimers());
+  vi.useRealTimers();
+});
+
+describe("an act done at once", () => {
+  // A lost answer, unguarded, replaces the page with the error boundary, though the act may have happened.
+  it("reads the page again where the answer was lost, and says so", async () => {
+    await press(async () => {
+      throw new Error("lost");
+    });
+
+    expect(await screen.findByText(COPY.shared.failure.stale)).toBeTruthy();
+    expect(state.refreshes).toBe(1);
+  });
+
+  // The generic line sends the person to a retry the same rule refuses again.
+  it("says a refusal in its own words, and its done act in the catalogue's", async () => {
+    const act = vi.fn(async (seat: string) =>
+      seat === "trainer" ? { ok: false as const, reason: COPY.shared.failure.accessGone } : { ok: true as const, value: undefined },
+    );
+    await press(act);
+
+    expect(await screen.findByText(COPY.shared.failure.accessGone)).toBeTruthy();
+    expect(act.mock.calls).toStrictEqual([["trainer"]]);
+  });
+});

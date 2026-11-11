@@ -2,7 +2,6 @@ from collections.abc import Collection, Mapping
 from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, form_window_state, saison_takes_bewerbungen
 from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
@@ -47,7 +46,7 @@ async def pull_create_state(*, saisons_collection: ReadCollection, session: Asyn
     )
 
 
-async def pull_active_saison_id(saisons_collection: AsyncCollection) -> str:
+async def pull_active_saison_id(saisons_collection: ReadCollection) -> str:
     """The current season's id; 404 where none is active, rather than degrading to an unfiltered query."""
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"])
@@ -83,7 +82,7 @@ class LandingWindows(NamedTuple):
     held: bool
 
 
-async def pull_landing_windows(*, saisons_collection: AsyncCollection, today: str) -> LandingWindows:
+async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str) -> LandingWindows:
     """The season taking applications today, the day the next window opens, each `None` where there is none, and whether any window stands.
 
     Judged over every season not yet ended by the rules the submission refuses on and the form's page reads, and never

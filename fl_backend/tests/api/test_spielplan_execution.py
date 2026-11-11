@@ -130,14 +130,7 @@ def entry_rows(
 def a_stored_matchday() -> dict[str, Any]:
     """Undated, which is the shape the draw itself leaves: `spielplan_spieltage_held` counts rows and reads no field of one."""
 
-    return {
-        "_id": STORED_SPIELTAG_OID,
-        "start": None,
-        "end": None,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        "position": 1,
-    }
+    return documents.spieltag_document(STORED_SPIELTAG_OID, SAISON_ID, 1)
 
 
 def a_stored_spiel() -> dict[str, Any]:
@@ -163,7 +156,9 @@ class Seed:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
+def on_a_seeded_saison(
+    url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False, stores_a_refused_shape: str | None = None
+) -> Any:
     """The shipped unique indexes, so a document MongoDB would refuse in production fails here.
 
     `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
@@ -172,7 +167,9 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
     seeded = seed or Seed()
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(
+            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+        ) as (client, database):
             # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
             trace_id_var.set(TRACE_ID)
 
@@ -211,6 +208,7 @@ async def call_draw(
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
@@ -227,6 +225,7 @@ async def call_undraw(
         spieltage_collection=database[Collection.SPIELTAGE],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
     )
 
@@ -792,10 +791,10 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
     return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": home})
 
 
-def a_report(saison_id: str, *, bericht: bool = True) -> dict[str, Any]:
-    """A report document on no fixture, submitted or holding no report: the removal's filter reads the season alone."""
+def a_report(saison_id: str) -> dict[str, Any]:
+    """A report document on no fixture, which no count of submitted reports joins: the removal's filter reads the season alone."""
 
-    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id}, **({} if bericht else {"bericht": None}))
+    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id})
 
 
 async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
@@ -810,12 +809,12 @@ class TestAReplaceTakesTheSeasonsReports:
     def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the replace's report delete and this fails: a report document would name a fixture the replace removed.
 
-        The season's holds no submitted report, which would refuse the replace; the neighbour's does.
+        The season's names no fixture the draw holds, so it refuses nothing; the neighbour's stands.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
             await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID, bericht=False), a_report(NEIGHBOUR_SAISON_ID)])
+            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID), a_report(NEIGHBOUR_SAISON_ID)])
             await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             berichte = database[Collection.SPIELBERICHTE]
@@ -871,7 +870,7 @@ HOLD_S = 2.0
 
 # The race cases' fixture is played the day before their report is written.
 PLAYED_ON = "2026-08-20"
-REPORTED_ON = "2026-08-21"
+REPORTED_AT = datetime(2026, 8, 21, 12, tzinfo=UTC)
 
 # The referee the race cases' fixture is booked to, whose own route writes the report.
 REPORTING_REFEREE = ObjectId("6890a1b2c3d4e5f607760103")
@@ -880,7 +879,7 @@ REPORTING_REFEREE_EMAIL = "otto.gruber@example.com"
 # A goalless report, the least a write takes.
 NULL_NULL = FLSpielberichtBerichtPayload.model_validate(
     {
-        "ergebnis_vorschlag": {"team1_tore": 0, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+        "ergebnis_vorschlag": {"elfmeterschiessen": None, "sonderereignis": None},
         "scorers": [],
         "cards": [],
         "remarks": None,
@@ -964,7 +963,7 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
     return await outcome_of(
         put_spielbericht_bericht(
             spiel_id=spiel_id,
-            bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, bericht_stand=None),
+            bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, version=None),
             response=Response(),
             identifier=REPORTING_REFEREE_EMAIL,
             spiele_collection=spiele,
@@ -974,8 +973,7 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             records=record_collections(database),
             db=client,
-            today=REPORTED_ON,
-            now=datetime(2026, 8, 21, 12, tzinfo=UTC),
+            now=REPORTED_AT,
         )
     )
 
@@ -1086,6 +1084,23 @@ class TestAReplaceTakesTheSeasonsConfirmations:
             )
 
         assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+
+    def test_the_seasons_line_ups_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+        """Drop the line-ups' removal and this fails: one would name pupils for a fixture the replace removed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
+            await call_draw(database, client)
+            await database[Collection.AUFSTELLUNGEN].insert_many(
+                [
+                    documents.aufstellung_document({"_id": ObjectId(), "saison_id": saison_id}, ObjectId(), starters=[ObjectId()])
+                    for saison_id in (SAISON_ID, NEIGHBOUR_SAISON_ID)
+                ]
+            )
+            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+
+            return [row["saison_id"] async for row in database[Collection.AUFSTELLUNGEN].find()]
+
+        assert on_a_seeded_saison(mongo_replica_set_url, body) == [NEIGHBOUR_SAISON_ID]
 
 
 class TestAConfirmedReplaceRedrawsTheWholeSeason:
@@ -1333,7 +1348,9 @@ class ReshapedSeason:
     watermark: Any
 
 
-def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False) -> ReshapedSeason:
+def a_season_drawn_from(
+    url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False, stores_a_refused_shape: str | None = None
+) -> ReshapedSeason:
     """Draw `seed` from `shape`, twice where `replace` is set -- the first time off the seed's own rules."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReshapedSeason:
@@ -1350,7 +1367,7 @@ def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None,
             watermark=await watermark_now(database),
         )
 
-    return on_a_seeded_saison(url, body, seed=seed)
+    return on_a_seeded_saison(url, body, seed=seed, stores_a_refused_shape=stores_a_refused_shape)
 
 
 # A `rules` sub-key no model declares, which `FLSaisonRules` ignores on a read -- so only a write
@@ -1361,8 +1378,10 @@ UNDECLARED_RULE: dict[str, Any] = {"spielzeit_minuten": 25}
 def a_short_seed(*, extra_rules: Mapping[str, Any] | None = None) -> Seed:
     """A season created with the placeholder shape, holding only the clubs that turned up: six, across two groups."""
 
+    # Laid over the builder's season, which refuses a rule no model declares.
+    season = saison_document()
     return Seed(
-        saison=saison_document(rules={**rules_document(), **(extra_rules or {})}),
+        saison={**season, "rules": {**season["rules"], **(extra_rules or {})}},
         entered=entry_rows(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP),
     )
 
@@ -1402,7 +1421,12 @@ class TestADrawStoresTheShapeItRanFrom:
     def test_a_rules_sub_key_no_model_declares_survives_the_draw(self, mongo_replica_set_url: str):
         """`$set` the MERGED `rules` object and this fails: it holds what `FLSaisonRules` declares, so a hand-added key is silently dropped."""
 
-        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(extra_rules=UNDECLARED_RULE), shape=the_short_shape())
+        drawn = a_season_drawn_from(
+            mongo_replica_set_url,
+            seed=a_short_seed(extra_rules=UNDECLARED_RULE),
+            shape=the_short_shape(),
+            stores_a_refused_shape="a season holding a rule no model declares, which the draw must leave standing",
+        )
 
         assert {rule: drawn.rules.get(rule) for rule in UNDECLARED_RULE} == UNDECLARED_RULE
         # Beside the shape it moved, so this cannot pass on a draw that wrote nothing at all.

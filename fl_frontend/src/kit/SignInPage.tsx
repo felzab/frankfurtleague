@@ -10,7 +10,8 @@ import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
 import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
-import { statusLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
+import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { Link } from "./Link";
 import { PlaceholderLine, Waiting } from "./Skeleton";
@@ -27,7 +28,7 @@ type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: bo
 /** What every view says first: its heading, and the one line under its acts for what went wrong. */
 type Head = {
   title: Copy;
-  /** The view's failure, worded by the catalogue; `null` keeps the line empty, holding its place. */
+  /** The view's failure, worded by the catalogue; `null` leaves the line saying nothing and taking no room. */
   row: Copy | null;
 };
 
@@ -103,7 +104,8 @@ const look = tv({
     // Every address a view names: inside its sentence, or on its own line under a passkey sentence.
     marked: "font-semibold break-all",
     acts: "grid gap-3",
-    form: "grid gap-4 text-left",
+    // The address form's field, its bot check and its send in the form rule's rhythm (`FieldStack`, `FormFooter`).
+    form: "text-left",
     divider: "flex items-center gap-3 text-xs text-fg-muted",
     rule: "h-px flex-1 bg-border",
   },
@@ -137,7 +139,6 @@ export function SignInPage(props: SignInView) {
  * title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on the
  * read too, the passkey's step, in the offer's shape, which everyone but an administrator meets: the title's line, the
  * sentence's two lines, the address's line, its button and „Später“ under it, each in its place in the step's blocks.
- * Under either the status line keeps its place.
  */
 export function SignInPlaceholder({ title }: { title: Copy | null }) {
   const slots = look();
@@ -145,32 +146,32 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
     <ClassicPage width="signin">
       <div className={slots.column()}>
         {title === null ? (
-          <Waiting layout="flex flex-col gap-4">
+          <Waiting layoutClass="flex flex-col gap-4">
             <div className={slots.head()}>
               <PlaceholderLine
-                text={classicTitle()}
+                textClass={classicTitle()}
                 words={COPY.signIn.passkey.offer.title}
               />
               <span className="grid w-full justify-items-center">
                 <PlaceholderLine
-                  text={slots.sentence()}
-                  width="w-72"
+                  textClass={slots.sentence()}
+                  widthClass="w-72"
                 />
                 <PlaceholderLine
-                  text={slots.sentence()}
-                  width="w-40"
+                  textClass={slots.sentence()}
+                  widthClass="w-40"
                 />
               </span>
               <PlaceholderLine
-                text={slots.sentence()}
-                width="w-48"
+                textClass={slots.sentence()}
+                widthClass="w-48"
               />
             </div>
             <div className={slots.acts()}>
               <span className={buttonPlaceholder("w-full")} />
               <span className={buttonLook({ look: "quiet" })}>
                 <PlaceholderLine
-                  text=""
+                  textClass=""
                   words={COPY.signIn.passkey.later}
                 />
               </span>
@@ -179,21 +180,22 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
         ) : (
           <>
             <ClassicTitle text={title} />
-            <Waiting layout="flex flex-col gap-4">
+            <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
-                <FieldPlaceholder
-                  width="column"
-                  line={false}
-                />
-                {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
-                <span />
-                <span className={buttonPlaceholder("w-full")} />
+                <FieldStack>
+                  <FieldPlaceholder />
+                  {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
+                  <span />
+                  <FormFooterPlaceholder place="column">
+                    <span className={buttonPlaceholder()} />
+                  </FormFooterPlaceholder>
+                </FieldStack>
               </div>
               <div className={slots.divider()}>
                 <span className={slots.rule()} />
                 <PlaceholderLine
-                  text="text-xs"
-                  width="w-6"
+                  textClass="text-xs"
+                  widthClass="w-6"
                 />
                 <span className={slots.rule()} />
               </div>
@@ -203,7 +205,6 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
             </Waiting>
           </>
         )}
-        <span className={statusLine({ placement: "column" })} />
       </div>
     </ClassicPage>
   );
@@ -328,25 +329,26 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
         // The send's press is the form's submit, so `Enter` in the field sends too.
         onSend={(formData) => send(String(formData.get("email")))}
         className={slots.form()}>
-        <TextField
-          label={address.label}
-          name="email"
-          width="column"
-          kind="email"
-          autofill="username"
-          // The one field of the view, its two acts right under it: the line appears with the error alone.
-          line="withError"
-          // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
-          // its form in this line, as a malformed one meets the browser's.
-          value={address.value}
-          onChange={address.onChange}
-        />
-        {check}
-        <Button
-          variant="primary"
-          type="submit"
-          {...button}
-        />
+        <FieldStack>
+          <TextField
+            label={address.label}
+            name="email"
+            kind="email"
+            autofill="username"
+            // Not marked required: no record's type derives it, and an empty send meets the server's refusal of
+            // its form in this line, as a malformed one meets the browser's.
+            value={address.value}
+            onChange={address.onChange}
+          />
+          {check}
+          <FormFooter place="column">
+            <Button
+              variant="primary"
+              type="submit"
+              {...button}
+            />
+          </FormFooter>
+        </FieldStack>
       </HeldForm>
       {/* Decoration: the passkey's button carries its own name. */}
       <div

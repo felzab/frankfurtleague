@@ -4,7 +4,7 @@ import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
-import { dayOf, formatDateWithWeekdayAndYear, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
+import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -12,11 +12,14 @@ import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { creditedSide } from "@/features/spiele/result";
+import { roleMarkOf, spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 import type { Copy, Words } from "@/core/copy";
+import type { CalendarDay } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
@@ -29,7 +32,7 @@ import type {
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
-import type { TableProps } from "@/kit/Table";
+import type { TableProps, TableRow } from "@/kit/Table";
 import type { Checkpoint } from "@/kit/Timeline";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -82,7 +85,7 @@ export default function SpielPage({ params }: Props) {
 
 async function readRecord(params: Props["params"]): Promise<ReadRecord> {
   const page = await readPage(params);
-  const { spiel, standings, bericht } = page;
+  const { spiel, standings, aufstellungen, bericht } = page;
   const { team1, team2 } = sidesOf(spiel);
   const words = SERVER_COPY.season.spiel;
   // The goals and cards as official: null until the report is adopted and where none is stored, so a result
@@ -99,8 +102,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
         folds: (
           <ReadFolds
             cards={[
-              { title: team1.name, ...lineupOf(bericht?.aufstellungen.team1 ?? null) },
-              { title: team2.name, ...lineupOf(bericht?.aufstellungen.team2 ?? null) },
+              { title: team1.name, ...lineupOf(aufstellungen.team1) },
+              { title: team2.name, ...lineupOf(aufstellungen.team2) },
             ]}
           />
         ),
@@ -118,7 +121,8 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * The match's five facts, a tile each, an absent one a dash: its matchday, a group matchday by its number over its
- * phase; its date and its time; its referee where the referee's name is public; its venue.
+ * phase; its date, as a match row writes it, over its year; its time; its referee where the referee's name is public;
+ * its venue.
  */
 function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
@@ -127,7 +131,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
     group
       ? { label: fact.spieltag, value: { record: formatOrdinal(page.spieltag_position) }, line: PHASE_LABELS.gruppenphase }
       : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
-    { label: fact.date, value: spiel.date === null ? COPY.shared.noValue : { record: formatDateWithWeekdayAndYear(dayOf(spiel.date)) } },
+    dateTileOf(spiel.date === null ? null : dayOf(spiel.date)),
     { label: fact.time, value: spiel.time === null ? COPY.shared.noValue : { record: formatTime(timeOf(spiel.time)) } },
     {
       label: fact.schiedsrichter,
@@ -140,12 +144,30 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
   ];
 }
 
+/**
+ * The date's tile: the day as a match row writes it, „Mi., 28.10.“, over its year, so the tile is no wider than a fifth
+ * of the column (`kit/StatTiles.tsx`'s `five`), as the Spieltag's number stands over its phase.
+ */
+function dateTileOf(day: CalendarDay | null): StatTile {
+  const { date } = COPY.spielplan.fact;
+  // A stored day's first four characters are its year, as a German date writes it.
+  return day === null
+    ? { label: date, value: COPY.shared.noValue }
+    : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: day.slice(0, 4) } };
+}
+
 /** A pupil as the public read names them: a name the consent publishes, else „anonym“; a goal nobody was named for, „unbekannt“. */
 function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "first_name" | "last_name">): Words {
   const words = SERVER_COPY.season.spiel;
   if (spieler.type === "unknown") return words.unknown;
-  if (spieler.type === "anonymous" || spieler.first_name === null) return words.anonymous;
-  return { record: spieler.last_name === null ? spieler.first_name : `${spieler.first_name} ${spieler.last_name}` };
+  return spieler.type === "anonymous" ? words.anonymous : spielerName(spieler);
+}
+
+/** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
+function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
+  const name = personOf(entry);
+  const mark = typeof name === "string" ? undefined : roleMarkOf(entry.rolle);
+  return mark === undefined ? { name } : { name, mark };
 }
 
 /** A line-up's pupils as one table: a row a pupil, with their number and position. */
@@ -156,11 +178,11 @@ function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): Tab
     nameLabel: column.name,
     columns: [
       { key: "nummer", label: column.nummer, figures: true },
-      { key: "position", label: column.position },
+      { key: "position", label: column.position, width: "word" },
     ],
     rows: spieler.map((entry, index) => ({
       id: String(index),
-      name: personOf(entry),
+      ...rowNameOf(entry),
       cells: {
         ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
         ...(entry.position === null ? {} : { position: { record: entry.position } }),
@@ -215,16 +237,17 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
       const { card } = event;
       return {
         id: `k${String(index)}`,
-        mark: { record: card.minute },
+        point: { record: card.minute },
+        mark: { colour: card.colour },
         title: words.event(words.card[card.colour], personOf(card.spieler)),
         detail: shorthand[card.side],
       };
     }
     const { tor } = event;
-    score[tor.eigentor ? (tor.side === "team1" ? "team2" : "team1") : tor.side] += 1;
+    score[creditedSide(tor)] += 1;
     return {
       id: `t${String(index)}`,
-      mark: { record: tor.minute },
+      point: { record: tor.minute },
       title: words.event(tor.eigentor ? words.eigentor : words.tor, personOf(tor.spieler)),
       detail: SERVER_COPY.season.labelled(shorthand[tor.side], { record: formatErgebnis(score) }),
     };

@@ -17,13 +17,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.address_change.services import masked_address
-from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.grants.erasure import erase_grants_in_session
 from app.api.grants.services import compose_notice
 from app.api.identity.crud import erase_the_mails_in_session
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.core.collections import Collection
+from app.readback import RECORD_MODELS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document
 from tests.whole_database import where_held
@@ -33,12 +33,11 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_grants_erasure_test")
 
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # When the notices she finds still queued were, so none reads as one the erasure queued.
-QUEUED = datetime(2026, 3, 31, 9, 0, tzinfo=UTC)
-TODAY = "2026-04-01"
+QUEUED = datetime(2126, 3, 31, 9, 0, tzinfo=UTC)
 RUNNING = "2026"
-STANDING = compose_barred_until_saison_id(running_saison_id=RUNNING)
 
 # The person erased. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
@@ -75,6 +74,9 @@ ELSEWHERE_GRANTED_ID = ObjectId("6890a1b2c3d4e5f607a10008")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
+# The seed's dead spelling of hers, which a case erasing another address of hers, or none, leaves standing.
+PASTED_BY_HAND = "a grant pasted by hand in a spelling the sign-in does not fold to, which no route stores"
+
 
 def grant_row(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     return {
@@ -91,7 +93,7 @@ def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | Non
     # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
     return {
         "_id": row_id,
-        "key": f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA}",
+        "key": f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA_ID}",
         "kind": "grant",
         "to": DORA,
         "data": FLGrantData.model_validate(composed.data).model_dump(mode="json"),
@@ -131,11 +133,14 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
     )
 
 
-def on_a_league(url: str, body: Body) -> Any:
+def on_a_league(url: str, body: Body, *, stores_a_refused_shape: str | None = None) -> Any:
     """The shipped indexes, so a write production would refuse as a duplicate fails here too."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (
+            client,
+            database,
+        ):
             await a_league_she_administered(database)
 
             return await body(database, client)
@@ -165,6 +170,13 @@ async def erase_the_mails(database: AsyncDatabase, client: AsyncMongoClient) -> 
 
     async with client.start_session() as session:
         return await session.with_transaction(step)
+
+
+async def outbox_read_back(database: AsyncDatabase) -> None:
+    """Every mail row the case leaves, judged as the read-back judges it: the opt-out for her grant spares no row of `outbox`."""
+
+    async for row in database[Collection.OUTBOX].find({}):
+        RECORD_MODELS[Collection.OUTBOX].model_validate(row, extra="forbid")
 
 
 async def ids_in(database: AsyncDatabase, collection: Collection) -> set[ObjectId]:
@@ -205,10 +217,12 @@ class TestHerGrantsGo:
             await database[Collection.GRANTS].insert_one(grant_row(pasted, ERIKA_PUNYCODE_PASTED, "administration"))
             await erase(database, client, identifier=ERIKA_PUNYCODE)
             stands = await database[Collection.GRANTS].find_one({"_id": pasted}) is not None
+            # Owed every holder left, her dead spelling among them, each in the fold.
+            await outbox_read_back(database)
 
             return stands, await where_held(database, "MLLER-KVA", folded=True)
 
-        assert on_a_league(mongo_replica_set_url, body) == (False, {"MLLER-KVA": []})
+        assert on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=PASTED_BY_HAND) == (False, {"MLLER-KVA": []})
 
 
 class TestTheNotices:
@@ -239,10 +253,11 @@ class TestTheNotices:
             )
 
             lines = await erase_the_mails(database, client)
+            await outbox_read_back(database)
 
             return await ids_in(database, Collection.OUTBOX), lines
 
-        left, lines = on_a_league(mongo_replica_set_url, body)
+        left, lines = on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=PASTED_BY_HAND)
 
         assert left.isdisjoint({NAMING_HER_GRANT, typed, completed})
         assert left >= {NOT_HERS, ELSEWHERE, settled}

@@ -16,7 +16,8 @@ from app.api.bewerbungen.services import build_own_bewerbung_filter
 from app.api.grants.services import OWNER, admin_tier_of, holds_an_owners_power
 from app.api.identity.schemas import FLAccountErasureView, FLErasureViewResponse, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
+from app.api.registrierungen.services import SUBMITTED, build_erasure_registrierung_filter, build_own_registrierung_filter
+from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.services import (
     build_self_referee_filter,
     build_unplayed_assignment_filter,
@@ -27,41 +28,27 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLSaisonStatus
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLKontaktRolle, FLSaisonStatus
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
 
 
-def saison_status_lookup() -> Mapping[str, Any]:
-    """Each season row's own `saisons` row beside it as `saison`, its status alone: the read that finds a seat answers its season too."""
-
-    return {
-        "$lookup": {
-            "from": DbCollection.SAISONS,
-            "localField": "saison_id",
-            "foreignField": "_id",
-            "pipeline": [{"$project": {"status": 1}}],
-            "as": "saison",
-        }
-    }
-
-
-def seat_saison_statuses(rows: Iterable[Mapping[str, Any]]) -> dict[str, FLSaisonStatus]:
-    """The status of each row's season, off the `saison` that `saison_status_lookup` joined.
+def seat_saisons(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    """Each row's season, by its id, as `app/api/saisons/services.py :: SAISON_LOOKUP` joined it: its status and its span.
 
     Raised rather than dropped: a seat whose season has no row is a database this read cannot answer truthfully for, and a
     silently shorter list is a person shown no panel at all.
     """
 
-    statuses: dict[str, FLSaisonStatus] = {}
+    saisons: dict[str, Mapping[str, Any]] = {}
     for row in rows:
-        [saison] = row.get("saison") or [None]
+        [saison] = row.get(SAISON_AS) or [None]
         if saison is None:
             raise RuntimeError(f"saison_teams holds a seat in {row['saison_id']}, which saisons has no row for")
-        statuses[row["saison_id"]] = saison["status"]
+        saisons[row["saison_id"]] = saison
 
-    return statuses
+    return saisons
 
 
 def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -69,13 +56,14 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": rows_seating(identifier)},
-        # `name` rides along free, this read opening the row anyway, and it is the row's own rather
+        # `name` and `shorthand` ride along free, this read opening the row anyway, and they are the row's own rather
         # than the club's.
         {
             "$project": {
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                "shorthand": 1,
                 "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")},
             }
@@ -83,7 +71,8 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
         # otherwise answered in whatever order the collection was written in.
         {"$sort": {"saison_id": 1, "team_id": 1}},
-        saison_status_lookup(),
+        # The read finding a seat answers its season too.
+        SAISON_LOOKUP,
     ]
 
 
@@ -292,7 +281,7 @@ def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     The whole consent record rides along: whether its pupil confirmed it is part of the judgement.
     """
 
-    return [{"$match": build_eigene_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
+    return [{"$match": build_own_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
 
 
 def folded(stored: Any) -> str | None:
@@ -350,7 +339,7 @@ def is_own_schiedsrichter(row: Mapping[str, Any], identifier: str) -> bool:
 
 
 def is_own_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
-    """A pending registration its pupil confirmed, a returning pupil's carrying no choice among them: its stored data is served.
+    """A pending registration its pupil confirmed: its stored data is served.
 
     The status is judged here as well as selected on, for the caller reaching a row by its id.
     """
@@ -418,13 +407,21 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     return saison_status in ("active", "future")
 
 
+def rollen_on(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> list[FLKontaktRolle]:
+    """The slots these seats hold on this team in this season, in `KONTAKT_ROLLEN` order: the one way to ask it."""
+
+    held = {seat.rolle for seat in seats if seat.team_id == team_id and seat.saison_id == saison_id}
+
+    return [rolle for rolle in KONTAKT_ROLLEN if rolle in held]
+
+
 def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> bool:
     """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
 
-    Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does, so no slot is read here.
+    Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does.
     """
 
-    return any(seat.team_id == team_id and seat.saison_id == saison_id for seat in seats)
+    return bool(rollen_on(seats, team_id=team_id, saison_id=saison_id))
 
 
 # A retired referee's record takes withdrawals alone: the consent PATCH grants by this, and the read's `givable` is the same predicate.
@@ -573,7 +570,7 @@ def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[
 
 def build_registrierung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_eigene_registrierung_filter(*identifiers)},
+        {"$match": build_own_registrierung_filter(*identifiers)},
         {"$project": {"status": 1, "email": 1, "einwilligung": 1}},
     ]
 

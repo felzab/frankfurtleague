@@ -3,7 +3,7 @@ import NextLink from "next/link";
 import { COPY } from "@/core/copy";
 
 import { cardHover, cardSurface, stacked } from "./cardStyles";
-import { EmptyState } from "./EmptyState";
+import { EmptyBox } from "./EmptyState";
 import { Icon } from "./Icon";
 import { PageWait, PageWaitOnceRead } from "./PageFade";
 import { formColumn, RailPage } from "./RailFrame";
@@ -38,7 +38,7 @@ export function AccountPage({
   waitOnceRead?: Promise<ReactNode>;
   children: ReactNode;
 }) {
-  const waiting = (boxes: ReactNode) => <Waiting layout="grid gap-6">{boxes}</Waiting>;
+  const waiting = (boxes: ReactNode) => <Waiting layoutClass="grid gap-6">{boxes}</Waiting>;
   return (
     <RailPage
       scope="area"
@@ -61,13 +61,11 @@ export function AccountPage({
 /** A Konto page holding none of the records its boxes would show: the blank slate in one box, the page's own mark over it. */
 export function AccountEmpty({ plural, glyph }: { plural: Copy; glyph: IconName }) {
   return (
-    <div className={cardSurface()}>
-      <EmptyState
-        kind="none"
-        plural={plural}
-        glyph={glyph}
-      />
-    </div>
+    <EmptyBox
+      kind="none"
+      plural={plural}
+      glyph={glyph}
+    />
   );
 }
 
@@ -97,8 +95,8 @@ export function AccountListPlaceholder() {
           className={slots.row()}>
           <span className={placeholderBar("size-4.5")} />
           <PlaceholderLine
-            text={slots.words()}
-            width="w-1/3"
+            textClass={slots.words()}
+            widthClass="w-1/3"
           />
           <RowEnd />
         </span>

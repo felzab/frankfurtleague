@@ -22,8 +22,8 @@ const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.ext
  * anything is read: this write mails three addresses its sender names. It runs as a server action, so the edge meters
  * it by the action pair alone (`nginx/shared/site.conf`), whatever page it is posted at.
  *
- * The replay key is one per form, not per press: only a stored application holds a key, so a press the write refused
- * leaves it free for the next, and a press whose answer was lost finds its application rather than making a second.
+ * The replay key is the form's, one for each version of what it posts (`fl_frontend/src/kit/OneShot.tsx :: replayField`):
+ * a press whose answer was lost, sent again unchanged, finds its application rather than making a second.
  */
 export const submitBewerbung = action({
   lane: "public",
@@ -32,7 +32,6 @@ export const submitBewerbung = action({
   input: Application,
   ownWords: [
     "bewerbung_picked_team_already_entered",
-    "bewerbung_key_differing",
     "bewerbung_kontakt_repeated",
     "good_spieler_exceed_kader",
     "email_not_accepted",

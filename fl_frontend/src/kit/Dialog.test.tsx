@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Activity, useState } from "react";
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, getDefaultNormalizer, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -15,6 +15,7 @@ import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
 import type * as Navigation from "next/navigation";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
@@ -29,22 +30,17 @@ const NAME = COPY.page.adminSpielorte;
 const INPUT = COPY.page.spiele;
 const DONE: ActionAnswer = { ok: true, value: undefined };
 
-function CreateDialog({ create }: { create: (formData: FormData) => Promise<ActionAnswer> }) {
+function CreateDialog({ create, locked }: { create: (formData: FormData) => Promise<ActionAnswer>; locked?: Copy }) {
   return (
     <Dialog
       title={NAME}
       act={{ verb: "create", object: NAME }}
       action={create}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.create}
-        />
-      }>
+      locked={locked}
+      trigger={{ label: COPY.shared.verb.create }}>
       <TextField
         label={INPUT}
         name="created"
-        width="W3"
         kind="text"
       />
     </Dialog>
@@ -72,7 +68,6 @@ function EditorHoldingDialog({
               <TextField
                 label={NAME}
                 name="name"
-                width="W3"
                 kind="text"
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}
@@ -103,12 +98,7 @@ describe("the kit's confirmation", () => {
         subject={NAME}
         consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
-        trigger={
-          <Button
-            variant="danger"
-            label={COPY.shared.verb.retire}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
       />,
     );
@@ -130,12 +120,7 @@ describe("the kit's confirmation", () => {
         subject={NAME}
         consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
-        trigger={
-          <Button
-            variant="danger"
-            label={COPY.shared.verb.retire}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => answer}
       />,
     );
@@ -173,12 +158,7 @@ function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> 
       subject={NAME}
       consequence={COPY.admin.spielort.retireConsequence}
       tone="danger"
-      trigger={
-        <Button
-          variant="danger"
-          label={COPY.shared.verb.retire}
-        />
-      }
+      trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
     />
   );
@@ -208,7 +188,6 @@ function HeldDialog() {
         <TextField
           label={INPUT}
           name="created"
-          width="W3"
           kind="text"
         />
       </Dialog>
@@ -238,6 +217,26 @@ async function leaveAndReturnWithOpen(Page: () => ReactElement) {
     );
 }
 
+// The harm: an act the record cannot take, such as an unconfirmed pupil's admission, sent anyway and refused, or closed
+// with nothing saying why.
+describe("a dialog's locked act", () => {
+  it("sends nothing on a press, and is described by its reason", async () => {
+    const create = vi.fn(async () => DONE);
+    const reason = COPY.shared.failure.stale;
+    render(
+      <CreateDialog
+        create={create}
+        locked={reason}
+      />,
+    );
+
+    await createThroughTheDialog();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create"), description: reason })).toBeTruthy();
+  });
+});
+
 describe("the kit's dialog", () => {
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
@@ -255,7 +254,7 @@ describe("the kit's dialog", () => {
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(save).not.toHaveBeenCalled();
     // The editor's draft stands, waiting for its own save.
-    expect(screen.getByText(COPY.template.changesPending(1))).toBeTruthy();
+    expect(screen.getByText(COPY.template.changesPending(1), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) })).toBeTruthy();
   });
 
   /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
@@ -362,5 +361,97 @@ describe("the kit's dialog", () => {
     await leaveAndReturnWithOpen(Page);
 
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+const SAVE = COPY.shared.verb.save;
+const END = COPY.shared.verb.deregister;
+
+/** A small record's dialog: its one field and its save, and under the field the act that ends the record. */
+function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<ActionAnswer>; end: () => Promise<ActionAnswer> }) {
+  return (
+    <Dialog
+      title={NAME}
+      act={{ verb: "save" }}
+      action={save}
+      danger={{
+        name: COPY.shared.withObject(NAME, "deregister"),
+        consequence: COPY.admin.spielort.retireConsequence,
+        confirm: { verb: "deregister", subject: NAME, consequence: COPY.admin.spielort.retireConsequence, tone: "danger", onConfirm: end },
+      }}
+      trigger={{ label: COPY.shared.verb.edit }}>
+      <TextField
+        label={INPUT}
+        name="created"
+        kind="text"
+      />
+    </Dialog>
+  );
+}
+
+/** Opens the record's dialog and, from its danger row, the question. */
+async function askToEnd() {
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.edit }));
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: END }));
+  return screen.findByRole("alertdialog");
+}
+
+describe("a dialog's danger row", () => {
+  // The harm: the record saved and ended at once, each write on the version the other moves past.
+  it("closes its act while the dialog's own runs, and the dialog's own while its question stands", async () => {
+    const saved = Promise.withResolvers<ActionAnswer>();
+    onTestFinished(() => saved.resolve(DONE));
+    render(
+      <RecordDialog
+        save={() => saved.promise}
+        end={async () => DONE}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.edit }));
+    const dialog = screen.getByRole("dialog");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: SAVE }));
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: END }).hasAttribute("disabled")).toBe(true));
+
+    await act(async () => saved.resolve({ ok: false, reason: COPY.shared.failure.stale }));
+    await userEvent.click(within(dialog).getByRole("button", { name: END }));
+    await screen.findByRole("alertdialog");
+    // The question is a modal over the dialog: React Aria takes everything under it out of reach, the save with it.
+    expect(screen.queryByRole("button", { name: SAVE })).toBeNull();
+  });
+
+  // The harm: a refused „Austragen“ closing its question, or the dialog under it, its reason shown nowhere.
+  it("keeps a refused act's reason in its question, the dialog standing under it", async () => {
+    const reason = COPY.shared.failure.stale;
+    render(
+      <RecordDialog
+        save={async () => DONE}
+        end={async () => ({ ok: false, reason })}
+      />,
+    );
+    const question = await askToEnd();
+    await userEvent.click(within(question).getByRole("button", { name: END }));
+
+    await waitFor(() => expect(within(question).getByRole("status").textContent).toBe(reason));
+    expect(screen.getByRole("dialog", { hidden: true })).toBeTruthy();
+  });
+
+  // The harm: the dialog standing open over a record that is gone, or the keyboard's place lost on `body` as the
+  // question's own return address, the row's button, leaves with the dialog.
+  it("closes the question and the dialog on a done act, the focus back on what opened the dialog", async () => {
+    const end = vi.fn(async (): Promise<ActionAnswer> => DONE);
+    render(
+      <RecordDialog
+        save={async () => DONE}
+        end={end}
+      />,
+    );
+    const question = await askToEnd();
+    await userEvent.click(within(question).getByRole("button", { name: END }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { hidden: true })).toBeNull());
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(end).toHaveBeenCalledOnce();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: COPY.shared.verb.edit })));
   });
 });

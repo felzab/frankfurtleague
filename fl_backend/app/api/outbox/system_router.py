@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, status
 from pydantic import TypeAdapter, ValidationError
-from pymongo import ASCENDING, ReturnDocument
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -36,11 +36,12 @@ from app.api.outbox.services import (
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, stamp_in_db
+from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
 from app.core.logging import fl_logger
 from app.core.security import verify_access_system
 from app.core.transactions import transaction_session
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
 
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
@@ -87,6 +88,18 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _club_seat_filter(row: Mapping[str, Any]) -> dict[str, Any]:
+    """The club's season row a mail to its contact seats names, while a confirmed seat there still holds the mail's address."""
+
+    club = row["club"]
+
+    return {
+        "saison_id": club["saison_id"],
+        "team_id": club["team_id"],
+        "$or": [{f"kontakte.{seat}.email": row["to"], f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN],
+    }
+
+
 def _link_update(link: Mapping[str, Any], token_hash: str) -> dict[str, Any]:
     if link["replaced"]:
         return {"$set": {path: [token_hash] for path in link["paths"]}}
@@ -108,7 +121,8 @@ async def post_handout(
     The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
     is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
     hold every claim until its deadline. A mail to an address a ban holds is stopped as
-    `barred`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
+    `barred`, the ban's own notice alone excepted. A mail to a club's contact seats is stopped as `dropped` where no
+    confirmed seat of that club's season row holds its address any more. A mail carrying a link has it minted here, its hash written to
     the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
     holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
     answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every
@@ -162,16 +176,32 @@ async def post_handout(
 
         tokens: dict[Any, str] = {}
         for row in due:
-            if row["_id"] in barred_ids or row["link"] is None:
+            if row["_id"] in barred_ids:
+                continue
+            if row.get("club") is not None:
+                # An anchor on the seat's row, judged by its filter: a seat edit landing beside this claim conflicts with
+                # it, and the retry reads the seat as it then stands.
+                held = await patch_past_the_version_in_db(
+                    collection=db[Collection.SAISON_TEAMS],
+                    db_filter=_club_seat_filter(row),
+                    update={"$inc": {ANCHOR_FIELD: 1}},
+                    session=session,
+                )
+                if held == 0:
+                    dropped_ids.append(row["_id"])
+                    continue
+            if row["link"] is None:
                 continue
             raw, token_hash = mint_token()
-            minted = await stamp_in_db(
+            # Past the version: a hash changes nothing a reader sees, and raising the count would refuse the next
+            # save of an editor read before the hand-out.
+            minted = await patch_past_the_version_in_db(
                 collection=db[Collection(row["reference"]["collection"])],
                 db_filter=_link_record_filter(row),
                 update=_link_update(row["link"], token_hash),
                 session=session,
             )
-            if not minted:
+            if minted == 0:
                 dropped_ids.append(row["_id"])
                 continue
             tokens[row["_id"]] = raw
@@ -317,13 +347,12 @@ async def _reopen_chases(
         return
 
     if seats := reopened_chases(bewerbung_raw=row, to=mail["to"]):
-        await patch_one_in_db(
+        # Past the version: the chase's stamp is mail bookkeeping no form saves, so a decision read before it still lands.
+        await patch_past_the_version_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": row["_id"]},
             update=compose_chase_update(seats=seats, closed_at=None),
-            expected_version=None,
             session=session,
-            return_document=ReturnDocument.BEFORE,
         )
 
 
@@ -340,7 +369,8 @@ async def post_event(
     The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
     it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
     anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
-    one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
+    one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
+    its send, which keeps its key alone, rather than a refusal the provider
     would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
     its address, in the same transaction.
     """
@@ -351,6 +381,8 @@ async def post_event(
             db_filter={
                 "_id": event_data.id,
                 "delivery.state": {"$in": list(FOLLOWS[event_data.state])},
+                # A tombstone takes no event: what its replaced mailbox reports is no longer the person's.
+                "to": {"$type": "string"},
             },
             update={"$set": {"delivery": {"state": event_data.state, "reason": event_data.reason, "at": event_data.at}}},
             session=session,

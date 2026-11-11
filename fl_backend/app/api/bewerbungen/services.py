@@ -1,11 +1,10 @@
 import hashlib
-import json
 from collections.abc import Container, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, TypeIs, get_args
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungState,
@@ -254,18 +253,6 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
 # --- The SUBMISSION KEY, which the registration's submission takes from here.
 
 
-def payload_fingerprint(payload: BaseModel) -> str:
-    """The digest a replayed key's payload is compared by.
-
-    Over the VALIDATED payload: two spellings the model stores alike, or one body serialised in two
-    key orders, are one request. Keys sorted, so a mapping-typed field cannot reorder it.
-    """
-
-    canonical = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
 def build_key_filter(*, key: str) -> Mapping[str, Any]:
     """The key lookup, carrying the unique index's partial term.
 
@@ -273,22 +260,6 @@ def build_key_filter(*, key: str) -> Mapping[str, Any]:
     """
 
     return {"idempotency_key": {"$eq": key, "$type": "string"}}
-
-
-def find_abweichender_fingerabdruck_refusal(*, saved: Any, fingerabdruck: str) -> WriteRefusal | None:
-    """Why this key cannot be replayed, or `None`: it already carries an application sent with other details.
-
-    Refused rather than answered as the stored one, which would tell the applicant a changed field
-    had arrived.
-    """
-
-    if saved == fingerabdruck:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.BEWERBUNG_KEY_DIFFERING,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-    )
 
 
 def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[str, Any]:
@@ -363,7 +334,7 @@ def confirmation_deadline_from(*, today: str) -> str:
     return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
 
 
-def compose_bestaetigung(*, today: str) -> dict[str, Any]:
+def compose_confirmation(*, today: str) -> dict[str, Any]:
     """One seat's bookkeeping as the create and the re-send write it: mailed today, its 14 days from today, nobody reminded or declined.
 
     No link yet: the hand-out of the mail the same write owes mints it into `token_hashes`, so a link replaced here opens
@@ -383,7 +354,7 @@ def compose_bestaetigung(*, today: str) -> dict[str, Any]:
 def compose_confirmations(*, today: str, unmailed: Container[str] = ()) -> dict[str, Any]:
     """Every seat's bookkeeping at the submission. An `unmailed` seat's `sent_at` is null, which no reminder reaches: no mail was owed it."""
 
-    return {seat: {**compose_bestaetigung(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_ROLLEN}
+    return {seat: {**compose_confirmation(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_ROLLEN}
 
 
 # The admin reads' projection, and the FIRST exclusion projection in this tree: an inclusion list
@@ -564,7 +535,7 @@ def find_already_answered_refusal(*, kontakte: Any, confirmations: Any, seat: st
     return None
 
 
-def find_alter_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
     Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged BEFORE any write, so
@@ -594,7 +565,7 @@ def _seat_state_of(*, kontakte: Any, confirmations: Any, seat: str, over: bool) 
     return "expired" if over else "valid"
 
 
-def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungState:
+def state_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungState:
     """What a reopened link shows. A confirmed seat on an accepted application reads as confirmed."""
 
     confirmations = bewerbung_raw.get("confirmations")
@@ -994,20 +965,18 @@ def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool)
     if announced:
         written["erasure_announced_at"] = today
 
-    # The submission's digest was taken over this person's details too, and a hash of personal data is
-    # still personal data. A replay then meets the refusal of other details, which stays true.
-    return {"$set": written, "$unset": {"idempotency_fingerprint": ""}}
+    return {"$set": written}
 
 
 def _fresh_links(*, seats: Sequence[str], today: str) -> dict[str, Any]:
     # The WHOLE entry, its links with it: the old link opens nothing from here, and the mail this write owes mints the fresh one.
-    return {f"confirmations.{seat}": compose_bestaetigung(today=today) for seat in seats}
+    return {f"confirmations.{seat}": compose_confirmation(today=today) for seat in seats}
 
 
 def _moves_the_deletion_day(*, kontakte: Any, confirmations: Any, seats: Sequence[str], today: str) -> bool:
     """Whether fresh links on these seats move `deletion_day`, the earliest day and not always the declining seat's, which a notice named."""
 
-    fresh = {**(confirmations if isinstance(confirmations, Mapping) else {}), **{seat: compose_bestaetigung(today=today) for seat in seats}}
+    fresh = {**(confirmations if isinstance(confirmations, Mapping) else {}), **{seat: compose_confirmation(today=today) for seat in seats}}
     unanswered = {**(kontakte if isinstance(kontakte, Mapping) else {}), **dict.fromkeys(seats)}
 
     return deletion_day(kontakte=unanswered, confirmations=fresh) != deletion_day(kontakte=kontakte, confirmations=confirmations)
@@ -1132,11 +1101,11 @@ def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
     a seat write fills and would leave one of them holding the other's link.
     """
 
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    if zugleich is None:
+    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
+    if also is None:
         return None
 
-    return seat_named(zugleich) if seat == "trainer" else ("trainer" if seat == zugleich else None)
+    return seat_named(also) if seat == "trainer" else ("trainer" if seat == also else None)
 
 
 def compose_kontakt_seat_update(
@@ -1280,7 +1249,7 @@ def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) ->
     return list(grouped.values())
 
 
-def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
+def compose_reminder_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
     """The reminder's stamp per seat. `sent_at` and the seat's deadline stay: a reminder is not a re-send, and its link joins the first."""
 
     return {"$set": {f"confirmations.{seat}.reminded_at": today for seat in seats}}
@@ -1359,7 +1328,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     }
 
 
-def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
+def build_reminder_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """Every application with a seat owed its reminder, as `reminder_seats` judges it.
 
     In the query: the clock stamps a share a pass, and a read keeping stamped rows hands the next
@@ -1430,16 +1399,16 @@ def compose_lapsed_seats_update(*, kontakte: Any, seats: Sequence[str]) -> Mappi
     return {"$set": {**slots, **{f"confirmations.{seat}": None for seat in seats}}}
 
 
-def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
+def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the decline clock takes this declined application, counted from the day the decision was taken."""
 
     if bewerbung_raw.get("status") != "declined":
         return False
 
-    entscheidung = bewerbung_raw.get("decision")
-    getroffen_am = entscheidung.get("made_at") if isinstance(entscheidung, Mapping) else None
+    decision = bewerbung_raw.get("decision")
+    made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
 
-    return isinstance(getroffen_am, str) and days_after(day=getroffen_am, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
 
 
 def season_has_ended(*, saison_status: Any) -> bool:
@@ -1465,7 +1434,7 @@ def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_
     return bewerbung_raw.get("status") == "accepted" and season_after_has_ended(later_saison_status=later_saison_status)
 
 
-def undecided_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this application: undecided, and its season is over.
 
     Nothing else is asked: a confirmed seat drops an application out of the fourteen-day clock.
@@ -1526,13 +1495,13 @@ def pending_people(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPe
     An emptied seat counts, its first name `None`: the application cannot complete without it.
     """
 
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
+    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
     people: list[FLBewerbungPerson] = []
 
     for seat in KONTAKT_ROLLEN:
-        if seat not in seats or (seat == "trainer" and zugleich in seats):
+        if seat not in seats or (seat == "trainer" and also in seats):
             continue
-        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == zugleich and "trainer" in seats else [seat]
+        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == also and "trainer" in seats else [seat]
         people.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=rollen))
 
     return people
@@ -1597,7 +1566,7 @@ def owed_at_submission(
                 )
             )
             continue
-        andere = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+        others = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
         mails.append(
             OwedMail(
                 key=f"{stem}/received",
@@ -1606,7 +1575,7 @@ def owed_at_submission(
                     kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
-                    pending=pending_people(kontakte=kontakte, seats=andere),
+                    pending=pending_people(kontakte=kontakte, seats=others),
                     deadline=deadline,
                 ),
                 reference=bewerbung_reference(bewerbung_id, seats),
@@ -1814,8 +1783,8 @@ def seat_state(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
     """
 
     kontakte = row.get("kontakte")
-    zugleich = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    mirrored = states.get((row["_id"], zugleich)) if seat == "trainer" and zugleich else None
+    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
+    mirrored = states.get((row["_id"], also)) if seat == "trainer" and also else None
 
     return mirrored or states.get((row["_id"], seat))
 
@@ -1829,7 +1798,7 @@ def unreachable_seats(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str 
 def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None], FLOutboxStatus], *, today: str) -> dict[str, Any]:
     """A stored application with each seat's last mail and its state beside its bookkeeping, as every read serves it.
 
-    The state is `zustand_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
+    The state is `state_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
     """
 
     confirmations = row.get("confirmations")
@@ -1842,7 +1811,7 @@ def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
             seat: {
                 **entry,
                 "delivery": seat_state(row=row, states=states, seat=seat),
-                "state": zustand_of(bewerbung_raw=row, seat=seat, today=today),
+                "state": state_of(bewerbung_raw=row, seat=seat, today=today),
             }
             if isinstance(entry, Mapping)
             else entry

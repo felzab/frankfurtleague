@@ -47,7 +47,8 @@ from tests.worker import worker_database
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as spiel_saves
 from .conftest import config_for
-from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, a_grant, journal_records
+from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, THEIR_REPORT_OID, a_grant, action_log_row, journal_records
+from .test_identity_erasure_execution import PUPIL_OID as THEIR_PUPIL_OID
 from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
 from .test_identity_erasure_execution import on_a_league as on_their_league
 from .test_identity_erasure_on_request import erased_by_the_handler as erased_on_request
@@ -229,6 +230,53 @@ class TestThePersonsOwnErasure:
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
         assert (refused, removed) == ([WRITE_CONFLICT, None], 1)
+
+    def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(self, mongo_replica_set_url: str):
+        """Catches any step writing off the erasure's session: that write would stand while the commit taking the rest failed.
+
+        Their records span every arm, a report names the pupil and the log their act, so each step reaching them writes.
+        Refused without the transient label, so nothing reruns the erasure and the database read after it is the rollback's.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            commits = _Commits()
+            refusing = AsyncMongoClient(
+                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
+            )
+            refusal = {
+                "failCommands": ["commitTransaction"],
+                "appName": REFUSED_COMMIT_APP,
+                "errorCode": NO_SUCH_TRANSACTION,
+                "errorLabels": [],
+            }
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            await database[Collection.SPIELBERICHTE].update_one(
+                {"_id": THEIR_REPORT_OID}, {"$set": {"bericht.scorers.0.spieler_id": THEIR_PUPIL_OID}}
+            )
+            # An act of theirs as an administrator, which the erasure reattributes.
+            await database[Collection.ACTION_LOG].insert_one(action_log_row(ObjectId(), by=IDENTIFIER))
+            before = await _every_document(database)
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+            try:
+                with pytest.raises(PyMongoError):
+                    await erased_by_the_person(refusing[database.name], refusing)
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await refusing.close()
+
+            return commits.answered, before, await _every_document(database)
+
+        commits, before, after = on_their_league(mongo_replica_set_url, body)
+
+        # The premise first: one commit, refused, so what follows is the rollback's state.
+        assert commits == [NO_SUCH_TRANSACTION]
+        assert [name for name in sorted(before.keys() | after.keys()) if before.get(name) != after.get(name)] == []
+
+
+async def _every_document(database: AsyncDatabase) -> dict[str, list[Any]]:
+    """Each collection's documents in `_id` order."""
+
+    return {name: await database[name].find({}, sort=[("_id", 1)]).to_list() for name in await database.list_collection_names()}
 
 
 @pytest.mark.db

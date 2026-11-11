@@ -105,10 +105,14 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
   const partners = chosen === undefined ? clubs : clubs.filter((club) => club.gruppe !== chosen.gruppe);
   return (
     <SectionAct
-      label={COPY.shared.withObject(WORDS.gruppen, "swap")}
       inputs={[first, second]}
-      isDisabled={locked || first === null || second === null}
-      run={async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second }))}>
+      acts={[
+        {
+          label: COPY.shared.withObject(WORDS.gruppen, "swap"),
+          isDisabled: locked || first === null || second === null,
+          run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
+        },
+      ]}>
       <ComboBox
         label={WORDS.swapFirst}
         options={clubs.map((club) => optionOf(club, club.groupTakenPlace))}
@@ -154,12 +158,17 @@ function Replacement({
       : WORDS.replaceConsequence({ record: arriving.name }, { record: leaving.name }, leaving.gruppe);
   return (
     <SectionAct
-      label={COPY.shared.withObject(TEAM, "replace")}
       inputs={[out, into]}
-      isDisabled={locked || consequence === undefined}
-      // Asked only once both clubs are chosen, the button staying closed until then.
-      confirm={{ verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" }}
-      run={async () => (out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }))}>
+      acts={[
+        {
+          label: COPY.shared.withObject(TEAM, "replace"),
+          isDisabled: locked || consequence === undefined,
+          // Asked only once both clubs are chosen, the button staying closed until then.
+          confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
+          run: async () =>
+            out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
+        },
+      ]}>
       <ComboBox
         label={WORDS.outgoing}
         options={clubs.map((club) => optionOf(club, club.takenPlace))}
@@ -280,7 +289,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.winPoints}
               name="winPoints"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.winPoints}
               isDisabled={facts.begun}
@@ -290,7 +299,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.drawPoints}
               name="drawPoints"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.drawPoints}
               isDisabled={facts.begun}
@@ -300,7 +309,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.lossPoints}
               name="lossPoints"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.lossPoints}
               isDisabled={facts.begun}
@@ -311,7 +320,6 @@ export function SaisonEditor({
           <Select
             label={WORDS.tiebreak}
             name="tiebreak"
-            width="fit"
             options={TIEBREAK}
             isRequired={required.tiebreak}
             isDisabled={facts.begun}
@@ -325,7 +333,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.forfeitWinner}
               name="forfeitWinner"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.forfeitWinner}
               value={draft.forfeitWinner}
@@ -334,7 +342,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.forfeitLoser}
               name="forfeitLoser"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.forfeitLoser}
               value={draft.forfeitLoser}
@@ -355,7 +363,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.gruppen}
               name="gruppen"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.gruppen}
               isDisabled={drawn}
@@ -365,7 +373,7 @@ export function SaisonEditor({
             <TextField
               label={WORDS.teamsPerGruppe}
               name="teamsPerGruppe"
-              width="C2"
+              holds={2}
               kind="digits"
               isRequired={required.teamsPerGruppe}
               isDisabled={drawn}
@@ -376,7 +384,6 @@ export function SaisonEditor({
           <Select
             label={WORDS.qualifiers}
             name="qualifiers"
-            width="fit"
             options={qualifiers}
             isRequired={required.qualifiers}
             isDisabled={facts.begun || drawn}
@@ -396,7 +403,7 @@ export function SaisonEditor({
           <TextField
             label={WORDS.maxKader}
             name="maxKader"
-            width="C2"
+            holds={2}
             kind="digits"
             isRequired={required.maxKader}
             value={draft.maxKader}
@@ -472,11 +479,15 @@ export function SaisonEditor({
       fields:
         facts.spielplan === null ? (
           <SectionAct
-            label={COPY.shared.withObject(SPIELPLAN, "create")}
-            variant="primary"
-            isDisabled={isClosed}
-            locked={facts.locked.create}
-            run={() => acts.draw({ saison_id: saison })}
+            acts={[
+              {
+                label: COPY.shared.withObject(SPIELPLAN, "create"),
+                variant: "primary",
+                isDisabled: isClosed,
+                locked: facts.locked.create,
+                run: () => acts.draw({ saison_id: saison }),
+              },
+            ]}
           />
         ) : (
           <Facts
@@ -524,17 +535,21 @@ export function SaisonEditor({
       title: WORDS.registrierungslinks,
       fields: (
         <SectionAct
-          label={COPY.shared.withObject(WORDS.registrierungslinks, "send")}
-          variant="primary"
-          // The press's own plan reaches nobody: every team is passed over or already mailed.
-          isDisabled={isClosed || links.mailed === 0}
-          confirm={{
-            verb: "send",
-            subject: WORDS.registrierungslinks,
-            consequence: WORDS.dispatchConsequence(links.mailed),
-            tone: "primary",
-          }}
-          run={() => acts.sendLinks({ saison_id: saison })}>
+          acts={[
+            {
+              label: COPY.shared.withObject(WORDS.registrierungslinks, "send"),
+              variant: "primary",
+              // The press's own plan reaches nobody: every team is passed over or already mailed.
+              isDisabled: isClosed || links.mailed === 0,
+              confirm: {
+                verb: "send",
+                subject: WORDS.registrierungslinks,
+                consequence: WORDS.dispatchConsequence(links.mailed),
+                tone: "primary",
+              },
+              run: () => acts.sendLinks({ saison_id: saison }),
+            },
+          ]}>
           <Table
             {...links.head}
             label={WORDS.registrierungslinks}

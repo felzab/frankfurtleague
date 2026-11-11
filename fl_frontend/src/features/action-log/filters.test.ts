@@ -24,7 +24,7 @@ describe("„Wer“", () => {
 describe("the read a filter asks", () => {
   /* A category left out of an option's list hides its rows with nothing failing. */
   it("sends every category an option stands for", () => {
-    expect(logParams({ type: "spiel" }).type).toStrictEqual(["spieltag", "spiel", "spielbestaetigung", "spielbericht"]);
+    expect(logParams({ type: "spiel" }).type).toStrictEqual(["spieltag", "spiel", "spielbestaetigung", "spielbericht", "aufstellung"]);
     expect(logParams({ type: "erasure" }).type).toStrictEqual(["erasure", "retention"]);
   });
 

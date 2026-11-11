@@ -25,26 +25,26 @@ from app.api.spieltage.services import build_admin_spielplan, current_spieltag_i
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
+    AufstellungenReadCollection,
     DBClient,
-    OutboxCollection,
     SaisonsCollection,
-    SaisonSpielerCollection,
+    SaisonSpielerReadCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
     SchiedsrichterCollection,
+    SchiedsrichterReadCollection,
     SpielberichteCollection,
     SpielberichteReadCollection,
-    SpielbestaetigungenCollection,
     SpielbestaetigungenReadCollection,
     SpieleCollection,
-    SpielerCollection,
     SpieleReadCollection,
+    SpielerReadCollection,
     SpielorteCollection,
+    SpielorteReadCollection,
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsCollection,
-    get_german_date_str,
     get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
@@ -101,16 +101,16 @@ async def get_spiele_spielplan(
 )
 async def get_spiel_admin(
     spiel_id: CustomRouteObjectId,
-    spiele_collection: SpieleCollection,
-    saisons_collection: SaisonsCollection,
-    spielorte_collection: SpielorteCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    spieler_collection: SpielerCollection,
+    spiele_collection: SpieleReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    spielorte_collection: SpielorteReadCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    saison_spieler_collection: SaisonSpielerReadCollection,
+    spieler_collection: SpielerReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    outbox_collection: OutboxCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
+    aufstellungen_collection: AufstellungenReadCollection,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -119,8 +119,9 @@ async def get_spiel_admin(
     they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
     another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
     group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
-    reads in, null where none stands; and the fixture's confirmation rows as the confirmations' read serves them.
-    `document_not_found` for an id no fixture holds.
+    reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
+    side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
+    club has stored none. `document_not_found` for an id no fixture holds.
     """
 
     return await read_spiel_editor(
@@ -133,8 +134,8 @@ async def get_spiel_admin(
         spieler_collection=spieler_collection,
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
-        outbox_collection=outbox_collection,
         saison_teams_collection=saison_teams_collection,
+        aufstellungen_collection=aufstellungen_collection,
     )
 
 
@@ -166,10 +167,9 @@ async def patch_spiel(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     adopts_bericht: Annotated[
         int | None,
-        Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
+        Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
     now: datetime = Depends(get_germany_now),
-    today: str = Depends(get_german_date_str),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
@@ -202,12 +202,12 @@ async def patch_spiel(
             payload=spiel_data,
             collections=collections,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
-            today=today,
+            now=now,
         )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, session=session
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

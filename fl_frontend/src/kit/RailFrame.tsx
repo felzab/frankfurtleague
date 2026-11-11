@@ -10,13 +10,14 @@ import {
   AccountRow,
   AccountRowPlaceholder,
   BackControl,
+  BackPlaceholder,
   BarPlaces,
   BarPlacesPlaceholder,
   EditorBack,
-  EditorBackPlaceholder,
   MenuScope,
   RailEntries,
   RailEntriesPlaceholder,
+  ReadBack,
   SaisonScope,
 } from "./FrameNav";
 import { Icon } from "./Icon";
@@ -39,6 +40,30 @@ import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 /** The rail's foot: the account signed in, which streams in, or „Konto“ leading to the sign-in where nobody is. */
 type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
+/**
+ * An area's own way back: its address, or a read of it handed down running, as the seasons and the account are, which
+ * answers `null` where the person has nowhere to go back to.
+ */
+type Back = Route | Promise<Route | null>;
+
+/**
+ * What stands at the start of the rail's head and of the phone's band: the logo, or an area's own way back in its
+ * place. A way back still being read waits as the control's own placeholder, and the logo stands where it answers none.
+ */
+function HeadStart({ back }: { back?: Back }) {
+  const logo = <Brand ground="band" />;
+  if (back === undefined) return logo;
+  if (typeof back === "string") return <BackControl href={back} />;
+  return (
+    <Suspense fallback={<BackPlaceholder />}>
+      <ReadBack
+        back={back}
+        none={logo}
+      />
+    </Suspense>
+  );
+}
+
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];
 
@@ -50,7 +75,7 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
  * holds the pages, „Mehr“ and the account.
  *
  * `back` is an area's own way back, as Konto's: „‹ Zurück“ in the logo's place in the rail's head and in the
- * band, and no bottom bar.
+ * band, and no bottom bar. Where it is a read answering no address, the logo stands, and the area still has no bar.
  *
  * An area holding editors places the phone's band and bar itself, through `RailColumn` in the layout of each
  * of its route groups (`columnInLayouts`): an editor's band holds „‹ Zurück“ and no bottom bar follows, its own
@@ -71,10 +96,10 @@ export function RailFrame({
 }: {
   groups: ReadonlyArray<RailGroup>;
   bar: Bar;
-  /** The person's seasons, for the season button and the entries that are a season's pages. */
+  /** The person's seasons, or those of each team they hold, for the season button and the entries that are a season's pages. */
   saison?: FrameSaisons;
   foot: RailFoot;
-  back?: Route;
+  back?: Back;
   /** Whether the area's layouts place the band and the bar, each with `RailColumn`, rather than the frame. */
   columnInLayouts?: boolean;
   children: ReactNode;
@@ -89,7 +114,7 @@ export function RailFrame({
           { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
         ]
       : [];
-  const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])));
+  const entries = groups.flatMap((group) => group.entries);
 
   // The menus read the address and the seasons, which no prerender knows: each streams in its own boundary,
   // so the frame around them is drawn without waiting.
@@ -104,7 +129,7 @@ export function RailFrame({
             className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-border bg-bg-surface lg:flex">
             {/* The dark-green band heads every frame: here the rail's head, in one line with the strip. */}
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)]">
-              {back === undefined ? <Brand ground="band" /> : <BackControl href={back} />}
+              <HeadStart back={back} />
             </div>
             {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
                 nothing in the rail moves when it lands. */}
@@ -114,7 +139,8 @@ export function RailFrame({
             <Suspense fallback={<RailEntriesPlaceholder groups={groups} />}>
               <RailEntries groups={groups} />
             </Suspense>
-            <div className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "h-(--rail-foot)" : ""}`}>
+            <div
+              className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "min-h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
                 <Suspense fallback={<AccountRowPlaceholder />}>
                   <AccountRow account={foot.account} />
@@ -147,41 +173,50 @@ export function RailFrame({
       </LeaveGuardProvider>
     </MenuScope>
   );
-  return saison === undefined ? frame : <SaisonScope value={{ ...saison, pages }}>{frame}</SaisonScope>;
+  if (saison === undefined) return frame;
+  // The season pages the menu lists, which a season switch from a record's page lands among: a team's in a team's frame.
+  const scope =
+    saison.teams === undefined
+      ? { ...saison, pages: entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])) }
+      : { ...saison, pages: entries.flatMap((entry) => (entry.team === undefined ? [] : [entry.team])) };
+  return <SaisonScope value={scope}>{frame}</SaisonScope>;
 }
 
 /**
  * A rail frame's column below 1024 px around its page: the dark-green band at the top with the logo and the
  * season button, and the bottom bar under the page. An editor's band holds „‹ Zurück“ to its list in the
- * logo's place, and no bottom bar follows; an area's own `back` does the same for every page of the area.
+ * logo's place; an area's own `back` does the same for every page of the area, and no bottom bar follows. A page
+ * with a bar of its own, an editor's save, stands it in the bottom bar's place, so the bottom bar gives way to it
+ * there alone: a status card or a read page at an editor's address keeps the bottom bar, as the same address's
+ * not-found card does.
  */
-export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Route; children: ReactNode }) {
+export function RailColumn({ editor = false, back, children }: { editor?: boolean; back?: Back; children: ReactNode }) {
   return (
-    <>
+    <div className="group/column contents">
       {/* The band and the bar are pictures of their own in a page's cross-fade, so the page scrolled under them is
           not drawn over them (`tokens.css`). */}
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
-          <Suspense fallback={<EditorBackPlaceholder />}>
+          <Suspense fallback={<BackPlaceholder />}>
             <EditorBack />
           </Suspense>
-        ) : back === undefined ? (
-          <Brand ground="band" />
         ) : (
-          <BackControl href={back} />
+          <HeadStart back={back} />
         )}
         <Suspense fallback={<SaisonButtonPlaceholder placement="band" />}>
           <SaisonButton placement="band" />
         </Suspense>
       </header>
       {children}
-      {!editor && back === undefined && (
-        <Suspense fallback={<BarPlacesPlaceholder />}>
-          <BarPlaces />
-        </Suspense>
+      {back === undefined && (
+        <div className="contents group-has-[[data-kit-page-bar]]/column:hidden">
+          <Suspense fallback={<BarPlacesPlaceholder />}>
+            <BarPlaces />
+          </Suspense>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -233,6 +268,7 @@ export function RailPage({
   chip,
   flag,
   action,
+  link,
   bar,
   children,
 }: {
@@ -249,6 +285,12 @@ export function RailPage({
    * magnifier names its season, so it streams in a boundary of its own, its icon button's place held meanwhile.
    */
   action?: ReactElement;
+  /**
+   * A way to the record's public page, such as a match editor's to the match's own page, in words at the strip's end
+   * as the strip's legal links stand; absent until the record has one. While the record is read, `waits` holds the
+   * link's place by its words, so a phone's title line, as tall as the link, stands at its height before it lands.
+   */
+  link?: { href: Route; label: Copy } | { waits: Copy };
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
   bar?: ReactElement;
   children: ReactNode;
@@ -263,10 +305,10 @@ export function RailPage({
         <RailToggle />
         {title === null ? (
           // The title's line at the title's own height, so the content under it on a phone stands where it will.
-          <Placeholder layout="min-w-0 flex-1">
+          <Placeholder layoutClass="min-w-0 flex-1">
             <PlaceholderLine
-              text={heading()}
-              width="w-48 max-w-full"
+              textClass={heading()}
+              widthClass="w-48 max-w-full"
             />
           </Placeholder>
         ) : (
@@ -283,6 +325,22 @@ export function RailPage({
           </span>
         )}
         {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
+        {link !== undefined &&
+          ("waits" in link ? (
+            <Placeholder layoutClass={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
+              <PlaceholderLine
+                textClass="text-sm"
+                words={link.waits}
+              />
+            </Placeholder>
+          ) : (
+            <NextLink
+              href={link.href}
+              data-kit-focus="ring"
+              className={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
+              {link.label}
+            </NextLink>
+          ))}
         {scope === "saison" && (
           <nav
             aria-label={COPY.template.navigation}
@@ -306,7 +364,14 @@ export function RailPage({
           <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
         </main>
       </PageFade>
-      {bar}
+      {/* Marked, so the column leaves out the bottom bar whose place the page's own bar takes (`RailColumn`). */}
+      {bar !== undefined && (
+        <div
+          data-kit-page-bar
+          className="contents">
+          {bar}
+        </div>
+      )}
     </>
   );
 }

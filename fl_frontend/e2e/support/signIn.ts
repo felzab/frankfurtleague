@@ -62,6 +62,32 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
 }
 
 /**
+ * Where a person `scripts/ops/seed/seed.js :: journeyPerson` built lands once signed in: a confirmed referee no fixture
+ * books, so their one place is the referee's (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose
+ * address stays put for a referee in no season.
+ */
+export const PERSON_LANDING = "/area/schiedsrichter";
+
+/**
+ * Where every administrator lands: each the seed grants holds nothing else, so the administration is their one place
+ * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), and `/admin` sends the browser on in-stream to the
+ * Übersicht of the season it works in, the seed's running one (`fl_frontend/src/app/admin/(liste)/page.tsx`).
+ */
+export const ADMINISTRATION_LANDING = "/admin/saisons/2027";
+
+/**
+ * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the
+ * landing's rule sends this person to, or a pattern of it where the pathname holds a record's id the seed mints anew on
+ * every run, as a team's Übersicht does. The press's navigation may pass through `/area` on its way there, and an
+ * address asked for before it arrives aborts one of the two, so a journey goes on from here alone.
+ */
+export async function declinePasskeyOffer(page: Page, landing: string | RegExp): Promise<void> {
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+  await page.getByRole("button", { name: "Später" }).click();
+  await expect(page).toHaveURL((url) => (typeof landing === "string" ? url.pathname === landing : landing.test(url.pathname)));
+}
+
+/**
  * The session cookies the browser holds for the site, by name: the library's, under whatever prefix the origin gives
  * it, as `fl_frontend/src/proxy.ts` matches it.
  */
@@ -99,7 +125,8 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   await context.credentials.install();
   await page.reload();
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();
-  // Every administrator lands on `/area`, which a session short of the passkey would leave for the
-  // passkey step (`fl_frontend/src/core/auth/landing.ts :: destinationOf`).
-  await expect(page).toHaveURL((url) => url.pathname === "/area");
+  // Where every administrator lands, which a session short of the passkey would leave for the passkey step
+  // (`fl_frontend/src/core/auth/landing.ts :: destinationOf`). Waited for to the end of its in-stream redirect, so the
+  // journey's next address interrupts nothing.
+  await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);
 }

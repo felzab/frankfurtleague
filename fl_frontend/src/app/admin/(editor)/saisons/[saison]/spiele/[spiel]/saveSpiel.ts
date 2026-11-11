@@ -8,9 +8,9 @@ import { formatList } from "@/core/format";
 import { spielePatchSpiel } from "@/core/generated/client/sdk";
 import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut, isNoShow } from "@/features/spiele/result";
 
-import { isNoShow, NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielValues";
+import { NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielValues";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";

@@ -30,7 +30,7 @@ class Code(StrEnum):
     CREATE_SAISON_FUTURE_STANDS = auto()
     # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
     # matchday's re-dating, a club's season row, a link's mint and a referee's report. Not every write: a club's
-    # contacts, an invitation's revocation and the administrator's correction of a report stay open on purpose, and the
+    # contacts and an invitation's revocation stay open on purpose, and the
     # season's own edit refuses by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it:
     # both keep the state reachable, and activating is the one operation that can reopen a finished season's points,
     # groups and table. A season closed by mistake is repaired at the database.
@@ -89,12 +89,17 @@ class Code(StrEnum):
     GRANT_NOT_IN_EFFECT = auto()
     BERICHT_NOT_PLAYED = auto()
     BERICHT_NOT_OFFICIATED = auto()
-    BERICHT_NOT_IN_KADER = auto()
     BERICHT_CANCELLED = auto()
-    # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
-    BERICHT_MEANWHILE_CHANGED = auto()
-    CARD_REASON_MISSING = auto()
     BERICHT_ELFMETER_IN_THE_GRUPPE = auto()
+    # A seat's save from one hour before kick-off: the line-up is the administration's from then. Never an
+    # administrator's refusal, and never a line-up's being due or overdue, which refuses nothing.
+    AUFSTELLUNG_LOCKED = auto()
+    # A fixture holding no day or no hour owes no line-up and takes none, from a seat or an administrator.
+    AUFSTELLUNG_SPIEL_UNDATED = auto()
+    # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
+    AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
+    # More than eleven starters once the stored entries of erased pupils, which every save keeps, stand beside the payload's.
+    AUFSTELLUNG_STARTERS_EXCEED_ELEVEN = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()
@@ -109,7 +114,6 @@ class Code(StrEnum):
     BEWERBUNG_KONTAKT_PHONE_TAKEN = auto()
     BEWERBUNG_KONTAKT_REPEATED = auto()
     TRIKOT_FARBE_TAKEN = auto()
-    BEWERBUNG_KEY_DIFFERING = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
     # retire while only played or called-off fixtures hold it, so refusing an unrelated edit of one would be false.
     BOOKING_UNKNOWN_RESOURCE = auto()
@@ -188,13 +192,9 @@ class Code(StrEnum):
     REGISTRIERUNG_STUFE_NOT_ALLOWED = auto()
     CONFIRMATION_EXISTS = auto()
     REGISTRIERUNG_KADER_FULL = auto()
-    REGISTRIERUNG_KEY_DIFFERING = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
     REGISTRIERUNG_ALREADY_IN_KADER = auto()
-    REGISTRIERUNG_ALREADY_ADMITTED = auto()
-    REGISTRIERUNG_CHOICES_UNSUITABLE = auto()
-    REGISTRIERUNG_PERSON_MISSING = auto()
     # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
     # fixtures follow it, so it carries codes of its own.
     REPLACE_SAISON_STARTED = auto()
@@ -267,6 +267,9 @@ class Code(StrEnum):
     # A representative's edit is held to the season's list, where the administrator's form is trusted to
     # offer it.
     KADER_STUFE_NOT_ALLOWED = auto()
+    # A pupil a report or a line-up newly names on a side whom that side's live squad of the season does not hold: one
+    # code for both writes, which read one rule against one squad.
+    SPIELER_NOT_IN_KADER = auto()
     STATE_ERGEBNIS_ON_A_NON_EVENT = auto()
     STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES = auto()
     # A swap is neither an entry nor the move `entry_gruppe_locked` locks, so it carries codes of its own.
@@ -308,15 +311,15 @@ type Rule = Literal[
     "elfmeterschiessen_without_draw",
     "elfmeterschiessen_without_winner",
     "email_not_accepted",
-    "ergebnis_missing_tore",
     "good_spieler_exceed_kader",
     "grant_wording_stale",
-    "nichtantreten_with_tore",
+    "nichtantreten_with_elfmeterschiessen",
     "nichtantreten_with_scorers",
     "registrierung_window_reaches_saison_start",
     "saison_ends_before_start",
+    "spieler_named_twice",
     "spieltag_ends_before_start",
+    "starters_exceed_eleven",
     "text_version_of_another_wording",
-    "scorers_not_matching_tore",
     "url_not_accepted",
 ]

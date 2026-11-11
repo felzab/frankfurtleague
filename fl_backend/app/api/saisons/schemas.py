@@ -13,6 +13,7 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
+from app.api.aufstellungen.schemas import FLAufstellungenPublic
 from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
@@ -25,7 +26,7 @@ from app.core.codes import Code, Rule
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import KADER_SIZE_MAX, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -72,7 +73,7 @@ class FLSaisonRules(BaseModel):
     tiebreak_order: Literal["tordifferenz", "direkter_vergleich"]
 
     # A ceiling on one team's squad for one season, enforced at the squad write rather than here.
-    max_kader_size: int = Field(gt=0)
+    max_kader_size: int = Field(gt=0, le=KADER_SIZE_MAX)
 
     forfeit_ergebnis: FLSaisonForfeitErgebnis
 
@@ -120,7 +121,7 @@ class FLSaisonRegistrierung(BaseModel):
     """When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.
 
     No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
-    saison_nimmt_registrierungen_an`). Past `end` the link runs on until the season ends and an entry is a nominee
+    saison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee
     (`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of
     `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
     """
@@ -302,7 +303,7 @@ FIRST_SAISON_RULES: Final = FLSaisonRules(
     number_of_gruppen=2,
     teams_per_gruppe=5,
     tiebreak_order="tordifferenz",
-    max_kader_size=50,
+    max_kader_size=KADER_SIZE_MAX,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     allowed_stufen=list(get_args(FLSpielerStufe.__value__)),
 )
@@ -396,7 +397,7 @@ class FLSaisonsAdminListResponse(BaseAPIResponse):
 
 
 class FLSaisonFrameEntry(BaseReadModel):
-    """One season as the season pages' frame lists it: its id and its span; which one the site is on is the response's."""
+    """One season as a frame's season button lists it: its id and its span."""
 
     id: str = Field(validation_alias="_id", serialization_alias="id")
     start_date: CustomDateString
@@ -404,6 +405,11 @@ class FLSaisonFrameEntry(BaseReadModel):
 
 
 FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
+
+# What every season button's read projects of a season beside its id, and the order it lists them in, the newest
+# first: the public frame's and each person's own list alike, so no two buttons order one league's seasons apart.
+SAISON_FRAME_FIELDS: Final = ("start_date", "end_date")
+SAISON_FRAME_ORDER: Final[Mapping[str, int]] = {"_id": -1}
 
 
 class FLSaisonFrameResponse(BaseAPIResponse):
@@ -415,6 +421,16 @@ class FLSaisonFrameResponse(BaseAPIResponse):
 
     saisons: list[FLSaisonFrameEntry]
     active_saison_id: str | None
+
+
+class FLOwnSaisonsResponse(BaseAPIResponse):
+    """The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.
+
+    A season the public frame withholds, a planned one, is served as any other: the person's row in it is what the
+    frame leads to.
+    """
+
+    saisons: list[FLSaisonFrameEntry]
 
 
 class FLSaisonsSingleResponse(BaseAPIResponse):
@@ -587,13 +603,16 @@ class FLSpielPageResponse(BaseAPIResponse):
     """One match as its page and its pop-up show it.
 
     The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
-    each side stands, and what the public may read of its report, null where none is stored.
+    each side stands, each side's line-up from the moment its club stores one, and what the public may read of its
+    report, null where none is stored.
     """
 
     spiel: FLSpielJoined
     spieltag_position: int = Field(ge=1)
     count_spieltage_in_phase: int = Field(ge=1)
     standings: FLSpielSideStandings
+    # Beside the report and never inside it: a line-up is the club's own, stored days before any report.
+    aufstellungen: FLAufstellungenPublic
     bericht: FLSpielberichtPublic | None
 
 

@@ -183,11 +183,10 @@ TEAMS = [
 ]
 
 SAISON_TEAMS = [
-    # Figures matching nothing the matches below produce, so any read of a stored copy fails.
-    _junction(
-        "Helmholtz",
-        "A",
-        statistik={
+    # A stored copy no record holds, of figures matching nothing the matches below produce, so any read of one fails.
+    {
+        **_junction("Helmholtz", "A"),
+        "statistik": {
             "count_played_spiele": 99,
             "siege": 99,
             "niederlagen": 99,
@@ -196,7 +195,7 @@ SAISON_TEAMS = [
             "tore_conceded": 99,
             "punkte": 99,
         },
-    ),
+    },
     _junction("Bock", "A"),
     _junction("Lessing", "A", austritt=dict(AUSTRITT)),
     _junction("Ohne", "B"),

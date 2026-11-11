@@ -23,25 +23,6 @@ function segmentsOf(file: string): string[] {
     .map((folder) => folder.replace(/^(\(\.{1,3}\))+/, ""));
 }
 
-/** The address each page file answers at. */
-const PAGES = new Set(filesUnder(APP, (name) => name === "page.tsx", 20).map((file) => `/${segmentsOf(file).join("/")}`));
-
-describe("the pages a mail opens", () => {
-  // Their rows decide what robots.txt refuses and what each page names as its own address, while each mail builds
-  // its link from its own constant, which `scripts/checks/check_public_routes.py` holds to a page file.
-  it.each([
-    "addressChangeConfirmation",
-    "kontaktConfirmation",
-    "schiedsrichterConfirmation",
-    "spielbestaetigung",
-    "registrierungConfirmation",
-    "accountErasure",
-    "registrierung",
-  ] as const)("answer at the %s row's address", (row) => {
-    expect(PAGES.has(ROUTES[row].path())).toBe(true);
-  });
-});
-
 /**
  * The league's own words an address carries, each by the glossary entry naming it: a segment is a plural or a
  * spelling of its entry's word, and the entry stands in the glossary's core entities or attributes.
@@ -51,6 +32,7 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   spiel: "Spiel",
   spiele: "Spiel",
   spieltage: "Spieltag",
+  aufstellung: "Aufstellung",
   team: "Team",
   teams: "Team",
   spieler: "Spieler",
@@ -66,14 +48,6 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
   "ko-runde": "K.-o.-Runde",
   kontakt: "kontakte",
 };
-
-/**
- * Trees the rule does not hold yet, each by its address prefix, each gone with the pages it names.
- */
-const UNHELD = [
-  // Redesign: goes with their last importers, session 8.
-  "/api/bestaetigung",
-];
 
 /** Every word the glossary's core entities and attributes head an entry with. */
 function glossaryWords(): Set<string> {
@@ -99,7 +73,7 @@ function addresses(): { where: string; segments: string[] }[] {
     where: path.relative(APP, file).split(path.sep).join("/"),
     segments: segmentsOf(file),
   }));
-  return [...rows, ...files].filter(({ segments }) => !UNHELD.some((prefix) => `/${segments.join("/")}`.startsWith(prefix)));
+  return [...rows, ...files];
 }
 
 describe("every address", () => {

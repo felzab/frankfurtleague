@@ -13,9 +13,10 @@ from typing import Any, Final, Literal, get_args
 from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
 from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats, saison_status_lookup
+from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
+from app.api.registrierungen.services import build_own_registrierung_filter
+from app.api.saisons.services import SAISON_LOOKUP
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
@@ -202,18 +203,8 @@ def _compose_spieler_person(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One pupil row's stored data and its squad rows, as `app/api/spieler/services.py :: build_self_pupil_pipeline` reads them."""
-
-    return {**_compose_spieler_person(row), "kader": row["kader"]}
-
-
 def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it.
-
-    Its own rather than `app/api/spieler/services.py :: build_self_pupil_pipeline`, whose lookups join every squad row
-    the pupil holds for an entry serving none.
-    """
+    """This address's pupil row as its account entry and the Funktionen the page judges a grant by read it."""
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
@@ -243,30 +234,31 @@ def _compose_schiedsrichter_person(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
-    """One referee row's stored data and its fee, as `app/api/schiedsrichter/services.py :: SELF_FIELDS` projects them."""
-
-    return {**_compose_schiedsrichter_person(row), "default_payment": row["default_payment"]}
-
-
 def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """This address's referee rows as their account entries and the Funktionen the page judges a grant by read them.
-
-    Its own rather than `app/api/schiedsrichter/services.py :: build_self_referee_pipeline`, whose projection takes the fee
-    for an entry serving none.
-    """
+    """This address's referee rows as their account entries and the Funktionen the page judges a grant by read them."""
 
     return [
         {"$match": build_self_referee_filter(identifier)},
-        {"$project": {"name": 1, "schule": 1, "kontakt": 1, "birth_date": 1, "inactive_since": 1, EINWILLIGUNG_FIELD: 1}},
+        {
+            "$project": {
+                "name": 1,
+                "schule": 1,
+                "kontakt": 1,
+                "birth_date": 1,
+                "default_payment": 1,
+                "inactive_since": 1,
+                EINWILLIGUNG_FIELD: 1,
+            }
+        },
     ]
 
 
 def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
-    """One referee row's account entry: its stored data and its consent, never its fee, which the page shows nowhere."""
+    """One referee row's account entry: its stored data, its fee and its consent."""
 
     return {
         **_compose_schiedsrichter_person(row),
+        "default_payment": row["default_payment"],
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "givable": givable,
@@ -289,13 +281,14 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "name": 1,
+                "shorthand": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "birth_date", "einwilligung")},
             }
         },
         # Read by the same Funktionen.
-        saison_status_lookup(),
+        SAISON_LOOKUP,
     ]
 
 
@@ -411,14 +404,14 @@ def compose_bewerbung_seats_self(
     return entries
 
 
-# --- The pending registrations a pupil confirmed: withdraw-only until the admission, a returning pupil's read-only.
+# --- The pending registrations a pupil confirmed: withdraw-only until the admission.
 
 
 def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every pending registration at the address, `is_own_registrierung` then keeping the confirmed ones as the gate does."""
 
     return [
-        {"$match": build_eigene_registrierung_filter(identifier)},
+        {"$match": build_own_registrierung_filter(identifier)},
         {
             "$project": {
                 field: 1
@@ -441,7 +434,7 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
 def compose_registrierungen_self(
     rows: Sequence[Mapping[str, Any]], identifier: str, *, teams: Mapping[Any, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """One entry per pending registration of this address its pupil confirmed; a returning pupil's serves no choice and offers no control."""
+    """One entry per pending registration of this address its pupil confirmed."""
 
     entries = []
     for row in rows:
@@ -454,8 +447,8 @@ def compose_registrierungen_self(
                 "registrierung_id": row["_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
-                "scope": block.get("scope"),
-                "media": is_given("media", block.get("media")) if traegt_wahlen(block) else None,
+                "scope": block["scope"],
+                "media": is_given("media", block["media"]),
                 "evidence_state": evidence_state_of(blocks=[block]),
                 **{field: row.get(field) for field in ("first_name", "last_name", "birth_date")},
             }

@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.outbox.crud import states_of
 from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows, pull_named_spiele
 from app.api.spielbestaetigungen.schemas import (
@@ -35,12 +34,11 @@ from app.api.spielbestaetigungen.services import (
     notice_data_of,
     proposal_payload,
     spiel_mail_appointment_of,
-    team_notices,
+    team_mails,
     vereinsnamen_of,
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
 from app.api.spiele.schemas import FLSpiel
-from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -51,6 +49,7 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -59,7 +58,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
-from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -74,55 +72,34 @@ router = APIRouter(
 FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
 
 
-async def _with_delivery(*, outbox_collection: ReadCollection, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
-    """The rows as served, each seat holding a link carrying what became of the last mail owed to it."""
-
-    states = await states_of(outbox_collection=outbox_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows])
-
-    def served(row: Mapping[str, Any]) -> FLSpielbestaetigung:
-        kontakte = row.get("kontakte")
-        if not isinstance(kontakte, Mapping):
-            return FLSpielbestaetigung.model_validate(row)
-
-        seats = {
-            seat: None if not isinstance(entry, Mapping) else {**entry, "delivery": states.get((row["_id"], seat))}
-            for seat, entry in kontakte.items()
-        }
-        return FLSpielbestaetigung.model_validate({**row, "kontakte": seats})
-
-    return [served(row) for row in rows]
-
-
 @router.get(
     "",
     response_model=FLSpielbestaetigungenListResponse,
     summary="A season's fixture confirmations, or one fixture's",
 )
 async def get_spielbestaetigungen(
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    outbox_collection: OutboxCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     filters: FLSpielbestaetigungenFilters,
 ) -> FLSpielbestaetigungenListResponse:
     """
     Every confirmation row of the season, or of its one fixture.
 
-    Newest first, closed rows included. No seat's link hashes and no seat's address are served. Every row still
-    holding its party's question is served; `limit` cuts the others, and `complete` is false where it left the
-    oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
-    has answers no rows rather than 404.
+    Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
+    served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
+    document has answers no rows rather than 404.
     """
 
     db_filter: dict[str, Any] = {"saison_id": filters.saison_id}
     if filters.spiel_id is not None:
         db_filter["spiel_id"] = filters.spiel_id
 
-    rows, vollstaendig = await pull_admin_rows(
+    rows, complete = await pull_admin_rows(
         spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
     )
 
     return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=await _with_delivery(outbox_collection=outbox_collection, rows=rows),
-        complete=vollstaendig,
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
+        complete=complete,
     )
 
 
@@ -139,7 +116,7 @@ async def enter_spielbestaetigung(
     today: str = Depends(get_german_date_str),
 ) -> None:
     """
-    Record that the party of an open confirmation agreed to its Ansetzung elsewhere than through its link.
+    Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
 
     The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
     nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
@@ -207,7 +184,7 @@ async def discard_spielbestaetigung(
     IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
     answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
     counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
-    agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
+    agreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every
     address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
     declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
     while this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of
@@ -258,7 +235,7 @@ async def discard_spielbestaetigung(
             session=session,
         )
 
-        if discard_owes_a_notice(row=row, today=today):
+        if discard_owes_a_notice(row=row, now=now):
             # The club's season row as it stands, its seats the mailboxes told and its name the one the notice states.
             vereine = await pull_many_from_db(
                 collection=saison_teams_collection,
@@ -272,7 +249,7 @@ async def discard_spielbestaetigung(
             data = notice_data_of(
                 reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             )
-            mails = team_notices(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
+            mails = team_mails(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
             if mails:
                 # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
                 await anchor_the_mailboxes_told(
@@ -323,7 +300,7 @@ async def adopt_spielbestaetigung(
     `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
     (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
     as that save resolves it. The
-    row is not closed here: the fixture has left the Ansetzung it answers, so its links read `invalid` at once and the
+    row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
     next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
     about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
     """
@@ -361,7 +338,6 @@ async def adopt_spielbestaetigung(
                 payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
-                now=now,
                 act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )

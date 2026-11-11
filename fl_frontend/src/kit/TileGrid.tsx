@@ -95,12 +95,12 @@ export function SchoolTilesPlaceholder({ count }: { count: number }) {
             <span className={placeholderBar("h-6 w-10")} />
             <span className="grid min-w-0 flex-1">
               <PlaceholderLine
-                text="text-sm"
-                width="w-3/4"
+                textClass="text-sm"
+                widthClass="w-3/4"
               />
               <PlaceholderLine
-                text="text-xs"
-                width="w-1/3"
+                textClass="text-xs"
+                widthClass="w-1/3"
               />
             </span>
           </span>
@@ -130,7 +130,7 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
             <span
               title={sponsor.name.record}
               className={slots.content()}>
-              <span className="relative block h-16 rounded-md bg-white">
+              <span className="relative block h-16 rounded-md bg-bg-logo">
                 {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
                 <Image
                   src={sponsor.logo}

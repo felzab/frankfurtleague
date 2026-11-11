@@ -5,7 +5,7 @@ import { tv } from "./tv";
  * The look every field shares, kept in one place so a ruling changes it in one edit: the label, the
  * frame, the message line, the drawn box of a checkbox, radio or switch, and the menu a select or a
  * combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
- * because HeroUI's base sheet colours every element's border.
+ * because a border naming none takes its element's text colour.
  *
  * The touch rule: every pressable control's press target is at least the kit's control height on a touch screen,
  * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is
@@ -17,10 +17,21 @@ import { tv } from "./tv";
  */
 
 /**
- * A field's label, its frame and its message line, one under another. It fills its column, so a box's grid
- * can place every child at its own width without a field narrowing to its label.
+ * A field's label, its frame and its message line, one under another, 6 px apart. It fills its column, so a box's
+ * grid can place every child at its own width without a field narrowing to its label.
  */
-export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1" });
+export const fieldRoot = tv({ base: "group flex w-full min-w-0 flex-col gap-1.5" });
+
+/**
+ * The one rhythm of a form's fields, in every box, dialog and page: 16 px from one field to the next, each at its own
+ * width from one left edge (`fieldFrame`'s `width`). No line is reserved under a field, so the 16 px is the whole space
+ * between two fields whatever either says. `FieldStack` draws it, and every container of fields stands its fields in a
+ * `FieldStack`, so a form follows it by construction rather than by a gap each container writes.
+ */
+export const fieldStack = tv({ base: "grid w-full min-w-0 justify-items-start gap-4" });
+
+/** A form's boxes in its column, 24 px apart, as an editor's sections stand (`RailFrame.tsx :: formColumn`). */
+export const boxStack = tv({ base: "grid gap-6" });
 
 export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" });
 
@@ -28,13 +39,15 @@ export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" })
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
- * At least one line, always there, so a message that fits it moves nothing. A longer one wraps at its field's width
- * and takes a second line rather than being cut, since its end is what a person acts on. Its words add nothing to the
- * width a field is laid out at, so it never widens a field sized by its content, such as a pair's short side; a note
- * inside a list's entry sets its own width instead, the entry being sized by its words.
+ * The words under a field, standing only while it has some: a description, a consequence, or an error once the value
+ * is committed or the form sent, which moves what stands under it as any answer to a press does, since no empty line
+ * is reserved between two fields. A long one wraps at its field's width and takes a second line rather than being
+ * cut, since its end is what a person acts on. Its words add nothing to the width a field is laid out at, so it never
+ * widens a field sized by its content, such as a pair's short side; a note inside a list's entry sets its own width
+ * instead, the entry being sized by its words.
  */
 export const messageLine = tv({
-  base: "min-h-4 text-xs",
+  base: "text-xs",
   variants: {
     width: {
       field: "contain-inline-size",
@@ -50,18 +63,23 @@ export const messageLine = tv({
 });
 
 /**
- * A form's status line, at its acts: always there and at least one line tall, so an outcome appearing moves
- * nothing, and never cut, since a sentence's end is what says what happened. Beside the acts in a row it takes the
- * room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the whole width. A line
- * can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`, whose word still
- * counts whole in the width of a grid track around the line and pushes the acts out of their box.
+ * A form's status line, at its acts, never cut, since a sentence's end is what says what happened. Beside the acts in
+ * a row it takes the room the acts leave, wrapping there; under them in a column, as on the sign-in, it takes the
+ * whole width. A line can hold an address, so a word wraps anywhere: `wrap-anywhere` rather than `wrap-break-word`,
+ * whose word still counts whole in the width of a grid track around the line and pushes the acts out of their box.
+ * With nothing to say it takes no room (`quiet`), as a field's message line takes none, yet stays in the page, since it
+ * is the live region an outcome is announced from, which must stand before the outcome does.
  */
 export const statusLine = tv({
-  base: "min-h-5 text-sm wrap-anywhere",
+  base: "text-sm wrap-anywhere",
   variants: {
     placement: {
       row: "min-w-0 flex-1",
       column: "",
+    },
+    quiet: {
+      true: "sr-only",
+      false: "",
     },
     tone: {
       none: "",
@@ -77,54 +95,44 @@ export const statusLine = tv({
 });
 
 /**
- * How wide a form's long field grows from `lg`: about 30 characters (`--container-field`), so it reads as the length
- * of a name or an address rather than as the column, as GOV.UK sizes a text input to its expected answer. Set in the
- * field's own text, so `ch` measures its letters wherever the cap is read: on the frame, and on a pair's growing side,
- * which stops where its field does. A phone's field keeps the full row.
- */
-export const columnCap = tv({ base: "text-sm lg:max-w-field pointer-coarse:text-base" });
-
-/**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
- * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset. Inside a pair
- * sharing its row on a phone (`FieldPair`'s `data-pair`), it fills its side of the row: a percentage minimum adds
- * nothing to the width the side is laid out at, so the side starts from the field's width class and the frame then
- * fills what the side grew to.
+ * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger max-lg:in-data-pair:min-w-full pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger pointer-coarse:text-base",
   variants: {
-    // A field is as wide as its value. The short widths are counted in characters, as the GOV.UK Design
-    // System sizes its fixed-width inputs, so they grow with the reader's font size: each holds its count
-    // of characters and one more for the caret, inside the two 10-px insets, with 2 px to spare (1.375 rem
-    // together). Then a long field, the column up to `columnCap`; the column at four lines for a paragraph, free
-    // text taking the whole column; and a field filling the column it stands in, uncapped.
+    // A field's width says what it holds, since a person reads the length of a field as the length of its answer:
+    // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
+    // their length.
     width: {
-      // A score.
-      C2: "h-8 w-[calc(3ch+1.375rem)] pointer-coarse:h-10",
-      // A postcode, a time, whole euros, a house number.
-      C5: "h-8 w-[calc(6ch+1.375rem)] pointer-coarse:h-10",
-      // A date: the width of a ten-character field and its calendar button beside it, 32 px with a mouse
-      // and 40 on a touch screen as every field's button is.
-      C10: "h-8 w-[calc(11ch+1.375rem+2rem)] pointer-coarse:h-10 pointer-coarse:w-[calc(11ch+1.375rem+2.5rem)]",
-      W3: `h-8 w-full ${columnCap()} pointer-coarse:h-10`,
-      // A long name, past the 30 characters a person's name or an address takes, such as a venue's: the column up to
-      // about 40 characters from `lg`, sized by the same measure.
-      W3L: "h-8 w-full text-sm lg:max-w-field-long pointer-coarse:h-10 pointer-coarse:text-base",
-      // A long field in a column narrower than the cap, which fills that column as a phone's field fills its row: the
-      // search over a list, at the reading width its toolbar gives it, and the sign-in's address in its column.
-      column: "h-8 w-full pointer-coarse:h-10",
-      // A select of a few short choices: as wide as its longest choice, which `Select` lays in the frame unseen.
-      fit: "h-8 w-fit max-w-full min-w-40 pointer-coarse:h-10",
-      W4: "min-h-26 w-full resize-none py-2",
+      // A value of a known length, a score, a minute, a price, a date, a time: as wide as that value, by `holds`, at
+      // every screen width and in every row, a label-left one included.
+      short: "h-8 pointer-coarse:h-10",
+      // Every value whose length varies, a name, an address, a choice: one width (`--container-field`), which a
+      // narrower column, a phone's row among them, cuts to its own.
+      standard: "h-8 w-full max-w-field pointer-coarse:h-10",
+      // Free text: its box's whole width, at four lines.
+      full: "min-h-26 w-full resize-none py-2",
     },
-    // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its
-    // start. The padding is set per width below: the short widths take 10 px, the long ones 12 px.
+    // How many characters a short field holds, as the GOV.UK Design System counts its fixed-width inputs: the count
+    // and one more for the caret, measured in the field's own figures so the width grows with the reader's font
+    // size, inside the two 12-px insets with 2 px to spare (1.625 rem together). A unit after the value stands
+    // inside the frame, which is then as wide as the two (`fieldUnit`).
+    holds: {
+      // A score, a shirt number, a count.
+      2: "w-[calc(3ch+1.625rem)]",
+      // A minute, a price, a postcode, a house number, a time's „19:30“.
+      5: "w-[calc(6ch+1.625rem)]",
+      // A date's „14.03.2027“ and its calendar button: the ten figures and one more inside the 12-px start inset, then
+      // the button, as wide as the field is tall.
+      10: "w-[calc(11ch+2.75rem)] pointer-coarse:w-[calc(11ch+3.25rem)]",
+    },
+    // A frame holding the value alone takes the padding; a frame grouping a value and a button keeps its start.
     inset: {
-      full: "",
-      start: "",
+      full: "px-3",
+      start: "ps-3",
       // A search field's magnifier stands where the padding would.
       none: "",
     },
@@ -140,22 +148,25 @@ export const fieldFrame = tv({
       true: "font-numeric",
     },
   },
-  compoundVariants: [
-    { width: ["C2", "C5", "C10"], inset: "full", class: "px-2.5" },
-    { width: ["C2", "C5", "C10"], inset: "start", class: "ps-2.5" },
-    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "full", class: "px-3" },
-    { width: ["W3", "W3L", "column", "W4", "fit"], inset: "start", class: "ps-3" },
-  ],
 });
 
 /**
- * A unit after its field and outside it, as „€“ follows a price: 10 px off, as a box's label is, in the field's
- * own text, so the figure and its unit read as one value.
+ * A short field whose value has a unit, as „€“ follows a price: the unit stands inside the frame at its end, so the
+ * figure and its unit read as one value and the field keeps the box's one left edge. The frame is as wide as the
+ * value's room and the unit together. The value's room is `fieldFrame`'s count less the frame's insets, set on the
+ * input, whose figures the count is measured in; the unit keeps the page's face.
  */
 export const fieldUnit = tv({
   slots: {
-    row: "flex items-center gap-2.5",
-    unit: "text-sm text-fg pointer-coarse:text-base",
+    frame: "flex w-fit items-center gap-1.5 group-data-disabled:opacity-50",
+    value: "h-full min-w-0 bg-transparent font-numeric",
+    unit: "shrink-0 text-fg",
+  },
+  variants: {
+    holds: {
+      2: { value: "w-[calc(3ch+0.125rem)]" },
+      5: { value: "w-[calc(6ch+0.125rem)]" },
+    },
   },
 });
 
@@ -223,7 +234,7 @@ export const calendarCell = tv({
  * A checkbox or a switch with its message line: the drawn box's column, then the label's, so the line under
  * the row starts where the label does, whatever the box's width.
  */
-export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1" });
+export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1.5" });
 
 /**
  * A checkbox, a radio or a switch: the drawn box, its label 10 px to the right. The row is the control's press
@@ -271,9 +282,10 @@ export const toggleBox = tv({
 
 /**
  * A checkbox's or a switch's message line, in the label's column. A grid, so the line inside it is a block at
- * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box.
+ * its own 16-px height, as a field's line is, rather than an inline span set in the page's taller line box. With
+ * nothing to say it takes no row, so no gap opens under the box.
  */
-export const toggleLine = tv({ base: "col-start-2 grid" });
+export const toggleLine = tv({ base: "col-start-2 grid empty:hidden" });
 
 /**
  * A radio group's answers: one under another, or, where each answer is described, side by side as cards,
@@ -391,14 +403,20 @@ export const entryMark = tv({
 
 /**
  * A short choice drawn as buttons: the segmented control of a single choice, its segments in one frame, and the
- * toggle boxes of a small multi-select, each box standing alone; both transparent inside their edges.
+ * toggle boxes of a small multi-select, each box standing alone; both transparent inside their edges. A choice the
+ * write or the send's check refused (its field's root `data-invalid`) takes the red edge a refused field's frame takes:
+ * the segments' frame, and each box not chosen, a chosen one keeping the mark that says it is chosen. The boxes wrap,
+ * each standing alone; the segments never do, since a segment wrapped stands outside its frame's one line, over what
+ * follows, so a grid's track holding the frame takes its whole width as its least. A box narrower than its words, a
+ * phone's dialog naming two clubs, holds the frame at its own width and cuts each segment's words with „…“.
  */
 export const choiceGroup = tv({
-  base: "flex flex-wrap",
+  base: "flex",
   variants: {
     kind: {
-      segmented: "inline-flex h-8 self-start rounded-lg border border-border-control bg-transparent p-0.5 pointer-coarse:h-10",
-      boxes: "gap-2",
+      segmented:
+        "inline-flex h-8 max-w-full self-start rounded-lg border border-border-control bg-transparent p-0.5 group-data-invalid:border-danger pointer-coarse:h-10",
+      boxes: "flex-wrap gap-2 group-data-invalid:*:not-data-selected:border-danger",
     },
   },
 });

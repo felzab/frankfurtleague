@@ -787,7 +787,7 @@ async def preview_spiel_save(
     payload: FLPatchSpielDataPayload,
     collections: SpielSaveCollections,
     spielbestaetigungen_collection: ReadCollection,
-    today: str,
+    now: datetime,
 ) -> FLPatchSpielDataResponse:
     """What this payload would move, destroy and have the confirmation pass mail, judged against the season as it stands, written nowhere.
 
@@ -808,7 +808,7 @@ async def preview_spiel_save(
         stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
         changed=judged.patched.model_dump(context={"keep_oid": True}),
         austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
-        today=today,
+        now=now,
     )
     names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)
     advanced_to, released_sides = await preview_bracket_after_patch(
@@ -835,7 +835,6 @@ async def save_spiel_in_session(
     payload: FLPatchSpielDataPayload,
     collections: SpielSaveCollections,
     adopts_bericht: int | None,
-    now: datetime,
     # The act another route saves a fixture under, which records this one save; `None` for the save's own.
     act: FLAction | None = None,
     # REQUIRED: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
@@ -844,7 +843,7 @@ async def save_spiel_in_session(
     """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket, as `PATCH /spiele/{id}` does.
 
     Safe to retry: every pass re-reads what it judges. With `adopts_bericht` the fixture's report is stamped adopted
-    where it still stands at that version about the clubs the save leaves; a miss refuses nothing.
+    where its document still stands at that version about the clubs the save leaves; a miss refuses nothing.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=session)
@@ -915,7 +914,6 @@ async def save_spiel_in_session(
             spiel_id=spiel_id,
             version=adopts_bericht,
             sides=sides_of(saved),
-            now=now,
             session=session,
         )
 

@@ -44,7 +44,6 @@ const FORM = (
     <TextField
       label={COPY.signIn.address}
       name="email"
-      width="W3"
       kind="email"
     />
   </QuestionForm>

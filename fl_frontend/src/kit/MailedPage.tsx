@@ -6,6 +6,9 @@ import { ROUTES } from "@/core/routes";
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
+import { FieldStack } from "./FieldStack";
+import { boxStack } from "./fieldStyles";
+import { FormFooterPlaceholder } from "./FormFooter";
 import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
@@ -15,7 +18,7 @@ import type { Copy } from "@/core/copy";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
-import type { EndState, OneShotAction } from "./OneShot";
+import type { EndState, OneShotAction, OneShotActs } from "./OneShot";
 import type { StatusCardProps } from "./StatusPage";
 
 /**
@@ -66,7 +69,7 @@ export type MailedState =
       /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
       more?: { before: Copy; after: Copy };
       action: OneShotAction;
-      acts: { primary: Copy; secondary?: Copy };
+      acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
       /** The main act's press asks the passkey touch ahead of its action, for a person holding a passkey. */
@@ -77,6 +80,10 @@ export type MailedState =
       replayField?: string;
       /** The fields stand in `Section` boxes, filling the column. */
       boxes?: boolean;
+      /** A sentence the press rests on, at the footer's start beside the acts (`OneShotForm`'s `note`). */
+      note?: ReactNode;
+      /** The id of the words describing the acts to a screen reader, such as `note`'s own. */
+      describedBy?: string;
       /** The answer's fields, the kit's, each with its `name`. */
       children?: ReactNode;
     }
@@ -139,6 +146,8 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           botCheck={props.botCheck}
           replayField={props.replayField}
           boxes={props.boxes}
+          note={props.note}
+          describedBy={props.describedBy}
           head={
             <>
               <ClassicTitle text={props.title} />
@@ -175,41 +184,58 @@ type QuestionWait = {
   facts: number;
   /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
   act: Copy;
-  /** The quieter act's words beneath it, where the question has one. */
+  /** The refusal's words, where the question has one. */
   second?: Copy;
-  /** The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width. */
-  sentence?: string;
+  /**
+   * The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width;
+   * `false` where the question lands with no sentence most days, which leaves the wait none.
+   */
+  sentence?: string | false;
+  /** The second sentence's words, set unseen, where the question stands one in a paragraph of its own. */
+  sentenceAfter?: string;
   /** The placeholders of the answer's fields, where the question asks any. */
   fields?: ReactNode;
+  /** The placeholder of the footer's note, where the question carries one. */
+  note?: ReactNode;
+  /** The fields' placeholders stand in `Section` boxes, laid out as the question's own boxes are. */
+  boxes?: boolean;
 };
 
-/** The question while the read says what it asks: its title, its facts, its sentence, its fields and its acts. */
-function QuestionPlaceholder({ facts, act, second, sentence, fields }: QuestionWait) {
+/** The question while the read says what it asks: its title, its facts, its sentences, its fields and its acts. */
+function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, note, boxes = false }: QuestionWait) {
   return (
     <ClassicPage width="form">
-      <Waiting layout="flex flex-col gap-6">
+      <Waiting layoutClass="flex flex-col gap-6">
         <PlaceholderLine
-          text={classicTitle()}
-          width="w-2/3"
+          textClass={classicTitle()}
+          widthClass="w-2/3"
         />
         {facts > 0 && <FactsPlaceholder pairs={facts} />}
         {sentence === undefined ? (
           <PlaceholderLine
-            text="text-base"
-            width="w-full"
+            textClass="text-base"
+            widthClass="w-full"
           />
         ) : (
+          sentence !== false && (
+            <PlaceholderSentence
+              textClass="text-base"
+              words={sentence}
+            />
+          )
+        )}
+        {sentenceAfter !== undefined && (
           <PlaceholderSentence
-            text="text-base"
-            words={sentence}
+            textClass="text-base"
+            words={sentenceAfter}
           />
         )}
-        {fields !== undefined && <div className="grid justify-items-start gap-4">{fields}</div>}
-        <div className="grid gap-3 lg:justify-items-center">
-          <span className={buttonPlaceholder()}>{act}</span>
+        {/* `OneShotForm`'s own wrapper, so the fields stand where the question's land. */}
+        {fields !== undefined && (boxes ? <div className={boxStack()}>{fields}</div> : <FieldStack>{fields}</FieldStack>)}
+        <FormFooterPlaceholder note={note}>
           {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
-          <span className="min-h-5" />
-        </div>
+          <span className={buttonPlaceholder()}>{act}</span>
+        </FormFooterPlaceholder>
       </Waiting>
     </ClassicPage>
   );

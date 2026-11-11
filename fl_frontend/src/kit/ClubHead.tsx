@@ -19,18 +19,18 @@ export function ClubHeadPlaceholder() {
       <div className="flex min-w-0 items-center gap-3">
         <span className={placeholderBar("h-6 w-10")} />
         <PlaceholderLine
-          text="flex-1 text-base font-semibold"
-          width="w-48 max-w-full"
+          textClass="flex-1 text-base font-semibold"
+          widthClass="w-48 max-w-full"
         />
       </div>
       <div className="grid gap-0.5 text-sm">
         <PlaceholderLine
-          text="text-sm"
-          width="w-2/3"
+          textClass="text-sm"
+          widthClass="w-2/3"
         />
         <PlaceholderLine
-          text="text-sm"
-          width="w-1/2"
+          textClass="text-sm"
+          widthClass="w-1/2"
         />
       </div>
     </div>

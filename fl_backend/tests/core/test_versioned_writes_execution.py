@@ -1,7 +1,8 @@
 """
 CORE · the version every edited document carries, written and checked by the two patch helpers alone
 
-A save passing the version its form was read at matches only while it stands; every other write raises it.
+A save passing the version its form was read at matches only while it stands; every other write raises it, but a
+write to a field no form saves, which goes past it.
 """
 
 from collections.abc import Awaitable, Callable
@@ -9,13 +10,15 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pymongo import ReturnDocument
+from pymongo import AsyncMongoClient, ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import VERSION_FIELD, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import VERSION_FIELD, patch_many_in_db, patch_one_in_db, patch_past_the_version_in_db, post_one_to_db
 from app.core.exceptions import APIError
+from app.core.transactions import transaction_session
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -119,3 +122,76 @@ class TestEveryOtherWrite:
             return fanned_out, [(await stored(database, spiel_id))[VERSION_FIELD] for spiel_id in (FIRST, SECOND)]
 
         assert on_two_spiele(mongo_replica_set_url, body) == ([2, 0], [1, 1])
+
+
+PUPIL = ObjectId("6890a1b2c3d4e5f607700021")
+TEAM = ObjectId("6890a1b2c3d4e5f607700031")
+
+# One press of each kind on its own record: the collection, the record as stored, the state the press moves and names
+# in its filter, what it sets, and a field of the same record that its administrator's form saves.
+PRESSES = {
+    "a consent press": (
+        Collection.SPIELER,
+        documents.spieler_document(PUPIL, "Lina", "Albers", version=0),
+        {"einwilligung.media": False},
+        {"einwilligung.media": True},
+        {"first_name": "Lina-Marie"},
+    ),
+    "a seat's confirmation": (
+        Collection.SAISON_TEAMS,
+        documents.saison_team_document(
+            "2026", TEAM, "Adler", "ADX", _id=TEAM, kontakte=documents.kontakte_document(trainer=documents.kontaktperson_document("Tilda"))
+        ),
+        {"kontakte.trainer.einwilligung.confirmed_at": None},
+        {"kontakte.trainer.einwilligung.confirmed_at": "2026-04-01"},
+        {"gruppe": "B"},
+    ),
+}
+
+
+class TestAWritePastTheVersion:
+    @pytest.mark.parametrize("kind", PRESSES)
+    def test_an_editors_save_read_before_a_persons_own_press_succeeds_and_the_press_stands(self, mongo_replica_set_url: str, kind: str):
+        """An administrator has the record open while its person presses: the save is not refused for it, and loses nothing of it.
+
+        The press pressed again matches nothing, its filter naming the state the first one moved.
+        """
+
+        name, record, moved_from, moved_to, edited = PRESSES[kind]
+
+        async def press(client: AsyncMongoClient, database: AsyncDatabase) -> int:
+            async def write(session: AsyncClientSession) -> int:
+                return await patch_past_the_version_in_db(
+                    collection=database[name], db_filter={"_id": record["_id"], **moved_from}, update={"$set": moved_to}, session=session
+                )
+
+            async with transaction_session(client) as session:
+                return await session.with_transaction(write)
+
+        async def _run() -> Any:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
+                await database[name].insert_one(dict(record))
+                read_at = record[VERSION_FIELD]
+                pressed = [await press(client, database), await press(client, database)]
+                saved = await patch_one_in_db(
+                    collection=database[name],
+                    db_filter={"_id": record["_id"]},
+                    update={"$set": edited},
+                    expected_version=read_at,
+                    return_document=ReturnDocument.AFTER,
+                )
+
+                return pressed, saved
+
+        pressed, saved = on_the_seed_loop(_run())
+
+        def at(path: str) -> Any:
+            value: Any = saved
+            for key in path.split("."):
+                value = value[key]
+
+            return value
+
+        assert pressed == [1, 0]
+        assert {path: at(path) for path in (*moved_to, *edited)} == {**moved_to, **edited}
+        assert saved[VERSION_FIELD] == 1

@@ -51,20 +51,21 @@ export function placeholderBar(size: string) {
 }
 
 /**
- * One line of text while it is read: `text` is the size the words will be set at, whose line height the line takes,
- * and `width` how much of the line the words will fill. Where the words are known before the read, such as a menu
+ * One line of text while it is read: `textClass` is the size the words will be set at, whose line height the line takes,
+ * and `widthClass` how much of the line the words will fill. Where the words are known before the read, such as a menu
  * entry's name whose address waits for the season, `words` sizes the bar instead, set in it unseen, so the bar is
  * exactly as wide as they will be.
  */
 export function PlaceholderLine({
-  text,
-  width = "",
+  textClass,
+  widthClass = "",
   words,
-}: { text: string } & ({ width: string; words?: never } | { words: string; width?: never })) {
+}: { textClass: string } & ({ widthClass: string; words?: never } | { words: string; widthClass?: never })) {
   const slots = placeholder();
   return (
-    <span className={slots.line({ class: text })}>
-      <span className={slots.bar({ class: `${slots.words()} ${width} ${words === undefined ? "" : "whitespace-nowrap text-transparent"}` })}>
+    <span className={slots.line({ class: textClass })}>
+      <span
+        className={slots.bar({ class: `${slots.words()} ${widthClass} ${words === undefined ? "" : "whitespace-nowrap text-transparent"}` })}>
         {words}
       </span>
     </span>
@@ -75,28 +76,28 @@ export function PlaceholderLine({
 const CHARACTERS_PER_LINE = 30;
 
 /**
- * A sentence whose words are known before the read, in a box that wraps it: `text` is the size it will be set at. The
+ * A sentence whose words are known before the read, in a box that wraps it: `textClass` is the size it will be set at. The
  * words wrap unseen, so the sentence stands as many lines as it will at every width, and cut the bars laid over them
  * to the lines they hold. `lines` is the most lines they can take, for a narrower box than a sentence's.
  */
 export function PlaceholderSentence({
-  text,
+  textClass,
   words,
   lines = Math.ceil(words.length / CHARACTERS_PER_LINE),
 }: {
-  text: string;
+  textClass: string;
   words: string;
   lines?: number;
 }) {
   return (
-    <span className={`relative block overflow-hidden ${text}`}>
+    <span className={`relative block overflow-hidden ${textClass}`}>
       <span className="invisible">{words}</span>
       <span className="absolute inset-0">
         {Array.from({ length: lines }, (_, line) => (
           <PlaceholderLine
             key={line}
-            text=""
-            width="w-full"
+            textClass=""
+            widthClass="w-full"
           />
         ))}
       </span>
@@ -107,13 +108,13 @@ export function PlaceholderSentence({
 /**
  * A part of the frame while it waits, such as the rail's entries or the season button: its placeholder, hidden from
  * assistive technology and shown only once the wait outlasts `--loading-delay`. It says nothing itself: the page's
- * own wait carries the status. `layout` is the box the part stands in, as the part's own root lays out its children.
+ * own wait carries the status. `layoutClass` is the box the part stands in, as the part's own root lays out its children.
  */
-export function Placeholder({ layout = "", children }: { layout?: string; children: ReactNode }) {
+export function Placeholder({ layoutClass = "", children }: { layoutClass?: string; children: ReactNode }) {
   return (
     <div
       aria-hidden
-      className={placeholder().root({ class: layout })}>
+      className={placeholder().root({ class: layoutClass })}>
       {children}
     </div>
   );
@@ -122,11 +123,11 @@ export function Placeholder({ layout = "", children }: { layout?: string; childr
 /**
  * Waiting for a template's content: its blocks' placeholders, shown only once the wait outlasts `--loading-delay`
  * (`tokens.css`). Its status says „Lädt“ in its subtree, which a live region announces where its name alone is not,
- * and the box standing in the content's place is busy. A template places it as its one boundary's fallback; `layout`
+ * and the box standing in the content's place is busy. A template places it as its one boundary's fallback; `layoutClass`
  * is the box the content will stand in, such as a column's gaps, and `status` is left out by every part but one where
  * a wait is drawn in several parts, so the wait is announced once.
  */
-export function Waiting({ layout = "", status = true, children }: { layout?: string; status?: boolean; children: ReactNode }) {
+export function Waiting({ layoutClass = "", status = true, children }: { layoutClass?: string; status?: boolean; children: ReactNode }) {
   return (
     <div
       aria-busy
@@ -140,7 +141,7 @@ export function Waiting({ layout = "", status = true, children }: { layout?: str
       )}
       <div
         aria-hidden
-        className={layout}>
+        className={layoutClass}>
         {children}
       </div>
     </div>

@@ -66,7 +66,7 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
     ...(chip === undefined ? {} : { chip, muted: true }),
     cells: {
       gruppe: team.gruppe === null ? COPY.shared.noValue : COPY.shared.season.gruppe(team.gruppe),
-      trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : { record: trikotFarbeLabel(team.trikot_farbe) },
+      trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : trikotFarbeLabel(team.trikot_farbe),
     },
   };
 }
@@ -74,9 +74,10 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
 /** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: TEAM,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [
-    { key: "gruppe", label: COPY.team.gruppe, narrow: true },
-    { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true },
+    { key: "gruppe", label: COPY.team.gruppe, narrow: true, width: "word" },
+    { key: "trikotFarbe", label: COPY.team.trikotFarbe, hideOnPhone: true, width: "word" },
   ],
 };
 
@@ -93,7 +94,14 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
       filters={readFilters(list, searchParams)}
       filterCount={2}
       create={{ label: actLabel(ACT), act: readCreate(list, params) }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 24, content: readTeams(list, params, searchParams) }}
+      list={{
+        kind: "table",
+        search: { label: WORDS.search },
+        head: HEAD,
+        wait: 24,
+        plaques: true,
+        content: readTeams(list, params, searchParams),
+      }}
     />
   );
 }

@@ -2,30 +2,35 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
 from app.api.account.services import (
     compose_person_move,
-    compose_schiedsrichter_self,
     find_own_entry_refusal,
     withdrawal_line,
 )
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
-from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterSelfResponse,
+from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter
+from app.api.schiedsrichter.schemas import FLSchiedsrichterSpieleResponse
+from app.api.schiedsrichter.services import (
+    EINWILLIGUNG_FIELD,
+    build_self_referee_filter,
+    build_self_saisons_pipeline,
+    build_self_spiele_pipeline,
+    compose_self_spiel,
+    order_self_spiele,
 )
-from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, build_self_referee_filter, build_self_referee_pipeline
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     SchiedsrichterCollection,
+    SpieleReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -42,24 +47,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
 )
-
-
-@router.get("/self", response_model=FLSchiedsrichterSelfResponse, summary="A signed-in referee's own records")
-async def get_self(identifier: PersonIdentifier, schiedsrichter_collection: SchiedsrichterCollection) -> FLSchiedsrichterSelfResponse:
-    """
-    Answer every confirmed referee record the signed-in address holds, with its stored contact details.
-
-    PERSON TIER: the fee set for them per fixture as `payment`, never the confirmation link's bookkeeping. A retired
-    record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
-
-    Refuses an address holding no confirmed referee record (`role_not_held`).
-    """
-
-    rows = await aggregate_many_from_db(collection=schiedsrichter_collection, pipeline=build_self_referee_pipeline(identifier))
-    eigene = [row for row in rows if is_own_schiedsrichter(row, identifier)]
-    refuse(find_own_entry_refusal(held=bool(eigene)))
-
-    return FLSchiedsrichterSelfResponse.model_validate({"schiedsrichter": [compose_schiedsrichter_self(row) for row in eigene]})
 
 
 @router.patch(
@@ -126,13 +113,10 @@ async def patch_einwilligung(
 
         update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
         if update is not None:
-            await patch_one_in_db(
-                collection=schiedsrichter_collection,
-                db_filter={"_id": row["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
+            # Past the record's `version`: the consent is no field the editor saves, and the read above, in this
+            # transaction, is what a second press is judged on.
+            await patch_past_the_version_in_db(
+                collection=schiedsrichter_collection, db_filter={"_id": row["_id"]}, update=update, session=session
             )
         choices = withdrawal_line(blocks=[saved], chosen=chosen)
         if choices is not None:
@@ -141,3 +125,73 @@ async def patch_einwilligung(
     async with journal:
         async with transaction_session(db) as session:
             await session.with_transaction(write)
+
+
+@router.get(
+    "/self/spiele/{saison_id}",
+    response_model=FLSchiedsrichterSpieleResponse,
+    summary="A signed-in referee's fixtures of one season, one row a fixture",
+)
+async def get_self_spiele(
+    saison_id: str,
+    identifier: PersonIdentifier,
+    spiele_collection: SpieleReadCollection,
+    records: SubjectLookup,
+    db: DBClient,
+    now: datetime = Depends(get_germany_now),
+) -> FLSchiedsrichterSpieleResponse:
+    """
+    Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+
+    Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
+    their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now
+    (from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is
+    served, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the
+    fixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,
+    or none at all, answers an empty list.
+
+    Refuses an address holding no live, confirmed referee record (`role_not_held`).
+    """
+
+    # A snapshot, so each fixture is judged against the records, rows and report of one moment; never a transaction,
+    # which a read writing nothing has no conflict to retry.
+    async with db.start_session(snapshot=True) as session:
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+        spiele = await aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_self_spiele_pipeline(
+                saison_id=saison_id, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter]
+            ),
+            session=session,
+        )
+
+    return FLSchiedsrichterSpieleResponse(
+        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=now) for spiel in spiele])
+    )
+
+
+@router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in referee has fixtures in")
+async def get_self_saisons(
+    identifier: PersonIdentifier,
+    spiele_collection: SpieleReadCollection,
+    records: SubjectLookup,
+    db: DBClient,
+) -> FLOwnSaisonsResponse:
+    """
+    Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
+
+    A planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address
+    holding no live, confirmed referee record (`role_not_held`).
+    """
+
+    async with db.start_session(snapshot=True) as session:
+        subject = await roles_of(identifier, records, session=session)
+        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+        saisons = await aggregate_many_from_db(
+            collection=spiele_collection,
+            pipeline=build_self_saisons_pipeline([record.schiedsrichter_id for record in subject.schiedsrichter]),
+            session=session,
+        )
+
+    return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons))

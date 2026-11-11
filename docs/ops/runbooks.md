@@ -366,8 +366,9 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a session
   a passkey signed in.
-- **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
-  sign-out, which arms on the first press and ends the session on the second.
+- **An admin ending their own session needs no restart at all**: the account menu every frame carries
+  holds „Abmelden“ (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`), which ends the session on its
+  press.
 
 ## 4. When the application queue has been flooded
 
@@ -443,13 +444,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour, its minute and, until the season-end strip, its reason (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every match report they first sent (`spielberichte.bericht.submitted_by.schiedsrichter_id`) and of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which they may have written over another writer's: a report's page shows it to the referee booked now alone, so a read-only Playground query on those two fields finds them whole                                           |
-| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only Playground query on those fields finds                                                                                                                                                                                                                                                                                                                                                         |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour and its minute (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then          |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have written: a report names no writer and its page shows it to the referee booked now alone, so a read-only Playground query on that field finds them whole, while a report they wrote on a fixture booked to somebody else since is found by no field |
+| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only Playground query on those fields finds                                                                                                                                                                                                                                                                                                                         |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
@@ -476,13 +477,14 @@ address as the sign-in box folds it, in lower case
 **A contact person's fixture confirmations are found from the seats they hold.**
 A seat's answer stores neither the address nor a name, only the seat it came from
 (`answer.by.rolle`) beside the reason typed from it (`answer.reason`).
-Their seats' answers, links and the delivery records of the messages that carried them sit under
-`kontakte.<seat>` on their club's rows of each season in which they hold a seat now (`saison_id`,
-`party.team_id`), read beside that season's contact block, which says whose seat it is: a seat they
-have left took its entries off every row of that team and season, answered and closed ones too. Send the fixture, the answer, its day and the
-reason.
-**Once the season's contact block is cleared, its rows keep the answers alone**: the reasons, the
-links and the delivery records go with the block
+Their seats' answers are their club's rows of each season in which they hold a seat now (`saison_id`,
+`party.team_id`, `answer.by.rolle`), read beside that season's contact block, which says whose seat it
+is; a row records the seat and never its holder, so an answer given before they took the seat reads
+alike, and an erasure or a Widerspruch of an earlier holder took the reasons typed from the seat
+(`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`). Send the fixture, the answer,
+its day and the reason.
+**Once the season's contact block is cleared, its rows keep the answers alone**: the reasons go with
+the block
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), so an
 answer for that season names nobody to send.
 
@@ -1035,7 +1037,7 @@ ending the address changes whose step lapsed and making the due ones take effect
 notice to the Postausgang: each replaced address gets its completion notice and the new address of a
 confirmed change refused at its due time a notice naming nobody. The pass ends
 by carrying each sign-in account an effect still owes
-(`fl_frontend/src/features/address-change/umzug.ts :: runAddressChangeMoves`). Its counts and no person
+(`fl_frontend/src/features/address-change/moves.ts :: runAddressChangeMoves`). Its counts and no person
 are the pass line's `address_change_` ones, `address_change_remaining` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
 `scheduler.job_failed` names as `bewerbungen`.
 
@@ -1103,13 +1105,15 @@ its waiting time stands until the next pass.
 
 **Each pass that could list the seasons counts on the pass's line**, the record of what it did:
 the rows it closed, the rows it asked and reminded, the mails it owed and the rows it passed over. Every mail
-it owes, a request, a reminder, an Einteilung or the notice of a move, a referee taken off or a
-call-off, is a Postausgang row written in the transaction that writes its confirmation row, so a
-row reads as asked exactly where its mail is owed; the drain after the pass sends them and retries
+it owes, a request, a reminder, an Einteilung, the notice of a move, a referee taken off or a
+call-off, or a club's line-up reminder, is a Postausgang row written in the transaction that writes
+its confirmation row or, for the line-up, under its own keys, so a row reads as asked exactly where
+its mail is owed; the drain after the pass sends them and retries
 each, and a mail it gives up is counted on the pass's line and reported to the
-heartbeat. A notice about a day gone by is owed nobody. A listing or a season's pass that fails
+heartbeat. A notice about a match already kicked off is owed nobody. A listing or a season's pass that fails
 ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
-that committed. Every link a mail carried stays live until the deadline beside the later ones:
+that committed. No mail of the pass carries a link: a club answers on its Übersicht and a referee on
+theirs, signed in. The pass's lines:
 
 ```bash
 docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
@@ -1364,27 +1368,27 @@ drain sends what waited, so these follow:
   it erases.
 - **The fixture confirmations ask once more about what the window asked**, the restore having taken
   back every confirmation row minted and every answer given since the snapshot:
-  - **A request mailed inside the window** names a row that is gone, so its link answers nothing;
-    the first pass mints the fixture again and mails a fresh request.
-  - **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
-    of a first request mailed before the snapshot answers again; a reminder's mailed inside the
-    window does not.
+  - **A request mailed inside the window** names a row that is gone; the first pass mints the
+    fixture again and mails a fresh request.
+  - **An answer given inside the window** is gone, and the fixture reads unconfirmed again: the club's
+    Übersicht asks for it once more, from the row the snapshot holds or the one the first pass
+    mints.
   - **A referee's answer given inside the window** is gone with their row. Their decline also took
     them off the fixture, so the restore books them onto it again with no row, and the first pass
     mails them a fresh Einteilung; until they agree again the fixture names no referee.
 
 Write to each club mailed inside the window, which the mail provider's list of sent messages names
-by subject, that a link from those days answers nothing and an answer given then is to be given
-again. Write to each referee booked onto a fixture still to come, at the address their record
-holds, that an answer given on their panel in those days is to be given again there, a decline
-included: no record the restore keeps says which of them answered.
+by subject, that an answer given on its Übersicht in those days is to be given again there. Write
+to each referee booked onto a fixture still to come, at the address their record holds, that an
+answer given on their Übersicht in those days is to be given again there, a decline included: no
+record the restore keeps says which of them answered.
 
 **A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
-fixture reads as the snapshot left it, open on the referee's panel where no report stood then. No
+fixture reads as the snapshot left it, open on the referee's Übersicht where no report stood then. No
 record names whose report went, the log being rolled back too, and a report can be sent or
-corrected on any day from the match day until its season ends, so write to the referees booked on
+corrected at any time from the match's kick-off until its season ends, so write to the referees booked on
 every fixture played by the restore day in a season the restore leaves running, which the fixture
-list names, to look at their panel and enter again what it lacks; an administrator's correction
+list names, to look at their Übersicht and enter again what it lacks; an administrator's correction
 made inside the window is gone too.
 
 **Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve

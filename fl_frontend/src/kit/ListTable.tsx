@@ -6,9 +6,9 @@ import { unstable_rethrow } from "next/navigation";
 import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
-import { cardSurface } from "./cardStyles";
+import { Card, CardActRow } from "./Card";
 import { isEdgeRefusal } from "./edgeRefusal";
-import { EmptyState } from "./EmptyState";
+import { EmptyBox, EmptyState } from "./EmptyState";
 import { StatusLine } from "./FieldParts";
 import { RowActs } from "./RowActs";
 import { SearchField } from "./SearchField";
@@ -19,6 +19,7 @@ import { SchoolTiles } from "./TileGrid";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
+import type { CardActRowProps } from "./Card";
 import type { EmptyStateProps } from "./EmptyState";
 import type { SpielRowProps } from "./SpielRow";
 import type { TableProps, TableRow } from "./Table";
@@ -95,12 +96,7 @@ export function ListMatches({
   const { query } = use(ListQuery);
   const wanted = query.trim().toLowerCase();
   const shown = wanted === "" ? matches : matches.filter((match) => match.words.toLowerCase().includes(wanted));
-  if (shown.length === 0)
-    return (
-      <div className={cardSurface({ class: "overflow-hidden" })}>
-        <EmptyState {...(wanted === "" ? empty : { ...empty, kind: "search" })} />
-      </div>
-    );
+  if (shown.length === 0) return <EmptyBox {...(wanted === "" ? empty : { ...empty, kind: "search" })} />;
   return (
     <SpielList
       // The search lists a whole season: more cards in view than a matchday's, none of them likelier than another.
@@ -119,13 +115,50 @@ export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: Schoo
   const { query } = use(ListQuery);
   const wanted = query.trim().toLowerCase();
   const shown = wanted === "" ? tiles : tiles.filter((tile) => tile.words.toLowerCase().includes(wanted));
-  if (shown.length === 0)
-    return (
-      <div className={cardSurface({ class: "overflow-hidden" })}>
-        <EmptyState {...(wanted === "" ? empty : { ...empty, kind: "search" })} />
-      </div>
-    );
+  if (shown.length === 0) return <EmptyBox {...(wanted === "" ? empty : { ...empty, kind: "search" })} />;
   return <SchoolTiles schools={shown.map((tile) => tile.tile)} />;
+}
+
+/**
+ * One card of the list template, its rows searched by the text its scope holds, as `ListMatches` searches the matches:
+ * a row's name, or the `words` it states where more of it is searched. A card holding a list, such as a referee's
+ * games, gives its place to the list's box once a search empties it, as its list with nothing in it yet does and as a
+ * table's box keeps the sentence alone when a search empties its rows, so a search finding nothing reads alike on every
+ * page. A card of open work stays and says nothing is open, in what was searched as without a search.
+ */
+export function ListCard({
+  title,
+  count,
+  rows,
+  empty,
+}: {
+  title: Copy;
+  /** `false` on a card holding a list rather than open work: a count says how much is open. */
+  count?: false;
+  rows: ReadonlyArray<CardActRowProps & { id: string; words?: string }>;
+  /** The card's list's own empty state, as the list template states it for a card holding a list. */
+  empty?: EmptyStateProps;
+}) {
+  const { query } = use(ListQuery);
+  const wanted = query.trim().toLowerCase();
+  const shown = wanted === "" ? rows : rows.filter((row) => (row.words ?? textOf(row.name)).toLowerCase().includes(wanted));
+  if (shown.length === 0 && empty !== undefined) return <EmptyBox {...(wanted === "" ? empty : { ...empty, kind: "search" })} />;
+  return (
+    <Card
+      title={title}
+      {...(count === false ? {} : { count: rows.length })}>
+      {shown.length === 0 ? (
+        <EmptyState kind="clear" />
+      ) : (
+        shown.map(({ id, words: _words, ...row }) => (
+          <CardActRow
+            key={id}
+            {...row}
+          />
+        ))
+      )}
+    </Card>
+  );
 }
 
 /**

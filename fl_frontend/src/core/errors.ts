@@ -78,10 +78,6 @@ export class APIBadStatusError extends Error {
   refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
-  // Redesign: these two fields, here and on `APINetworkError`, go with their last readers, the old write path's
-  // `shared/utils/actionError.ts` and `shared/utils/writeOutcome.ts`.
-  method: string;
-  readOnly: boolean;
 
   constructor({
     message,
@@ -90,11 +86,9 @@ export class APIBadStatusError extends Error {
     serverErrorCode,
     refusedFields = [],
     endpoint,
-    method,
-    readOnly,
     traceId,
     originalError,
-  }: SentRequest & {
+  }: {
     message: string;
     url: string;
     statusCode: number;
@@ -116,8 +110,6 @@ export class APIBadStatusError extends Error {
     this.refusedFields = refusedFields;
     this.url = url;
     this.endpoint = endpoint;
-    this.method = method;
-    this.readOnly = readOnly;
   }
 }
 
@@ -150,10 +142,26 @@ export function isRefusalCode(code: Code | undefined): boolean {
 }
 
 /**
+ * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
+ * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
+ */
+export function isRefusal(error: unknown): error is APIBadStatusError {
+  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+}
+
+/**
+ * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
+ * fallback at any status, and a protocol code, a routing one included, never does.
+ */
+export function isRuleRefusal(error: unknown): error is APIBadStatusError {
+  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
+}
+
+/**
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
  * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.
  */
-export function isRecordMissing(error: unknown): boolean {
+function isRecordMissing(error: unknown): boolean {
   return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "document_not_found";
 }
 
@@ -183,33 +191,26 @@ export class APINetworkError extends Error {
   traceId: string;
   url: string;
   isTimeout: boolean;
-  // Redesign: these two fields go with `APIBadStatusError`'s.
-  method: string;
-  readOnly: boolean;
 
   constructor({
     message,
     url,
-    method,
-    readOnly,
     traceId,
     isTimeout,
     originalError,
-  }: SentRequest & {
+  }: {
     message: string;
     url: string;
     traceId: string;
     isTimeout: boolean;
     originalError?: unknown;
   }) {
-    const errorCause = originalError ? { originalError, traceId, isTimeout, url, method } : { traceId, isTimeout, url, method };
+    const errorCause = originalError ? { originalError, traceId, isTimeout, url } : { traceId, isTimeout, url };
     super(message, { cause: errorCause });
 
     this.name = "APINetworkError";
     this.traceId = traceId;
     this.url = url;
-    this.method = method;
-    this.readOnly = readOnly;
     this.isTimeout = isTimeout;
   }
 }

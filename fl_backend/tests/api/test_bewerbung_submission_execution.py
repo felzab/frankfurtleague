@@ -17,8 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_decline_update, compose_kontakte
-from app.api.kontakte.services import build_clearing_update
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_kontakte
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -43,9 +42,10 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_bewerbung_submission_test")
 
 SAISON_ID = "2026"
-TODAY = "2026-04-01"
-# Injected through `get_germany_now` for the cases driven over HTTP, so the day is not the wall clock.
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2126-04-01"
+# Injected through `get_germany_now` for the cases driven over HTTP, so the day is not the wall clock; a century ahead of
+# it, every seeded day with it: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
+NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Fixed rather than generated, so a failure names the same row every run.
 EXISTING_OID = ObjectId("6890a1b2c3d4e5f607940001")
@@ -59,7 +59,7 @@ RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
 ENTERED_NAME, ENTERED_SHORTHAND = "Cassiopeia", "CAX"
 
 
-OPEN_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
+OPEN_WINDOW: Mapping[str, Any] = {"open": True, "start": "2126-03-01", "end": "2126-04-30"}
 
 
 def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str, Any]:
@@ -130,7 +130,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
             await database[Collection.TEAMS].insert_many(
                 [
                     club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
-                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2026-03-01"),
+                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
                     club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
                 ]
             )
@@ -142,7 +142,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
 
 
 # A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
-SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
+KEY = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
@@ -377,8 +377,8 @@ class TestTheSubmissionKey:
 
     def test_a_second_press_stores_no_second_application_and_answers_as_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            first = await submit(database, key=SCHLUESSEL)
-            second = await submit(database, key=SCHLUESSEL)
+            first = await submit(database, key=KEY)
+            second = await submit(database, key=KEY)
 
             return first, second, await database[Collection.BEWERBUNGEN].count_documents({})
 
@@ -390,9 +390,9 @@ class TestTheSubmissionKey:
         """Each mail is keyed by the application and its person, so a press the route lost answers and owes nothing twice."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await submit(database, key=SCHLUESSEL)
+            await submit(database, key=KEY)
             first = await owed(database)
-            await submit(database, key=SCHLUESSEL)
+            await submit(database, key=KEY)
 
             return first, await owed(database)
 
@@ -405,9 +405,9 @@ class TestTheSubmissionKey:
         """Looked up before every judgement: the first press arrived in time, and its answer does not expire with the window."""
 
         async def body(database: AsyncDatabase) -> Any:
-            first = await submit(database, key=SCHLUESSEL)
+            first = await submit(database, key=KEY)
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"bewerbung.open": False}})
-            second = await submit(database, key=SCHLUESSEL)
+            second = await submit(database, key=KEY)
 
             return first.created_id, second.created_id
 
@@ -415,47 +415,13 @@ class TestTheSubmissionKey:
 
         assert first == second
 
-    def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await submit(database, key=SCHLUESSEL)
-            with pytest.raises(APIError) as refused:
-                await submit(database, key=SCHLUESSEL, stufengroesse=91)
-
-            return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_KEY_DIFFERING, 1)
-
-    @pytest.mark.parametrize(
-        "emptying",
-        [
-            pytest.param(compose_decline_update(seats=("stellvertretung",), today=TODAY, announced=False), id="an objection"),
-            pytest.param(build_clearing_update(("stellvertretung",), confirmations=True), id="a contact erasure"),
-        ],
-    )
-    def test_emptying_a_seat_takes_the_digest_with_it(self, mongo_replica_set_url: str, emptying: Mapping[str, Any]):
-        """The digest was taken over that person's details too; a replay then meets the refusal of other details, which stays true."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await submit(database, key=SCHLUESSEL)
-            await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
-            stored = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(APIError) as refused:
-                await submit(database, key=SCHLUESSEL)
-
-            return stored, refused.value.error_code
-
-        stored, code = on_a_league(mongo_replica_set_url, body)
-
-        assert "idempotency_fingerprint" not in stored
-        assert code == Code.BEWERBUNG_KEY_DIFFERING
-
     def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two keyless presses' rows would otherwise both index as null and collide."""
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.BEWERBUNGEN].insert_many([_stored_application(), _stored_application()])
             before = await database[Collection.BEWERBUNGEN].find({}).sort("_id", 1).to_list(length=None)
-            await submit(database, key=SCHLUESSEL)
+            await submit(database, key=KEY)
             after = await database[Collection.BEWERBUNGEN].find({"idempotency_key": {"$exists": False}}).sort("_id", 1).to_list(length=None)
 
             return before, after, await database[Collection.BEWERBUNGEN].count_documents({})
@@ -470,11 +436,11 @@ class TestTheSubmissionKey:
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            second = asyncio.create_task(submit(database, key=SCHLUESSEL, bewerbungen=held))
+            second = asyncio.create_task(submit(database, key=KEY, bewerbungen=held))
             await held.until_held(second)
 
             try:
-                first = await submit(database, key=SCHLUESSEL)
+                first = await submit(database, key=KEY)
             except BaseException:
                 await held.abandon(second)
                 raise
@@ -503,11 +469,11 @@ class TestTheSubmissionKey:
             committed = asyncio.Event()
             committed.set()
             held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            await submit(database, key=SCHLUESSEL, bewerbungen=held)
+            await submit(database, key=KEY, bewerbungen=held)
 
             return held.lookup_filters
 
-        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(SCHLUESSEL))]
+        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(KEY))]
 
 
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
@@ -533,7 +499,7 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [
             pytest.param(None, id="no window recorded"),
-            pytest.param({"open": True, "start": "2026-05-01", "end": "2026-05-31"}, id="a span this day is outside"),
+            pytest.param({"open": True, "start": "2126-05-01", "end": "2126-05-31"}, id="a span this day is outside"),
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
@@ -608,26 +574,26 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
-        database[Collection.SAISONS].insert_one(
-            saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
-        )
-        database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
+        with a_clean_database_sync(client, url, database_name) as database:
+            database[Collection.SAISONS].insert_one(
+                saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
+            )
+            database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
-        async def _submitted() -> Response:
-            async with app_client(url, app=_served(), now=NOW) as http:
-                sent = dict(BASE_AUTH if headers is None else headers)
-                sent["Idempotency-Key"] = key or str(uuid4())
-                return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
+            async def _submitted() -> Response:
+                async with app_client(url, app=_served(), now=NOW) as http:
+                    sent = dict(BASE_AUTH if headers is None else headers)
+                    sent["Idempotency-Key"] = key or str(uuid4())
+                    return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
-        response = asyncio.run(_submitted())
+            response = asyncio.run(_submitted())
 
-        # Read HERE: the client below is closed on the way out, and a handle returned through it
-        # would be dead by the time a case touched it.
-        return Submitted(
-            response=response,
-            stored=database[Collection.BEWERBUNGEN].count_documents({}),
-        )
+            # Read HERE: the client below is closed on the way out, and a handle returned through it
+            # would be dead by the time a case touched it.
+            return Submitted(
+                response=response,
+                stored=database[Collection.BEWERBUNGEN].count_documents({}),
+            )
     finally:
         client.close()
 
@@ -708,6 +674,7 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "confirmations": minted_confirmations(
             hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
         ),
+        "version": 0,
         **fields,
     }
 
@@ -927,10 +894,10 @@ class TestABannedContactAddress:
         """The replay answers the stored application; the ban is the drain's to apply, to the mail the first press owed."""
 
         async def body(database: AsyncDatabase) -> Any:
-            first = await submit(database, key=SCHLUESSEL)
+            first = await submit(database, key=KEY)
             await database[Collection.BAN_LIST].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], until=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
-            second = await submit(database, key=SCHLUESSEL)
+            second = await submit(database, key=KEY)
             after = await database[Collection.BEWERBUNGEN].find({}).to_list()
             sent = [mail.to for mail in await drained(database, database.client)]
 

@@ -5,7 +5,7 @@ from app.api.teams.schemas import FLTeam, FLTeamSingleFilterParams, FLTeamsSingl
 from app.api.teams.services import build_team_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db
-from app.core.dependencies import SaisonsCollection, TeamsCollection
+from app.core.dependencies import SaisonsReadCollection, TeamsReadCollection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -20,8 +20,8 @@ router = APIRouter(
 @router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team")
 async def get_team(
     team_id: CustomRouteObjectId,
-    teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
+    teams_collection: TeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
     filters: FLTeamSingleFilterParams = Depends(),
 ) -> FLTeamsSingleResponse:
     """One team with its group and its figures in the season the query names, the season the site is on where it names none.

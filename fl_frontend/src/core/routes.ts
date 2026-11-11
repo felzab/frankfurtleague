@@ -162,7 +162,6 @@ export const ROUTES = {
     title: COPY.page.entryConfirmation,
     crawl: "disallow",
   },
-  spielbestaetigung: { path: () => "/confirm/spiel" as const, title: COPY.page.spielbestaetigung, crawl: "disallow" },
   registrierungConfirmation: {
     path: () => "/confirm/spieler" as const,
     title: COPY.page.registrierungConfirmation,
@@ -175,6 +174,11 @@ export const ROUTES = {
    */
   accountErased: { path: () => "/erasure/done" as const, title: COPY.page.accountErasure, crawl: "disallow" },
   registrierung: { path: () => "/registrierung" as const, title: COPY.page.registrierung, crawl: "disallow" },
+  /**
+   * Where a registration lands, a page needing no link: the submit forgets the link's cookie, so its action leads here
+   * rather than rendering the link's page again, which would read the forgotten link as no longer valid.
+   */
+  registrierungDone: { path: () => "/registrierung/done" as const, title: COPY.page.registrierung, crawl: "disallow" },
 
   /**
    * Konto, a signed-in person's own pages whatever they hold, outside every area: the list of its four pages, which a
@@ -188,10 +192,27 @@ export const ROUTES = {
 
   /** Where a signed-in person lands, the switch between every Funktion they hold. */
   area: { path: () => "/area" as const, title: COPY.shared.overview, crawl: "disallow" },
-  // Session 8: its page is built.
+  /**
+   * A pupil's and a referee's own pages, each a season's. The address without the season is the place itself, which
+   * „Funktion wechseln“ and a mail lead to, neither knowing the season: its page sends the reader on to the Übersicht
+   * of the season their records stand in, as `/admin` sends an administrator on.
+   */
+  areaSpieler: { path: () => "/area/spieler" as const, title: COPY.shared.overview, crawl: "disallow" },
+  spielerOverview: {
+    path: (saison: string) => `/area/spieler/${saison}` as const,
+    title: COPY.shared.overview,
+    crawl: "disallow",
+  },
+  areaSchiedsrichter: { path: () => "/area/schiedsrichter" as const, title: COPY.shared.overview, crawl: "disallow" },
   schiedsrichterOverview: {
     path: (saison: string) => `/area/schiedsrichter/${saison}` as const,
     title: COPY.shared.overview,
+    crawl: "disallow",
+  },
+  /** A fixture's report as its booked referee writes it, named by the two teams as the match's own page is. */
+  schiedsrichterSpielbericht: {
+    path: (saison: string, spiel: string) => `/area/schiedsrichter/${saison}/spielbericht/${spiel}` as const,
+    title: COPY.page.spiel,
     crawl: "disallow",
   },
 
@@ -200,10 +221,15 @@ export const ROUTES = {
     title: COPY.shared.overview,
     crawl: "disallow",
   },
-  // Session 8: its page is built.
   teamSpiele: {
     path: (team: string, saison: string) => `/area/team/${team}/${saison}/spiele` as const,
     title: COPY.page.spiele,
+    crawl: "disallow",
+  },
+  /** A match's line-up as its club's seats enter it, named by the match's two teams. */
+  teamAufstellung: {
+    path: (team: string, saison: string, spiel: string) => `/area/team/${team}/${saison}/spiele/${spiel}` as const,
+    title: COPY.page.spiel,
     crawl: "disallow",
   },
   teamKader: {
@@ -253,6 +279,12 @@ export const ROUTES = {
   /** The match editor, named by the match's two teams as the match's own page is. */
   adminSpiel: {
     path: (saison: string, spiel: string) => `/admin/saisons/${saison}/spiele/${spiel}` as const,
+    title: COPY.page.spiel,
+    crawl: "disallow",
+  },
+  /** One club's line-up for a match as the league enters it, named by the match's two teams as the team's own is. */
+  adminAufstellung: {
+    path: (saison: string, spiel: string, team: string) => `/admin/saisons/${saison}/spiele/${spiel}/aufstellung/${team}` as const,
     title: COPY.page.spiel,
     crawl: "disallow",
   },

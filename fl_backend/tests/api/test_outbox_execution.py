@@ -18,6 +18,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import (
     FLBanData,
+    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxEventPayload,
@@ -39,12 +40,13 @@ from app.api.outbox.services import (
     enqueue_mails,
 )
 from app.api.outbox.system_router import post_event, post_handout, post_result, post_sign_in
+from app.api.teams.services import compose_kontakt_confirmation
 from app.core import clock
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ban_document
+from tests.documents import ban_document, kontakte_document, kontaktperson_document, registrierung_document, saison_team_document
 from tests.outbox import claimable
 from tests.worker import worker_database
 
@@ -57,17 +59,38 @@ NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
 # Five minutes before the clock falls back, so a wall clock's ten run seventy.
 BEFORE_THE_CLOCK_FALLS_BACK = datetime(2126, 10, 27, 2, 55, tzinfo=clock.GERMANY)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
-REFERENCE = FLOutboxReference(collection=Collection.INVITATIONS, id=INVITATION, seat=None)
+REFERENCE = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=INVITATION, seat=None)
 NORA = "nora.neu@beispielschule.de"
 BAN = FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_database(url: str, body: Body) -> Any:
+def a_registration() -> dict[str, Any]:
+    """The record a link is minted into: a pupil's pending registration at the recipient's address, no link handed out yet."""
+
+    stored = registrierung_document(
+        INVITATION,
+        NORA,
+        saison_id="2126",
+        team_id=ObjectId("6890a1b2c3d4e5f607f30005"),
+        first_name="Nora",
+        last_name="Neu",
+        token="never-handed-out",
+        submitted_at="2126-04-16",
+        deadline="2126-04-23",
+    )
+    return {**stored, "confirmation": {**stored["confirmation"], "token_hashes": []}}
+
+
+def seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
+    return kontaktperson_document("Nora", confirmed_at="2126-04-01" if confirmed else None, email=email)
+
+
+def on_a_database(url: str, body: Body, *, stores_a_refused_shape: str | None = None) -> Any:
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (client, database):
-            await database[Collection.INVITATIONS].insert_one({"_id": INVITATION, "email": NORA, "token_hashes": []})
+        async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
+            await database[Collection.REGISTRIERUNGEN].insert_one(a_registration())
             return await body(database, client)
 
     return on_the_seed_loop(_run())
@@ -80,7 +103,7 @@ def utc(moment: datetime) -> datetime:
 
 
 # The one record's link: its array, minted while the record still names the recipient.
-LINK = FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=False)
+LINK = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=False)
 
 
 async def owe(
@@ -93,6 +116,7 @@ async def owe(
     reference: FLOutboxReference = REFERENCE,
     spec: FLOutboxLink = LINK,
     now: datetime = NOW,
+    club: FLOutboxClub | None = None,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
@@ -100,7 +124,7 @@ async def owe(
         await enqueue_mails(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
-            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None)],
+            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None, club=club)],
             now=now,
         )
 
@@ -217,7 +241,7 @@ class TestTheDrain:
             after = await claimed(database, client, now=NOW + LEASE_DURATION)
             late = await reported(database, lost.lease, row_id, "sent")
             settled = await reported(database, after.lease, row_id, "sent")
-            record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
+            record = await database[Collection.REGISTRIERUNGEN].find_one({"_id": INVITATION})
             logged = await database[Collection.ACTION_LOG].count_documents({})
 
             return lost, inside, after, late, settled, await stored(database, row_id), record, logged
@@ -227,7 +251,7 @@ class TestTheDrain:
         (first,), (second,) = lost.mails, after.mails
         assert (inside.mails, first.attempt, second.attempt) == ([], 1, 2)
         assert first.token is not None and second.token is not None
-        assert record is not None and set(record["token_hashes"]) == {hash_token(first.token), hash_token(second.token)}
+        assert record is not None and set(record["confirmation"]["token_hashes"]) == {hash_token(first.token), hash_token(second.token)}
         assert ((late.sent, late.ignored), (settled.sent, settled.ignored)) == ((0, 1), (1, 0))
         assert (row["state"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
         assert logged == 0
@@ -251,26 +275,38 @@ class TestTheDrain:
 
         saison_team = ObjectId("6890a1b2c3d4e5f607f30002")
         spec = FLOutboxLink(
-            paths=["kontakte.trainer.token_hashes", "kontakte.betreuer.token_hashes"],
-            addresses=["kontakte.trainer.email", "kontakte.betreuer.email"],
+            paths=["confirmations.trainer.token_hashes", "confirmations.ansprechperson.token_hashes"],
+            addresses=["kontakte.trainer.email", "kontakte.ansprechperson.email"],
             replaced=False,
         )
         reference = FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team, seat="trainer")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            both = {"email": NORA, "token_hashes": []}
             await database[Collection.SAISON_TEAMS].insert_one(
-                {"_id": saison_team, "version": 0, "kontakte": {"trainer": both, "betreuer": both}}
+                saison_team_document(
+                    "2126",
+                    ObjectId("6890a1b2c3d4e5f607f30004"),
+                    "Eigen",
+                    "EIX",
+                    _id=saison_team,
+                    kontakte=kontakte_document(trainer=seat(NORA), ansprechperson=seat(NORA), trainer_is_also="ansprechperson"),
+                    confirmations={
+                        **dict.fromkeys(("trainer", "ansprechperson"), compose_kontakt_confirmation(today="2126-04-16")),
+                        "stellvertretung": None,
+                    },
+                )
             )
             minted = await owe(database, client, "seats/1", link=True, reference=reference, spec=spec)
             first = await claimed(database, client)
             record = await database[Collection.SAISON_TEAMS].find_one({"_id": saison_team})
 
-            await database[Collection.SAISON_TEAMS].update_one({"_id": saison_team}, {"$set": {"kontakte.betreuer": None}})
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"_id": saison_team}, {"$set": {"kontakte.ansprechperson": None, "kontakte.trainer_is_also": None}}
+            )
             empty = await owe(database, client, "seats/2", link=True, reference=reference, spec=spec)
             emptied = await claimed(database, client)
             await database[Collection.SAISON_TEAMS].update_one(
-                {"_id": saison_team}, {"$set": {"kontakte.betreuer": {"email": "nachfolge@beispielschule.de", "token_hashes": []}}}
+                {"_id": saison_team}, {"$set": {"kontakte.ansprechperson": seat("nachfolge@beispielschule.de")}}
             )
             continued = await owe(database, client, "seats/3", link=True, reference=reference, spec=spec)
             handed_on = await claimed(database, client)
@@ -283,27 +319,63 @@ class TestTheDrain:
         (mail,) = first.mails
         assert mail.id == minted and mail.token is not None
         assert record is not None
-        assert [record["kontakte"][seat]["token_hashes"] for seat in ("trainer", "betreuer")] == [[hash_token(mail.token)]] * 2
+        assert [record["confirmations"][held]["token_hashes"] for held in ("trainer", "ansprechperson")] == [[hash_token(mail.token)]] * 2
         # Bookkeeping, as an anchor is: an editor read before the drain still saves.
         assert record["version"] == 0
         assert (dropped, states) == ([], ["dropped", "dropped"])
 
+    @pytest.mark.parametrize(
+        ("seats", "handed"),
+        [
+            ({"ansprechperson": seat(NORA)}, True),
+            ({"trainer": seat(NORA, confirmed=False)}, False),
+            ({"trainer": seat("nachfolge@beispielschule.de")}, False),
+            (None, False),
+        ],
+        ids=("a confirmed seat holding it", "an unconfirmed seat holding it", "a seat handed on", "no season row"),
+    )
+    def test_a_club_mail_goes_only_while_a_confirmed_seat_of_its_club_holds_its_address(
+        self, mongo_replica_set_url: str, seats: dict[str, Any] | None, handed: bool
+    ):
+        """A send that failed is retried for days, and its seat may change hands meanwhile: the mail carries no link to judge.
+
+        Another club's row holding the address confirmed sends nothing either: the seat is the mail's club's.
+        """
+
+        club = FLOutboxClub(saison_id="2126", team_id=ObjectId("6890a1b2c3d4e5f607f30003"))
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one(
+                saison_team_document("2126", ObjectId(), "Fremd", "FRX", kontakte=kontakte_document(trainer=seat(NORA)))
+            )
+            if seats is not None:
+                await database[Collection.SAISON_TEAMS].insert_one(
+                    saison_team_document(club.saison_id, club.team_id, "Eigen", "EIX", kontakte=kontakte_document(**seats))
+                )
+            row_id = await owe(database, client, "club/1", data=BAN, club=club)
+            answer = await claimed(database, client)
+
+            return [mail.id for mail in answer.mails], row_id, (await stored(database, row_id))["state"]
+
+        mails, row_id, state = on_a_database(mongo_replica_set_url, body)
+
+        assert (mails, state) == (([row_id], "open") if handed else ([], "dropped"))
+
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
-        """The second of the ban's two checkpoints, and every spelling of the address on the mail's row meets it."""
+        """The second of the ban's two checkpoints, which a ban entered in any spelling holds against the row's folded address."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BAN_LIST].insert_one(ban_document(NORA.upper(), until="2999"))
             code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
             linked = await owe(database, client, "link/1", data=FLSignInCodeData(kind="sign_in_code"), link=True)
             ban = await owe(database, client, "ban/1")
-            await database[Collection.OUTBOX].update_one({"_id": code}, {"$set": {"to": NORA.upper()}})
             answer = await claimed(database, client)
 
             return (
                 [mail.id for mail in answer.mails],
                 ban,
                 [await stored(database, row) for row in (code, linked)],
-                await database[Collection.INVITATIONS].find_one({"_id": INVITATION}),
+                await database[Collection.REGISTRIERUNGEN].find_one({"_id": INVITATION}),
             )
 
         handed, ban, rows, record = on_a_database(mongo_replica_set_url, body)
@@ -312,7 +384,7 @@ class TestTheDrain:
         assert [(row["state"], "data" in row, "secret" in row) for row in rows] == [("barred", False, False)] * 2
         # Nothing left the league: a stopped mail mints no link either.
         assert record is not None
-        assert record["token_hashes"] == []
+        assert record["confirmation"]["token_hashes"] == []
 
     def test_a_row_of_an_older_shape_is_given_up_inside_the_claim_and_the_mail_behind_it_goes(self, mongo_replica_set_url: str):
         """One row left by an earlier release would fail every claim until its deadline, and every mail behind it with it."""
@@ -325,7 +397,9 @@ class TestTheDrain:
 
             return [mail.id for mail in answer.mails], answer.abandoned, behind, (await stored(database, old))["state"]
 
-        handed, abandoned, behind, state = on_a_database(mongo_replica_set_url, body)
+        handed, abandoned, behind, state = on_a_database(
+            mongo_replica_set_url, body, stores_a_refused_shape="a mail row of an earlier release's shape, which the claim gives up"
+        )
 
         assert (handed, abandoned, state) == ([behind], 1, "abandoned")
 
@@ -351,7 +425,7 @@ class TestTheDrain:
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
 
-        replacing = FLOutboxLink(paths=["token_hashes"], addresses=["email"], replaced=True)
+        replacing = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=True)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             older = await owe(database, client, "link/1", link=True, spec=replacing)
@@ -361,7 +435,7 @@ class TestTheDrain:
             second = await claimed(database, client)
             await reported(database, second.lease, newer, "sent")
             later = await claimed(database, client, now=NOW + REPETITION_AFTER)
-            record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
+            record = await database[Collection.REGISTRIERUNGEN].find_one({"_id": INVITATION})
 
             return second, later, record, (await stored(database, older))["state"]
 
@@ -370,7 +444,7 @@ class TestTheDrain:
         (mail,) = second.mails
         assert mail.token is not None
         assert (later.mails, older_state) == ([], "dropped")
-        assert record is not None and record["token_hashes"] == [hash_token(mail.token)]
+        assert record is not None and record["confirmation"]["token_hashes"] == [hash_token(mail.token)]
 
 
 class TestTheSignInCode:

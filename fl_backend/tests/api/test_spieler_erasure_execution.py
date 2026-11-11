@@ -18,7 +18,15 @@ from app.core.collections import Collection
 from app.core.crud import composite_version
 from app.core.sentinels import GHOST_SPIELER_ID
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import saison_document, saison_spieler_document, saison_team_document, spielbericht_document, spieler_document
+from tests.documents import (
+    aufstellung_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spiel_document,
+    spielbericht_document,
+    spieler_document,
+)
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.whole_database import where_held
@@ -239,11 +247,10 @@ def a_report_naming(*, scorers: list[ObjectId | None], carded: list[ObjectId]) -
         {"side": "team1", "spieler_id": scorer, "minute": str(10 + index), "eigentor": False} for index, scorer in enumerate(scorers)
     ]
     bericht["cards"] = [
-        {"side": "team2", "spieler_id": pupil, "minute": str(60 + index), "colour": "gelb", "reason": "foulspiel"}
-        for index, pupil in enumerate(carded)
+        {"side": "team2", "spieler_id": pupil, "minute": str(60 + index), "colour": "gelb"} for index, pupil in enumerate(carded)
     ]
     bericht["ergebnis_vorschlag"] = {"team1_tore": len(scorers), "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None}
-    bericht |= {"adopted_at": bericht["submitted_at"], "adopted_by": {"kind": "admin"}, "adopted_version": bericht["version"]}
+    bericht["adopted"] = True
 
     return report
 
@@ -288,6 +295,34 @@ class TestTheirReportEntriesNameTheSentinel:
         assert spieler_id not in {
             entry["spieler_id"] for row in stored.values() for entry in [*row["bericht"]["scorers"], *row["bericht"]["cards"]]
         }
+
+    def test_no_line_up_names_them_and_every_other_entry_and_line_up_stands(self, mongo_replica_set_url: str):
+        """A kicked-off match's line-up records whom the club fielded, so its entry stays and names nobody: a repoint of every entry fails."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            document = person_row(ERASED_FIRST_NAME)
+            other = person_row(OTHER_FIRST_NAME)
+            await database[Collection.SPIELER].insert_many([document, other])
+            spieler_id, other_id = document["_id"], other["_id"]
+
+            # Kicked off before `NOW`.
+            spiel = spiel_document(
+                spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=ObjectId(), date="2026-03-28", time="10:00:00"
+            )
+            await database[Collection.SPIELE].insert_one(spiel)
+            theirs = aufstellung_document(spiel, ObjectId(), starters=[other_id, spieler_id], bench=[])
+            elsewhere = aufstellung_document(spiel, ObjectId(), starters=[other_id], bench=[])
+            await database[Collection.AUFSTELLUNGEN].insert_many([theirs, elsewhere])
+            await erase_the_pupil(database, client, spieler_id)
+
+            stored = {row["_id"]: row for row in await database[Collection.AUFSTELLUNGEN].find().to_list(length=None)}
+
+            return other_id, stored[theirs["_id"]]["spieler"], (stored[elsewhere["_id"]], elsewhere)
+
+        other_id, entries, (untouched, seeded) = on_a_league(mongo_replica_set_url, body)
+
+        assert entries == [{"spieler_id": other_id, "starts": True}, {"spieler_id": GHOST_SPIELER_ID, "starts": True}]
+        assert untouched == seeded
 
     def test_the_repoint_reads_an_index_per_kind_of_entry(self, mongo_replica_set_url: str):
         """The reports are kept with no retention bound, and every pupil's erasure reads them inside its transaction."""

@@ -125,7 +125,7 @@ const { auth } = await import("./auth/library.ts");
 const { getAdminSession } = await import("./auth/guards.ts");
 const { getSignInLanding } = await import("./auth/landing.ts");
 const { getSubjectSession } = await import("./subject.ts");
-const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+const { getRequestActor, requestWriteMayStand, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
@@ -429,9 +429,12 @@ describe("the request the seam makes", () => {
     arriveAs(cookie);
     nextTimesOut = true;
 
-    await expect((() => getSubjectSession())()).rejects.toSatisfy(
-      (error: unknown) => error instanceof APINetworkError && error.isTimeout && error.readOnly,
-    );
+    const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
+      await expect((() => getSubjectSession())()).rejects.toSatisfy((error: unknown) => error instanceof APINetworkError && error.isTimeout);
+      return requestWriteMayStand();
+    });
+
+    expect(mayStand).toBe(false);
   });
 });
 

@@ -67,7 +67,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                 ]
             )
             await database[Collection.SPIELTAGE].insert_one(
-                {"_id": SPIELTAG, "start": None, "end": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON}
+                {"_id": SPIELTAG, "start": None, "end": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON, "version": 0}
             )
             await database[Collection.SPIELE].insert_many(
                 [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]

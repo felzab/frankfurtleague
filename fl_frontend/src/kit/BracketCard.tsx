@@ -47,7 +47,7 @@ function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "t
 }
 
 /**
- * A knockout match in the bracket, the whole card a link to it. Every card is the same size: one figure
+ * A knockout match in the bracket, the whole card a link to it, or opening nothing where it has no `href`. Every card is the same size: one figure
  * per side, a shoot-out's goals added, with no mark for it, both figures bold; on desktop the date under a
  * hairline.
  */
@@ -61,34 +61,42 @@ export function BracketCard({
 }: {
   /** The card's fragment, so a link elsewhere, such as a club's line in a match head, opens the tree at it. */
   anchor?: string;
-  href: Route;
+  /** The match's page; absent where it has none to open yet, as a match row's (`SpielRow`), the card then opening nothing. */
+  href?: Route;
   when: Copy;
   team1: SpielSide;
   team2: SpielSide;
   result?: SpielRowProps["result"];
 }) {
   const score = figures(result);
+  const body = (
+    <span className={card().body()}>
+      <Line
+        side={team1}
+        score={score}
+        part="team1"
+      />
+      <Line
+        side={team2}
+        score={score}
+        part="team2"
+      />
+      <span className={card().when()}>{when}</span>
+    </span>
+  );
   return (
     <div
       id={anchor}
       className={cardSurface({ class: "kit-target overflow-hidden text-sm" })}>
-      <Link
-        href={href}
-        placement="card">
-        <span className={card().body()}>
-          <Line
-            side={team1}
-            score={score}
-            part="team1"
-          />
-          <Line
-            side={team2}
-            score={score}
-            part="team2"
-          />
-          <span className={card().when()}>{when}</span>
-        </span>
-      </Link>
+      {href === undefined ? (
+        body
+      ) : (
+        <Link
+          href={href}
+          placement="card">
+          {body}
+        </Link>
+      )}
     </div>
   );
 }
@@ -101,8 +109,8 @@ function LinePlaceholder() {
       <span className={style.name({ class: "flex-1" })}>
         <span className={placeholderBar("h-6 w-10")} />
         <PlaceholderLine
-          text="flex-1 text-sm max-lg:hidden"
-          width="w-3/4"
+          textClass="flex-1 text-sm max-lg:hidden"
+          widthClass="w-3/4"
         />
       </span>
       <span className={placeholderBar("h-3 w-3")} />
@@ -120,8 +128,8 @@ export function BracketCardPlaceholder() {
         <LinePlaceholder />
         <span className={style.when()}>
           <PlaceholderLine
-            text="text-xs"
-            width="w-1/2"
+            textClass="text-xs"
+            widthClass="w-1/2"
           />
         </span>
       </span>

@@ -12,6 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_key_filter
+from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.spielberichte.crud import pull_bericht_context
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -26,14 +27,19 @@ from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     address_change_document,
+    aufstellung_document,
     bericht_document,
     kontaktperson_document,
     minted_confirmations,
+    outbox_document,
+    registrierung_confirmed,
+    registrierung_document,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
     spieler_document,
 )
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -103,6 +109,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
             "bewerbung": None,
             "registrierung": None,
+            "version": 0,
         },
         "teams": {
             "_id": TEAM_OID,
@@ -114,6 +121,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": dict(ADDRESS),
             "schulform": None,
             "inactive_since": None,
+            "version": 0,
         },
         # `name` and `shorthand` are the season's own copy of the club's identity, required since the
         # junction became their home; a row without them is unreadable rather than merely stale.
@@ -126,6 +134,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "kontakte": None,
             "name": "Lessing",
             "shorthand": "LEX",
+            "version": 0,
         },
         "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
@@ -138,6 +147,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "position": "Angriff",
             "nummer": "10",
             "inactive_since": None,
+            "version": 0,
         },
         "spiele": {
             "team1": {"team_id": TEAM_OID, "tore": 2},
@@ -155,6 +165,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "sonderereignis": None,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
+            "version": 0,
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
@@ -164,6 +175,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "position": 1,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
+            "version": 0,
         },
         "spielorte": {
             "_id": SPIELORT_OID,
@@ -172,6 +184,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "maps_link": "Sportplatz Ost, Frankfurt",
             "default_mietpreis": 80,
             "inactive_since": None,
+            "version": 0,
         },
         "schiedsrichter": {
             "_id": SCHIEDSRICHTER_OID,
@@ -180,6 +193,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "default_payment": 20,
             "kontakt": {"phone": None, "email": None},
             "inactive_since": None,
+            "version": 0,
         },
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
         # one carries a value, a write-path rule.
@@ -192,7 +206,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "schule": {
                 "team_name": "Lessing",
                 "full_name": "Lessing-Gymnasium",
-                "shorthand": "LEX",
                 "schulform": "gymnasium_g9",
                 "address": dict(ADDRESS),
                 "website_url": "https://lessing-gymnasium.example.de",
@@ -212,6 +225,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "confirmations": minted_confirmations(
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
+            "version": 0,
         },
         "action_log": {
             "_id": ACTION_LOG_ENTRY_OID,
@@ -240,6 +254,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "created_at": "2026-03-15",
             "revoked_at": None,
+            "sent_at": None,
         },
         # Every key the submission writes, `birth_date`, `einwilligung` and `decision`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -261,7 +276,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "confirmation": {
                 "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "sent_at": "2026-03-16",
-                "reminded_at": None,
                 "deadline": "2026-03-23",
             },
             "decision": None,
@@ -273,8 +287,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "admin_tier": "owner",
             "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
         },
-        # An open team row as the pass mints it: one seat holding the link the request went out with,
-        # one sharing it as a mirrored pair does, one empty.
+        # An open team row as the pass mints it.
         "spielbestaetigungen": spielbestaetigung_document(
             spiel_document(
                 spiel_id=SPIEL_OID,
@@ -290,13 +303,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             party={"kind": "team", "team_id": TEAM_OID},
             _id=SPIELBESTAETIGUNG_OID,
             deadline="2026-03-08",
-            kontakte={
-                "trainer": {"token_hashes": ["e" * 64]},
-                "ansprechperson": {"token_hashes": ["e" * 64], "delivery": None},
-                "stellvertretung": None,
-            },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
+        "aufstellungen": aufstellung_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}, TEAM_OID, starters=[SPIELER_OID]),
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "address_changes": {
@@ -368,23 +377,17 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # whose second row carried a revocation date would pass while the filter matched anything.
     "uniq_invitation_live": (
         valid_documents()["invitations"],
-        valid_document("invitations", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
+        valid_document("invitations", _id=TEAM_OID, token_hashes=["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"]),
     ),
-    # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
-    # pair carrying no key at all would pass while the partial filter matched nothing.
+    # Both rows keyed alike: the index refuses on the key alone, and a pair carrying no key at all would pass while
+    # the partial filter matched nothing.
     "uniq_bewerbung_idempotency_key": (
-        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
+        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY),
+        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY),
     ),
     "uniq_registrierung_idempotency_key": (
-        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
-    ),
-    # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
-    # junction's own index would refuse a pair sharing the person.
-    "uniq_saison_spieler_idempotency_key": (
-        valid_document("saison_spieler", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
-        valid_document("saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
+        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY),
+        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY),
     ),
     # Two persons differing in their name and sharing an address: the index refuses on the address alone.
     "uniq_spieler_email": (
@@ -397,26 +400,37 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()["grants"],
         valid_document("grants", _id=TEAM_OID, admin_tier="administration"),
     ),
-    # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
+    # Both rows open, one party, one digest, differing in when they were asked: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.
     "uniq_spielbestaetigung_open": (
         valid_documents()["spielbestaetigungen"],
-        valid_document("spielbestaetigungen", _id=TEAM_OID, kontakte={"trainer": None, "ansprechperson": None, "stellvertretung": None}),
+        valid_document("spielbestaetigungen", _id=TEAM_OID, asked_at="2026-03-01"),
     ),
     # Two reports of one fixture differing in their whole block: the index refuses on the fixture alone.
     "uniq_spielbericht_spiel_id": (
         valid_documents()["spielberichte"],
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(remarks="Zweiter Bericht")),
     ),
+    # Two line-ups of one club for one fixture, naming different pupils: the index refuses on the pair alone.
+    "uniq_aufstellung_spiel_id_team_id": (
+        valid_documents()["aufstellungen"],
+        valid_document("aufstellungen", _id=TEAM_OID, spieler=[]),
+    ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
     "uniq_address_change_address": (
         valid_documents()["address_changes"],
-        valid_document("address_changes", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
+        {
+            "_id": TEAM_OID,
+            **address_change_document(address="alt@example.invalid", email="zweite@example.invalid", token_hash="b" * 64, day="2026-03-16"),
+        },
     ),
     # A second owner at another address: a Playground paste is the one writer that could make one, and it would hold the
     # role beside the first with nothing in the application able to take it away again.
     "uniq_grant_owner": (valid_documents()["grants"], valid_document("grants", _id=TEAM_OID, address="zweite@example.invalid")),
-    "uniq_outbox_key": ({"_id": ObjectId(), "key": "ban/1"}, {"_id": ObjectId(), "key": "ban/1"}),
+    "uniq_outbox_key": (
+        outbox_document("ban/1", to="gesperrt@example.invalid", now=MAIL_NOW),
+        outbox_document("ban/1", to="gesperrt@example.invalid", now=MAIL_NOW),
+    ),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
@@ -447,11 +461,14 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
-    ended = {"address": None, "email": None, "ended": {"kind": "declined", "at": datetime(2026, 3, 17, tzinfo=UTC)}}
+    # A century ahead of the real clock: the TTL monitor deletes a tombstone whose retention has passed, under the count.
+    ended = {"address": None, "email": None, "ended": {"kind": "declined", "at": datetime(2126, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
         await database.address_changes.insert_one(valid_document("address_changes", **ended))
-        await database.address_changes.insert_one(valid_document("address_changes", _id=TEAM_OID, stop_hash="c" * 64, **ended))
+        await database.address_changes.insert_one(
+            valid_document("address_changes", _id=TEAM_OID, stop={"token_hashes": [hash_token("stop-c")]}, **ended)
+        )
         return await database.address_changes.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
@@ -482,7 +499,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
     """
 
-    answer = {"kind": "zugesagt", "at": "2026-03-01", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+    answer = {"kind": "agreed", "at": "2026-03-01", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
     async def body(database: AsyncDatabase) -> int:
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
@@ -555,7 +572,7 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
     """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
 
     async def body(database: AsyncDatabase) -> list[str]:
-        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64))
+        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY))
         explained = await database[collection].find(build_key_filter(key=IDEMPOTENCY_KEY)).explain()
 
         return winning_stages(explained)
@@ -754,6 +771,64 @@ def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url
     assert [(read, stages) for read, stages in planned if "COUNT_SCAN" not in stages or "COLLSCAN" in stages] == []
 
 
+CONFIRMED_QUEUE_INDEX = "registrierungen_saison_id_team_id_confirmed_queue"
+
+# The pupils who confirmed, older than every row of the flood typed through the team's link after them.
+CONFIRMED_BENEATH_A_FLOOD = 3
+
+
+def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_url: str):
+    """The confirmed read as `pull_open_registrierungen` sends it, explained with its run: it fetches the confirmed rows alone.
+
+    On the queue index it would fetch every unconfirmed row standing newer, the flood whole, to discard it.
+    """
+
+    def registration(position: int, *, confirmed: bool) -> dict[str, Any]:
+        return registrierung_document(
+            ObjectId(),
+            f"schueler.{position}@example.invalid",
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            first_name="Flut",
+            last_name=f"Nr{position}",
+            token=f"link-{position}",
+            submitted_at="2026-03-01" if confirmed else "2026-03-15",
+            deadline="2026-03-29",
+            confirmed=registrierung_confirmed(
+                birth_date="2009-05-04", today="2026-03-02", at="2026-03-02T08:00:00+00:00", scope="internal", media=False
+            )
+            if confirmed
+            else None,
+        )
+
+    async def body(database: AsyncDatabase) -> tuple[list[str], int, int]:
+        await database[Collection.REGISTRIERUNGEN].insert_many(
+            [
+                *(registration(position, confirmed=True) for position in range(CONFIRMED_BENEATH_A_FLOOD)),
+                *(registration(position, confirmed=False) for position in range(CONFIRMED_BENEATH_A_FLOOD, ROWS_ENOUGH_TO_PREFER_AN_INDEX)),
+            ]
+        )
+        # Standing in for the collection, as `sent_by` hands its recorder on.
+        reads: Any = _SentKaderReads(database[Collection.REGISTRIERUNGEN])
+        async with database.client.start_session() as session:
+            opened = await pull_open_registrierungen(registrierungen_collection=reads, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
+        (pipeline, _), *_ = reads.sent
+        explained = await database.command(
+            {"explain": {"aggregate": str(Collection.REGISTRIERUNGEN), "pipeline": pipeline, "cursor": {}}, "verbosity": "executionStats"}
+        )
+        stats: Any = explained.get("executionStats") or explained["stages"][0]["$cursor"]["executionStats"]
+        planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
+        served = sum(row.get("einwilligung") is not None for row in opened.rows)
+
+        return index_names(planner["winningPlan"]), stats["totalDocsExamined"], served
+
+    indexes, examined, served = on_the_shipped_schema(mongo_url, body)
+
+    assert served == CONFIRMED_BENEATH_A_FLOOD
+    assert indexes == [CONFIRMED_QUEUE_INDEX]
+    assert examined == CONFIRMED_BENEATH_A_FLOOD
+
+
 GERMAN_KADER_INDEX = "saison_spieler_saison_id_team_id_de"
 
 # The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
@@ -800,6 +875,8 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 
 async def the_report_kader(database: AsyncDatabase) -> Issued:
+    # With its season's row, which the read holds to stand for as long as its fixture does.
+    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
     await database[Collection.SPIELE].insert_one(valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "tore": 1}))
 
     return await sent_by(
@@ -884,7 +961,6 @@ class TestTwoRefereesOpenRowsOnOneStand:
                         "spielbestaetigungen",
                         _id=row_id,
                         party={"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
-                        kontakte=None,
                     )
                 )
             return await database.spielbestaetigungen.count_documents({"answer": None, "closed": None})

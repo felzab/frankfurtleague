@@ -10,6 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
+from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
@@ -109,20 +110,25 @@ from app.core.crud import (
     refuse,
 )
 from app.core.dependencies import (
+    AufstellungenCollection,
     BanListCollection,
     DBClient,
     InvitationsCollection,
+    InvitationsReadCollection,
     OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
     SpielberichteCollection,
     SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
+    SpieleReadCollection,
     SpieltageCollection,
     SpieltageReadCollection,
-    TeamsCollection,
+    TeamsReadCollection,
     get_german_date_str,
     get_germany_now,
 )
@@ -182,9 +188,9 @@ async def _rewrite_gruppenphase_sides(
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
 @router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
 async def get_saisons_admin(
-    saisons_collection: SaisonsCollection,
-    spiele_collection: SpieleCollection,
-    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
     filters: FLSaisonsFilterParams = Depends(),
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
@@ -243,13 +249,13 @@ async def get_saisons_admin(
 @router.get("/{saison_id}/admin", response_model=FLSaisonAdminResponse, summary="One Saison for the admin editor")
 async def get_saison_admin(
     saison_id: str,
-    saisons_collection: SaisonsCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    spiele_collection: SpieleCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    spiele_collection: SpieleReadCollection,
     spieltage_collection: SpieltageReadCollection,
-    teams_collection: TeamsCollection,
+    teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
-    invitations_collection: InvitationsCollection,
+    invitations_collection: InvitationsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
     """
@@ -658,8 +664,8 @@ async def _judge_the_activation(
     *,
     saison_id: str,
     target_status: str,
-    saisons_collection: AsyncCollection,
-    spiele_collection: AsyncCollection,
+    saisons_collection: ReadCollection,
+    spiele_collection: ReadCollection,
     spieltage_collection: ReadCollection,
     session: AsyncClientSession | None,
 ) -> tuple[list[Any], WriteRefusal | None]:
@@ -705,7 +711,7 @@ async def _judge_the_activation(
 
 
 async def _pull_recorded_fact_rows(
-    *, spiele_collection: AsyncCollection, saison_id: str, session: AsyncClientSession | None
+    *, spiele_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The season's fixtures as `holds_a_recorded_fact` reads them, which the planning window of the replace and the undraw turns on.
 
@@ -951,6 +957,7 @@ async def post_spielplan(
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
@@ -1077,12 +1084,13 @@ async def post_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
-            # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
+            # The season every report write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
             # NOT extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
+            await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -1160,6 +1168,7 @@ async def delete_spielplan(
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
 ) -> FLUndrawSpielplanResponse:
     """
@@ -1193,14 +1202,15 @@ async def delete_spielplan(
             )
         )
 
-        # The season a report's first write anchors, so the two conflict: the `$unset` below changes nothing on a season
+        # The season every report write anchors, so the two conflict: the `$unset` below changes nothing on a season
         # holding no watermark, and the report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
-        # Fixtures first, the reverse of the draw's write order. Confirmations and reports go first of
+        # Fixtures first, the reverse of the draw's write order. Confirmations, reports and line-ups go first of
         # all, each naming the fixture it is about.
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
         await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
+        await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
@@ -1240,7 +1250,7 @@ async def delete_spielplan(
     return undrawn
 
 
-async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id: str) -> list[Mapping[str, Any]]:
+async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: str) -> list[Mapping[str, Any]]:
     """Every team this season holds, ordered as its other lists are.
 
     Read one over the cap and refused past it (`app/api/spiele/crud.py :: advance_bracket_winners`'s
@@ -1268,8 +1278,8 @@ class _PlannedTeam(NamedTuple):
 async def _plan_the_dispatch(
     *,
     saison_id: str,
-    saison_teams_collection: AsyncCollection,
-    invitations_collection: AsyncCollection,
+    saison_teams_collection: ReadCollection,
+    invitations_collection: ReadCollection,
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
@@ -1371,6 +1381,7 @@ async def _mail_one_team(
             session=session,
             mails=owed_invitation_mails(
                 invitation_id=post_operation.inserted_id,
+                team_id=team["team_id"],
                 team_name=team["name"],
                 saison_id=saison_id,
                 recipient=plan.recipient,

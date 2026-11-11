@@ -6,7 +6,7 @@ from app.core.crud import Anchored
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpielerTextVersions, cite_their_kind
-from app.shared.schemas.kontakt import CustomKontaktName
+from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLEinwilligungScope,
     FLSpielerPosition,
@@ -90,6 +90,9 @@ class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     # would 500 the list over an ordinary retirement.
     nummer: str | None = None
     position: FLSpielerPosition | None = None
+    # The captaincy the squad row holds, for the mark beside the name: null wherever the name is withheld, beside which
+    # it would say who the nameless pupil is. Defaulted for `nummer`'s reason.
+    rolle: FLSpielerRolle | None = None
 
 
 class FLSpielerRecord(_SpielerPerson, Anchored):
@@ -109,9 +112,9 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     # Nullable for `first_name`'s reason, the sentinel being nobody who could have agreed to anything.
     einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
-    # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
-    # breaks it silently.
-    email: str | None = None
+    # seam joining a signed-in person to this row is an equality on the stored value, so a raw write
+    # breaks it, which the read-back names.
+    email: CustomStoredAddress | None = None
     version: int = 0
 
     @model_validator(mode="after")
@@ -154,13 +157,6 @@ class FLSaisonSpielerRow(BaseModel):
     # The day this SQUAD ROW was retired, which is not the day the person left the league.
     inactive_since: CustomOptionalDateString
     version: int = 0
-
-
-class FLSaisonSpielerRecord(FLSaisonSpielerRow):
-    """A squad row as `saison_spieler` stores it: an admitted registration's submission key and digest, which no read serves."""
-
-    idempotency_key: str | None = None
-    idempotency_fingerprint: str | None = None
 
 
 class FLSpielerSingleResponse(BaseAPIResponse):
@@ -270,7 +266,7 @@ class FLKaderResponse(BaseAPIResponse):
     team_id: CustomObjectId
     saison_id: str
     # What the editor may offer, the PATCH refusing anything else it was not already holding (`kader_stufe_not_allowed`).
-    # The floor `app/api/saisons/schemas.py :: FLSaisonRules.erlaubte_stufen` writes, so the document
+    # The floor `app/api/saisons/schemas.py :: FLSaisonRules.allowed_stufen` writes, so the document
     # publishes what the season guarantees.
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
     kader: list[FLKaderRow]
@@ -297,8 +293,8 @@ class _KaderRowFields(BaseModel):
 class FLPatchKaderRowPayload(_KaderRowFields):
     """A seat holder's edit of a squad row."""
 
-    # The `version` the editor was served; absent, the save is checked against nothing.
-    version: int | None = None
+    # The `version` the row was read at.
+    version: CustomVersion
 
 
 class FLPatchSpielerSaisonPayload(_KaderRowFields):
@@ -340,18 +336,3 @@ class FLSpielerSelfPerson(_SpielerPerson):
 
     spieler_id: CustomObjectId
     birth_date: CustomDateString
-
-
-class FLSpielerSelf(FLSpielerSelfPerson):
-    """The pupil's own page's read: the record and every squad row it holds.
-
-    The squad rows are this read's alone: the account page lists none, so its entry extends the record without them.
-    """
-
-    kader: list[FLSpielerSelfKaderRow]
-
-
-class FLSpielerSelfResponse(BaseAPIResponse):
-    """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
-
-    spieler: FLSpielerSelf

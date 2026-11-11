@@ -16,6 +16,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import (
+    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxKind,
@@ -25,6 +26,7 @@ from app.api.outbox.schemas import (
     FLOutboxRowState,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
+from app.shared.folding import sign_in_identifier
 
 # The rows one claim hands out.
 PAGE: Final = 10
@@ -87,7 +89,8 @@ class OwedMail:
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
     the hand-out on the record `reference` names. `valid_until` ends the row where its link dies before `DELIVERY_DEADLINE`:
-    the mail states the link's life, which a late send would make false.
+    the mail states the link's life, which a late send would make false. `club` names the club whose contact seats the
+    mail goes to, every such mail naming it: the hand-out drops it where no confirmed seat there holds `to` any more.
     """
 
     key: str
@@ -96,6 +99,7 @@ class OwedMail:
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
     valid_until: datetime | None = None
+    club: FLOutboxClub | None = None
 
 
 async def enqueue_mails(
@@ -164,13 +168,18 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     return {
         "key": mail.key,
         "kind": mail.data.kind,
-        "to": mail.to,
+        # Folded here rather than trusted from each caller: a recipient read off a row the database holds unfolded, a grant
+        # pasted by hand among them, would store a `to` every lookup by address misses. The fold that never raises, so a
+        # mail to an address no rule takes today is still owed.
+        "to": sign_in_identifier(mail.to),
         # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
         "data": mail.data.model_dump(mode="json"),
         "secret": secret,
         # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
         "reference": None if reference is None else {"collection": str(reference.collection), "id": reference.id, "seat": reference.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
+        # Field by field, for `reference`'s reason.
+        "club": None if mail.club is None else {"saison_id": mail.club.saison_id, "team_id": mail.club.team_id},
         "state": "open",
         "recorded_at": now,
         "deadline": deadline,
@@ -197,6 +206,14 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
         "$unset": {"data": "", "secret": ""},
         "$min": {"erase_at": now.astimezone(UTC) + RETENTION},
     }
+
+
+# What a settled row keeps once the address it went to is replaced (`app/api/address_change/crud.py :: _carry_the_mail`):
+# its key, kind, state and dates, so a pass or a replay deciding by the key owes nothing again, and nothing naming the
+# mailbox it went to, what that mailbox reported, or the record and seat a delivery is read by.
+TOMBSTONE_UPDATE: Final[Mapping[str, Any]] = {
+    "$set": {"to": None, "reference": None, "link": None, "club": None, "message_id": None, "delivery_reason": None, "delivery": None}
+}
 
 
 def retry_update(*, now: datetime) -> Mapping[str, Any]:

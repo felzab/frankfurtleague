@@ -1,5 +1,6 @@
 import { textOf } from "@/core/copy";
 
+import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -10,6 +11,7 @@ import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
+import type { AddressText } from "./AddressWords";
 import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
 
@@ -24,7 +26,8 @@ export type Fact = {
   glyph?: IconName;
 } & (
   | {
-      value: Words;
+      /** An address its page marks as one wraps after its „@“, as a row's name does (`AddressWords`). */
+      value: Words | AddressText;
       /** Figures, set in Inter with columns that line up. */ figures?: boolean;
       link?: never;
       elsewhere?: never;
@@ -51,31 +54,25 @@ const facts = tv({
       boxed: {
         list: `overflow-hidden ${cardSurface()} @lg:grid @lg:grid-cols-2`,
         // In the wide box the second pair shares the first one's row, so it draws no hairline above it either, and a
-        // first-column pair draws the one hairline between the columns; a lone pair has no column to part from.
-        row: `${stacked()} px-3 py-2 @lg:odd:not-only:border-e @lg:nth-2:border-t-0`,
+        // first-column pair beside another draws the one hairline between the columns. An odd last pair, a lone one
+        // included, takes the row's whole width, so no empty cell stands beside it.
+        row: `${stacked()} px-3 py-2 @lg:odd:not-last:border-e @lg:odd:last:col-span-2 @lg:nth-2:border-t-0`,
       },
-      // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams.
+      // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams. A lone pair
+      // takes the row's whole width, so its value never wraps in half a phone's column beside nothing.
       free: {
         list: "grid grid-cols-2 gap-x-4 gap-y-3",
-        row: "min-w-0",
+        row: "min-w-0 only:col-span-2",
       },
     },
     figures: {
       true: { detail: "font-numeric" },
     },
-    oddCount: {
-      true: {},
+    address: {
+      true: { detail: addressWords() },
     },
   },
-  compoundVariants: [
-    // The empty cell beside an odd last pair is the list's own pseudo-element, a grid item that a `dl`'s content model,
-    // which refuses an empty child, never sees: its top edge carries the row's rule across the box's whole width.
-    { look: "boxed", oddCount: true, class: { list: "@lg:after:border-t @lg:after:border-border" } },
-  ],
 });
-
-/** Whether the last pair stands beside an empty cell. A lone pair has no row above it to part from. */
-const endsOdd = (count: number): boolean => count > 1 && count % 2 === 1;
 
 /**
  * A venue's name while the match is read, set unseen for a placeholder's size alone: it wraps in a narrow box as a
@@ -103,7 +100,7 @@ export function FactsPlaceholder({
   look?: "boxed" | "free";
   wraps?: { pair: number; words: string };
 }) {
-  const { list, row, term, detail } = facts({ look, oddCount: endsOdd(pairs) });
+  const { list, row, term, detail } = facts({ look });
   return (
     <div className="@container grid w-full gap-2 text-sm">
       <div className={list()}>
@@ -112,19 +109,19 @@ export function FactsPlaceholder({
             key={index}
             className={row()}>
             <PlaceholderLine
-              text={term()}
-              width="w-1/4"
+              textClass={term()}
+              widthClass="w-1/4"
             />
             {index === wraps?.pair ? (
               <PlaceholderSentence
-                text={detail()}
+                textClass={detail()}
                 words={wraps.words}
                 lines={2}
               />
             ) : (
               <PlaceholderLine
-                text={detail()}
-                width="w-1/2"
+                textClass={detail()}
+                widthClass="w-1/2"
               />
             )}
           </div>
@@ -137,7 +134,7 @@ export function FactsPlaceholder({
 /**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
  * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
- * columns, the rows' rules running the whole width and an odd last pair in the first column; or free of the box as the
+ * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box as the
  * match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line above it
  * names the record, with its chip.
  */
@@ -150,7 +147,7 @@ export function Facts({
   facts: ReadonlyArray<Fact>;
   look?: "boxed" | "free";
 }) {
-  const { list } = facts({ look, oddCount: endsOdd(rows.length) });
+  const { list } = facts({ look });
   // A row's key is its label and how many rows above it hold that label: keys are unique among siblings, and a caller
   // may list two records under one label, so the label alone would collide.
   const above = new Map<Copy, number>();
@@ -168,7 +165,8 @@ export function Facts({
       )}
       <dl className={list()}>
         {rows.map((fact) => {
-          const { row, term, detail } = facts({ look, figures: fact.figures === true });
+          const address = fact.value !== undefined && isAddress(fact.value);
+          const { row, term, detail } = facts({ look, figures: fact.figures === true, address });
           const to = fact.link ?? fact.elsewhere;
           const nth = above.get(fact.label) ?? 0;
           above.set(fact.label, nth + 1);
@@ -186,15 +184,21 @@ export function Facts({
                 {fact.label}
               </dt>
               <dd className={detail()}>
-                {fact.value !== undefined
-                  ? textOf(fact.value)
-                  : to !== undefined && (
-                      <Link
-                        href={to.href}
-                        placement="standalone"
-                        label={to.label}
-                      />
-                    )}
+                {fact.value !== undefined ? (
+                  isAddress(fact.value) ? (
+                    <AddressWords address={textOf(fact.value)} />
+                  ) : (
+                    textOf(fact.value)
+                  )
+                ) : (
+                  to !== undefined && (
+                    <Link
+                      href={to.href}
+                      placement="standalone"
+                      label={to.label}
+                    />
+                  )
+                )}
               </dd>
             </div>
           );

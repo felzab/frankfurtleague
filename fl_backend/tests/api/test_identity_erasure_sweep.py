@@ -27,9 +27,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import erasure_due_page, saison_statuses
 from app.api.identity.schemas import FLErasureSweepParams
 from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
-from app.api.registrierungen.services import compose_ablehnung_update
+from app.api.registrierungen.services import compose_decline_update
 from app.api.saisons.admin_router import activate_saison
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -41,6 +40,9 @@ from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
+    aufstellung_document,
+    ghost_schiedsrichter_document,
+    ghost_spieler_document,
     kontakte_document,
     kontaktperson_document,
     registrierung_document,
@@ -62,7 +64,7 @@ from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_loeschung_sweep_test")
+DATABASE_NAME = worker_database("fl_erasure_sweep_test")
 CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identity/erasure/sweep"
@@ -108,7 +110,7 @@ def registration(registrierung_id: ObjectId, email: str, *, declined: bool = Fal
         deadline="2026-03-09",
     )
 
-    return {**document, **compose_ablehnung_update(reason=None, today="2026-03-05")["$set"]} if declined else document
+    return {**document, **compose_decline_update(reason=None, today="2026-03-05")["$set"]} if declined else document
 
 
 def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
@@ -132,6 +134,16 @@ def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
     return {Collection.SPIELBERICHTE: [report]}
 
 
+def a_line_up_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
+    """A line-up naming that due pupil on a match of an ended season, which kicked off: its entry is repointed."""
+
+    spiel = spiel_document(
+        spiel_id=numbered(8000 + position), saison_id="2024", spiel_nr=position + 1, spieltag_id=ObjectId(), date="2024-05-04", time="10:00:00"
+    )
+
+    return {Collection.SPIELE: [spiel], Collection.AUFSTELLUNGEN: [aufstellung_document(spiel, TEAM_OID, starters=[numbered(position)])]}
+
+
 async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict[str, Any]]]) -> None:
     for shape in shapes:
         for collection, documents in shape.items():
@@ -148,8 +160,8 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
             await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
-            await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
+            await database[Collection.SPIELER].insert_one(ghost_spieler_document())
+            await database[Collection.SCHIEDSRICHTER].insert_one(ghost_schiedsrichter_document())
 
             return await body(database, client)
 
@@ -300,7 +312,7 @@ class TestThePopulation:
 
         assert named == []
         assert answer["spieler"] == 0
-        assert ghost == build_ghost_spieler()
+        assert ghost == ghost_spieler_document()
 
 
 # --- The run.
@@ -406,7 +418,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         assert (answer["spieler"], answer["skipped"], answer["remaining"], standing) == (0, 1, 0, 1)
 
-    def test_an_address_corrected_by_hand_is_geloescht_as_it_stands_now(self, mongo_replica_set_url: str):
+    def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
         """Carry the read's address into the erasure and this fails: the pupil stands, and a stranger's registration goes."""
 
         corrected = "quintessa.neu@beispielschule.de"
@@ -511,7 +523,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 
 class TestOneRecordHoldsBackNobody:
-    def test_a_refused_loeschung_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A report refusing the pupil's repoint, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
@@ -709,8 +721,9 @@ class TestNoJournalLine:
 FIRST_BATCH = 101
 
 
-# One pupil's commands on the wire at their costliest, a report naming them.
-COMMANDS_A_PERSON = 15
+# One pupil's commands on the wire at their costliest, a report and a played match's line-up naming them: the line-ups'
+# read is one of them whether or not a line-up names the pupil, and the repoint one more where one does.
+COMMANDS_A_PERSON = 17
 
 # The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
 # batch, the page being one document.
@@ -729,7 +742,11 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await seeded(
                 database,
-                *(shape for position in range(ERASURES_PER_PASS + 1) for shape in (a_due_pupil(position), a_report_naming(position))),
+                *(
+                    shape
+                    for position in range(ERASURES_PER_PASS + 1)
+                    for shape in (a_due_pupil(position), a_report_naming(position), a_line_up_naming(position))
+                ),
                 {Collection.REGISTRIERUNGEN: waiting},
             )
 

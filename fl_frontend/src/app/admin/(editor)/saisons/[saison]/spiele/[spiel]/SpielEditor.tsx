@@ -4,12 +4,14 @@ import { useState } from "react";
 
 import { AdoptLine } from "@/kit/AdoptLine";
 import { AnswerRows } from "@/kit/AnswerRows";
+import { CardActRow } from "@/kit/Card";
 import { ComboBox } from "@/kit/ComboBox";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldPair } from "@/kit/FieldPair";
 import { ScoreRows } from "@/kit/ScoreRows";
+import { Section } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { Table } from "@/kit/Table";
@@ -18,21 +20,23 @@ import { TimeField } from "@/kit/TimeField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
-import { admitsShootOut } from "@/features/spiele/shootOut";
+import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
 import { SpielortFields } from "../../../../../SpielortFields";
-import { adoptsBerichtOf, holdsProposal, isNoShow, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
+import { adoptsBerichtOf, holdsProposal, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
-import type { EditorSection } from "@/kit/EditorPage";
+import type { CardActRowProps } from "@/kit/Card";
+import type { EditorPart, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { ScoreOutcome, ScoreSide } from "@/kit/ScoreRows";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { Route } from "next";
 import type { SpielortRules } from "../../../../../spielortRules";
 import type { Proposal, SpielValues } from "./spielValues";
 
@@ -57,8 +61,9 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
  * result, entered by the switch the board drew, a side per row, a shoot-out's column appearing by itself on level
  * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
- * its own; and the report's goals and every party's answer, read-only. Saved together from the editor's bar; a save
- * that would delete a later match's result the server holds back with its question, which the bar asks.
+ * its own; the report's goals and every party's answer, read-only; and last a link to each side's line-up, which its
+ * own page saves. Saved together from the editor's bar; a save that would delete a later match's result the server
+ * holds back with its question, which the bar asks.
  */
 export function SpielEditor({
   title,
@@ -77,9 +82,11 @@ export function SpielEditor({
   report,
   adoption,
   answers,
+  aufstellungen,
   createSpielort,
   spielortRules,
   closed,
+  spielPage,
 }: {
   title: PageTitle;
   /** The line under the title: the match as it is stored, read on the server. */
@@ -105,10 +112,14 @@ export function SpielEditor({
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
   answers: readonly AnswerRow[];
+  /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored. */
+  aufstellungen: ReadonlyArray<CardActRowProps & { id: string }>;
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
   spielortRules: SpielortRules;
   /** Why the match is closed read-only: its season has finished, and the write refuses every change to it. */
   closed?: Copy;
+  /** The match's public page, where the public may read its season: the strip's way there. */
+  spielPage?: Route;
 }) {
   // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
   const [adopted, setAdopted] = useState(false);
@@ -157,10 +168,7 @@ export function SpielEditor({
     if (tore.includes("") || shootOutGoals?.includes("") === true) return null;
     const scored = { team1: Number(tore[0]), team2: Number(tore[1]) };
     const added = shootOutGoals === null ? null : { team1: Number(shootOutGoals[0]), team2: Number(shootOutGoals[1]) };
-    const score = WORDS.score(scored, added);
-    const [one, other] = [scored.team1 + (added?.team1 ?? 0), scored.team2 + (added?.team2 ?? 0)];
-    if (one === other) return { text: WORDS.drawn(score), tone: "draw" };
-    return { text: WORDS.wins(one > other ? sideNames[0] : sideNames[1], score), tone: "win" };
+    return scoreOutcome(scored, added, sideNames);
   };
 
   /** A side's club picker: the clubs of the season, the other side's own and any the write would not field disabled. */
@@ -194,8 +202,28 @@ export function SpielEditor({
             </>
           ),
         };
-  const withBegegnung = (rest: readonly [EditorSection, ...EditorSection[]]): readonly [EditorSection, ...EditorSection[]] =>
-    begegnung === null ? rest : [begegnung, ...rest];
+  // Last, each side's line-up, which its own page saves: its rows lead there, edge to edge in a box of their own.
+  const lineups =
+    aufstellungen.length === 0
+      ? []
+      : [
+          {
+            id: "aufstellungen",
+            block: (
+              <Section
+                title={COPY.area.team.aufstellung.plural}
+                list={aufstellungen.map(({ id, ...row }) => (
+                  <CardActRow
+                    key={id}
+                    {...row}
+                  />
+                ))}
+              />
+            ),
+          },
+        ];
+  const framed = (rest: readonly [EditorSection, ...EditorSection[]]): readonly [EditorPart, ...EditorPart[]] =>
+    begegnung === null ? [...rest, ...lineups] : [begegnung, ...rest, ...lineups];
 
   return (
     <EditorPage
@@ -203,16 +231,15 @@ export function SpielEditor({
       lead={preview}
       editor={editor}
       closed={closed}
-      sections={withBegegnung([
+      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.toSpiel } })}
+      sections={framed([
         {
           id: "ansetzung",
           title: WORDS.ansetzung,
           fields: (
             <>
               {/* A day and its time are one value, sharing their row at every width. */}
-              <FieldPair
-                short="both"
-                phone="pair">
+              <FieldPair>
                 <DateField
                   label={WORDS.date}
                   name="date"
@@ -226,71 +253,63 @@ export function SpielEditor({
                   onChange={(time) => set("time", time)}
                 />
               </FieldPair>
-              <FieldPair
-                short="second"
-                phone="stack">
-                <ComboBox
-                  label={ORT.object}
-                  name="spielort"
-                  options={spielorte.map((spielort) => spielort.option)}
-                  value={draft.spielort}
-                  onChange={(spielort) => {
-                    set("spielort", spielort);
-                    // A venue chosen brings its own price, which the person may still change for this match.
-                    const chosen = spielorte.find((each) => each.option.id === spielort);
-                    if (chosen !== undefined) set("mietpreis", String(chosen.price));
-                  }}
-                  create={{
-                    label: ORT.createEntry,
-                    onCreate: (typed) => {
-                      setNewName(typed);
-                      setCreating(true);
-                    },
-                  }}
+              <ComboBox
+                label={ORT.object}
+                name="spielort"
+                options={spielorte.map((spielort) => spielort.option)}
+                value={draft.spielort}
+                onChange={(spielort) => {
+                  set("spielort", spielort);
+                  // A venue chosen brings its own price, which the person may still change for this match.
+                  const chosen = spielorte.find((each) => each.option.id === spielort);
+                  if (chosen !== undefined) set("mietpreis", String(chosen.price));
+                }}
+                create={{
+                  label: ORT.createEntry,
+                  onCreate: (typed) => {
+                    setNewName(typed);
+                    setCreating(true);
+                  },
+                }}
+              />
+              {/* Revealed with the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
+              {draft.spielort !== null && (
+                <TextField
+                  label={ORT.mietpreis}
+                  name="mietpreis"
+                  holds={5}
+                  kind="digits"
+                  unit={COPY.shared.unit.euro}
+                  isRequired={required.mietpreis}
+                  value={draft.mietpreis}
+                  onChange={(mietpreis) => set("mietpreis", mietpreis)}
                 />
-                {/* Revealed with the venue that decides it: a match at a venue pays for it, one with none pays nothing. */}
-                {draft.spielort !== null && (
-                  <TextField
-                    label={ORT.mietpreis}
-                    name="mietpreis"
-                    width="C5"
-                    kind="digits"
-                    unit={COPY.shared.unit.euro}
-                    isRequired={required.mietpreis}
-                    value={draft.mietpreis}
-                    onChange={(mietpreis) => set("mietpreis", mietpreis)}
-                  />
-                )}
-              </FieldPair>
-              {/* The booking is the Ansetzung's, the fee beside the referee as the price beside the venue. */}
-              <FieldPair
-                short="second"
-                phone="stack">
-                <ComboBox
-                  label={COPY.shared.schiedsrichter}
-                  name="schiedsrichter"
-                  options={schiedsrichter.map((person) => person.option)}
-                  value={draft.schiedsrichter}
-                  onChange={(id) => {
-                    set("schiedsrichter", id);
-                    // A referee chosen brings their own fee, which the person may still change for this match.
-                    const chosen = schiedsrichter.find((each) => each.option.id === id);
-                    if (chosen !== undefined) set("payment", String(chosen.price));
-                  }}
+              )}
+              {/* The booking is the Ansetzung's, the fee under the referee as the price under the venue. */}
+              <ComboBox
+                label={COPY.shared.schiedsrichter}
+                name="schiedsrichter"
+                options={schiedsrichter.map((person) => person.option)}
+                value={draft.schiedsrichter}
+                onChange={(id) => {
+                  set("schiedsrichter", id);
+                  // A referee chosen brings their own fee, which the person may still change for this match.
+                  const chosen = schiedsrichter.find((each) => each.option.id === id);
+                  if (chosen !== undefined) set("payment", String(chosen.price));
+                }}
+              />
+              {draft.schiedsrichter !== null && (
+                <TextField
+                  label={COPY.admin.payment}
+                  name="payment"
+                  holds={5}
+                  kind="digits"
+                  unit={COPY.shared.unit.euro}
+                  isRequired={required.payment}
+                  value={draft.payment}
+                  onChange={(payment) => set("payment", payment)}
                 />
-                {draft.schiedsrichter !== null && (
-                  <TextField
-                    label={COPY.admin.payment}
-                    name="payment"
-                    width="C5"
-                    kind="digits"
-                    unit={COPY.shared.unit.euro}
-                    isRequired={required.payment}
-                    value={draft.payment}
-                    onChange={(payment) => set("payment", payment)}
-                  />
-                )}
-              </FieldPair>
+              )}
               <Dialog
                 title={COPY.shared.withObject(ORT.object, "create")}
                 act={{ verb: "create", object: ORT.object }}
@@ -368,8 +387,7 @@ export function SpielEditor({
               label={WORDS.note}
               labelHidden
               name="note"
-              width="W4"
-              kind="text"
+              kind="paragraph"
               maxLength={noteMax}
               value={draft.note}
               onChange={(note) => set("note", note)}
@@ -386,7 +404,6 @@ export function SpielEditor({
               labelHidden
               name="sonderereignis"
               options={sonderereignisse}
-              width="fit"
               value={draft.sonderereignis}
               onChange={(id) => {
                 if (id !== null) set("sonderereignis", id);

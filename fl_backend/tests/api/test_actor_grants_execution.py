@@ -50,9 +50,10 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
             "admin_tier": "administration",
             "effective_from": now,
         }
-        a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)[Collection.GRANTS].insert_many([*grants_for_the_suite(), granted])
+        with a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME) as database:
+            database[Collection.GRANTS].insert_many([*grants_for_the_suite(), granted])
 
-        yield mongo_replica_set_url
+            yield mongo_replica_set_url
     finally:
         client.close()
 

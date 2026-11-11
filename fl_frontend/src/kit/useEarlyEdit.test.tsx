@@ -10,6 +10,7 @@ import { COPY } from "@/core/copy";
 
 import { AddressFields } from "./AddressFields";
 import { Checkbox } from "./Checkbox";
+import { Segmented, ToggleBoxes } from "./ChoiceButtons";
 import { CodeField } from "./CodeField";
 import { ComboBox } from "./ComboBox";
 import { DateField } from "./DateField";
@@ -39,8 +40,8 @@ vi.mock("next/navigation", () => ({
 
 const WORD = COPY.signIn.address;
 const YES_NO = [
-  { id: "ja", label: COPY.shared.verb.save },
-  { id: "nein", label: COPY.shared.verb.delete },
+  { id: "yes", label: COPY.shared.verb.save },
+  { id: "no", label: COPY.shared.verb.delete },
 ];
 const CARDS = YES_NO.map((choice) => ({ ...choice, line: WORD }));
 const OPTIONS = [{ id: "riedberg", label: { record: "Riedberg" } }];
@@ -123,7 +124,6 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W3"
         kind="text"
         onChange={onChange}
       />
@@ -135,7 +135,6 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W3"
         kind="text"
         value="Riedberg"
         onChange={onChange}
@@ -152,8 +151,7 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W4"
-        kind="text"
+        kind="paragraph"
         onChange={onChange}
       />
     ),
@@ -164,7 +162,6 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <TextField
         label={WORD}
-        width="W3"
         kind="email"
         onChange={onChange}
       />
@@ -189,14 +186,14 @@ const FIELDS: Case[] = [
           <TextField
             key="first"
             label={WORD}
-            width="C2"
+            holds={2}
             kind="digits"
             onChange={onChange}
           />,
           <TextField
             key="second"
             label={WORD}
-            width="C2"
+            holds={2}
             kind="digits"
           />,
         ]}
@@ -279,12 +276,12 @@ const FIELDS: Case[] = [
     page: (onChange) => (
       <RadioGroup
         label={WORD}
-        defaultValue="ja"
+        defaultValue="yes"
         choices={YES_NO}
         onChange={onChange}
       />
     ),
-    ...chose("nein"),
+    ...chose("no"),
   },
   {
     field: "cards of answers",
@@ -296,7 +293,34 @@ const FIELDS: Case[] = [
         onChange={onChange}
       />
     ),
-    ...chose("ja"),
+    ...chose("yes"),
+  },
+  {
+    field: "a segmented choice",
+    page: (onChange) => (
+      <Segmented
+        label={WORD}
+        defaultValue="yes"
+        choices={YES_NO}
+        onChange={onChange}
+      />
+    ),
+    ...chose("no"),
+  },
+  {
+    field: "toggle boxes",
+    page: (onChange) => (
+      <ToggleBoxes
+        label={WORD}
+        defaultValue={["yes"]}
+        choices={YES_NO}
+        onChange={onChange}
+      />
+    ),
+    edit: (root) => tick(root, "no"),
+    raised: ["yes", "no"],
+    shown: (root) => shownChecked(root, "no"),
+    kept: true,
   },
 ];
 
@@ -317,7 +341,6 @@ describe("what a person did to a field before the page hydrated", () => {
     const page = (
       <TextField
         label={WORD}
-        width="W3"
         kind="text"
       />
     );
@@ -341,7 +364,6 @@ describe("what a person did to a field before the page hydrated", () => {
     const page = (
       <TextField
         label={WORD}
-        width="W3"
         kind="email"
         onChange={onChange}
       />
@@ -389,14 +411,12 @@ describe("what a person did to a field before the page hydrated", () => {
         <>
           <TextField
             label={WORD}
-            width="W3"
             kind="text"
             value={names.first}
             onChange={(first) => setNames({ ...names, first })}
           />
           <TextField
             label={WORD}
-            width="W3"
             kind="text"
             value={names.last}
             onChange={(last) => setNames({ ...names, last })}
@@ -427,21 +447,19 @@ describe("a field the person left as the server drew it", () => {
       <>
         <TextField
           label={WORD}
-          width="W4"
-          kind="text"
+          kind="paragraph"
           value={"Zwei\r\nZeilen"}
           onChange={onChange}
         />
         <TextField
           label={WORD}
-          width="W3"
           kind="email"
           value=" lena@example.com "
           onChange={onChange}
         />
         <RadioGroup
           label={WORD}
-          defaultValue="ja"
+          defaultValue="yes"
           choices={YES_NO}
           onChange={onChange}
         />
@@ -470,7 +488,6 @@ describe("a field the person left as the server drew it", () => {
         <>
           <TextField
             label={WORD}
-            width="W3"
             kind="email"
             value=" lena@example.com "
             onChange={onChange}
@@ -499,7 +516,6 @@ describe("a field the person left as the server drew it", () => {
         />
         <TextField
           label={WORD}
-          width="W3"
           kind="text"
           isDisabled
           onChange={onChange}
@@ -524,8 +540,7 @@ describe("a control whose server markup takes no edit", () => {
     const page = (
       <TextField
         label={WORD}
-        width="W4"
-        kind="text"
+        kind="paragraph"
         value="Alt"
       />
     );
@@ -581,7 +596,6 @@ function Held({ send }: { send: (email: FormDataEntryValue | null) => void }) {
       <TextField
         label={WORD}
         name="email"
-        width="W3"
         kind="email"
         value={email}
         onChange={setEmail}
@@ -606,7 +620,6 @@ function Editor({ save }: { save: Save }) {
             <TextField
               label={WORD}
               name="name"
-              width="W3"
               kind="text"
               value={editor.draft.name}
               onChange={(name) => editor.set("name", name)}
@@ -746,7 +759,6 @@ describe("a press held across hydration over a field edited before it", () => {
         <TextField
           label={WORD}
           name="name"
-          width="W3"
           kind="text"
         />
       </HeldForm>
@@ -858,7 +870,6 @@ describe("a press held across hydration over a field edited before it", () => {
         <TextField
           label={WORD}
           name="field"
-          width="W3"
           kind="text"
           isRequired
         />

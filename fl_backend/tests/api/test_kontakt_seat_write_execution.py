@@ -3,15 +3,19 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.bewerbungen.public_router import post_einwilligung
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.api.teams.admin_router import put_kontakt_seat
 from app.api.teams.schemas import FLKontaktSeatPayload, FLKontaktSeatResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document, saison_document, saison_team_document
+from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
@@ -92,7 +96,6 @@ async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *
         seat_data=FLKontaktSeatPayload.model_validate({**sent, "version": version}),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
         today=TODAY,
@@ -251,6 +254,71 @@ class TestTheTrainersSecondSeat:
 
         assert row["kontakte"]["ansprechperson"]["first_name"] == "Ida"
         assert [mail.to for mail in mails] == ["ida@example.com"]
+
+
+LINK = "seat-write-trainer-link"
+
+
+async def confirm_by_link(database: AsyncDatabase) -> None:
+    """The trainer's own confirmation through the link their seat holds."""
+
+    await post_einwilligung(
+        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
+            {
+                "answer": "given",
+                "token": LINK,
+                "birth_date": BIRTH_DATE,
+                "whatsapp": False,
+                "media": False,
+                "text_versions": dict(SEAT_TEXT_VERSIONS),
+            }
+        ),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        outbox_collection=database[Collection.OUTBOX],
+        db=database.client,
+        today=TODAY,
+        germany_now=MAIL_NOW,
+    )
+
+
+class TestAConfirmationLandingBeforeTheSave:
+    """The confirmation is the person's own press, so a „Sitz bearbeiten“ on the version read before it lands.
+
+    The save composes the seat from its own read, so the confirmation is judged as the seat stands after it.
+    """
+
+    UNCONFIRMED = block(trainer={**stored_person("Ida"), "birth_date": None})
+    LINKED = {
+        "trainer": {**link_entry(), "token_hashes": [hash_token(LINK)], "deadline": "2026-04-15"},
+        "ansprechperson": None,
+        "stellvertretung": None,
+    }
+
+    def pressed_then_written(self, url: str, sent: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+        async def body(database: AsyncDatabase) -> tuple[dict[str, Any], list[Any]]:
+            await confirm_by_link(database)
+            await write_seat(database, "trainer", sent, version=0)
+
+            return await row_and_mails(database)
+
+        return on_a_row(url, body, kontakte=self.UNCONFIRMED, confirmations=self.LINKED)
+
+    def test_the_same_person_keeps_the_fresh_confirmation(self, mongo_replica_set_url: str):
+        row, mails = self.pressed_then_written(mongo_replica_set_url, {**sent_person("Ida"), "phone": "+4915110000009"})
+
+        seat = row["kontakte"]["trainer"]
+        assert (seat["phone"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("+4915110000009", BIRTH_DATE, TODAY)
+        assert mails == []
+
+    def test_another_address_takes_the_seat_unconfirmed_with_a_new_link(self, mongo_replica_set_url: str):
+        row, mails = self.pressed_then_written(mongo_replica_set_url, sent_person("Lea"))
+
+        seat = row["kontakte"]["trainer"]
+        assert (seat["first_name"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("Lea", None, None)
+        assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
 
 
 class TestTheRefusals:

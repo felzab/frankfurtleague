@@ -1,14 +1,12 @@
-import { cache } from "react";
-
 import { orMissing } from "@/core/errors";
-import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelf } from "@/core/generated/client/sdk";
+import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelfSpiele } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLSchiedsrichterListResponse,
-  FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
+  FLSchiedsrichterSpieleResponse,
   SchiedsrichterGetSchiedsrichterParams,
 } from "@/core/generated/client/types";
 
@@ -38,8 +36,10 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
 }
 
 /**
- * The signed-in referee's own records, refused `role_not_held` where the backend holds no confirmed
- * referee row for the address the page's own check passed.
+ * The signed-in referee's own fixtures of one season, open work first, as their Übersicht lists them.
+ *
+ * **Uncached** for the reason the list is: a person's read is keyed by who reads it.
  */
-// Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getSchiedsrichterSelf = cache(async (): Promise<FLSchiedsrichterSelfResponse> => runPersonRead(() => schiedsrichterGetSelf()));
+export async function getOwnSpiele(saisonId: string): Promise<FLSchiedsrichterSpieleResponse> {
+  return runPersonRead(() => schiedsrichterGetSelfSpiele(saisonId));
+}

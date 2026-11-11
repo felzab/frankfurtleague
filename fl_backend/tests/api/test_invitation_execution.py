@@ -142,6 +142,7 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str)
             session=session,
             mails=owed_invitation_mails(
                 invitation_id=invitation_id,
+                team_id=ALREADY_MAILED,
                 team_name="Seeded",
                 saison_id=SAISON_ID,
                 recipient=[InvitationRecipient(rolle="trainer", email=to)],
@@ -483,6 +484,7 @@ async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -
         mail_data=FLInvitationMailPayload(invitation_id=invitation_id),
         invitations_collection=database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         db=database.client,
         today=TODAY,
@@ -519,6 +521,18 @@ class TestTheTeamsMailPress:
             return conflict.value.error_code, await owed_for(database, WITHDRAWN)
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, [])
+
+    def test_a_season_that_has_ended_is_refused_owing_nothing(self, mongo_replica_set_url: str):
+        """A page read before the next season's activation, whose press would mail a link that opens nothing for good."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            live = await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
+            with pytest.raises(APIError) as conflict:
+                await mail(database, TWO_SEATS, live.inserted_id)
+
+            return conflict.value.error_code, await owed_for(database, TWO_SEATS)
+
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.SAISON_PAST, [])
 
     def test_an_invite_replaced_since_the_panel_read_it_is_a_404_owing_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:

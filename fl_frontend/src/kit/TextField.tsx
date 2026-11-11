@@ -1,8 +1,7 @@
 "use client";
 
-import { useContext, useId } from "react";
+import { useId } from "react";
 
-import { FieldErrorContext } from "react-aria-components/FieldError";
 import { TextField as AriaTextField, Input, TextArea } from "react-aria-components/TextField";
 import { useIsSSR } from "react-aria/SSRProvider";
 
@@ -32,21 +31,11 @@ type Shared = {
    * section holding this one field, whose title the label is, or a score's column head. A required mark goes with it.
    */
   labelHidden?: boolean;
+  /** The line under the field when nothing is wrong: what to type, where the label alone does not say it. */
+  description?: Copy;
+  /** What changing this value sets off beyond the record, said in the warn colour in the message line. */
+  consequence?: Copy;
 };
-
-/**
- * The message line under the field: always there, so a message that fits it moves nothing; or, on the
- * sign-in's one-field view whose two acts stand right under the field, there only with the error, so the field
- * and its acts read as one block and move down together. A line that is not always there describes nothing.
- */
-type Line =
-  | {
-      line?: "always";
-      description?: Copy;
-      /** What changing this value sets off beyond the record, said in the warn colour in the message line. */
-      consequence?: Copy;
-    }
-  | { line: "withError"; description?: never; consequence?: never };
 
 /**
  * What a text or digits field asks of the person about themselves, as the HTML autofill token the browser
@@ -61,27 +50,38 @@ type Autofill = "name" | "given-name" | "family-name" | "organization" | "street
  */
 type EmailAutofill = "email" | "username" | "off";
 
-/**
- * A single line at its width, its keyboard set by `kind`; a URL names the example its message shows. A score is
- * `C2`; a postcode, whole euros or a house number `C5`; a name, an address, a phone number or a URL `W3`, a long
- * field up to the form's cap; a long name past it, a venue's, `W3L`; `column` such a field in a column narrower than
- * the cap, which it fills.
+/** A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. */
+type Kind =
+  | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
+  | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
+  | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
+  | { kind: "tel" | "search"; autofill?: never; example?: never; pattern?: never }
+  | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
+  /**
+   * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
+   * off the published contract, a server module the kit cannot import.
+   */
+  | { kind: "minute"; autofill?: never; example: Copy; pattern: string };
+
+/*
+ * A field's width follows from what it holds, so no caller sets one: a value of a known length is short, a paragraph
+ * takes its box's whole width, and every other value the one standard width (`fieldStyles.ts :: fieldFrame`).
  */
-type SingleLine = {
-  width: "C2" | "C5" | "W3" | "W3L" | "column";
-} & (
-  | { kind: "text"; autofill?: Autofill; example?: never; unit?: never }
-  /** `unit` stands after the field, outside it, as „€“ after a price. */
-  | { kind: "digits"; autofill?: Autofill; example?: never; unit?: Copy }
-  | { kind: "email"; autofill?: EmailAutofill; example?: never; unit?: never }
-  | { kind: "tel" | "search"; autofill?: never; example?: never; unit?: never }
-  | { kind: "url"; autofill?: never; example: Copy; unit?: never }
-);
 
-/** A paragraph: the column's width at four lines. */
-type Paragraph = { width: "W4"; kind: "text"; autofill?: never; example?: never; unit?: never };
+/**
+ * A value of a known length, as wide as it is: `holds` counts its characters, 2 for a score, a shirt number or a
+ * count, 5 for a minute, a price, a postcode or a house number. `unit` stands after the value inside the field, as
+ * „€“ after a price.
+ */
+type Short = { holds: 2 | 5; unit?: Copy } & Kind;
 
-export type TextFieldProps = Shared & Line & (SingleLine | Paragraph);
+/** A value whose length varies, a name, an address, a phone number or a URL: the one standard width. */
+type Standard = { holds?: never; unit?: never } & Kind;
+
+/** A paragraph: its box's whole width at four lines. */
+type Paragraph = { kind: "paragraph"; holds?: never; autofill?: never; example?: never; unit?: never; pattern?: never };
+
+export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
@@ -90,9 +90,13 @@ export type TextFieldProps = Shared & Line & (SingleLine | Paragraph);
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
+  paragraph: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
   // A count or a figure: a plain field opening the digits keyboard, with no stepper, taking digits alone, so
   // anything else reads „Format: …“ at the send rather than reaching the server.
   digits: { type: "text", inputMode: "numeric", autoComplete: undefined, pattern: "[0-9]*" },
+  // The phone pad, which carries the plus beside the digits where `numeric`'s pad carries none; a plain text field
+  // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
+  minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
   email: { type: "email", inputMode: undefined, autoComplete: "email", pattern: undefined },
   tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
   url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
@@ -101,12 +105,6 @@ const KINDS = {
 
 /** The example a malformed value is shown, by kind; a URL names its own. */
 const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
-
-/** The line only once the field is invalid: it reads the field's validation, which the field provides to its children. */
-function LineWithError({ constraints }: { constraints: Constraints }) {
-  const validation = useContext(FieldErrorContext);
-  return validation?.isInvalid === true ? <MessageLine constraints={constraints} /> : null;
-}
 
 /**
  * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
@@ -129,32 +127,23 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
 }
 
 /**
- * Type text or a number: the label above, an asterisk after it on a required field, the field at its
- * width class, then its message line as `line` sets it. An error first shows once the value is
+ * Type text or a number: the label above, an asterisk after it on a required field, the field at the width of
+ * what it holds, then its message line where it has something to say. An error first shows once the value is
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const {
-    label,
-    labelHidden = false,
-    description,
-    consequence,
-    isRequired = false,
-    isDisabled = false,
-    width,
-    kind,
-    maxLength,
-    minLength,
-  } = props;
+  const { label, labelHidden = false, description, consequence, isRequired = false, isDisabled = false, kind, maxLength, minLength } = props;
   const keys = KINDS[kind];
+  const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
   const constraints: Constraints = {
     maxLength,
     minLength,
-    example: props.kind === "url" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
+    example:
+      props.kind === "url" || props.kind === "minute" ? props.example : kind === "email" || kind === "digits" ? EXAMPLE[kind] : undefined,
   };
-  const frame = fieldFrame({ width, inset: "full", figures: kind === "digits" });
+  const frame = fieldFrame({ width, holds: props.holds, inset: "full", figures: kind === "digits" || kind === "minute" });
   const field =
-    width === "W4" ? (
+    width === "full" ? (
       <ParagraphBox
         isStored={Boolean(props.value ?? props.defaultValue)}
         className={frame}
@@ -162,10 +151,12 @@ export function TextField(props: TextFieldProps) {
     ) : (
       <Input
         data-kit-focus="field"
+        // Names a short field to the pair around it (`FieldPair`), which leaves it its width.
+        data-kit-short={width === "short" || undefined}
         className={frame}
       />
     );
-  const unit = fieldUnit();
+  const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
   const root = useEarlyEdit();
 
@@ -184,7 +175,7 @@ export function TextField(props: TextFieldProps) {
       minLength={minLength}
       type={keys.type}
       inputMode={keys.inputMode}
-      pattern={keys.pattern}
+      pattern={props.pattern ?? keys.pattern}
       autoComplete={props.autofill ?? keys.autoComplete}
       aria-describedby={props.unit === undefined ? undefined : unitId}>
       {!labelHidden && (
@@ -196,8 +187,15 @@ export function TextField(props: TextFieldProps) {
       {props.unit === undefined ? (
         field
       ) : (
-        <span className={unit.row()}>
-          {field}
+        // The frame is the group, as a date's or a combo box's is, and rings as a whole while its input is focused.
+        <div
+          data-kit-focus="field"
+          data-kit-short
+          className={fieldFrame({ width: "short", inset: "full", class: unit.frame() })}>
+          <Input
+            data-kit-focus
+            className={unit.value()}
+          />
           {/* Read once, as the input's description, and hidden where it stands, so browsing past the field does
               not read it a second time: the label names what the figure counts, the unit what it counts in. */}
           <span
@@ -206,17 +204,13 @@ export function TextField(props: TextFieldProps) {
             className={unit.unit()}>
             {props.unit}
           </span>
-        </span>
+        </div>
       )}
-      {props.line === "withError" ? (
-        <LineWithError constraints={constraints} />
-      ) : (
-        <MessageLine
-          description={description}
-          consequence={consequence}
-          constraints={constraints}
-        />
-      )}
+      <MessageLine
+        description={description}
+        consequence={consequence}
+        constraints={constraints}
+      />
     </AriaTextField>
   );
 }

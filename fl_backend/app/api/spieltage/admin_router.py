@@ -32,7 +32,14 @@ from app.api.spieltage.services import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection, SpieltageReadCollection
+from app.core.dependencies import (
+    DBClient,
+    SaisonsCollection,
+    SaisonsReadCollection,
+    SpieleCollection,
+    SpieltageCollection,
+    SpieltageReadCollection,
+)
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -54,7 +61,7 @@ router = APIRouter(
 )
 async def get_spieltage_admin(
     spieltage_collection: SpieltageReadCollection,
-    saisons_collection: SaisonsCollection,
+    saisons_collection: SaisonsReadCollection,
     filters: FLSpieltageFilterParams = Depends(),
 ) -> FLSpieltageListResponse:
     """
@@ -95,7 +102,7 @@ async def get_spieltage_admin(
 async def get_spieltag_admin(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageReadCollection,
-    saisons_collection: SaisonsCollection,
+    saisons_collection: SaisonsReadCollection,
 ) -> FLSpieltagAdminResponse:
     """
     Return one matchday by its id for the admin editor, a `future` season's included.

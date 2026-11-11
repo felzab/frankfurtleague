@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
+from datetime import datetime
 from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
@@ -36,6 +37,7 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
     normalise_phone,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -938,10 +940,10 @@ def _seat_state(row: Mapping[str, Any], seat: str) -> str:
     and its hand-out writes the same hash into both.
     """
 
-    zugleich = (row.get("kontakte") or {}).get("trainer_is_also")
+    also = (row.get("kontakte") or {}).get("trainer_is_also")
     links = row.get("confirmations") or {}
-    if seat == "trainer" and zugleich in KONTAKT_ROLLEN and links.get(zugleich) == links.get("trainer"):
-        return str(zugleich)
+    if seat == "trainer" and also in KONTAKT_ROLLEN and links.get(also) == links.get("trainer"):
+        return str(also)
 
     return seat
 
@@ -1055,7 +1057,7 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
     """Each seat's record and its birthdate, off the stored block.
 
     A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
@@ -1099,7 +1101,7 @@ def compose_seat_block(
     other = claimed_pair_seat(kontakte={"trainer_is_also": claim}, seat=seat)
     seats = (seat,) if other is None else (seat, other)
     person = {field: value for field, value in sent.items() if field != "trainer_is_also"}
-    # The record of a person newly seated; `compose_kontakte_herkunft` keeps the stored one of a person this write leaves.
+    # The record of a person newly seated; `compose_kontakte_origin` keeps the stored one of a person this write leaves.
     slot = {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
 
     return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
@@ -1145,14 +1147,14 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
     """
 
     block = kontakte if isinstance(kontakte, Mapping) else {}
-    zugleich = block.get("trainer_is_also")
+    also = block.get("trainer_is_also")
     people: list[tuple[FLKontaktRolle, ...]] = []
 
     for slot in KONTAKT_ROLLEN:
-        if slot == zugleich:
+        if slot == also:
             continue
 
-        held: tuple[FLKontaktRolle, ...] = (slot, zugleich) if slot == "trainer" and zugleich in KONTAKT_ROLLEN else (slot,)
+        held: tuple[FLKontaktRolle, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_ROLLEN else (slot,)
         filled: tuple[FLKontaktRolle, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
         if filled:
             people.append(filled)
@@ -1181,20 +1183,6 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]
             owed.append(unconfirmed)
 
     return owed
-
-
-def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
-    """The seats a write empties or hands to another person, on `_seat_held_by`'s identity, so a re-typed case moves nobody."""
-
-    stored_block = stored if isinstance(stored, Mapping) else {}
-    block = kontakte if isinstance(kontakte, Mapping) else {}
-
-    return tuple(
-        slot
-        for slot in KONTAKT_ROLLEN
-        if isinstance(held := stored_block.get(slot), Mapping)
-        and (not isinstance(seat := block.get(slot), Mapping) or _seat_held_by(held, seat=seat) is None)
-    )
 
 
 def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str, Any]) -> dict[str, Any]:
@@ -1614,6 +1602,18 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
 
     # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
+
+    if date is None:
+        return False
+
+    if time is None:
+        return date <= clock.german_day(now)
+
+    return clock.german_instant(date, time) <= now
 
 
 def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:

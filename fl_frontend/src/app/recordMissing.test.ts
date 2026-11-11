@@ -42,8 +42,6 @@ const notFound = (serverErrorCode: Code | undefined): APIBadStatusError =>
     statusCode: 404,
     serverErrorCode,
     endpoint: "/x",
-    method: "GET",
-    readOnly: true,
     traceId: "0",
   });
 

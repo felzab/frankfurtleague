@@ -13,7 +13,7 @@ const { calls } = doubleApiAnswers();
 
 const { answerKontakt, objectKontakt } = await import("./answerKontakt");
 
-const TOKEN = "kein-echtes-token";
+const TOKEN = "not-a-real-token";
 
 /** The question's form as the browser posts it, the act pressed among its entries. */
 const posted = (entries: Readonly<Record<string, string>>) => {

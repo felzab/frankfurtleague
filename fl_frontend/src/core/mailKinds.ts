@@ -23,9 +23,10 @@ import { buildGrantEmail } from "./grantEmail";
 import { buildInvitationEmail } from "./invitationEmail";
 import { buildKontaktConfirmationEmail } from "./kontaktEmail";
 import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
-import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
+import { buildRegistrierungAbsageEmail, buildRegistrierungConfirmationEmail } from "./registrierungEmail";
 import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
 import {
+  buildAufstellungReminderEmail,
   buildAustrittNoticeEmail,
   buildSpielEinteilungEmail,
   buildSpielEinteilungLiftedEmail,
@@ -94,16 +95,16 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   passkey_erased: ({ instant }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin }),
   account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin, token: secretOf(secret) }),
   schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterConfirmationEmail(data, minted(handout)),
-  spiel_request: (data, handout) => buildSpielRequestEmail(data, minted(handout)),
-  spiel_reminder: (data, handout) => buildSpielRequestEmail(data, minted(handout)),
+  spiel_request: buildSpielRequestEmail,
+  spiel_reminder: buildSpielRequestEmail,
   spiel_einteilung: buildSpielEinteilungEmail,
   spiel_moved: buildSpielNoticeEmail,
   spiel_cancelled: buildSpielNoticeEmail,
   spiel_einteilung_lifted: buildSpielEinteilungLiftedEmail,
   spiel_vorschlag_discarded: buildSpielVorschlagDiscardedEmail,
+  aufstellung_reminder: buildAufstellungReminderEmail,
   austritt_notice: buildAustrittNoticeEmail,
-  registrierung_confirmation: (data, handout) => buildRegistrierungBestaetigungEmail(data, minted(handout)),
-  registrierung_reminder: (data, handout) => buildRegistrierungErinnerungEmail(data, minted(handout)),
+  registrierung_confirmation: (data, handout) => buildRegistrierungConfirmationEmail(data, minted(handout)),
   registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
   invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),

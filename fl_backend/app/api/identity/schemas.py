@@ -4,7 +4,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, FLUtcInstant
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
@@ -35,12 +35,17 @@ class FLSubjectSeat(BaseModel):
     # The contact-seat sense of the word, never the captaincy's, which `docs/glossary.md` holds
     # apart (`app/api/spieler/schemas.py :: FLSpielerRolle`).
     rolle: FLKontaktRolle
-    # The junction row's own name, the one the club was PLAYED under:
+    # The junction row's own name and code, the ones the club was PLAYED under:
     # a club renamed since is still named here as its seats were held.
     team_name: str
+    team_shorthand: str
     # The one read this lookup makes of `saisons`. The current-season narrowing is the caller's, and
     # the status is what lets it narrow from this answer rather than from a second round trip.
     saison_status: FLSaisonStatus
+    # The season's span, which a frame names it by: a seat on a `future` season grants a panel, and no public read
+    # serves that season.
+    saison_start_date: CustomDateString
+    saison_end_date: CustomDateString
 
 
 class FLSubjectSpieler(BaseModel):

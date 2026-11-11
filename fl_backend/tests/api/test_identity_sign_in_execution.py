@@ -13,9 +13,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity import crud as identity_crud
 from app.api.identity.crud import roles_from
 from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
-from app.api.identity.services import own_entries, seat_saison_statuses
+from app.api.identity.services import own_entries, seat_saisons
 from app.api.identity.system_router import get_sign_in
-from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -25,13 +24,14 @@ from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    EINWILLIGUNG,
+    SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
+    own_einwilligung_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -71,7 +71,6 @@ REGISTERED = "rita.registriert@schule.de"
 REGISTERED_STORED = REGISTERED
 REGISTERED_DECLINED = "rita.abgelehnt@schule.de"
 REGISTERED_OPEN = "rita.offen@schule.de"
-REGISTERED_WITHOUT_CHOICE = "rita.ohnewahl@schule.de"
 BARRED = "gerda.gesperrt@schule.de"
 ADMIN = "verena.verwaltung@schule.de"
 NOBODY = "niemand.hierverzeichnet@example.com"
@@ -91,7 +90,6 @@ SCHIEDSRICHTER_RETIRED_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860034")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607860041")
 REGISTRIERUNG_DECLINED_OID = ObjectId("6890a1b2c3d4e5f607860042")
 REGISTRIERUNG_OPEN_OID = ObjectId("6890a1b2c3d4e5f607860043")
-REGISTRIERUNG_WITHOUT_CHOICE_OID = ObjectId("6890a1b2c3d4e5f607860044")
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607860051")
 
 
@@ -123,7 +121,11 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP}, **fields}
+        oid,
+        email=email,
+        name=name,
+        default_payment=20,
+        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
     )
 
 
@@ -208,16 +210,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _registrierung(REGISTRIERUNG_OPEN_OID, REGISTERED_OPEN, confirmed=False),
         ]
     )
-    await database[Collection.REGISTRIERUNGEN].insert_one(
-        _registrierung(
-            REGISTRIERUNG_WITHOUT_CHOICE_OID,
-            REGISTERED_WITHOUT_CHOICE,
-            confirmed=False,
-            **compose_confirmation_update(
-                birth_date="2009-05-04", scope=None, media=None, text_versions=None, today="2026-01-03", at="2026-01-03T08:00:00+00:00"
-            )["$set"],
-        )
-    )
     await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=ACTIVE_SAISON))
     await database[Collection.GRANTS].insert_one(
         {
@@ -283,12 +275,7 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(SPIELER_ACTIVE, ("spieler", SPIELER_ACTIVE_OID), id="a live pupil"),
             pytest.param(SCHIEDSRICHTER_ACTIVE, ("schiedsrichter", SCHIEDSRICHTER_ACTIVE_OID), id="a live referee"),
             pytest.param(SCHIEDSRICHTER_RETIRED, ("schiedsrichter", SCHIEDSRICHTER_RETIRED_OID), id="a retired referee"),
-            pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a registration confirmed with a choice"),
-            pytest.param(
-                REGISTERED_WITHOUT_CHOICE,
-                ("registrierungen", REGISTRIERUNG_WITHOUT_CHOICE_OID),
-                id="a returning pupil's registration, asking no choice",
-            ),
+            pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a confirmed registration"),
         ],
     )
     def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, entry: tuple[str, Any]):
@@ -349,15 +336,15 @@ class TestTheFlagsBesideIt:
 
 
 def test_a_seat_whose_season_has_no_row_is_raised_rather_than_dropped():
-    """A silently shorter list is a person shown no panel at all; the control reads a joined season's status."""
+    """A silently shorter list is a person shown no panel at all; the control reads a joined season."""
 
-    assert seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": [{"status": "active"}]}]) == {ACTIVE_SAISON: "active"}
+    assert seat_saisons([{"saison_id": ACTIVE_SAISON, "saison": [{"status": "active"}]}]) == {ACTIVE_SAISON: {"status": "active"}}
     with pytest.raises(RuntimeError):
-        seat_saison_statuses([{"saison_id": ACTIVE_SAISON, "saison": []}])
+        seat_saisons([{"saison_id": ACTIVE_SAISON, "saison": []}])
 
 
 def test_every_role_list_is_drawn_from_the_own_records():
-    """One row seating the mailbox confirmed and again unconfirmed in another spelling, and an unconfirmed referee row.
+    """One row seating the mailbox confirmed and again unconfirmed, and an unconfirmed referee row.
 
     Kills a Funktion list built from the rows the pre-filter matched rather than from the own records. Both judgements
     are pure over the rows the subject's reads hand them, so the rows are given as those reads leave them.
@@ -366,9 +353,9 @@ def test_every_role_list_is_drawn_from_the_own_records():
     identifier = "ortrud.zwiebelmayer@schule.de"
     seat_rows: list[Mapping[str, Any]] = [
         {
-            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier.upper(), confirmed_at=None)),
-            # As `app/api/identity/services.py :: saison_status_lookup` joins the row's season.
-            "saison": [{"status": "active"}],
+            **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier, confirmed_at=None)),
+            # As `app/api/saisons/services.py :: SAISON_LOOKUP` joins the row's season.
+            "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }
     ]
     referee_rows: list[Mapping[str, Any]] = [_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None)]

@@ -13,8 +13,6 @@
     "",
     "<THIRD_PARTY_MODULES>",
     "",
-    "^@heroui/(.*)$",
-    "",
     "^@/core/(.*)$",
     "^@/features/(.*)$",
     "^@/shared/(.*)$",

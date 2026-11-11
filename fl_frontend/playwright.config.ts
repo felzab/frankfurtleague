@@ -40,6 +40,9 @@ const EVERY_PROJECT = [
   "applicant.spec.ts",
   "austritt.spec.ts",
   "administration.spec.ts",
+  "teamArea.spec.ts",
+  "pupilArea.spec.ts",
+  "refereeArea.spec.ts",
 ];
 
 export default defineConfig<JourneyOptions>({
@@ -82,6 +85,9 @@ export default defineConfig<JourneyOptions>({
         departing: { club: "Linde", fixture: "Birke vs. Linde" },
         entered: { club: "Kastanie", colour: "Grau" },
         squadded: "Jonas",
+        contact: { address: "achim.aust@example.com", club: "Ahorn", fixture: "Ahorn vs. Eiche", pupil: "Hedda Holm" },
+        registering: { club: "Kastanie", token: "made-up-kastanie-invitation", admitter: "katja.kraus@example.com" },
+        booked: { address: "selma.seidel@example.com", played: "Eiche vs. Ulme", coming: "Ahorn vs. Eiche" },
       },
     },
     {
@@ -99,6 +105,9 @@ export default defineConfig<JourneyOptions>({
         departing: { club: "Esche", fixture: "Esche vs. Birke" },
         entered: { club: "Weide", colour: "Bordeaux" },
         squadded: "Lena",
+        contact: { address: "uta.uhlig@example.com", club: "Ulme", fixture: "Ulme vs. Kastanie", pupil: "Juna Jost" },
+        registering: { club: "Eiche", token: "made-up-eiche-invitation", admitter: "edgar.eckert@example.com" },
+        booked: { address: "tobias.thiel@example.com", played: "Ulme vs. Ahorn", coming: "Ulme vs. Kastanie" },
       },
     },
     // Behind both projects above, which outlast the minute from the frontend's boot to the scheduler's first pass: only

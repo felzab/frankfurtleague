@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { Fragment, useId, useRef } from "react";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { askingLook } from "./buttonStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
@@ -14,12 +15,14 @@ import { statusLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
+import { RowName } from "./RowActs";
 import { dangerRow, Section } from "./Section";
 
 import type { Copy } from "@/core/copy";
+import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
-import type { ConfirmDialogProps } from "./ConfirmDialog";
+import type { ConfirmQuestion } from "./ConfirmDialog";
 import type { DialogAct } from "./dialogAct";
 import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
@@ -30,6 +33,16 @@ import type { Editor, EditorValue } from "./useEditor";
  * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
  */
 export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; note?: Copy; fields: ReactElement };
+
+/**
+ * A part of an editor that draws its own boxes, such as a line-up's two lists (`Lineup`): placed bare in the sections'
+ * column, where a section's box around it would stand as a box in a box. It says its own state on its own lines; a
+ * closed editor's reason stands under the first section's title, or under the lead where no section has one.
+ */
+type EditorBlock = { id: string; block: ReactElement };
+
+/** One part of an editor's column, in the order the person's task takes them: a titled section or a bare block. */
+export type EditorPart = EditorSection | EditorBlock;
 
 /**
  * An irreversible or retiring act, which stands as one row in an editor's danger box: its name and its
@@ -48,7 +61,7 @@ export type DangerAct = {
        * asks it from the question's own button: an editor is an administrator's page, and an administrator signs in by
        * passkey alone, so the person always holds one.
        */
-      confirm: Omit<ConfirmDialogProps, "trigger" | "open">;
+      confirm: ConfirmQuestion;
       dialog?: never;
     }
   | {
@@ -62,33 +75,38 @@ export type DangerAct = {
 function DangerRow({ act }: { act: DangerAct }) {
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
-  const button = (
-    <Button
-      variant={act.dialog === undefined ? act.confirm.tone : act.dialog.tone}
-      label={label}
-      locked={locked}
-    />
-  );
+  const nameId = useId();
   return (
     // A flat row across the danger box, parted from the one above by the hairline every stacked part takes.
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
-        <span className="font-semibold">{act.name}</span>
+        <span
+          id={nameId}
+          className="font-semibold">
+          {act.name}
+        </span>
         <p className={statusLine({ placement: "column", tone: "resting" })}>{act.consequence}</p>
       </div>
-      {locked !== undefined ? (
-        button
-      ) : act.dialog === undefined ? (
-        <ConfirmDialog
-          {...act.confirm}
-          trigger={button}
-        />
-      ) : (
-        <Dialog
-          {...act.dialog}
-          trigger={button}
-        />
-      )}
+      {/* Its button says the verb alone, „Löschen“, so the row's name says what it acts on, as a list row's does. */}
+      <RowName value={nameId}>
+        {locked !== undefined ? (
+          <Button
+            variant={askingLook(act.dialog === undefined ? act.confirm.tone : act.dialog.tone)}
+            label={label}
+            locked={locked}
+          />
+        ) : act.dialog === undefined ? (
+          <ConfirmDialog
+            {...act.confirm}
+            trigger={{ label }}
+          />
+        ) : (
+          <Dialog
+            {...act.dialog}
+            trigger={{ label }}
+          />
+        )}
+      </RowName>
     </div>
   );
 }
@@ -105,15 +123,19 @@ function DangerRow({ act }: { act: DangerAct }) {
  * the page's own client code, which the template's server half, `EditorShell`, waits for.
  *
  * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
- * refuses: every field disabled, the reason under the first box's title, the chip „Abgeschlossen“ after the
+ * refuses: every field disabled, the reason under the first box's title, or under the lead in an editor of blocks
+ * alone, the chip „Abgeschlossen“ after the
  * title, and neither the danger box nor the bar, since there is nothing to save. A danger box whose acts are about more
  * than the closed record stays (`outlivesClosed`), as a club is retired from the league and not from a finished season.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
   chip,
+  flag,
   lead,
+  link,
   editor,
+  barText,
   sections,
   danger,
   closed,
@@ -121,32 +143,42 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /** What that status leaves unsaid, after it (`RailPage`). */
+  flag?: ChipProps;
   /**
    * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
    * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
    * changes, which the bar's status line counts.
    */
   lead?: Copy;
+  /** The way to the record's public page in the strip, such as a match's own page, once the record has one (`RailPage`). */
+  link?: { href: Route; label: Copy };
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
   closed?: Copy;
   /** The chip of a closed record whose state says more than „Abgeschlossen“. */
   closedChip?: ChipProps;
   editor: Editor<Values>;
-  sections: readonly [EditorSection, ...EditorSection[]];
+  /** The page's own words on the bar's status line, before its count of unsaved changes (`EditorBar`'s `text`). */
+  barText?: Copy;
+  sections: readonly [EditorPart, ...EditorPart[]];
   /** The danger box: its title, naming what its acts are about, and its rows. */
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct>; outlivesClosed?: true };
 }) {
   const form = useRef<HTMLFormElement>(null);
+  const titled = sections.find((section) => !("block" in section));
 
   return (
     <RailPage
       scope="area"
       title={title}
       chip={closed === undefined ? chip : closedChip}
+      flag={flag}
+      link={link}
       bar={
         closed === undefined ? (
           <EditorBar
             status={editor.status}
+            text={barText}
             isPending={editor.isPending}
             // A save the server held back asks its question from the bar, before it goes again.
             question={{ asked: editor.question, confirm: editor.confirm, decline: editor.decline }}
@@ -167,18 +199,25 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
         }}
         className={formColumn()}>
         {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
+        {/* An editor of blocks alone has no section's title to stand its reason under: it stands over the blocks, in
+            the hue a section's note takes. */}
+        {closed !== undefined && titled === undefined && <p className="text-sm text-warn">{closed}</p>}
         <FormClosed value={closed !== undefined}>
           <DraftUnsaved value={editor.count > 0 ? COPY.template.draftUnsaved : undefined}>
-            {sections.map((section, index) => (
-              <Section
-                key={section.id}
-                title={section.title}
-                help={section.help}
-                // A closed record's one reason covers every field, so it stands alone, under the first box's title.
-                note={closed === undefined ? section.note : index === 0 ? closed : undefined}>
-                {section.fields}
-              </Section>
-            ))}
+            {sections.map((section) =>
+              "block" in section ? (
+                <Fragment key={section.id}>{section.block}</Fragment>
+              ) : (
+                <Section
+                  key={section.id}
+                  title={section.title}
+                  help={section.help}
+                  // A closed record's one reason covers every field, so it stands alone, under the first box's title.
+                  note={closed === undefined ? section.note : section === titled ? closed : undefined}>
+                  {section.fields}
+                </Section>
+              ),
+            )}
             {(closed === undefined || danger?.outlivesClosed === true) && danger !== undefined && danger.acts.length > 0 && (
               <Section
                 title={danger.title}

@@ -25,8 +25,6 @@ from app.api.address_change.system_router import (
     post_address_change_moves_done,
     sweep_address_change,
 )
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.logging import JSONFormatter
@@ -133,8 +131,8 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
-            await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            await database[Collection.SCHIEDSRICHTER].insert_one(documents.ghost_schiedsrichter_document())
+            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
 
             return await body(database, client)
 
@@ -151,10 +149,10 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any
         saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
         bewerbungen_collection=replaced.get("bewerbungen_collection", database[Collection.BEWERBUNGEN]),
         registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         grants_collection=database[Collection.GRANTS],
         outbox_collection=database[Collection.OUTBOX],
         action_log_collection=database[Collection.ACTION_LOG],
+        mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
         db=client,
         germany_now=NOW,
     )

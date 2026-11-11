@@ -87,7 +87,8 @@ test("the owner stops what waits, adds an administrator and stops it, and hands 
   // Read back from the server: the role stayed, and every press above took its own touch.
   await page.reload();
   const ownerRow = page.getByRole("main").getByRole("row").filter({ hasText: OWNER });
-  await expect(ownerRow.getByText("Leitung", { exact: true })).toBeVisible();
+  // The chip is drawn after the name and in the „Stand“ column, and the list's width shows one.
+  await expect(ownerRow.getByText("Leitung", { exact: true }).filter({ visible: true })).toBeVisible();
   expect(await assertionsSigned(context), "an act on Administratoren ran with no touch of its own").toBe(touches + 4);
 
   // The log names the owner by address, and the row by what it was about.

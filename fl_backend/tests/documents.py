@@ -9,10 +9,13 @@ Invariants:
   value passes it at the call, even one equal to the default.
 - A null, `False` or `gruppenphase` default is the ordinary state a seed stands in (active, not
   withdrawn, not yet filled in), which tests rely on: a test wanting another state passes it.
+- A builder of a whole stored document answers only what its record model reads back as
+  `python -m app.readback` does, the overrides at the call included: a seed that breaks a document on
+  purpose lays the break over the builder's answer.
 """
 
 import copy
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, Final, TypeAliasType, get_args
 from zoneinfo import ZoneInfo
@@ -21,9 +24,18 @@ from bson import ObjectId
 
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
-from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
+from app.api.invitations.services import compose_invitation
+from app.api.outbox.schemas import FLBanData
+from app.api.outbox.services import OwedMail, row_of
+from app.api.registrierungen.services import compose_confirmation, compose_confirmation_update, compose_registrierung
+from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spielbestaetigungen.services import compose_ansetzung
+from app.api.spieler.services import build_ghost_spieler
+from app.api.teams.services import compose_kontakt_confirmation
 from app.core.clock import utc_stamp
+from app.core.collections import EDITED_COLLECTIONS, Collection
+from app.core.crud import VERSION_FIELD
+from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
@@ -39,6 +51,22 @@ ADDRESS: Final[Mapping[str, str]] = {
 }
 
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
+
+
+def _read_back(collection: Collection, document: dict[str, Any]) -> dict[str, Any]:
+    """`document`, once `collection`'s record model has read it as the read-back does.
+
+    The models ignore an unknown key at runtime, so a seed still writing a field its model dropped passes every case,
+    and an assertion reading that field back holds whatever the code under test did.
+    """
+
+    # The id the insert mints where the builder leaves one to it, as every stored document holds one.
+    RECORD_MODELS[collection].model_validate({"_id": ObjectId(), **document}, extra="forbid")
+    # The read-back's rule beside the model, whose `version` defaults to 0 for the runtime reads: every write of an edited
+    # collection stores one.
+    if collection in EDITED_COLLECTIONS and VERSION_FIELD not in document:
+        raise ValueError(f"a {collection} document without `{VERSION_FIELD}`, which every write of it stores")
+    return document
 
 
 def label_of(alias: TypeAliasType) -> str:
@@ -100,51 +128,62 @@ def rules_document(**overrides: Any) -> dict[str, Any]:
 def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any]:
     """The first half of the id's year, which covers the schedule the default rules imply; no `schedule`, which is derived on read."""
 
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": rules_document(),
-        "bewerbung": None,
-        "registrierung": None,
-        "version": 0,
-        **fields,
-    }
+    return _read_back(
+        Collection.SAISONS,
+        {
+            "_id": saison_id,
+            "start_date": f"{saison_id}-01-01",
+            "end_date": f"{saison_id}-06-30",
+            "status": status,
+            "rules": rules_document(),
+            "bewerbung": None,
+            "registrierung": None,
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 def team_document(team_id: Any, name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
     """`inactive_since` is written null rather than omitted: a missing key matches a `None` filter, then fails response validation."""
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "address": dict(ADDRESS),
-        "schulform": None,
-        "inactive_since": None,
-        **fields,
-    }
+    return _read_back(
+        Collection.TEAMS,
+        {
+            "_id": team_id,
+            "name": name,
+            "shorthand": shorthand,
+            "description": "",
+            "full_name": f"{name}-Schule",
+            # Off the shorthand, which spells a host whatever the name holds: a space in a name is no domain.
+            "website_url": f"https://{shorthand.lower()}.example.de",
+            "address": dict(ADDRESS),
+            "schulform": None,
+            "inactive_since": None,
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has none. The name and shorthand are the season's own copies, taken at entry."""
+    """The name and shorthand are the season's own copies, taken at entry."""
 
-    return {
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "trikot_farbe": None,
-        "kontakte": None,
-        "name": name,
-        "shorthand": shorthand,
-        "version": 0,
-        **fields,
-    }
+    return _read_back(
+        Collection.SAISON_TEAMS,
+        {
+            "saison_id": saison_id,
+            "team_id": team_id,
+            "gruppe": "A",
+            "austritt": None,
+            "trikot_farbe": None,
+            "kontakte": None,
+            "name": name,
+            "shorthand": shorthand,
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id: Any, **fields: Any) -> dict[str, Any]:
@@ -153,27 +192,30 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
     `spiel_nr` has no default: `uniq_saison_id_spiel_nr` refuses a second fixture reusing one.
     """
 
-    return {
-        "_id": spiel_id,
-        "spiel_nr": spiel_nr,
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": spieltag_id,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "date": None,
-        "time": None,
-        "spielort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "note": None,
-        "version": 0,
-        **fields,
-    }
+    return _read_back(
+        Collection.SPIELE,
+        {
+            "_id": spiel_id,
+            "spiel_nr": spiel_nr,
+            "saison_id": saison_id,
+            "saison_phase": "gruppenphase",
+            "spieltag_id": spieltag_id,
+            "team1": None,
+            "team2": None,
+            "team1_quelle": None,
+            "team2_quelle": None,
+            "date": None,
+            "time": None,
+            "spielort": None,
+            "schiedsrichter": None,
+            "ergebnis": None,
+            "elfmeterschiessen": None,
+            "sonderereignis": None,
+            "note": None,
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
@@ -206,43 +248,38 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
     """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
 
-    So its `stand` is the digest of its own values, which a hand-written one never is.
+    So its `digest` is that of its own values, which a hand-written one never is.
     """
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": spiel["saison_id"],
-        "spiel_id": spiel["_id"],
-        "party": dict(party),
-        "ansetzung": compose_ansetzung(spiel),
-        "deadline": "2026-04-25",
-        "asked_at": None,
-        "reminded_at": None,
-        "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
-        "answer": None,
-        "closed": None,
-        **fields,
-    }
+    return _read_back(
+        Collection.SPIELBESTAETIGUNGEN,
+        {
+            "_id": ObjectId(),
+            "saison_id": spiel["saison_id"],
+            "spiel_id": spiel["_id"],
+            "party": dict(party),
+            "ansetzung": compose_ansetzung(spiel),
+            "deadline": "2026-04-25",
+            "asked_at": None,
+            "reminded_at": None,
+            "answer": None,
+            "closed": None,
+            **fields,
+        },
+    )
 
 
 def bericht_document(**fields: Any) -> dict[str, Any]:
-    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer, one caution with its reason."""
-
-    at = datetime(2026, 3, 15, 20, tzinfo=UTC)
+    """A referee's first, unadopted report of a 1:0 won by `team1`: one named scorer and one caution."""
 
     return {
         "ergebnis_vorschlag": {"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
         "scorers": [{"side": "team1", "spieler_id": ObjectId(), "minute": "23", "eigentor": False}],
-        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb", "reason": "foulspiel"}],
+        "cards": [{"side": "team2", "spieler_id": ObjectId(), "minute": "45+2", "colour": "gelb"}],
         "remarks": None,
         "sides": {"team1": None, "team2": None},
-        "submitted_at": at,
-        "submitted_by": {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-        "changed_at": at,
-        "version": 1,
-        "adopted_at": None,
-        "adopted_by": None,
-        "adopted_version": None,
+        "submitted_at": datetime(2026, 3, 15, 20, tzinfo=UTC),
+        "adopted": False,
         **fields,
     }
 
@@ -254,14 +291,35 @@ def spielbericht_sides(spiel: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
-    return {
-        "_id": ObjectId(),
-        "saison_id": spiel["saison_id"],
-        "spiel_id": spiel["_id"],
-        "bericht": bericht_document(sides=spielbericht_sides(spiel)),
-        "version": 0,
-        **fields,
-    }
+    return _read_back(
+        Collection.SPIELBERICHTE,
+        {
+            "_id": ObjectId(),
+            "saison_id": spiel["saison_id"],
+            "spiel_id": spiel["_id"],
+            "bericht": bericht_document(sides=spielbericht_sides(spiel)),
+            "version": 0,
+            **fields,
+        },
+    )
+
+
+def aufstellung_document(spiel: Mapping[str, Any], team_id: Any, *, starters: Sequence[Any] = (), bench: Sequence[Any] = ()) -> dict[str, Any]:
+    """One club's line-up for `spiel` as its first save stores it, the starters ahead of the bench."""
+
+    return _read_back(
+        Collection.AUFSTELLUNGEN,
+        {
+            "_id": ObjectId(),
+            "saison_id": spiel["saison_id"],
+            "spiel_id": spiel["_id"],
+            "team_id": team_id,
+            "spieler": [
+                {"spieler_id": spieler_id, "starts": starts} for starts, ids in ((True, starters), (False, bench)) for spieler_id in ids
+            ],
+            "version": 0,
+        },
+    )
 
 
 def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
@@ -277,19 +335,93 @@ def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-0
     }
 
 
+def outbox_document(key: str, *, to: str, now: datetime, **fields: Any) -> dict[str, Any]:
+    """One owed ban notice's row as the outbox stores it, its id minted here; `now` a century ahead, as the TTL index reads it."""
+
+    owed = OwedMail(key=key, to=to, data=FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127"))
+    return _read_back(Collection.OUTBOX, {"_id": ObjectId(), **row_of(owed, now=now, secret=None, valid_until=None), **fields})
+
+
+def ghost_spieler_document() -> dict[str, Any]:
+    """The pupils' sentinel as the erasure's insert stores it."""
+
+    return _read_back(Collection.SPIELER, {**build_ghost_spieler(), "version": 0})
+
+
+def ghost_schiedsrichter_document() -> dict[str, Any]:
+    """The referees' sentinel as the erasure's insert stores it."""
+
+    return _read_back(Collection.SCHIEDSRICHTER, {**build_ghost_schiedsrichter(), "version": 0})
+
+
+def invitation_document(
+    invitation_id: Any, *, saison_id: str, team_id: Any, token: str, created_at: str, sent_at: str | None = None, **fields: Any
+) -> dict[str, Any]:
+    """One registration link as its mint stores it, live and minted for copying unless `sent_at` says it was mailed."""
+
+    return _read_back(
+        Collection.INVITATIONS,
+        {
+            "_id": invitation_id,
+            **compose_invitation(saison_id=saison_id, team_id=team_id, token_hashes=[hash_token(token)], today=created_at, sent_at=sent_at),
+            **fields,
+        },
+    )
+
+
+def spieltag_document(spieltag_id: Any, saison_id: str, position: int, **fields: Any) -> dict[str, Any]:
+    """One matchday as the draw inserts it: of the group phase and undated."""
+
+    return _read_back(
+        Collection.SPIELTAGE,
+        {
+            "_id": spieltag_id,
+            "start": None,
+            "end": None,
+            "position": position,
+            "saison_phase": "gruppenphase",
+            "saison_id": saison_id,
+            "version": 0,
+            **fields,
+        },
+    )
+
+
+def spielort_document(spielort_id: Any, name: str, *, default_mietpreis: int = 80, **fields: Any) -> dict[str, Any]:
+    """One venue as its create stores it, live, searched for by its name in Frankfurt."""
+
+    return _read_back(
+        Collection.SPIELORTE,
+        {
+            "_id": spielort_id,
+            "name": name,
+            "address": dict(ADDRESS),
+            "maps_link": f"{name}, Frankfurt",
+            "default_mietpreis": default_mietpreis,
+            "inactive_since": None,
+            "version": 0,
+            **fields,
+        },
+    )
+
+
 def spieler_document(spieler_id: Any, first_name: str, last_name: str | None, **fields: Any) -> dict[str, Any]:
     """A person as their admission writes them, the record and the date their registration carried."""
 
-    return {
-        "_id": spieler_id,
-        "first_name": first_name,
-        "last_name": last_name,
-        # One per id, folded as the admission stores it, so two seeded persons never meet on `uniq_spieler_email`.
-        "email": f"{spieler_id}@schule.example".lower(),
-        "birth_date": "2009-05-04",
-        "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
-        **fields,
-    }
+    return _read_back(
+        Collection.SPIELER,
+        {
+            "_id": spieler_id,
+            "first_name": first_name,
+            "last_name": last_name,
+            # One per id, folded as the admission stores it, so two seeded persons never meet on `uniq_spieler_email`.
+            "email": f"{spieler_id}@schule.example".lower(),
+            "birth_date": "2009-05-04",
+            "einwilligung": copy.deepcopy(dict(EINWILLIGUNG)),
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 def new_schule_document(team_name: str, **fields: Any) -> dict[str, Any]:
@@ -309,6 +441,12 @@ def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, 
     """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
     return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_confirmations(today=today).items()}
+
+
+def row_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+    """A season row's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
+
+    return {seat: {**compose_kontakt_confirmation(today=today), "token_hashes": [hashes[seat]]} for seat in KONTAKT_ROLLEN}
 
 
 def bewerbung_document(
@@ -339,29 +477,32 @@ def bewerbung_document(
         else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted)
     )
 
-    return {
-        "_id": bewerbung_id,
-        "version": 0,
-        "saison_id": saison_id,
-        "submitted_at": submitted_at,
-        "status": status,
-        "team_id": team_id,
-        "schule": None if schule is None else dict(schule),
-        "kontakte": dict(kontakte),
-        "trikot": {"existing_set": "keiner", "wunschfarbe": "rot"},
-        "kader": {"expected_size": 14, "good_spieler": 3},
-        "stufengroesse": 96,
-        "wunschgegner": None,
-        "decision": None,
-        # `confirmation_deadline` every seat's day at once, each seat's own otherwise, as the mint gave it.
-        "confirmations": {
-            seat: {**entry, "deadline": confirmation_deadline or entry.get("deadline") or confirmation_deadline_from(today=minted)}
-            if isinstance(entry, Mapping)
-            else entry
-            for seat, entry in confirmations.items()
+    return _read_back(
+        Collection.BEWERBUNGEN,
+        {
+            "_id": bewerbung_id,
+            "version": 0,
+            "saison_id": saison_id,
+            "submitted_at": submitted_at,
+            "status": status,
+            "team_id": team_id,
+            "schule": None if schule is None else dict(schule),
+            "kontakte": dict(kontakte),
+            "trikot": {"existing_set": "keiner", "wunschfarbe": "rot"},
+            "kader": {"expected_size": 14, "good_spieler": 3},
+            "stufengroesse": 96,
+            "wunschgegner": None,
+            "decision": None,
+            # `confirmation_deadline` every seat's day at once, each seat's own otherwise, as the mint gave it.
+            "confirmations": {
+                seat: {**entry, "deadline": confirmation_deadline or entry.get("deadline") or confirmation_deadline_from(today=minted)}
+                if isinstance(entry, Mapping)
+                else entry
+                for seat, entry in confirmations.items()
+            },
+            **fields,
         },
-        **fields,
-    }
+    )
 
 
 def registrierung_document(
@@ -398,16 +539,15 @@ def registrierung_document(
             position=position,
             nummer=nummer,
             stufe=stufe,
-            confirmation={**compose_bestaetigung(today=submitted_at, deadline=deadline), "token_hashes": [hash_token(token)]},
+            confirmation={**compose_confirmation(today=submitted_at, deadline=deadline, mailed=True), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
         "idempotency_key": str(registrierung_id),
-        "idempotency_fingerprint": "f" * 64,
     }
     if confirmed is not None:
         document.update(compose_confirmation_update(**confirmed)["$set"])
 
-    return {**document, **fields}
+    return _read_back(Collection.REGISTRIERUNGEN, {**document, **fields})
 
 
 def kontaktperson_document(
@@ -466,31 +606,38 @@ def ban_document(address: str, *, until: str, **fields: Any) -> dict[str, Any]:
     `until` has no default: an activation lapses the row on it, so each case names the bound it seeds.
     """
 
-    return {
-        "_id": ObjectId(),
-        "address": league_address(address),
-        "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
-        "created_at": "2026-03-15",
-        "barred_until_saison_id": until,
-        **fields,
-    }
+    return _read_back(
+        Collection.BAN_LIST,
+        {
+            "_id": ObjectId(),
+            "address": league_address(address),
+            "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
+            "created_at": "2026-03-15",
+            "barred_until_saison_id": until,
+            **fields,
+        },
+    )
 
 
 def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fields: Any) -> dict[str, Any]:
     """A live row carries an explicit null `inactive_since`, which is the shape a write leaves and what a `$match` reads."""
 
-    return {
-        "spieler_id": spieler_id,
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "is_nachnominiert": False,
-        "rolle": None,
-        "stufe": "Q2",
-        "position": "Angriff",
-        "nummer": None,
-        "inactive_since": None,
-        **fields,
-    }
+    return _read_back(
+        Collection.SAISON_SPIELER,
+        {
+            "spieler_id": spieler_id,
+            "saison_id": saison_id,
+            "team_id": team_id,
+            "is_nachnominiert": False,
+            "rolle": None,
+            "stufe": "Q2",
+            "position": "Angriff",
+            "nummer": None,
+            "inactive_since": None,
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 # --- A person's OWN records, as the sign-in gate and the account page read them. The address, the stamps
@@ -523,17 +670,21 @@ def schiedsrichter_document(
 ) -> dict[str, Any]:
     """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`)."""
 
-    return {
-        "_id": schiedsrichter_id,
-        "name": name,
-        "schule": None,
-        "default_payment": default_payment,
-        "kontakt": {"phone": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "birth_date": None,
-        "einwilligung": None if einwilligung is None else dict(einwilligung),
-        **fields,
-    }
+    return _read_back(
+        Collection.SCHIEDSRICHTER,
+        {
+            "_id": schiedsrichter_id,
+            "name": name,
+            "schule": None,
+            "default_payment": default_payment,
+            "kontakt": {"phone": "+49 69 5550202", "email": email},
+            "inactive_since": None,
+            "birth_date": None,
+            "einwilligung": None if einwilligung is None else dict(einwilligung),
+            "version": 0,
+            **fields,
+        },
+    )
 
 
 def kontakte_document(**seats: Any) -> dict[str, Any]:
@@ -542,17 +693,10 @@ def kontakte_document(**seats: Any) -> dict[str, Any]:
     return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
-def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str | None = None, media: bool | None = None) -> dict[str, Any]:
-    """`registrierung_document`'s `confirmed` for a pupil's confirmation, the returning pupil's where it asks no choice."""
+def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str, media: bool) -> dict[str, Any]:
+    """`registrierung_document`'s `confirmed` for a pupil's confirmation."""
 
-    return {
-        "birth_date": birth_date,
-        "scope": scope,
-        "media": media,
-        "text_versions": None if scope is None and media is None else SPIELER_TEXT_VERSIONS,
-        "today": today,
-        "at": at,
-    }
+    return {"birth_date": birth_date, "scope": scope, "media": media, "text_versions": SPIELER_TEXT_VERSIONS, "today": today, "at": at}
 
 
 def address_change_document(
@@ -573,9 +717,12 @@ def address_change_document(
     started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
     asked_first = way == "account"
 
-    return {
-        **compose_record(address=address, email=email, way=way, now=started),
-        "token_hashes": [] if token_hash is None else [token_hash],
-        "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
-        "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,
-    }
+    return _read_back(
+        Collection.ADDRESS_CHANGES,
+        {
+            **compose_record(address=address, email=email, way=way, now=started),
+            "token_hashes": [] if token_hash is None else [token_hash],
+            "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
+            "released_at": started.astimezone(UTC) if asked_first and token_hash is not None else None,
+        },
+    )

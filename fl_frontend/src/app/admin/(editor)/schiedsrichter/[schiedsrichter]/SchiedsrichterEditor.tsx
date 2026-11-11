@@ -39,6 +39,7 @@ type Address = { kind: "fixed"; confirmed: Copy } | { kind: "asks" };
 export function SchiedsrichterEditor({
   title,
   chip,
+  flag,
   record,
   save,
   rules,
@@ -49,6 +50,8 @@ export function SchiedsrichterEditor({
 }: {
   title: PageTitle;
   chip?: ChipProps;
+  /** What the last confirmation mail met, after the state's chip where one stands. */
+  flag?: ChipProps;
   record: EditorRecord<SchiedsrichterValues>;
   save: (change: EditorSave<SchiedsrichterValues>) => Promise<ActionAnswer<number>>;
   /** What the save asks of each box, read on the server. */
@@ -94,6 +97,7 @@ export function SchiedsrichterEditor({
     <EditorPage
       title={title}
       chip={chip}
+      flag={flag}
       editor={editor}
       danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
       sections={[
@@ -105,7 +109,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={COPY.shared.name}
                 name="name"
-                width="W3"
                 kind="text"
                 isRequired={required.name}
                 maxLength={max.name}
@@ -115,7 +118,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={FACTS.school}
                 name="schule"
-                width="W3"
                 kind="text"
                 isRequired={required.schule}
                 maxLength={max.schule}
@@ -126,7 +128,7 @@ export function SchiedsrichterEditor({
               <TextField
                 label={COPY.admin.payment}
                 name="default_payment"
-                width="C5"
+                holds={5}
                 kind="digits"
                 unit={COPY.shared.unit.euro}
                 isRequired={required.default_payment}
@@ -146,7 +148,6 @@ export function SchiedsrichterEditor({
                 <TextField
                   label={COPY.signIn.address}
                   name="email"
-                  width="W3"
                   kind="email"
                   autofill="off"
                   isDisabled
@@ -157,7 +158,6 @@ export function SchiedsrichterEditor({
                 <TextField
                   label={COPY.signIn.address}
                   name="email"
-                  width="W3"
                   kind="email"
                   autofill="off"
                   isRequired={required.email}
@@ -169,7 +169,6 @@ export function SchiedsrichterEditor({
               <TextField
                 label={FACTS.phone}
                 name="phone"
-                width="W3"
                 kind="tel"
                 isRequired={required.phone}
                 value={draft.phone}
@@ -183,16 +182,15 @@ export function SchiedsrichterEditor({
           ? []
           : [
               {
-                id: "bestaetigung",
-                title: WORDS.bestaetigung,
+                id: "confirmation",
+                title: WORDS.confirmation,
                 fields: (
                   <>
                     {confirmation.length > 0 && <Facts facts={confirmation} />}
                     {/* An act of its box, as the season editor's are: the line under it says where the link went, or why not. */}
                     {sendLink !== undefined && (
                       <SectionAct
-                        label={COPY.shared.withObject(COPY.account.address.link, "send")}
-                        run={() => sendLink({ id: record.id })}
+                        acts={[{ label: COPY.shared.withObject(COPY.account.address.link, "send"), run: () => sendLink({ id: record.id }) }]}
                       />
                     )}
                   </>

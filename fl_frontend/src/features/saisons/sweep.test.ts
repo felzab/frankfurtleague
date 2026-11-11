@@ -10,14 +10,14 @@ const RUN = "/identity/erasure/sweep";
 let runAnswer: (after: string | null) => unknown = () => ran(0, 0);
 
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
-const ran = (spieler: number, verbleibend: number, after: string | null = null) => ({
+const ran = (spieler: number, remaining: number, after: string | null = null) => ({
   completed_saison_id: "2526",
   spieler,
   saison_spieler: spieler,
   registrierungen: 0,
   skipped: 0,
   failed: 0,
-  remaining: verbleibend,
+  remaining,
   after,
 });
 
@@ -73,7 +73,7 @@ beforeEach(() => {
 
 describe("one pass of the pupils' deletion", () => {
   /* The pass is the caller's to hold: each call carries the place the call before it answered, and the first answer
-     naming none ends it, whatever `verbleibend` still counts. */
+     naming none ends it, whatever `remaining` still counts. */
   it("hands each call the place the last answer named, and calls no further once one names none", async () => {
     // The list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
     runAnswer = inTurn([ran(3, 2, ORT), ran(2, 1), ran(4, 4)]);
@@ -86,9 +86,9 @@ describe("one pass of the pupils' deletion", () => {
 
   /** Answers a call carrying no place with the failing front, and the call carrying `ORT` with the due pupil behind it. */
   const frontThen = <T>(front: T, dahinter: T, end: T) => {
-    let ohneOrt = 0;
+    let withoutSpielort = 0;
     // Bounded: a loop dropping the place ends on its fourth call rather than hanging.
-    return (after: string | null): T => (after === ORT ? dahinter : ++ohneOrt <= 3 ? front : end);
+    return (after: string | null): T => (after === ORT ? dahinter : ++withoutSpielort <= 3 ? front : end);
   };
 
   /* A share's worth of failing pupils fills the front, so the call reaching them deletes nobody while a due pupil stands

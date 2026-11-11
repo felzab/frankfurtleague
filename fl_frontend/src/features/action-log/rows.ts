@@ -13,9 +13,13 @@ const WORDS = COPY.admin.actionLog;
 
 const isPass = (action: FLAction): action is keyof typeof WORDS.passNoun => Object.hasOwn(WORDS.passNoun, action);
 
-/** What the act was about: a pass's count of what it took, or the stored label, whose address an erasure may have replaced. */
+/**
+ * What the act was about: a pass's count of what it took, an admission's of the other pending registrations it deleted
+ * where it deleted any, or the stored label, whose address an erasure may have replaced.
+ */
 function aboutOf({ action, label, count }: FLActionLogEntry): Words | null {
   if (isPass(action) && count !== null) return WORDS.passCount(WORDS.passNoun[action], count);
+  if (action === "registrierung.admitted" && count !== null && count > 0) return WORDS.admittedOthers(count);
   if (label === null) return null;
   return label === ERASED_ACTOR_MARKER ? COPY.admin.erasedActor : { record: label };
 }

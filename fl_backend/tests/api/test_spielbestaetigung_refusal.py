@@ -1,25 +1,27 @@
 from collections.abc import Iterator, Mapping
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import VEREIN_FIELDS, VIEW_SPIEL_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnswerPayload,
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
+    FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     compose_ansetzung,
-    find_spent_link_refusal,
+    find_unanswerable_refusal,
     proposal_payload,
+    state_of,
     view_ansetzung_of,
-    zustand_of,
 )
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpiel
+from app.core import clock
 from app.core.codes import Code
 
 TEAM1 = ObjectId("650000000000000000000101")
@@ -29,6 +31,7 @@ SCHIEDSRICHTER = ObjectId("650000000000000000000104")
 SPIELTAG = ObjectId("650000000000000000000105")
 
 TODAY = "2027-05-01"
+NOW = datetime(2027, 5, 1, 12, tzinfo=clock.GERMANY)
 DEADLINE = "2027-05-07"
 DATE = "2027-05-14"
 
@@ -110,9 +113,9 @@ class TestADecidedSpielTakesNoAnswer:
         ],
     )
     def test_the_answer_is_refused(self, situation: dict[str, Any]):
-        """Let through, a link tells its holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
+        """Let through, a press tells its seat holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
 
-        refusal = find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), today=TODAY)
+        refusal = find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), now=NOW)
 
         assert refusal is not None and refusal.error_code == Code.ANSETZUNG_DECIDED
 
@@ -148,7 +151,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
     So a decided fixture would show `valid`, with nothing failing.
     """
 
-    def test_the_view_reads_nothing_its_projections_leave_out(self):
+    def test_a_rows_state_reads_nothing_its_projections_leave_out(self):
         spiel_seen: set[str] = set()
         vereine_seen: set[str] = set()
         # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
@@ -157,13 +160,13 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
 
-        assert zustand_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, vorschlag_open=None) == "valid"
+        assert state_of(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW, vorschlag_open=None) == "valid"
         view_ansetzung_of(situation.spiel)
 
         # The premise: `decision_of` read the fixture to its last test.
         assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
-        assert [path for path in sorted(spiel_seen) if not loaded_by(VIEW_SPIEL_FIELDS, path)] == []
-        assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
+        assert [path for path in sorted(spiel_seen) if not loaded_by(JUDGED_SPIEL_FIELDS, path)] == []
+        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
 
     def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
@@ -173,21 +176,38 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
         )
 
-        assert find_spent_link_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
+        assert find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW) is None
 
         assert "austritt.date" in vereine_seen
-        assert [path for path in sorted(vereine_seen) if not loaded_by(VEREIN_FIELDS, path)] == []
+        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:
-    def test_only_the_day_and_the_hour_move(self):
+    @pytest.mark.parametrize(
+        "stored_raw",
+        [
+            pytest.param(spiel(), id="a group fixture"),
+            # Played before the hourly pass closed the decline, the shoot-out is the one field the plain fixture leaves null.
+            pytest.param(
+                spiel(
+                    saison_phase="achtelfinale",
+                    team1={"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": 1},
+                    team2={"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": 1},
+                    ergebnis="1:1",
+                    elfmeterschiessen={"team1": 4, "team2": 3},
+                ),
+                id="a knockout decided on penalties",
+            ),
+        ],
+    )
+    def test_only_the_day_and_the_hour_move(self, stored_raw: dict[str, Any]):
         """Every field the save writes is kept but the slot.
 
         A field dropped is a claim the judges weigh that the move does not make, and the adoption, saving this payload,
         would erase it, the note among them.
         """
 
-        stored = FLSpiel.model_validate(spiel())
+        stored = FLSpiel.model_validate(stored_raw)
         proposed = proposal_payload(stored, FLSpielbestaetigungAppointment(date="2027-05-15", time="17:00:00"))
         kept = set(SPIEL_PATCH_WRITTEN_FIELDS - {"date", "time"})
 
@@ -203,18 +223,18 @@ PROPOSED = {"date": DATE, "time": "18:00:00"}
     ("model", "body", "refused"),
     [
         (
-            FLSpielbestaetigungAnswerPayload,
+            FLSpielbestaetigungTeamAnswerPayload,
             {"answer": "declined", "vorschlag": None, "reason": None},
             ("vorschlag", "decline_without_proposal"),
         ),
         (
-            FLSpielbestaetigungAnswerPayload,
-            {"answer": "zugesagt", "vorschlag": PROPOSED, "reason": None},
+            FLSpielbestaetigungTeamAnswerPayload,
+            {"answer": "agreed", "vorschlag": PROPOSED, "reason": None},
             ("vorschlag", "acceptance_with_proposal"),
         ),
         (
-            FLSpielbestaetigungAnswerPayload,
-            {"answer": "zugesagt", "vorschlag": None, "reason": "Halle"},
+            FLSpielbestaetigungTeamAnswerPayload,
+            {"answer": "agreed", "vorschlag": None, "reason": "Halle"},
             ("reason", "acceptance_with_reason"),
         ),
         (
@@ -224,7 +244,7 @@ PROPOSED = {"date": DATE, "time": "18:00:00"}
         ),
         (
             FLSpielbestaetigungSchiedsrichterAnswerPayload,
-            {"answer": "zugesagt", "reason": "Krank"},
+            {"answer": "agreed", "reason": "Krank"},
             ("reason", "acceptance_with_reason"),
         ),
     ],
@@ -242,8 +262,26 @@ def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseMo
     At the body root, or as a bare `ValueError`, the page can place the refusal on no box and words no reason.
     """
 
-    token = {"token": "a-link"} if model is FLSpielbestaetigungAnswerPayload else {}
     with pytest.raises(ValidationError) as failure:
-        model.model_validate({**token, **body})
+        model.model_validate(body)
 
     assert [(error["loc"], error["type"]) for error in failure.value.errors()] == [((refused[0],), refused[1])]
+
+
+# `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
+KICK_OFF = clock.german_instant(DATE, spiel()["time"]).astimezone(clock.GERMANY)
+
+
+class TestARefereeAnswersUntilTheKickOff:
+    """The Einteilung names no deadline, so the kick-off alone ends a referee's answer: the report is theirs from then."""
+
+    def test_a_minute_before_it_the_answer_is_taken_and_from_it_refused(self):
+        referees = row(party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER})
+
+        before, at = (
+            find_unanswerable_refusal(spielbestaetigung_raw=referees, ansetzung_state=ansetzung_state(), now=now)
+            for now in (KICK_OFF - timedelta(minutes=1), KICK_OFF)
+        )
+
+        assert before is None
+        assert at is not None and at.error_code == Code.ANSETZUNG_DEADLINE_PAST

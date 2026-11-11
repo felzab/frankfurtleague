@@ -1,6 +1,6 @@
 import "server-only";
 
-import { sweepErasure } from "./loeschung";
+import { sweepErasure } from "./erasure";
 import { postErasureSweep } from "./mutations";
 
 /**
@@ -15,11 +15,11 @@ import { postErasureSweep } from "./mutations";
 export async function runErasureSweep() {
   const run = await sweepErasure(postErasureSweep);
 
-  if (!run.abgebrochen) {
-    const { abgebrochen: _durchgelaufen, ...zahlen } = run;
-    return { count: zahlen, open: zahlen.remaining };
+  if (!run.cutShort) {
+    const { cutShort: _finished, ...counts } = run;
+    return { count: counts, open: counts.remaining };
   }
 
-  const { abgebrochen: _abgebrochen, error, ...previous } = run;
+  const { cutShort: _cutShort, error, ...previous } = run;
   return { count: previous, open: previous.failed, error };
 }

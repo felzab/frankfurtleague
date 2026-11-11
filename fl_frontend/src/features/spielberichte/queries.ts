@@ -1,16 +1,16 @@
-import { cache } from "react";
+import "server-only";
 
-import { spielberichteGetSelf, spielberichteGetSpielberichtBericht } from "@/core/generated/client/sdk";
+import { orMissing } from "@/core/errors";
+import { spielberichteGetSpielberichtBericht } from "@/core/generated/client/sdk";
 import { runPersonRead } from "@/shared/utils/personRead";
 
-import type { FLSpielberichteSelfResponse, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
+import type { FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
-/** What the booked referee's form opens on; refused `bericht_not_officiated` once the fixture is booked to somebody else. */
-export async function getSchiedsrichterSpielbericht(spielId: string): Promise<FLSpielberichtSchiedsrichterResponse> {
-  return runPersonRead(() => spielberichteGetSpielberichtBericht(spielId));
+/**
+ * One fixture's report as its booked referee reads it, `null` for a fixture that does not exist. A person's read, so
+ * **uncached**: the backend's refusals (`bericht_not_officiated`, `role_not_held`) reach the caller, whose page says
+ * what each means for it.
+ */
+export async function getOwnSpielbericht(spielId: string): Promise<FLSpielberichtSchiedsrichterResponse | null> {
+  return runPersonRead(() => orMissing(spielberichteGetSpielberichtBericht(spielId)));
 }
-
-/** The played fixtures booked to the signed-in referee, the panel's list. */
-export const getSchiedsrichterSpielberichte = cache(async (): Promise<FLSpielberichteSelfResponse> =>
-  runPersonRead(() => spielberichteGetSelf()),
-);

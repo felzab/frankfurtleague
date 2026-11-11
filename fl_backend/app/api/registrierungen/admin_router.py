@@ -13,7 +13,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_LIST_FIELDS,
     SUBMITTED,
     build_registrierungen_sort,
-    registrierung_ist_bestaetigt,
+    registrierung_is_confirmed,
     registrierung_was_left_unmailed,
 )
 from app.api.teams.crud import pull_saison_team_names
@@ -60,7 +60,7 @@ async def get_registrierungen_admin(
             collection=registrierungen_collection,
             db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},
             limit=filters.limit + 1,
-            sort_by=build_registrierungen_sort(order="desc"),
+            sort_by=build_registrierungen_sort(),
             # An inclusion: no address, birthdate or token crosses the wire for a list showing none.
             projection=list(REGISTRIERUNG_LIST_FIELDS),
         ),
@@ -74,7 +74,7 @@ async def get_registrierungen_admin(
                     **row,
                     "id": row["_id"],
                     "team_name": team_names.get(row["team_id"]),
-                    "confirmed": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
+                    "confirmed": registrierung_is_confirmed(einwilligung=row.get("einwilligung")),
                     "unmailed": registrierung_was_left_unmailed(confirmation=row.get("confirmation")),
                 }
             )

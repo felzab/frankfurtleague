@@ -5,7 +5,7 @@ import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/Radio
 import { textOf } from "@/core/copy";
 
 import { FieldLabel, MessageLine } from "./FieldParts";
-import { choiceCard, fieldLabel, fieldRoot, messageLine, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
+import { choiceCard, fieldLabel, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 import { useEarlyEdit } from "./useEarlyEdit";
@@ -19,8 +19,11 @@ import type { Choice } from "./FieldParts";
  */
 type ListChoice = { id: string; label: Words; isDisabled?: boolean };
 
-/** An answer that needs describing: its title and the one line under it. */
-type DescribedChoice = Choice & { line: Copy };
+/**
+ * An answer that needs describing: its title and the one line under it, or its title alone where the title says the
+ * whole answer, as the same-person question's „Als … aufnehmen“ does.
+ */
+type DescribedChoice = Choice & { line?: Copy };
 
 /**
  * The circle drawn for an answer, the ring's target, so it stays the radio's direct child. Left empty in a
@@ -36,12 +39,12 @@ function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boo
   );
 }
 
-/** A listed `RadioGroup` while its record is read: its label's lines, each answer's circle and lines, its message line. */
+/** A listed `RadioGroup` while its record is read: its label's lines, and each answer's circle and lines. */
 export function RadioGroupPlaceholder({ label, choices }: { label: string; choices: readonly string[] }) {
   return (
     <div className={fieldRoot()}>
       <PlaceholderSentence
-        text={fieldLabel()}
+        textClass={fieldLabel()}
         words={label}
       />
       <div className={radioList({ layout: "list" })}>
@@ -51,21 +54,20 @@ export function RadioGroupPlaceholder({ label, choices }: { label: string; choic
             className={toggleRow({ in: "list" })}>
             <span className={placeholderBar(toggleBox({ shape: "round", class: "border-transparent" }))} />
             <PlaceholderSentence
-              text=""
+              textClass=""
               words={choice}
             />
           </span>
         ))}
       </div>
-      <span className={messageLine()} />
     </div>
   );
 }
 
 /**
  * One required choice of two to four: the label above, one drawn circle per answer, its label right. Where
- * each answer needs describing, the answers are selectable cards: the circle, the title and its line in a box,
- * the chosen box edged in green.
+ * each answer needs describing, the answers are selectable cards: the circle, the title and any line under it in a
+ * box, the chosen box edged in green.
  */
 export function RadioGroup({
   label,
@@ -123,7 +125,8 @@ export function RadioGroup({
                       />
                       <span className={card.words()}>
                         <span className={card.title()}>{textOf(choice.label)}</span>
-                        <span className={card.line()}>{choice.line}</span>
+                        {/* None without a line: an empty one would still take the grid's gap under the title. */}
+                        {choice.line !== undefined && <span className={card.line()}>{choice.line}</span>}
                       </span>
                     </>
                   )}

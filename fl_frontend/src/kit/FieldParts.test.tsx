@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { getDefaultNormalizer, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
 import { Input, TextField } from "react-aria-components/TextField";
@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { MessageLine, StatusLine } from "./FieldParts";
+import { TextField as KitTextField } from "./TextField";
 
 import type { ComponentProps } from "react";
 
@@ -29,7 +30,7 @@ describe("a form's status line", () => {
       />,
     );
     expect(screen.getByRole("status").textContent).toBe("");
-    expect(screen.getByText(COPY.template.changesPending(2))).toBeTruthy();
+    expect(screen.getByText(COPY.template.changesPending(2), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) })).toBeTruthy();
   });
 });
 
@@ -67,5 +68,21 @@ describe("a field's message line", () => {
   it("shows a message the server sent as it came", () => {
     render(<Addressed validationErrors={{ adresse: COPY.shared.field.taken }} />);
     expect(screen.getByText(COPY.shared.field.taken)).toBeTruthy();
+  });
+
+  // The harm: a consequence appearing on an edit, such as a club's rename reaching its old fixtures, stands under the
+  // field unread by a screen reader on it, which no eye and no type sees.
+  it("describes its field by a consequence that appears after the field mounted", () => {
+    const named = (consequence?: typeof COPY.shared.field.taken) => (
+      <KitTextField
+        label={COPY.shared.name}
+        name="name"
+        kind="text"
+        consequence={consequence}
+      />
+    );
+    const { rerender } = render(named());
+    rerender(named(COPY.shared.field.taken));
+    expect(screen.getByRole("textbox", { name: COPY.shared.name, description: COPY.shared.field.taken })).toBeTruthy();
   });
 });

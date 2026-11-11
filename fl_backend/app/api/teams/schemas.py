@@ -43,7 +43,7 @@ from app.shared.schemas.einwilligung import (
     FLSeatTextVersions,
     cite_their_kind,
 )
-from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
+from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
@@ -181,6 +181,24 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_is_also: FLTrainerAlso | None
 
 
+class FLKontaktpersonRecord(FLKontaktperson):
+    """One seat's person as a season row and an application store them, the address in the fold every seat lookup compares."""
+
+    email: CustomStoredAddress
+
+
+class FLSaisonTeamKontakteRecord(FLSaisonTeamKontakte):
+    """The three seats as stored, for the record models alone.
+
+    A page's read keeps the plain address, so one stray row is named by the read-back rather than refusing the whole
+    list it stands in.
+    """
+
+    trainer: FLKontaktpersonRecord | None
+    ansprechperson: FLKontaktpersonRecord | None
+    stellvertretung: FLKontaktpersonRecord | None
+
+
 class FLSaisonTeamConfirmation(BaseModel):
     """One seat's confirmation link as the season row stores it -- and NO `token_hashes`, the raw document key the link's lookup alone reads."""
 
@@ -224,7 +242,7 @@ class FLSaisonTeamRecord(Anchored):
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
     trikot_farbe: FLTrikotFarbe | None
-    kontakte: FLSaisonTeamKontakte | None
+    kontakte: FLSaisonTeamKontakteRecord | None
     confirmations: FLSaisonTeamConfirmationsRecord | None = None
     name: str
     shorthand: str
@@ -607,7 +625,8 @@ class FLTeamSaisonFacts(BaseReadModel):
     start_date: CustomDateString
     # `app/api/saisons/services.py :: has_started`, which an exit is refused before.
     begun: bool
-    # The registration window's end, the whole of a link's expiry; null for a season storing no window.
+    # The registration window's end, past which an entry through the link is a nominee (`app/api/saisons/services.py ::
+    # entry_is_a_nominee`), the link opening on until the season ends; null for a season storing no window.
     registrierung_end: CustomOptionalDateString
 
 
@@ -689,22 +708,16 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
 
 
 class FLTeamSeat(BaseModel):
-    """One seat as the people beside it see it: who holds it and whether they answered their link.
+    """One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.
 
-    No address, telephone number or birthdate: only administrators see those.
+    A Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,
+    telephone number or birthdate: only administrators see those.
     """
 
-    rolle: FLKontaktRolle
+    # The seats the entry's person holds: the Trainer's first, and the seat `trainer_is_also` names beside it.
+    rollen: list[FLKontaktRolle]
     # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
     # with two seats rather than one with a seat unfilled.
     name: str | None
     # Composed from the stamp and never the stamp itself, so no date about another person crosses.
     confirmed: bool
-
-
-class FLTeamSeatsResponse(BaseAPIResponse):
-    """A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."""
-
-    team_id: CustomObjectId
-    saison_id: str
-    seats: list[FLTeamSeat]

@@ -1,35 +1,53 @@
 import "server-only";
 
-import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { COPY } from "./copy";
+import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
+import { SERVER_COPY } from "./serverCopy";
 
-import type { Mail } from "./emailShell";
-import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
+import type { Mail, Paragraph } from "./emailShell";
+import type {
+  FLDeclinedRetentionDays,
+  FLRegistrierungAbsageData,
+  FLRegistrierungConfirmationDeadlineDays,
+  FLRegistrierungLinkData,
+} from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
 
-// Beside the builders that spend it rather than in the slice: `core` may not import a feature.
+/**
+ * The window the mail states, checked against `fl_backend/app/shared/schemas/bounds.py ::
+ * REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`: the backend moving it fails the type check here. Its own copy beside the
+ * slice's, since `core` may not import a feature.
+ */
+const DEADLINE_DAYS = 14 satisfies FLRegistrierungConfirmationDeadlineDays;
 
 /**
- * The one place a pupil's confirmation link is spelled.
+ * The days a declined registration stands before the sweep deletes it, checked against
+ * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS` as `DEADLINE_DAYS` is.
+ */
+const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
+
+const WORDS = SERVER_COPY.mail.registrierung;
+
+/**
+ * The one place a pupil's confirmation link is spelled, beside the builder that spends it rather than in the slice:
+ * `core` may not import a feature.
  *
  * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that name;
  * a second spelling reaches the access line and the referer unredacted.
  */
-function spielerBestaetigungsLink(origin: string, token: string): string {
+function spielerConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
 }
 
 /**
  * The link a submission mints, named for the deadline the sweep deletes on. It names no pupil: this address has proved
- * nothing, and after a typo its stranger is owed no pupil's name.
+ * nothing, and after a typo its stranger is owed no pupil's name. Its lead is the confirmation page's own.
  *
- * **The number is the backend's bound, never a word here**: the mail and the page would otherwise state two
- * deadlines, and one would not move.
+ * **The number is the backend's published bound, never a word here**: the mail and the page would otherwise state
+ * two deadlines, and one would not move.
  */
-export function buildRegistrierungBestaetigungEmail(
-  { team: teamName, saison_id: saisonId, deadline_days: fristTage }: FLRegistrierungLinkData,
-  { origin, token }: MailLink,
-): Mail {
+export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId }: FLRegistrierungLinkData, { origin, token }: MailLink): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
@@ -39,49 +57,14 @@ export function buildRegistrierungBestaetigungEmail(
     kind: "firstContact",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
-    subjectLine: `Registrierung für ${teamName} bestätigen`,
+    subjectLine: WORDS.confirmation.subject(team),
     origin: site,
     paragraphs: [
-      [["Du hast Dich für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
-      [
-        "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf.",
-        "Erst danach kann Dein Team Dich in den Kader aufnehmen.",
-      ],
-      [
-        `Bestätigst Du nicht innerhalb von ${String(fristTage)} Tagen, löschen wir die Registrierung mit allen Angaben.`,
-        "Du kannst Dich dann über den Link Deines Teams neu registrieren.",
-      ],
+      [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
+      [WORDS.confirmation.confirm, WORDS.confirmation.admission],
+      [WORDS.confirmation.deadlineIn(DEADLINE_DAYS)],
     ],
-    button: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
-  };
-}
-
-/**
- * The sweep's one reminder.
- *
- * It says that the deadline has not moved, because a reminder that merely repeats the request reads
- * as a fresh clock — and the row is erased on the day the first message named.
- */
-export function buildRegistrierungErinnerungEmail(
-  { team: teamName, saison_id: saisonId, deadline_days: fristTage }: FLRegistrierungLinkData,
-  { origin, token }: MailLink,
-): Mail {
-  const site = mailOrigin(origin);
-
-  return {
-    kind: "firstContact",
-    subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
-    origin: site,
-    paragraphs: [
-      [["Deine Registrierung für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
-      [
-        `Die Frist von ${String(fristTage)} Tagen läuft weiter.`,
-        "Diese Erinnerung verschiebt sie nicht.",
-        "Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.",
-      ],
-      ["Der Link aus der ersten E-Mail funktioniert weiterhin.", "Dieser hier funktioniert genauso."],
-    ],
-    button: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
+    button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
   };
 }
 
@@ -89,12 +72,9 @@ export function buildRegistrierungErinnerungEmail(
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
-const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reason"]> | "none", readonly [string, ...string[]]>> = {
-  other_person: [
-    "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen.",
-    "Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
-  ],
-  none: ["Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team."],
+const DECLINE_NEXT_STEPS: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reason"]> | "none", Paragraph>> = {
+  other_person: [WORDS.absage.otherPerson, WORDS.absage.registerAgain],
+  none: [WORDS.absage.askTeam],
 };
 
 /**
@@ -104,22 +84,19 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["reas
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail(
-  { team: teamName, saison_id: saisonId, reason }: FLRegistrierungAbsageData,
-  { origin }: MailOrigin,
-): Mail {
+export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reason }: FLRegistrierungAbsageData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
 
   return {
     kind: "notice",
-    subjectLine: `Deine Registrierung für ${teamName}`,
+    subjectLine: WORDS.absage.subject(team),
     origin: site,
     paragraphs: [
-      [[{ strong: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
-      ABSAGE_WEITER[reason ?? "none"],
-      ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],
+      [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
+      DECLINE_NEXT_STEPS[reason ?? "none"],
+      [WORDS.absage.deletion(DECLINED_RETENTION_DAYS)],
     ],
     // The league's landing: no record is left to press on.
-    button: { label: `Zur ${BRAND_NAME}`, href: site },
+    button: { label: COPY.shared.end.toHome, href: site },
   };
 }

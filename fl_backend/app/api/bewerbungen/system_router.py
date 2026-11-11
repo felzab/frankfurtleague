@@ -11,14 +11,14 @@ from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     acceptance_erasure_is_due,
     build_deletion_filter,
-    build_erinnerung_filter,
     build_lapsed_seats_filter,
+    build_reminder_filter,
     closed_chases,
     compose_chase_update,
-    compose_erinnerung_update,
     compose_lapsed_seats_update,
+    compose_reminder_update,
     days_after,
-    decline_loeschung_is_due,
+    decline_erasure_is_due,
     deletion_is_due,
     lapsed_seats,
     next_saison_id,
@@ -29,7 +29,7 @@ from app.api.bewerbungen.services import (
     schule_name,
     season_after_has_ended,
     season_has_ended,
-    undecided_loeschung_is_due,
+    undecided_erasure_is_due,
     unreachable_seats,
 )
 from app.api.kontakte.crud import remove_the_seats_reasons
@@ -37,15 +37,15 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
-from app.api.spielbestaetigungen.services import HeldSeats, kontakte_without, seat_void_of
-from app.api.teams.crud import pull_team_names, void_moved_seats
+from app.api.spielbestaetigungen.services import HeldSeats
+from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     anchor_in_db,
     delete_many_from_db,
-    patch_many_in_db,
     patch_one_in_db,
+    patch_past_the_version_in_db,
     pull_many_from_db,
     pull_one_from_db,
 )
@@ -54,6 +54,7 @@ from app.core.dependencies import (
     DBClient,
     OutboxCollection,
     SaisonsCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
@@ -121,7 +122,7 @@ async def pull_the_season_after(
 
 
 @router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the sweep has to visit")
-async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSweepSaisonsResponse:
+async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
     seasons = await pull_many_from_db(
@@ -182,7 +183,7 @@ async def sweep_saison(
 
         return result.deleted_count
 
-    async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+    async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The season's own end, undecided having served nothing: owe the notice and erase. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -200,7 +201,7 @@ async def sweep_saison(
         owed = batch.judged(
             [
                 row
-                for row, due in batch.judged(rows, lambda row: undecided_loeschung_is_due(bewerbung_raw=row, saison_status=saison_status))
+                for row, due in batch.judged(rows, lambda row: undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status))
                 if due
             ],
             lambda row: owed_deletion_notices(bewerbung_raw=row, saison_id=saison_id),
@@ -229,7 +230,7 @@ async def sweep_saison(
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
+                db_filter=batch.within(build_reminder_filter(saison_id=saison_id, today=today)),
                 limit=SWEEP_PAGE + 1,
                 # Oldest first, as near the fourteen-day clock's order as a key on the record comes, each seat keeping
                 # its own day; `_id` makes the page the same page whichever plan the server picks.
@@ -284,19 +285,19 @@ async def sweep_saison(
         written = batch.took([row for row in rows if row["_id"] in closing or row["_id"] in mailing])
         refuse_a_stalled_page(read=len(rows), moved=len(written), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
 
+        # Past the version, the stamps and the chases' both: mail bookkeeping no form saves, so a decision read before the
+        # pass still lands.
         for row, _ in taken:
-            await patch_one_in_db(
+            await patch_past_the_version_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
-                update=compose_erinnerung_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
+                update=compose_reminder_update(seats=[seat for _, seats in people_of[row["_id"]] for seat in seats], today=today),
                 session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
             )
         # One write a seat, however many rows, a write a row being a page's worth of commands.
         for seat in KONTAKT_ROLLEN:
             if ids := [row_id for row_id, seats in closing.items() if seat in seats]:
-                await patch_many_in_db(
+                await patch_past_the_version_in_db(
                     collection=bewerbungen_collection,
                     db_filter={"_id": {"$in": ids}},
                     update=compose_chase_update(seats=[seat], closed_at=today),
@@ -312,7 +313,7 @@ async def sweep_saison(
 
         return len(taken)
 
-    async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+    async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The fourteen-day clock: owe the notice and erase in one transaction. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -348,7 +349,7 @@ async def sweep_saison(
 
         return len(rows), await erase_page(ids, session)
 
-    async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
+    async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The decline clock. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -368,7 +369,7 @@ async def sweep_saison(
                 session=session,
             )
         )
-        taken = batch.took([row for row in rows if decline_loeschung_is_due(bewerbung_raw=row, today=today)])
+        taken = batch.took([row for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)])
         if not taken:
             refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0
@@ -427,10 +428,8 @@ async def sweep_saison(
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
         taken = batch.took(junction_rows[: batch.share])
 
-        # One patch per row and never `patch_many_in_db`: each row's stored seats name the match links its void takes.
-        voids = []
         for row in taken:
-            before = await patch_one_in_db(
+            await patch_one_in_db(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
                 # The links go with their people: each holds a token hash and the delivery record of the
@@ -440,21 +439,17 @@ async def sweep_saison(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-            voids.append(seat_void_of(saison_id=saison_id, team_id=before["team_id"], stored_kontakte=before.get("kontakte"), kontakte=None))
-        # Once for the share, so voiding its people's match links costs the pass the same however many rows it
-        # clears.
-        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
-        if voids:
+        if taken:
             await record_act(
                 collection=saison_teams_collection,
                 action="retention.kontakte",
                 by=ACT_BY_SYSTEM,
                 label=saison_id,
-                count=len(voids),
+                count=len(taken),
                 session=session,
             )
 
-        return len(voids)
+        return len(taken)
 
     async def clear_the_lapsed_seats(session: AsyncClientSession, batch: Batch) -> int:
         """A season row's seat past its own day unconfirmed, a share of rows a pass. Read in-session, so a retry re-judges."""
@@ -473,7 +468,6 @@ async def sweep_saison(
 
         emptied = 0
         held: list[HeldSeats] = []
-        voids = []
         for row in taken:
             stored_kontakte = row.get("kontakte")
             seats = lapsed_seats(kontakte=stored_kontakte, confirmations=row.get("confirmations"), today=today)
@@ -487,17 +481,8 @@ async def sweep_saison(
             )
             emptied += len(seats)
             held.append(HeldSeats(saison_id=saison_id, team_id=row["team_id"], seats=tuple(seats)))
-            voids.append(
-                seat_void_of(
-                    saison_id=saison_id,
-                    team_id=row["team_id"],
-                    stored_kontakte=stored_kontakte,
-                    kontakte=kontakte_without(stored_kontakte, seats),
-                )
-            )
 
-        # Once for the share, as the blocks' void is: the seats' people leave as a Widerspruch's do.
-        await void_moved_seats(spielbestaetigungen_collection=spielbestaetigungen_collection, voids=voids, session=session)
+        # Once for the share: the seats' people leave as a Widerspruch's do.
         await remove_the_seats_reasons(spielbestaetigungen_collection=spielbestaetigungen_collection, held=held, session=session)
         if emptied:
             await record_act(
@@ -538,22 +523,22 @@ async def sweep_saison(
         await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
-    ohne_entscheidung, failed = 0, 0
+    undecided, failed = 0, 0
     # AHEAD of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, passed = await drain(
+        undecided, passed = await drain(
             db=db,
-            page_of=loeschen_the_undecided,
+            page_of=erase_the_undecided,
             page=SWEEP_PAGE,
             what="Application",
             clock="season's end",
         )
         failed += len(passed)
 
-    abgelehnte, passed = await drain(
+    declined, passed = await drain(
         db=db,
-        page_of=loeschen_declined,
+        page_of=erase_declined,
         page=SWEEP_PAGE,
         what="Application",
         clock="decline",
@@ -623,7 +608,7 @@ async def sweep_saison(
     # chase, and a season that has ended took its undecided rows already.
     erased_count, passed = await drain(
         db=db,
-        page_of=loeschen_the_unconfirmed,
+        page_of=erase_the_unconfirmed,
         page=SWEEP_PAGE,
         what="Application",
         clock="fourteen-day",
@@ -645,9 +630,9 @@ async def sweep_saison(
         saison_id=saison_id,
         reminded=sum(reminded),
         erased=erased_count,
-        erased_declined=abgelehnte,
+        erased_declined=declined,
         erased_accepted=accepted,
-        erased_without_decision=ohne_entscheidung,
+        erased_without_decision=undecided,
         kontakt_blocks_emptied=emptied,
         kontakt_seats_emptied=seats_emptied,
         failed=failed,

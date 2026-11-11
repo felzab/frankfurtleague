@@ -39,11 +39,11 @@ from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
     GrantsCollection,
+    MailboxAnchorsCollection,
     OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
-    SpielbestaetigungenCollection,
     SpielerCollection,
     get_germany_now,
 )
@@ -125,10 +125,10 @@ async def _make_the_due_change_take_effect(
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
+    mailbox_anchors_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
 ) -> Literal["effective", "discarded"]:
@@ -163,10 +163,10 @@ async def _make_the_due_change_take_effect(
                 saison_teams_collection=saison_teams_collection,
                 bewerbungen_collection=bewerbungen_collection,
                 registrierungen_collection=registrierungen_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
                 grants_collection=grants_collection,
                 outbox_collection=outbox_collection,
                 action_log_collection=action_log_collection,
+                mailbox_anchors_collection=mailbox_anchors_collection,
                 now=now,
                 session=session,
             )
@@ -209,10 +209,10 @@ async def sweep_address_change(
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     action_log_collection: ActionLogCollection,
+    mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeSweepResponse:
@@ -310,10 +310,10 @@ async def sweep_address_change(
                 saison_teams_collection=saison_teams_collection,
                 bewerbungen_collection=bewerbungen_collection,
                 registrierungen_collection=registrierungen_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
                 grants_collection=grants_collection,
                 outbox_collection=outbox_collection,
                 action_log_collection=action_log_collection,
+                mailbox_anchors_collection=mailbox_anchors_collection,
                 db=db,
                 now=germany_now,
             )
@@ -340,7 +340,7 @@ async def sweep_address_change(
 
 
 @router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
-async def get_address_change_moves(address_changes_collection: AddressChangeCollection) -> FLAddressChangeMovesResponse:
+async def get_address_change_moves(address_changes_collection: AddressChangeReadCollection) -> FLAddressChangeMovesResponse:
     """
     List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
 

@@ -65,7 +65,7 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
   const { place, root, lines, arrow, glyph } = trigger({ placement });
   if (!holds) return null;
   return (
-    <Placeholder layout={place()}>
+    <Placeholder layoutClass={place()}>
       <span className={root()}>
         {placement === "rail" ? (
           <>
@@ -74,18 +74,18 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
             </span>
             <span className={lines({ class: "w-full" })}>
               <PlaceholderLine
-                text="text-sm"
+                textClass="text-sm"
                 words={SAISON_WORDS}
               />
               <PlaceholderLine
-                text="text-xs"
-                width="w-3/4"
+                textClass="text-xs"
+                widthClass="w-3/4"
               />
             </span>
           </>
         ) : (
           <PlaceholderLine
-            text="text-sm"
+            textClass="text-sm"
             words={SAISON_WORDS}
           />
         )}
@@ -100,7 +100,8 @@ export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "ba
 /**
  * Switching season, at the top of the rail or in the phone's top band: always a menu, even with one
  * season, and nothing where the frame holds no season. Each entry is the page shown, in that season, read
- * from the address on the client, so the layout placing the frame need not know the page beneath it.
+ * from the address on the client, so the layout placing the frame need not know the page beneath it. In a
+ * team's frame the seasons are those of the team the address names, and each entry is that team's page.
  */
 export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
   const saison = useFrameSaison();
@@ -127,7 +128,7 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
             href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }),
             isCurrent: id === saison.active,
             // The browser's Back skips a season switch, returning to the page before the season's pages.
-            routerOptions: { replace: true },
+            replace: true,
           })),
         ]}
         trigger={

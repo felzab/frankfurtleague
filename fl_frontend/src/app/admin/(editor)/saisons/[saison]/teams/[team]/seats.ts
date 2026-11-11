@@ -61,7 +61,7 @@ export function seatsOf({
   confirmations,
 }: Pick<FLTeamMembership, "kontakte" | "confirmations">): ReadonlyArray<Omit<SeatRow, "acts"> & { target: SeatTarget }> {
   const covered = kontakte == null ? null : seatBesideTrainer(kontakte);
-  return KONTAKT_ROLLEN.filter(({ value }) => value !== covered).map(({ value: rolle }) => {
+  return KONTAKT_ROLLEN.filter((rolle) => rolle !== covered).map((rolle) => {
     const person = kontakte?.[rolle] ?? null;
     const link = confirmations?.[rolle] ?? null;
     const rollen: FLKontaktRolle[] = rolle === "trainer" && covered !== null ? [rolle, covered] : [rolle];

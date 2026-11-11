@@ -9,9 +9,9 @@ from collections.abc import Callable
 
 import pytest
 
-from app.api.bewerbungen.services import find_alter_refusal as find_contact_age_refusal
-from app.api.registrierungen.services import find_alter_refusal as find_pupil_age_refusal
-from app.api.schiedsrichter.services import find_alter_refusal as find_referee_age_refusal
+from app.api.bewerbungen.services import find_age_refusal as find_contact_age_refusal
+from app.api.registrierungen.services import find_age_refusal as find_pupil_age_refusal
+from app.api.schiedsrichter.services import find_age_refusal as find_referee_age_refusal
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS

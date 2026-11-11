@@ -14,7 +14,8 @@ from pymongo.errors import PyMongoError
 
 from app.api.action_log.schemas import FLActionLogRecord
 from app.api.address_change.schemas import FLAddressChangeRecord
-from app.api.ban_list.schemas import FLBanListRow
+from app.api.aufstellungen.schemas import FLAufstellung
+from app.api.ban_list.schemas import FLBanListRecord
 from app.api.bewerbungen.schemas import FLBewerbungRecord, FLMailboxAnchorRecord
 from app.api.grants.schemas import FLGrantRecord
 from app.api.invitations.schemas import FLInvitationRecord
@@ -25,7 +26,7 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
 from app.api.spielberichte.schemas import FLSpielbericht
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungRecord
 from app.api.spiele.schemas import FLSpiel
-from app.api.spieler.schemas import FLSaisonSpielerRecord, FLSpielerRecord
+from app.api.spieler.schemas import FLSaisonSpielerRow, FLSpielerRecord
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltagRecord
 from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
@@ -37,7 +38,7 @@ from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SAISONS: FLSaisonRecord,
     Collection.SAISON_TEAMS: FLSaisonTeamRecord,
-    Collection.SAISON_SPIELER: FLSaisonSpielerRecord,
+    Collection.SAISON_SPIELER: FLSaisonSpielerRow,
     Collection.SPIELE: FLSpiel,
     Collection.SPIELTAGE: FLSpieltagRecord,
     Collection.TEAMS: FLTeamRecord,
@@ -46,12 +47,13 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
     Collection.BEWERBUNGEN: FLBewerbungRecord,
     Collection.ACTION_LOG: FLActionLogRecord,
-    Collection.BAN_LIST: FLBanListRow,
+    Collection.BAN_LIST: FLBanListRecord,
     Collection.INVITATIONS: FLInvitationRecord,
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
     Collection.GRANTS: FLGrantRecord,
     Collection.SPIELBESTAETIGUNGEN: FLSpielbestaetigungRecord,
     Collection.SPIELBERICHTE: FLSpielbericht,
+    Collection.AUFSTELLUNGEN: FLAufstellung,
     Collection.ADDRESS_CHANGES: FLAddressChangeRecord,
     Collection.OUTBOX: FLOutboxRow,
     Collection.MAILBOX_ANCHORS: FLMailboxAnchorRecord,

@@ -353,7 +353,7 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." \
     && ok "every peer in range"
 
   # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
-  # one package; HeroUI's components then split React context with the app's.
+  # one package, and two copies of React Aria split the contexts its components share.
   step "frontend · pnpm  (no copy a dedupe would remove)"
   check "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
 Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
@@ -369,23 +369,8 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   step "frontend · tsc"
   check "tsc found type errors." in_dir fl_frontend pnpm typecheck:only && ok "no type errors"
 
-  # ESLint exits 2 for a count in eslint-suppressions.json larger than what its file still breaks, the
-  # code it gives a crash, and never reads a deleted file's counts. The lint runs against a copy it
-  # prunes as it goes, so its 2 is a crash alone; a copy the prune changed held either kind of stale
-  # count, which is a finding.
   step "frontend · eslint"
-  local pruned=node_modules/.cache/eslint/pruned-suppressions.json
-  in_dir fl_frontend mkdir -p node_modules/.cache/eslint
-  in_dir fl_frontend cp eslint-suppressions.json "$pruned"
-  if check "eslint failed." in_dir fl_frontend pnpm lint --prune-suppressions --suppressions-location "$pruned"; then
-    ok "lint clean"
-    step "frontend · eslint  (every suppression still counts what its file breaks)"
-    check "fl_frontend/eslint-suppressions.json counts a violation its file no longer has, or a file that no longer
-exists; the diff above names each entry.
-Fix with:  cd fl_frontend && pnpm exec eslint --prune-suppressions  -- then commit the file." \
-      in_dir fl_frontend diff eslint-suppressions.json "$pruned" \
-      && ok "every suppression still used"
-  fi
+  check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
   check "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \

@@ -75,8 +75,9 @@ export default function SchiedsrichterPage() {
 /** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
+  state: { label: COPY.admin.schiedsrichter.state },
   columns: [
-    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line" },
+    { key: "email", label: COPY.signIn.address, hideOnPhone: true, width: "line", cut: true },
     { key: "phone", label: COPY.shared.facts.phone, hideOnPhone: true, width: "phone" },
   ],
 };

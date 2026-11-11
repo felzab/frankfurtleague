@@ -25,7 +25,7 @@ export type Pair = { readonly team1: number; readonly team2: number };
 
 // Every instant is shown on the league's clock: without a zone the runtime's decides, so a server in
 // UTC and a browser elsewhere disagree about the day and the hour. The frontend's one spelling of it.
-export const TIME_ZONE = "Europe/Berlin";
+const TIME_ZONE = "Europe/Berlin";
 
 const DATE = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 const DATE_WITH_WEEKDAY = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, weekday: "short", day: "2-digit", month: "2-digit" });
@@ -70,6 +70,9 @@ export const bornBy = (today: CalendarDay, years: number): CalendarDay => yearsL
 
 /** The day before `day`. */
 export const dayBefore = (day: CalendarDay): CalendarDay => parseDate(day).subtract({ days: 1 }).toString() as CalendarDay;
+
+/** The day after `day`. */
+export const dayAfter = (day: CalendarDay): CalendarDay => parseDate(day).add({ days: 1 }).toString() as CalendarDay;
 
 /** The earliest birthdate at most `years` old on `today`: the day after the latest that is a year older. */
 export const bornAfter = (today: CalendarDay, years: number): CalendarDay =>

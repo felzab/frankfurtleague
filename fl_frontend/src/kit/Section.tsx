@@ -7,7 +7,9 @@ import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
 import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
-import { fieldFrame, fieldRoot, messageLine, statusLine } from "./fieldStyles";
+import { FieldStack } from "./FieldStack";
+import { fieldFrame, fieldRoot, statusLine } from "./fieldStyles";
+import { FormFooterPlaceholder } from "./FormFooter";
 import { HelpPopover } from "./HelpPopover";
 import { ScoreRowsPlaceholder } from "./ScoreRows";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
@@ -33,7 +35,8 @@ export function SectionTitle({ text, level = 2, tone }: { text: Words; level?: 2
 
 /**
  * The edge of a box holding acts that destroy or retire, an editor's danger box and Konto's deletion box: the danger
- * hue in place of the hairline, as GitHub's danger zone marks its box, the red fill kept for the buttons that destroy.
+ * hue in place of the hairline, as GitHub's danger zone marks its box, its buttons outlined with words in the same hue
+ * (`buttonStyles.ts :: askingLook`), the red fill kept for the question's press that destroys.
  */
 export const dangerEdge = tv({ base: "border-danger" });
 
@@ -51,12 +54,22 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 export const boxHead = tv({
   slots: {
     head: "grid gap-1 p-4",
-    content: "grid justify-items-start p-4",
+    // The box's 16 px on every side, around the content's `FieldStack`.
+    content: "grid p-4",
   },
   variants: {
     ruled: { true: { head: "border-b border-border" } },
   },
 });
+
+/**
+ * A hairline between two parts of a section that one title holds, such as a match's score and its Sonderereignis:
+ * across the box's whole width as the rule under the title, the fields' 16 px from the parts over and under it, which
+ * is the box's own inset.
+ */
+export function SectionRule() {
+  return <hr className="-mx-4 justify-self-stretch border-t border-border" />;
+}
 
 /**
  * One flat row of an editor's danger box: its name and its consequence at the left, its button at the right, parted
@@ -65,46 +78,62 @@ export const boxHead = tv({
 export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
 
 /**
- * One row of a section as its placeholder draws it: one field at a long field's width, two in one row as `FieldPair`
- * sets them, `FieldRows`' rows of one kind at their width class, a match's score, a subgroup's name over the rows
- * after it, a field whose label the section's title is (`titled`, at its width), an act of the section (`SectionAct`)
- * by its label, its status line under it, or the placeholder of whatever else the section holds, such as its facts' or
- * a table's.
+ * One row of a section as its placeholder draws it: one field at the standard width, two forming one value as
+ * `FieldPair` sets them, `FieldRows`' rows of one kind by what they hold, a match's score, the hairline between two
+ * groups of fields (`SectionRule`), a subgroup's name over the rows after it, a field whose label the section's title
+ * is (`titled`, at its width), the section's footer strip with its acts (`SectionAct`) by their labels, last, or the
+ * placeholder of whatever else the section holds, such as its facts' or a table's.
  */
 export type FieldRow =
-  "field" | "pair" | "subhead" | "score" | { rows: 2 | 3; width: "C2" | "C10" } | { titled: "fit" | "W4" } | { act: Copy } | ReactElement;
+  | "field"
+  | "pair"
+  | "subhead"
+  | "score"
+  | "rule"
+  | { rows: 2 | 3; holds: "count" | "day" }
+  | { titled: "field" | "paragraph" }
+  | { acts: readonly [Copy, ...Copy[]] }
+  | ReactElement;
+
+/** A titled field's frame: a single line at the standard width, or a paragraph at the box's. */
+const TITLED_CLASSES = { field: fieldFrame.variants.width.standard, paragraph: fieldFrame.variants.width.full } as const;
 
 function RowPlaceholder({ row }: { row: FieldRow }) {
   if (isValidElement(row)) return row;
+  if (row === "rule") return <SectionRule />;
   if (row === "pair") return <FieldPairPlaceholder />;
-  if (row === "field") return <FieldPlaceholder width="W3" />;
+  if (row === "field") return <FieldPlaceholder />;
   if (row === "score") return <ScoreRowsPlaceholder />;
   if (row === "subhead")
     return (
       <PlaceholderLine
-        // The subgroup's space above its name, and under it the grid's 8-px gap in place of the name's own.
-        text={subgroup().name({ class: "mb-0 not-first:mt-2" })}
-        width="w-24"
+        // The subgroup's space above its name, and under it the name's own 8 px, taken back out of the stack's 16.
+        textClass={subgroup().name({ class: "-mb-2 not-first:mt-2" })}
+        widthClass="w-24"
       />
     );
   if ("titled" in row)
     return (
       <div className={fieldRoot()}>
-        <span className={placeholderBar(`rounded-lg ${fieldFrame.variants.width[row.titled]}`)} />
-        <span className={messageLine()} />
+        <span className={placeholderBar(`rounded-lg ${TITLED_CLASSES[row.titled]}`)} />
       </div>
     );
-  if ("act" in row)
+  if ("acts" in row)
     return (
-      <>
-        <span className={buttonPlaceholder()}>{row.act}</span>
-        <span className={statusLine({ placement: "column" })} />
-      </>
+      <FormFooterPlaceholder place="section">
+        {row.acts.map((act) => (
+          <span
+            key={act}
+            className={buttonPlaceholder()}>
+            {act}
+          </span>
+        ))}
+      </FormFooterPlaceholder>
     );
   return (
     <FieldRowsPlaceholder
       rows={row.rows}
-      width={row.width}
+      holds={row.holds}
     />
   );
 }
@@ -117,36 +146,44 @@ export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
 
 /**
  * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
- * fields' placeholders row by row, 8 px apart as its fields stand, so the box stands as tall as the section will. `note`
+ * fields' placeholders row by row in the fields' own `FieldStack`, so the box stands as tall as the section will. `note`
  * is the words of the line a section's closed state stands under its title, set unseen, where the section can carry
- * one. An editor's danger box takes `danger` in their place, one flat row each.
+ * one. An editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge
+ * `list`, the list's own placeholder.
  */
 export function SectionPlaceholder(
-  props: { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never } | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never },
+  props:
+    | { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never; list?: never }
+    | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never; list?: never }
+    | { list: ReactElement; rows?: never; note?: never; danger?: never },
 ) {
   const slots = boxHead({ ruled: true });
   return (
     <div className={cardSurface({ class: props.danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
         <PlaceholderLine
-          text="text-base font-semibold"
-          width="w-1/3"
+          textClass="text-base font-semibold"
+          widthClass="w-1/3"
         />
         {props.note !== undefined && (
           <PlaceholderSentence
-            text="text-sm"
+            textClass="text-sm"
             words={props.note}
           />
         )}
       </div>
-      {props.danger === undefined ? (
-        <div className={slots.content({ class: "gap-2" })}>
-          {props.rows.map((row, index) => (
-            <RowPlaceholder
-              key={index}
-              row={row}
-            />
-          ))}
+      {props.list !== undefined ? (
+        <div className="grid">{props.list}</div>
+      ) : props.danger === undefined ? (
+        <div className={slots.content()}>
+          <FieldStack>
+            {props.rows.map((row, index) => (
+              <RowPlaceholder
+                key={index}
+                row={row}
+              />
+            ))}
+          </FieldStack>
         </div>
       ) : (
         <div className="grid">
@@ -156,11 +193,11 @@ export function SectionPlaceholder(
               className={dangerRow()}>
               <div className="grid min-w-0 flex-1">
                 <PlaceholderSentence
-                  text="text-sm font-semibold"
+                  textClass="text-sm font-semibold"
                   words={name}
                 />
                 <PlaceholderSentence
-                  text={statusLine({ placement: "column", tone: "resting" })}
+                  textClass={statusLine({ placement: "column", tone: "resting" })}
                   words={consequence}
                 />
               </div>
@@ -185,6 +222,7 @@ export function Section({
   help,
   note,
   danger,
+  list,
   children,
 }: {
   title: Copy;
@@ -194,9 +232,14 @@ export function Section({
   note?: Copy;
   /** An editor's irreversible and retiring acts, one row each, filling the box's width: `EditorPage`'s danger rows. */
   danger?: ReactNode;
+  /**
+   * A list whose own hairlines reach the box's edges, such as a list of records (`RecordRows`): it fills the box's
+   * width under the rule and brings its own insets, where `children` stand in the box's padding.
+   */
+  list?: ReactNode;
   children?: ReactNode;
 }) {
-  const slots = boxHead({ ruled: children !== undefined || danger !== undefined });
+  const slots = boxHead({ ruled: children !== undefined || danger !== undefined || list !== undefined });
   return (
     <section className={cardSurface({ class: danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
       <div className={slots.head()}>
@@ -222,9 +265,12 @@ export function Section({
         </div>
         {note !== undefined && <p className="text-sm text-warn">{note}</p>}
       </div>
-      {/* Each child at its own width: a field fills the column itself, a button among the fields keeps its. 8 px
-          apart, each field's message line, always there, holding the rest of the space between two fields. */}
-      {children !== undefined && <div className={slots.content({ class: "gap-2" })}>{children}</div>}
+      {children !== undefined && (
+        <div className={slots.content()}>
+          <FieldStack>{children}</FieldStack>
+        </div>
+      )}
+      {list !== undefined && <div className="grid">{list}</div>}
       {danger !== undefined && <div className="grid">{danger}</div>}
     </section>
   );

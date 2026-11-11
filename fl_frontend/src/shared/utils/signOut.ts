@@ -2,7 +2,8 @@ import "client-only";
 
 import { COPY } from "@/core/copy";
 
-import type { SignOutResult } from "@/shared/types/types";
+/** A sign-out's answer. Its success carries no sentence: the start page replaces the document before a toast could be read. */
+type SignOutResult = { success: true } | { success: false; error: string; outcome?: "unknown" };
 
 /** The sign-in library's own sign-out, on its catch-all route (`fl_frontend/src/app/api/auth/[...all]/route.ts`). */
 const SIGN_OUT_ENDPOINT = "/api/auth/sign-out";

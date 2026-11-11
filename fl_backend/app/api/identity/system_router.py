@@ -29,6 +29,7 @@ from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
+    AufstellungenCollection,
     BanListReadCollection,
     BewerbungenCollection,
     DBClient,
@@ -151,8 +152,9 @@ async def get_references(
 
 # The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
 # it, and neither the hourly pass nor an activation's press holds a person's session here.
-# At most fifteen commands for a pupil a report names, each the round trip plus at most 2.03 ms, timed locally
-# 2026-10-16: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
+# At most seventeen commands for a pupil a report and a locked line-up name, each the round trip plus at most 1.36 ms,
+# timed locally 2026-11-11: this share, about 6.7 s with the call's own four, fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
+# round trip.
 ERASURES_PER_PASS: Final = 10
 
 
@@ -168,6 +170,7 @@ async def _erase_one(
     spiele_collection: AsyncCollection,
     spielbestaetigungen_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
+    aufstellungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     action_log_collection: AsyncCollection,
     grants_collection: AsyncCollection,
@@ -191,6 +194,7 @@ async def _erase_one(
             spiele_collection=spiele_collection,
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             spielberichte_collection=spielberichte_collection,
+            aufstellungen_collection=aufstellungen_collection,
             registrierungen_collection=registrierungen_collection,
             action_log_collection=action_log_collection,
             grants_collection=grants_collection,
@@ -232,6 +236,7 @@ async def sweep_erasure(
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     action_log_collection: ActionLogCollection,
     grants_collection: GrantsCollection,
@@ -301,6 +306,7 @@ async def sweep_erasure(
                 spiele_collection=spiele_collection,
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
                 spielberichte_collection=spielberichte_collection,
+                aufstellungen_collection=aufstellungen_collection,
                 registrierungen_collection=registrierungen_collection,
                 action_log_collection=action_log_collection,
                 grants_collection=grants_collection,

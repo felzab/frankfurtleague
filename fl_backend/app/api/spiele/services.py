@@ -103,9 +103,9 @@ _TEAM_AGREED = "team_agreed"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
-    """Every unclosed row and every referee's answer, marked on the five stored snapshot values, never on `ansetzung.stand`.
+    """Every unclosed row and every referee's answer, marked on the five stored snapshot values, never on `ansetzung.digest`.
 
-    No aggregation recomputes the stand, so an answer stops counting at a move, not at the hourly close.
+    No aggregation recomputes the digest, so an answer stops counting at a move, not at the hourly close.
     """
 
     current = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}
@@ -151,7 +151,7 @@ def _confirmations_lookup() -> Mapping[str, Any]:
                         "party.kind": 1,
                         "party.team_id": 1,
                         # A club's only closed rows the match admits are its discards.
-                        _TEAM_AGREED: {"$or": [{"$eq": ["$answer.kind", "zugesagt"]}, {"$ne": ["$closed", None]}]},
+                        _TEAM_AGREED: {"$or": [{"$eq": ["$answer.kind", "agreed"]}, {"$ne": ["$closed", None]}]},
                         _CURRENT: current,
                         # The referee gate's own inputs: their id tells the booked referee's rows from a replaced
                         # one's; the close tells their open rows from their closed answers, which the pass-minted id orders.
@@ -318,7 +318,7 @@ def _einsatz_confirmed() -> Mapping[str, Any]:
 
     def agreed(row: str) -> Mapping[str, Any]:
         # `$ifNull` on both: no latest answer leaves `$$latest` missing, which must read as not agreed, never as null.
-        return {"$and": [{"$ifNull": [f"{row}.{_CURRENT}", False]}, {"$eq": [{"$ifNull": [f"{row}.answer.kind", None]}, "zugesagt"]}]}
+        return {"$and": [{"$ifNull": [f"{row}.{_CURRENT}", False]}, {"$eq": [{"$ifNull": [f"{row}.answer.kind", None]}, "agreed"]}]}
 
     # Open rows first: the decline closes its own row, and a fresh one is minted only after, so an open row is newer.
     judged = {

@@ -1,8 +1,9 @@
 import { orMissing } from "@/core/errors";
-import { spieleGetSpielAdmin, spieleGetSpieleSpielplan } from "@/core/generated/client/sdk";
+import { spieleGetSpielAdmin, spieleGetSpieleSpielplan, teamsGetTeamSpiele } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
+import { runPersonRead } from "@/shared/utils/personRead";
 
-import type { FLSpieleAdminSingleResponse, FLSpieleSpielplanAdminResponse } from "@/core/generated/client/types";
+import type { FLSpieleAdminSingleResponse, FLSpieleSpielplanAdminResponse, FLTeamSpieleResponse } from "@/core/generated/client/types";
 
 /**
  * The one fixture the match editor loads, admin-tier because it round-trips the rent and the
@@ -26,4 +27,12 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
  */
 export async function getAdminSpielplan(saisonId: string): Promise<FLSpieleSpielplanAdminResponse | null> {
   return runAdminRead(() => orMissing(spieleGetSpieleSpielplan({ saison_id: saisonId })));
+}
+
+/**
+ * One club's matches in one season for its own „Spiele“ list, each with what is open on it for the club, as a seat
+ * holder of the club reads them. **Uncached**: a person's read is made for that person.
+ */
+export async function getTeamSpiele(teamId: string, saisonId: string): Promise<FLTeamSpieleResponse> {
+  return runPersonRead(() => teamsGetTeamSpiele(teamId, saisonId));
 }

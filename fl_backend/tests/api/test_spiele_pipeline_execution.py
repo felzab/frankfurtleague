@@ -17,13 +17,13 @@ from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    ADDRESS,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
     spielbestaetigung_document,
+    spielort_document,
 )
 from tests.worker import worker_database
 
@@ -104,7 +104,7 @@ def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
 
 
 def zugesagt() -> dict[str, Any]:
-    return {"kind": "zugesagt", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+    return {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
 
 def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
@@ -123,14 +123,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def venue_document(name: str = "Sportplatz Ost") -> dict[str, Any]:
-    return {
-        "_id": VERDICT_SPIELORT_ID,
-        "name": name,
-        "address": dict(ADDRESS),
-        "maps_link": f"{name}, Frankfurt",
-        "default_mietpreis": 80,
-        "inactive_since": None,
-    }
+    return spielort_document(VERDICT_SPIELORT_ID, name)
 
 
 def on_a_spiel(url: str, spiel: dict[str, Any], rows: list[dict[str, Any]], body: Body) -> Any:
@@ -216,14 +209,14 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
     @pytest.mark.parametrize(
         "home",
-        [pytest.param("zugesagt", id="beside the other club's agreement"), pytest.param("discarded", id="beside a second discard")],
+        [pytest.param("agreed", id="beside the other club's agreement"), pytest.param("discarded", id="beside a second discard")],
     )
     def test_a_discarded_proposal_counts_as_its_clubs_agreement(self, mongo_url: str, home: str):
         """The league kept the date: a join of unclosed rows alone reads one club as never asked, or both as nobody."""
 
         spiel = a_spiel()
         rows = [
-            a_row(spiel, VERDICT_HOME, answer=zugesagt()) if home == "zugesagt" else discarded(spiel, VERDICT_HOME),
+            a_row(spiel, VERDICT_HOME, answer=zugesagt()) if home == "agreed" else discarded(spiel, VERDICT_HOME),
             discarded(spiel, VERDICT_AWAY),
         ]
 
@@ -320,6 +313,7 @@ LATER_ROW = ObjectId("6890a1b2c3d4e5f607250042")
 DECLINED = {"kind": "declined", "at": "2026-04-20", "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": "Verhindert"}
 CLOSED_BY_THE_DECLINE = {"at": "2026-04-20", "reason": "schiedsrichter_declined"}
 CLOSED_BY_A_MOVE = {"at": "2026-04-21", "reason": "ansetzung_changed"}
+CLOSED_BY_THE_DAY = {"at": "2026-05-03", "reason": "spiel_past"}
 
 
 def published() -> dict[str, Any]:
@@ -332,7 +326,7 @@ def a_refereed_spiel(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]
 
 
 def a_referee_row(spiel: Mapping[str, Any], party: Mapping[str, Any] = REFEREE, **fields: Any) -> dict[str, Any]:
-    return spielbestaetigung_document(spiel, party=party, kontakte=None, **fields)
+    return spielbestaetigung_document(spiel, party=party, **fields)
 
 
 def on_a_refereed_spiel(
@@ -463,6 +457,32 @@ class TestTheRefereeIsServedOnceAgreed:
         moved = {**spiel, "time": "19:30:00"}
 
         assert on_a_refereed_spiel(mongo_url, rows, einsatz, spiel=moved) is False
+
+    def test_their_agreement_closed_once_its_day_went_by_still_publishes_them(self, mongo_url: str):
+        """The pass closes an agreement once its fixture's day has passed, and the fixture still stands as agreed.
+
+        They declined first and agreed when asked again, the newer row stored ahead of the older, so a latest answer read
+        in the order the rows come rather than by id is the decline.
+        """
+
+        spiel = a_refereed_spiel()
+        rows = [
+            a_referee_row(spiel, _id=LATER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_THE_DAY),
+            a_referee_row(spiel, _id=EARLIER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
+        ]
+
+        assert on_a_refereed_spiel(mongo_url, rows, einsatz, spiel=spiel) is True
+
+    def test_a_request_open_after_the_spiel_moved_back_withholds_them_whatever_they_agreed_before(self, mongo_url: str):
+        """Moved away and back, the slot is asked afresh: their agreement to it, closed for the move, matches again and decides nothing."""
+
+        spiel = a_refereed_spiel()
+        rows = [
+            a_referee_row(spiel, _id=EARLIER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
+            a_referee_row(spiel, _id=LATER_ROW),
+        ]
+
+        assert on_a_refereed_spiel(mongo_url, rows, einsatz, spiel=spiel) is False
 
 
 class TestTheRefereesNameFollowsTheirConsent:

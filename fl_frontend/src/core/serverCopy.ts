@@ -1,9 +1,8 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { catalogue, COPY, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
 import { formatDate, formatDateLong, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
-import { rollenText } from "./teamVocabulary";
 
 import type { Copy, Wait, Words } from "./copy";
 import type { CalendarDay } from "./format";
@@ -28,6 +27,9 @@ const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.
+/** One sentence for a full squad, whichever write meets it. */
+const KADER_FULL = "Der Kader ist voll.";
+
 const DOUBLE_BOOKED = {
   spielort: "Der Spielort ist zu dieser Zeit schon belegt.",
   schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
@@ -46,24 +48,24 @@ const ADDRESS_CONFIRMED = "Adresse bestätigt";
 // The confirmation pages' shared sentences, each written once: what the typed birthdate is checked for, the deadline
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
 // league's address, and the privacy notice's link, around its title.
-const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
-// In the two parts around its day, which a mail sets semibold between them.
-const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
-const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
+const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist.`;
+// In the two parts around its day, each holding its own space, which a mail sets semibold between them.
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis\u00A0zum\u00A0", after: ", löschen wir deinen Eintrag." };
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before}${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
 // The same in an application, where any seat's lapse takes the whole application with it, so the deletion names no day:
 // another seat's earlier day can overtake the reader's own.
 const APPLICATION_DEADLINE = {
-  before: "Bestätige bis zum",
+  before: "Bestätige bis\u00A0zum\u00A0",
   after: ". Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung.",
 };
-const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before} ${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
+const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before}${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
-    "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
+    "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art.\u00A021 DSGVO). Eine formlose E-Mail an\u00A0",
   after: " genügt.",
 };
-const MORE = { before: "Mehr unter ", after: "." };
-// What an objection does to a contact's seat on a season row, an entry that stands alone.
+const MORE = { before: "Mehr unter\u00A0", after: "." };
+// What an objection does to an entry that stands alone: a contact's seat on a season row, and a referee's entry.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
@@ -76,6 +78,8 @@ const REFEREE_STORED =
  */
 type RetentionBounds = {
   bewerbungDays: number;
+  registrierungDays: number;
+  declinedDays: number;
   schiedsrichterDays: number;
   addressChangeLinkHours: number;
   code: { minutes: number; mailHours: 1; failureHours: number };
@@ -137,7 +141,7 @@ export const SERVER_COPY = catalogue({
     spiel_double_booked_spielort_as_stored: DOUBLE_BOOKED.spielort,
     spiel_double_booked_schiedsrichter_as_stored: DOUBLE_BOOKED.schiedsrichter,
     /** The owner's own deletion, on `/erasure` and in Konto: the handover frees the account first. */
-    owner_erasure: `Mit der ${ownerTier} lässt sich das Konto nicht löschen.`,
+    owner_erasure: `${boundBy("Mit", "der", ownerTier)} lässt sich das Konto nicht löschen.`,
     /** An administrator's own address, which only Konto changes or deletes. */
     own_address: "Für deine eigene Adresse geht das nur im Konto.",
     /** A holder's address, one sentence on a ban, an erasure and an address change alike. */
@@ -156,22 +160,34 @@ export const SERVER_COPY = catalogue({
     address_change_started_recently: COPY.shared.failure.tooManyAttempts,
     /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
     spielort_still_booked: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
-      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch für ${spieleNamed(spiel_nrs)} gebucht.` : undefined,
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Der Spielort ist noch ${boundBy("für", spieleNamed(spiel_nrs))} gebucht.` : undefined,
     /** A referee retired while matches still to come name them, by the matches' numbers. */
     schiedsrichter_still_assigned: ({ spiel_nrs }: FLRefusedField["ctx"]) =>
-      Array.isArray(spiel_nrs) && spiel_nrs.length > 0 ? `Die Person ist noch für ${spieleNamed(spiel_nrs)} eingeteilt.` : undefined,
+      Array.isArray(spiel_nrs) && spiel_nrs.length > 0
+        ? `Die Person ist noch ${boundBy("für", spieleNamed(spiel_nrs))} eingeteilt.`
+        : undefined,
     /** An addition or a handover naming an address the ban list holds. */
     grant_barred: ADDRESS_BARRED,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
-    /** A repeated press of the form's submit with changed details. */
-    bewerbung_key_differing: "Deine Bewerbung ist schon abgeschickt.",
     /** An application's club retired since the acceptance opened. */
     team_retired: "Das Team ist stillgelegt.",
-    /** A reactivated squad row past the season's cap. */
-    kader_full: "Der Kader ist voll.",
+    /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
+    kader_full: KADER_FULL,
+    registrierung_kader_full: KADER_FULL,
+    /** An admission of a pupil a squad of the season holds already. */
+    registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
+    /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
+    registrierung_stufe_not_allowed: "Diese Stufe ist in dieser Saison nicht zugelassen.",
     /** A club's stored proposed day that has gone by, which „Übernehmen“ would move the fixture into. */
     ansetzung_vorschlag_past_as_stored: "Der vorgeschlagene Tag ist vorbei.",
+    /** A club's decline proposing the day and hour the fixture holds. */
+    ansetzung_vorschlag_unchanged: "Das ist der angesetzte Termin.",
+    /** A line-up's save by a seat once the lock has passed, one naming more nominees than the eleven lack, and one for a fixture holding no day or hour. */
+    aufstellung_locked: "Die Aufstellung ist gesperrt.",
+    aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
+      typeof max === "number" ? `Nachnominierte füllen nur die Lücke ${boundBy("bis", formatNumber(max))}.` : undefined,
+    aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
     rules_spiele_over_one_read: COPY.admin.saison.tooManySpiele,
@@ -207,7 +223,6 @@ export const SERVER_COPY = catalogue({
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
     elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
-    scorers_not_matching_tore: "Die Torschützen passen nicht zum Ergebnis.",
   } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
@@ -216,8 +231,9 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The administrator's Übersicht: its four cards by the names the read serves them under, and each row's one line
-   * saying what is open there, by the kind of open work.
+   * What is open, in one set of words wherever open work is listed: the administrator's Übersicht, its four cards by
+   * the names the read serves them under and each row's one line by the kind of open work, whose words a team's
+   * Übersicht, a team's „Spiele“ and a referee's „Spiele“ take for the same work.
    */
   overview: {
     card: {
@@ -228,7 +244,7 @@ export const SERVER_COPY = catalogue({
     } satisfies Record<FLOverviewCardName, string>,
     answerDue: "Antwort heute fällig",
     /** By the deadline the clubs' answer was due on, the earliest where the row's clubs were given several. */
-    answerOverdue: (deadline: CalendarDay) => `Antwort seit ${formatDate(deadline)} überfällig`,
+    answerOverdue: (deadline: CalendarDay) => `Antwort ${boundBy("seit", formatDate(deadline))} überfällig`,
     /** What a fixture lacks, by its own word: „Termin“, or the label its box carries in the match editor. */
     missing: (label: Copy) => `${label} fehlt`,
     /** A report awaiting the administrator, by the state it reads in. */
@@ -243,7 +259,7 @@ export const SERVER_COPY = catalogue({
     seatsConfirmed: (confirmed: number, seats: number) =>
       confirmed === seats
         ? "Alle Kontaktpersonen bestätigt"
-        : `${formatNumber(confirmed)} von ${formatNumber(seats)} Kontaktpersonen bestätigt`,
+        : `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats), "Kontaktpersonen")} bestätigt`,
     /**
      * A fault of the bracket or of a fixture's bookings, by its reason, on the fixture it names: a group short of the
      * place a side waits on, a tie no rule breaks, and a club or a booking the administrator can change each say
@@ -252,7 +268,7 @@ export const SERVER_COPY = catalogue({
      */
     fault: {
       gruppe_too_small: (gruppe: string, platz: number) => `${gruppeName(gruppe)} hat keinen ${placeName(platz)}`,
-      tie_unresolved: (gruppe: string, platz: number) => `Gleichstand um den ${placeName(platz)} der ${gruppeName(gruppe)}`,
+      tie_unresolved: (gruppe: string, platz: number) => `Gleichstand ${boundBy("um", "den", placeName(platz))} der ${gruppeName(gruppe)}`,
       wiring: `${COPY.shared.kOBaum} fehlerhaft`,
       /** The club, and its exit as the club's exit note heads it. */
       departed_occupant: (team: Words, austritt: Copy) => `${textOf(team)} · ${austritt}`,
@@ -271,8 +287,9 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The mail shell's own lines, and the words of the account's, the fixtures', the referee's and the application's mails;
-   * every other mail's sentences are its template's until its area's session rewrites them.
+   * The mail shell's own lines, and the words of the account's, the fixtures', the line-up's, the referee's, the
+   * application's and the registration's mails; every other mail's sentences are its template's until its area's session
+   * rewrites them.
    */
   mail: {
     greeting: "Hallo,",
@@ -282,8 +299,8 @@ export const SERVER_COPY = catalogue({
      * The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, in the two parts around the league's
      * address, which the shell sets as a link between them.
      */
-    // The confirmation pages' words, the shell setting the address between the parts without their spaces.
-    objection: { before: OBJECTION_RIGHT.before.trimEnd(), after: OBJECTION_RIGHT.after.trimStart() },
+    // The registration page's words, which the page sets around the address alike.
+    objection: OBJECTION_RIGHT,
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
     notYou: {
       signIn: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
@@ -292,7 +309,7 @@ export const SERVER_COPY = catalogue({
     },
 
     /** A mailed link's deadline, by the hours its lifetime counts. */
-    linkValidFor: (hours: number) => `Der Link gilt ${formatNumber(hours)} Stunden.`,
+    linkValidFor: (hours: number) => `Der Link gilt ${boundBy(formatNumber(hours), "Stunden")}.`,
 
     /**
      * The fixture mails: a club asked to confirm a fixture's slot, a referee booked onto it, and the word of what became
@@ -300,19 +317,20 @@ export const SERVER_COPY = catalogue({
      * they hold.
      */
     spiel: {
-      requestSubject: (day: CalendarDay) => `Spieltermin am ${formatDateLong(day)} bestätigen`,
-      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDateLong(day)}`,
+      /** The mail by the name the notices give it, „Anfrage“: a subject naming one answer would pass over the other. */
+      requestSubject: (day: CalendarDay) => `Anfrage: Spieltermin ${boundBy("am", formatDateLong(day))}`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin ${boundBy("am", formatDateLong(day))}`,
       /** Both answers named before the press, as the page offers both. */
-      confirmAsk: (team: Words) => `Bestätige den Termin für ${textOf(team)} oder schlag einen anderen vor.`,
-      answerMissing: (team: Words) => `Die Antwort von ${textOf(team)} fehlt noch.`,
+      confirmAsk: (team: Words) => `Sag den Termin ${boundBy("für", textOf(team))} zu oder schlag einen anderen vor.`,
+      answerMissing: (team: Words) => `Die Antwort ${boundBy("von", textOf(team))} fehlt noch.`,
       /** Around the deadline. */
-      answerUntil: { before: "Antworte bis zum ", after: "." },
-      /** Any seat of the club answers and the first press binds, so a later reader meets a link already spent. */
+      answerUntil: { before: "Antworte bis\u00A0zum\u00A0", after: "." },
+      /** Any seat of the club answers, and the first answer binds the club. */
       firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
 
       /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
-      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDateLong(day)}`,
-      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} verlegt`,
+      movedSubject: (day: CalendarDay) => `Spiel verlegt ${boundBy("auf", "den", formatDateLong(day))}`,
+      movedFromSubject: (day: CalendarDay) => `Spiel ${boundBy("am", formatDateLong(day))} verlegt`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
       /**
        * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
@@ -328,35 +346,48 @@ export const SERVER_COPY = catalogue({
         schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
       },
       /** A club taken off a fixture it was asked about, around the moment it was asked about. */
-      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDateLong(day)}`,
-      void: { before: (spiel: Words) => `Die Anfrage zu ${textOf(spiel)} am `, after: " gilt nicht mehr." },
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      void: { before: (spiel: Words) => `Die Anfrage ${boundBy("zu", textOf(spiel))} am\u00A0`, after: " gilt nicht mehr." },
 
       /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
-      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
-      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am `, after: " fällt aus." },
+      cancelledSubject: (day: CalendarDay) => `Spiel ${boundBy("am", formatDateLong(day))} fällt aus`,
+      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am\u00A0`, after: " fällt aus." },
       reinstated: {
         team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
         schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
       },
 
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
-      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDateLong(day)}`,
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel ${boundBy("am", formatDateLong(day))}`,
       booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
-      sayYesOrNo: "Sag zu oder ab.",
+      /** The decline in the word its button and its chip carry, „Ablehnen“ and „Abgelehnt“. */
+      sayYesOrNo: "Sag zu oder lehne ab.",
       /** A referee taken off a fixture, around the moment they were booked for. */
-      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDateLong(day)}`,
-      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am `, after: " nicht mehr." },
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am\u00A0`, after: " nicht mehr." },
 
       /** A club's proposal the league discarded, around the moment that stands. */
-      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDateLong(day)}`,
-      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am `, after: "." },
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am\u00A0`, after: "." },
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
+    },
+
+    /**
+     * The one reminder a team's confirmed seats get while a match's line-up is missing, on the fixture reminder's
+     * pattern: the match's block between its two sentences, and the button to the team's Übersicht
+     * (`COPY.shared.end.toOverview`).
+     */
+    aufstellung: {
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Aufstellung ${boundBy("für", "den", formatDateLong(day))}`,
+      missing: (team: Words) => `Die Aufstellung ${boundBy("von", textOf(team))} fehlt noch.`,
+      /** Around the moment the line-up is due. */
+      dueUntil: { before: "Trag sie bis\u00A0zum\u00A0", after: " ein." },
     },
 
     /** An opponent's word that a club left the season. The lead follows the club's name, set semibold. */
     austrittNotice: {
       subject: (team: string) => `${team} spielt nicht mehr mit`,
-      lead: { after: (saison: string) => ` ist aus der ${COPY.shared.saisonName(saison)} ausgeschieden.` },
+      lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonName(saison))} ausgeschieden.` },
       spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
     },
 
@@ -366,7 +397,7 @@ export const SERVER_COPY = catalogue({
      */
     bewerbung: {
       confirmOrOppose: "Bestätige deinen Eintrag oder widersprich ihm.",
-      /** In the two parts around its day, as `schiedsrichterConfirmation.deadline`: the builder sets the day semibold after a space. */
+      /** In the two parts around its day, as `schiedsrichterConfirmation.deadline`: the builder sets the day semibold between them. */
       deadline: APPLICATION_DEADLINE,
       registeredAs: "Eingetragen als",
       /** The title of the facts the Ansprechperson is told. */
@@ -382,24 +413,27 @@ export const SERVER_COPY = catalogue({
        */
       received: {
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
-        lead: (saison: string) => `Für die ${COPY.shared.saisonName(saison)} ist eine Bewerbung eingegangen.`,
-        named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du als ${rollenText(rollen)} genannt.`,
+        lead: (saison: string) => `${boundBy("Für", "die", COPY.shared.saisonName(saison))} ist eine Bewerbung eingegangen.`,
+        named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du ${boundBy("als", rollenText(rollen))} genannt.`,
         others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
         pending: "Noch offen",
       },
       /** A seat's link mail, and the fresh link „Sitz bearbeiten“ mails: each seat holds its own days, so it says one day alone. */
       link: {
         subject: (saison: string) => `Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        lead: (schule: string) => `Die Bewerbung von ${schule} nennt dich als Kontaktperson.`,
+        lead: (schule: string) => `Die Bewerbung ${boundBy("von", schule)} nennt dich als Kontaktperson.`,
       },
       reminder: {
         subject: (saison: string) => `Erinnerung: Eintrag für die ${COPY.shared.saisonName(saison)} bestätigen`,
-        lead: (schule: string) => `Deine Antwort zur Bewerbung von ${schule} fehlt noch.`,
+        lead: (schule: string) => `Deine Antwort zur Bewerbung ${boundBy("von", schule)} fehlt noch.`,
       },
       zusage: {
         subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
         /** The first sentence after the club's name, the preview; the welcome stands apart from it. */
-        lead: { after: (saison: string) => ` spielt in der ${COPY.shared.saisonName(saison)}.`, welcome: "Herzlich willkommen." },
+        lead: {
+          after: (saison: string) => ` spielt ${boundBy("in", "der", COPY.shared.saisonName(saison))}.`,
+          welcome: "Herzlich willkommen.",
+        },
         fixed: "Gruppe und Trikotfarbe stehen fest.",
         fixedNoColour: "Die Gruppe steht fest. Die Trikotfarbe teilen wir dir noch mit.",
         /** A wish answered as one: the Spielplan is drawn after the decision, so nothing here knows whether it can be met. */
@@ -409,10 +443,13 @@ export const SERVER_COPY = catalogue({
       },
       absage: {
         subject: (saison: string) => `Absage für die ${COPY.shared.saisonName(saison)}`,
-        lead: { before: "Danke für die Bewerbung von ", after: (saison: string) => ` für die ${COPY.shared.saisonName(saison)}.` },
+        lead: {
+          before: "Danke für die Bewerbung von\u00A0",
+          after: (saison: string) => ` ${boundBy("für", "die", COPY.shared.saisonName(saison))}.`,
+        },
         decision: "In dieser Saison können wir das Team nicht aufnehmen.",
         /** After `decision`: the decline stands as the application's deletion notice, so no second mail follows. */
-        deletion: (days: number) => `Die Bewerbung löschen wir in ${formatNumber(days)} Tagen.`,
+        deletion: (days: number) => `Die Bewerbung löschen wir ${boundBy("in", formatNumber(days), "Tagen")}.`,
         title: "Die Absage",
       },
       erasure: {
@@ -426,7 +463,7 @@ export const SERVER_COPY = catalogue({
         removed: "Diese Angaben haben wir aus der Bewerbung entfernt.",
         replace: "Soll eine andere Person übernehmen, antworte auf diese E-Mail.",
         /** Around the last day it stands, the deletion coming once that day has passed. */
-        until: { before: "Sonst löschen wir die Bewerbung nach dem ", after: "." },
+        until: { before: "Sonst löschen wir die Bewerbung nach\u00A0dem\u00A0", after: "." },
         from: "Widerspruch von",
       },
     },
@@ -442,19 +479,19 @@ export const SERVER_COPY = catalogue({
     signInCode: {
       subject: "Dein Anmeldecode",
       lead: "Mit diesem Code meldest du dich an:",
-      validity: (minutes: number) => `Er gilt ${formatNumber(minutes)} Minuten und nur einmal.`,
+      validity: (minutes: number) => `Er gilt ${boundBy(formatNumber(minutes), "Minuten")} und nur einmal.`,
       /** The host the code is typed on, in the two parts around it, which the shell sets semibold between them. */
-      onlyHere: { before: "Gib ihn nur auf", after: "ein." },
+      onlyHere: { before: "Gib ihn nur auf\u00A0", after: " ein." },
     },
 
     /** A passkey set up or deleted, in the two parts around the moment, which the shell sets semibold between them. */
     passkeyAdded: {
       subject: "Passkey eingerichtet",
-      lead: { before: "Am", after: "wurde in deinem Konto ein Passkey eingerichtet." },
+      lead: { before: "Am\u00A0", after: " wurde in deinem Konto ein Passkey eingerichtet." },
     },
     passkeyRemoved: {
       subject: "Passkey gelöscht",
-      lead: { before: "Am", after: "wurde in deinem Konto ein Passkey gelöscht." },
+      lead: { before: "Am\u00A0", after: " wurde in deinem Konto ein Passkey gelöscht." },
       devices: "Geräte, die damit angemeldet waren, sind abgemeldet.",
     },
 
@@ -473,7 +510,10 @@ export const SERVER_COPY = catalogue({
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
       /** To the replaced address, in the two parts around the moment, which the shell sets semibold between them. */
-      effective: { subject: "E-Mail-Adresse geändert", lead: { before: "Seit", after: "gilt für dein Konto eine neue E-Mail-Adresse." } },
+      effective: {
+        subject: "E-Mail-Adresse geändert",
+        lead: { before: "Seit\u00A0", after: " gilt für dein Konto eine neue E-Mail-Adresse." },
+      },
       /** To the new address, whose confirmed change did not take effect: never why, since its holder may be a stranger. */
       discarded: { subject: "E-Mail-Adresse nicht geändert", lead: "Für dein Konto gilt weiter die bisherige Adresse." },
       /** A change the administration started: the new address's link, then the notice to the address on file. */
@@ -494,14 +534,14 @@ export const SERVER_COPY = catalogue({
       subject: "Deine E-Mail-Adresse ist gesperrt",
       lead: "Die Verwaltung hat deine E-Mail-Adresse gesperrt.",
       effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
-      ends: (saison: string) => `Die Sperre endet nach der ${COPY.shared.saisonName(saison)} von selbst.`,
+      ends: (saison: string) => `Die Sperre endet ${boundBy("nach", "der", COPY.shared.saisonName(saison))} von selbst.`,
       stored: "In der Sperrliste stehen deine Adresse, der Grund und das Datum.",
       account:
         "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht. Die Sperre bleibt auch nach einer Löschung bis zu ihrem Ende.",
       basis:
-        "Wir speichern das auf Grundlage unseres berechtigten Interesses, den Spielbetrieb vor Störungen zu schützen (Art. 6 Abs. 1 lit. f DSGVO).",
+        "Wir speichern das auf Grundlage unseres berechtigten Interesses, den Spielbetrieb vor Störungen zu schützen (Art.\u00A06 Abs.\u00A01 lit.\u00A0f DSGVO).",
       /** Around the league's address. */
-      rights: { before: "Für eine Kopie deiner Daten, ihre Löschung, einen Widerruf oder Fragen zur Sperre schreib uns an ", after: "." },
+      rights: { before: "Für eine Kopie deiner Daten, ihre Löschung, einen Widerruf oder Fragen zur Sperre schreib uns an\u00A0", after: "." },
     },
 
     /** The notice to every holder and the person named, one body for every reader, by what changed. */
@@ -516,13 +556,13 @@ export const SERVER_COPY = catalogue({
       },
       lead: {
         granted: (address: string) => `${address} bekommt Zugang zur Verwaltung.`,
-        handover: (address: string) => `Die ${ownerTier} der Verwaltung geht an ${address}.`,
-        address: (previous: string, next: string) => `${previous} wechselt zu ${next}.`,
+        handover: (address: string) => `Die ${ownerTier} der Verwaltung geht ${boundBy("an", address)}.`,
+        address: (previous: string, next: string) => `${previous} wechselt ${boundBy("zu", next)}.`,
         revoked: (address: string) => `${address} hat keinen Zugang zur Verwaltung mehr.`,
         withdrawn: {
           granted: (address: string) => `${address} bekommt keinen Zugang zur Verwaltung.`,
-          handover: (address: string) => `Die ${ownerTier} geht nicht an ${address}.`,
-          address: (previous: string, next: string) => `${previous} wechselt nicht zu ${next}.`,
+          handover: (address: string) => `Die ${ownerTier} geht nicht ${boundBy("an", address)}.`,
+          address: (previous: string, next: string) => `${previous} wechselt nicht ${boundBy("zu", next)}.`,
         },
         completed: {
           handover: (address: string) => `${address} leitet jetzt die Verwaltung.`,
@@ -530,8 +570,8 @@ export const SERVER_COPY = catalogue({
         },
       },
       /** On what waits. */
-      effectiveFrom: (moment: string) => `Die Änderung gilt ab ${formatInstant(moment)}.`,
-      warn: `Stimmt das nicht, melde dich sofort bei der ${ownerTier}.`,
+      effectiveFrom: (moment: string) => `Die Änderung gilt ${boundBy("ab", formatInstant(moment))}.`,
+      warn: `Stimmt das nicht, melde dich sofort ${boundBy("bei", "der", ownerTier)}.`,
       button: "Zur Verwaltung",
       /** An erased person's address, in the subject's place. */
       unnamedAddress: "Eine nicht genannte Adresse",
@@ -546,7 +586,7 @@ export const SERVER_COPY = catalogue({
       account: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
       bewerbung: {
         // True of a lapse and of an application undecided at its season's end alike.
-        lead: (saison: string) => `Die Bewerbung für die ${COPY.shared.saisonName(saison)} kam nicht zustande.`,
+        lead: (saison: string) => `Die Bewerbung ${boundBy("für", "die", COPY.shared.saisonName(saison))} kam nicht zustande.`,
         deleted: "Wir haben sie mit allen Angaben gelöscht.",
       },
     },
@@ -558,10 +598,35 @@ export const SERVER_COPY = catalogue({
     invitation: {
       subject: (team: string) => `Registrierungslink für ${team}`,
       passOn: (saison: string, team: string) =>
-        `Gib diesen Link an alle weiter, die in der ${COPY.shared.saisonName(saison)} für ${team} spielen.`,
+        `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonName(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
       admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
       valid: "Der Link gilt bis zum Ende der Registrierung.",
+    },
+
+    /**
+     * A pupil's registration: its confirmation link, a first contact, whose lead and whose deadline by a day are the
+     * confirmation page's own sentences (`registrierungConfirmation`), and the team's decline, a notice.
+     */
+    registrierung: {
+      confirmation: {
+        subject: (team: string) => `Registrierung für ${team} bestätigen`,
+        confirm: "Bestätige deine Registrierung.",
+        admission: "Erst danach kann dein Team dich aufnehmen.",
+        /** The deadline where the mail's data counts days, the page's sentence taking a day. */
+        deadlineIn: (days: number) => `Bestätigst du nicht ${boundBy("in", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
+      },
+      absage: {
+        subject: (team: string) => `Registrierung für ${team} abgelehnt`,
+        /** The lead follows the team's name, set semibold. */
+        lead: { after: (saison: string) => ` hat deine Registrierung ${boundBy("für", "die", COPY.shared.saisonName(saison))} abgelehnt.` },
+        askTeam: "Fragen dazu beantwortet dein Team.",
+        /** In `askTeam`'s place where the team answered that the address is another person's. */
+        otherPerson: "Unter dieser Adresse steht schon eine andere Person.",
+        registerAgain: "Registriere dich mit deiner eigenen Adresse neu.",
+        /** The decline stands as the registration's deletion notice, as an application's does. */
+        deletion: (days: number) => `Die Registrierung löschen wir ${boundBy("in", formatNumber(days), "Tagen")}.`,
+      },
     },
   },
 
@@ -580,12 +645,12 @@ export const SERVER_COPY = catalogue({
       stopped: "Änderung gestoppt",
     },
     new: {
-      question: `Diese Adresse soll künftig für ein Konto bei der ${COPY.brand.name} gelten.`,
+      question: `Diese Adresse soll künftig für ein Konto ${boundBy("bei", "der", COPY.brand.name)} gelten.`,
       /** A change the administration started: the link's page and its mail alike. */
       waits: (wait: Wait) => `Sie gilt ${waitWords(wait).span} nach deiner Bestätigung.`,
       confirmed: ADDRESS_CONFIRMED,
       /** The done page's title on a change that waits. */
-      confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ab ${formatDateLong(day)}`,
+      confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ${boundBy("ab", formatDateLong(day))}`,
     },
     declined: "Änderung abgelehnt",
   },
@@ -625,11 +690,11 @@ export const SERVER_COPY = catalogue({
       },
       rules: {
         title: "Die Regeln",
-        text: "11 gegen 11 über 90 Minuten, bei jedem Wetter. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
+        text: "11\u00A0gegen\u00A011 über\u00A090\u00A0Minuten, bei jedem Wetter. Die Schiedsrichter kommen, soweit möglich, von außerhalb.",
       },
       purpose: { title: "Wofür", text: "Beide Teams verdienen an Tickets und am Verkauf vor Ort und teilen den Erlös." },
       spielorte: { title: COPY.page.adminSpielorte, text: "Kein zentraler Platz. Wo und wann ein Spiel stattfindet, steht im Spielplan." },
-      admission: { title: "Eintritt", text: "2 bis 5 €, je nach Spiel. Im Vorverkauf meist günstiger." },
+      admission: { title: "Eintritt", text: "2\u00A0bis\u00A05\u00A0€, je nach Spiel. Im Vorverkauf meist günstiger." },
       safety: { title: "Sicherheit", text: "Bei den meisten Spielen sind Sanitäter vor Ort." },
     },
 
@@ -645,7 +710,8 @@ export const SERVER_COPY = catalogue({
       },
       confirm: {
         title: "Kontaktpersonen bestätigen",
-        text: (days: number) => `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link.`,
+        text: (days: number) =>
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen eigenen Link.`,
       },
       decision: {
         title: "Zusage der Liga",
@@ -716,7 +782,7 @@ export const SERVER_COPY = catalogue({
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
       /** An open window's deadline, on the season card and the steps' band alike. */
-      windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDate(until)}`,
+      windowUntil: (until: CalendarDay) => `Bewerbungen ${boundBy("bis", formatDate(until))}`,
       last: "Zuletzt",
       next: "Als Nächstes",
       place: placeName,
@@ -732,6 +798,36 @@ export const SERVER_COPY = catalogue({
 
   /** The not-found page's title, in every frame. */
   notFound: "Seite nicht gefunden",
+
+  /**
+   * The areas under `/area` as a server page alone words them, beside `COPY.area`: the forbidden page, the landing of
+   * a person no entry admits to a page, a row's line, and the match report's page where no form stands.
+   */
+  area: {
+    /** The forbidden page's title, on another team's address. */
+    forbidden: "Kein Zugang",
+    /** Konto's callout for a signed-in person no entry admits to a page, by what stands in the way. */
+    noRole: {
+      none: "Du hast gerade keine Funktion.",
+      /** A contact person or a referee whose own link is unanswered. */
+      unconfirmed: "Dein Eintrag ist noch nicht bestätigt.",
+      /** A pupil whose confirmed registration waits on the team. */
+      notAdmitted: "Dein Team hat dich noch nicht aufgenommen.",
+    },
+    /** A row's one muted line: its parts in their order, a part the row lacks left out, as `COPY.admin.seatLine` joins a seat's. */
+    line: (parts: readonly (Words | null)[]) =>
+      parts
+        .filter((part) => part !== null)
+        .map(textOf)
+        .join(" · "),
+    /** The match report's status cards, each a title. */
+    schiedsrichter: {
+      /** Before the kick-off, named by its day and time as the match's row names them (`COPY.spielplan.when`). */
+      spielberichtFrom: (when: Copy) => `Spielbericht ${boundBy("ab", when)}`,
+      /** A fixture another referee is booked onto. */
+      unbooked: "Nicht mehr eingeteilt",
+    },
+  },
 
   /** One word for where a season stands, before its start, running or decided: a season card's chip, a list's. */
   saisonState: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
@@ -794,8 +890,7 @@ export const SERVER_COPY = catalogue({
        * „Noch keine Tore und Karten.“
        */
       officialToreAndCards: "offiziellen Tore und Karten",
-      /** A pupil whose consent publishes no name, or one erased since. */
-      anonymous: "anonym",
+      anonymous: COPY.shared.anonymous,
       /** A goal nobody was named for. */
       unknown: "unbekannt",
       tor: "Tor",
@@ -825,11 +920,11 @@ export const SERVER_COPY = catalogue({
           "Du kannst Auskunft, Berichtigung, Löschung, Einschränkung und die Herausgabe deiner Daten verlangen, widersprechen, jede Einwilligung widerrufen und dich bei der Aufsichtsbehörde beschweren.",
         ],
         /** The last item, around the league's address. */
-        contact: { before: "Dafür genügt eine formlose E-Mail an ", after: "." },
+        contact: { before: "Dafür genügt eine formlose E-Mail an\u00A0", after: "." },
       },
       basis: {
         heading: "Rechtsgrundlagen",
-        text: "Wo nichts anderes steht, verarbeiten wir deine Daten auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, den Spielbetrieb der Liga durchzuführen, dich zu erreichen, Fehler in den Daten zu erkennen und die Website vor Angriffen und Missbrauch zu schützen. Wo du eine Einwilligung gibst, ist sie die Grundlage (Art. 6 Abs. 1 lit. a DSGVO). Die Namen des Vorstands im Impressum nennen wir, weil das Gesetz es verlangt (§ 5 DDG, Art. 6 Abs. 1 lit. c DSGVO).",
+        text: "Wo nichts anderes steht, verarbeiten wir deine Daten auf Grundlage von Art.\u00A06 Abs.\u00A01 lit.\u00A0f DSGVO; unser berechtigtes Interesse ist, den Spielbetrieb der Liga durchzuführen, dich zu erreichen, Fehler in den Daten zu erkennen und die Website vor Angriffen und Missbrauch zu schützen. Wo du eine Einwilligung gibst, ist sie die Grundlage (Art.\u00A06 Abs.\u00A01 lit.\u00A0a DSGVO). Die Namen des Vorstands im Impressum nennen wir, weil das Gesetz es verlangt (§\u00A05 DDG, Art.\u00A06 Abs.\u00A01 lit.\u00A0c DSGVO).",
       },
       website: {
         heading: "Website und Browser",
@@ -838,38 +933,36 @@ export const SERVER_COPY = catalogue({
         // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for; the mailed
         // link's hour is `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_SECONDS`.
         browser:
-          "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5 Minuten gilt, ein Cookie, das einen Link aus einer E-Mail eine Stunde lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach § 25 Abs. 2 Nr. 2 TDDDG ohne Einwilligung zulässig.",
+          "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail eine Stunde lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach\u00A0§\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.",
       },
       bewerbung: {
         heading: "Bewerbung einer Schule",
         form: "Das Bewerbungsformular fragt Angaben zur Schule und zu ihrem Team ab, darunter die Anschrift der Schule. Für jede Rolle, Trainerin oder Trainer, Ansprechperson und Stellvertretung, fragt es Name, E-Mail-Adresse und Telefonnummer einer Person ab; eine Person kann zwei Rollen haben. Freiwillig sind nur die Website der Schule, der Trikotsatz und der Wunschgegner. Die Angaben zu den Kontaktpersonen erhalten wir von der Person, die die Bewerbung einreicht.",
         confirmation: (days: number, trainerAge: number, otherAge: number) =>
-          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb von ${formatNumber(days)} Tagen über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${formatNumber(otherAge)} Jahre, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
+          `Jede Kontaktperson bestätigt ihren Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen eigenen Link mit ihrem Geburtsdatum oder widerspricht ihm, ebenso wenn die Liga sie selbst einträgt. An eine E-Mail-Adresse mit mehreren offenen Links der Saison geht kein weiterer, außer die Liga sendet ihn. Das Mindestalter ist ${boundBy(formatNumber(otherAge), "Jahre")}, für eine Trainerin oder einen Trainer ohne zweite Rolle ${formatNumber(trainerAge)}. Die Ansprechperson erfährt, wenn sie angeschrieben ist, Vornamen und Rollen der anderen Kontaktpersonen und wer widerspricht. Widerspricht eine Kontaktperson, entfernen wir ihre Angaben aus der Bewerbung. Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung und schreiben das allen, die ihren Eintrag bestätigt haben. Hat die Liga sie direkt bei einem Team eingetragen, löschen wir nur ihren Eintrag.`,
       },
       kader: {
         heading: "Im Kader",
-        // Session 8: the link's 14 days become a parameter read from `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that
-        // constant holds the 14 days every link confirming a registered person lives.
-        text: (minAge: number) =>
-          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb von 14 Tagen über einen Link mit deinem Geburtsdatum, dass du mindestens ${formatNumber(minAge)} Jahre alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+        text: (minAge: number, days: number) =>
+          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
         // The referee's minimum age is the backend's alone, `fl_backend/app/shared/schemas/bounds.py`.
         text: (days: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb von ${formatNumber(days)} Tagen mit deinem Geburtsdatum; pfeifen kann, wer mindestens 16 Jahre alt ist. Löschen wir deinen Eintrag, bleibt an angesetzten und gespielten Spielen das Honorar ohne deinen Namen stehen.`,
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Löschen wir deinen Eintrag, bleibt an angesetzten und gespielten Spielen das Honorar ohne deinen Namen stehen.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
-        text: "Vor einem Spiel fragen wir beide Teams und die Schiedsrichterin oder den Schiedsrichter, ob der Termin steht; eine Absage kann eine Begründung als freien Text tragen. Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: Ergebnis, Tore und Karten mit Minute und Person, zu einer Karte einen Grund aus einer festen Liste und Bemerkungen als freien Text.",
+        text: "Vor einem Spiel fragen wir beide Teams und die Schiedsrichterin oder den Schiedsrichter, ob der Termin steht; eine Absage kann eine Begründung als freien Text tragen. Nach dem Spiel trägt die Schiedsrichterin oder der Schiedsrichter einen Spielbericht ein: Ergebnis, Tore und Karten mit Minute und Person sowie Bemerkungen als freien Text.",
       },
       account: {
         heading: "Anmeldung und Konto",
         // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
         signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
-          `Du meldest dich mit einem Code an, den wir dir schicken und nach ${formatNumber(code.minutes)} Minuten löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet nach ${formatNumber(person.idleDays)} Tagen ohne Nutzung, spätestens nach ${formatNumber(person.days)} Tagen; mit Zugang zur Verwaltung nach ${formatNumber(admin.idleHours)} Stunde ohne Nutzung, spätestens nach ${formatNumber(admin.hours)} Stunden.`,
+          `Du meldest dich mit einem Code an, den wir dir schicken und ${boundBy("nach", formatNumber(code.minutes), "Minuten")} löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet ${boundBy("nach", formatNumber(person.idleDays), "Tagen")} ohne Nutzung, spätestens ${boundBy("nach", formatNumber(person.days), "Tagen")}; mit Zugang zur Verwaltung ${boundBy("nach", formatNumber(admin.idleHours), "Stunde")} ohne Nutzung, spätestens ${boundBy("nach", formatNumber(admin.hours), "Stunden")}.`,
         changes: (linkHours: number, stopDays: number, administratorWait: Wait, ownerWait: Wait) =>
-          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${formatNumber(linkHours)} Stunden gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage; die bisherige Adresse erfährt davon und kann die Änderung ${formatNumber(stopDays)} Tage lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, für die ${ownerTier} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. Mit der ${ownerTier} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
+          `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${boundBy(formatNumber(linkHours), "Stunden")} gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage; die bisherige Adresse erfährt davon und kann die Änderung ${boundBy(formatNumber(stopDays), "Tage")} lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, ${boundBy("für", "die", ownerTier)} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. ${boundBy("Mit", "der", ownerTier)} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
         ban: "Stört eine Adresse den Spielbetrieb, kann die Verwaltung sie sperren. Mit ihr meldet sich dann niemand an, und sie bekommt keine E-Mails. Hat sie ein Konto, schreiben wir das dorthin.",
       },
       mail: {
@@ -886,11 +979,11 @@ export const SERVER_COPY = catalogue({
         record:
           "Auf der Website stehen Name, Kürzel, Schule und Anschrift jedes Teams, Spielpläne, Ergebnisse und Tabellen, Aufstellungen, sobald ein Team sie einträgt, Tore und Karten, sobald der Spielbericht feststeht, und als freier Text Notizen zu Spielen, Beschreibungen von Teams und der Grund für einen Rückzug.",
         names:
-          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort „anonym“; im Kader stehen Rückennummer und Position in beiden Fällen.",
+          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort „anonym“; im Kader stehen Rückennummer und Position in beiden Fällen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
         consented: (mediaAge: number) =>
-          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ab ${formatNumber(mediaAge)} Jahren, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
+          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ${boundBy("ab", formatNumber(mediaAge), "Jahren")}, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         never:
-          "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters, Kartengründe und die Bemerkungen eines Spielberichts.",
+          "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters und die Bemerkungen eines Spielberichts.",
       },
       recipients: {
         heading: "Empfänger",
@@ -905,13 +998,14 @@ export const SERVER_COPY = catalogue({
           "Meta (Instagram), selbst verantwortlich: die Fotos, Videos und Interviews, die du erlaubst.",
         ],
         transfers:
-          "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art. 45 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art. 46 Abs. 2 lit. c DSGVO), deren Kopie wir dir auf Anfrage schicken. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
+          "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art.\u00A045 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art.\u00A046 Abs.\u00A02 lit.\u00A0c DSGVO), deren Kopie wir dir auf Anfrage schicken. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
       },
       /**
        * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
        * parameter; the rest are the rulings' and the providers', several of which only the backend, a host script or a
-       * later session's build holds, so each is written out. A confirmation link's days stand for a declined item's
-       * too, the rulings giving both one wait.
+       * later session's build holds, so each is written out. A declined item's days are `declinedDays`; where one
+       * figure stands for an unconfirmed and a declined item, the confirmation link's days stand for both, which
+       * `fl_backend/app/shared/schemas/bounds.py` holds equal at import.
        */
       retention: {
         heading: "Speicherdauer",
@@ -923,38 +1017,41 @@ export const SERVER_COPY = catalogue({
             name: "Bewerbung",
             content: "Schule, Team, Kontaktpersonen",
             period: (bound: RetentionBounds) =>
-              `${formatNumber(bound.bewerbungDays)} Tage, wenn nicht alle bestätigen; abgelehnt ${formatNumber(bound.bewerbungDays)} Tage; sonst bis zum Ende der Saison danach`,
+              `${boundBy(formatNumber(bound.bewerbungDays), "Tage")}, wenn nicht alle bestätigen; abgelehnt ${boundBy(formatNumber(bound.declinedDays), "Tage")}; sonst bis zum Ende der Saison danach`,
           },
           {
             name: "Kontaktpersonen",
             content: "Kontaktdaten, Geburtsdatum, Antworten",
             period: (bound: RetentionBounds) =>
-              `${formatNumber(bound.bewerbungDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach`,
+              `${boundBy(formatNumber(bound.bewerbungDays), "Tage")}, wenn unbestätigt oder abgelehnt; sonst bis zum Ende der Saison danach`,
           },
-          // Session 8: the 14 days become `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE` once that constant holds them.
-          { name: "Registrierung", content: "Name, Adresse, Geburtsdatum", period: "14 Tage, wenn unbestätigt oder abgelehnt" },
+          {
+            name: "Registrierung",
+            content: "Name, Adresse, Geburtsdatum",
+            period: (bound: RetentionBounds) => `${boundBy(formatNumber(bound.registrierungDays), "Tage")}, wenn unbestätigt oder abgelehnt`,
+          },
           {
             name: "Registrierungslinks",
-            content: "Team, Saison, Adresse der Person aus der Verwaltung, die ihn erstellt hat",
-            period: "ohne Frist; die Adresse bis zur Löschung dieser Person",
+            content: "Team, Saison",
+            period: "ohne Frist",
           },
           { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
           {
             name: "Schiedsrichter",
             content: "Name, Kontaktdaten, Honorar, Antworten",
             period: (bound: RetentionBounds) =>
-              `${formatNumber(bound.schiedsrichterDays)} Tage, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden`,
+              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")}, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden`,
           },
           {
             name: "Teams und Spiele",
             content: "Ergebnisse, Tore, Karten, Notizen",
             period: "als Chronik der Liga; Namen darin nur, solange der Eintrag der Person besteht",
           },
-          { name: "Freie Texte zu Spielen", content: "Absagegründe, Kartengründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
+          { name: "Freie Texte zu Spielen", content: "Absagegründe, Bemerkungen", period: "bis zum Ende der Saison danach" },
           {
             name: "Gesperrte Adresse",
             content: "Adresse, Grund, Datum",
-            period: "bis zum Ende der 5. Saison danach",
+            period: "bis zum Ende der 5.\u00A0Saison danach",
           },
           {
             name: "Zugang zur Verwaltung",
@@ -966,13 +1063,13 @@ export const SERVER_COPY = catalogue({
             name: "Anmeldung",
             content: "Code; Zahl der Codes und der Fehlversuche je Adresse, pseudonymisiert",
             period: (bound: RetentionBounds) =>
-              `Code ${formatNumber(bound.code.minutes)} Minuten; Codes ${formatNumber(bound.code.mailHours)} Stunde, Fehlversuche ${formatNumber(bound.code.failureHours)} Stunden`,
+              `Code ${boundBy(formatNumber(bound.code.minutes), "Minuten")}; Codes ${boundBy(formatNumber(bound.code.mailHours), "Stunde")}, Fehlversuche ${boundBy(formatNumber(bound.code.failureHours), "Stunden")}`,
           },
           {
             name: "Sitzungen",
             content: "Beginn, letzte Nutzung, Art der Anmeldung",
             period: (bound: RetentionBounds) =>
-              `${formatNumber(bound.person.idleDays)} Tage ohne Nutzung, höchstens ${formatNumber(bound.person.days)}; mit Zugang zur Verwaltung ${formatNumber(bound.admin.idleHours)} Stunde ohne Nutzung, höchstens ${formatNumber(bound.admin.hours)} Stunden`,
+              `${boundBy(formatNumber(bound.person.idleDays), "Tage")} ohne Nutzung, höchstens ${formatNumber(bound.person.days)}; mit Zugang zur Verwaltung ${boundBy(formatNumber(bound.admin.idleHours), "Stunde")} ohne Nutzung, höchstens ${boundBy(formatNumber(bound.admin.hours), "Stunden")}`,
           },
           // The ended change's 30 days are the backend's alone, `fl_backend/app/shared/schemas/bounds.py ::
           // ADDRESS_CHANGE_RETENTION_DAYS`.
@@ -980,43 +1077,47 @@ export const SERVER_COPY = catalogue({
             name: "Adressänderung",
             content: "Beide Adressen",
             period: (bound: RetentionBounds) =>
-              `jeder Link ${formatNumber(bound.addressChangeLinkHours)} Stunden; Adressen bis zu ihrem Ende, der Rest 30 Tage danach`,
+              `jeder Link ${boundBy(formatNumber(bound.addressChangeLinkHours), "Stunden")}; Adressen bis zu ihrem Ende, der Rest 30\u00A0Tage danach`,
           },
-          { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse", period: "12 Monate" },
+          { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse", period: "12\u00A0Monate" },
           // The end state's one store: the erasure journal is written as the server's own journald lines, kept nine days,
           // so the host script that exports a day file today states nothing here.
           {
             name: "Protokolle des Servers",
             content:
               "Aufrufe, Anmeldungen; Löschungen, Widerrufe und Widersprüche mit der Nummer des Eintrags, bei Kontaktpersonen auch dem Tag der Bestätigung",
-            period: "9 Tage",
+            period: "9\u00A0Tage",
           },
-          { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30 Tage danach" },
-          { name: "E-Mails bei Resend", content: "Adresse, Betreff, Inhalt", period: "30 Tage, in Sicherungen bis 7 Tage länger" },
-          { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31 Tage" },
-          { name: "Turnstile bei Cloudflare", content: "Signale deines Browsers beim Absenden eines Formulars", period: "7 Tage" },
+          { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30\u00A0Tage danach" },
+          {
+            name: "E-Mails bei Resend",
+            content: "Adresse, Betreff, Inhalt",
+            period: "30\u00A0Tage, in Sicherungen bis\u00A07\u00A0Tage länger",
+          },
+          { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31\u00A0Tage" },
+          { name: "Turnstile bei Cloudflare", content: "Signale deines Browsers beim Absenden eines Formulars", period: "7\u00A0Tage" },
         ],
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa 8 Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
-        log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12 Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
+        log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12\u00A0Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.",
       },
       rights: {
         heading: "Deine Rechte",
         /** Around the league's address. */
         text: {
           before:
-            "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art. 15 bis 18 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail; was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an ",
+            "Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art.\u00A015\u00A0bis\u00A018 und 20 DSGVO). Eine Einwilligung widerrufst du jederzeit für die Zukunft, in deinem Konto oder per E-Mail; was bis dahin geschah, bleibt rechtmäßig. Für alles genügt eine formlose E-Mail an\u00A0",
           after: ".",
         },
         /** The Art. 21 DSGVO objection, set apart as Art. 21 (4) asks; a callout's text holds no link, so it names the address. */
         objection: {
           title: "Recht auf Widerspruch",
-          text: `Jeder Verarbeitung auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO kannst du aus Gründen deiner besonderen Situation widersprechen (Art. 21 DSGVO); eine E-Mail an ${KONTAKT_EMAIL} genügt.`,
+          text: `Jeder Verarbeitung auf Grundlage von Art.\u00A06 Abs.\u00A01 lit.\u00A0f DSGVO kannst du aus Gründen deiner besonderen Situation widersprechen (Art.\u00A021 DSGVO); eine E-Mail ${boundBy("an", KONTAKT_EMAIL)} genügt.`,
         },
         closing:
-          "Automatisierte Entscheidungen im Sinne von Art. 22 DSGVO treffen wir nicht. Einen Datenschutzbeauftragten haben wir nicht bestellt. Beschweren kannst du dich bei einer Datenschutzaufsichtsbehörde, für uns beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden.",
+          "Automatisierte Entscheidungen im Sinne von Art.\u00A022 DSGVO treffen wir nicht. Einen Datenschutzbeauftragten haben wir nicht bestellt. Beschweren kannst du dich bei einer Datenschutzaufsichtsbehörde, für uns beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit, Postfach\u00A03163, 65021\u00A0Wiesbaden.",
       },
       /** The notice's last paragraph: the day its words took effect. */
       stand: (day: CalendarDay) => `Stand: ${formatDateLong(day)}`,
@@ -1041,13 +1142,36 @@ export const SERVER_COPY = catalogue({
   bewerbung: {
     end: {
       /** The landing's band alike, so the two pages say one thing of an upcoming window. */
-      opensOn: (day: CalendarDay) => `Die Bewerbung öffnet am ${formatDateLong(day)}`,
+      opensOn: (day: CalendarDay) => `Die Bewerbung öffnet ${boundBy("am", formatDateLong(day))}`,
       /** A paused window alike, the visitor being able to do nothing about either, and the landing's band, as `opensOn`. */
       closed: "Die Bewerbung ist gerade geschlossen",
       over: "Die Saison ist vorbei",
       none: "Keine Bewerbung für diese Saison",
       /** The outcome replacing the form, a replayed press alike. */
       submitted: "Bewerbung abgeschickt",
+    },
+  },
+
+  /**
+   * The registration form's page, `ROUTES.registrierung`, beside the form's own words (`COPY.registrierung`): what a
+   * pupil reads before typing, and a status card's title for each state where no form stands.
+   */
+  registrierung: {
+    /** Shown to a nominee alone, whose squad entry stands outside the squad's cap. */
+    nominee: "Du wirst nachnominiert und spielst nur, wenn deinem Team sonst jemand fehlt.",
+    /**
+     * The Art. 21 DSGVO objection, read before anything is typed, in the one wording the first-contact mail closes on,
+     * in the two parts around the league's address, which the page sets as a link between them.
+     */
+    objection: OBJECTION_RIGHT,
+    end: {
+      /** The outcome replacing the form, a replayed press alike: the title is what the pupil does next. */
+      submitted: "Bestätige deine Registrierung per E-Mail",
+      /** A paused link, as `bewerbung.end.closed` words a paused window; an ended season reads `bewerbung.end.over`. */
+      closed: "Die Registrierung ist gerade geschlossen",
+      kaderFull: "Der Kader ist voll",
+      /** A team not in the season, or out of it. */
+      teamNotEntered: "Das Team spielt nicht mit",
     },
   },
 
@@ -1067,10 +1191,10 @@ export const SERVER_COPY = catalogue({
     opening: {
       /** A seat in an application, one text for all: it names no submitter, the form recording none. */
       named: (schule: Words, saison: string, rolle: Words) =>
-        `Du bist in der Bewerbung von ${textOf(schule)} für die ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} genannt.`,
+        `Du bist in der Bewerbung ${boundBy("von", textOf(schule))} ${boundBy("für", "die", COPY.shared.saisonName(saison))} ${boundBy("als", textOf(rolle))} genannt.`,
       /** Seated by the league on a team's season, with no application. */
       seasonRow: (team: Words, saison: string, rolle: Words) =>
-        `Die Liga hat dich für ${textOf(team)} in der ${COPY.shared.saisonName(saison)} als ${textOf(rolle)} eingetragen.`,
+        `Die Liga hat dich ${boundBy("für", textOf(team))} ${boundBy("in", "der", COPY.shared.saisonName(saison))} ${boundBy("als", textOf(rolle))} eingetragen.`,
     },
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
     /** The same on a closed row, whose seat no confirmation filled, so no birthdate stands on it. */
@@ -1116,10 +1240,11 @@ export const SERVER_COPY = catalogue({
     deadline: ENTRY_DEADLINE,
     /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
     question: (until: CalendarDay) =>
-      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before}${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
+    /** What an objection does, the objection's question's sentence: the page's own clause, said of the objection alone. */
+    objectionEffect: OBJECTION_DELETES_ENTRY,
   },
 
-  // Session 8: its page reads these.
   /**
    * The fixed text of a pupil's confirmation page, `ROUTES.registrierungConfirmation`, built as `kontaktConfirmation`
    * is: the registration the pupil made, what is stored and until when, the deadline, what the birthdate is checked
@@ -1127,12 +1252,16 @@ export const SERVER_COPY = catalogue({
    */
   registrierungConfirmation: {
     opening: (team: Words, saison: string) =>
-      `Du hast dich über den Link von ${textOf(team)} für den Kader in der ${COPY.shared.saisonName(saison)} registriert.`,
+      `Du hast dich über den Link ${boundBy("von", textOf(team))} für den Kader ${boundBy("in", "der", COPY.shared.saisonName(saison))} registriert.`,
     stored:
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
-    deadline: (until: CalendarDay) => `Bestätigst du nicht bis zum ${formatDateLong(until)}, löschen wir deine Registrierung.`,
+    deadline: (until: CalendarDay) => `Bestätigst du nicht ${boundBy("bis", "zum", formatDateLong(until))}, löschen wir deine Registrierung.`,
     more: MORE,
+    /** The first paragraph, its sentences in reading order. */
+    text: (...sentences: Copy[]) => sentences.join(" "),
+    /** The done card's title; the link opened again titles it with the day (`COPY.shared.end.doneOn`). */
+    confirmed: "Registrierung bestätigt",
   },
 
   /**
@@ -1142,19 +1271,20 @@ export const SERVER_COPY = catalogue({
    */
   description: {
     home: COPY.brand.description,
-    about: `Wer in der ${COPY.brand.name} spielt, nach welchen Regeln und wofür, und wer die Liga organisiert.`,
+    about: `Wer ${boundBy("in", "der", COPY.brand.name)} spielt, nach welchen Regeln und wofür, und wer die Liga organisiert.`,
     spielplan: (saison: string) =>
       `Alle Spiele der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.`,
     tabelle: (saison: string) =>
       `Die Tabelle der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: jede Gruppe mit Spielen, Toren und Punkten.`,
     teams: (saison: string) => `Alle Teams der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}, mit Gruppe und Kader.`,
-    team: (team: string, saison: string) => `${team} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Stand, Spiele und Kader.`,
+    team: (team: string, saison: string) =>
+      `${team} ${boundBy("in", "der", COPY.shared.saisonName(saison))} der ${COPY.brand.name}: Stand, Spiele und Kader.`,
     kORunde: (saison: string) => `Die K.-o.-Runde der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: der K.-o.-Baum bis zum Finale.`,
     spiel: (team1: Words, team2: Words, saison: string) =>
-      `${COPY.page.spiel(team1, team2)} in der ${COPY.shared.saisonName(saison)} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
+      `${COPY.page.spiel(team1, team2)} ${boundBy("in", "der", COPY.shared.saisonName(saison))} der ${COPY.brand.name}: Termin, Ort, Ergebnis und Aufstellungen.`,
     contact: `Die ${COPY.brand.name} erreichst du per E-Mail, auf Instagram und auf Threads.`,
     sponsors: `Die Sponsoren der ${COPY.brand.name}, und wie du die Liga unterstützen kannst.`,
-    legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach § 5 DDG.`,
+    legalNotice: `Anbieterkennzeichnung der ${COPY.brand.name} nach\u00A0§\u00A05 DDG.`,
     privacyNotice: `Welche Daten die ${COPY.brand.name} verarbeitet, auf welcher Grundlage und wie lange.`,
     sitemap: `Alle Seiten der ${COPY.brand.name} auf einen Blick.`,
   } satisfies Record<ListedRoute, string | ((...names: never) => string)>,

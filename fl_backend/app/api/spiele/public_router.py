@@ -5,7 +5,7 @@ from app.api.spiele.schemas import FLSpieleSingleResponse, FLSpielJoined
 from app.api.spiele.services import build_spiele_pipeline
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
-from app.core.dependencies import SaisonsCollection, SpieleCollection
+from app.core.dependencies import SaisonsReadCollection, SpieleReadCollection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -20,8 +20,8 @@ router = APIRouter(
 @router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
 async def get_spiel(
     spiel_id: CustomRouteObjectId,
-    spiele_collection: SpieleCollection,
-    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleReadCollection,
+    saisons_collection: SaisonsReadCollection,
 ) -> FLSpieleSingleResponse:
     """Return one match by its id, answering 404 for a match of a season this tier may not read."""
 

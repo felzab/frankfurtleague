@@ -60,7 +60,9 @@ from app.core.crud import (
 from app.core.dependencies import (
     DBClient,
     OutboxCollection,
+    OutboxReadCollection,
     SchiedsrichterCollection,
+    SchiedsrichterReadCollection,
     SpieleCollection,
     get_german_date_str,
     get_germany_now,
@@ -84,7 +86,7 @@ router = APIRouter(
 
 @router.get("", response_model=FLSchiedsrichterListResponse, summary="List Schiedsrichter")
 async def get_schiedsrichter(
-    schiedsrichter_collection: SchiedsrichterCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
     filters: FLSchiedsrichterFilterParams = Depends(),
 ) -> FLSchiedsrichterListResponse:
     """
@@ -121,8 +123,8 @@ async def get_schiedsrichter(
 )
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    outbox_collection: OutboxCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    outbox_collection: OutboxReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).

@@ -37,7 +37,7 @@ reads like a constant of this league is nearly always one some season chose for 
 - **Standing apart** — one school's application to play one season (`bewerbungen`), one pupil's registration
   to play it (`registrierungen`), one minted registration link (`invitations`), one party's answer about one
   fixture's Ansetzung (`spielbestaetigungen`), one fixture's report by its referee or an administrator (`spielberichte`),
-  one change of the address a person signs in on (`address_changes`), one barred address
+  one club's line-up for one fixture (`aufstellungen`), one change of the address a person signs in on (`address_changes`), one barred address
   (`ban_list`), one address's access to the administration (`grants`), one mail the league owes one
   recipient (`outbox`), one mailbox a public form named (`mailbox_anchors`), and one recorded write
   (`action_log`).
@@ -75,9 +75,10 @@ reused rather than restated.
 **A fixture confirmation is held true against nothing too, and is NOT in the season's boundary however close it
 sits.** A row states what one party answered about one Ansetzung, which stays true however the fixture moves
 afterwards. Membership would claim an invariant holding a row and its fixture true together, and the design holds
-none on purpose: the answer writes no fixture, no fixture write reaches a row, and the sweep closes a row a move
-overtook up to an hour later. What a reader may rely on is a comparison rather than a membership -- the answer
-compares the row's `ansetzung.stand` against the fixture's at the press -- and the one rule the collection holds
+none on purpose: an answer writes no fixture but a referee's decline, which lifts that referee's booking and
+nothing else of it; no fixture write reaches a row but a replace or an undraw of the draw, which removes the
+season's rows with its fixtures; and the sweep closes a row a move overtook up to an hour later. What a reader may rely on is a comparison rather than a membership -- the answer
+compares the row's `ansetzung.digest` against the fixture's at the press -- and the one rule the collection holds
 alone, one open row per party per Ansetzung.
 
 **A boundary is what must be true together; what must not outlive a person is a different question**, and the
@@ -130,10 +131,12 @@ retired row. `retire_blocked`, `spielort_still_booked` and `schiedsrichter_still
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
 sets away and writes nothing back, and what it is for is [the rules
 below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person and every one of
-their squad rows, repoints every scorer and card entry naming them in a match report at the erased sentinel
-(`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`) and removes their values in the
-action log, as one transaction over all four, and asks no retirement first — any one of the four alone would
-leave the erasure defeated while reporting success, a report entry or a log row holding what was erased being
+their squad rows, repoints every scorer and card entry naming them in a match report, and every entry on a line-up
+locked before its match, at the erased sentinel, removes their entries from the line-ups not yet locked
+(`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
+`fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`) and removes their values in
+the action log, as one transaction over all five, and asks no retirement first — any one of the five alone would
+leave the erasure defeated while reporting success, a report entry, a line-up entry or a log row holding what was erased being
 exactly the record the erasure exists to remove.
 
 ### A season's rules are the interesting case

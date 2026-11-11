@@ -2,13 +2,14 @@ import "server-only";
 
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
-import { dayOf, formatDateLong, formatDayAndTime, formatTime, timeOf } from "./format";
+import { dayOf, formatDateLong, formatDayAndTime, formatInstant, formatTime, timeOf } from "./format";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
 import type { Fact, Mail, Paragraph, Sentence } from "./emailShell";
 import type {
+  FLAufstellungReminderData,
   FLAustrittNoticeData,
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
@@ -19,21 +20,13 @@ import type {
   FLSpielRequestData,
   FLSpielVorschlagDiscardedData,
 } from "./generated/client/types";
-import type { MailLink, MailOrigin } from "./mailKinds";
+import type { MailOrigin } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.spiel;
 const FACT = COPY.spielplan.fact;
 
-/**
- * The one place this link is spelled. `token` is the name `nginx/shared/http.conf :: $credential_free_uri`
- * redacts, and the origin goes through `mailOrigin` here, so the link and the message's close stand on one host.
- */
-export function spielConfirmationLink(origin: string, token: string): string {
-  return `${mailOrigin(origin)}${ROUTES.spielbestaetigung.path()}?token=${encodeURIComponent(token)}`;
-}
-
-/** The referee's own panel, the address `fl_frontend/src/features/funktionen/utils.ts` opens their Funktion on. */
-const SCHIEDSRICHTER_PANEL_PATH = "/area/schiedsrichter";
+/** The referee's own panel, the address `fl_frontend/src/features/roles/utils.ts` opens their Funktion on. */
+const SCHIEDSRICHTER_PANEL_PATH = ROUTES.areaSchiedsrichter.path();
 
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */
 const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2">): Copy =>
@@ -42,7 +35,7 @@ const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
 
 /** A sentence whose moment stands semibold between its two parts. */
-const around = (before: string, value: string, after: string): Sentence => [before, { strong: value }, after];
+const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
 /**
  * A move's rows: the moment it left, and the one it moved to where it holds one. The block stands under the new
@@ -72,7 +65,7 @@ function slotBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppoin
   return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: spielort ?? COPY.shared.notProvided }] };
 }
 
-/** The deadline and the first-press rule: any seat of the club answers, so a reader told nothing takes a spent link for a dead one. */
+/** The deadline and the first-answer rule: any seat of the club answers, so a reader told nothing takes a date already answered for one lost. */
 const answerParagraph = (deadline: string): Paragraph => [
   around(WORDS.answerUntil.before, formatDateLong(dayOf(deadline)), WORDS.answerUntil.after),
   WORDS.firstAnswerCounts,
@@ -80,16 +73,18 @@ const answerParagraph = (deadline: string): Paragraph => [
 
 /**
  * A club's request to confirm a fixture, the reminder of it, or the request about the slot a move went to, which is then
- * the one mail telling the club of the move: to one mailbox of one of its teams.
+ * the one mail telling the club of the move: to one mailbox of one of its teams. No token: the reader answers on the
+ * team's own pages, signed in.
  */
 export function buildSpielRequestEmail(
-  { kind, team, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
-  { origin, token }: MailLink,
+  { kind, team, team_id: teamId, saison_id: saison, ansetzung, deadline, moved_from: movedFrom }: FLSpielRequestData,
+  { origin }: MailOrigin,
 ): Mail {
+  const site = mailOrigin(origin);
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it.
-  const [subjectLine, lead]: readonly [string, Paragraph] =
+  const [subjectLine, lead]: readonly [Copy, Paragraph] =
     movedFrom !== null
       ? [WORDS.movedSubject(day), [WORDS.moved(paarung(ansetzung)), ask]]
       : kind === "spiel_reminder"
@@ -99,13 +94,11 @@ export function buildSpielRequestEmail(
   return {
     kind: "notice",
     subjectLine,
-    // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
-    // could send the two versions to different hosts.
-    origin: mailOrigin(origin),
+    origin: site,
     paragraphs: [lead],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [answerParagraph(deadline)],
-    button: { label: COPY.page.spielbestaetigung, href: spielConfirmationLink(origin, token) },
+    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
 }
 
@@ -139,7 +132,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
 }
 
 /** A notice naming a fixture, the reader's next mail, if any, being the request or the Einteilung it states. */
-function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
+function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
     kind: "notice",
     subjectLine,
@@ -195,6 +188,29 @@ export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorsch
     around(WORDS.kept.before(paarung(appointment)), moment(appointment), WORDS.kept.after),
     WORDS.keptDiscarded,
   ]);
+}
+
+/**
+ * The one reminder to a club that a fixture's line-up is missing: the fixture between the two sentences, its day, its
+ * hour and its ground as the fixture request names them, the second sentence naming the moment the backend counted it
+ * due at. No token: the reader enters it on the team's own pages, signed in.
+ */
+export function buildAufstellungReminderEmail(
+  { team, team_id: teamId, saison_id: saison, appointment, due_at: dueAt }: FLAufstellungReminderData,
+  { origin }: MailOrigin,
+): Mail {
+  const site = mailOrigin(origin);
+  const words = SERVER_COPY.mail.aufstellung;
+
+  return {
+    kind: "notice",
+    subjectLine: words.reminderSubject(dayOf(appointment.date)),
+    origin: site,
+    paragraphs: [[words.missing({ record: team })]],
+    block: slotBlock(appointment, null),
+    afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
+    button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
+  };
 }
 
 /**

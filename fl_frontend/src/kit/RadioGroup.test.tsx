@@ -48,4 +48,24 @@ describe("a radio group", () => {
       expect(drawnBox(answer).className.split(" ")).not.toContain("border-border-control");
     }
   });
+
+  // Read from the markup, since jsdom lays nothing out: an empty line would still take the card's gap under its title,
+  // so a card without one would stand taller than its words, which no look at a card with a line shows.
+  it("draws a card's line under its title where it has one, and nothing under a title standing alone", () => {
+    render(
+      <RadioGroup
+        label={COPY.shared.saison}
+        layout="cards"
+        choices={[
+          { id: "startelf", label: COPY.shared.startelf, line: COPY.shared.bank },
+          { id: "bank", label: COPY.shared.verb.save },
+        ]}
+      />,
+    );
+    // The title's own box and every part beside it: the words under the circle.
+    const words = (title: string) => [...(screen.getByText(title).parentElement?.children ?? [])].map((part) => part.textContent);
+
+    expect(words(COPY.shared.startelf)).toStrictEqual([COPY.shared.startelf, COPY.shared.bank]);
+    expect(words(COPY.shared.verb.save)).toStrictEqual([COPY.shared.verb.save]);
+  });
 });

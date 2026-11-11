@@ -8,9 +8,10 @@ import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-compone
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { ActRow, DialogOverlay } from "./Dialog";
+import { askingLook } from "./buttonStyles";
+import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
-import { StatusLine } from "./FieldParts";
+import { FormFooter } from "./FormFooter";
 import { answering } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -19,6 +20,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
+import type { IconName } from "./Icon";
 import type { FormStatus } from "./useFormAction";
 import type { HeldOpen } from "./useOpenUntilHidden";
 
@@ -38,20 +40,75 @@ export type ConfirmWords = {
    */
   facts?: ReadonlyArray<Fact>;
   /** `danger` for a destructive act, `primary` for one that is merely irreversible. */
-  tone: "danger" | "primary";
+  tone: Tone;
 };
 
-/** What opens the question: its own trigger, or the open state another control holds, as the kit's `Dialog` takes it. */
-type Opening =
+/** A question's or a dialog's tone: `danger` for an act that destroys, `primary` for any other. */
+export type Tone = "danger" | "primary";
+
+/**
+ * The button opening a question or a dialog, which the question or the dialog draws (`TriggerButton`), so its look
+ * follows the act's tone and no caller chooses it for a destroying act: an act whose tone is `danger` takes the outlined
+ * danger look (`askingLook`) and takes no `variant`; any other takes the look `variant` names, secondary unless it is
+ * the page's main act. A trigger is never locked: a locked act's button stands instead of it (`Button`'s `locked`).
+ */
+export type Trigger<T extends Tone = Tone> = {
+  label: Copy;
+  isBusy?: boolean;
+  /** One repeated on every row of a list is described by its row's name (`Button`). */
+  "aria-describedby"?: string;
+} & (
+  | { icon: IconName; leadingIcon?: never; isDisabled?: never; variant?: never }
+  | ({ icon?: never; leadingIcon?: IconName; isDisabled?: boolean } & ([T] extends ["danger"]
+      ? { variant?: never }
+      : { variant?: "primary" | "secondary" }))
+);
+
+/** A question's or a dialog's trigger, drawn as its tone says (`Trigger`). */
+export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone }) {
+  const { label, isBusy, "aria-describedby": describedBy } = trigger;
+  return trigger.icon !== undefined ? (
+    <Button
+      icon={trigger.icon}
+      label={label}
+      isBusy={isBusy}
+      aria-describedby={describedBy}
+    />
+  ) : (
+    <Button
+      variant={tone === "danger" ? askingLook(tone) : (trigger.variant ?? "secondary")}
+      label={label}
+      leadingIcon={trigger.leadingIcon}
+      isDisabled={trigger.isDisabled}
+      isBusy={isBusy}
+      aria-describedby={describedBy}
+    />
+  );
+}
+
+/**
+ * What opens the question: its own trigger, which it draws; the open state another control holds, as the kit's `Dialog`
+ * takes it; or a control in a look of the frame's own that is no button, such as the band's „‹ Zurück“, which asks
+ * before it drops an editor's unsaved changes. A button opening a question is a `trigger`, but for a form's own press
+ * that asks first, whose form holds the open state: `QuestionForm`'s, and a mailed page's refusal (`OneShotForm`).
+ */
+type Opening<T extends Tone> =
   | {
-      /** The kit `Button` that opens the question. */
-      trigger: ReactElement;
+      trigger: Trigger<T>;
       open?: never;
+      control?: never;
     }
   | {
       /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
+      control?: never;
+    }
+  | {
+      /** A pressable React Aria control the kit draws in a look of its own, never the kit's `Button`. */
+      control: ReactElement;
+      trigger?: never;
+      open?: never;
     };
 
 type Act = {
@@ -68,13 +125,16 @@ type Act = {
   touch?: { holder: string };
 };
 
-export type ConfirmDialogProps = ConfirmWords & Act & Opening;
+/** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
+export type ConfirmQuestion = ConfirmWords & Act;
+
+type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Opening<T>;
 
 /**
  * A held question its holder has not asked yet, such as the save bar's before any save was held back: mounted closed
  * from the first render, as a held dialog must be, it takes no words, having none to say.
  */
-type Unasked = Act & { open: HeldOpen; trigger?: never } & { [Word in keyof ConfirmWords]?: never };
+type Unasked = Act & { open: HeldOpen; trigger?: never; control?: never } & { [Word in keyof ConfirmWords]?: never };
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -84,8 +144,8 @@ type Unasked = Act & { open: HeldOpen; trigger?: never } & { [Word in keyof Conf
  * refusal twice is announced twice. A refusal marked `warn` is an act that partly happened: its line reads in the warn
  * tone, and its button stays, since a second press finishes what the first left.
  */
-export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
-  const { trigger, open, onConfirm, touch } = props;
+export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Unasked) {
+  const { trigger, control, open, onConfirm, touch } = props;
   const words = props.verb === undefined ? null : props;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
@@ -124,11 +184,7 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
         </Heading>
         <p className="text-sm text-fg-muted">{words.consequence}</p>
         {words.facts !== undefined && words.facts.length > 0 && <Facts facts={words.facts} />}
-        <ActRow>
-          <StatusLine
-            status={refusal}
-            placement="row"
-          />
+        <FormFooter status={refusal}>
           <Button
             variant="secondary"
             label={COPY.shared.back}
@@ -152,17 +208,23 @@ export function ConfirmDialog(props: ConfirmDialogProps | Unasked) {
               })
             }
           />
-        </ActRow>
+        </FormFooter>
       </AriaDialog>
     </DialogOverlay>
   );
-  return trigger === undefined ? (
-    overlay
-  ) : (
+  if (trigger === undefined && control === undefined) return overlay;
+  return (
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={setOpen}>
-      {trigger}
+      {trigger !== undefined && words !== null ? (
+        <TriggerButton
+          trigger={trigger}
+          tone={words.tone}
+        />
+      ) : (
+        control
+      )}
       {overlay}
     </DialogTrigger>
   );

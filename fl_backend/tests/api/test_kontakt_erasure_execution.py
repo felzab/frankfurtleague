@@ -156,9 +156,9 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
     return {
         row_id: {
             **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_ROLLEN, roles, strict=True)},
-            "trainer_is_also": zugleich,
+            "trainer_is_also": also,
         }
-        for row_id, (roles, zugleich) in SEEDED_ROLES.items()
+        for row_id, (roles, also) in SEEDED_ROLES.items()
     }
 
 
@@ -200,6 +200,9 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
         kader={"expected_size": 12, "good_spieler": 3},
     )
 
+
+# Why a case stores seats the read-back refuses: the near misses a pattern must not reach are spellings no fold holds.
+UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure's pattern must miss"
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -247,14 +250,17 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
     )
 
 
-def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+def on_a_league(url: str, body: Body, *, mutates_schema: bool = False, stores_a_refused_shape: str | None = None) -> Any:
     """The shipped support indexes, so a namespace a transaction cannot create is there.
 
-    `mutates_schema=True` where the body plants a validator of its own to make one write fail.
+    `mutates_schema=True` where the body plants a validator of its own to make one write fail, and `stores_a_refused_shape`
+    where it stores an address no fold holds.
     """
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        async with a_clean_database(
+            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+        ) as (client, database):
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     saison_team_document(ROW_A_EARLIER_OID, EARLIER_SAISON, TEAM_A_OID),
@@ -328,10 +334,13 @@ def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
     """A junction row whose Trainer holds exactly this address, inserted straight past pydantic.
 
     Which is how an application reaches it in any case: `bewerbungen` has no create endpoint, so
-    `bsonType: "string"` is all a stored address is held to.
+    `bsonType: "string"` is all a stored address is held to. Laid over a row the builder answers, which refuses an
+    address outside its fold, as the read-back does.
     """
 
-    return a_junction_row(row_id, LATER_SAISON, a_block_holding({**person(UNREACHED_LAST_NAME, UNREACHED_PHONE), "email": email}))
+    row = a_junction_row(row_id, LATER_SAISON, a_block_holding(person(UNREACHED_LAST_NAME, UNREACHED_PHONE)))
+
+    return {**row, "kontakte": {**row["kontakte"], "trainer": {**row["kontakte"]["trainer"], "email": email}}}
 
 
 async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
@@ -393,7 +402,7 @@ def after_erase_the_near_misses(url: str) -> tuple[FLErasureResponse, dict[Any, 
 
         return response, await stored_rows(database)
 
-    return on_a_league(url, body)
+    return on_a_league(url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
 
 
 def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
@@ -497,17 +506,11 @@ def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
     assert all("confirmations" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
 
 
-def test_the_clearing_names_the_bookkeeping_only_where_told_to_and_the_digest_always():
-    """The pure half: a season row holding no block gets no key created.
+def test_the_clearing_names_the_bookkeeping_only_where_told_to():
+    """The pure half: a season row holding no block gets no key created."""
 
-    The digest goes either way: an `$unset` creates nothing.
-    """
-
-    assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}, "$unset": {"idempotency_fingerprint": ""}}
-    assert build_clearing_update(("trainer",), confirmations=True) == {
-        "$set": {"kontakte.trainer": None, "confirmations.trainer": None},
-        "$unset": {"idempotency_fingerprint": ""},
-    }
+    assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}}
+    assert build_clearing_update(("trainer",), confirmations=True) == {"$set": {"kontakte.trainer": None, "confirmations.trainer": None}}
 
 
 CORRECTED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817301")
@@ -683,7 +686,7 @@ def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fol
 
         return read
 
-    read = on_a_league(mongo_replica_set_url, body)
+    read = on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
     parted: dict[str, Any] = {}
     for identifier in SERVER_IDENTIFIERS:
         pattern = same_address(identifier)
