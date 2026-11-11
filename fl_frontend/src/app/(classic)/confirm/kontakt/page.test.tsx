@@ -77,7 +77,7 @@ describe("a closed row's link", () => {
     expect(await stateFor({ quelle: "saison", state: "saison_past", row: "saison_past" })).toMatchObject({
       state: "question",
       action: objectKontakt,
-      acts: { primary: COPY.shared.verb.oppose },
+      acts: { refusal: { verb: "oppose" } },
     });
   });
 });

@@ -65,7 +65,7 @@ const OBJECTION_RIGHT = {
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter ", after: "." };
-// What an objection does to a contact's seat on a season row, an entry that stands alone.
+// What an objection does to an entry that stands alone: a contact's seat on a season row, and a referee's entry.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
@@ -1225,6 +1225,8 @@ export const SERVER_COPY = catalogue({
     /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
     question: (until: CalendarDay) =>
       `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
+    /** What an objection does, the objection's question's sentence: the page's own clause, said of the objection alone. */
+    objectionEffect: OBJECTION_DELETES_ENTRY,
   },
 
   /**

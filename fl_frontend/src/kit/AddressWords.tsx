@@ -8,7 +8,8 @@ import type { RecordText, Words } from "@/core/copy";
  * An address standing as a record's name, wrapping rather than being cut: an address is what tells two rows apart, and
  * a touch reaches no tooltip a cut one keeps. A line breaks after the „@“, and before a „.“ only where a part is wider
  * than its line alone (`AddressWords`), the places a printed address breaks. Every other name is cut with „…“
- * on its one line; a row's or a rail's name part draws this in its place where it knows its name for an address.
+ * on its one line; a row's name part draws this in its place where it knows its name for an address. The rail's
+ * account row is the one place an address is cut too, so the rail's foot keeps the editor bar's height beside it.
  */
 export const addressWords = tv({ base: "min-w-0 wrap-break-word" });
 

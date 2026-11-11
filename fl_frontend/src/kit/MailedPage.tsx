@@ -18,7 +18,7 @@ import type { Copy } from "@/core/copy";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
-import type { EndState, OneShotAction } from "./OneShot";
+import type { EndState, OneShotAction, OneShotActs } from "./OneShot";
 import type { StatusCardProps } from "./StatusPage";
 
 /**
@@ -69,7 +69,7 @@ export type MailedState =
       /** The words closing the sentence around the privacy notice's title, which stands between them as its link. */
       more?: { before: Copy; after: Copy };
       action: OneShotAction;
-      acts: { primary: Copy; secondary?: Copy };
+      acts: OneShotActs;
       /** What the form posts unseen beside its fields: the link's token. */
       carry: Readonly<Record<string, string>>;
       /** The main act's press asks the passkey touch ahead of its action, for a person holding a passkey. */
