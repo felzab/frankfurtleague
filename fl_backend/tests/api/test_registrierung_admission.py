@@ -247,24 +247,6 @@ async def admit(
     )
 
 
-class SeasonsRunningARivalAtTheAnchor(InterleavedCollection):
-    """`saisons` with a rival run once just before the squad cap's anchor write, inside the admission's transaction."""
-
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.update_many(*args, **kwargs)
-
-
-class PersonsRunningARivalBeforeTheInsert(InterleavedCollection):
-    """`spieler` with a rival run once just before a new person is inserted: after the address was read and found nobody."""
-
-    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.insert_one(*args, **kwargs)
-
-
 async def decline(
     database: AsyncDatabase,
     client: AsyncMongoClient,
@@ -532,7 +514,7 @@ class TestTheSquadCap:
             async def the_rival_takes_the_place() -> None:
                 await admit(database, client, second)
 
-            seasons = SeasonsRunningARivalAtTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
+            seasons = InterleavedCollection(database[Collection.SAISONS], the_rival_takes_the_place, before="update_many")
             outcome = await outcome_of(admit(database, client, first, saisons=seasons))
             # Serially the refused admission reaches the anchor once; landing inside, its retry reaches it again.
             seasons.assert_landed_inside(serially=1)
@@ -946,7 +928,8 @@ class TestOneAddressAdmittedTwiceAtOnce:
             async def the_rival_writes_the_person() -> None:
                 answers.append(await admit(database, client, second))
 
-            spieler = PersonsRunningARivalBeforeTheInsert(database[Collection.SPIELER], the_rival_writes_the_person)
+            # Before the new person's insert, after the address was read and found nobody.
+            spieler = InterleavedCollection(database[Collection.SPIELER], the_rival_writes_the_person, before="insert_one")
             outcome = await outcome_of(admit(database, client, first, spieler=spieler))
             # Serially the address resolves before any insert; landing inside, the first attempt reaches it.
             spieler.assert_landed_inside(serially=0)
@@ -1026,16 +1009,6 @@ class TestEverySeatActsAlike:
         assert after == before
 
 
-class RegistrationsRunningARivalAfterTheirRead(InterleavedCollection):
-    """`registrierungen` with a rival run once just after the decline read the pending registration, before it writes."""
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        await self.run_the_rival()
-
-        return found
-
-
 class TestTheDecline:
     def test_a_rival_decision_landing_after_its_read_makes_it_retry_and_miss(self, mongo_replica_set_url: str):
         """The rival's decision stands: the decline's write conflicts with it, and the retry's read finds nothing pending."""
@@ -1046,7 +1019,8 @@ class TestTheDecline:
             async def the_rival_declines() -> None:
                 await decline(database, client, registrierung_id, reason="other_person", identifier=THEO)
 
-            registrierungen = RegistrationsRunningARivalAfterTheirRead(database[Collection.REGISTRIERUNGEN], the_rival_declines)
+            # After the decline read the pending registration, before it writes.
+            registrierungen = InterleavedCollection(database[Collection.REGISTRIERUNGEN], the_rival_declines, after="find_one")
             with pytest.raises(DocumentNotFoundError):
                 await decline(database, client, registrierung_id, registrierungen=registrierungen)
 

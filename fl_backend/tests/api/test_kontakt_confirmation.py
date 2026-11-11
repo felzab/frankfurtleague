@@ -930,16 +930,6 @@ class TestALinkOutlivingItsSeason:
         assert reopened.state == "declined"
 
 
-class SeasonsRunningARivalAfterTheirRead(InterleavedCollection):
-    """The rival lands once the press holds the season's status and before it writes the row."""
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        await self.run_the_rival()
-
-        return found
-
-
 NEXT_SAISON_ID = "2027"
 
 
@@ -968,7 +958,8 @@ class TestARolloverInsideTheConsentPress:
                     db=client,
                 )
 
-            seasons = SeasonsRunningARivalAfterTheirRead(database[Collection.SAISONS], roll_over)
+            # Once the press holds the season's status, and before it writes the row.
+            seasons = InterleavedCollection(database[Collection.SAISONS], roll_over, after="find_one")
             answered = await answer(database, token, saisons=cast(AsyncCollection, seasons))
             saison = await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, projection={"status": 1})
 
