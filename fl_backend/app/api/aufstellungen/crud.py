@@ -106,8 +106,8 @@ async def erase_pupil_from_aufstellungen_in_session(
     now: datetime,
     # REQUIRED: the erasure's own, so a line-up never names the sentinel of an erasure that rolled back.
     session: AsyncClientSession,
-) -> int:
-    """Repoint this pupil's entries on locked line-ups at the sentinel, remove the rest, answering how many line-ups changed.
+) -> None:
+    """Repoint this pupil's entries on locked line-ups at the sentinel and remove their entries from the rest.
 
     A locked line-up's entry stands, as a report's does: from the lock the line-up is the club's record of whom it
     fielded, and a removed entry would read as a pupil nobody picked. One still ahead of its lock is the club's to
@@ -134,37 +134,30 @@ async def erase_pupil_from_aufstellungen_in_session(
     )
     # No write for none: most erased pupils are named by no line-up.
     if not naming:
-        return 0
+        return
 
     locked = {
         row["_id"] for row in naming if any(keeps_erased(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in row[_SPIEL_AS])
     }
     ahead = sorted({row["_id"] for row in naming} - locked, key=str)
 
-    changed = 0
     if locked:
         # Narrowed to the line-ups holding an entry to change, since an array-filtered update reaches
         # `patch_many_in_db` unnarrowed (the manual's "$[<identifier>]" page).
-        changed += (
-            await patch_many_in_db(
-                collection=aufstellungen_collection,
-                db_filter={"_id": {"$in": sorted(locked, key=str)}, "spieler.spieler_id": spieler_id},
-                update={"$set": {"spieler.$[entry].spieler_id": GHOST_SPIELER_ID}},
-                array_filters=[{"entry.spieler_id": spieler_id}],
-                session=session,
-            )
-        ).modified_count
+        await patch_many_in_db(
+            collection=aufstellungen_collection,
+            db_filter={"_id": {"$in": sorted(locked, key=str)}, "spieler.spieler_id": spieler_id},
+            update={"$set": {"spieler.$[entry].spieler_id": GHOST_SPIELER_ID}},
+            array_filters=[{"entry.spieler_id": spieler_id}],
+            session=session,
+        )
     if ahead:
-        changed += (
-            await patch_many_in_db(
-                collection=aufstellungen_collection,
-                db_filter={"_id": {"$in": ahead}},
-                update={"$pull": {"spieler": {"spieler_id": spieler_id}}},
-                session=session,
-            )
-        ).modified_count
-
-    return changed
+        await patch_many_in_db(
+            collection=aufstellungen_collection,
+            db_filter={"_id": {"$in": ahead}},
+            update={"$pull": {"spieler": {"spieler_id": spieler_id}}},
+            session=session,
+        )
 
 
 async def remove_the_seasons_aufstellungen(
