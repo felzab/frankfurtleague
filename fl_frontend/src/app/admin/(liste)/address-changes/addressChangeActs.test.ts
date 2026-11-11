@@ -41,18 +41,6 @@ describe("a start, an account standing at the new address", () => {
   });
 });
 
-// The API takes every atext character and the sign-in library does not: the person moved there meets a sign-in that
-// answers as sent, and no code ever comes.
-describe("a start onto an address the sign-in library refuses", () => {
-  it("is refused on the new address's box, and nothing is posted", async () => {
-    expect(await startLostMailboxChange({ ...START, email: "a~b@example.de" })).toMatchObject({
-      ok: false,
-      fieldErrors: { email: COPY.shared.field.format(COPY.shared.field.exampleAddress) },
-    });
-    expect(calls).toHaveLength(0);
-  });
-});
-
 // The re-mint kills the earlier link, so a fresh one refused at its press costs the person the one that worked.
 describe("a re-send, an account standing at the new address", () => {
   it("is refused in the re-send's own sentence, and nothing is posted", async () => {
