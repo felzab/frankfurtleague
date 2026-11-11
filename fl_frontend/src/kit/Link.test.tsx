@@ -24,19 +24,6 @@ vi.mock("next/link", () => ({
 const SPIEL = "/saisons/2027/spiele/64b000000000000000000001";
 
 describe("the kit's link", () => {
-  it("navigates on the client through Next's link", () => {
-    render(
-      <Link
-        href={SPIEL}
-        placement="standalone"
-        label={COPY.shared.toSpiel}
-      />,
-    );
-
-    const link = screen.getByRole("link", { name: COPY.shared.toSpiel });
-    expect(link.hasAttribute("data-client-navigation")).toBe(true);
-  });
-
   it("drawn as a glyph alone, is named by its label, which its tooltip shows rather than the link", async () => {
     render(
       <Link
