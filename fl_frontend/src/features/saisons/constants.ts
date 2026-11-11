@@ -13,7 +13,7 @@ export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = Object.values(FLSa
 export const PHASE_LABELS: Readonly<Record<FLSaisonPhase, Copy>> = COPY.shared.phase;
 
 /**
- * Mirroring the backend's `SAISON_ID_LENGTH` (`fl_backend/app/shared/schemas/bounds.py`). `saisons._id` is the string
- * every `saison_id` references, so a width only one tier moved breaks every row pointing at it.
+ * Mirrors the backend's `SAISON_ID_LENGTH`. `saisons._id` is the string every `saison_id` references, so a width only
+ * one tier moved breaks every row pointing at it.
  */
 export const SAISON_ID_LENGTH = 4;

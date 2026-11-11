@@ -3,7 +3,6 @@ import { dayOf } from "@/core/format";
 
 import type { CalendarDay } from "@/core/format";
 
-/** What a new season's create dialog starts from: its two days. */
 export type NextSaison = { start: CalendarDay | null; end: CalendarDay | null };
 
 /**
