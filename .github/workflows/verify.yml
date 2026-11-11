@@ -382,8 +382,7 @@ jobs:
       # One step in the image, never a job-level `container:`: that job's steps would hold no docker to
       # raise the stack with, and its `options` refuse `--network`. The runner's network, because the
       # journeys' origin is `localhost`, the passkeys' relying party. The runner's user, so the mail
-      # sink and the edge log read as they read on the runner, and the report steps read what the run
-      # writes. The checkout's own path, because the install's links are absolute and the `github`
+      # sink reads as it reads on the runner, and the report steps read what the run writes. The checkout's own path, because the install's links are absolute and the `github`
       # reporter's annotations name files relative to it. The install's own launcher, because the
       # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
@@ -400,13 +399,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: journeys-report
-          # The report and the e2e edge's own logs, the only record of the address it judged each
-          # request by (`nginx/e2e/e2e.conf`).
-          path: |
-            .tmp-playwright/
-            .tmp-e2e/nginx-log/
-          # Both directories are dot directories, which the action leaves out by default: without
-          # this a failed run uploads nothing and says so in a warning alone.
+          path: .tmp-playwright/
+          # A dot directory, which the action leaves out by default: without this a failed run
+          # uploads nothing and says so in a warning alone.
           include-hidden-files: true
           retention-days: 7
       - name: The stack's logs, on a failure
