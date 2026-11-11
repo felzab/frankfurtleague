@@ -317,10 +317,12 @@ export default function AdministratorsPage() {
       list={{
         kind: "folds",
         wait: (
+          // „Angekündigt“ stands only while something waits, which the read tells: its wait draws it, the taller form.
           <OpenFoldPlaceholder
             title={COPY.admin.team.active}
             head={HEAD}
             rows={3}
+            folded={[WORDS.pending]}
           />
         ),
         content: foldsOf(access),

@@ -95,11 +95,12 @@ describe("who holds access and what waits", () => {
 
 // The harm: the static shell shows every reader this wait, so a row's act or chevron in it moves an administrator's rows.
 describe("the wait", () => {
-  it("draws no row's act and no chevron but the fold's own", async () => {
+  it("draws no row's act and no chevron but the folds' own", async () => {
     const { wait } = await read("anna@example.org", [THE_OWNER, grant("anna@example.org")]);
 
     expect(wait).not.toContain(COPY.shared.verb.remove);
-    expect(wait.match(/<svg/g)).toHaveLength(1);
+    // „Aktiv“ open, and „Angekündigt“ folded under it.
+    expect(wait.match(/<svg/g)).toHaveLength(2);
   });
 });
 

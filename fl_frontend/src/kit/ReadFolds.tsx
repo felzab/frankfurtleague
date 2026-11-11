@@ -67,26 +67,48 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
   );
 }
 
-/**
- * The open card of `ReadFolds`' `column` while it is read: its title, its chevron turned as an open card's, a bar where
- * its count stands, and its table's placeholder.
- */
-export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: TableHead; rows: number }) {
+/** A fold's head while it is read: its chevron, turned where the card opens, its title, and a bar where its count stands. */
+function FoldHeadPlaceholder({ title, open }: { title: Copy; open: boolean }) {
   const s = cardLook({ body: "rows", fold: true });
   return (
-    <div className={s.root()}>
-      <span className={s.head()}>
-        <span className={s.title()}>
-          <span className={s.chevron({ class: "rotate-90" })}>
-            <Icon
-              glyph="forward"
-              size={16}
-            />
-          </span>
-          <span className="min-w-0">{title}</span>
+    <span className={s.head()}>
+      <span className={s.title()}>
+        <span className={s.chevron({ class: open ? "rotate-90" : "" })}>
+          <Icon
+            glyph="forward"
+            size={16}
+          />
         </span>
-        <FoldCountPlaceholder className={s.count()} />
+        <span className="min-w-0">{title}</span>
       </span>
+      <FoldCountPlaceholder className={s.count()} />
+    </span>
+  );
+}
+
+/**
+ * The open card of `ReadFolds`' `column` while it is read: its head and its table's placeholder; and with `folded`, the
+ * cards folded under it, each its head alone, in the column `ReadFolds` sets them in. A folded card the page draws only
+ * while it holds something is drawn here all the same, the taller of the page's two forms.
+ */
+export function OpenFoldPlaceholder({
+  title,
+  head,
+  rows,
+  folded,
+}: {
+  title: Copy;
+  head: TableHead;
+  rows: number;
+  folded?: ReadonlyArray<Copy>;
+}) {
+  const s = cardLook({ body: "rows", fold: true });
+  const open = (
+    <div className={s.root()}>
+      <FoldHeadPlaceholder
+        title={title}
+        open
+      />
       <div className={s.body()}>
         <TablePlaceholder
           head={head}
@@ -94,6 +116,22 @@ export function OpenFoldPlaceholder({ title, head, rows }: { title: Copy; head: 
           bare
         />
       </div>
+    </div>
+  );
+  if (folded === undefined) return open;
+  return (
+    <div className={COLUMN_CLASSES}>
+      {open}
+      {folded.map((card) => (
+        <div
+          key={card}
+          className={s.root()}>
+          <FoldHeadPlaceholder
+            title={card}
+            open={false}
+          />
+        </div>
+      ))}
     </div>
   );
 }
