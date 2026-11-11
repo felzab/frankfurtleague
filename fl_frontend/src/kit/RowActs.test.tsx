@@ -294,10 +294,11 @@ const SQUAD = ["pia@example.org", "ben@example.org", "tom@example.org"];
 /**
  * A list whose rows each open one question held beside the list, whose act leaves the row standing but opening nothing,
  * as a squad row taken out does: asked straight, or, as the squad's own page asks it, from the danger row of the row's
- * dialog. The page read again arrives while the question still stands, as an action's does.
+ * dialog. The page read again arrives while the question still stands, as an action's does. `out` names the rows taken
+ * out before the page opens.
  */
-function Squad({ asked }: { asked: "straight" | "fromDialog" }) {
-  const [live, setLive] = useState(SQUAD);
+function Squad({ asked, out = [] }: { asked: "straight" | "fromDialog"; out?: readonly string[] }) {
+  const [live, setLive] = useState(() => SQUAD.filter((address) => !out.includes(address)));
   const [opened, setOpened] = useState<string | null>(null);
   const open = { isOpen: opened !== null, onOpenChange: (isOpen: boolean) => setOpened(isOpen ? opened : null) };
   const question = {
@@ -362,5 +363,26 @@ describe("a row its own question's act leaves opening nothing", () => {
 
     const after = screen.getByRole("row", { name: /ben@example.org/ });
     await waitFor(() => expect(document.activeElement).toBe(within(after).getByRole("button")));
+  });
+
+  // The harm: the row beside it taken out earlier, the focus falls to the whole table and a keyboard's next Tab starts
+  // the list over, though a row further on still opens.
+  it.each([
+    ["after it", 1, "tom@example.org"],
+    ["before it, where none after opens", 2, "pia@example.org"],
+  ])("passes over a row opening nothing to the nearest row that opens, %s", async (_case, place, landsOn) => {
+    render(
+      <Squad
+        asked="straight"
+        out={["ben@example.org"]}
+      />,
+    );
+    for (let press = 0; press < place; press += 1) await userEvent.tab();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+
+    const landed = screen.getByRole("row", { name: (name) => name.includes(landsOn) });
+    await waitFor(() => expect(document.activeElement).toBe(within(landed).getByRole("button")));
   });
 });

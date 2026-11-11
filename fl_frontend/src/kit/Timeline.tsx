@@ -80,10 +80,13 @@ const timeline = tv({
     // A club's matches: the line holds the match columns beside the points' and hands them through each checkpoint to
     // its match's box, so every score and side stands at one x down the line (`spielColumns`). The line is the
     // container picking the rows' form, since a part handing columns on is never one: its width counts the points'
-    // column and its gap, so a match's box takes the one-line row from 39.5 rem rather than 42.
+    // column and its gap, so a match's box takes the one-line row from 39.5 rem rather than 42. The list's gap is the
+    // rows' own, which a subgrid's cells stretch into where the two differ, and the points' column keeps the line's
+    // 16 px to its titles by its own end margin.
     matches: {
       true: {
-        list: `${SPIEL_COLUMNS_CLASSES} @container grid-cols-[auto_var(--spiel-columns)]`,
+        list: `${SPIEL_COLUMNS_CLASSES} @container grid-cols-[auto_var(--spiel-columns)] gap-x-3`,
+        line: "me-1",
         body: "col-[2/-1] grid-cols-subgrid gap-x-3 *:col-span-full",
       },
     },
