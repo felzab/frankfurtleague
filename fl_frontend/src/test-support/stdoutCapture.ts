@@ -1,9 +1,6 @@
 import { assert } from "vitest";
 
-/**
- * Test-only, and `no-restricted-imports` in `fl_frontend/eslint.config.mjs` is what holds it there:
- * every export below replaces `process.stdout.write` for the length of a call.
- */
+/** Test-only: every export below replaces `process.stdout.write` for the length of a call. */
 
 /** A run's stdout: the chunks that opened like documents verbatim, and those chunks parsed. */
 type WrittenLines = { raw: string[]; documents: Record<string, unknown>[] };
