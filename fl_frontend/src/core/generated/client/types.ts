@@ -613,7 +613,7 @@ export const FLAction = {
 } as const;
 
 /**
- * One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.
+ * One recorded act.
  */
 export interface FLActionLogEntry {
   action: FLAction;
@@ -649,7 +649,7 @@ export const FLActionType = {
 } as const;
 
 /**
- * What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.
+ * What the action log's read narrows by.
  */
 export interface FLActionLogFilterPayload {
   by?: string | null;

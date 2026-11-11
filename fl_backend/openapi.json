@@ -1223,7 +1223,7 @@
         "type": "string"
       },
       "FLActionLogEntry": {
-        "description": "One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.",
+        "description": "One recorded act.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/FLAction"
@@ -1290,7 +1290,7 @@
       },
       "FLActionLogFilterPayload": {
         "additionalProperties": false,
-        "description": "What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.",
+        "description": "What the action log's read narrows by.",
         "properties": {
           "by": {
             "anyOf": [
@@ -18374,7 +18374,7 @@
     },
     "/api/v0/action_log/view": {
       "post": {
-        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\nA POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every\n`http.answered` line, where the log's scrubber reads no `%40`.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
+        "description": "The newest 50 acts the filters keep, starting after `cursor` where one is given.",
         "operationId": "action_log_get_action_log",
         "requestBody": {
           "content": {

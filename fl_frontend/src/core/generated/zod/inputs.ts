@@ -25,13 +25,7 @@ export const AccountPostAddressChangeBody = zod.object({
 });
 
 /**
- * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
- *
- * A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
- * `http.answered` line, where the log's scrubber reads no `%40`.
- *
- * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
- * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
+ * The newest 50 acts the filters keep, starting after `cursor` where one is given.
  * @summary List recorded acts
  */
 export const actionLogGetActionLogBodyByOneMax = 254;
@@ -76,7 +70,7 @@ export const ActionLogGetActionLogBody = zod
       ])
       .optional(),
   })
-  .describe("What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.");
+  .describe("What the action log's read narrows by.");
 
 /**
  * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
