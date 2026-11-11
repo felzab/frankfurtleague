@@ -4,7 +4,7 @@ import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
-import { buttonPlaceholder } from "./buttonStyles";
+import { buttonLook, buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
@@ -221,13 +221,23 @@ export type TableHead = Pick<
 > & {
   /** The rows open nothing, so their wait ends in no chevron. */
   linked?: false;
-  /**
-   * The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. A list of side
-   * acts names its lone act: whether its rows fold into a „⋯“ is the read's to tell, so its wait draws the taller form,
-   * the button on a line of its own under a stacked row's words.
-   */
-  acts?: ReadonlyArray<Copy>;
-};
+} & (
+    | {
+        /** The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. */
+        acts?: ReadonlyArray<Copy>;
+        sideAct?: never;
+      }
+    | {
+        acts?: never;
+        /**
+         * The lone act of a list of side acts (`SideActs`), whose rows open nothing. Whether they fold into a „⋯“ is the
+         * read's to tell, so its wait draws, on a stacked row, the lone act's button on a line of its own under the
+         * words, the taller form; a table's row is one height in either form, so there the „⋯“ the list folds into
+         * once some row carries two, and the columns stand where a folding list lands them.
+         */
+        sideAct: Copy;
+      }
+  );
 
 /** A table's rows once read: everything but its head. */
 export type TableBody = Omit<TableProps, keyof TableHead>;
@@ -1010,6 +1020,23 @@ function ActBars({ acts }: { acts: ReadonlyArray<Copy> }) {
   ));
 }
 
+/** The „⋯“'s bar, the size of `SideActs`' button, a glyph's alone. */
+const MORE_BAR_CLASSES = "w-8 px-0 pointer-coarse:w-10";
+
+/**
+ * A row's side acts while the rows are read (`TableHead`'s `sideAct`): the lone act's button on a stacked row, the taller
+ * form, and the „⋯“'s bar where the row is a table's, which stands one height in either form.
+ */
+function SideActBar({ act, stacks }: { act: Copy; stacks: Stacks }) {
+  if (stacks === "none") return <span className={buttonLook({ look: "placeholder", class: MORE_BAR_CLASSES })} />;
+  return (
+    <>
+      <span className={buttonPlaceholder("@2xl:hidden")}>{act}</span>
+      <span className={buttonLook({ look: "placeholder", class: `${MORE_BAR_CLASSES} @max-2xl:hidden` })} />
+    </>
+  );
+}
+
 /**
  * A table while its rows are read: its own head, the columns' labels as the page states them, over `rows` rows at the
  * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
@@ -1017,8 +1044,9 @@ function ActBars({ acts }: { acts: ReadonlyArray<Copy> }) {
  * the chevron where rows lead on. Drawn with the table's own recipe and the columns' stated widths inside the table's
  * own container, so it takes the form the rows will at every width: a list's rows stacked where its box is narrow, the
  * chip's bar after the name's, a phone's left-out columns left out, a `stack` table's rows stacked as `Table`'s and
- * each row's acts as buttons, which a stacked row sets on a line under its words. Each cell's bar stands in a line of
- * the cell's own height, so a row holds its height wherever its lines stack.
+ * each row's acts as buttons, which a stacked row sets on a line under its words, a list of side acts its lone act's
+ * there and the „⋯“'s in a table (`SideActBar`). Each cell's bar stands in a line of the cell's own height, so a row
+ * holds its height wherever its lines stack.
  */
 export function TablePlaceholder({
   head,
@@ -1032,8 +1060,19 @@ export function TablePlaceholder({
   plaques?: boolean;
   bare?: boolean;
 }) {
-  const { nameLabel, rankLabel, state, columns, compact = false, chevronOnPhone = true, plaqueAlone = false, acts, stack = false } = head;
-  const hasActs = acts !== undefined;
+  const {
+    nameLabel,
+    rankLabel,
+    state,
+    columns,
+    compact = false,
+    chevronOnPhone = true,
+    plaqueAlone = false,
+    acts,
+    sideAct,
+    stack = false,
+  } = head;
+  const hasActs = acts !== undefined || sideAct !== undefined;
   const linked = head.linked !== false && !hasActs;
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose: false, stack });
   const phoneEnd = { stack, stacks, chevronOnPhone: linked && chevronOnPhone };
@@ -1125,10 +1164,16 @@ export function TablePlaceholder({
                   <RowEnd />
                 </td>
               )}
-              {acts !== undefined && (
+              {hasActs && (
                 <td className={parts.acts()}>
                   <span className={parts.actsLine()}>
-                    <ActBars acts={acts} />
+                    {acts !== undefined && <ActBars acts={acts} />}
+                    {sideAct !== undefined && (
+                      <SideActBar
+                        act={sideAct}
+                        stacks={stacks}
+                      />
+                    )}
                   </span>
                 </td>
               )}
