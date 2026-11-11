@@ -1225,7 +1225,7 @@ export interface FLAufstellungSummary {
 }
 
 /**
- * Each side's line-up, the one whose club the fixture fields there now; null where that club has stored none.
+ * Each side's line-up, the one whose club the fixture fields there now; null where none of that club's stands.
  */
 export interface FLAufstellungenPublic {
   team1: FLAufstellungPublic | null;

@@ -28,6 +28,7 @@ from app.api.aufstellungen.schemas import (
 )
 from app.api.aufstellungen.services import (
     aufstellung_marks,
+    aufstellung_stands,
     build_aufstellung_kader_pipeline,
     erased_entries,
     is_erased,
@@ -227,7 +228,12 @@ def _compose(
         spieler=[FLAufstellungEntry.model_validate(entry) for entry in entries],
         erased=[FLAufstellungErased(starts=entry["starts"]) for entry in erased_entries(saved, spiel=spiel, now=now)],
         version=None if saved is None else saved[VERSION_FIELD],
-        marks=aufstellung_marks(date=spiel.get("date"), time=spiel.get("time"), stored=saved is not None, now=now),
+        marks=aufstellung_marks(
+            date=spiel.get("date"),
+            time=spiel.get("time"),
+            stored=aufstellung_stands(saved, date=spiel.get("date"), time=spiel.get("time"), now=now),
+            now=now,
+        ),
     )
 
 

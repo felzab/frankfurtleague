@@ -2794,7 +2794,7 @@
         "type": "object"
       },
       "FLAufstellungenPublic": {
-        "description": "Each side's line-up, the one whose club the fixture fields there now; null where that club has stored none.",
+        "description": "Each side's line-up, the one whose club the fixture fields there now; null where none of that club's stands.",
         "properties": {
           "team1": {
             "anyOf": [
