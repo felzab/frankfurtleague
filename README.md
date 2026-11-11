@@ -43,8 +43,6 @@ The site also supports the season's organisation:
 | **Everyone signed in** | Manage their address, passkeys, sign-ins and consents on their account's pages (_Konto_), or delete the account |
 | **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access                          |
 
-Sign-ups open with the coming season.
-
 A pupil's name appears on the public squad list only with their consent, and the surname only as an
 initial. Unconfirmed applications and registrations expire, and a pupil's data is deleted once no
 season the league keeps needs it. [`docs/datenschutz.md`](docs/datenschutz.md) has each decision and
@@ -104,8 +102,8 @@ about the league itself are best sent through [the contact page](https://frankfu
 
 ## Security
 
-Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) explains
-how to report it privately and what is in scope.
+Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) names
+the address to report it to and what to include.
 
 ## License
 

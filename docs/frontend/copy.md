@@ -3,34 +3,31 @@
 **Purpose:** how every string a visitor reads on the site or in a mail is written. Read it before
 you write one; the strings themselves live in the catalogue, `fl_frontend/src/core/copy.ts :: COPY`.
 
-| Section                                                                   | Answers                                                    |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [The six rules](#six-rules-hold-every-string)                             | What every string on a rebuilt page obeys                  |
-| [Where a string lives](#a-string-lives-in-the-catalogue-and-nowhere-else) | Which file a string, a date or the current time comes from |
-| [Who approves](#i-approve-what-a-visitor-navigates-by)                    | Which strings ship and which are proposed                  |
-| [The one test](#every-sentence-passes-the-one-test)                       | Whether a sentence is written at all                       |
-| [Voice](#the-voice-is-plain-and-says-du)                                  | Address, who speaks, gendering, how a message reads        |
-| [Lengths](#each-kind-of-string-has-a-ceiling)                             | How long a label, a button, a message or a mail may be     |
-| [Fixed patterns](#a-recurring-job-takes-its-fixed-pattern)                | Which catalogue entry a recurring job takes, and when      |
-| [Help text](#help-text-is-one-of-four-kinds)                              | How a field, a section or a state is explained             |
-| [Formats](#dates-and-numbers-go-through-the-formatting-module)            | How a date, a time, a number or a score is written         |
-| [Punctuation](#punctuation-is-german-and-sparse)                          | Quotation marks, the ellipsis, the dash, the banned words  |
-| [Mail](#a-mail-is-one-small-set-of-data)                                  | What a mail holds and how its lines are written            |
-| [Legal text](#legal-text-keeps-its-own-rules)                             | What the privacy notice and the consent pages may do       |
+| Section                                                                   | Answers                                                                      |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [The five rules](#five-rules-hold-every-string)                           | What every string obeys                                                      |
+| [Where a string lives](#a-string-lives-in-the-catalogue-and-nowhere-else) | Which file a string, a date or the current time comes from                   |
+| [Who decides](#every-string-ships-under-this-page)                        | How a string ships                                                           |
+| [The one test](#every-sentence-passes-the-one-test)                       | Whether a sentence is written at all                                         |
+| [Voice](#the-voice-is-plain-and-says-du)                                  | Address, who speaks, gendering, how a message reads                          |
+| [Lengths](#each-kind-of-string-has-a-ceiling)                             | How long a label, a button, a message or a mail may be, and what may explain |
+| [Fixed patterns](#a-recurring-job-takes-its-fixed-pattern)                | Which catalogue entry a recurring job takes, and when                        |
+| [Formats](#dates-and-numbers-go-through-the-formatting-module)            | How a date, a time, a number or a score is written                           |
+| [Punctuation](#punctuation-is-german-and-sparse)                          | Quotation marks, the ellipsis, the banned words                              |
+| [Mail](#a-mail-is-one-small-set-of-data)                                  | What a mail holds and how its lines are written                              |
+| [Legal text](#legal-text-keeps-its-own-rules)                             | What the privacy notice and the consent pages may do                         |
 
-## Six rules hold every string
+## Five rules hold every string
 
 1. **Every string a visitor reads comes from the catalogue**: no one-off is typed into a page, a
    module or a component.
 2. **Under a field stands only one of `COPY.shared.field`'s patterns**, filled with the rule's
    bounds: one phrase, no full stop, no article, no field name, at most 80 characters.
-3. **A new pattern is added only where it serves many fields**, and only once I approve it.
+3. **A new pattern is added only where it serves many fields**, and only once the owner approves it.
 4. **Everything else stands on the status line or in a callout** as one short declarative catalogue
    sentence saying what is so, never why it is so or how to repair it.
 5. **The sign-in follows the same rules**: its code boxes show a pattern-form phrase, and every other
    refusal stands on its status line.
-6. **A page not yet rebuilt keeps its strings until its rebuild**, and the session rebuilding it
-   brings every one of them under these rules.
 
 ## A string lives in the catalogue and nowhere else
 
@@ -54,12 +51,10 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 - **No string is rewritten for a screen about to change or go**: a change writes the strings of what
   it builds.
 
-## I approve what a visitor navigates by
+## Every string ships under this page
 
-- **I approve this page, the `shared` section's vocabulary and every string a visitor navigates by**
-  — a menu entry, a page title, an address. Draft each of those with options beside the screen it
-  sits on, and never ship one I have not picked.
-- **Everything else ships under this page**, and I flag what I dislike on the screen it sits on.
+A string a visitor navigates by, such as a menu entry, a page title or an address, ships like any
+other. The owner flags what they dislike on the screen it sits on.
 
 ## Every sentence passes the one test
 
@@ -80,9 +75,7 @@ place that means the same thing.
 - **Neutral nouns first** („Kontaktperson“, „Team“); recast the sentence with „du“ so most person
   nouns disappear; the masculine only in a tight label.
 - **A message is short and plain.** Readers are not technical, and an unexpected failure is logged,
-  so it says only that something went wrong. A field message states what is expected, in one of the
-  fixed patterns: no field name, since it sits under its field, no article, no „Bitte“, no full stop,
-  never „ungültig“.
+  so it says only that something went wrong.
 - **Numbers are digits**, in prose too („14 Tage“).
 - **German words**: „Ranking“, „Matchday“ and „&“ in running text are replaced; „Infos“ stays.
 
@@ -100,7 +93,7 @@ and takes a second line, which moves what stands below it.
 | Field description       | 1 sentence, 90 characters                                | says what the thing is; none where the label suffices; no field has a placeholder             |
 | Box description         | 1 sentence, 90 characters, one visible line              | says what a Konto box holds, under its title                                                  |
 | Tooltip                 | 5 words                                                  | names an icon-only control, or says why a locked act cannot run                               |
-| Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | only where a named question needs it                                                          |
+| Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | one per section, after its title, only where a named question needs it                        |
 | Field error             | one phrase, 80 characters                                | a fixed pattern                                                                               |
 | Form refusal            | 1 short sentence, the status line's two lines on a phone | a plain fact about the whole form, or about a field no pattern words, naming that field       |
 | Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
@@ -113,6 +106,11 @@ and takes a second line, which moves what stands below it.
 | Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
 | Mail subject            | 50 characters                                            | what it is about first, no league name                                                        |
 | Mail body               | about 90 words                                           | more only where the law requires it on a first contact                                        |
+
+Help text is a field description, a box description, one ⓘ per section or a callout, and text the
+reader needs is never hidden behind an ⓘ. A Konto box is the one section carrying a sentence under
+its title, since Konto's boxes are one shape whatever each holds. Nothing else explains: no ⓘ on a page title or a side panel, no menu hints, no intros, no
+placeholders, no truncation banners.
 
 ## A recurring job takes its fixed pattern
 
@@ -153,19 +151,6 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
   day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
 
-## Help text is one of four kinds
-
-- **A field description**: one visible line under the field, saying what the thing is.
-- **A box's description**: one sentence under the title of each box of a Konto page, saying what
-  the box holds, the one section that carries a sentence under its title, since Konto's boxes are
-  one shape whatever each holds.
-- **One ⓘ per section**, right after its title, opening help a person sometimes needs. Text the
-  reader needs is never hidden behind it.
-- **A callout**: one visible state or consequence.
-
-Nothing else explains: no ⓘ on a page title or a side panel, no menu hints, no intros, no
-placeholders, no truncation banners.
-
 ## Dates and numbers go through the formatting module
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
@@ -186,12 +171,12 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 - **No full stop** after a heading, a label, a button, a tooltip or a one-phrase line; a full sentence
   ends with one.
 - **Quotation marks „…“.** The ellipsis character „…“ only for truncation; never three periods.
-- **No „!“. No dash** except in a date range. **No semicolon** outside legal text.
+- **No „!“. No semicolon** outside legal text.
 - **Banned**: „Bitte“; „erfolgreich“, „leider“, „wirklich“; a reassurance tail („wurde automatisch
   gemeldet“); „und mehr…“; „z.B.“ and „z. B.“, recast instead; a noun phrase where a verb exists
   („Konto löschen“, never „Löschung deines Kontos“); the passive where there is an actor; a body
   repeating its title; a sentence opening with „Damit“, „So“, „Dadurch“ or „weil“ that explains the
-  design; „Mannschaft“ and „noch einmal“.
+  design; „ungültig“, „Mannschaft“ and „noch einmal“.
 - **One word per concept**, on screen, in the code's names and, for a glossary term, in the address:
   the word is the `shared` entry or the [glossary](../glossary.md)'s, never a synonym.
 
@@ -206,7 +191,6 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 
 ## Legal text keeps its own rules
 
-- **Semicolons are allowed here alone.**
 - **A consent's label is its whole sentence**, past a field label's 3 words, because the sentence
   is what the person agrees to.
 - **A consent wording stays as it was shown**, because a stored record cites its words by label: it
