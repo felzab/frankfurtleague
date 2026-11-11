@@ -19,7 +19,7 @@ version: 2
 # - No ecosystem below reads an image a script, a workflow's step or a test names in a string, so
 #   these are kept by hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, lychee in
 #   `scripts/gate/verify.sh`, Playwright's in `.github/workflows/verify.yml :: journeys`, mongo in
-#   `scripts/ops/local.sh`, `fl_backend/tests/conftest.py :: MONGO_IMAGE` and
+#   `fl_backend/tests/conftest.py :: MONGO_IMAGE` and
 #   `fl_frontend/src/test-support/expiredTransactions.ts :: startJudgedReplicaSet`.
 
 updates:
@@ -125,8 +125,8 @@ updates:
   # Each `FROM` names a tag and its digest (`docs/ops/spec.md` §1.1), and this ecosystem rewrites the
   # two together; the compose ecosystem below does the same for every image either stack names.
 
-  # It moves the `FROM` line alone, so its pull request for a new Node or uv, or a Python outside
-  # `fl_backend/.python-version`'s series, stays red until the pin moves on the same branch.
+  # It moves the `FROM` line alone, so its pull request for a new Node or uv stays red until the pin
+  # moves on the same branch.
 
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
   # schedule and its cooldown: weekly, so eight days at worst (`docs/ops/spec.md` §4).
@@ -142,6 +142,10 @@ updates:
       frontend-image-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # A new major moves the whole frontend, `devEngines` and the lockfile with it, by hand.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /fl_backend
@@ -156,11 +160,10 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # Python's release-candidate tags (`3.15.0rc2`) arrive as ordinary minor updates, and production
-      # runs final releases only. A Bundler-syntax range, as this ecosystem reads one: move it to the
-      # next minor's candidates once this one ships.
+      # A new series moves the whole backend, `fl_backend/.python-version` with it, by hand; a release
+      # candidate's tag (`3.15.0rc2`) reads as a minor update, so this keeps it out too.
       - dependency-name: python
-        versions: [">= 3.16.0.a, < 3.16.0"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # --- Stack images ---------------------------------------------------------------------------
 
