@@ -49,15 +49,15 @@ PROD_CONTAINER="fl-edge-prod-$$"
 # A user-defined network, as both stacks' are: only one carries Docker's embedded DNS, which the edge
 # resolves its upstreams through, and no hosts-file entry reaches nginx's resolver.
 NETWORK="fl-edge-net-$$"
-# The stand-in answering as `backend`, so the name resolves on the test's network.
-BACKEND_GONE="fl-edge-backend-$$"
+# The stub's second copy, answering as `backend`.
+BACKEND_STUB="fl-edge-backend-$$"
 # Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
 # for this run because two runs sharing a path would delete each other's stub.
 SCRATCH_NAME=".tmp-edge-$$"
 SCRATCH="${REPO_ROOT}/${SCRATCH_NAME}"
 
 cleanup() {
-  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_GONE" >/dev/null 2>&1 || true
+  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_STUB" >/dev/null 2>&1 || true
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" || true
 }
@@ -77,15 +77,18 @@ while IFS= read -r written_line; do
 done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
 (( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
 
-# The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, so
-# each case is graded on a real 200 rather than a 502 that never reached a location.
+# The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, and
+# as `backend` from a container of its own, so each case is graded on a real 200 rather than a 502
+# that never reached a location.
 
-# It answers with the two headers it was handed, so the header block below reads what reached Next,
-# and with its own copy of every security header, which the edge must not pass beside its own.
+# It answers with the headers it was handed, so the header block below reads what reached the
+# application, and with its own copy of every security header, which the edge must not pass beside its
+# own.
 {
   cat <<'STUB'
 server {
     listen 3000;
+    listen 8000;
     server_name _;
     # Off, so the stub's own lines stay out of the stream being asserted.
     access_log off;
@@ -167,12 +170,11 @@ if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]
 quietly docker network create "$NETWORK" \
   || refuse "could not create the edge test's network ${NETWORK}. Docker's own reason is above."
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
-# at load still starts, and fails only the case aimed at it. Listening nowhere, it answers the header
-# pass's liveness probe with the edge's own 502 as soon as asked, where a name nothing holds leaves
-# that probe to the resolver.
-docker run -d --name "$BACKEND_GONE" --network "$NETWORK" --network-alias backend \
-  "$EDGE_IMAGE" sleep 3600 >/dev/null \
-  || refuse "could not start the stand-in answering as backend."
+# at load still starts, and fails only the case aimed at it.
+MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
+  -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  "$EDGE_IMAGE" >/dev/null \
+  || refuse "could not start the stub answering as backend."
 
 # The leading slash on each `-v` subject is `scripts/gate/verify.sh`'s nginx step's MSYS exclusion.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
@@ -320,14 +322,7 @@ grade_security_headers() { # $1 what the request was, the headers already read
 # One request into EVERY location `nginx/shared/site.conf` declares, the list read off that file so a
 # location added there is probed without this one learning it.
 HEADER_PATHS=()
-# Set for a location whose `proxy_pass` names the backend: nothing listens as `backend` until the
-# last case, so what it hands upstream is not read.
-declare -A TO_BACKEND=()
 while IFS= read -r location_line; do
-  if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$backend_upstream\; ]]; then
-    TO_BACKEND[$(( ${#HEADER_PATHS[@]} - 1 ))]=1
-    continue
-  fi
   [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
   location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
   case "$location_args" in
@@ -363,28 +358,25 @@ for _i in "${!HEADER_PATHS[@]}"; do
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
-UPSTREAM_READ=0
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
   grade_security_headers "${HEADER_PATHS[_i]}"
-  [[ -z "${TO_BACKEND[$_i]:-}" ]] || continue
-  UPSTREAM_READ=$(( UPSTREAM_READ + 1 ))
   seen_trace="${SENT_VALUE[x-seen-traceparent]:-}"
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected the edge's own traceparent at Next, Next received '${seen_trace}'"
+    detail "expected the edge's own traceparent upstream, it received '${seen_trace}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # This hop's own scheme, never the `https` the request claimed: Next builds the request's URL from it.
   if [[ "${SENT_VALUE[x-seen-forwarded-proto]:-}" != http ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected X-Forwarded-Proto http at Next from the local edge, Next received '${SENT_VALUE[x-seen-forwarded-proto]:-}'"
+    detail "expected X-Forwarded-Proto http upstream from the local edge, it received '${SENT_VALUE[x-seen-forwarded-proto]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # That no location clears the id a server action is posted with; the empty one is the relay's below.
   if [[ "${SENT_VALUE[x-seen-next-action]:-}" != "$CLIENT_ACTION" ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
+    detail "expected Next-Action ${CLIENT_ACTION} upstream, it received '${SENT_VALUE[x-seen-next-action]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
 done
@@ -546,7 +538,7 @@ for _ in $(seq 1 5); do
 done
 spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/auth/sign-in/email-otp"
 
-# The sign-in library's zone, on every method, and the landing on the same key.
+# The sign-in library's zone, on every method, and the landing and the readiness probe on the same key.
 burst_of AUTH_BURST "location /api/auth {" authapi
 for _ in $(seq 0 "$AUTH_BURST"); do
   action_request auth-allowance "${PROD_BASE}/api/auth/probe"
@@ -555,6 +547,7 @@ for _ in $(seq 1 10); do
   action_request auth-flood "${PROD_BASE}/api/auth/probe"
 done
 spent_request auth-landing "${PROD_BASE}/signin/continue"
+spent_request auth-ready "${PROD_BASE}/api/v0/system/is_ready"
 
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
 # twenty past the burst for the refill the run takes.
@@ -744,6 +737,8 @@ grade_spent form-code
 expect_action auth-allowance 200
 expect_action auth-flood some:429
 expect_action auth-landing some:429
+expect_action auth-ready some:429
+grade_spent auth-ready
 expect_action link-allowance 200
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
@@ -1042,7 +1037,7 @@ fi
 
 ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the mailed link's token on none,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
+each handing its upstream the edge's own traceparent, an empty
 Next-Action handed to no one, each rate zone and the connection ceiling admitting their figure and
 refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
 plain text an action reads, every link page metered on every request, its load refused with the edge's

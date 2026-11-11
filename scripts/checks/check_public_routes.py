@@ -175,6 +175,7 @@ class Elsewhere:
 # the prefix accounting alone. An entry here is an edge path no walk of this tree can derive.
 ELSEWHERE: Final[tuple[Elsewhere, ...]] = (
     Elsewhere("/api/v0/system/is_live", "the liveness probe, proxied to the backend rather than to Next"),
+    Elsewhere("/api/v0/system/is_ready", "the readiness probe, proxied to the backend rather than to Next"),
 )
 
 
