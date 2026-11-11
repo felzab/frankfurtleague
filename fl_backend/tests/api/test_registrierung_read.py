@@ -23,10 +23,10 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607950001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607950002")
 INVITATION_OID = ObjectId("6890a1b2c3d4e5f607950003")
 
-OFFEN_OID = ObjectId("6890a1b2c3d4e5f607950011")
-BESTAETIGT_OID = ObjectId("6890a1b2c3d4e5f607950012")
-FREMDE_SAISON_OID = ObjectId("6890a1b2c3d4e5f607950013")
-ABGELEHNT_OID = ObjectId("6890a1b2c3d4e5f607950014")
+OPEN_OID = ObjectId("6890a1b2c3d4e5f607950011")
+CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607950012")
+ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607950013")
+DECLINED_OID = ObjectId("6890a1b2c3d4e5f607950014")
 # Ids newer than every seeded row's, for the order case: one on an earlier day, one on the newest.
 EARLIER_DAY_OID = ObjectId("6890a1b2c3d4e5f607950015")
 SAME_DAY_OID = ObjectId("6890a1b2c3d4e5f607950016")
@@ -87,10 +87,10 @@ def on_a_league(url: str, body: Body) -> Any:
             await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX"))
             await database[Collection.REGISTRIERUNGEN].insert_many(
                 [
-                    registrierung_document(OFFEN_OID, first_name="Thessaly"),
-                    registrierung_document(BESTAETIGT_OID, first_name="Quillhilde", einwilligung=dict(CONSENT), submitted_at="2026-04-02"),
-                    registrierung_document(FREMDE_SAISON_OID, first_name="Wraxlington", team_id=OTHER_TEAM_OID, saison_id=OTHER_SAISON_ID),
-                    registrierung_document(ABGELEHNT_OID, first_name="Ottokar", status="declined"),
+                    registrierung_document(OPEN_OID, first_name="Thessaly"),
+                    registrierung_document(CONFIRMED_OID, first_name="Quillhilde", einwilligung=dict(CONSENT), submitted_at="2026-04-02"),
+                    registrierung_document(ELSEWHERE_OID, first_name="Wraxlington", team_id=OTHER_TEAM_OID, saison_id=OTHER_SAISON_ID),
+                    registrierung_document(DECLINED_OID, first_name="Ottokar", status="declined"),
                 ]
             )
 
@@ -119,18 +119,18 @@ class TestWhetherThePupilConfirmed:
 
         by_id = {row.id: row for row in on_a_league(mongo_replica_set_url, body).registrierungen}
 
-        assert (by_id[OFFEN_OID].confirmed, by_id[BESTAETIGT_OID].confirmed) == (False, True)
+        assert (by_id[OPEN_OID].confirmed, by_id[CONFIRMED_OID].confirmed) == (False, True)
 
     def test_a_row_owed_no_mail_says_so(self, mongo_replica_set_url: str):
         """An administrator cannot otherwise tell a pupil who has not answered from one who was never asked."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.REGISTRIERUNGEN].update_one({"_id": OFFEN_OID}, {"$set": {"confirmation.sent_at": None}})
+            await database[Collection.REGISTRIERUNGEN].update_one({"_id": OPEN_OID}, {"$set": {"confirmation.sent_at": None}})
             return await read(database)
 
         by_id = {row.id: row for row in on_a_league(mongo_replica_set_url, body).registrierungen}
 
-        assert (by_id[OFFEN_OID].unmailed, by_id[BESTAETIGT_OID].unmailed) == (True, False)
+        assert (by_id[OPEN_OID].unmailed, by_id[CONFIRMED_OID].unmailed) == (True, False)
 
 
 class TestWhatTheReadServes:
@@ -173,4 +173,4 @@ class TestWhatTheReadServes:
 
         answer = on_a_league(mongo_replica_set_url, body)
 
-        assert [row.id for row in answer.registrierungen] == [SAME_DAY_OID, BESTAETIGT_OID, OFFEN_OID, EARLIER_DAY_OID]
+        assert [row.id for row in answer.registrierungen] == [SAME_DAY_OID, CONFIRMED_OID, OPEN_OID, EARLIER_DAY_OID]

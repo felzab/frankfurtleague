@@ -85,7 +85,7 @@ TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
 BIRTH_DATE = "2009-05-04"
 # The label of the media wording a press withdrawing it is given under.
-KONTO_LABEL = SPIELER_TEXT_VERSIONS["media"]
+MEDIA_LABEL = SPIELER_TEXT_VERSIONS["media"]
 TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
 
 RULES: Mapping[str, Any] = documents.rules_document(max_kader_size=3, allowed_stufen=["Q1", "Q2"])
@@ -115,7 +115,7 @@ def on_a_league(
     *,
     squad: int = 0,
     registrierung: Any = None,
-    stellvertretung_bestaetigt: bool = True,
+    stellvertretung_confirmed: bool = True,
 ) -> Any:
     """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
 
@@ -138,9 +138,7 @@ def on_a_league(
                         TEAM_OID,
                         "Zorbanax",
                         "ZOX",
-                        kontakte=kontakte(
-                            ansprechperson="Anna", trainer="Theo", stellvertretung="Stella", confirmed=stellvertretung_bestaetigt
-                        ),
+                        kontakte=kontakte(ansprechperson="Anna", trainer="Theo", stellvertretung="Stella", confirmed=stellvertretung_confirmed),
                     ),
                     documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QUX", kontakte=kontakte(ansprechperson="Otto")),
                 ]
@@ -721,7 +719,7 @@ class TestThePersonAnAdmissionNames:
             False,
             {
                 "at": "2026-04-01T09:00:00+00:00",
-                "text_version": KONTO_LABEL,
+                "text_version": MEDIA_LABEL,
                 "given_before": STORED_GRANT["media"],
             },
         )
@@ -780,7 +778,7 @@ class TestThePersonAnAdmissionNames:
             False,
             {
                 "at": "2026-04-01T07:00:00+00:00",
-                "text_version": KONTO_LABEL,
+                "text_version": MEDIA_LABEL,
                 "given_before": STORED_GRANT["media"],
             },
         )
@@ -998,12 +996,12 @@ class TestEverySeatActsAlike:
 
     @pytest.mark.parametrize("operation", ["read", "admit", "decline"])
     @pytest.mark.parametrize(
-        ("identifier", "stellvertretung_bestaetigt", "saison_id"),
+        ("identifier", "stellvertretung_confirmed", "saison_id"),
         [(OTTO, True, SAISON_ID), (STELLA, False, SAISON_ID), (PAULA, True, PAST_SAISON_ID), (NORA, True, SAISON_ID)],
         ids=("another team's seat", "an unconfirmed seat", "a past season's seat on its own registration", "a seat in another season"),
     )
     def test_a_seat_granting_nothing_here_is_refused_and_writes_nothing(
-        self, mongo_replica_set_url: str, operation: str, identifier: str, stellvertretung_bestaetigt: bool, saison_id: str
+        self, mongo_replica_set_url: str, operation: str, identifier: str, stellvertretung_confirmed: bool, saison_id: str
     ):
         """Paula's registration is in her own seat's season: one submitted before a rollover stays pending past it.
 
@@ -1022,7 +1020,7 @@ class TestEverySeatActsAlike:
 
             return code, before, await snapshot(database)
 
-        code, before, after = on_a_league(mongo_replica_set_url, body, stellvertretung_bestaetigt=stellvertretung_bestaetigt)
+        code, before, after = on_a_league(mongo_replica_set_url, body, stellvertretung_confirmed=stellvertretung_confirmed)
 
         assert code == Code.ROLE_NOT_HELD
         assert after == before

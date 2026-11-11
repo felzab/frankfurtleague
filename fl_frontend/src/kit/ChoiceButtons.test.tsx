@@ -9,8 +9,8 @@ import { HeldForm } from "./HeldForm";
 
 const LABEL = COPY.shared.saison;
 const CHOICES = [
-  { id: "ja", label: COPY.shared.startelf },
-  { id: "nein", label: COPY.shared.bank },
+  { id: "yes", label: COPY.shared.startelf },
+  { id: "no", label: COPY.shared.bank },
 ];
 
 // The harm: a required choice heard as optional, and one the send refused heard as nothing wrong, while the page shows

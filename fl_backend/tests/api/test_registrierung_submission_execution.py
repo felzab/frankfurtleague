@@ -193,7 +193,7 @@ async def leave(database: AsyncDatabase) -> None:
 
 
 # A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
-SCHLUESSEL = UUID("9c5b94b1-35ad-49bb-b118-8e8fc24abf80")
+KEY = UUID("9c5b94b1-35ad-49bb-b118-8e8fc24abf80")
 
 
 async def register(
@@ -372,8 +372,8 @@ class TestTheSubmissionKey:
 
     def test_a_second_press_stores_no_second_row_owes_no_second_mail_and_answers_as_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await register(database, client, key=SCHLUESSEL)
-            second = await register(database, client, key=SCHLUESSEL)
+            first = await register(database, client, key=KEY)
+            second = await register(database, client, key=KEY)
 
             return first, second, await rows_of(database), await owed_of(database)
 
@@ -387,9 +387,9 @@ class TestTheSubmissionKey:
         """Looked up before every judgement: the first press opened a live invite, and its answer outlives the revocation."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await register(database, client, key=SCHLUESSEL)
+            first = await register(database, client, key=KEY)
             await database[Collection.INVITATIONS].update_one({"_id": INVITATION_OID}, {"$set": {"revoked_at": TODAY}})
-            second = await register(database, client, key=SCHLUESSEL)
+            second = await register(database, client, key=KEY)
 
             return first.registrierung_id, second.registrierung_id
 
@@ -405,7 +405,7 @@ class TestTheSubmissionKey:
             await register(database, client, email="zweite@beispielschule.de")
             await database[Collection.REGISTRIERUNGEN].update_many({}, {"$unset": {"idempotency_key": ""}})
             before = await rows_of(database)
-            await register(database, client, key=SCHLUESSEL, email="dritte@beispielschule.de")
+            await register(database, client, key=KEY, email="dritte@beispielschule.de")
             after = [row for row in await rows_of(database) if "idempotency_key" not in row]
 
             return before, after
@@ -420,11 +420,11 @@ class TestTheSubmissionKey:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
-            second = asyncio.create_task(register(database, client, key=SCHLUESSEL, registrierungen=held))
+            second = asyncio.create_task(register(database, client, key=KEY, registrierungen=held))
             await held.until_held(second)
 
             try:
-                first = await register(database, client, key=SCHLUESSEL)
+                first = await register(database, client, key=KEY)
             except BaseException:
                 await held.abandon(second)
                 raise
@@ -446,11 +446,11 @@ class TestTheSubmissionKey:
             committed = asyncio.Event()
             committed.set()
             held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
-            await register(database, client, key=SCHLUESSEL, registrierungen=held)
+            await register(database, client, key=KEY, registrierungen=held)
 
             return held.lookup_filters
 
-        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(SCHLUESSEL))]
+        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(KEY))]
 
     def test_a_press_carrying_no_key_is_still_taken_and_stores_none(self, mongo_replica_set_url: str):
         """A page loaded before the form sent one: stored and mailed, unprotected, and outside the unique index."""
@@ -492,11 +492,11 @@ class TestTheKeyOverTheWire:
         """The floor under the refusals below: without it each would pass on a request nothing reaches."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await over_the_wire(mongo_replica_set_url, key=str(SCHLUESSEL))
+            response = await over_the_wire(mongo_replica_set_url, key=str(KEY))
 
             return response.status_code, [row.get("idempotency_key") for row in await rows_of(database)]
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, [str(SCHLUESSEL)])
+        assert on_a_league(mongo_replica_set_url, body) == (201, [str(KEY)])
 
     @pytest.mark.parametrize(
         "key",
@@ -505,7 +505,7 @@ class TestTheKeyOverTheWire:
             # Version 1, which carries its host's clock: a guessable key lets a stranger store other details under it first.
             pytest.param("6fa459ea-ee8a-11ca-8d6b-0800200c9a66", id="a time-based uuid"),
             # The IETF draft's structured-field string: the bare token is this API's form.
-            pytest.param(f'"{SCHLUESSEL}"', id="the draft's quoted form"),
+            pytest.param(f'"{KEY}"', id="the draft's quoted form"),
         ],
     )
     def test_a_key_that_is_not_version_4_is_a_422_storing_nothing(self, mongo_replica_set_url: str, key: str):

@@ -1042,7 +1042,7 @@ export const COPY = catalogue({
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktData: "Kontaktdaten",
-      bestaetigung: "Bestätigung",
+      confirmation: "Bestätigung",
       /** The fact saying where the referee's confirmation stands, one of the four lines below. */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
@@ -1221,7 +1221,7 @@ export const COPY = catalogue({
       /** A matchday's dates over its matches, until it is dated what is still to settle. */
       span: (start: CalendarDay | null, end: CalendarDay | null) => (start === null || end === null ? DATE_OPEN : formatPeriod(start, end)),
 
-      /** The match editor's sections beyond the three it shares with the old pages: a knockout match's clubs, the report and the answers. */
+      /** The match editor's sections for a knockout match's clubs, the report and the answers. */
       spielbericht: "Spielbericht",
       confirmations: CONFIRMATIONS,
       /** The Vorschau under the editor's title: the match as stored, its pairing, when it is played and its result. */
