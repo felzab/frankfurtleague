@@ -70,6 +70,6 @@ __pycache__/
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# The copy of the production database `./scripts/ops/local.sh --seed` restores the local stack from.
-# Real data, and this repository is public.
+# A leftover copy of production's database, which this public repository must never take: real
+# people's data, on any machine that once seeded the local stack from it.
 .local-db/
