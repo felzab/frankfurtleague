@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.einwilligung.services import find_self_media_refusal
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
     FLSchiedsrichterConfirmationResponse,
@@ -21,7 +22,6 @@ from app.api.schiedsrichter.services import (
     find_age_refusal,
     find_already_answered_refusal,
     find_expired_token_refusal,
-    find_media_refusal,
     find_unknown_token_refusal,
     state_of,
 )
@@ -151,7 +151,7 @@ async def post_confirmation(
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
         refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
-        refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
+        refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
         # read before it still lands.

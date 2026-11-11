@@ -8,6 +8,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import build_key_filter, days_after
+from app.api.einwilligung.services import find_self_media_refusal
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.services import enqueue_mails
 from app.api.registrierungen.crud import judge_the_mailbox_in_session
@@ -31,7 +32,6 @@ from app.api.registrierungen.services import (
     find_already_confirmed_refusal,
     find_expired_token_refusal,
     find_kader_refusal,
-    find_media_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
     find_team_junction_refusal,
@@ -422,7 +422,7 @@ async def post_confirmation(
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
-        refuse(find_media_refusal(birth_date=answer_data.birth_date, media=answer_data.media, today=today))
+        refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,
