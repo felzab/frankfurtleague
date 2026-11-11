@@ -23,19 +23,22 @@ A slice carries only the files it needs. **A router declares one access tier, an
 for that tier**: `public_router.py` for the base key, the public reads and the anonymous link writes
 alike; `person_router.py` for a signed-in person's own records; `admin_router.py` for the
 administration; and `system_router.py` for the frontend process's own calls, such as a retention
-pass. `system/router.py`, holding the liveness probe, is the one router without a guard. A person's
-file serving two Funktionen holds one `APIRouter` per prefix (`spieler/person_router.py`).
-`app/main.py` mounts them all, each under its slice's tag, which with the handler's name makes the
-operation's id in `openapi.json`.
+pass. Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
+own for a season's overview, and `system/router.py`, the unguarded liveness probe's (under
+Authorization). A person's file serving two Funktionen holds one `APIRouter` per prefix
+(`spieler/person_router.py`). `app/main.py` mounts them all, each under its slice's tag, which with
+the handler's name makes the operation's id in `openapi.json`.
 
 ## Authorization
 
 **An access tier's guard sits on the `APIRouter`**, so an endpoint reaches the wrong tier only by
-being written in the wrong file. `fl_backend/app/core/security.py` holds the guards:
+being written in the wrong file. `fl_backend/app/core/security.py` holds the three key guards and
+reads the actor's headers:
 
 - **`base`** — the public pages' reads, and the forms a visitor submits.
 - **`admin`** — every other read and write. An administrator's router also checks the actor's
-  address against a stored grant (`Berechtigung`) on every request; a signed-in person's router binds
+  address against a stored grant (`Berechtigung`) on every request
+  (`fl_backend/app/api/grants/guard.py :: verify_actor_is_admin`); a signed-in person's router binds
   the record that admits them (their `Funktion`) instead.
 - **`system`** — the frontend process's own calls: the background passes, the Postausgang's hand-out
   and its delivery events, and the sign-in's reads of what one mailbox holds.
@@ -47,8 +50,8 @@ The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Aut
 `X-FL-Auth-Factor`: the address, when its session was made, and by which factor
 (`fl_backend/app/core/security.py :: get_session_actor`). The address travels as UTF-8,
 percent-encoded as `encodeURIComponent` spells it, since a header value is ASCII; any other spelling
-is refused as naming nobody. The admin key and the private network are
-what make them believed. **`system/router.py` holds the one route with no guard**:
+is refused as naming nobody. The admin key and the private network are what make them believed.
+**`system/router.py` holds the one route with no guard**:
 `/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
 needs a secret fails for the wrong reasons.
 
@@ -93,9 +96,10 @@ authority or standing does. Every refusal is one `APIError(status, code)`
 
 ## Time
 
-Dates and times are German wall-clock (`Europe/Berlin`), carried as strings. Match dates are
-`YYYY-MM-DD` and compared as strings, which works because the format sorts lexicographically, and is
-why the format is not negotiable.
+A league date or kick-off is German wall-clock time (`Europe/Berlin`), carried as a `YYYY-MM-DD` or
+`HH:MM:SS` string. It is compared as a string, which works because the format sorts
+lexicographically, and is why the format is not negotiable. A moment, such as a deadline, a lock or
+an action-log row's time, is a UTC instant (`fl_backend/app/shared/schemas/custom.py :: FLUtcInstant`).
 
 ## Configuration
 
