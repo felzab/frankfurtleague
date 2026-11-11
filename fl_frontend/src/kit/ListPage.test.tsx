@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { spielColumnsHolder } from "@/test-support/spielColumns.ts";
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -476,27 +477,12 @@ describe("one club's matches under their matchdays", () => {
   });
 
   // The harm: one box's chip widening its when column, so its score and sides stand apart from every other box's down
-  // the list, which jsdom lays out nowhere to see. What the alignment rests on: one element holds the columns, and every
-  // part from it to each match's one-line row hands them on as a subgrid. A part that is also a container is no subgrid
-  // and drops every column in a browser, so the container picking the row's form is the holder.
+  // the list, or a box dropping the columns and printing its cells over each other (`spielColumnsHolder`).
   it("lines every box's match up on the one set of columns the list holds", async () => {
     const chipped = { ...group(1), spiel: { ...group(1).spiel, chip: { tone: "warn" as const, label: COPY.shared.saved } } };
     const { landed } = await drawn(2, { groups: [group(0), chipped], empty: EMPTY });
 
-    const lines = [...landed.querySelectorAll("main *")].filter((part) => part.classList.contains("@max-2xl:hidden"));
-    expect(lines).toHaveLength(2);
-    const holders = lines.map((line) => {
-      let part: Element | null = line;
-      while (part !== null && ![...part.classList].some((name) => name.startsWith("grid-cols-[minmax("))) {
-        expect([...part.classList]).toEqual(expect.arrayContaining(["col-span-full", "grid", "grid-cols-subgrid"]));
-        expect(part.classList.contains("@container")).toBe(false);
-        part = part.parentElement;
-      }
-      return part;
-    });
-    expect(holders[0]).not.toBeNull();
-    expect(holders[1]).toBe(holders[0]);
-    expect(holders[0]?.classList.contains("@container")).toBe(true);
+    expect(spielColumnsHolder(landed)?.closest("main")).not.toBeNull();
   });
 
   // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.

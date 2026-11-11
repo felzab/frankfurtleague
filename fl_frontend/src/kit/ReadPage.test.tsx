@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { spielColumnsHolder } from "@/test-support/spielColumns.ts";
 import { renderToString } from "react-dom/server";
 import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
@@ -97,6 +98,45 @@ describe("matches under their matchdays", () => {
       expect(row?.getAttribute("href")).toBe(spiel(index + 1, "").href);
       expect(row?.textContent).not.toContain(MATCHDAYS[index]);
     });
+  });
+
+  // The harm: one card's chip widening its when column, so its score and sides stand apart from the next card's down
+  // the page, or a card dropping the columns and printing its cells over each other (`spielColumnsHolder`).
+  it.each([
+    [
+      "cards",
+      {
+        title: COPY.page.spiele,
+        kind: "spiele",
+        spiele: [
+          { head: MATCHDAYS[0], spiel: { ...spiel(1, "Kastanie"), chip: { tone: "warn", label: COPY.shared.saved } } },
+          { head: MATCHDAYS[1], spiel: spiel(2, "Ulme") },
+        ],
+        empty: { kind: "none", plural: COPY.page.spiele },
+      },
+    ],
+    [
+      "checkpoints of a line",
+      {
+        title: COPY.page.spiele,
+        kind: "timeline",
+        label: COPY.page.spiele,
+        items: [
+          {
+            id: "1",
+            point: { record: "1" },
+            title: MATCHDAYS[0],
+            spiel: { ...spiel(1, "Kastanie"), chip: { tone: "warn", label: COPY.shared.saved } },
+          },
+          { id: "2", point: { record: "2" }, title: MATCHDAYS[1], spiel: spiel(2, "Ulme") },
+        ],
+        empty: { kind: "none", plural: COPY.page.spiele },
+      },
+    ],
+  ] as const)("lines every match up down its %s on one set of columns", async (_case, group) => {
+    const { landed } = await drawn(filled(group));
+
+    expect(spielColumnsHolder(landed)?.closest("main")).not.toBeNull();
   });
 
   it("says there are none yet in the list's place", async () => {
