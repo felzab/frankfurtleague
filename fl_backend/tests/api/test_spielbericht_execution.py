@@ -960,13 +960,13 @@ class TestTheAdoptionIsOneStoredAnswer:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             read = await a_report_adopted(database, client)
             async with client.start_session() as session:
-                repointed = await session.with_transaction(
+                await session.with_transaction(
                     lambda session: repoint_pupil_entries_in_session(
                         spielberichte_collection=database[Collection.SPIELBERICHTE], spieler_id=LINA, session=session
                     )
                 )
             [document] = await stored(database)
 
-            return repointed, document["version"] - read, document["bericht"]["scorers"][0]["spieler_id"], await season_states(database)
+            return document["version"] - read, document["bericht"]["scorers"][0]["spieler_id"], await season_states(database)
 
-        assert on_the_league(mongo_replica_set_url, body) == (1, 2, GHOST_SPIELER_ID, ["adopted"])
+        assert on_the_league(mongo_replica_set_url, body) == (2, GHOST_SPIELER_ID, ["adopted"])
