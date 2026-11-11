@@ -445,8 +445,6 @@ async def accept_bewerbung(
                         rollen=seats,
                         gruppe=acceptance_data.gruppe,
                         trikot_farbe=acceptance_data.trikot_farbe,
-                        # As the school submitted it, which the acceptance's payload never carries.
-                        wunschgegner=bewerbung_raw.get("wunschgegner"),
                     ),
                     # To the season row's seats written above, so the hand-out drops it once its person left the seat.
                     club=FLOutboxClub(saison_id=saison_id, team_id=team_id),

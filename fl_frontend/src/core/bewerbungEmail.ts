@@ -42,12 +42,10 @@ const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
-  { team, shorthand, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageData,
+  { team, shorthand, saison_id, rollen, gruppe, trikot_farbe }: FLBewerbungZusageData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
-  // Blank counts as unnamed, so the silence rests on no payload's trim.
-  const opponent = (wunschgegner ?? "").trim();
   const farbe = TRIKOT_FARBEN.find((entry) => entry.value === trikot_farbe);
   const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
@@ -72,11 +70,7 @@ export function buildBewerbungZusageEmail(
         { label: WORDS.registeredAs, value: rollenText(rollen) },
       ],
     },
-    afterBlock: [
-      [farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed],
-      ...(opponent === "" ? [] : [[WORDS.zusage.wunschgegner(opponent)] as const]),
-      [WORDS.zusage.signIn],
-    ],
+    afterBlock: [[farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed], [WORDS.zusage.signIn]],
     button: { label: COPY.shared.verb.signIn, href: `${site}${ROUTES.signIn.path()}` },
   };
 }

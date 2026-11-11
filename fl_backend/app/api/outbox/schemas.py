@@ -301,8 +301,6 @@ class FLBewerbungZusageData(BaseModel):
     gruppe: FLGruppenNames
     # Null while no kit colour is assigned; the mail then says so rather than guessing one.
     trikot_farbe: FLTrikotFarbe | None
-    # As the school submitted it, null where it named none.
-    wunschgegner: str | None
 
 
 class FLBewerbungAbsageData(BaseModel):

@@ -434,9 +434,6 @@ export const SERVER_COPY = catalogue({
         },
         fixed: "Gruppe und Trikotfarbe stehen fest.",
         fixedNoColour: "Die Gruppe steht fest. Die Trikotfarbe teilen wir dir noch mit.",
-        /** A wish answered as one: the Spielplan is drawn after the decision, so nothing here knows whether it can be met. */
-        wunschgegner: (opponent: string) =>
-          `Als Wunschgegner für den ersten Spieltag haben wir ${opponent} notiert. Über die Paarungen entscheidet der Spielplan.`,
         signIn: "Melde dich mit dieser Adresse an, dort findest du dein Team.",
       },
       absage: {

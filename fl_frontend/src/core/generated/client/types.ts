@@ -1968,7 +1968,6 @@ export interface FLBewerbungZusageData {
   shorthand: string;
   team: string;
   trikot_farbe: FLTrikotFarbe | null;
-  wunschgegner: string | null;
 }
 
 /**

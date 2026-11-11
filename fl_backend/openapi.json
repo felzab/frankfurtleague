@@ -4443,17 +4443,6 @@
                 "type": "null"
               }
             ]
-          },
-          "wunschgegner": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Wunschgegner"
           }
         },
         "required": [
@@ -4463,8 +4452,7 @@
           "saison_id",
           "rollen",
           "gruppe",
-          "trikot_farbe",
-          "wunschgegner"
+          "trikot_farbe"
         ],
         "title": "FLBewerbungZusageData",
         "type": "object"
