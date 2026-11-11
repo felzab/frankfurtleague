@@ -23,8 +23,8 @@ defaults:
 env:
   # How long a cache restore waits on a stuck download before the job goes on without the cache, in
   # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 6, which a stuck
-  # restore would cancel instead; every job's `timeout-minutes` stays above it
-  # (`scripts/tests/test_ci_timeouts.py`). A warm restore takes seconds.
+  # restore would cancel instead; every job's `timeout-minutes` stays above it. A warm restore takes
+  # seconds.
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
 
 concurrency:
@@ -318,8 +318,7 @@ jobs:
       TAG: e2e
       # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
       # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
-      # no other release finds (`scripts/tests/test_image_pins.py`), and no Dependabot ecosystem reads
-      # this string, so a bump is by hand.
+      # no other release finds, and no Dependabot ecosystem reads this string, so a bump is by hand.
       PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
