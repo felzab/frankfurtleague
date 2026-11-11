@@ -15,19 +15,19 @@ rest up when a question needs them.
 
 ## Look up, do not read through
 
-| Document                                                          | Answers                                                       |
-| ----------------------------------------------------------------- | ------------------------------------------------------------- |
-| [`glossary.md`](glossary.md)                                      | What a German term means, and its name in the code            |
-| [`decisions.md`](decisions.md)                                    | What is deliberately never done                               |
-| [`datenschutz.md`](datenschutz.md)                                | The Article 30 record of processing, and the deletion concept |
-| [`frontend/copy.md`](frontend/copy.md)                            | How a string a visitor reads is written                       |
-| [`logging/overview.md`](logging/overview.md)                      | How to follow one request through the logs                    |
-| [`ops/spec.md`](ops/spec.md)                                      | The deployed system's services, routing, headers and gate     |
-| [`ops/runbooks.md`](ops/runbooks.md)                              | A procedure to run while operating                            |
-| [`scripts/README.md`](../scripts/README.md)                       | What each script and checker does                             |
-| [`fl_backend/tests/README.md`](../fl_backend/tests/README.md)     | What each backend test support module provides                |
-| [`SECURITY.md`](../SECURITY.md)                                   | Where to report a vulnerability                               |
-| [`pull_request_template.md`](../.github/pull_request_template.md) | A pull request body's sections                                |
+| Document                                                          | Answers                                                                |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`glossary.md`](glossary.md)                                      | What a German term means, and its name in the code                     |
+| [`decisions.md`](decisions.md)                                    | What is deliberately never done                                        |
+| [`datenschutz.md`](datenschutz.md)                                | The record of processing under Art. 30 DSGVO, and the deletion concept |
+| [`frontend/copy.md`](frontend/copy.md)                            | How a string a visitor reads is written                                |
+| [`logging/overview.md`](logging/overview.md)                      | How to follow one request through the logs                             |
+| [`ops/spec.md`](ops/spec.md)                                      | The deployed system's services, routing, headers and gate              |
+| [`ops/runbooks.md`](ops/runbooks.md)                              | A procedure to run while operating                                     |
+| [`scripts/README.md`](../scripts/README.md)                       | What each script and checker does                                      |
+| [`fl_backend/tests/README.md`](../fl_backend/tests/README.md)     | What each backend test support module provides                         |
+| [`SECURITY.md`](../SECURITY.md)                                   | Where to report a vulnerability                                        |
+| [`pull_request_template.md`](../.github/pull_request_template.md) | A pull request body's sections                                         |
 
 What is still open on the product, the toolchain and the documentation is a
 [GitHub issue](https://github.com/felzab/frankfurtleague/issues), labelled by kind.
