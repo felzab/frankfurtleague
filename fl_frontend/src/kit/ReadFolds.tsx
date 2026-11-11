@@ -8,6 +8,7 @@ import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { Table, TablePlaceholder } from "./Table";
 
 import type { Copy, Words } from "@/core/copy";
+import type { ReactNode } from "react";
 import type { TableHead, TableProps } from "./Table";
 
 /**
@@ -21,9 +22,21 @@ export type FoldedCard = {
   tables: readonly [TableProps] | ReadonlyArray<{ head: Copy; table: TableProps }>;
 };
 
-/** Two cards to a row from `lg`, where there are several. */
-const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 lg:grid-cols-2";
+/** Two cards to a row from 42 rem of the box they stand in, where there are several. */
+const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 @2xl:grid-cols-2";
 const folds = (count: number) => (count > 1 ? SPLIT_FOLDS_CLASSES : "grid");
+
+/**
+ * The container the folds' columns read, since a query reads an ancestor; `w-full`, since a container's width counts
+ * none of its content.
+ */
+function FoldsBox({ count, children }: { count: number; children: ReactNode }) {
+  return (
+    <div className="@container w-full">
+      <div className={folds(count)}>{children}</div>
+    </div>
+  );
+}
 
 /** One card under another at every width, as the list template sets its cards. */
 const COLUMN_CLASSES = "grid gap-6";
@@ -46,7 +59,7 @@ const FoldCountPlaceholder = ({ className }: { className: string }) => (
 export function ReadFoldsPlaceholder({ count }: { count: number }) {
   const s = cardLook({ body: "rows", fold: true });
   return (
-    <div className={folds(count)}>
+    <FoldsBox count={count}>
       {Array.from({ length: count }, (_, index) => (
         <div
           key={index}
@@ -63,7 +76,7 @@ export function ReadFoldsPlaceholder({ count }: { count: number }) {
           </span>
         </div>
       ))}
-    </div>
+    </FoldsBox>
   );
 }
 
@@ -137,40 +150,37 @@ export function OpenFoldPlaceholder({
 }
 
 /**
- * Tables each folded behind its card's head, two side by side from `lg`, such as a match's line-ups: the content of
- * `ReadPage`'s `folds` group; or, with `column`, one under another, as the list template's `folds` kind holds
- * Administratoren's cards. It is a module of its own, which only the pages folding a card import, so a page folding
- * nothing ships none of the fold's client code. Each card keeps its own height beside its neighbour, so one opening
+ * Tables each folded behind its card's head, two side by side from 42 rem of their box, such as a match's line-ups:
+ * the content of `ReadPage`'s `folds` group; or, with `column`, one under another, as the list template's `folds` kind
+ * holds Administratoren's cards. It is a module of its own, which only the pages folding a card import, so a page
+ * folding nothing ships none of the fold's client code. Each card keeps its own height beside its neighbour, so one opening
  * leaves the other folded to its head rather than stretched to the row.
  */
 export function ReadFolds({ cards, column = false }: { cards: ReadonlyArray<FoldedCard>; column?: boolean }) {
-  return (
-    <div className={column ? COLUMN_CLASSES : folds(cards.length)}>
-      {cards.map(({ tables, ...card }) => (
-        <CardFold
-          key={textOf(card.title)}
-          {...card}>
-          {tables.map((part) =>
-            "head" in part ? (
-              <section
-                key={part.head}
-                className={stacked()}>
-                <GroupHead text={part.head} />
-                <Table
-                  {...part.table}
-                  bare
-                />
-              </section>
-            ) : (
-              <Table
-                key={part.label}
-                {...part}
-                bare
-              />
-            ),
-          )}
-        </CardFold>
-      ))}
-    </div>
-  );
+  const folded = cards.map(({ tables, ...card }) => (
+    <CardFold
+      key={textOf(card.title)}
+      {...card}>
+      {tables.map((part) =>
+        "head" in part ? (
+          <section
+            key={part.head}
+            className={stacked()}>
+            <GroupHead text={part.head} />
+            <Table
+              {...part.table}
+              bare
+            />
+          </section>
+        ) : (
+          <Table
+            key={part.label}
+            {...part}
+            bare
+          />
+        ),
+      )}
+    </CardFold>
+  ));
+  return column ? <div className={COLUMN_CLASSES}>{folded}</div> : <FoldsBox count={cards.length}>{folded}</FoldsBox>;
 }

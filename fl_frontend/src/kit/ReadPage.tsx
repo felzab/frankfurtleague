@@ -10,7 +10,7 @@ import { SectionTitle } from "./Section";
 import { PlaceholderLine, Waiting } from "./Skeleton";
 import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
 import { SpielHead, SpielHeadPlaceholder } from "./SpielHead";
-import { SpielList, spielPairs } from "./SpielRow";
+import { SpielList, SpielPairList, spielPairs } from "./SpielRow";
 import { StatTiles, StatTilesPlaceholder } from "./StatTiles";
 import { Table } from "./Table";
 import { Timeline, TimelinePlaceholder } from "./Timeline";
@@ -38,7 +38,7 @@ type GroupContent =
   | { kind: "timeline"; label: Copy; items: readonly Checkpoint[]; empty: EmptyStateProps }
   /**
    * Matches each in a card of its own under its head, such as a club's matches under their matchdays, one under
-   * another on a phone and two a row from `lg`; or why there are none yet.
+   * another in a list narrower than 42 rem and two a row from it; or why there are none yet.
    */
   | { kind: "spiele"; spiele: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }>; empty: EmptyStateProps }
   /** A record's seats, each its person and the page's acts on them. */
@@ -106,7 +106,7 @@ const readActs = tv({ base: "grid gap-3 lg:flex lg:flex-wrap lg:items-center" })
 
 /**
  * The box the page's blocks stand in one under another: the editor's column, or the content's whole width, where a
- * page such as a person's own Übersicht sets its tiles four in a row from `lg` and its matches two in a row.
+ * page such as a person's own Übersicht sets its tiles four in a row and its matches two in a row, each from 42 rem.
  */
 const column = tv({
   variants: { width: { form: formColumn(), content: "grid w-full gap-6" } },
@@ -135,17 +135,16 @@ function GroupBody({ group }: { group: GroupContent }) {
           items={group.items}
         />
       );
-    case "spiele": {
-      // One under another on a phone and a tablet, on one set of columns, and two a row from `lg`, as `SpielList`'s cards.
-      const pairs = spielPairs();
+    case "spiele":
+      // As `SpielList`'s cards: one under another in a list narrower than 42 rem, two a row from it.
       return group.spiele.length === 0 ? (
         <EmptyBox {...group.empty} />
       ) : (
-        <div className={pairs.list()}>
+        <SpielPairList>
           {group.spiele.map(({ head, spiel }) => (
             <div
               key={spiel.id}
-              className={pairs.box()}>
+              className={spielPairs().box()}>
               <SpielGroup
                 head={head}
                 spiel={spiel}
@@ -153,9 +152,8 @@ function GroupBody({ group }: { group: GroupContent }) {
               />
             </div>
           ))}
-        </div>
+        </SpielPairList>
       );
-    }
     case "seats":
       return (
         <SeatRows
@@ -348,20 +346,18 @@ function GroupPlaceholder({ group }: { group: ReadWait["groups"][number] }) {
           matches={group.matches}
         />
       );
-    case "spiele": {
-      const pairs = spielPairs();
+    case "spiele":
       return (
-        <div className={pairs.list()}>
+        <SpielPairList>
           {Array.from({ length: group.count }, (_, index) => (
             <div
               key={index}
-              className={pairs.box()}>
+              className={spielPairs().box()}>
               <SpielGroupPlaceholder columns="outer" />
             </div>
           ))}
-        </div>
+        </SpielPairList>
       );
-    }
     case "seats":
       return <SeatRowsPlaceholder />;
     case "folds":

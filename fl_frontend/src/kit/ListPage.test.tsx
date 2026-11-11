@@ -234,9 +234,11 @@ describe("open work beside its record's seats", () => {
     expect(waitingCards.map((card) => card.firstElementChild?.textContent)).toStrictEqual(TITLES);
     expect(landedCards.map((card) => card.querySelector("h2")?.textContent)).toStrictEqual(TITLES);
 
-    // The head is the one box over the cards' grid, waiting and landed, and names the team under the page's title.
-    const [waitingHead, landedHead] = grids.map((grid) => grid?.previousElementSibling);
-    expect(grids.map((grid) => grid?.parentElement?.childElementCount)).toStrictEqual([2, 2]);
+    // The head is the one box over the cards' grid, which stands in the container its columns read, waiting and landed,
+    // and names the team under the page's title.
+    const boxes = grids.map((grid) => grid?.parentElement);
+    const [waitingHead, landedHead] = boxes.map((box) => box?.previousElementSibling);
+    expect(boxes.map((box) => box?.parentElement?.childElementCount)).toStrictEqual([2, 2]);
     expect(waitingHead?.childElementCount).toBe(landedHead?.childElementCount);
     expect(landedHead?.querySelector("h2")?.textContent).toBe(TEAM);
 
