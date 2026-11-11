@@ -11,9 +11,9 @@
 #   ./scripts/ops/deploy.sh --help
 #
 # Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
-# nothing changed. The last build judged healthy is pinned as TAG= in the .env beside the compose
-# file, which compose reads for every command, so `docker compose ps` and `logs` typed by hand reach
-# the stack, and a later run that fails goes back to it.
+# the stack unchanged. The last build judged healthy is pinned as TAG= in the .env beside the
+# compose file, which compose reads for every command, so `docker compose ps` and `logs` typed by
+# hand reach the stack, and a later run that fails goes back to it.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
@@ -91,12 +91,18 @@ fi
 # Every compose call below takes the tag from here, over any TAG the operator's shell exports.
 export TAG="$tag"
 
+# Before the pull, whose images no container references yet: `-a` removes every image but those a
+# container references, so this keeps the running build. The one this run replaces then stays on
+# this host until the next deploy, and going back to it by hand needs no registry.
+step "Images nothing runs"
+if quietly docker image prune -af; then ok "removed"; else warn "the prune failed, and its account is above."; fi
+
 # `missing`, because every image this stack names is one build for good: a sha- tag is one commit's,
 # and the edge's images are pinned by digest. A build already on this host is taken as it is.
 step "Pulling every image ${tag} runs with"
 quietly docker compose pull --policy missing \
   || refuse "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
-host's network. NOTHING has changed.${prev:+ ${prev} is still live.}"
+host's network. The stack has not changed.${prev:+ ${prev} is still live.}"
 ok "every image is on this host"
 
 # Through a second file and a rename, so the pin is never half written.
@@ -136,13 +142,6 @@ if up; then
     ok "tested and reloaded"
     pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
 Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
-    # After the start rather than before, so the build a rollback needs is still here when it runs.
-    step "Images nothing runs any more"
-    if quietly docker image prune -af; then
-      ok "removed"
-    else
-      warn "the prune failed, and its account is above. ${tag} is live all the same."
-    fi
     ok "${tag} is live."
     exit 0
   fi
