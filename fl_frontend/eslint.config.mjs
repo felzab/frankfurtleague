@@ -379,11 +379,10 @@ const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, r
 
 const IMPORT_BANS = [
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
-  // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
-  // so a blanket cross-feature ban would flag mostly-correct sites.
+  // Layer boundaries, `core`'s and `shared`'s alone: a slice's page reads and renders other slices' records through
+  // their modules, which a ban between features would refuse.
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
-  // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/kit/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
@@ -771,7 +770,6 @@ const DESIGN_BANS = [
     ),
     PAGE_CODE,
   ),
-  // Every control is the kit's, which takes no `className` or `style`.
   ...["className", "style"].map((propName) =>
     ban(
       "react/forbid-component-props",
@@ -799,8 +797,7 @@ const DESIGN_BANS = [
       }[element] ?? {},
     ),
   ),
-  // Only a template writes the page's heading and its main landmark; the landing's template writes its
-  // hero's heading inside the classic page's landmark.
+  // The landing's template writes its hero's heading inside the classic page's landmark.
   ...[
     ["h1", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx", "src/kit/LandingPage.tsx"]],
     ["main", ["src/kit/RailFrame.tsx", "src/kit/ClassicPage.tsx"]],
@@ -831,9 +828,7 @@ const DESIGN_BANS = [
     },
     OUTSIDE_KIT,
   ),
-  // Each save belongs to its owner: the record's one save to the editor template, the one-shot submit to
-  // the mailed-page template, a Konto box to Konto's pages. The editor template stands in an editors'
-  // route group, whose layout draws the phone's band with the way back rather than the logo and the bar.
+  // The editor template's route group draws the phone's band with the way back rather than the logo and the bar.
   ...[
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
@@ -863,7 +858,6 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  // The fields' rhythm is the containers' to draw: a page hands its fields to a box, a dialog or a form.
   kitImport(
     {
       regex: kitModule("FieldStack"),
@@ -871,7 +865,6 @@ const DESIGN_BANS = [
     },
     OUTSIDE_KIT,
   ),
-  // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(
     syntax(
       'JSXOpeningElement[name.name="Section"] > JSXAttribute[name.name="danger"]',
@@ -903,7 +896,6 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  // React Aria, the icon set and Next's link only inside the kit.
   ...[
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
     [packageUnder("lucide-react"), "The icon set"],
@@ -971,7 +963,6 @@ const DESIGN_BANS = [
     PRODUCTION,
     { allow: ["src/kit/Button.tsx", "src/kit/ChoiceButtons.tsx", "src/kit/RailState.tsx", "src/kit/IconLink.tsx"] },
   ),
-  // A chip stands right after the name it belongs to, so only the blocks carrying a name render one.
   kitImport(
     {
       regex: kitModule("Chip"),
@@ -995,7 +986,6 @@ const DESIGN_BANS = [
       ],
     },
   ),
-  // Only a confirmation asks a question.
   syntaxBan(
     syntax('JSXAttribute[name.name="role"][value.value="alertdialog"]', "A question before an irreversible act is the kit's `ConfirmDialog`."),
     PRODUCTION,
@@ -1003,7 +993,6 @@ const DESIGN_BANS = [
   ),
   ban("no-restricted-globals", { name: "confirm", message: "Ask before an irreversible act with the kit's `ConfirmDialog`." }, PRODUCTION),
 
-  // The focus look is the focus file's four rules on React Aria's data attributes.
   classBan(
     CLASS(String.raw`(?:outline|ring|ring-offset)(?:-.+)?`),
     "Focus is drawn by the focus file alone, on the kit's `data-kit-focus` attribute.",
@@ -1057,14 +1046,12 @@ const DESIGN_BANS = [
   classBan(CLASS(String.raw`rounded(?:-${SIDES})?-full`), "Only the kit draws a round shape: a chip is the kit's `Chip`.", OUTSIDE_KIT),
   classBan(CLASS(String.raw`backdrop-.+`), "Only a dialog or a sheet blurs the page behind it.", OUTSIDE_KIT),
 
-  // Motion: the token pair inside the kit.
   classBan(
     CLASS(String.raw`(?:transition(?:-.+)?|animate-.+|duration-.+)`),
     "Motion is the kit's, from the token pair under reduced motion.",
     OUTSIDE_KIT,
   ),
 
-  // Strings: text a reader sees comes from the catalogue, and a raw string is no `Copy`.
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
   syntaxBan(syntax(PICKED_STRING, "Text a reader sees comes from the catalogue: a string a condition picks is no `Copy`."), RENDERED),
@@ -1143,7 +1130,6 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // The copy standard allows a semicolon in legal text alone: the legal pages' region of the server's catalogue.
   syntaxBan(
     syntax(
       `${inLiteral(";")}:not(VariableDeclarator[id.name="SERVER_COPY"] > CallExpression > ObjectExpression > Property[key.name="legal"] *)`,
@@ -1152,8 +1138,7 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A field's message line is one pattern phrase: no full stop, no article, 80 characters at most. Its entries are
-  // `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
+  // A field's message is `COPY.shared.field`'s patterns, and the server's phrases for a code, `SERVER_COPY.refusal`.
   ...[
     ["field", "src/core/copy.ts"],
     ["refusal", "src/core/serverCopy.ts"],
@@ -1167,7 +1152,6 @@ const DESIGN_BANS = [
       { only: [file] },
     ),
   ),
-  // An entry returning what it is handed as it came would make any string a `Copy`: the catalogue words its argument.
   syntaxBan(
     syntax(
       "ArrowFunctionExpression > Identifier.body, ArrowFunctionExpression > TemplateLiteral.body[expressions.length=1]:not(:has(> TemplateElement[value.raw=/\\S/]))",
@@ -1176,7 +1160,6 @@ const DESIGN_BANS = [
     EVERY,
     { only: CATALOGUE_FILES },
   ),
-  // A status line or a callout says one sentence: what is so, never a second one saying why or how.
   syntaxBan(
     syntax(
       `Property[key.name=/^(?:failure|refusal|refusalLine|ruleLine|botCheck|consequence)$/] ${inLiteral(String.raw`[.?]\s+\S`)}`,
@@ -1215,7 +1198,6 @@ const DESIGN_BANS = [
     { allow: ["src/core/config.ts"] },
   ),
 
-  // A field's required mark is derived, never set by hand.
   syntaxBan(
     syntax(
       'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.type="Literal"], [value.expression.type="Literal"])',
