@@ -346,7 +346,8 @@ MASKED_SQUAD = {
     "Internal": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("internal"), None, None),
 }
 
-# A shirt per row, which is how a case below finds its row: the read serves no record id to find one by.
+# A shirt per row. Both play one position, so the order by position and forename alone would put the withheld row,
+# whose served forename is null, first.
 MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, start=1)}
 
 # Both rows hold a captaincy, and the read serves the one beside a published name alone.
@@ -367,21 +368,21 @@ class TestThePublicationGate:
 
         return _on_the_mask_database(url, body)
 
-    def _by_nummer(self, url: str) -> dict[str, dict[str, Any]]:
-        return {row["nummer"]: row for row in self._read(url)["kader"]}
+    def _rows(self, url: str) -> list[dict[str, Any]]:
+        return self._read(url)["kader"]
 
-    @pytest.mark.parametrize("case", MASKED_SQUAD)
-    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str, case: str):
-        row = MASKED_SQUAD[case]
-        served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
+    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str):
+        served = [(row["first_name"], row["last_name"]) for row in self._rows(masked_url)]
 
-        assert (served["first_name"], served["last_name"]) == (row.served_first_name, row.served_last_name)
+        assert served == [(row.served_first_name, row.served_last_name) for row in MASKED_SQUAD.values()]
 
-    def test_a_captaincy_is_served_beside_a_published_name_alone(self, masked_url: str):
-        """A squad holds one of each, so the mark beside a nameless row would say who that row is."""
-        served = self._by_nummer(masked_url)
+    def test_a_nameless_row_serves_the_name_alone_after_the_named_ones(self, masked_url: str):
+        """A number, a position, a mark or a place among the named rows beside a withheld name would say who the row is."""
 
-        assert [served[MASK_NUMMERN[case]]["rolle"] for case in MASKED_SQUAD] == ["kapitaen", None]
+        assert self._rows(masked_url) == [
+            {"first_name": "Alina", "last_name": "F.", "nummer": MASK_NUMMERN["Offen"], "position": "Angriff", "rolle": "kapitaen"},
+            dict.fromkeys(PUBLIC_FIELDS),
+        ]
 
     @pytest.mark.parametrize("name", WITHHELD_NAMES)
     def test_no_withheld_name_appears_anywhere_in_the_response(self, masked_url: str, name: str):
@@ -396,7 +397,7 @@ class TestThePublicationGate:
     @pytest.mark.parametrize("key", ["einwilligung", "scope"])
     def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
         """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
-        assert all(key not in served for served in self._by_nummer(masked_url).values())
+        assert all(key not in served for served in self._rows(masked_url))
 
     def _read_one(self, url: str, case: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
