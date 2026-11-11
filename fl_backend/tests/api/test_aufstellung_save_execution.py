@@ -17,6 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.aufstellungen.admin_router import get_aufstellung, put_aufstellung
 from app.api.aufstellungen.person_router import get_aufstellung_self, put_aufstellung_self
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload, FLAufstellungResponse
+from app.api.teams.person_router import get_team_spiele
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -456,6 +457,45 @@ class TestAnErasedPupilsEntry:
         assert (served.erased, answer.erased) == ([], [])
         assert GHOST_SPIELER_ID not in {entry["spieler_id"] for entry in stored}
         assert sum(entry["starts"] for entry in stored) == 11
+
+    def test_one_naming_only_the_erased_stands_as_none_once_its_match_is_re_dated_ahead(self, mongo_replica_set_url: str):
+        """The screen shows nobody, so the club's marks say the line-up is still owed: read as stored, nothing would ask for it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await admin_saves(database, client, _payload(LINA, starters=1))
+            await erase(database, client, LINA, now=PLAYED)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2026-11-21"}})
+            async with client.start_session(snapshot=True) as session:
+                screen = await get_aufstellung_self(
+                    spiel_id=SPIEL,
+                    team_id=HOME,
+                    identifier=HOME_SEAT,
+                    spiele_collection=database[Collection.SPIELE],
+                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                    spieler_collection=database[Collection.SPIELER],
+                    aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                    records=record_collections(database),
+                    session=session,
+                    now=PLAYED,
+                )
+            listed = await get_team_spiele(
+                team_id=HOME,
+                saison_id=SAISON_ID,
+                identifier=HOME_SEAT,
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                spiele_collection=database[Collection.SPIELE],
+                records=record_collections(database),
+                db=client,
+                today="2026-11-14",
+                now=PLAYED,
+            )
+
+            return screen.marks, next(spiel.aufstellung for spiel in listed.spiele if spiel.id == SPIEL)
+
+        screen, listed = on_a_season(mongo_replica_set_url, body)
+
+        assert screen is not None and listed is not None
+        assert (screen.stored, screen.phase) == (listed.stored, listed.phase) == (False, "open")
 
 
 # --- One document per club per fixture: a club's two seats saving at once meet on it, and the other club's save never does.

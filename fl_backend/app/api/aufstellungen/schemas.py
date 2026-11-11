@@ -114,6 +114,8 @@ class FLAufstellungMarks(BaseReadModel):
     stored, and overdue where the due mark has passed with none stored.
     """
 
+    # Judged by `app/api/aufstellungen/services.py :: aufstellung_stands`: a line-up naming nobody, or only pupils erased
+    # from it ahead of its lock, is stored as none.
     stored: bool
     phase: FLAufstellungPhase
     due_at: FLUtcInstant
@@ -183,7 +185,7 @@ class FLAufstellungPublic(BaseReadModel):
 
 
 class FLAufstellungenPublic(BaseReadModel):
-    """Each side's line-up, the one whose club the fixture fields there now; null where that club has stored none."""
+    """Each side's line-up, the one whose club the fixture fields there now; null where none of that club's stands."""
 
     team1: FLAufstellungPublic | None
     team2: FLAufstellungPublic | None

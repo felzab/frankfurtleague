@@ -9,7 +9,7 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aufstellungen.services import aufstellung_marks, aufstellung_reminder_owed
+from app.api.aufstellungen.services import aufstellung_marks, aufstellung_reminder_owed, aufstellung_stands
 from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
@@ -757,15 +757,17 @@ async def sweep_spielbestaetigungen(
         if not due:
             return 0
 
+        by_id = {spiel["_id"]: spiel for spiel in due}
         stored = {
             (row["spiel_id"], row["team_id"])
             for row in await pull_many_from_db(
                 collection=aufstellungen_collection,
-                db_filter={"spiel_id": {"$in": [spiel["_id"] for spiel in due]}},
-                projection=["spiel_id", "team_id"],
+                db_filter={"spiel_id": {"$in": list(by_id)}},
+                projection=["spiel_id", "team_id", "spieler"],
                 limit=LIST_LIMIT_MAX,
                 session=session,
             )
+            if aufstellung_stands(row, date=by_id[row["spiel_id"]]["date"], time=by_id[row["spiel_id"]]["time"], now=now)
         }
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,
@@ -776,7 +778,7 @@ async def sweep_spielbestaetigungen(
         austritte = _austritte(junctions)
 
         def clubs_owed(spiel: Mapping[str, Any]) -> list[Any]:
-            """The fixture's clubs holding no line-up for it, the fixture still theirs to play on its day."""
+            """The fixture's clubs holding no line-up for it that stands (`aufstellung_stands`), the fixture still theirs to play on its day."""
 
             clubs = [spiel[side]["team_id"] for side in ("team1", "team2")]
             if decision_of(spiel=spiel, austritte=[austritte[club] for club in clubs if club in austritte], tag=spiel["date"]) is not None:

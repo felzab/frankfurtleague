@@ -41,7 +41,7 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.bounds import SPIEL_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
@@ -1602,6 +1602,19 @@ class TestTheLineupReminder:
         )
         assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
         assert later.aufstellungen == []
+
+    def test_a_club_whose_line_up_names_only_a_pupil_erased_from_it_is_reminded(self, mongo_replica_set_url: str):
+        """Ahead of the lock an erased pupil's entry is the club's to pick anew: its screen shows nobody, so nothing stands."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.AUFSTELLUNGEN].insert_one(
+                documents.aufstellung_document(IN_THE_WINDOW, ALPHA, starters=[GHOST_SPIELER_ID])
+            )
+            return await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
+
+        reminded = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])
+
+        assert {reminder.team for reminder in reminded.aufstellungen} == {"Alpha", "Beta"}
 
     def test_a_fixture_a_clubs_austritt_decided_reminds_neither_club(self, mongo_replica_set_url: str):
         """Alpha leaves before the day, so the match is not played: Beta would be asked for a line-up nobody fields against."""

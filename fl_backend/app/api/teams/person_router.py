@@ -13,7 +13,7 @@ from app.api.account.services import (
     withdrawal_line,
 )
 from app.api.aufstellungen.schemas import FLAufstellungMarks
-from app.api.aufstellungen.services import aufstellung_marks
+from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, rollen_on, seat_is_confirmed
@@ -209,13 +209,14 @@ def _team_spiele_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, 
     return [
         *build_spiele_pipeline(db_filter=build_team_spiele_filter(saison_id=saison_id, team_id=team_id), sort_by=[("spiel_nr", 1)]),
         SPIELTAG_POSITION_LOOKUP,
-        # Its id alone: whether one is stored is all either page reads, on the unique `(spiel_id, team_id)` key.
+        # Its entries alone, on the unique `(spiel_id, team_id)` key: whether one stands (`aufstellung_stands`) is all either
+        # page reads.
         {
             "$lookup": {
                 "from": Collection.AUFSTELLUNGEN,
                 "localField": "_id",
                 "foreignField": "spiel_id",
-                "pipeline": [{"$match": {"team_id": team_id}}, {"$project": {"_id": 1}}],
+                "pipeline": [{"$match": {"team_id": team_id}}, {"$project": {"_id": 0, "spieler": 1}}],
                 "as": OWN_AUFSTELLUNG_AS,
             }
         },
@@ -274,7 +275,10 @@ def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
 
 
 def _marks_of(spiel_raw: Mapping[str, Any], now: datetime) -> FLAufstellungMarks | None:
-    return aufstellung_marks(date=spiel_raw.get("date"), time=spiel_raw.get("time"), stored=bool(spiel_raw[OWN_AUFSTELLUNG_AS]), now=now)
+    date, time = spiel_raw.get("date"), spiel_raw.get("time")
+    own = spiel_raw[OWN_AUFSTELLUNG_AS]
+
+    return aufstellung_marks(date=date, time=time, stored=aufstellung_stands(own[0] if own else None, date=date, time=time, now=now), now=now)
 
 
 async def _pull_team_spiele(

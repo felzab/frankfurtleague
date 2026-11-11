@@ -14,7 +14,7 @@ from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_registrierung
 from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungAbsageData
-from app.api.outbox.services import OwedMail, enqueue_mails
+from app.api.outbox.services import OwedMail, enqueue_mails, final_update
 from app.api.registrierungen.crud import (
     kader_rows_of,
     nummern_rows,
@@ -53,6 +53,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     delete_many_from_db,
+    patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
@@ -429,7 +430,8 @@ async def decline(
     The decision records a reason from a closed set, never free text:
     `other_person` where the team answered that the registration is not the person its address belongs to. The
     row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
-    where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
+    where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A
+    confirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.
 
     Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
     one the team has declined already (404).
@@ -467,6 +469,20 @@ async def decline(
             by=ACT_BY_KONTAKT,
             team=str(junction_raw["name"]),
             record_id=registrierung_id,
+            session=session,
+        )
+
+        # Equality on the three keys of `outbox_reference` (`app/core/constraints.py :: SUPPORT_INDEXES`).
+        await patch_many_in_db(
+            collection=outbox_collection,
+            db_filter={
+                "reference.collection": str(Collection.REGISTRIERUNGEN),
+                "reference.id": registrierung_id,
+                "reference.seat": None,
+                "kind": "registrierung_confirmation",
+                "state": "open",
+            },
+            update=final_update("dropped", now=germany_now),
             session=session,
         )
 

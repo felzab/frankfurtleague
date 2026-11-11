@@ -4,8 +4,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.crud import Anchored
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, FLUtcInstant
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
+from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAdminTier
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -17,10 +17,13 @@ FLGrantNoticeStage = Literal["started", "withdrawn", "completed"]
 
 
 class FLGrantRecord(Anchored):
-    """One grant as the collection stores it, its address folded as the sign-in folds it."""
+    """One grant as the collection stores it, its address folded as the sign-in folds it, for the record models alone.
+
+    The list reads its rows as `FLGrantRow`, so one stray row is named by the read-back rather than refusing the whole list.
+    """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    address: CustomNonEmptyString
+    address: CustomStoredAddress
     admin_tier: FLAdminTier
     # When the grant holds: the future while an addition waits, and the moment of the last address switch or handover, so a
     # session older than it holds nothing.

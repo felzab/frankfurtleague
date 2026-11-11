@@ -119,6 +119,21 @@ def is_erased(entry: Mapping[str, Any]) -> bool:
     return entry["spieler_id"] == GHOST_SPIELER_ID
 
 
+def aufstellung_stands(saved: Mapping[str, Any] | None, *, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the club's stored line-up stands as one at `now`: it serves an entry, an erased pupil's only where `keeps_erased`.
+
+    What every reader calls stored, the team's marks, the reminder and the public read alike: a line-up is owed for every
+    dated fixture, so one naming nobody, or only pupils erased from it ahead of the lock, names none and stays due.
+    """
+
+    if saved is None:
+        return False
+
+    kept = keeps_erased(date=date, time=time, now=now)
+
+    return any(kept or not is_erased(entry) for entry in saved["spieler"])
+
+
 def erased_entries(saved: Mapping[str, Any] | None, *, spiel: Mapping[str, Any], now: datetime) -> list[Mapping[str, Any]]:
     """The stored line-up's entries naming an erased pupil that it keeps (`keeps_erased`), in their stored order.
 
@@ -315,14 +330,21 @@ def public_aufstellungen_lookup() -> Mapping[str, Any]:
     }
 
 
-def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellungenPublic:
-    """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where its club stored none."""
+def compose_public_aufstellungen(spiel_raw: Mapping[str, Any], *, now: datetime) -> FLAufstellungenPublic:
+    """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where none stands.
+
+    An erased pupil's entries only where the line-up keeps them (`keeps_erased`), as its screen shows them: a fixture
+    re-dated ahead of its lock still stores them until its club's next save, which drops them. A line-up serving no entry
+    stands as none (`aufstellung_stands`).
+    """
 
     by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
+    date, time = spiel_raw.get("date"), spiel_raw.get("time")
+    kept = keeps_erased(date=date, time=time, now=now)
 
     def side_of(side: FLSpielSide) -> dict[str, Any] | None:
         row = by_club.get(team_id_of(spiel_raw, side))
-        if row is None:
+        if row is None or not aufstellung_stands(row, date=date, time=time, now=now):
             return None
 
         persons = {person["_id"]: person for person in row["persons"]}
@@ -344,6 +366,6 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
                 "starts": stored["starts"],
             }
 
-        return {"spieler": [entry(stored) for stored in row["spieler"]]}
+        return {"spieler": [entry(stored) for stored in row["spieler"] if kept or not is_erased(stored)]}
 
     return FLAufstellungenPublic.model_validate({side: side_of(side) for side in SIDES})

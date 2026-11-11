@@ -6,7 +6,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import BAN_REASON_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.responses import BaseAPIResponse
 
 # A DELIVERABLE shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
@@ -38,6 +38,16 @@ class FLBanListRow(BaseModel):
     # The last season the ban covers, INCLUSIVE. Served because a row whose bound nobody can read is
     # one an administrator cannot tell from a standing ban, and the lapse removes it without asking.
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+
+
+class FLBanListRecord(FLBanListRow):
+    """One ban as the collection stores it, its address folded as the sign-in folds it, for the record models alone.
+
+    The list serves `FLBanListRow` with the plain address, so one stray row is named by the read-back rather than refusing
+    the whole list it stands in.
+    """
+
+    address: CustomStoredAddress
 
 
 class FLPostBanListEntryPayload(BaseModel):

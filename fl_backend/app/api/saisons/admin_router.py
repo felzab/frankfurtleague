@@ -1084,7 +1084,7 @@ async def post_spielplan(
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
-            # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
+            # The season every report write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
             # NOT extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
@@ -1202,7 +1202,7 @@ async def delete_spielplan(
             )
         )
 
-        # The season a report's first write anchors, so the two conflict: the `$unset` below changes nothing on a season
+        # The season every report write anchors, so the two conflict: the `$unset` below changes nothing on a season
         # holding no watermark, and the report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 

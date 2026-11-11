@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, Final
 
 from fastapi import APIRouter, Depends
@@ -66,6 +67,7 @@ from app.core.dependencies import (
     SpieltageReadCollection,
     TeamsReadCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -535,6 +537,8 @@ async def get_spiel(
     spiele_collection: SpieleReadCollection,
     teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
+    # Whether an erased pupil's line-up entry is served turns on the line-up's lock, judged as its screen judges it.
+    now: datetime = Depends(get_germany_now),
 ) -> FLSpielPageResponse:
     """One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
 
@@ -577,6 +581,6 @@ async def get_spiel(
         spieltag_position=matchday["spieltag_position"],
         count_spieltage_in_phase=matchday["count_spieltage_in_phase"],
         standings=standings,
-        aufstellungen=compose_public_aufstellungen(spiel_raw),
+        aufstellungen=compose_public_aufstellungen(spiel_raw, now=now),
         bericht=compose_public_bericht(berichte_raw[0], spiel_raw) if berichte_raw else None,
     )

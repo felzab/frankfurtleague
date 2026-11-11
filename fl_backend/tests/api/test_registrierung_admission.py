@@ -12,6 +12,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.account.services import compose_person_move
+from app.api.outbox.services import row_of
 from app.api.registrierungen import crud as registrierungen_crud
 from app.api.registrierungen import person_router
 from app.api.registrierungen.person_router import get_open_registrierungen
@@ -24,6 +25,7 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.registrierungen.services import (
     compose_confirmation_update,
+    confirmation_mail,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -41,7 +43,7 @@ from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.outbox import MAIL_NOW
+from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
 from tests.whole_database import where_held
@@ -1099,6 +1101,27 @@ class TestTheDecline:
             return await notes_owed(database)
 
         assert on_a_league(mongo_replica_set_url, body) == []
+
+    def test_its_confirmation_still_owed_goes_with_it_and_no_other_does(self, mongo_replica_set_url: str):
+        """Left owed, the mail goes out after the decision with a link the confirmation refuses on a declined row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            declined = await seed(database, registrierung_document(confirmed=False))
+            pending = await seed(database, registrierung_document(confirmed=False, email="zweite@beispielschule.de", first_name="Zweite"))
+            for registrierung_id, address in ((declined, FOLDED_EMAIL), (pending, "zweite@beispielschule.de")):
+                owed = confirmation_mail(
+                    registrierung_id=registrierung_id,
+                    key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
+                    address=address,
+                    team="Zorbanax",
+                    saison_id=SAISON_ID,
+                )
+                await database[Collection.OUTBOX].insert_one(row_of(owed, now=MAIL_NOW, secret=None, valid_until=None))
+            await decline(database, client, declined)
+
+            return [(mail.to, mail.data.kind) for mail in await drained(database, client)]
+
+        assert on_a_league(mongo_replica_set_url, body) == [("zweite@beispielschule.de", "registrierung_confirmation")]
 
 
 @functools.cache

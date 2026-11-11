@@ -2296,7 +2296,8 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
  * The decision records a reason from a closed set, never free text:
  * `other_person` where the team answered that the registration is not the person its address belongs to. The
  * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
- * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
+ * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A
+ * confirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.
  *
  * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
  * one the team has declined already (404).
