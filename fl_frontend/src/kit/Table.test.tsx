@@ -57,9 +57,45 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText(COPY.admin.expired).parentElement?.parentElement;
-    expect(nameLine?.textContent).toContain(COPY.admin.delivery.undeliverable);
+    const nameLine = screen.getByText(COPY.admin.expired).parentElement;
+    expect(nameLine?.textContent).toBe(`anna@example.org${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`);
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
+  });
+
+  // The harm: a row's chips take the room its name needs, so the name narrows to nothing and an address runs under the
+  // chips, or they widen the column past its box and push the row's acts out of view; or a chip moves by the viewport
+  // while the rail decides the column's width. jsdom lays nothing out, so this holds what the rule rests on: the name, its
+  // plaque and its mark in one group at the name's least width, the chips items of their own on a line that wraps, and
+  // no part of it placed by the viewport.
+  it.each([
+    ["a name", undefined, "min-w-20", "basis-20"],
+    ["a club's name after its plaque", { record: "GOE" }, "min-w-32", "basis-32"],
+  ])("keeps %s at its least width and wraps the chips the line cannot hold beside it", (_case, plaque, least, basis) => {
+    render(
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "Lea Bauer" },
+            ...(plaque === undefined ? {} : { plaque }),
+            mark: { letters: COPY.shared.bank, label: COPY.admin.spieler.rolleOption.kapitaen },
+            chip: { tone: "warn", label: COPY.admin.expired },
+            delivery: { tone: "danger", label: COPY.admin.delivery.undeliverable },
+            cells: {},
+          },
+        ])}
+      />,
+    );
+    const head = screen.getByText("Lea Bauer").parentElement;
+    const nameLine = head?.parentElement;
+    const classes = (element: Element | null | undefined) => element?.className.split(" ") ?? [];
+    expect(classes(nameLine)).toStrictEqual(expect.arrayContaining(["flex", "flex-wrap", least]));
+    expect(classes(head)).toStrictEqual(expect.arrayContaining(["grow", basis, "max-w-max"]));
+    expect(head?.textContent).toBe(`${plaque?.record ?? ""}Lea Bauer${COPY.shared.bank}${COPY.admin.spieler.rolleOption.kapitaen}`);
+    const chips = [screen.getByText(COPY.admin.expired), screen.getByText(COPY.admin.delivery.undeliverable)];
+    expect(chips.map((chip) => chip.parentElement)).toStrictEqual([nameLine, nameLine]);
+    const placed = [nameLine, head, ...chips].flatMap(classes).filter((name) => /^(max-)?(sm|md|lg|xl|2xl):/u.test(name));
+    expect(placed).toStrictEqual([]);
   });
 
   // The harm: a captain's mark after the chip, read as part of the state, or drawn as a bare letter a screen reader
@@ -80,15 +116,15 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText("Lea Bauer").parentElement;
+    const nameLine = screen.getByText("Lea Bauer").parentElement?.parentElement;
     expect(nameLine?.textContent).toBe(`Lea Bauer${COPY.shared.bank}${WORDS.rolleOption.kapitaen}${WORDS.nominee}`);
     expect(screen.getByText(COPY.shared.bank).getAttribute("aria-hidden")).toBe("true");
   });
 
   // The harm: on a phone a row with acts drops its chip to a line of its own or wraps a long name over several, where
   // every other list cuts the name with „…“ and keeps the chip beside it. jsdom lays nothing out, so each case holds what
-  // the cut rests on: one line holding the name and then its chips in tracks of their own size, the name's track
-  // shrinking to nothing, and the name cut at every width.
+  // the cut rests on: one line holding the name and then its chips, the name's track shrinking to nothing inside its
+  // group, and the name cut at every width.
   const actRow = (name: string, delivered: boolean, address = false) => (
     <Table
       {...props([
@@ -119,10 +155,9 @@ describe("a row's name cell", () => {
   ])("sets %s on one line of a row with acts, the name first and cut on a phone too", (_case, name, delivered) => {
     render(actRow(name, delivered));
     const words = screen.getByText(name);
-    const nameLine = words.parentElement;
+    const nameLine = words.parentElement?.parentElement;
     expect(nameLine?.textContent).toBe(`${name}${COPY.admin.expired}${delivered ? COPY.admin.delivery.undeliverable : ""}`);
-    expect(nameLine?.className.split(" ")).toContain("grid-cols-[minmax(0,max-content)]");
-    expect(nameLine?.className.split(" ")).not.toContain("max-lg:flex-wrap");
+    expect(words.parentElement?.className.split(" ")).toContain("grid-cols-[minmax(0,max-content)]");
     expect(words.className.split(" ")).toContain("truncate");
     expect(words.className.split(" ")).not.toContain("max-lg:whitespace-normal");
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
@@ -134,8 +169,10 @@ describe("a row's name cell", () => {
     const address = "gesperrte.person@example.com";
     render(actRow(address, false, true));
     const words = screen.getByText(wholeText(address));
-    const nameLine = words.parentElement;
+    const nameLine = words.parentElement?.parentElement;
     expect(words.className.split(" ")).not.toContain("truncate");
+    // A part wider than the name's track breaks inside itself rather than running under the chip.
+    expect(words.className.split(" ")).toContain("wrap-anywhere");
     // Each part a block a line takes whole while it fits, so „.com“ never stands alone under „example“.
     expect(words.innerHTML).toBe(
       '<span class="inline-block">gesperrte<wbr>.person@</span><wbr><span class="inline-block">example<wbr>.com</span>',
@@ -153,7 +190,7 @@ describe("a row's name cell", () => {
         columns={[{ key: "position", label: COPY.admin.spieler.position, hideOnPhone: true }]}
       />,
     );
-    const line = screen.getByText("Lea Bauer").parentElement?.nextElementSibling;
+    const line = screen.getByText("Lea Bauer").parentElement?.parentElement?.nextElementSibling;
     expect(line?.textContent).toBe("Abwehr · Q2");
     expect(line?.className.split(" ")).toContain("lg:hidden");
   });

@@ -234,14 +234,8 @@ const table = tv({
     label: "",
     // Under the name line, cut as a name is: the row keeps its height at the least, and a phone's width cuts no chip.
     refusal: "block truncate text-xs text-danger",
-    // A second chip on the name's line, its own line under it on a phone, over the name's and the first chip's tracks: a
-    // row with a date holds about 230 px there, which two chips of some 100 and 88 px and their gaps leave the name 26 px
-    // of at 400 px wide, and overrun by 14 at 360, where one chip leaves it 122 and 82. The name stays the row's first read.
-    delivery: "flex max-lg:col-span-2 max-lg:col-start-1 max-lg:row-start-2 max-lg:justify-self-start",
     // The name's words, which a phone's stacked row wraps.
     whole: "",
-    // The chips, each a part of the name's line.
-    chips: "contents",
     lineWords: "truncate",
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
     // least width, as the name's does (`nameLine`).
@@ -330,10 +324,10 @@ const table = tv({
     // A phone's act row is several lines, which no table row can be: the table is a grid there, its rows subgrids, so head
     // and rows still share one set of tracks, the name's and the narrow column's. The name cell gives way to its parts,
     // `contents`, so they stand in the row's grid, one under another: the name's line across the row, the name cut with
-    // „…“ where it is longer and its mark and its chip directly after it, as on every list (`nameLine`), a second chip
-    // on a line of its own (`delivery`); the muted line and a refusal under it; the columns the phone keeps, each in its
-    // own track (`phoneTrack`), which keeps it under its head; and the acts last. A table keeps its table layout from
-    // `lg`, the acts its row's last cell.
+    // „…“ where it is longer and its mark and its chips directly after it, as on every list, a chip the line cannot hold
+    // beside the name's least width on the next (`nameLine`); the muted line and a refusal under it; the columns the
+    // phone keeps, each in its own track (`phoneTrack`), which keeps it under its head; and the acts last. A table keeps
+    // its table layout from `lg`, the acts its row's last cell.
     acts: {
       // A row with no acts in such a table: the same lines, its acts' cell left out on a phone.
       table: {
@@ -492,27 +486,54 @@ function Cell({ cell, slot, cut, stack }: { cell: TableCell | undefined; slot: b
 type TableActs = "table" | "row" | undefined;
 
 /**
- * A row's name line. The name's track grows to the name and stops at the room the line has, so a chip stands directly
- * after a short name and a long one is cut. Its least size of nothing leaves the name out of the line's least width
- * while the plaque, a mark and the chip, in tracks of their own size, count towards it, so the table can narrow the column
- * to no less than they need and a chip never lies over the next cell, however little the facts leave the name.
+ * A row's name line: the name with its plaque and its mark (`nameHead`), then its chips, in one wrapping row, which the
+ * line's own room decides, the room the rail and the columns beside it leave, and never the viewport. A row is broken
+ * into lines by its items' hypothetical sizes, each its basis held to its most (CSS Flexible Box Layout 1, 9.2 and 9.3):
+ * the name's is its least width, or its whole words where they are shorter, so a chip stands directly after a short name,
+ * a long one is cut beside its chips down to that least, and a chip the line cannot hold beside it takes the next line,
+ * as many as the chips need. The line's least width is the name's, so the table narrows the column to no less, and a
+ * chip wider than that counts too, since a wrapping row is at least its widest item (9.9.1). The name's least, 5 rem, is
+ * the some nine characters a box at the `narrow` column's 20 rem leaves a name beside a date, the chevron and a chip, the
+ * narrowest name the kit draws; with a plaque, its 40 px and their gap besides.
  */
 const nameLine = tv({
-  base: "min-w-0 items-center gap-2",
+  base: "flex items-center gap-2",
   variants: {
     shape: {
       // A prose table's name wraps, and its longest word is the least width of its column.
-      wraps: "flex",
-      name: "grid auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)]",
-      plaque: "grid auto-cols-max grid-flow-col grid-cols-[max-content_minmax(0,max-content)]",
+      wraps: "min-w-0",
+      name: "min-w-20 flex-wrap",
+      plaque: "min-w-32 flex-wrap",
+    },
+    // A phone's Tabelle, whose plaque stands for its club, the name read but not drawn: the plaque's own least.
+    lonePlaque: { true: "max-lg:min-w-0" },
+    // A phone's act row sets the line across the row, the name cut with „…“ where the line is too short for it and its
+    // chip, which stays beside it while the name keeps its least, as on every list: the name stays whole to a screen
+    // reader and on the record's page.
+    acts: { true: "max-lg:col-span-full max-lg:px-3 max-lg:pt-3" },
+    // An address wraps instead (`AddressWords`), its chip beside its first line.
+    address: { true: "items-start" },
+  },
+});
+
+/**
+ * The name with a club's plaque before it and a player's mark after it, which never part. Its basis is the name's least
+ * width (`nameLine`), from which it grows to its whole words and no further, `max-content`, so the room past a short name
+ * stays after the chips. Its name's track grows to the name and stops at the room the group has; its least size of
+ * nothing leaves the name out of the group's least width, which the line's own sets instead.
+ */
+const nameHead = tv({
+  base: "min-w-0 items-center gap-2",
+  variants: {
+    shape: {
+      // A prose table's name line holds its parts itself.
+      wraps: "contents",
+      name: "grid max-w-max grow basis-20 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)]",
+      plaque: "grid max-w-max grow basis-32 auto-cols-max grid-flow-col grid-cols-[max-content_minmax(0,max-content)]",
     },
     // A flex row on a phone, where a lone plaque's name draws nothing: a margin takes back a gap in a flex row alone,
     // since a grid's track stands where it stands whatever its item's margin.
-    lonePlaque: { true: "max-lg:flex" },
-    // A phone's act row sets the line across the row, the name cut with „…“ where the line is too short for it and its
-    // chip, which stays beside it, as on every list: the name stays whole to a screen reader and on the record's page.
-    acts: { true: "max-lg:col-span-full max-lg:px-3 max-lg:pt-3" },
-    // An address wraps instead (`AddressWords`), its chip beside its first line.
+    lonePlaque: { true: "max-lg:flex max-lg:basis-auto" },
     address: { true: "items-start" },
   },
 });
@@ -530,9 +551,10 @@ const nameWords = tv({
 });
 
 /**
- * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then a player's mark and
- * the chip, which keep their size and their line; a prose table's name wraps instead, and so does an address, the chip
- * beside its first line (`AddressWords`). A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
+ * The name, cut with „…“ where its column is too narrow and whole in its `title` while it is cut, then a player's mark,
+ * then the chips, which keep their size, beside the name while the line holds its least width and on the next line
+ * otherwise (`nameLine`); a prose table's name wraps instead, and so does an address, the chips beside its first line
+ * (`AddressWords`). A club's plaque stands outside the span cutting the names, so the cut never takes it, and outside
  * the row's link; the link's stretched box still covers it, so a press on it opens the row's record, which on a phone,
  * where a club's plaque may stand alone, the link names by the club's full name.
  */
@@ -569,39 +591,38 @@ function NameCell({
       role="cell"
       className={s.name()}>
       <span className={nameLine({ shape, lonePlaque, acts: acts !== undefined, address })}>
-        {plaque !== undefined && (
-          <TeamPlaque
-            plaque={plaque}
-            muted={row.muted === true}
-          />
-        )}
-        <CutText
-          id={nameId}
-          text={name}
-          className={nameWords({
-            cut: prose || address ? "never" : "always",
-            lonePlaque,
-            class: address ? addressWords({ class: s.whole() }) : s.whole(),
-          })}>
-          {row.href === undefined ? (
-            opens
-          ) : (
-            <Link
-              href={row.href}
-              placement="row">
-              {words}
-            </Link>
+        <span className={nameHead({ shape, lonePlaque, address })}>
+          {plaque !== undefined && (
+            <TeamPlaque
+              plaque={plaque}
+              muted={row.muted === true}
+            />
           )}
-        </CutText>
-        {row.mark !== undefined && <RoleMark {...row.mark} />}
-        <span className={s.chips()}>
-          {row.chip !== undefined && <Chip {...row.chip} />}
-          {row.delivery !== undefined && (
-            <span className={s.delivery()}>
-              <Chip {...row.delivery} />
-            </span>
-          )}
+          <CutText
+            id={nameId}
+            text={name}
+            className={nameWords({
+              cut: prose || address ? "never" : "always",
+              lonePlaque,
+              // The name's track counts nothing towards the line's least width, so a part of an address wider than the
+              // track breaks where it must rather than running under the chip after it: `anywhere` lets each part's
+              // inline block narrow to the track, where `break-word` holds it at its longest part (CSS Text 3, 5.5).
+              class: address ? addressWords({ class: `${s.whole()} wrap-anywhere` }) : s.whole(),
+            })}>
+            {row.href === undefined ? (
+              opens
+            ) : (
+              <Link
+                href={row.href}
+                placement="row">
+                {words}
+              </Link>
+            )}
+          </CutText>
+          {row.mark !== undefined && <RoleMark {...row.mark} />}
         </span>
+        {row.chip !== undefined && <Chip {...row.chip} />}
+        {row.delivery !== undefined && <Chip {...row.delivery} />}
       </span>
       {row.line !== undefined && (
         <span className={s.line()}>
@@ -876,7 +897,9 @@ export function TablePlaceholder({
                 </td>
               )}
               <td className={table({ compact, stack, acts: rowActs }).name()}>
-                <span className={nameLine({ shape: "wraps", acts: acts !== undefined })}>
+                {/* The rows' least width for the name, so the column's edges stand where the rows' will. */}
+                <span
+                  className={nameLine({ shape: plaques ? "plaque" : "name", lonePlaque: plaques && plaqueAlone, acts: acts !== undefined })}>
                   {plaques && <span className={placeholderBar("h-6 w-10")} />}
                   <PlaceholderLine
                     textClass={plaques && plaqueAlone ? "flex-1 text-sm max-lg:hidden" : "flex-1 text-sm"}
