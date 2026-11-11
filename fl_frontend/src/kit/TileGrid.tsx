@@ -9,6 +9,7 @@ import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 
 /**
@@ -25,10 +26,10 @@ export type Sponsor = { name: RecordText; short?: RecordText; logo: string; href
 export type SchoolTile = { name: RecordText; plaque: RecordText; href: Route; line?: Copy; chip?: ChipProps; muted?: boolean };
 
 // One grid for both, since the season's schools and the sponsors were ruled one look, equal tiles in a
-// fixed grid, four columns and two on a phone; each tile's content is its own.
+// fixed grid, two columns below 42 rem of the box they stand in and four from it; each tile's content is its own.
 const grid = tv({
   slots: {
-    root: "grid grid-cols-2 gap-2 lg:grid-cols-4",
+    root: "grid grid-cols-2 gap-2 @2xl:grid-cols-4",
     // The tile's edge and corners hold the link, which fills under the pointer and rings inside them.
     tile: `overflow-hidden ${cardSurface()}`,
     content: "text-sm font-medium",
@@ -46,36 +47,46 @@ const grid = tv({
 });
 
 /**
+ * The container the grid's columns read, since a query reads an ancestor; `w-full`, since a container's width counts
+ * none of its content.
+ */
+function TilesBox({ children }: { children: ReactNode }) {
+  return <div className="@container w-full">{children}</div>;
+}
+
+/**
  * The season's schools, each an equal tile leading to its club's page.
  */
 export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
   const slots = grid({ kind: "school" });
   return (
-    <ul className={slots.root()}>
-      {schools.map((school) => (
-        <li
-          key={school.href}
-          className={slots.tile()}>
-          <Link
-            href={school.href}
-            placement="card">
-            <span className={slots.content({ class: school.muted === true ? "text-fg-muted" : undefined })}>
-              <TeamPlaque
-                plaque={school.plaque}
-                muted={school.muted === true}
-              />
-              <span className="grid min-w-0">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="min-w-0">{school.name.record}</span>
-                  {school.chip !== undefined && <Chip {...school.chip} />}
+    <TilesBox>
+      <ul className={slots.root()}>
+        {schools.map((school) => (
+          <li
+            key={school.href}
+            className={slots.tile()}>
+            <Link
+              href={school.href}
+              placement="card">
+              <span className={slots.content({ class: school.muted === true ? "text-fg-muted" : undefined })}>
+                <TeamPlaque
+                  plaque={school.plaque}
+                  muted={school.muted === true}
+                />
+                <span className="grid min-w-0">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0">{school.name.record}</span>
+                    {school.chip !== undefined && <Chip {...school.chip} />}
+                  </span>
+                  {school.line !== undefined && <span className="text-xs font-normal text-fg-muted">{school.line}</span>}
                 </span>
-                {school.line !== undefined && <span className="text-xs font-normal text-fg-muted">{school.line}</span>}
               </span>
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </TilesBox>
   );
 }
 
@@ -86,27 +97,29 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
 export function SchoolTilesPlaceholder({ count }: { count: number }) {
   const slots = grid({ kind: "school" });
   return (
-    <div className={slots.root()}>
-      {Array.from({ length: count }, (_, index) => (
-        <div
-          key={index}
-          className={slots.tile()}>
-          <span className={slots.content()}>
-            <span className={placeholderBar("h-6 w-10")} />
-            <span className="grid min-w-0 flex-1">
-              <PlaceholderLine
-                textClass="text-sm"
-                widthClass="w-3/4"
-              />
-              <PlaceholderLine
-                textClass="text-xs"
-                widthClass="w-1/3"
-              />
+    <TilesBox>
+      <div className={slots.root()}>
+        {Array.from({ length: count }, (_, index) => (
+          <div
+            key={index}
+            className={slots.tile()}>
+            <span className={slots.content()}>
+              <span className={placeholderBar("h-6 w-10")} />
+              <span className="grid min-w-0 flex-1">
+                <PlaceholderLine
+                  textClass="text-sm"
+                  widthClass="w-3/4"
+                />
+                <PlaceholderLine
+                  textClass="text-xs"
+                  widthClass="w-1/3"
+                />
+              </span>
             </span>
-          </span>
-        </div>
-      ))}
-    </div>
+          </div>
+        ))}
+      </div>
+    </TilesBox>
   );
 }
 
@@ -118,38 +131,40 @@ export function SchoolTilesPlaceholder({ count }: { count: number }) {
 export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
   const slots = grid({ kind: "sponsor" });
   return (
-    <ul className={slots.root()}>
-      {sponsors.map((sponsor) => (
-        <li
-          key={sponsor.href}
-          className={slots.tile()}>
-          <Link
-            href={sponsor.href}
-            placement="card"
-            sponsored>
-            <span
-              title={sponsor.name.record}
-              className={slots.content()}>
-              <span className="relative block h-16 rounded-md bg-bg-logo">
-                {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
-                <Image
-                  src={sponsor.logo}
-                  alt={sponsor.name.record}
-                  fill
-                  unoptimized
-                  sizes="12rem"
-                  className="object-contain p-2"
-                />
-              </span>
+    <TilesBox>
+      <ul className={slots.root()}>
+        {sponsors.map((sponsor) => (
+          <li
+            key={sponsor.href}
+            className={slots.tile()}>
+            <Link
+              href={sponsor.href}
+              placement="card"
+              sponsored>
               <span
-                aria-hidden
-                className="block truncate">
-                {(sponsor.short ?? sponsor.name).record}
+                title={sponsor.name.record}
+                className={slots.content()}>
+                <span className="relative block h-16 rounded-md bg-bg-logo">
+                  {/* An SVG served as it is, which the image optimiser has nothing to do for, fitted into the plate. */}
+                  <Image
+                    src={sponsor.logo}
+                    alt={sponsor.name.record}
+                    fill
+                    unoptimized
+                    sizes="12rem"
+                    className="object-contain p-2"
+                  />
+                </span>
+                <span
+                  aria-hidden
+                  className="block truncate">
+                  {(sponsor.short ?? sponsor.name).record}
+                </span>
               </span>
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </TilesBox>
   );
 }
