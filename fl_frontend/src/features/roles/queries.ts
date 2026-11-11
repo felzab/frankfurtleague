@@ -25,13 +25,10 @@ const OWN_SAISONS = { spieler: spielerGetSelfSaisons, schiedsrichter: schiedsric
  * records stand in it, else their newest. `null` where they stand in none, as a referee booked to no fixture yet: the
  * frame then draws no season button, and its Übersicht leads to the place's address without a season.
  *
- * The frame's own read, which a page of the place shares: its address without a season sends the reader on to
- * `standard`, and a season's page holds the season of its address to the list. A session turned away and a person
- * holding no such Funktion are answered `null` without a read. One whose Funktion the backend finds gone after that
- * check is refused `role_not_held` here, for the page to send on (`readAsRoleHolder`); the frame reads through
- * `getOwnSaisons`, which answers that refusal `null`, since a refusal would fail the frame around the page's redirect.
+ * A person whose Funktion the backend finds gone after the session's check is refused `role_not_held` here, for the
+ * page to send on.
  */
-// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments rather than the caller.
+// `cache` memoizes per render pass. Never `"use cache"`, which keys on the arguments rather than the caller.
 export const readOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> => {
   const subject = await getSubjectSession();
   if (subject === null || !rolesOf(subject).roles.some((role) => role.kind === kind)) return null;
@@ -47,7 +44,7 @@ export const readOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | 
   };
 });
 
-/** The frame's read of `readOwnSaisons`: a Funktion the backend finds gone draws no season button. */
+/** A Funktion the backend finds gone draws no season button: a refusal would fail the frame around the page's redirect. */
 export const getOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> =>
   readOwnSaisons(kind).catch((error: unknown) => {
     if (isRoleGone(error)) return null;

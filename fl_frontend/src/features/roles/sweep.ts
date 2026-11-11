@@ -7,8 +7,8 @@ import { logger } from "@/core/logging";
 import { postReferences } from "./mutations";
 
 /**
- * The most addresses one references read judges, mirroring the backend's `REFERENCES_ADDRESSES_MAX`
- * (`fl_backend/app/shared/schemas/bounds.py`): a larger batch is refused whole, every pass alike.
+ * The most addresses one references read judges, the backend's `REFERENCES_ADDRESSES_MAX`: a larger batch is refused
+ * whole, every pass alike.
  */
 export const REFERENCES_ADDRESSES_MAX = 250;
 
@@ -21,10 +21,9 @@ type AccountSweepCount = {
 };
 
 /**
- * One pass over every sign-in account, deleting those no record references, for the scheduler
- * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time. A store that lists
- * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts it could not judge
- * or delete.
+ * One pass over every sign-in account, deleting those no record references. The scheduler runs one pass at a time. A
+ * store that lists nothing rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts it
+ * could not judge or delete.
  */
 export async function runAccountSweep(): Promise<{ count: AccountSweepCount; open: number }> {
   const accounts = await listAccounts();
@@ -55,7 +54,6 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
   return { count, open: count.failed };
 }
 
-/** One account, deleted only where the read answers its address unreferenced again, alone. */
 async function deleteUnreferencedAccount(address: string, count: AccountSweepCount): Promise<void> {
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered

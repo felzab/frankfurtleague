@@ -9,8 +9,8 @@ import type { Route } from "next";
 
 /**
  * The address one Funktion opens on, which is also the address every page of that place lies under: the account menu
- * marks a place by it (`fl_frontend/src/kit/FrameNav.tsx :: AccountMenu`). A team's is its Übersicht in one season,
- * a seat being a season's; a pupil's and a referee's carry no season, the person holding them across every one.
+ * marks a place by it. A team's is its Übersicht in one season, a seat being a season's; a pupil's and a referee's
+ * carry no season, the person holding them across every one.
  */
 function roleHref(role: Role): Route {
   switch (role.kind) {
@@ -55,13 +55,11 @@ export function landingTargetOf(targets: readonly RoleTarget[]): Route | null {
   return rest.length === 0 ? first.href : null;
 }
 
-/** Every place `subject`'s Funktionen open on, grouped by address. */
 export const placesOf = (subject: SubjectSession): RoleTarget[] => targetsOf(rolesOf(subject).roles);
 
 /**
- * One place as every list of a person's places names it, the landing's cards and „Funktion wechseln“ alike: a team by
- * its name, with its season and the seats held there, and the line its frame's account row shows; the rest by their
- * area.
+ * One naming for every list of a person's places: a team by its name, with its season and the seats held there, and the
+ * line its frame's account row shows; the rest by their area.
  */
 export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?: Copy; teamLine?: Copy } {
   const [first] = target.roles;
