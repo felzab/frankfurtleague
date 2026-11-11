@@ -44,6 +44,7 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
   },
   sides_changed: [],
   completed: false,
+  reportable: true,
   version: 3,
 };
 

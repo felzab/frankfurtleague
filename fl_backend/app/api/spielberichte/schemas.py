@@ -251,6 +251,9 @@ class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
     version: int | None
     # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
     completed: bool
+    # Whether the referee writes the report now, as the referee's list judges it: played, not called off or struck out,
+    # its season running. Played from the kick-off, or from the day where the fixture holds no time.
+    reportable: bool
 
 
 class FLSpielberichtStateEntry(BaseModel):

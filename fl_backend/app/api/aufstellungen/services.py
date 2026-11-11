@@ -34,9 +34,9 @@ def _at_kickoff_time(date: str, time: str, *, days_back: int) -> datetime:
     the day before a Sunday 16:00 kick-off is Saturday 16:00, on the night summer time ends too.
     """
 
-    wall = datetime.fromisoformat(f"{date}T{time}") - timedelta(days=days_back)
+    wall_day = (datetime.fromisoformat(date) - timedelta(days=days_back)).date().isoformat()
 
-    return wall.replace(tzinfo=clock.GERMANY).astimezone(UTC)
+    return clock.german_instant(wall_day, time).astimezone(UTC)
 
 
 def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: datetime) -> FLAufstellungMarks | None:

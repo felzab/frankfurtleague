@@ -43,7 +43,6 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_german_date_str,
     get_germany_now,
 )
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
@@ -76,7 +75,7 @@ async def get_spielbericht_bericht(
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> FLSpielberichtSchiedsrichterResponse:
     """
     What the booked referee's report form reads.
@@ -84,12 +83,13 @@ async def get_spielbericht_bericht(
     The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
     report, its remarks included, or null.
 
-    Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
-    empty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,
-    `completed` is true and the read is the report alone, both squads empty, which its referee writes no more.
-    Refused
-    `role_not_held` where the address holds no confirmed, live referee record, and `bericht_not_officiated` where the fixture
-    is booked to none of its records; `document_not_found` for a fixture that does not exist.
+    `reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it
+    holds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose
+    page says why it takes no report, with both squads empty: the pupils the stored report names are then all in
+    `named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads
+    empty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee
+    record, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a
+    fixture that does not exist.
     """
 
     async with db.start_session(snapshot=True) as session:
@@ -111,7 +111,7 @@ async def get_spielbericht_bericht(
 
         # After the season, the referee's page is a view of the report: no squad to pick from, no write.
         completed = is_concluded(context)
-        kader_open = kader_is_open(context, today=today)
+        kader_open = kader_is_open(context, now=now)
         document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         named = await pull_named(
             spieler_collection=spieler_collection,
@@ -122,7 +122,7 @@ async def get_spielbericht_bericht(
         )
 
     return FLSpielberichtSchiedsrichterResponse.model_validate(
-        {**compose_view(context, kader_open=kader_open, named=named, document=document), "completed": completed}
+        {**compose_view(context, kader_open=kader_open, named=named, document=document), "completed": completed, "reportable": kader_open}
     )
 
 
@@ -146,7 +146,6 @@ async def put_spielbericht_bericht(
     spielberichte_collection: SpielberichteCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielberichtSchiedsrichterResponse:
     """
@@ -166,15 +165,15 @@ async def put_spielbericht_bericht(
     Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
     (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
     (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
-    `version` other than the document's now, or than null where none stands (`version_stale`); one undated
-    or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out
-    proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil the write newly names on a side
-    outside that side's live squad of the season, a pupil the report already named on that side staying while the side
-    fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale` is asked again outside the
-    transaction just before answering, the referee's records included, so a write landing on what was judged before
-    that second asking refuses the report rather than letting it stand, and one landing after it stands beside the
-    report; a write of the report itself landing mid-press conflicts with this one, whose retry meets `version_stale`.
-    Two first writes at once are two forms opened on no report: the later is refused.
+    `version` other than the document's now, or than null where none stands (`version_stale`); one undated, or whose
+    kick-off is still to come, its day where it holds no time (`bericht_not_played`); one called off or struck out
+    (`bericht_cancelled`); a shoot-out proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil
+    the write newly names on a side outside that side's live squad of the season, a pupil the report already named on
+    that side staying while the side fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale`
+    is asked again outside the transaction just before answering, the referee's records included, so a write landing on
+    what was judged before that second asking refuses the report rather than letting it stand, and one landing after it
+    stands beside the report; a write of the report itself landing mid-press conflicts with this one, whose retry meets
+    `version_stale`. Two first writes at once are two forms opened on no report: the later is refused.
     """
 
     payload = bericht_data.bericht
@@ -198,7 +197,7 @@ async def put_spielbericht_bericht(
         refuse(find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=own))
         refuse(find_saison_ended_refusal(context))
         refuse(find_stale_first_save_refusal(saved, version=bericht_data.version))
-        judge_bericht(context=context, payload=payload, new=new, today=today)
+        judge_bericht(context=context, payload=payload, new=new, now=now)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
         document = await write_bericht(
@@ -246,10 +245,10 @@ async def put_spielbericht_bericht(
             )
         )
         refuse(find_saison_ended_refusal(current))
-        judge_bericht(context=current, payload=payload, new=new, today=today)
+        judge_bericht(context=current, payload=payload, new=new, now=now)
 
         created = saved is None
-        view = {**compose_view(context, kader_open=True, named=named, document=document), "completed": False}
+        view = {**compose_view(context, kader_open=True, named=named, document=document), "completed": False, "reportable": True}
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(view), created
 

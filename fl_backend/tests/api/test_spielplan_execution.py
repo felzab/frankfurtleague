@@ -870,7 +870,7 @@ HOLD_S = 2.0
 
 # The race cases' fixture is played the day before their report is written.
 PLAYED_ON = "2026-08-20"
-REPORTED_ON = "2026-08-21"
+REPORTED_AT = datetime(2026, 8, 21, 12, tzinfo=UTC)
 
 # The referee the race cases' fixture is booked to, whose own route writes the report.
 REPORTING_REFEREE = ObjectId("6890a1b2c3d4e5f607760103")
@@ -973,8 +973,7 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             records=record_collections(database),
             db=client,
-            today=REPORTED_ON,
-            now=datetime(2026, 8, 21, 12, tzinfo=UTC),
+            now=REPORTED_AT,
         )
     )
 

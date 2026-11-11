@@ -617,8 +617,10 @@ def own_reason_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | None:
     return answer.get("reason") if (answer.get("by") or {}).get("kind") == "schiedsrichter" else None
 
 
-def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrichterSpiel:
+def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsrichterSpiel:
     """One fixture of `build_self_spiele_pipeline`'s as the referee's list shows it: as it stands, never as a row asked about it."""
+
+    today = clock.german_day(now)
 
     row = next(iter(spiel[OWN_ROW_AS]), None)
     bericht = next(iter(spiel[BERICHT_AS]), None)
@@ -650,7 +652,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, today: str) -> FLSchiedsrich
         entered=row is not None and entered_of(row),
         past=spiel.get("date") is not None and spiel["date"] < today,
         # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
-        reportable=takes_a_bericht(spiel, today=today) and not season_has_ended(saison_status=saison["status"]),
+        reportable=takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"]),
         submitted_at=None if bericht is None else bericht.get("submitted_at"),
     )
 

@@ -3095,10 +3095,11 @@ export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
  * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
  *
  * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
- * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report
- * today, and when its report was first sent. Nobody's address is served, and no reason an administrator entered.
- * Open work first, a booking to answer or a report owed; then the fixtures to come, each by its day; then the days
- * gone by, the latest first. A season holding no fixture of theirs, or none at all, answers an empty list.
+ * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now
+ * (from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is
+ * served, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the
+ * fixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,
+ * or none at all, answers an empty list.
  *
  * Refuses an address holding no live, confirmed referee record (`role_not_held`).
  * @summary A signed-in referee's fixtures of one season, one row a fixture
@@ -3327,12 +3328,13 @@ export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
  * The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
  * report, its remarks included, or null.
  *
- * Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
- * empty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,
- * `completed` is true and the read is the report alone, both squads empty, which its referee writes no more.
- * Refused
- * `role_not_held` where the address holds no confirmed, live referee record, and `bericht_not_officiated` where the fixture
- * is booked to none of its records; `document_not_found` for a fixture that does not exist.
+ * `reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it
+ * holds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose
+ * page says why it takes no report, with both squads empty: the pupils the stored report names are then all in
+ * `named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads
+ * empty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee
+ * record, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a
+ * fixture that does not exist.
  * @summary One fixture's report as its referee reads it
  */
 export const spielberichteGetSpielberichtBericht = async (
@@ -3366,15 +3368,15 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
  * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
  * (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
  * (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
- * `version` other than the document's now, or than null where none stands (`version_stale`); one undated
- * or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_cancelled`); a shoot-out
- * proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil the write newly names on a side
- * outside that side's live squad of the season, a pupil the report already named on that side staying while the side
- * fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale` is asked again outside the
- * transaction just before answering, the referee's records included, so a write landing on what was judged before
- * that second asking refuses the report rather than letting it stand, and one landing after it stands beside the
- * report; a write of the report itself landing mid-press conflicts with this one, whose retry meets `version_stale`.
- * Two first writes at once are two forms opened on no report: the later is refused.
+ * `version` other than the document's now, or than null where none stands (`version_stale`); one undated, or whose
+ * kick-off is still to come, its day where it holds no time (`bericht_not_played`); one called off or struck out
+ * (`bericht_cancelled`); a shoot-out proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil
+ * the write newly names on a side outside that side's live squad of the season, a pupil the report already named on
+ * that side staying while the side fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale`
+ * is asked again outside the transaction just before answering, the referee's records included, so a write landing on
+ * what was judged before that second asking refuses the report rather than letting it stand, and one landing after it
+ * stands beside the report; a write of the report itself landing mid-press conflicts with this one, whose retry meets
+ * `version_stale`. Two first writes at once are two forms opened on no report: the later is refused.
  * @summary Write one fixture's report as its referee
  */
 export const spielberichtePutSpielberichtBericht = async (
