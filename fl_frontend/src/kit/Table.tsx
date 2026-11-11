@@ -221,6 +221,11 @@ export type TableHead = Pick<
 > & {
   /** The rows open nothing, so their wait ends in no chevron. */
   linked?: false;
+  /**
+   * Where the rows carry the muted line under their name, which their wait draws as a line's bar: `always` where they
+   * carry a `line`, at every width, and `phone` where they carry a `phoneLine` alone, on a box narrower than 42 rem.
+   */
+  line?: "always" | "phone";
 } & (
     | {
         /** The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. */
@@ -1043,10 +1048,10 @@ function SideActBar({ act, stacks }: { act: Copy; stacks: Stacks }) {
  * centred, a name from the start after a club's plaque where the rows hold clubs, a chip's bar in the status column,
  * the chevron where rows lead on. Drawn with the table's own recipe and the columns' stated widths inside the table's
  * own container, so it takes the form the rows will at every width: a list's rows stacked where its box is narrow, the
- * chip's bar after the name's, a phone's left-out columns left out, a `stack` table's rows stacked as `Table`'s and
- * each row's acts as buttons, which a stacked row sets on a line under its words, a list of side acts its lone act's
- * there and the „⋯“'s in a table (`SideActBar`). Each cell's bar stands in a line of the cell's own height, so a row
- * holds its height wherever its lines stack.
+ * chip's bar after the name's, the muted line's under it where the rows carry one, a phone's left-out columns left
+ * out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons, which a stacked row sets on a line
+ * under its words, a list of side acts its lone act's there and the „⋯“'s in a table (`SideActBar`). Each cell's bar
+ * stands in a line of the cell's own height, so a row holds its height wherever its lines stack.
  */
 export function TablePlaceholder({
   head,
@@ -1070,6 +1075,7 @@ export function TablePlaceholder({
     plaqueAlone = false,
     acts,
     sideAct,
+    line,
     stack = false,
   } = head;
   const hasActs = acts !== undefined || sideAct !== undefined;
@@ -1134,6 +1140,15 @@ export function TablePlaceholder({
                     )}
                   </span>
                 </span>
+                {line !== undefined && (
+                  // In the muted line's place, in one track as wide as the line's room, so the bar's width is a share of it.
+                  <span className={parts.line({ class: line === "phone" ? "grid-cols-1 @2xl:hidden" : "grid-cols-1" })}>
+                    <PlaceholderLine
+                      textClass=""
+                      widthClass="w-1/3"
+                    />
+                  </span>
+                )}
               </td>
               {state !== undefined && (
                 <td className={parts.state()}>
