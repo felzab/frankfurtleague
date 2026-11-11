@@ -6,14 +6,9 @@ import { orderStufen } from "./constants";
 import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 
-/**
- * A squad row's three choices as every form offers them, the team's Kader dialog, the pupil's registration and the
- * administration's player editor alike, each opening on the empty box the write reads as no value.
- */
-
+/** The empty box, which the write reads as no value. */
 const NONE: Option = { id: "", label: COPY.shared.notProvided };
 
-/** The positions a pupil may play, in the published order. */
 export const positionOptions = (): readonly Option[] => [
   NONE,
   ...Object.values(FLSpielerPosition).map((position) => ({ id: position, label: { record: position } })),
