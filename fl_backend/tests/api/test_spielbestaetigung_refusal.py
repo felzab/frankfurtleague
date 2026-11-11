@@ -1,4 +1,5 @@
 from collections.abc import Iterator, Mapping
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -20,6 +21,7 @@ from app.api.spielbestaetigungen.services import (
     view_ansetzung_of,
 )
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpiel
+from app.core import clock
 from app.core.codes import Code
 
 TEAM1 = ObjectId("650000000000000000000101")
@@ -29,6 +31,7 @@ SCHIEDSRICHTER = ObjectId("650000000000000000000104")
 SPIELTAG = ObjectId("650000000000000000000105")
 
 TODAY = "2027-05-01"
+NOW = datetime(2027, 5, 1, 12, tzinfo=clock.GERMANY)
 DEADLINE = "2027-05-07"
 DATE = "2027-05-14"
 
@@ -112,7 +115,7 @@ class TestADecidedSpielTakesNoAnswer:
     def test_the_answer_is_refused(self, situation: dict[str, Any]):
         """Let through, a press tells its seat holder the answer counted on a fixture already settled, and stores it, with nothing failing."""
 
-        refusal = find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), today=TODAY)
+        refusal = find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), now=NOW)
 
         assert refusal is not None and refusal.error_code == Code.ANSETZUNG_DECIDED
 
@@ -157,7 +160,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
         )
 
-        assert state_of(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY, vorschlag_open=None) == "valid"
+        assert state_of(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW, vorschlag_open=None) == "valid"
         view_ansetzung_of(situation.spiel)
 
         # The premise: `decision_of` read the fixture to its last test.
@@ -173,7 +176,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
             spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
         )
 
-        assert find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, today=TODAY) is None
+        assert find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW) is None
 
         assert "austritt.date" in vereine_seen
         assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
@@ -263,3 +266,22 @@ def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseMo
         model.model_validate(body)
 
     assert [(error["loc"], error["type"]) for error in failure.value.errors()] == [((refused[0],), refused[1])]
+
+
+# `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
+KICK_OFF = clock.german_instant(DATE, spiel()["time"]).astimezone(clock.GERMANY)
+
+
+class TestARefereeAnswersUntilTheKickOff:
+    """The Einteilung names no deadline, so the kick-off alone ends a referee's answer: the report is theirs from then."""
+
+    def test_a_minute_before_it_the_answer_is_taken_and_from_it_refused(self):
+        referees = row(party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER})
+
+        before, at = (
+            find_unanswerable_refusal(spielbestaetigung_raw=referees, ansetzung_state=ansetzung_state(), now=now)
+            for now in (KICK_OFF - timedelta(minutes=1), KICK_OFF)
+        )
+
+        assert before is None
+        assert at is not None and at.error_code == Code.ANSETZUNG_DEADLINE_PAST

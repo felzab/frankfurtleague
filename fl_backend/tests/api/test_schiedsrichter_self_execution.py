@@ -67,6 +67,12 @@ DECLINED_HERE = ObjectId("6890a1b2c3d4e5f607e50073")
 TODAYS = ObjectId("6890a1b2c3d4e5f607e50074")
 OPEN_SLOT = ObjectId("6890a1b2c3d4e5f607e50075")
 
+# The kick-off cases' own: a fixture of today kicked off before `NOW`, one of today with no time, and one moved back to
+# the slot its newest row was closed for leaving.
+KICKED_OFF = ObjectId("6890a1b2c3d4e5f607e50076")
+UNTIMED = ObjectId("6890a1b2c3d4e5f607e50077")
+MOVED_BACK = ObjectId("6890a1b2c3d4e5f607e50078")
+
 
 def spiel(spiel_id: ObjectId, spiel_nr: int, date: str, *, schiedsrichter_id: ObjectId = OTTO_ID, **fields: Any) -> dict[str, Any]:
     return documents.spiel_document(
@@ -280,6 +286,51 @@ class TestTheSeasonsFixtures:
         assert (by_id[TODAYS].past, by_id[REPORTED].past) == (False, True)
         assert (by_id[OPEN_SLOT].team1_name, by_id[OPEN_SLOT].team2_name) == ("Adler", None)
         assert {entry.time for entry in by_id.values()} == {"18:30:00"}
+
+    def test_from_its_kick_off_a_booking_takes_no_answer_and_its_game_is_past(self, mongo_replica_set_url: str):
+        """An unanswered booking reads as lapsed, and its game as played, from the kick-off; a game with no time from its day.
+
+        Read by the day instead, the row would offer „Zusagen“ and „Ablehnen“ until midnight beside the report it owes.
+        """
+
+        added = [spiel(KICKED_OFF, 13, TODAY, time="11:00:00"), spiel(TODAYS, 11, TODAY), spiel(UNTIMED, 14, TODAY, time=None)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELE].insert_many(added)
+            # Unanswered, each about its fixture as it stands; a fixture with no time is asked nothing.
+            party = {"kind": "schiedsrichter", "schiedsrichter_id": OTTO_ID}
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+                [documents.spielbestaetigung_document(stored, party=party) for stored in added[:2]]
+            )
+            return await own_spiele()(database, client)
+
+        by_id = {entry.spiel_id: entry for entry in answered(mongo_replica_set_url, body).spiele}
+
+        assert [(by_id[spiel_id].state, by_id[spiel_id].past, by_id[spiel_id].reportable) for spiel_id in (KICKED_OFF, TODAYS, UNTIMED)] == [
+            ("expired", True, True),
+            ("valid", False, False),
+            (None, True, True),
+        ]
+
+    def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
+        """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_closed`."""
+
+        moved_back = spiel(MOVED_BACK, 15, "2027-05-29")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELE].insert_one(moved_back)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
+                documents.spielbestaetigung_document(
+                    moved_back,
+                    party={"kind": "schiedsrichter", "schiedsrichter_id": OTTO_ID},
+                    closed={"at": TODAY, "reason": "ansetzung_changed"},
+                )
+            )
+            return await own_spiele()(database, client)
+
+        [entry] = [entry for entry in answered(mongo_replica_set_url, body).spiele if entry.spiel_id == MOVED_BACK]
+
+        assert entry.state == "invalid"
 
 
 class TestTheSeasonsOffered:

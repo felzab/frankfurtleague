@@ -1,3 +1,4 @@
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import pytest
@@ -10,12 +11,22 @@ from app.api.spielbestaetigungen.services import (
     reason_to_close,
     request_is_due,
 )
+from app.core import clock
 
 TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
 BETA = ObjectId("6890a1b2c3d4e5f607760002")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077600c1")
 AFTER_THE_DAY = days_after(day=TODAY, days=8)
+
+
+def noon(day: str) -> datetime:
+    """Midday of a German day, on the zone the request's clock reads."""
+
+    return datetime.combine(date.fromisoformat(day), time(12), tzinfo=clock.GERMANY)
+
+
+NOW = noon(TODAY)
 
 
 def spiel(**overrides: Any) -> dict[str, Any]:
@@ -56,9 +67,12 @@ class TestTheDeadline:
 
 class TestTheMintAsksInsideItsWindowAlone:
     def test_a_spiel_today_is_not_asked(self):
-        """The floor's edge: both clubs and the referee would be asked to confirm a match already under way."""
+        """The floor's edge, a day and not the kick-off: a match today is asked of nobody, though it kicks off hours from now.
 
-        assert request_is_due(spiel=spiel(date=TODAY), austritte={}, today=TODAY) is False
+        A request asks ahead of the day, its deadline lying before it.
+        """
+
+        assert request_is_due(spiel=spiel(date=TODAY), austritte={}, now=NOW) is False
 
 
 class TestWhyARowCloses:
@@ -81,12 +95,28 @@ class TestWhyARowCloses:
         ],
     )
     def test_the_reason(self, party: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], reason: str | None):
-        assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, today=TODAY) == reason
+        assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, now=NOW) == reason
 
     def test_an_answered_row_closes_as_an_open_one_does(self):
         """The close's reach is `closed: null` alone, so a kept agreement records why it stopped applying."""
 
         answered = row(TEAM, answer={"kind": "agreed"})
 
-        assert reason_to_close(row=answered, spiel=spiel(time="19:00:00"), austritte={}, today=TODAY) == "ansetzung_changed"
-        assert reason_to_close(row=answered, spiel=spiel(), austritte={}, today=AFTER_THE_DAY) == "spiel_past"
+        assert reason_to_close(row=answered, spiel=spiel(time="19:00:00"), austritte={}, now=NOW) == "ansetzung_changed"
+        assert reason_to_close(row=answered, spiel=spiel(), austritte={}, now=noon(AFTER_THE_DAY)) == "spiel_past"
+
+
+# `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
+KICK_OFF = clock.german_instant(spiel()["date"], spiel()["time"]).astimezone(clock.GERMANY)
+
+
+class TestARowClosesAtItsKickOff:
+    @pytest.mark.parametrize("party", [pytest.param(TEAM, id="a club's"), pytest.param(REFEREE, id="a referee's")])
+    def test_open_a_minute_before_and_closed_from_it(self, party: dict[str, Any]):
+        """Open until midnight instead, a referee's decline pressed after the match unbooks them from the match just played."""
+
+        before, at = (
+            reason_to_close(row=row(party), spiel=spiel(), austritte={}, now=now) for now in (KICK_OFF - timedelta(minutes=1), KICK_OFF)
+        )
+
+        assert (before, at) == (None, "spiel_past")

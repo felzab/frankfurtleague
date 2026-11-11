@@ -66,7 +66,7 @@ describe("a game's answers", () => {
     ).toStrictEqual(["5f0000000000000000000b01", "5f0000000000000000000b02"]);
   });
 
-  /* The backend refuses a second answer and one past the game's day, so a row offering them anyway only ever answers
+  /* The backend refuses a second answer and one from the game's kick-off, so a row offering them anyway only ever answers
      with a refusal, on a press the referee believes counted. */
   it("stand on no answered, ended or past booking", async () => {
     expect(

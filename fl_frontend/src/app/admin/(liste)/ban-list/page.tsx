@@ -33,7 +33,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 const HEAD: TableHead = {
   nameLabel: COPY.signIn.address,
   columns: [
-    { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "line", cut: true },
+    { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
     { key: "until", label: COPY.admin.team.linkValidUntil, narrow: true, width: "date" },
     { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],

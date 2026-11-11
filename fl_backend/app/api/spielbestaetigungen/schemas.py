@@ -36,9 +36,8 @@ FLSpielbestaetigungClosedReason = Literal[
 ]
 
 # What a row reads as, the first state matching winning (`app/api/spielbestaetigungen/services.py :: state_of`).
-# `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was
-# answered; `discarded`: the league discarded this decline's proposal.
-FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "discarded", "expired", "invalid", "cancelled"]
+# `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was answered.
+FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "expired", "invalid", "cancelled"]
 
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
 # ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the
@@ -244,7 +243,7 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
 
 
 # --- A REFEREE'S OWN ROWS, answered signed in on the person lane. No deadline binds them: a referee answers until the
-# fixture's day, which the Einteilung states.
+# fixture's kick-off, which the Einteilung states.
 
 # A referee's row as their own list reads it (`app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSpiel`). Never
 # `vorschlag`, a referee proposing no date.

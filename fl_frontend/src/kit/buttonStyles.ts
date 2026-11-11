@@ -59,7 +59,8 @@ export const buttonLook = tv({
  * outlined danger look, any other the secondary one, since the fill belongs to the question's own button that does the
  * act. Every question's and dialog's trigger is drawn by it (`ConfirmDialog.tsx :: TriggerButton`), and so is the
  * locked button standing in a trigger's place and the question form's press, so one destroying act looks the same
- * wherever it stands, a mailed page's refusal alone apart (`OneShotForm`).
+ * wherever it stands but on a mailed page, whose acts take the main act's fill and the quiet look, never the outlined
+ * one (`OneShotForm`).
  */
 export function askingLook(tone: "danger" | "primary") {
   return tone === "danger" ? "dangerOutline" : "secondary";

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { connection } from "next/server";
+
 import { isAPIError } from "better-auth/api";
 import { MongoServerError } from "mongodb";
 
@@ -103,6 +105,9 @@ export class DeletionOutcomeUnknown extends Error {
  * of its expiry. Asked before any session, so a spent or lapsed link says so to whoever opens it, signed in or not.
  */
 export async function erasureLinkStands(token: string): Promise<boolean> {
+  // A render's wait for a real request ahead of both clocks, the library's cleanup of lapsed rows and `now()`: the page
+  // reaches here past `cookies()` alone, which leaves the session's prerendered shell running on.
+  await connection();
   const { internalAdapter } = await auth.$context;
   const row = await internalAdapter.findVerificationValue(`${DELETE_TOKEN_ROW_PREFIX}${token}`);
   return row !== null && row.expiresAt.getTime() > now().getTime();
