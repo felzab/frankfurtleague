@@ -92,8 +92,7 @@ services:
   # Production declares no database service and must not gain one.
   mongo:
     # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
-    # cluster runs, so a copy taken from it restores into a server of its own major version. Pinned
-    # here by its digest too (`docs/ops/spec.md` §1.1).
+    # cluster runs. Pinned here by its digest too (`docs/ops/spec.md` §1.1).
     image: mongo:8.3.13@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff
     # A single-node replica set rather than a standalone: every transactional endpoint runs
     # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.
@@ -111,9 +110,6 @@ services:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
-      # What `./scripts/ops/local.sh --seed` restores from. Read-only: the restore reads this directory
-      # and nothing inside the container writes it.
-      - ./.local-db/dump:/dump:ro
     # The application pair's network, which nginx shares and nothing reaching the edge does.
     networks:
       - frankfurtleague-app
@@ -136,7 +132,7 @@ services:
 
   nginx:
     # Production publishes nothing; this stack serves the edge on 3000 to this host alone, since any
-    # other interface serves a copy of production's data to every machine on the developer's network.
+    # other interface serves the stack to every machine on the developer's network.
     ports:
       - "127.0.0.1:3000:80"
     # `!override`, the whole list replaced: nginx/local in nginx/prod's place, a directory for the

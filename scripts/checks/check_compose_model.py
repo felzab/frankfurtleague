@@ -675,8 +675,8 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
 def local(model: dict[str, Any], name: str) -> list[Finding]:
     """Every published port binds a loopback address, the edge's included.
 
-    The local stack serves a copy of production's data, so a port on any other interface serves it to
-    the developer's whole network.
+    The local stack's database asks no login, so a port on any other interface serves it, and the
+    stack, to the developer's whole network.
     """
     findings = host_network(model, name)
     for service, definition in sorted(services(model, name).items()):

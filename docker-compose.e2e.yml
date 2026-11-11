@@ -44,11 +44,6 @@ services:
       # The made-up seed's database (`scripts/ops/seed/seed.js`), on this stack's own server.
       - DB_BASE_NAME=fl_e2e
 
-  mongo:
-    # The local stack's volumes without its copy of production: that copy never enters this stack.
-    volumes: !override
-      - mongo-data:/data/db
-
   nginx:
     # nginx/e2e in nginx/local's place, which it includes from the path beside it: the local edge,
     # its limits counting and refusing nothing (`nginx/e2e/e2e.conf`).
