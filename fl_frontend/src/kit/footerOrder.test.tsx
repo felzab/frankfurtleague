@@ -96,8 +96,9 @@ const FOOTERS: Readonly<Record<string, ReadonlyArray<readonly [string, Footer]>>
             title={COPY.shared.help}
             act={{ verb: "save" }}
             action={noAnswer}
-            open={{ isOpen: true, onOpenChange: () => {} }}
-          />
+            open={{ isOpen: true, onOpenChange: () => {} }}>
+            {null}
+          </Dialog>
         ),
         main: COPY.shared.verb.save,
         before: [COPY.shared.back],
@@ -133,8 +134,9 @@ const FOOTERS: Readonly<Record<string, ReadonlyArray<readonly [string, Footer]>>
             tone="danger"
             read={noAnswer}
             act={noAnswer}
-            holder="pia@example.org"
-          />
+            holder="pia@example.org">
+            {null}
+          </QuestionForm>
         ),
         main: COPY.shared.verb.delete,
         before: [],
