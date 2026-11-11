@@ -110,7 +110,6 @@ def build_state_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
         *build_submitted_pipeline(
             saison_id=saison_id,
             spiel_fields={
-                "saison_phase": 1,
                 "team1.team_id": 1,
                 "team1.tore": 1,
                 "team2.team_id": 1,
