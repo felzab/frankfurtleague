@@ -11,7 +11,7 @@ export async function patchSchiedsrichterAccountEinwilligung(
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
 }
 
-/** The hourly pass's: a timer holds no session, and an entry whose link lapsed unanswered or declined is the clock's. */
+/** A timer holds no session, and an entry whose link lapsed unanswered or declined is the clock's. */
 export async function postSchiedsrichterSweep(): Promise<FLSchiedsrichterSweepResponse> {
   return schiedsrichterSweepSchiedsrichter();
 }
