@@ -18,6 +18,7 @@ from app.api.spielberichte.services import (
     kader_is_open,
     newly_named,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLSpielSide
@@ -159,14 +160,22 @@ class TestAReportFollowsTheKickOff:
         assert refused_with(Code.BERICHT_NOT_PLAYED, find_not_played_refusal(date=date, time=time, now=now))
 
     @pytest.mark.parametrize(
-        ("time", "now"),
+        ("date", "time", "now"),
         [
-            pytest.param("18:00:00", KICK_OFF, id="from the kick-off"),
-            pytest.param(None, TODAYS_FIRST_MINUTE, id="an untimed spiel from its day"),
+            pytest.param(TODAY, "18:00:00", KICK_OFF, id="from the kick-off"),
+            pytest.param(TODAY, None, TODAYS_FIRST_MINUTE, id="an untimed spiel from its day"),
+            # The night summer time ends: a 02:30 kick-off is the first 02:30 (00:30 UTC), and `now` is read in Berlin as a
+            # request reads it, at 02:15 in the repeated hour, so both carry one zone and only the instants order them.
+            pytest.param(
+                "2026-10-25",
+                "02:30:00",
+                datetime(2026, 10, 25, 1, 15, tzinfo=UTC).astimezone(clock.GERMANY),
+                id="from the kick-off when the clock goes back",
+            ),
         ],
     )
-    def test_a_spiel_played_is_taken(self, time: str | None, now: datetime):
-        assert find_not_played_refusal(date=TODAY, time=time, now=now) is None
+    def test_a_spiel_played_is_taken(self, date: str, time: str | None, now: datetime):
+        assert find_not_played_refusal(date=date, time=time, now=now) is None
 
 
 class TestACalledOffSpielTakesNoReport:
