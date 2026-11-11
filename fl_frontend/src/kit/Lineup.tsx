@@ -11,7 +11,7 @@ import { card, columnHead, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
-import { EmptyState, EmptyStatePlaceholder } from "./EmptyState";
+import { EmptyState } from "./EmptyState";
 import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
@@ -534,8 +534,7 @@ function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; start
 /**
  * The block while the line-up is read: its two cards with their titles and column heads, a bar where each count will
  * stand, and as many rows at the rows' height as the page states for each list, the tick, the cross and the squad
- * rows' word as bars of their size. A picked list of none draws its blank slate's placeholder, and a squad
- * list of none its head alone, as the block does.
+ * rows' word as bars of their size. A squad list of none draws its head alone, as the block does.
  */
 export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
   const s = lineup();
@@ -553,16 +552,12 @@ export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; p
           {count}
         </div>
         <div className={s.box()}>
-          {picked === 0 ? (
-            <EmptyStatePlaceholder />
-          ) : (
-            <RowsPlaceholder
-              words={words}
-              starts={words.starts}
-              rows={picked}
-              end={<span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />}
-            />
-          )}
+          <RowsPlaceholder
+            words={words}
+            starts={words.starts}
+            rows={picked}
+            end={<span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />}
+          />
         </div>
       </div>
       <div className={s.card()}>
