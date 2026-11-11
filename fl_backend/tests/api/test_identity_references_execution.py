@@ -11,7 +11,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
@@ -64,7 +63,6 @@ BARRED = "gerda.gesperrt@schule.de"
 OUTSIDE_THE_RULE = "jürgen@schule.de"
 
 REGISTERED_OPEN = "rita.offen@schule.de"
-GHOST_SCHIEDSRICHTER = "geist.pfeife@schule.de"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NOBODY = "Niemand.Hier@Example.COM"
 
@@ -86,7 +84,6 @@ ASKED = [
     BEWERBUNG_UNCONFIRMED,
     "Spieler.Anna@Schule.DE",
     SCHIEDSRICHTER_RETIRED,
-    GHOST_SCHIEDSRICHTER,
     REGISTERED,
     REGISTERED_OPEN,
     ADMIN,
@@ -172,8 +169,6 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             _referee(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
             _referee(ObjectId(), BARRED_SCHIEDSRICHTER, "G. Pfeife"),
-            # The ghost, for the sentinel's reason above.
-            _referee(GHOST_SCHIEDSRICHTER_ID, GHOST_SCHIEDSRICHTER, "D. Geist"),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -252,7 +247,6 @@ class TestWhatLetsAnAccountGo:
             pytest.param(REGISTERED_OPEN, id="a pending registration its pupil has not confirmed"),
             pytest.param(BARRED, id="a standing ban and no record"),
             pytest.param(OUTSIDE_THE_RULE, id="an address today's rule refuses and no record holds"),
-            pytest.param(GHOST_SCHIEDSRICHTER, id="the referee placeholder, by its id"),
             pytest.param(NOBODY, id="nothing at all"),
         ],
     )
@@ -266,7 +260,7 @@ class TestWhatLetsAnAccountGo:
         assert answered(mongo_replica_set_url) == (
             200,
             {
-                "unreferenced": [NOBODY, GHOST_SCHIEDSRICHTER, REGISTERED_OPEN, BARRED, OUTSIDE_THE_RULE],
+                "unreferenced": [NOBODY, REGISTERED_OPEN, BARRED, OUTSIDE_THE_RULE],
             },
         )
 

@@ -269,9 +269,6 @@ async def sweep_erasure(
     what it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the
     call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
     limit.
-
-    The 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no
-    handler; this call counts that failure as any other and never answers it.
     """
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)

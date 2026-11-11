@@ -13,21 +13,18 @@ from app.api.spielbestaetigungen.services import (
     austritt_notices_of,
     build_austritt_spiele_filter,
     build_holding_filter,
-    build_referee_rows_filter,
     build_season_reasons_filter,
 )
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    delete_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
     pull_whole_from_db,
 )
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.shared.schemas.custom import CustomObjectId
 
 # --- The fixture a row is judged against.
 
@@ -188,33 +185,6 @@ async def strip_the_seasons_confirmations(
         )
 
     return stripped
-
-
-# --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
-
-
-async def erase_referee_confirmations_in_session(
-    *,
-    spielbestaetigungen_collection: AsyncCollection,
-    schiedsrichter_ids: Sequence[CustomObjectId],
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
-    session: AsyncClientSession,
-) -> int:
-    """Remove every confirmation row these referees are the party of.
-
-    Run ahead of the referee's own step, which removes the document the rows name.
-    """
-
-    # No command for none: a person holding no referee row costs this step nothing.
-    if not schiedsrichter_ids:
-        return 0
-
-    # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
-    removed = await delete_many_from_db(
-        collection=spielbestaetigungen_collection, db_filter=build_referee_rows_filter(schiedsrichter_ids), session=session
-    )
-
-    return removed.deleted_count
 
 
 # --- What a write owing mails read their recipients off.

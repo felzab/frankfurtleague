@@ -1,6 +1,5 @@
 import json
 from collections.abc import Iterator
-from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -8,10 +7,10 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.aufstellungen.schemas import FLAufstellungPublic
+from app.api.aufstellungen.services import PUBLIC_AUFSTELLUNGEN_AS, compose_public_aufstellungen
 from app.api.saisons.public_router import get_spiel
 from app.api.spielberichte.services import compose_public_bericht
 from app.core.collections import Collection
-from app.core.sentinels import GHOST_SPIELER_ID
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
@@ -25,9 +24,6 @@ EARLIER, SAISON, LATER = "2025", "2026", "2027"
 # database holds them, by club, rather than picked by the club on each side, lands on the wrong side.
 HOME, AWAY, REPLACED = ObjectId("6890a1b2c3d4e5f607430002"), ObjectId("6890a1b2c3d4e5f607430001"), ObjectId("6890a1b2c3d4e5f607430000")
 NAMED, INTERNAL = ObjectId("6890a1b2c3d4e5f607430011"), ObjectId("6890a1b2c3d4e5f607430012")
-# The match kicked off on Saturday 9 May 2026 at 16:00 in Berlin, 14:00 UTC; its line-ups locked an hour before.
-PLAYED = datetime(2026, 5, 9, 16, tzinfo=UTC)
-AHEAD_OF_THE_LOCK = datetime(2026, 5, 2, 12, tzinfo=UTC)
 
 
 def adopted_match() -> dict[str, Any]:
@@ -47,7 +43,7 @@ def adopted_match() -> dict[str, Any]:
 
 
 def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
-    """Two goals for the home side, one by a named pupil and one by nobody named; a card to an internal pupil and one to the erased."""
+    """Two goals for the home side, one by a named pupil and one by nobody named; a card to an internal pupil and one to an erased one."""
 
     return documents.spielbericht_document(
         spiel,
@@ -59,7 +55,7 @@ def report_of(spiel: dict[str, Any], **bericht: Any) -> dict[str, Any]:
             ],
             cards=[
                 {"side": "team2", "spieler_id": INTERNAL, "minute": "60", "colour": "gelb"},
-                {"side": "team2", "spieler_id": GHOST_SPIELER_ID, "minute": "70", "colour": "rot"},
+                {"side": "team2", "spieler_id": None, "minute": "70", "colour": "rot"},
             ],
             sides=documents.spielbericht_sides(spiel),
             **{"adopted": True, **bericht},
@@ -109,14 +105,14 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                 [
                     documents.spieler_document(NAMED, "Maxim", "Müller"),
                     documents.spieler_document(INTERNAL, "Nadja", "Gerber", einwilligung=internal),
-                    documents.ghost_spieler_document(),
                 ]
             )
             await database[Collection.AUFSTELLUNGEN].insert_many(
                 [
                     # The club a knockout correction replaced on a side keeps its line-up, which no side joins.
                     documents.aufstellung_document(spiel, REPLACED, starters=[NAMED]),
-                    documents.aufstellung_document(spiel, AWAY, starters=[GHOST_SPIELER_ID], bench=[INTERNAL]),
+                    # An erased pupil's entry, which names nobody, and a withheld one: served alike.
+                    documents.aufstellung_document(spiel, AWAY, starters=[None], bench=[INTERNAL]),
                     documents.aufstellung_document(spiel, HOME, starters=[NAMED]),
                 ]
             )
@@ -138,7 +134,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         yield mongo_url
 
 
-def the_page(url: str, *, now: datetime = PLAYED) -> Any:
+def the_page(url: str) -> Any:
     async def body() -> Any:
         database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
         return await get_spiel(
@@ -148,29 +144,46 @@ def the_page(url: str, *, now: datetime = PLAYED) -> Any:
             spiele_collection=database[Collection.SPIELE],
             teams_collection=database[Collection.TEAMS],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
-            now=now,
         )
 
     return on_the_seed_loop(body())
 
 
-@pytest.mark.db
-def test_each_entry_reads_as_a_name_as_anonymous_or_as_unknown(seeded_url: str):
-    """By minute; the internal pupil keeps their number and position, the erased one keeps nothing, and no card says why.
+def test_a_line_ups_nameless_rows_read_alike_after_its_named_ones():
+    """The stored order is the shirt numbers', so a nameless row left in its place would say whose it is, as would a field beside it."""
 
-    The named pupil's number is this season's, never one their club gave them in another.
-    """
+    stored = [{"spieler_id": None, "starts": True}, {"spieler_id": INTERNAL, "starts": False}, {"spieler_id": NAMED, "starts": True}]
+    joined = {
+        "team_id": HOME,
+        "spieler": stored,
+        "persons": [{"_id": INTERNAL, "first_name": None, "last_name": None}, {"_id": NAMED, "first_name": "Maxim", "last_name": "M."}],
+        "squad_rows": [
+            {"spieler_id": INTERNAL, "nummer": "4", "position": "Abwehr", "rolle": "co_kapitaen"},
+            {"spieler_id": NAMED, "nummer": "7", "position": "Angriff", "rolle": None},
+        ],
+    }
+
+    served = compose_public_aufstellungen({**adopted_match(), PUBLIC_AUFSTELLUNGEN_AS: [joined]})
+
+    assert served.team1 is not None and served.team2 is None
+    nobody = dict.fromkeys(("first_name", "last_name", "nummer", "position", "rolle"))
+    assert [entry.model_dump() for entry in served.team1.spieler] == [
+        {"first_name": "Maxim", "last_name": "M.", "nummer": "7", "position": "Angriff", "rolle": None, "starts": True},
+        {**nobody, "starts": True},
+        {**nobody, "starts": False},
+    ]
+
+
+@pytest.mark.db
+def test_each_entry_reads_as_a_name_or_as_nobody(seeded_url: str):
+    """By minute; a withheld name, an erased pupil and a scorer nobody named are served alike, and no card says which."""
 
     bericht = the_page(seeded_url).bericht
     entries = [*bericht.scorers, *bericht.cards]
-    served = [(entry.minute, entry.spieler.type, entry.spieler.first_name, entry.spieler.last_name, entry.spieler.nummer) for entry in entries]
+    served = [(entry.minute, entry.spieler.model_dump()) for entry in entries]
 
-    assert served == [
-        ("45+2", "named", "Maxim", "M.", "7"),
-        ("80", "unknown", None, None, None),
-        ("60", "anonymous", None, None, "4"),
-        ("70", "anonymous", None, None, None),
-    ]
+    nobody = {"first_name": None, "last_name": None}
+    assert served == [("45+2", {"first_name": "Maxim", "last_name": "M."}), ("80", nobody), ("60", nobody), ("70", nobody)]
     assert not {"Gerber", "Nadja", "Müller", "reason", "foulspiel"} & set(json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split())
 
 
@@ -182,20 +195,8 @@ def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: s
 
     def served(side: FLAufstellungPublic | None) -> list[tuple[Any, ...]]:
         assert side is not None
-        return [(entry.type, entry.first_name, entry.last_name, entry.nummer, entry.rolle, entry.starts) for entry in side.spieler]
+        return [(entry.first_name, entry.last_name, entry.nummer, entry.position, entry.rolle, entry.starts) for entry in side.spieler]
 
-    assert served(aufstellungen.team1) == [("named", "Maxim", "M.", "7", "kapitaen", True)]
-    assert served(aufstellungen.team2) == [("anonymous", None, None, None, None, True), ("anonymous", None, None, "4", None, False)]
-
-
-@pytest.mark.db
-def test_an_erased_pupils_entry_is_served_only_where_the_line_up_keeps_it(seeded_url: str):
-    """A match re-dated ahead of its lock is picked anew, as its screen shows it: the page serves no place nobody fills.
-
-    The stored entry stands until the club's next save, so the read judges the lock itself.
-    """
-
-    team2 = the_page(seeded_url, now=AHEAD_OF_THE_LOCK).aufstellungen.team2
-
-    assert team2 is not None
-    assert [(entry.type, entry.nummer, entry.starts) for entry in team2.spieler] == [("anonymous", "4", False)]
+    # The number is this season's, never one the club gave the pupil in another.
+    assert served(aufstellungen.team1) == [("Maxim", "M.", "7", "Angriff", "kapitaen", True)]
+    assert served(aufstellungen.team2) == [(None, None, None, None, None, True), (None, None, None, None, None, False)]

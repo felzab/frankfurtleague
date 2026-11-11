@@ -35,7 +35,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import APIError
-from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
@@ -343,9 +342,6 @@ REFEREES = {
     SCHIEDSRICHTER: ("A. Referee", None),
     SCHIEDSRICHTER_RETIRED: ("B. Whistle", RETIRED_ON),
     SCHIEDSRICHTER_UNCONFIRMED: ("C. Pfiff", None),
-    # Every erasure's fixtures end here, and it is the one referee row with no name
-    # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
-    GHOST_SCHIEDSRICHTER_ID: (None, GHOST_INACTIVE_SINCE),
 }
 
 
@@ -368,12 +364,13 @@ def referee_documents() -> list[dict[str, Any]]:
             "name": name,
             "schule": None,
             "default_payment": DEFAULT_PAYMENT,
-            "kontakt": {"phone": None, "email": None},
+            # Every referee record holds an address: an administrator enters each, and it is how the person learns of it.
+            "kontakt": {"phone": None, "email": f"schiedsrichter.{schiedsrichter_id}@example.com"},
             "inactive_since": inactive_since,
-            # Every named row confirmed by its person but the one a case books unconfirmed; the ghost holds no record.
+            # Every row confirmed by its person but the one a case books unconfirmed.
             "einwilligung": (
                 None
-                if schiedsrichter_id in (SCHIEDSRICHTER_UNCONFIRMED, GHOST_SCHIEDSRICHTER_ID)
+                if schiedsrichter_id == SCHIEDSRICHTER_UNCONFIRMED
                 else documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20")
             ),
             "version": 0,
@@ -388,7 +385,7 @@ def booking(spielort_id: ObjectId, mietpreis: int = 80) -> dict[str, Any]:
     return {"spielort_id": spielort_id, "mietpreis": mietpreis}
 
 
-def assignment(schiedsrichter_id: ObjectId, payment: int = 20) -> dict[str, Any]:
+def assignment(schiedsrichter_id: ObjectId | None, payment: int = 20) -> dict[str, Any]:
     """A referee as a fixture STORES them, the venue's `booking` counterpart: the fee is this fixture's, the name joined at read."""
 
     return {"schiedsrichter_id": schiedsrichter_id, "payment": payment}
@@ -452,11 +449,12 @@ async def call_patch(
     dry_run: bool = False,
     adopts_bericht: int | None = None,
     confirming: list[FLSpielVoidedResult] | None = None,
+    now: datetime | None = None,
 ) -> FLPatchSpielDataResponse:
     """The save as the editor sends it: confirming the later results its own dry run says it deletes, unless `confirming` names them."""
 
     if not dry_run and confirming is None:
-        confirming = (await call_patch(database, client, spiel_id, spiel_data, dry_run=True)).voided_results
+        confirming = (await call_patch(database, client, spiel_id, spiel_data, dry_run=True, now=now)).voided_results
 
     return await patch_spiel(
         spiel_id=spiel_id,
@@ -470,9 +468,10 @@ async def call_patch(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         adopts_bericht=adopts_bericht,
-        now=ADOPTED_AT,
+        now=ADOPTED_AT if now is None else now,
         dry_run=dry_run,
     )
 
@@ -590,7 +589,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         "kept",
         [
             pytest.param({"spielort": booking(SPIELORT_RETIRED)}, id="retired-venue"),
-            pytest.param({"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, id="the-ghost"),
+            pytest.param({"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, id="retired-referee"),
         ],
     )
     def test_lifting_a_call_off_books_the_row_it_kept_again(self, mongo_replica_set_url: str, kept: dict[str, Any], dry_run: bool):
@@ -635,6 +634,40 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
         assert spiele[GRUPPE_FILLING_NR]["schiedsrichter"] == assignment(SCHIEDSRICHTER, payment=35)
+
+
+# An hour after the group fixtures' kick-off, at 18:00 in Berlin on their day.
+AFTER_THE_GROUP_KICK_OFF = datetime(2026, 3, 15, 19, tzinfo=clock.GERMANY)
+
+
+class TestARefereeAndLineUpEntriesNamingNobody:
+    """Only an erasure makes them, on a played fixture: a save putting it back among those to come drops them."""
+
+    @pytest.mark.parametrize(
+        ("time", "kept"), [pytest.param("18:30:00", True, id="still-played"), pytest.param("20:00:00", False, id="to-come")]
+    )
+    def test_a_re_timing_keeps_them_on_a_played_match_and_drops_them_on_one_to_come(self, mongo_replica_set_url: str, time: str, kept: bool):
+        """A match to come holds nobody it cannot name: kept, the slot reads as booked and the Startelf holds a place no club can fill."""
+
+        named = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            filling = await database[Collection.SPIELE].find_one({"_id": GRUPPE_FILLING})
+            assert filling is not None
+            await database[Collection.AUFSTELLUNGEN].insert_one(
+                documents.aufstellung_document(filling, GAMMA, starters=[None, named], bench=[None])
+            )
+            spiel_data = await payload_for(database, GRUPPE_FILLING, time=time)
+            await call_patch(database, client, GRUPPE_FILLING, spiel_data, now=AFTER_THE_GROUP_KICK_OFF)
+            line_up = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": GRUPPE_FILLING})
+            assert line_up is not None
+
+            return (await spiele_now(database))[GRUPPE_FILLING_NR]["schiedsrichter"], [entry["spieler_id"] for entry in line_up["spieler"]]
+
+        held, filling = an_unbooked_spieltag()
+        booking, line_up = on_a_seeded_season(mongo_replica_set_url, body, spiele=[held, {**filling, "schiedsrichter": assignment(None)}])
+
+        assert (booking, line_up) == ((assignment(None), [None, named, None]) if kept else (None, [named]))
 
 
 class TestTheStateRefusalIsReachedThroughTheRoute:
@@ -1262,11 +1295,6 @@ class TestASpielTheResolutionReopensKeepsARetiredBooking:
             pytest.param({"spielort": booking(SPIELORT_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "spielort")], id="venue"),
             pytest.param(
                 {"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="referee"
-            ),
-            # The erasure's own case: the fixture keeps the ghost and the queue reports it as any
-            # retired booking, where the arm this replaces stripped the booking instead.
-            pytest.param(
-                {"schiedsrichter": assignment(GHOST_SCHIEDSRICHTER_ID)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="the-ghost"
             ),
             # The control: the fault is the row's retirement, never the reopening.
             pytest.param({"spielort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),

@@ -274,10 +274,10 @@ def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
 
 
 def _marks_of(spiel_raw: Mapping[str, Any], now: datetime) -> FLAufstellungMarks | None:
-    date, time = spiel_raw.get("date"), spiel_raw.get("time")
     own = spiel_raw[OWN_AUFSTELLUNG_AS]
+    stored = aufstellung_stands(own[0] if own else None)
 
-    return aufstellung_marks(date=date, time=time, stored=aufstellung_stands(own[0] if own else None, date=date, time=time, now=now), now=now)
+    return aufstellung_marks(date=spiel_raw.get("date"), time=spiel_raw.get("time"), stored=stored, now=now)
 
 
 async def _pull_team_spiele(

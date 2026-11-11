@@ -36,7 +36,6 @@ from app.api.spiele.services import (
 from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -290,8 +289,7 @@ async def read_spiel_editor(
             ),
             pull_many_from_db(
                 collection=schiedsrichter_collection,
-                # Never the ghost, whom no fixture is booked onto anew and who has no name to offer.
-                db_filter={**_offered(gebuchter_schiedsrichter), "_id": {"$ne": GHOST_SCHIEDSRICHTER_ID}},
+                db_filter=_offered(gebuchter_schiedsrichter),
                 limit=LIST_LIMIT_DEFAULT,
                 sort_by=[("name", 1)],
                 projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],

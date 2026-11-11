@@ -191,7 +191,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "name": "A. Referee",
             "schule": None,
             "default_payment": 20,
-            "kontakt": {"phone": None, "email": None},
+            "kontakt": {"phone": None, "email": "a.referee@example.com"},
             "inactive_since": None,
             "version": 0,
         },
@@ -471,25 +471,6 @@ def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
         return await database.address_changes.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
-
-
-def test_a_second_nameless_referee_is_refused(mongo_url: str):
-    """The rule reaches every row, so the one nameless row it can ever meet is the ghost.
-
-    A second would split the fixtures of everybody erased across two sentinels nobody can tell apart
-    (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
-    """
-
-    async def body(database: AsyncDatabase) -> str:
-        nameless = {**valid_documents()["schiedsrichter"], "name": None}
-        await database.schiedsrichter.insert_one(nameless)
-        try:
-            await database.schiedsrichter.insert_one({**nameless, "_id": TEAM_OID})
-        except OperationFailure as failure:
-            return f"rejected:{failure.code}"
-        return "accepted"
-
-    assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
 
 
 def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):

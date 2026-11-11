@@ -18,10 +18,7 @@ from app.api.identity.schemas import FLAccountErasureView, FLErasureViewResponse
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_erasure_registrierung_filter, build_own_registrierung_filter
 from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
-from app.api.schiedsrichter.services import (
-    build_self_referee_filter,
-    build_unplayed_assignment_filter,
-)
+from app.api.schiedsrichter.services import build_assignment_filter, build_self_referee_filter
 from app.api.spieler.services import build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
@@ -167,10 +164,10 @@ def pupil_address(row: Mapping[str, Any]) -> Any:
     return row.get("email")
 
 
-def build_unplayed_count_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
-    """How many fixtures still to be played book one of these referees, by `schiedsrichter_still_assigned`'s filter."""
+def build_booked_spiele_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+    """The day and the hour of every fixture booking one of these referees, which the erasure judges played or still to come."""
 
-    return [{"$match": build_unplayed_assignment_filter({"$in": list(schiedsrichter_ids)})}, {"$count": "count"}]
+    return [{"$match": build_assignment_filter({"$in": list(schiedsrichter_ids)})}, {"$project": {"_id": 0, "date": 1, "time": 1}}]
 
 
 # One entry per kind, for the person's own preview.
@@ -678,7 +675,7 @@ def build_erasure_due_pipeline(*, kept: frozenset[str], pending_addresses: Abstr
     """
 
     return [
-        # The sentinel holds no address, so the `$type` term keeps it out.
+        # An addressless pupil is never read, so the `$type` term keeps it out.
         {"$match": {"email": {"$type": "string", "$nin": sorted(pending_addresses)}}},
         {
             "$lookup": {

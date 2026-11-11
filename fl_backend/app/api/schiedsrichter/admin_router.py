@@ -27,8 +27,6 @@ from app.api.schiedsrichter.services import (
     CONFIRMATION_FIELD,
     EINWILLIGUNG_FIELD,
     INVITE_FIELDS,
-    build_real_referees_filter,
-    build_referee_filter,
     build_unplayed_assignment_filter,
     compose_correction_update,
     compose_mint_update,
@@ -93,15 +91,11 @@ async def get_schiedsrichter(
 
     The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones
     stay retrievable for a historical match.
-
-    The ghost is OFF this list whatever the query string asks for: no person stands behind it, so
-    there is nothing an administrator could book it for, edit on it or reactivate it into
-    (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
     """
 
     schiedsrichter_raw = await pull_many_from_db(
         collection=schiedsrichter_collection,
-        db_filter=build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive, compiled=build_real_referees_filter()),
+        db_filter=build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive),
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
@@ -122,16 +116,15 @@ async def get_schiedsrichter_by_id(
 ) -> FLSchiedsrichterSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
 
-    Deactivated ones included -- a historical match references them by id. The ghost answers 404, as
-    does an id whose referee has been erased: the document is gone
-    (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+    Deactivated ones included -- a historical match references them by id. An id whose referee has been erased
+    answers 404: the document is gone.
 
     Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
     lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
     was owed, null where none was.
     """
 
-    schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
+    schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter={"_id": schiedsrichter_id})
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
@@ -245,9 +238,6 @@ async def patch_schiedsrichter(
     reactivation mints the fresh one.
 
     Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
-
-    The ghost answers 404 here as it does to every read: a name written onto it would appear on the
-    fixtures of every referee already erased.
     """
 
     payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
@@ -258,7 +248,7 @@ async def patch_schiedsrichter(
         # rather than a snapshot a rival write has already moved.
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             projection={"kontakt.email": 1, EINWILLIGUNG_FIELD: 1, "inactive_since": 1},
             session=session,
         )
@@ -271,7 +261,7 @@ async def patch_schiedsrichter(
 
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             update=update,
             expected_version=schiedsrichter_data.version,
             session=session,
@@ -327,11 +317,11 @@ async def delete_schiedsrichter(
     async def retire_the_referee(session: AsyncClientSession) -> None:
         """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
 
-        # The row FIRST: the ghost is not a referee this endpoint addresses, and judging its
-        # fixtures before reading it would answer 409 for a row the API says is not there.
+        # The row FIRST: judging the fixtures of an id no row holds would answer 409 for a row the API says is not
+        # there.
         await pull_one_from_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             projection={"_id": 1},
             session=session,
         )
@@ -346,7 +336,7 @@ async def delete_schiedsrichter(
 
         retired = await set_inactive_since(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             # An earlier press's day stands (`app/core/crud.py :: set_inactive_since`): it is the day a fee is
             # reconciled against.
             when=today,
@@ -383,9 +373,6 @@ async def reactivate_schiedsrichter(
     retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
     person has answered.
-
-    The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
-    person behind it.
     """
 
     async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
@@ -393,7 +380,7 @@ async def reactivate_schiedsrichter(
 
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             projection=dict(INVITE_FIELDS),
             session=session,
         )
@@ -407,7 +394,7 @@ async def reactivate_schiedsrichter(
         minted = compose_mint_update(today=today) if email is not None else {}
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             update={"$set": {"inactive_since": None, **minted}},
             session=session,
             expected_version=None,
@@ -458,8 +445,7 @@ async def invite_schiedsrichter(
 
     Refused where the referee is retired (`schiedsrichter_retired`), where they have already
     answered, consenting or objecting (`confirmation_exists`), and where they carry no email address
-    (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them, and
-    for the ghost, which every by-id route filters out.
+    (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them.
 
     **A referee who has already answered is refused rather than sent a second link**: the
     confirmation refuses every such press, so minting one would replace a live block with a
@@ -475,7 +461,7 @@ async def invite_schiedsrichter(
 
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             projection=dict(INVITE_FIELDS),
             session=session,
         )
@@ -488,7 +474,7 @@ async def invite_schiedsrichter(
 
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
-            db_filter=build_referee_filter(schiedsrichter_id),
+            db_filter={"_id": schiedsrichter_id},
             update={"$set": compose_mint_update(today=today)},
             session=session,
             expected_version=None,

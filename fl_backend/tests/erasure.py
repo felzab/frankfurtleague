@@ -8,7 +8,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import ERASURE_STEPS
 from app.api.identity.person_router import post_account_erasure
 from app.core.collections import Collection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -79,11 +78,11 @@ def what_the_erasure_took(before: Snapshot, after: Snapshot) -> dict[str, int]:
         "kontakt_seats": seats_cleared(before.get(Collection.SAISON_TEAMS, []), after.get(Collection.SAISON_TEAMS, [])),
         "bewerbung_seats": seats_cleared(before.get(Collection.BEWERBUNGEN, []), after.get(Collection.BEWERBUNGEN, [])),
         "registrierungen": gone(Collection.REGISTRIERUNGEN),
-        # Moved onto the ghost, played or not: the preview counts only those still to be played.
+        # The bookings taken off, as the preview counts them: a played fixture's stands, naming nobody.
         "spiele": sum(
             1
             for spiel_id, spiel in by_id(Collection.SPIELE, before).items()
-            if referee_of(spiel) != GHOST_SCHIEDSRICHTER_ID and referee_of(spiele_after.get(spiel_id)) == GHOST_SCHIEDSRICHTER_ID
+            if referee_of(spiel) is not None and (spiele_after.get(spiel_id) or {}).get("schiedsrichter") is None
         ),
         "address_change": sum(
             1

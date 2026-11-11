@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.spieler.schemas import FLSpielerSingleResponse
-from app.api.spieler.services import build_spieler_filter, public_person
+from app.api.spieler.services import public_person
 from app.core.config import API_VERSION
 from app.core.crud import pull_one_from_db
 from app.core.dependencies import SpielerReadCollection
@@ -26,7 +26,7 @@ async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection:
     # and a consent record, and one materialised here to be discarded is one a later edit can serve.
     spieler_raw = await pull_one_from_db(
         collection=spieler_collection,
-        db_filter=build_spieler_filter(spieler_id),
+        db_filter={"_id": spieler_id},
         projection={"first_name": 1, "last_name": 1, "einwilligung": 1},
     )
 

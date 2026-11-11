@@ -131,8 +131,6 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
-            await database[Collection.SCHIEDSRICHTER].insert_one(documents.ghost_schiedsrichter_document())
-            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
 
             return await body(database, client)
 

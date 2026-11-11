@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.api.spielberichte.schemas import FLSpielberichtSpielerPublic, FLSpielberichtTeam
+from app.api.spielberichte.schemas import FLSpielberichtTeam
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
@@ -21,11 +21,14 @@ type FLAufstellungPhase = Literal["open", "overdue", "locked"]
 
 
 class FLAufstellungEntry(BaseModel):
-    """One pupil a club fields in one match: on the pitch from the start, or on the bench."""
+    """One pupil a club fields in one match: on the pitch from the start, or on the bench.
+
+    A null `spieler_id` names nobody: a pupil erased after the match was played, whose place in it stands.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    spieler_id: CustomObjectId
+    spieler_id: CustomObjectId | None
     starts: bool
 
 
@@ -61,7 +64,7 @@ class FLAufstellungPayload(BaseModel):
 
     @model_validator(mode="after")
     def the_list_names_each_pupil_once_and_eleven_starters_at_most(self) -> Self:
-        named = [entry.spieler_id for entry in self.spieler]
+        named = [entry.spieler_id for entry in self.spieler if entry.spieler_id is not None]
         if len(set(named)) != len(named):
             raise rule_refusal("spieler_named_twice", "a line-up names a pupil once")
         if sum(entry.starts for entry in self.spieler) > AUFSTELLUNG_STARTERS_MAX:
@@ -114,21 +117,10 @@ class FLAufstellungMarks(BaseReadModel):
     none stored, and overdue where the due mark has passed with none stored.
     """
 
-    # Judged by `app/api/aufstellungen/services.py :: aufstellung_stands`: a line-up naming nobody, or only pupils erased
-    # from it ahead of its lock, is stored as none.
+    # Judged by `app/api/aufstellungen/services.py :: aufstellung_stands`: a line-up holding no entry is stored as none.
     stored: bool
     phase: FLAufstellungPhase
     due_at: FLUtcInstant
-
-
-class FLAufstellungErased(BaseReadModel):
-    """An entry of the locked line-up naming a pupil erased since it locked, which the club fielded and nobody names.
-
-    Read-only and counted: no save names it, and every save keeps it as stored while the line-up stays locked, since it
-    is the record of whom the club fielded. A fixture re-dated ahead of its lock serves none, and its next save drops them.
-    """
-
-    starts: bool
 
 
 class FLAufstellungResponse(BaseAPIResponse):
@@ -145,11 +137,9 @@ class FLAufstellungResponse(BaseAPIResponse):
     kader: list[FLAufstellungSpieler]
     # Every pupil the stored line-up names outside that squad, one ausgetragen since, so a stored entry keeps its row.
     named: list[FLAufstellungSpieler]
-    # The stored line-up's entries naming a pupil, in the order it was saved, empty where none is stored: `version` tells
-    # the two apart. What a save sends back.
+    # The stored line-up's entries, in the order it was saved, empty where none is stored: `version` tells the two apart.
+    # What a save sends back, the entries naming nobody included, which a save keeps and never adds.
     spieler: list[FLAufstellungEntry]
-    # Its entries naming an erased pupil, in the order it was saved: shown and counted beside `spieler`, never sent.
-    erased: list[FLAufstellungErased]
     # The document's count of writes, null where none is stored: a save sends it back.
     version: int | None
     # Null for a fixture holding no day or no hour, which owes no line-up and takes none.
@@ -166,19 +156,24 @@ class FLAufstellungSummary(BaseReadModel):
 # --- The PUBLIC read: a line-up as the match page shows it, every pupil through the base tier's mask.
 
 
-class FLAufstellungEntryPublic(FLSpielberichtSpielerPublic):
-    """One pupil of a line-up, as the base tier serves them, with the captaincy their squad row holds.
+class FLAufstellungEntryPublic(BaseReadModel):
+    """One pupil of a line-up, as the base tier serves them; no record id.
 
-    `rolle` only where `type` is `named`: the mark stands beside a name, and beside a withheld one it would say who the
-    nameless pupil is.
+    Where the entry names nobody, or the name is withheld, every field but `starts` is null: a number, a position or a
+    captaincy beside a nameless row would say who it is.
     """
 
-    starts: bool
+    first_name: str | None
+    # The surname as an initial.
+    last_name: str | None
+    nummer: str | None
+    position: FLSpielerPosition | None
     rolle: FLSpielerRolle | None
+    starts: bool
 
 
 class FLAufstellungPublic(BaseReadModel):
-    """One club's line-up for the match, starters and substitutes in the order the club entered them."""
+    """One club's line-up for the match in the order the club entered it, its nameless rows after the named ones."""
 
     spieler: list[FLAufstellungEntryPublic]
 

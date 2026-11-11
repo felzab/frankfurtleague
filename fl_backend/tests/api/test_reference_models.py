@@ -12,7 +12,6 @@ from app.api.spieler.schemas import (
     FLPatchSpielerSaisonPayload,
     FLSpielerRecord,
 )
-from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.teams.schemas import (
@@ -37,12 +36,6 @@ class TestSpieler:
 
         with pytest.raises(ValidationError):
             FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"first_name": "Max", "last_name": "Mustermann", field: None}))
-
-    def test_the_record_refuses_the_sentinel_holding_an_address(self):
-        """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
-
-        with pytest.raises(ValidationError):
-            FLSpielerRecord.model_validate({**build_ghost_spieler(), "email": "geist@schule.example"})
 
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):

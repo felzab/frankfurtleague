@@ -308,8 +308,7 @@ async def sweep_spielbestaetigungen(
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
     its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
-    decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
-    referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
+    decline the administrator discarded is the party's one answer to that Ansetzung. The deadline falls the notice period
     (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
     A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
     link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
@@ -767,7 +766,7 @@ async def sweep_spielbestaetigungen(
                 limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
-            if aufstellung_stands(row, date=by_id[row["spiel_id"]]["date"], time=by_id[row["spiel_id"]]["time"], now=now)
+            if aufstellung_stands(row)
         }
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,

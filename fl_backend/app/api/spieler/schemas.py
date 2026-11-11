@@ -3,7 +3,6 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.core.crud import Anchored
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpielerTextVersions, cite_their_kind
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress
@@ -100,17 +99,11 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    # Widened on this stored shape alone, for the erased pupils' sentinel
-    # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), and refused on every other row below. Every served
-    # model keeps the forename required: no read serves the sentinel, so a null reaching one is that
-    # exclusion failing.
-    first_name: CustomNonEmptyString | None
-
-    # Nullable for `first_name`'s reason: every person carries the date of their own registration.
-    birth_date: CustomOptionalDateString
+    # Every person carries the date of their own registration: an admission writes it, and the administrator's edit
+    # requires it.
+    birth_date: CustomDateString
     # No default: a default would let a row with no consent read back as though it had been asked.
-    # Nullable for `first_name`'s reason, the sentinel being nobody who could have agreed to anything.
-    einwilligung: FLEinwilligung | None
+    einwilligung: FLEinwilligung
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, so a raw write
     # breaks it, which the read-back names.
@@ -118,22 +111,8 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     version: int = 0
 
     @model_validator(mode="after")
-    def _only_the_sentinel_is_nobody(self) -> Self:
-        # Every write but the sentinel's stores all three: an admission carries its confirmed
-        # registration's name, date and record, and the administrator's edit requires the name and the
-        # date. No write gives the sentinel an address, which every address lookup would otherwise find
-        # as somebody's pupil. Either state is a hand edit, which the read-back names.
-        if self.id == GHOST_SPIELER_ID:
-            if self.email is not None:
-                raise ValueError("the erased pupils' sentinel holds no address")
-        elif any(value is None for value in (self.first_name, self.birth_date, self.einwilligung)):
-            raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
-        return self
-
-    @model_validator(mode="after")
     def _cites_a_pupils_wordings(self) -> Self:
-        if self.einwilligung is not None:
-            cite_their_kind(self.einwilligung.evidence, FLSpielerTextVersions)
+        cite_their_kind(self.einwilligung.evidence, FLSpielerTextVersions)
         return self
 
 

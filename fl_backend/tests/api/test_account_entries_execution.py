@@ -22,7 +22,6 @@ from app.api.identity.crud import find_own_entries
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung_evidence import TextVersions
 from app.shared.folding import sign_in_identifier
@@ -198,8 +197,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_RETIRED, WILTRUDIS, "Wiltrudis E.", inactive_since="2026-07-01"),
             _referee(REFEREE_UNCONFIRMED, WILTRUDIS, "W. Ehrenpreis", einwilligung=None),
             _referee(REFEREE_KAETHE, "kaethe@xn--mller-kva.de", "Käthe Müller"),
-            # The ghost carries the address too, so a side reaching it would count a row nobody stands behind.
-            _referee(GHOST_SCHIEDSRICHTER_ID, WILTRUDIS, "Niemand", inactive_since="2000-01-01"),
         ]
     )
     await database[Collection.SAISON_TEAMS].insert_many(

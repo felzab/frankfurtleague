@@ -45,7 +45,6 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import Twins, WriteRefusal
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import (
     AUFSTELLUNG_REMINDER_DAYS,
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
@@ -791,14 +790,11 @@ def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], no
 
 
 def parties_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Every party a fixture's Ansetzung asks: both sides, and its referee unless that is the ghost.
-
-    The ghost holds no address, so a row for it would be minted and never mailed nor answered.
-    """
+    """Every party a fixture's Ansetzung asks: both sides, and its referee where the booking names one."""
 
     parties: list[dict[str, Any]] = [{"kind": "team", "team_id": _side_id(spiel, side)} for side in ("team1", "team2")]
     schiedsrichter_id = _referee_id(spiel)
-    if schiedsrichter_id is not None and schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
+    if schiedsrichter_id is not None:
         parties.append({"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id})
 
     return parties
