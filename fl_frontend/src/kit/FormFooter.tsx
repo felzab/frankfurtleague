@@ -8,12 +8,13 @@ import type { FormStatus } from "./useFormAction";
 /*
  * The footer of what a form sends, in the kit's one shape, as the editor's bar holds its save: the acts at the right
  * end, the main act last, and at the left the status line, which speaks only once there is an outcome, under a note
- * where the form carries one. On a phone the acts fill the row, one under another with the main act on top, and the
- * note and the line stand under them. No act stands centred or at the left.
+ * where the form carries one. On a phone everything stands one under another in the order it is written, the acts
+ * filling the row: the note and the line, then the acts, the main act at the bottom, nearest the thumb. The screen and
+ * the keys meet the parts in one order, which a reversed column would part. No act stands centred or at the left.
  */
 const formFooter = tv({
   slots: {
-    root: "flex items-center justify-end gap-3 max-lg:flex-col-reverse max-lg:items-stretch",
+    root: "flex items-center justify-end gap-3 max-lg:flex-col max-lg:items-stretch",
     lead: "grid min-w-0 flex-1 gap-1 text-sm text-fg-muted",
   },
   variants: {
