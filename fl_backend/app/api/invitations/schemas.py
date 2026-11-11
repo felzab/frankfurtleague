@@ -87,7 +87,8 @@ class FLTeamLinkState(BaseModel):
 
     invitation: FLInvitationRow | None
     # Composed here rather than derived by the reader, as `app/api/bewerbungen/schemas.py :: FLBewerbungFormWindow` composes its
-    # own: a link is live and opens nothing the moment the registration window shuts.
+    # own: a link is live and opens nothing while the season takes no registration (`app/api/registrierungen/services.py ::
+    # saison_takes_registrierungen`), the window's end shutting nothing.
     running: bool
     # Whether the season stands paused: the window can read closed for its dates alone.
     paused: bool

@@ -1328,7 +1328,6 @@ export const COPY = catalogue({
       austrittType: "Art",
       austrittFrom: "Wirksam ab",
       registrierungLink: "Registrierungslink",
-      linkValidUntil: VALID_UNTIL,
       /** The link box's day from which an entry through the link is a Nachnominierung, the link opening on until the season ends. */
       nomineeFrom: "Nachnominierung ab",
       /** The one copy button's name, over a link shown once. */
@@ -1434,6 +1433,8 @@ export const COPY = catalogue({
       search: `${BANS} suchen`,
       consequence: "Die Adresse kann sich nicht mehr anmelden und bekommt keine E-Mails.",
       duration: "Dauer",
+      /** The column naming the day a ban ends. */
+      until: VALID_UNTIL,
       durationSaisons: (count: number) => (count === 1 ? "1 Saison" : `${formatNumber(count)} Saisons`),
       /** The dialog's line once the ban stands, by what did not follow it. */
       partial: {

@@ -34,7 +34,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.signIn.address,
   columns: [
     { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
-    { key: "until", label: COPY.admin.team.linkValidUntil, narrow: true, width: "date" },
+    { key: "until", label: COPY.admin.banList.until, narrow: true, width: "date" },
     { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],
   acts: [COPY.shared.verb.remove],
