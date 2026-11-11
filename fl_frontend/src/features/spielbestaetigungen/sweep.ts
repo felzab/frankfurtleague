@@ -5,7 +5,7 @@ import { getSpielbestaetigungSweepSaisons, postSpielbestaetigungSweep } from "./
 import type { FLSpielbestaetigungSweepResponse } from "@/core/generated/client/types";
 
 /** What a pass did, summed over the seasons it swept. */
-type Zaehler = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
+type Count = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
 
 /**
  * One pass over every season the listing answers, for the scheduler (`fl_frontend/src/instrumentationNode.ts ::
@@ -14,20 +14,20 @@ type Zaehler = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
  * it closed within the `minutes` lifetime their cached read keeps. Answers what it did, the rows it passed over owing
  * no deletion.
  */
-export async function runSpielSweep(): Promise<{ count: Zaehler; open: number }> {
+export async function runSpielSweep(): Promise<{ count: Count; open: number }> {
   const { saison_ids: saisonIds } = await getSpielbestaetigungSweepSaisons();
 
-  const zaehler: Zaehler = { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 };
+  const count: Count = { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 };
   // Season by season and never in parallel: one slow pass costs nothing, where a fan-out would put every season's
   // writes on the database at once.
   for (const saisonId of saisonIds) {
     const response = await postSpielbestaetigungSweep(saisonId);
-    zaehler.closed += response.closed;
-    zaehler.asked += response.asked;
-    zaehler.reminded += response.reminded;
-    zaehler.mails += response.mails;
-    zaehler.failed += response.failed;
+    count.closed += response.closed;
+    count.asked += response.asked;
+    count.reminded += response.reminded;
+    count.mails += response.mails;
+    count.failed += response.failed;
   }
 
-  return { count: zaehler, open: 0 };
+  return { count, open: 0 };
 }

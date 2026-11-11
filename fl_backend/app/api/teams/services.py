@@ -1055,7 +1055,7 @@ def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | N
     return str(held.get("birth_date")) if held.get("birth_date") else None
 
 
-def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
+def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict[str, Any]:
     """Each seat's record and its birthdate, off the stored block.
 
     A seat its person keeps keeps its record and its date. Any other keeps the record `compose_seat_block` bore it with,
@@ -1099,7 +1099,7 @@ def compose_seat_block(
     other = claimed_pair_seat(kontakte={"trainer_is_also": claim}, seat=seat)
     seats = (seat,) if other is None else (seat, other)
     person = {field: value for field, value in sent.items() if field != "trainer_is_also"}
-    # The record of a person newly seated; `compose_kontakte_herkunft` keeps the stored one of a person this write leaves.
+    # The record of a person newly seated; `compose_kontakte_origin` keeps the stored one of a person this write leaves.
     slot = {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
 
     return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats

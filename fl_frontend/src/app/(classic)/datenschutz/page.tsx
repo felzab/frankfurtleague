@@ -12,7 +12,7 @@ import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signIn
 import { DAY_MS } from "@/core/timeUnits";
 import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
-import { MEDIEN_MIN_ALTER, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
+import { MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -59,7 +59,7 @@ export default function PrivacyNoticePage() {
     paragraph(words.bewerbung.form),
     paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE)),
     heading(words.kader.heading),
-    paragraph(words.kader.text(REGISTRIERUNG_MIN_ALTER, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)),
+    paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)),
     heading(words.schiedsrichter.heading),
     paragraph(words.schiedsrichter.text(SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS)),
     heading(words.spiele.heading),
@@ -81,7 +81,7 @@ export default function PrivacyNoticePage() {
     heading(words.published.heading),
     paragraph(words.published.record),
     paragraph(words.published.names),
-    paragraph(words.published.consented(MEDIEN_MIN_ALTER)),
+    paragraph(words.published.consented(MEDIA_MIN_AGE)),
     paragraph(words.published.never),
     heading(words.recipients.heading),
     paragraph(words.recipients.lead),

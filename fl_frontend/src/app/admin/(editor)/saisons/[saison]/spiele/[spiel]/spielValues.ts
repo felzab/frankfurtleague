@@ -4,7 +4,7 @@ import type { CalendarDay, TimeOfDay } from "@/core/format";
 import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
-export const NO_SONDEREREIGNIS = "keines";
+export const NO_SONDEREREIGNIS = "none";
 
 /**
  * What the match editor's fields hold: a knockout match's two clubs, picked by hand; the Ansetzung's day, time, venue
