@@ -656,7 +656,8 @@ journey therefore meets the rate limits as a visitor of its own (`fl_frontend/e2
 as production's edge meets each person behind the connector. `--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another
 stack's container publishes port 3000 or 27017**, which both publish
 (`scripts/ops/local.sh :: refuse_another_stack_on_the_ports`). The journeys run against it from
-`fl_frontend` with `pnpm exec playwright test` (`fl_frontend/playwright.config.ts`).
+the `fl_frontend` of the checkout that started it, since they read that checkout's `.tmp-e2e/`, with
+`pnpm exec playwright test` (`fl_frontend/playwright.config.ts`).
 
 **The copy is the application database and not the sign-in store beside it** — the backend's
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the

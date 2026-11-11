@@ -1386,7 +1386,7 @@ record the restore keeps says which of them answered.
 **A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
 fixture reads as the snapshot left it, open on the referee's Übersicht where no report stood then. No
 record names whose report went, the log being rolled back too, and a report can be sent or
-corrected on any day from the match day until its season ends, so write to the referees booked on
+corrected at any time from the match's kick-off until its season ends, so write to the referees booked on
 every fixture played by the restore day in a season the restore leaves running, which the fixture
 list names, to look at their Übersicht and enter again what it lacks; an administrator's correction
 made inside the window is gone too.
