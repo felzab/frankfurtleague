@@ -9,14 +9,12 @@ import { teamsDeleteInvitation, teamsPostInvitation, teamsPostInvitationDispatch
 import { TeamsPostInvitationDispatchBody, TeamsPostInvitationParams } from "@/core/generated/zod/inputs";
 import { invitationLink } from "@/core/invitationEmail";
 
-/** Which team's link, in which season. */
 const Key = z.object(TeamsPostInvitationParams.shape);
 
 /**
- * Mints the team's link for the season, voiding any live one in the same transaction. **The raw link is answered once
- * and stored nowhere**, so the box showing it holds the only copy anybody will ever see. Spelled here and never in the
- * box: `frontend_config.AUTH_URL` is server-only, and a link built in the browser would carry whichever host the page was
- * opened on.
+ * Voids any live link in the same transaction. The raw link is answered once and stored nowhere, so the box showing it
+ * holds the only copy anybody will ever see. Spelled here and never in the box: `frontend_config.AUTH_URL` is
+ * server-only, and a link built in the browser would carry whichever host the page was opened on.
  */
 export const mintInvitation = action({
   lane: "admin",
@@ -30,8 +28,7 @@ export const mintInvitation = action({
 });
 
 /**
- * Owes the team's live link to its confirmed seats, the press the box offers beside the mint. Each mail mints a link of
- * its own when it leaves, so a copied one stays valid beside them. A link replaced or withdrawn since the page was read
+ * Owes the team's live link to its confirmed seats. Each mail mints a link of its own when it leaves, so a copied one stays valid beside them. A link replaced or withdrawn since the page was read
  * is the stale page it is, and a press reaching nobody says so, having sent nothing.
  */
 export const mailInvitation = action({
