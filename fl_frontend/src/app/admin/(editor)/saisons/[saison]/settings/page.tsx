@@ -90,8 +90,12 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
   }
 }
 
-/** A team's registration link as its row states it: the club gone, the press passing it over, or its link's state. */
-function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): Words {
+/**
+ * A team's registration link as its row states it: the season finished, which shuts every link whatever else stood, as
+ * the editor's „Abgeschlossen“ says; the club gone; the press passing it over; or its link's state.
+ */
+function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, status: FLSaisonStatus): Words {
+  if (status === "past") return COPY.template.closed;
   if (team?.austritt != null) return COPY.shared.austritt[team.austritt.type].state;
   if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
   if (!row.has_link) return WORDS.noLinkYet;
@@ -223,6 +227,7 @@ async function readEditor(params: Props["params"]) {
             link: linkOf(
               row,
               teams.find((team) => team.team_id === row.team_id),
+              saison.status,
             ),
           },
         })),
