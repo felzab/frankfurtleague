@@ -1,8 +1,6 @@
 /**
- * E2E · J10, a club leaving mid-season, under each project: the administrator takes it out of the running season from
- * its editor's danger box, the opponent still to play it is told at that write, and the act is gone from the box, since
- * an Austritt is never lifted. A booked referee is told by the scheduler's close, so `firstPass.spec.ts` holds that. Each
- * project's own club (`departing`) leaves, on the session `support/administrator.setup.ts` saved.
+ * E2E · J10, a club leaving mid-season, under each project, where no lower tier sees the opponent still to play it left
+ * untold at the write. The booked referee, told by the scheduler, is `first-pass/firstPass.spec.ts`'s.
  */
 import { expect } from "@playwright/test";
 

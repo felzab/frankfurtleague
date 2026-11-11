@@ -1,10 +1,7 @@
 /**
- * E2E · the pupil's path, under each project: their team's registration link, the form, the confirmation from the
- * mailed link, the team's admission on its Registrierungen page, and the pupil's first sign-in onto their own season.
- *
- * The pupil is new to the league, so the journey makes them, as an applicant's journey makes its school: one of the
- * project's own, registering through the project's `registering` club, whose confirmed contact seat admits them on a
- * second device. Nothing is seeded for the pupil, so no other journey reads them.
+ * E2E · a pupil's path, under each project, where no lower tier sees the team's link, the form, the mailed confirmation,
+ * the team's admission or the first sign-in break at a join between them. The journey makes its pupil, whom no other
+ * journey reads.
  */
 import { expect } from "@playwright/test";
 

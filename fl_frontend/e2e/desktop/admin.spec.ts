@@ -1,8 +1,7 @@
 /**
- * E2E · the administration's spike pages: an administrator creates a venue in the dialog over the
- * Spielorte list and finds it there, moves a match's kick-off in the match editor and saves it, then
- * opens the match's matchday in its editor, on the session `../support/administrator.setup.ts` saved.
- * Desktop alone: the seeded match and the new venue can each be written once.
+ * E2E · the administration's venue and match editors, where no lower tier sees a created venue missing from its list, a
+ * kick-off's time segments go unsaved, or a long name push the page sideways. Desktop alone: the seeded match and the new
+ * venue can each be written once.
  */
 import { expect } from "@playwright/test";
 

@@ -1,7 +1,6 @@
 /**
- * E2E · the referee's path, under each project: the sign-in onto their season's Übersicht, the coming game's booking
- * answered on its row, the played game's match report entered and saved, and Konto's referee box with the fee. The
- * referee is the project's `booked` one, whom no other journey signs in as: each answer and report is theirs alone.
+ * E2E · a referee's area, under each project, where no lower tier sees a booking's answer or a match report's radio,
+ * combo box or saved values lost between the page and the server.
  */
 import { expect } from "@playwright/test";
 

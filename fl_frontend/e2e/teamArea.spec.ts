@@ -1,9 +1,6 @@
 /**
- * E2E · the contact's journey through a team's area, under each project: a Trainer signs in and lands on the team's
- * Übersicht, agrees to the date the league asked about, admits the confirmed registration and finds the pupil in the
- * Kader, then enters the owed line-up and reads it back from the server. Each project signs in as a seat of its own
- * (`contact`), on a club no other journey answers for, so the date, the registration and the line-up are this journey's
- * alone.
+ * E2E · a contact's team area, under each project, where no lower tier sees a date's answer, an admission or a line-up
+ * lost between the page and the server, or the frame's menu on a phone fail to reach the team's pages.
  */
 import { expect } from "@playwright/test";
 

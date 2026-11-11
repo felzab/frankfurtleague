@@ -1,8 +1,7 @@
 /**
- * E2E · J2, an applicant, under each project: the form from the landing, every seat's mailed link, and the administrator's
- * acceptance; then the rejection, and the objection with „Sitz bearbeiten“ and the fresh link. Each is a school of the
- * project's own (`applicants`), since each ends its application differently. The way 14 days lapse is
- * `firstPass.spec.ts`'s. The administration's half runs on the session `support/administrator.setup.ts` saved.
+ * E2E · J2, an application, under each project, where no lower tier sees the form, a seat's mailed link or the acceptance
+ * break at a join between them, the public form's real controls fail on either engine, a rejection's reason miss a seat,
+ * or an objection's fresh link fail to seat the new person. Each project's schools are its own (`applicants`).
  */
 import { expect } from "@playwright/test";
 

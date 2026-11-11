@@ -1,8 +1,6 @@
 /**
- * E2E · the landing and the public pages around it, under the desktop project: the hero's „Spielplan“ straight to
- * the season the site is on, a match of the season card opened as the pop-up over the landing and closed by Back,
- * `/saisons`'s redirect to the same season and from there the rail's four season pages, and the sponsors page under
- * its own heading. The made-up seed's running season is 2027.
+ * E2E · the landing and the season pages, where no lower tier sees the root slot's pop-up open over the landing, or a
+ * season page fail to render on the seed's real data, its running season 2027.
  */
 import { expect } from "@playwright/test";
 
