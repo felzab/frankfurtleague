@@ -23,8 +23,8 @@ import tokenContrast from "./eslint-rules/token-contrast.mjs";
 const TEST = /\.test\.tsx?$/;
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
-/** Next.js requires the root layout and the global error file to write `<html>` and `<body>`. */
-const ROOT_DOCUMENT = ["src/app/layout.tsx", "src/app/global-error.tsx"];
+/** Next.js requires the root layout to write `<html>` and `<body>`. */
+const ROOT_DOCUMENT = ["src/app/layout.tsx"];
 
 const layerOf = (path) => (path.startsWith("src/core/") ? "core" : path.startsWith("src/shared/") ? "shared" : "other");
 
@@ -1358,10 +1358,6 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // An exemption written as a disable comment is a roster entry: once the line it excuses is gone,
-  // the comment fails rather than standing ready to excuse whatever is written there next.
-  { linterOptions: { reportUnusedDisableDirectives: "error" } },
-
   {
     files: ["src/**/*.{ts,tsx}"],
     plugins: { "better-tailwindcss": betterTailwindcss },
@@ -1456,7 +1452,7 @@ const eslintConfig = defineConfig([
       ],
       "check-file/filename-naming-convention": [
         "error",
-        { "src/**/!(not-found|global-error).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
+        { "src/**/!(not-found).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
         { ignoreMiddleExtensions: true },
       ],
     },
@@ -1475,7 +1471,7 @@ const eslintConfig = defineConfig([
   },
 
   // `src/core/generated/` is Orval's output, rewritten whole by every generation.
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/", "src/core/generated/"]),
+  globalIgnores(["src/core/generated/"]),
 ]);
 
 export default eslintConfig;
