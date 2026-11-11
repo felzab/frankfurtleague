@@ -10,7 +10,7 @@ import { postClientError } from "@/shared/utils/clientError";
  * common, so a boundary that forgets to report is silent in exactly the case reporting exists for.
  */
 export function useReportClientCrash(thrown: unknown): void {
-  // A server error is already recorded by `instrumentation.ts`, so it is not re-reported; a CLIENT
+  // A server error is already recorded by the server's instrumentation, so it is not re-reported; a client
   // crash is recorded nowhere without this. Keyed on the value as thrown and normalised inside: an
   // `Error` built from a thrown non-Error during render is a new object on every render, and the
   // retry press re-renders the boundary.
